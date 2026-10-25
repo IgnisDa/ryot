@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -46,10 +47,7 @@ layer(services)((test) => {
 				const { user, body } = yield* reminderTestInput();
 				const service = yield* RemindersService;
 				const first = yield* service.create(user, body);
-				const second = yield* service.create(user, {
-					...body,
-					idempotencyKey: crypto.randomUUID(),
-				});
+				const second = yield* service.create(user, { ...body, idempotencyKey: yield* randomUuid });
 				expect(second.id).not.toBe(first.id);
 				yield* TestClock.adjust("2 hours");
 				expect(yield* service.create(user, { ...body, message: "A reminder" })).toEqual(first);

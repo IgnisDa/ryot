@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
@@ -9,6 +9,7 @@ import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxRedisKeys } from "@ryot-app/sandbox/host/redis";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sql } from "drizzle-orm";
 import {
@@ -115,210 +116,215 @@ export default defineScript({
 });
 `;
 
-const makeHeadroomLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
-		const schemaName = `sandbox_headroom_${crypto.randomUUID().replaceAll("-", "")}`;
-		const applicationName = `ryot_sandbox_headroom_${crypto.randomUUID().replaceAll("-", "")}`;
-		yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
-			admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
-		);
-		const applicationUrl = new URL(testDatabaseUrl());
-		applicationUrl.searchParams.set("options", `-c search_path=${schemaName}`);
-		applicationUrl.searchParams.set("application_name", applicationName);
-		const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-headroom-" });
-		const root = yield* fs.realPath(temporaryRoot);
-		const controlFactory: HeadroomControl = {
-			pidPairs: [],
-			rootPids: [],
-			callbackStarts: [],
-			fixture: undefined,
-			firstRootEntered: yield* Deferred.make<void>(),
-			releaseFirstRoot: yield* Deferred.make<void>(),
-			fourCallbacksStarted: yield* Deferred.make<void>(),
-		};
-		const appConfig = makeAppConfigLayer({
-			sandbox: { workerConcurrency: 2 },
-			fileStorage: { localTempDir: root },
-			redisUrl: Redacted.make(testRedisUrl()),
-			database: { poolMax: 7, url: Redacted.make(applicationUrl.toString()) },
-		});
-		const observerFactory = {
-			countApplicationConnections: admin
-				.unsafe(
-					`SELECT count(*)::int AS connections FROM pg_stat_activity WHERE application_name = '${applicationName}'`,
-				)
-				.pipe(
-					Effect.flatMap(
-						Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ connections: Schema.Int }))),
-					),
-					Effect.flatMap((rows) => {
-						const [row] = rows;
-						return row
-							? Effect.succeed(row.connections)
-							: Effect.die("pg_stat_activity returned no connection count");
-					}),
-				),
-		};
-		const database = DatabaseSession.layer.pipe(Layer.provideMerge(appConfig));
-		const migration = Layer.effectDiscard(
-			Effect.gen(function* () {
-				const statements = yield* baselineMigrationStatements();
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
-				);
-				yield* runWorkflowMessageMigrations;
-			}),
-		).pipe(Layer.provide(PgClientLive), Layer.provideMerge(database));
-		const infrastructure = Layer.mergeAll(
-			Layer.succeed(SandboxHeadroomControl, controlFactory),
-			Layer.succeed(SandboxHeadroomObserver, observerFactory),
-			Layer.succeed(SandboxExecutionAuthority, { resolve: (_principal) => Effect.succeed("user") }),
-			SandboxHostFunctionsLive.pipe(
-				Layer.provideMerge(
-					Layer.succeed(ScriptHostImplementations, unusedSandboxHostImplementations()),
-				),
-			),
-		).pipe(
-			Layer.provideMerge(
-				Layer.mergeAll(SandboxHostConfigLive, SandboxHostCallScopeLive, SandboxRedisLive),
-			),
-			Layer.provideMerge(
-				Layer.succeed(ServerRun, { id: testExecutionId("sandbox-headroom-server") }),
-			),
-			Layer.provideMerge(RedisService.layer),
-			Layer.provideMerge(BunServices.layer),
-			Layer.provideMerge(Reactivity.layer),
-			Layer.provideMerge(migration),
-		);
-		const sandboxRuntime = Layer.mergeAll(SandboxExecutor.layer, SandboxCompiler.layer).pipe(
-			Layer.provide(infrastructure),
-		);
-		const workflowInfrastructure = Layer.mergeAll(
-			WorkflowEngineLive,
-			PersistedQueue.layer.pipe(
-				Layer.provide(
-					PersistedQueue.layerStoreSql({ tableName: "effect_queue" }).pipe(
-						Layer.provide(PgClientLive),
-					),
-				),
-			),
-		).pipe(Layer.provide(infrastructure));
-		const repository: SandboxRepository["Service"] = {
-			isPluginScript: () => Effect.succeed(false),
-			resolveWorkflowCallScript: () => Effect.succeed(null),
-			getScriptPin: () => Effect.die("Sandbox script pinning is unused"),
-			getScript: (scriptId) =>
-				Effect.suspend(() => {
-					const fixture = controlFactory.fixture;
-					return fixture
-						? Effect.succeed({
-								id: scriptId,
-								providerId: null,
-								metadata: fixture.compiled.manifest,
-								compiledFormat: fixture.compiled.format,
-								compiledCode: fixture.compiled.javascript,
-								contentHash: fixture.principal.contentHash,
-							})
-						: Effect.die("Sandbox fixture was not compiled before queue execution");
-				}),
-		};
-		const repositoryLayer = Layer.succeed(SandboxRepository, repository);
-		const artifactLayer = compiledArtifactsLayer(repositoryLayer);
-		const fixtureServices = Layer.mergeAll(artifactLayer, unusedKernelWorkflowReferencesLayer);
-		const dispatcher = Layer.effect(
-			SandboxDurableHostDispatcher,
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const hostCallScope = yield* SandboxHostCallScope;
-				const state = yield* SandboxHeadroomControl;
-				return SandboxDurableHostDispatcher.of({
-					cancelInline: () => Effect.void,
-					dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
-					settleInline: (requests, _context, _principal, _lane, executionId) =>
-						Effect.forEach(
-							requests,
-							(request) =>
-								Effect.gen(function* () {
-									assert(request.kind === "host");
-									state.callbackStarts.push(executionId);
-									if (state.callbackStarts.filter((id) => id === executionId).length === 4) {
-										yield* Deferred.succeed(state.fourCallbacksStarted, undefined);
-									}
-									const value = yield* hostCallScope.bound(
-										session
-											.run((db) =>
-												Effect.gen(function* () {
-													const [rootRow] = yield* db
-														.select({ pid: sql<number>`pg_backend_pid()` })
-														.from(sql`(select 1) as fixture`);
-													if (rootRow === undefined) {
-														return yield* Effect.die("Root PID query returned no row");
-													}
-													state.rootPids.push(rootRow.pid);
-													if (state.rootPids.length === 1) {
-														yield* Deferred.succeed(state.firstRootEntered, undefined);
-														yield* Deferred.await(state.releaseFirstRoot);
-													}
-													const [nested] = yield* session.run((nestedDb) =>
-														nestedDb
-															.select({ pid: sql<number>`pg_backend_pid()` })
-															.from(sql`(select 1) as fixture`),
-													);
-													if (nested === undefined) {
-														return yield* Effect.die("Nested PID query returned no row");
-													}
-													state.pidPairs.push({ root: rootRow.pid, nested: nested.pid });
-													return request.index + 1;
-												}),
-											)
-											.pipe(Effect.orDie),
-									);
-									return { value, state: "success" } satisfies WorkflowDurableResult;
-								}),
-							{ concurrency: 4 },
+const makeHeadroomLayer = Layer.provideMerge(
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
+			const schemaName = `sandbox_headroom_${(yield* randomUuid).replaceAll("-", "")}`;
+			const applicationName = `ryot_sandbox_headroom_${(yield* randomUuid).replaceAll("-", "")}`;
+			yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
+				admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
+			);
+			const applicationUrl = new URL(testDatabaseUrl());
+			applicationUrl.searchParams.set("options", `-c search_path=${schemaName}`);
+			applicationUrl.searchParams.set("application_name", applicationName);
+			const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-headroom-" });
+			const root = yield* fs.realPath(temporaryRoot);
+			const controlFactory: HeadroomControl = {
+				pidPairs: [],
+				rootPids: [],
+				callbackStarts: [],
+				fixture: undefined,
+				firstRootEntered: yield* Deferred.make<void>(),
+				releaseFirstRoot: yield* Deferred.make<void>(),
+				fourCallbacksStarted: yield* Deferred.make<void>(),
+			};
+			const appConfig = makeAppConfigLayer({
+				sandbox: { workerConcurrency: 2 },
+				fileStorage: { localTempDir: root },
+				redisUrl: Redacted.make(testRedisUrl()),
+				database: { poolMax: 7, url: Redacted.make(applicationUrl.toString()) },
+			});
+			const observerFactory = {
+				countApplicationConnections: admin
+					.unsafe(
+						`SELECT count(*)::int AS connections FROM pg_stat_activity WHERE application_name = '${applicationName}'`,
+					)
+					.pipe(
+						Effect.flatMap(
+							Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ connections: Schema.Int }))),
 						),
-				});
-			}),
-		);
-		const executionServices = Layer.mergeAll(
-			infrastructure,
-			workflowInfrastructure,
-			sandboxRuntime,
-			fixtureServices,
-			dispatcher.pipe(Layer.provide(Layer.merge(sandboxRuntime, infrastructure))),
-		);
-		const worker = SandboxExecutionQueueWorkerLive.pipe(Layer.provideMerge(executionServices));
-		const workflow = implementWorkflow(SandboxHeadroomReplayWorkflow, (payload) =>
-			Effect.gen(function* () {
-				const control = yield* SandboxHeadroomControl;
-				const fixture = control.fixture;
-				if (fixture === undefined) {
-					return yield* Effect.die("Sandbox fixture principal was not installed");
-				}
-				const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
-				yield* Effect.forEach(
-					[0, 1],
-					(slot) =>
-						processSandboxExecutionQueue({
-							startedAt,
-							journalLength: 0,
-							lane: "background",
-							context: payload.input,
-							principal: fixture.principal,
-							executionId: `${payload.executionId}-replay-${slot}`,
-							workflowExecutionId: `${payload.executionId}-slot-${slot}`,
-						}).pipe(Effect.orDie),
-					{ discard: true, concurrency: 2 },
-				);
-				return undefined;
-			}),
-		).pipe(Layer.provideMerge(worker));
-		return workflow;
-	}),
-).pipe(Layer.provideMerge(Layer.merge(BunServices.layer, Reactivity.layer)));
+						Effect.flatMap((rows) => {
+							const [row] = rows;
+							return row
+								? Effect.succeed(row.connections)
+								: Effect.die("pg_stat_activity returned no connection count");
+						}),
+					),
+			};
+			const database = DatabaseSession.layer.pipe(Layer.provideMerge(appConfig));
+			const migration = Layer.effectDiscard(
+				Effect.gen(function* () {
+					const statements = yield* baselineMigrationStatements();
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
+					);
+					yield* runWorkflowMessageMigrations;
+				}),
+			).pipe(Layer.provide(PgClientLive), Layer.provideMerge(database));
+			const infrastructure = Layer.mergeAll(
+				Layer.succeed(SandboxHeadroomControl, controlFactory),
+				Layer.succeed(SandboxHeadroomObserver, observerFactory),
+				Layer.succeed(SandboxExecutionAuthority, {
+					resolve: (_principal) => Effect.succeed("user"),
+				}),
+				SandboxHostFunctionsLive.pipe(
+					Layer.provideMerge(
+						Layer.succeed(ScriptHostImplementations, unusedSandboxHostImplementations()),
+					),
+				),
+			).pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(SandboxHostConfigLive, SandboxHostCallScopeLive, SandboxRedisLive),
+				),
+				Layer.provideMerge(
+					Layer.succeed(ServerRun, { id: testExecutionId("sandbox-headroom-server") }),
+				),
+				Layer.provideMerge(RedisService.layer),
+				Layer.provideMerge(BunServices.layer),
+				Layer.provideMerge(Reactivity.layer),
+				Layer.provideMerge(migration),
+			);
+			const sandboxRuntime = Layer.mergeAll(SandboxExecutor.layer, SandboxCompiler.layer).pipe(
+				Layer.provide(infrastructure),
+			);
+			const workflowInfrastructure = Layer.mergeAll(
+				WorkflowEngineLive,
+				PersistedQueue.layer.pipe(
+					Layer.provide(
+						PersistedQueue.layerStoreSql({ tableName: "effect_queue" }).pipe(
+							Layer.provide(PgClientLive),
+						),
+					),
+				),
+			).pipe(Layer.provide(infrastructure));
+			const repository: SandboxRepository["Service"] = {
+				isPluginScript: () => Effect.succeed(false),
+				resolveWorkflowCallScript: () => Effect.succeed(null),
+				getScriptPin: () => Effect.die("Sandbox script pinning is unused"),
+				getScript: (scriptId) =>
+					Effect.suspend(() => {
+						const fixture = controlFactory.fixture;
+						return fixture
+							? Effect.succeed({
+									id: scriptId,
+									providerId: null,
+									metadata: fixture.compiled.manifest,
+									compiledFormat: fixture.compiled.format,
+									compiledCode: fixture.compiled.javascript,
+									contentHash: fixture.principal.contentHash,
+								})
+							: Effect.die("Sandbox fixture was not compiled before queue execution");
+					}),
+			};
+			const repositoryLayer = Layer.succeed(SandboxRepository, repository);
+			const artifactLayer = compiledArtifactsLayer(repositoryLayer);
+			const fixtureServices = Layer.mergeAll(artifactLayer, unusedKernelWorkflowReferencesLayer);
+			const dispatcher = Layer.effect(
+				SandboxDurableHostDispatcher,
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const hostCallScope = yield* SandboxHostCallScope;
+					const state = yield* SandboxHeadroomControl;
+					return SandboxDurableHostDispatcher.of({
+						cancelInline: () => Effect.void,
+						dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
+						settleInline: (requests, _context, _principal, _lane, executionId) =>
+							Effect.forEach(
+								requests,
+								(request) =>
+									Effect.gen(function* () {
+										assert(request.kind === "host");
+										state.callbackStarts.push(executionId);
+										if (state.callbackStarts.filter((id) => id === executionId).length === 4) {
+											yield* Deferred.succeed(state.fourCallbacksStarted, undefined);
+										}
+										const value = yield* hostCallScope.bound(
+											session
+												.run((db) =>
+													Effect.gen(function* () {
+														const [rootRow] = yield* db
+															.select({ pid: sql<number>`pg_backend_pid()` })
+															.from(sql`(select 1) as fixture`);
+														if (rootRow === undefined) {
+															return yield* Effect.die("Root PID query returned no row");
+														}
+														state.rootPids.push(rootRow.pid);
+														if (state.rootPids.length === 1) {
+															yield* Deferred.succeed(state.firstRootEntered, undefined);
+															yield* Deferred.await(state.releaseFirstRoot);
+														}
+														const [nested] = yield* session.run((nestedDb) =>
+															nestedDb
+																.select({ pid: sql<number>`pg_backend_pid()` })
+																.from(sql`(select 1) as fixture`),
+														);
+														if (nested === undefined) {
+															return yield* Effect.die("Nested PID query returned no row");
+														}
+														state.pidPairs.push({ root: rootRow.pid, nested: nested.pid });
+														return request.index + 1;
+													}),
+												)
+												.pipe(Effect.orDie),
+										);
+										return { value, state: "success" } satisfies WorkflowDurableResult;
+									}),
+								{ concurrency: 4 },
+							),
+					});
+				}),
+			);
+			const executionServices = Layer.mergeAll(
+				infrastructure,
+				workflowInfrastructure,
+				sandboxRuntime,
+				fixtureServices,
+				dispatcher.pipe(Layer.provide(Layer.merge(sandboxRuntime, infrastructure))),
+			);
+			const worker = SandboxExecutionQueueWorkerLive.pipe(Layer.provideMerge(executionServices));
+			const workflow = implementWorkflow(SandboxHeadroomReplayWorkflow, (payload) =>
+				Effect.gen(function* () {
+					const control = yield* SandboxHeadroomControl;
+					const fixture = control.fixture;
+					if (fixture === undefined) {
+						return yield* Effect.die("Sandbox fixture principal was not installed");
+					}
+					const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+					yield* Effect.forEach(
+						[0, 1],
+						(slot) =>
+							processSandboxExecutionQueue({
+								startedAt,
+								journalLength: 0,
+								lane: "background",
+								context: payload.input,
+								principal: fixture.principal,
+								executionId: `${payload.executionId}-replay-${slot}`,
+								workflowExecutionId: `${payload.executionId}-slot-${slot}`,
+							}).pipe(Effect.orDie),
+						{ discard: true, concurrency: 2 },
+					);
+					return undefined;
+				}),
+			).pipe(Layer.provideMerge(worker));
+			return workflow;
+		}),
+	).pipe(Layer.provideMerge(Layer.merge(BunServices.layer, Reactivity.layer))),
+	BunCrypto.layerSecureRandom,
+);
 
 layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 	test.effect("sandbox_dispatch_preserves_database_pool_headroom", () =>

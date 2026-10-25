@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
@@ -1924,7 +1925,7 @@ layer(harnessLayer({ noHooks: true }))((test) => {
 	);
 });
 
-layer(harnessLayer({ noHooks: true }))((test) => {
+layer(Layer.provideMerge(harnessLayer({ noHooks: true }), BunCrypto.layerSecureRandom))((test) => {
 	test.effect("fails an event-create item that references another user's managed asset", () =>
 		Effect.gen(function* () {
 			const h = yield* EventCreateHarness;

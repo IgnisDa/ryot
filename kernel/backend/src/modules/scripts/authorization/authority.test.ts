@@ -7,6 +7,7 @@ import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { nativeRecoveryLayer } from "@ryot-app/sandbox/host/recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
@@ -91,7 +92,7 @@ describe("sandbox execution authority", () => {
 					const authority = yield* SandboxExecutionAuthority;
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
-					const slug = `runtime-authority-provider-${crypto.randomUUID()}`;
+					const slug = `runtime-authority-provider-${yield* randomUuid}`;
 					const sourcePackage = revisionPackage(slug);
 					const [entitySchema] = sourcePackage.manifest.entitySchemas;
 					assert(entitySchema);
@@ -299,7 +300,7 @@ describe("sandbox execution authority", () => {
 					const authority = yield* SandboxExecutionAuthority;
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
-					const slug = `authority-negative-${crypto.randomUUID()}`;
+					const slug = `authority-negative-${yield* randomUuid}`;
 					const installed = yield* installRevisionPackage(revisionPackage(slug), owner);
 					const rows = yield* session.run((db) =>
 						db
@@ -339,7 +340,7 @@ describe("sandbox execution authority", () => {
 					const runtime = yield* PluginRuntimeResolver;
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
-					const script = persistedScript(`runtime-authority-kernel-${crypto.randomUUID()}`);
+					const script = persistedScript(`runtime-authority-kernel-${yield* randomUuid}`);
 					yield* addScriptCleanup(session, script.slug);
 
 					yield* plugins.persistKernelScript(script);
@@ -364,7 +365,7 @@ describe("sandbox execution authority", () => {
 					const authority = yield* SandboxExecutionAuthority;
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
-					const script = persistedScript(`runtime-authority-unpinned-${crypto.randomUUID()}`);
+					const script = persistedScript(`runtime-authority-unpinned-${yield* randomUuid}`);
 					yield* addScriptCleanup(session, script.slug);
 
 					const [stored] = yield* session.run((db) =>
@@ -388,9 +389,8 @@ describe("sandbox execution authority", () => {
 	});
 
 	layer(
-		Layer.mergeAll(
-			nativeRecoveryLayer,
-			SandboxExecutionAuthorityLive.pipe(Layer.provideMerge(revisionDatabaseLayer)),
+		Layer.mergeAll(nativeRecoveryLayer, SandboxExecutionAuthorityLive).pipe(
+			Layer.provideMerge(revisionDatabaseLayer),
 		),
 		{ excludeTestServices: true },
 	)((test) => {
@@ -424,7 +424,7 @@ describe("sandbox execution authority", () => {
 						assertExitFails(yield* Effect.exit(supervisor.locate(principal)), missingArtifact());
 					});
 
-					const userSlug = `runtime-authority-user-${crypto.randomUUID()}`;
+					const userSlug = `runtime-authority-user-${yield* randomUuid}`;
 					yield* installRevisionPackage(revisionPackage(userSlug), owner);
 					const userPin = yield* scriptPin(`${userSlug}.details`);
 					assert(userPin.pluginRevision);
@@ -437,7 +437,7 @@ describe("sandbox execution authority", () => {
 					});
 					yield* rejected({ ...userRevision, kernelScript: true });
 
-					const unpinned = persistedScript(`runtime-authority-null-${crypto.randomUUID()}`);
+					const unpinned = persistedScript(`runtime-authority-null-${yield* randomUuid}`);
 					yield* addScriptCleanup(session, unpinned.slug);
 					const [stored] = yield* session.run((db) =>
 						db
@@ -452,7 +452,7 @@ describe("sandbox execution authority", () => {
 					yield* rejected({ ...nullPin, subject: { type: "system" } });
 					yield* rejected({ ...nullPin, kernelScript: true, subject: { type: "system" } });
 
-					const kernel = persistedScript(`runtime-authority-source-zero-${crypto.randomUUID()}`);
+					const kernel = persistedScript(`runtime-authority-source-zero-${yield* randomUuid}`);
 					yield* addScriptCleanup(session, kernel.slug);
 					yield* plugins.persistKernelScript(kernel);
 					const kernelScript = yield* runtime.findKernelScript(kernel.slug);
@@ -461,7 +461,7 @@ describe("sandbox execution authority", () => {
 					assert(kernelPin);
 					yield* locatesTo({ ...kernelPin, subject: { type: "system" } }, "system/core");
 
-					const firstPartySlug = `runtime-authority-first-party-${crypto.randomUUID()}`;
+					const firstPartySlug = `runtime-authority-first-party-${yield* randomUuid}`;
 					const firstPartyPackage = revisionPackage(firstPartySlug);
 					const bootstrapScriptSlug = `${firstPartySlug}.task`;
 					yield* installRevisionPackage({
@@ -507,7 +507,7 @@ describe("sandbox execution authority", () => {
 					const pinning = yield* SandboxWorkflowPinning;
 					const session = yield* DatabaseSession;
 					const supervisor = yield* SandboxSidecarSupervisor.make;
-					const slug = `authority-workflow-${crypto.randomUUID()}`;
+					const slug = `authority-workflow-${yield* randomUuid}`;
 					yield* installRevisionPackage(revisionPackage(slug), owner);
 					const [row] = yield* session.run((db) =>
 						db
@@ -517,7 +517,7 @@ describe("sandbox execution authority", () => {
 							.limit(1),
 					);
 					assert(row);
-					const executionId = `authority-workflow-${crypto.randomUUID()}`;
+					const executionId = `authority-workflow-${yield* randomUuid}`;
 					const payload = yield* Schema.decodeEffect(ScriptExecutionWorkflowPayload)({
 						input: {},
 						executionId,

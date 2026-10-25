@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
@@ -885,179 +885,50 @@ it.effect("checks account generation before a persisted completion can be read",
 	}),
 );
 
-it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices: true })(
-	(test) => {
-		test.effect(
-			"reuses a partially settled request through SQL workflow messages and parent resume",
-			() =>
-				Effect.scoped(
-					Effect.gen(function* () {
-						const engineLayer = yield* makeSqlClusterWorkflowEngine();
-						const h = makeHarness();
-						const dispatches: number[] = [];
-						const resumed = yield* Deferred.make<void>();
-						const childReady = DurableDeferred.make("ready", { success: Schema.Void });
-						const references = Layer.effect(
-							KernelWorkflowReferences,
-							Effect.gen(function* () {
-								const engine = yield* WorkflowEngine;
-								return KernelWorkflowReferences.of({
-									resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-									execute: (_slug, input, _lane, childId) =>
-										Effect.gen(function* () {
-											const childPayload = yield* Schema.decodeUnknownEffect(Child.payloadSchema)(
-												input,
-											).pipe(Effect.orDie);
-											dispatches.push(childPayload.index);
-											if (
-												childPayload.index === 1 &&
-												dispatches.filter((index) => index === 1).length > 1
-											) {
-												yield* Deferred.succeed(resumed, undefined);
-											}
-											return yield* engine.execute(Child, {
-												executionId: childId,
-												payload: childPayload,
-											});
-										}),
-								});
-							}),
-						);
-						const parentLayer = implementWorkflow(
-							ScriptExecutionWorkflow,
-							(parentPayload, parentId) =>
-								runScriptExecutionWorkflowBody(parentPayload, parentId, (replay) =>
-									Effect.succeed({
-										logs: [],
-										inline: [],
-										error: null,
-										harvest: null,
-										pendingInline: [],
-										status: "completed" as const,
-										value: replay.executionId.endsWith("-replay-0")
-											? { requests, journalLength: 0, state: "pending" }
-											: {
-													requests,
-													output: "done",
-													state: "completed",
-													journalLength: replay.journalLength,
-												},
-									}),
-								),
-						);
-						const childLayer = implementWorkflow(Child, ({ index }) =>
-							Effect.gen(function* () {
-								if (index === 1) {
-									yield* DurableDeferred.await(childReady);
-								}
-								return null;
-							}),
-						);
-						const workflows = Layer.mergeAll(parentLayer, childLayer).pipe(
-							Layer.provide(references.pipe(Layer.provide(engineLayer))),
-							Layer.provide(h.dependencies),
-							Layer.provideMerge(engineLayer),
-						);
-						yield* Layer.build(workflows).pipe(
-							Effect.flatMap((context) =>
-								Effect.gen(function* () {
-									const engine = yield* WorkflowEngine;
-									yield* engine.execute(ScriptExecutionWorkflow, {
-										payload,
-										executionId,
-										discard: true,
-									});
-									const slot = DurableDeferred.make("sandbox-request-0", {
-										success: Schema.Unknown,
-									});
-									yield* Effect.gen(function* () {
-										for (;;) {
-											const result = yield* engine.poll(ScriptExecutionWorkflow, executionId);
-											const completion = yield* engine
-												.deferredResult(slot)
-												.pipe(
-													Effect.provideService(
-														WorkflowInstance,
-														WorkflowInstance.initial(ScriptExecutionWorkflow, executionId),
-													),
-												);
-											if (
-												Option.isSome(result) &&
-												result.value._tag === "Suspended" &&
-												Option.isSome(completion)
-											) {
-												break;
-											}
-											yield* Effect.sleep("20 millis");
-										}
-									}).pipe(Effect.timeout("10 seconds"));
-									const completedDispatches = dispatches.filter((index) => index === 0).length;
-									yield* engine.resume(ScriptExecutionWorkflow, executionId);
-									yield* Deferred.await(resumed).pipe(Effect.timeout("10 seconds"));
-									expect(dispatches.filter((index) => index === 0)).toHaveLength(
-										completedDispatches,
-									);
-									const token = DurableDeferred.tokenFromExecutionId(childReady, {
-										workflow: Child,
-										executionId: `${executionId}-child-child-1-1`,
-									});
-									yield* DurableDeferred.succeed(childReady, { token, value: undefined });
-									expect(
-										yield* engine.execute(ScriptExecutionWorkflow, { payload, executionId }),
-									).toBe("done");
-								}).pipe(Effect.provideContext(context)),
-							),
-							Effect.timeout("15 seconds"),
-						);
-					}),
-				),
-		);
-		test.effect.each([
-			{ child: false, checkpointCount: 0, kind: "awaited signal" },
-			{ child: true, checkpointCount: 0, kind: "child reply" },
-			{ child: false, checkpointCount: 3, kind: "unawaited checkpoints" },
-		])("keeps only necessary app body activations for $kind", ({ child, checkpointCount }) =>
+it.layer(
+	Layer.provideMerge(Layer.merge(BunServices.layer, Reactivity.layer), BunCrypto.layerSecureRandom),
+	{ excludeTestServices: true },
+)((test) => {
+	test.effect(
+		"reuses a partially settled request through SQL workflow messages and parent resume",
+		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const engineLayer = yield* makeSqlClusterWorkflowEngine();
 					const h = makeHarness();
-					const signal = DurableDeferred.make("checkpoint-test-release", { success: Schema.Void });
-					const checkpointsReady = yield* Deferred.make<void>();
-					const childId = "checkpoint-wake-child";
-					const calls = Array.from({ length: checkpointCount + 1 }, (_, index) => ({
-						index,
-						kind: "host" as const,
-						name: "getCachedValue",
-						args: { args: [index], capability: "getCachedValue" as const },
-					}));
-					let activations = 0;
-					const dispatcher = Layer.succeed(
-						SandboxDurableHostDispatcher,
-						SandboxDurableHostDispatcher.of({
-							cancelInline: () => Effect.void,
-							settleInline: () => Effect.die("unused"),
-							dispatch: ({ index }) =>
-								Effect.gen(function* () {
-									if (index === checkpointCount) {
-										// Persist the prefix before this request can suspend its siblings.
-										yield* Deferred.await(checkpointsReady);
-										if (child) {
-											yield* (yield* WorkflowEngine).execute(Child, {
-												payload: { index },
-												executionId: childId,
-											});
-										} else {
-											yield* DurableDeferred.await(signal);
+					const dispatches: number[] = [];
+					const resumed = yield* Deferred.make<void>();
+					const childReady = DurableDeferred.make("ready", { success: Schema.Void });
+					const references = Layer.effect(
+						KernelWorkflowReferences,
+						Effect.gen(function* () {
+							const engine = yield* WorkflowEngine;
+							return KernelWorkflowReferences.of({
+								resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
+								execute: (_slug, input, _lane, childId) =>
+									Effect.gen(function* () {
+										const childPayload = yield* Schema.decodeUnknownEffect(Child.payloadSchema)(
+											input,
+										).pipe(Effect.orDie);
+										dispatches.push(childPayload.index);
+										if (
+											childPayload.index === 1 &&
+											dispatches.filter((index) => index === 1).length > 1
+										) {
+											yield* Deferred.succeed(resumed, undefined);
 										}
-									}
-									return { value: null, state: "success" as const };
-								}),
+										return yield* engine.execute(Child, {
+											executionId: childId,
+											payload: childPayload,
+										});
+									}),
+							});
 						}),
 					);
-					const parent = implementWorkflow(ScriptExecutionWorkflow, (parentPayload, parentId) =>
-						Effect.gen(function* () {
-							activations += 1;
-							return yield* runScriptExecutionWorkflowBody(parentPayload, parentId, (replay) =>
+					const parentLayer = implementWorkflow(
+						ScriptExecutionWorkflow,
+						(parentPayload, parentId) =>
+							runScriptExecutionWorkflowBody(parentPayload, parentId, (replay) =>
 								Effect.succeed({
 									logs: [],
 									inline: [],
@@ -1066,75 +937,201 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 									pendingInline: [],
 									status: "completed" as const,
 									value: replay.executionId.endsWith("-replay-0")
-										? { requests: calls, journalLength: 0, state: "pending" }
+										? { requests, journalLength: 0, state: "pending" }
 										: {
+												requests,
 												output: "done",
-												requests: calls,
 												state: "completed",
 												journalLength: replay.journalLength,
 											},
 								}),
-							);
+							),
+					);
+					const childLayer = implementWorkflow(Child, ({ index }) =>
+						Effect.gen(function* () {
+							if (index === 1) {
+								yield* DurableDeferred.await(childReady);
+							}
+							return null;
 						}),
 					);
-					const childWorkflow = implementWorkflow(Child, () =>
-						DurableDeferred.await(signal).pipe(Effect.as(null)),
-					);
-					const workflows = Layer.merge(parent, childWorkflow).pipe(
-						Layer.provide(dispatcher),
+					const workflows = Layer.mergeAll(parentLayer, childLayer).pipe(
+						Layer.provide(references.pipe(Layer.provide(engineLayer))),
 						Layer.provide(h.dependencies),
 						Layer.provideMerge(engineLayer),
 					);
-					const context = yield* Layer.build(workflows);
-					yield* Effect.gen(function* () {
-						const engine = yield* WorkflowEngine;
-						yield* engine.execute(ScriptExecutionWorkflow, { payload, executionId, discard: true });
-						yield* Effect.gen(function* () {
-							for (;;) {
-								const result = yield* engine.poll(ScriptExecutionWorkflow, executionId);
-								const stored = yield* Effect.forEach(calls.slice(0, checkpointCount), ({ index }) =>
-									engine
-										.deferredResult(
-											DurableDeferred.make(`sandbox-request-${index}`, { success: Schema.Unknown }),
-										)
-										.pipe(
-											Effect.provideService(
-												WorkflowInstance,
-												WorkflowInstance.initial(ScriptExecutionWorkflow, executionId),
-											),
-										),
-								);
-								if (stored.every(Option.isSome)) {
-									yield* Deferred.succeed(checkpointsReady, undefined);
-								}
-								if (
-									Option.isSome(result) &&
-									result.value._tag === "Suspended" &&
-									stored.every(Option.isSome)
-								) {
-									break;
-								}
-								yield* Effect.sleep("20 millis");
-							}
-						}).pipe(Effect.timeout("5 seconds"));
-						const beforeRelease = activations;
-						yield* DurableDeferred.succeed(signal, {
-							value: undefined,
-							token: DurableDeferred.tokenFromExecutionId(signal, {
-								executionId: child ? childId : executionId,
-								workflow: child ? Child : ScriptExecutionWorkflow,
-							}),
-						});
-						expect(yield* engine.execute(ScriptExecutionWorkflow, { payload, executionId })).toBe(
-							"done",
-						);
-						expect({ beforeRelease, afterRelease: activations }).toEqual({
-							afterRelease: 2,
-							beforeRelease: 1,
-						});
-					}).pipe(Effect.provideContext(context));
+					yield* Layer.build(workflows).pipe(
+						Effect.flatMap((context) =>
+							Effect.gen(function* () {
+								const engine = yield* WorkflowEngine;
+								yield* engine.execute(ScriptExecutionWorkflow, {
+									payload,
+									executionId,
+									discard: true,
+								});
+								const slot = DurableDeferred.make("sandbox-request-0", { success: Schema.Unknown });
+								yield* Effect.gen(function* () {
+									for (;;) {
+										const result = yield* engine.poll(ScriptExecutionWorkflow, executionId);
+										const completion = yield* engine
+											.deferredResult(slot)
+											.pipe(
+												Effect.provideService(
+													WorkflowInstance,
+													WorkflowInstance.initial(ScriptExecutionWorkflow, executionId),
+												),
+											);
+										if (
+											Option.isSome(result) &&
+											result.value._tag === "Suspended" &&
+											Option.isSome(completion)
+										) {
+											break;
+										}
+										yield* Effect.sleep("20 millis");
+									}
+								}).pipe(Effect.timeout("10 seconds"));
+								const completedDispatches = dispatches.filter((index) => index === 0).length;
+								yield* engine.resume(ScriptExecutionWorkflow, executionId);
+								yield* Deferred.await(resumed).pipe(Effect.timeout("10 seconds"));
+								expect(dispatches.filter((index) => index === 0)).toHaveLength(completedDispatches);
+								const token = DurableDeferred.tokenFromExecutionId(childReady, {
+									workflow: Child,
+									executionId: `${executionId}-child-child-1-1`,
+								});
+								yield* DurableDeferred.succeed(childReady, { token, value: undefined });
+								expect(
+									yield* engine.execute(ScriptExecutionWorkflow, { payload, executionId }),
+								).toBe("done");
+							}).pipe(Effect.provideContext(context)),
+						),
+						Effect.timeout("15 seconds"),
+					);
 				}),
-			).pipe(Effect.timeout("10 seconds")),
-		);
-	},
-);
+			),
+	);
+	test.effect.each([
+		{ child: false, checkpointCount: 0, kind: "awaited signal" },
+		{ child: true, checkpointCount: 0, kind: "child reply" },
+		{ child: false, checkpointCount: 3, kind: "unawaited checkpoints" },
+	])("keeps only necessary app body activations for $kind", ({ child, checkpointCount }) =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const engineLayer = yield* makeSqlClusterWorkflowEngine();
+				const h = makeHarness();
+				const signal = DurableDeferred.make("checkpoint-test-release", { success: Schema.Void });
+				const checkpointsReady = yield* Deferred.make<void>();
+				const childId = "checkpoint-wake-child";
+				const calls = Array.from({ length: checkpointCount + 1 }, (_, index) => ({
+					index,
+					kind: "host" as const,
+					name: "getCachedValue",
+					args: { args: [index], capability: "getCachedValue" as const },
+				}));
+				let activations = 0;
+				const dispatcher = Layer.succeed(
+					SandboxDurableHostDispatcher,
+					SandboxDurableHostDispatcher.of({
+						cancelInline: () => Effect.void,
+						settleInline: () => Effect.die("unused"),
+						dispatch: ({ index }) =>
+							Effect.gen(function* () {
+								if (index === checkpointCount) {
+									// Persist the prefix before this request can suspend its siblings.
+									yield* Deferred.await(checkpointsReady);
+									if (child) {
+										yield* (yield* WorkflowEngine).execute(Child, {
+											payload: { index },
+											executionId: childId,
+										});
+									} else {
+										yield* DurableDeferred.await(signal);
+									}
+								}
+								return { value: null, state: "success" as const };
+							}),
+					}),
+				);
+				const parent = implementWorkflow(ScriptExecutionWorkflow, (parentPayload, parentId) =>
+					Effect.gen(function* () {
+						activations += 1;
+						return yield* runScriptExecutionWorkflowBody(parentPayload, parentId, (replay) =>
+							Effect.succeed({
+								logs: [],
+								inline: [],
+								error: null,
+								harvest: null,
+								pendingInline: [],
+								status: "completed" as const,
+								value: replay.executionId.endsWith("-replay-0")
+									? { requests: calls, journalLength: 0, state: "pending" }
+									: {
+											output: "done",
+											requests: calls,
+											state: "completed",
+											journalLength: replay.journalLength,
+										},
+							}),
+						);
+					}),
+				);
+				const childWorkflow = implementWorkflow(Child, () =>
+					DurableDeferred.await(signal).pipe(Effect.as(null)),
+				);
+				const workflows = Layer.merge(parent, childWorkflow).pipe(
+					Layer.provide(dispatcher),
+					Layer.provide(h.dependencies),
+					Layer.provideMerge(engineLayer),
+				);
+				const context = yield* Layer.build(workflows);
+				yield* Effect.gen(function* () {
+					const engine = yield* WorkflowEngine;
+					yield* engine.execute(ScriptExecutionWorkflow, { payload, executionId, discard: true });
+					yield* Effect.gen(function* () {
+						for (;;) {
+							const result = yield* engine.poll(ScriptExecutionWorkflow, executionId);
+							const stored = yield* Effect.forEach(calls.slice(0, checkpointCount), ({ index }) =>
+								engine
+									.deferredResult(
+										DurableDeferred.make(`sandbox-request-${index}`, { success: Schema.Unknown }),
+									)
+									.pipe(
+										Effect.provideService(
+											WorkflowInstance,
+											WorkflowInstance.initial(ScriptExecutionWorkflow, executionId),
+										),
+									),
+							);
+							if (stored.every(Option.isSome)) {
+								yield* Deferred.succeed(checkpointsReady, undefined);
+							}
+							if (
+								Option.isSome(result) &&
+								result.value._tag === "Suspended" &&
+								stored.every(Option.isSome)
+							) {
+								break;
+							}
+							yield* Effect.sleep("20 millis");
+						}
+					}).pipe(Effect.timeout("5 seconds"));
+					const beforeRelease = activations;
+					yield* DurableDeferred.succeed(signal, {
+						value: undefined,
+						token: DurableDeferred.tokenFromExecutionId(signal, {
+							executionId: child ? childId : executionId,
+							workflow: child ? Child : ScriptExecutionWorkflow,
+						}),
+					});
+					expect(yield* engine.execute(ScriptExecutionWorkflow, { payload, executionId })).toBe(
+						"done",
+					);
+					expect({ beforeRelease, afterRelease: activations }).toEqual({
+						afterRelease: 2,
+						beforeRelease: 1,
+					});
+				}).pipe(Effect.provideContext(context));
+			}),
+		).pipe(Effect.timeout("10 seconds")),
+	);
+});

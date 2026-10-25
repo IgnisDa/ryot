@@ -1,6 +1,7 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq, sql } from "drizzle-orm";
 import {
 	Cause,
@@ -218,7 +219,12 @@ const collectorLayer = Layer.unwrap(
 	}),
 ).pipe(Layer.provide(isolatedDatabaseLayer("workflow_gc")));
 
-layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((test) => {
+layer(
+	Layer.provideMerge(
+		Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))),
+		BunCrypto.layerSecureRandom,
+	),
+)((test) => {
 	test.effect("clears successful mailboxes and clocks after 24 hours and fences replay", () =>
 		Effect.gen(function* () {
 			yield* TestClock.setTime(Date.parse("2026-10-02T00:00:00Z"));
@@ -308,7 +314,7 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			for (const fixture of cases) {
 				const completedAt = DateTime.makeUnsafe(fixture.completedAt);
 				yield* TestClock.setTime(DateTime.toEpochMillis(completedAt));
-				const identity = { executionId: crypto.randomUUID(), workflowName: "DstRetentionWorkflow" };
+				const identity = { executionId: yield* randomUuid, workflowName: "DstRetentionWorkflow" };
 				const message = yield* saveRun(identity);
 				yield* completeRun(message, Exit.fail("provider failed"));
 				const expiresAt = DateTime.add(completedAt, { hours: 168 });

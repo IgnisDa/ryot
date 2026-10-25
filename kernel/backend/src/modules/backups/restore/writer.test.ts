@@ -1,4 +1,4 @@
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunCrypto, BunFileSystem } from "@effect/platform-bun";
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { badRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
@@ -30,6 +30,7 @@ import {
 } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { count, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
@@ -989,48 +990,51 @@ const restoreArchivedEvents = (
 	});
 
 const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {}) =>
-	Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				fakeDatabaseSession({}),
-				Layer.mock(PluginRepository, {
-					listPrivateForUser: () => Effect.succeed([]),
-					listActiveSystemPlugins: () => Effect.succeed([]),
-					listPortablePluginMetadata: () => Effect.succeed([]),
-				}),
-				Layer.unwrap(
-					Effect.gen(function* () {
-						const eventBatchSizes = yield* Ref.make<ReadonlyArray<number>>([]);
-						const restoredEvents = yield* Ref.make<ReadonlyArray<RestoreEventInput>>([]);
-						const restoredEntities = yield* Ref.make<ReadonlyArray<RestoreEntityInput>>([]);
-						return Layer.merge(
-							Layer.succeed(FakeRestorePersistence, {
-								restoredEvents: Ref.get(restoredEvents),
-								eventBatchSizes: Ref.get(eventBatchSizes),
-								restoredEntities: Ref.get(restoredEntities),
-							}),
-							Layer.mock(BackupRestorePersistence, {
-								restorePortableProfile: () => Effect.succeed(true),
-								restoreEntity: (input) =>
-									Ref.update(restoredEntities, (all) => [...all, input]).pipe(
-										Effect.as(EntityId.make(input.id ?? "restored")),
-									),
-								restoreEvents: (batch) =>
-									options.eventInsertFails
-										? Effect.fail(new DbError({ code: "23505", message: "duplicate key value" }))
-										: Ref.update(eventBatchSizes, (all) => [...all, batch.length]).pipe(
-												Effect.andThen(Ref.update(restoredEvents, (all) => [...all, ...batch])),
-											),
-							}),
-						);
+	Layer.provideMerge(
+		Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					fakeDatabaseSession({}),
+					Layer.mock(PluginRepository, {
+						listPrivateForUser: () => Effect.succeed([]),
+						listActiveSystemPlugins: () => Effect.succeed([]),
+						listPortablePluginMetadata: () => Effect.succeed([]),
 					}),
+					Layer.unwrap(
+						Effect.gen(function* () {
+							const eventBatchSizes = yield* Ref.make<ReadonlyArray<number>>([]);
+							const restoredEvents = yield* Ref.make<ReadonlyArray<RestoreEventInput>>([]);
+							const restoredEntities = yield* Ref.make<ReadonlyArray<RestoreEntityInput>>([]);
+							return Layer.merge(
+								Layer.succeed(FakeRestorePersistence, {
+									restoredEvents: Ref.get(restoredEvents),
+									eventBatchSizes: Ref.get(eventBatchSizes),
+									restoredEntities: Ref.get(restoredEntities),
+								}),
+								Layer.mock(BackupRestorePersistence, {
+									restorePortableProfile: () => Effect.succeed(true),
+									restoreEntity: (input) =>
+										Ref.update(restoredEntities, (all) => [...all, input]).pipe(
+											Effect.as(EntityId.make(input.id ?? "restored")),
+										),
+									restoreEvents: (batch) =>
+										options.eventInsertFails
+											? Effect.fail(new DbError({ code: "23505", message: "duplicate key value" }))
+											: Ref.update(eventBatchSizes, (all) => [...all, batch.length]).pipe(
+													Effect.andThen(Ref.update(restoredEvents, (all) => [...all, ...batch])),
+												),
+								}),
+							);
+						}),
+					),
+					Layer.mock(EntitiesRepository, { listUserEntitiesForBackup: () => Effect.succeed([]) }),
+					Layer.mock(SavedViewsRepository, {}),
+					Layer.mock(AutomationsRepository, {}),
+					Layer.mock(PluginInstallationRepository, {}),
 				),
-				Layer.mock(EntitiesRepository, { listUserEntitiesForBackup: () => Effect.succeed([]) }),
-				Layer.mock(SavedViewsRepository, {}),
-				Layer.mock(AutomationsRepository, {}),
-				Layer.mock(PluginInstallationRepository, {}),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	);
 
 const bootstrapEntity = (
@@ -1636,7 +1640,7 @@ describe("account backup restore in PostgreSQL", () => {
 					persistence.restoreEntity({
 						userId: null,
 						name: "Shared",
-						id: crypto.randomUUID(),
+						id: yield* randomUuid,
 						providerId: provider.id,
 						entitySchemaPluginId: id,
 						entitySchemaSlug: "bottle",
@@ -1830,7 +1834,7 @@ describe("account backup restore in PostgreSQL", () => {
 										),
 									),
 							);
-							const entityId = EntityId.make(crypto.randomUUID());
+							const entityId = EntityId.make(yield* randomUuid);
 							const entityTable = table("entity", "bottles");
 							const dataSources = document({
 								records: rows(entityTable, {
@@ -1890,7 +1894,7 @@ describe("account backup restore in PostgreSQL", () => {
 										properties: {},
 										userId: sourceUser,
 										createdAt: fixedDate,
-										id: crypto.randomUUID(),
+										id: yield* randomUuid,
 										sourceEntityId: entityId,
 										targetEntityId: entityId,
 										relationshipSchemaPluginId: sourceId,
@@ -1903,7 +1907,7 @@ describe("account backup restore in PostgreSQL", () => {
 											createdAt: fixedDate,
 											updatedAt: fixedDate,
 											occurredAt: fixedDate,
-											id: crypto.randomUUID(),
+											id: yield* randomUuid,
 											sessionEntityId: entityId,
 											eventSchemaSlug: "changed",
 											properties: { value: label },
@@ -1948,8 +1952,8 @@ describe("account backup restore in PostgreSQL", () => {
 											syncOwnership: false,
 											minimumProgress: "0",
 											lastFinishedAt: null,
+											id: yield* randomUuid,
 											maximumProgress: "100",
-											id: crypto.randomUUID(),
 											extraSettings: { disableOnContinuousErrors: false },
 											lot: pluginInstallationId === null ? "sink" : "push",
 											provider: pluginInstallationId === null ? dataJsonSource : "import",
@@ -1965,7 +1969,7 @@ describe("account backup restore in PostgreSQL", () => {
 											pluginInstallationId,
 											createdAt: fixedDate,
 											updatedAt: fixedDate,
-											id: crypto.randomUUID(),
+											id: yield* randomUuid,
 											slug: `bottles-${label.toLowerCase()}${suffix}`,
 											renderer: { kind: "kernel", name: "results-table" },
 											settings: {
@@ -2337,48 +2341,51 @@ const assetDefinitions: DefinitionSnapshot = {
 	},
 };
 const assetRestoreLayer = (assetOwnerUserId: string) =>
-	Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				fakeDatabaseSession({
-					select: () => ({
-						from: () => ({
-							where: () => ({
-								orderBy: () => ({
-									for: () =>
-										Effect.succeed([
-											{
-												retiredAt: null,
-												key: restoredAsset.key,
-												provider: restoredAsset.type,
-												ownerUserId: assetOwnerUserId,
-											},
-										]),
+	Layer.provideMerge(
+		Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					fakeDatabaseSession({
+						select: () => ({
+							from: () => ({
+								where: () => ({
+									orderBy: () => ({
+										for: () =>
+											Effect.succeed([
+												{
+													retiredAt: null,
+													key: restoredAsset.key,
+													provider: restoredAsset.type,
+													ownerUserId: assetOwnerUserId,
+												},
+											]),
+									}),
 								}),
 							}),
 						}),
 					}),
-				}),
-				Layer.mock(PluginRepository, {
-					listPrivateForUser: () => Effect.succeed([]),
-					listActiveSystemPlugins: () => Effect.succeed([assetSystemPlugin]),
-				}),
-				Layer.mock(BackupRestorePersistence, {
-					restoreEvents: () => Effect.void,
-					restorePortableProfile: () => Effect.succeed(true),
-					restoreEntity: (input) => Effect.succeed(EntityId.make(input.id ?? "restored")),
-					restoreCustomView: () => Effect.die("A rejected saved view must not be restored"),
-					restoreTranslation: () => Effect.die("A rejected translation must not be restored"),
-				}),
-				Layer.mock(EntitiesRepository, {
-					listUserEntitiesForBackup: () => Effect.succeed([]),
-					findGlobalEntityForRestore: () => Effect.succeed(null),
-				}),
-				Layer.mock(SavedViewsRepository, {}),
-				Layer.mock(AutomationsRepository, {}),
-				Layer.mock(PluginInstallationRepository, {}),
+					Layer.mock(PluginRepository, {
+						listPrivateForUser: () => Effect.succeed([]),
+						listActiveSystemPlugins: () => Effect.succeed([assetSystemPlugin]),
+					}),
+					Layer.mock(BackupRestorePersistence, {
+						restoreEvents: () => Effect.void,
+						restorePortableProfile: () => Effect.succeed(true),
+						restoreEntity: (input) => Effect.succeed(EntityId.make(input.id ?? "restored")),
+						restoreCustomView: () => Effect.die("A rejected saved view must not be restored"),
+						restoreTranslation: () => Effect.die("A rejected translation must not be restored"),
+					}),
+					Layer.mock(EntitiesRepository, {
+						listUserEntitiesForBackup: () => Effect.succeed([]),
+						findGlobalEntityForRestore: () => Effect.succeed(null),
+					}),
+					Layer.mock(SavedViewsRepository, {}),
+					Layer.mock(AutomationsRepository, {}),
+					Layer.mock(PluginInstallationRepository, {}),
+				),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	);
 const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	entities: [],

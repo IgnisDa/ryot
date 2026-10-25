@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
@@ -1509,7 +1510,12 @@ describe("Event lifecycle PostgreSQL", () => {
 			}),
 		);
 	});
-	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+	layer(
+		Layer.provideMerge(
+			Layer.merge(lifecycleDatabaseLayer(true), workflowLayer),
+			BunCrypto.layerSecureRandom,
+		),
+	)((test) => {
 		test.effect(
 			"retires a suspended event owner before reset deletes receipts and fences its replay after same-ID recreation",
 			() =>
@@ -2439,7 +2445,12 @@ describe("Event lifecycle PostgreSQL", () => {
 		);
 	});
 
-	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))((test) => {
+	layer(
+		Layer.provideMerge(
+			Layer.merge(lifecycleDatabaseLayer(true), workflowLayer),
+			BunCrypto.layerSecureRandom,
+		),
+	)((test) => {
 		test.effect("rejects an event edit that references another user's managed asset", () =>
 			Effect.gen(function* () {
 				const service = yield* EventsService;

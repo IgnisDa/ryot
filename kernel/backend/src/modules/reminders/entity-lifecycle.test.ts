@@ -2,6 +2,7 @@ import { assert, expect, layer } from "@effect/vitest";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -98,8 +99,8 @@ const services = Layer.mergeAll(RemindersService.layer, EntityUserDataService.la
 const fixture = Effect.fnUntraced(function* (destinationPartNumbers: ReadonlyArray<number>) {
 	const input = yield* reminderTestInput();
 	const session = yield* DatabaseSession;
-	const destinationRootId = EntityId.make(crypto.randomUUID());
-	const sourcePartId = EntityId.make(crypto.randomUUID());
+	const destinationRootId = EntityId.make(yield* randomUuid);
+	const sourcePartId = EntityId.make(yield* randomUuid);
 	const destinationParts = destinationPartNumbers.map((number) => ({
 		number,
 		id: EntityId.make(crypto.randomUUID()),

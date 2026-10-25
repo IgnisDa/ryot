@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { describe, expect, it, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
@@ -1091,21 +1092,24 @@ describe("managed asset settings", () => {
 	});
 
 	layer(
-		makeServiceLayer({
-			stored: assetIntegration,
-			database: isolatedDatabaseLayer("integration_asset_settings"),
-			dependencies: ({ stored }) => ({
-				catalog: {
-					findForUser: () => Effect.succeed(assetProvider),
-					findOwnedForUser: () => Effect.succeed(assetProvider),
-				},
-				repository: {
-					createForUser: () => Effect.die("create must not be reached"),
-					updateForUser: () => Effect.die("update must not be reached"),
-					getForUser: () => Ref.get(stored).pipe(Effect.map((state) => state ?? null)),
-				},
+		Layer.provideMerge(
+			makeServiceLayer({
+				stored: assetIntegration,
+				database: isolatedDatabaseLayer("integration_asset_settings"),
+				dependencies: ({ stored }) => ({
+					catalog: {
+						findForUser: () => Effect.succeed(assetProvider),
+						findOwnedForUser: () => Effect.succeed(assetProvider),
+					},
+					repository: {
+						createForUser: () => Effect.die("create must not be reached"),
+						updateForUser: () => Effect.die("update must not be reached"),
+						getForUser: () => Ref.get(stored).pipe(Effect.map((state) => state ?? null)),
+					},
+				}),
 			}),
-		}),
+			BunCrypto.layerSecureRandom,
+		),
 	)((test) => {
 		test.effect("rejects another user's managed asset on integration create and update", () =>
 			Effect.gen(function* () {

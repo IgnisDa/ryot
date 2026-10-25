@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot-app/contract/oauth";
 import { Clock, Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";
+import { SecureRandom } from "effect/crypto";
 import * as Socket from "effect/socket/Socket";
 
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
@@ -264,7 +265,8 @@ const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 		return;
 	}
 
-	const sessionId = crypto.randomUUID();
+	const random = yield* SecureRandom.SecureRandom;
+	const sessionId = yield* random.uuidV4();
 	const principal = ticket.success;
 	const output = yield* makeOutbound(write, store, sessionId);
 	let impersonationExpiresAt = principal.impersonation?.expiresAt;
@@ -404,7 +406,7 @@ const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 					if (!isImpersonationActive) {
 						return;
 					}
-					const nonce = crypto.randomUUID();
+					const nonce = yield* random.uuidV4();
 					heartbeatNonce = nonce;
 					yield* output.enqueue({ nonce, type: "ping" });
 					yield* Effect.sleep(ENTITY_WATCH_HEARTBEAT_TIMEOUT).pipe(

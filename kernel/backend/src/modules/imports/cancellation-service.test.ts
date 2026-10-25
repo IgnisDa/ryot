@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
@@ -29,35 +30,39 @@ class FakeCancellationDispatch extends Context.Service<
 ) {}
 
 const makeLayer = (run: RunControl) =>
-	ImportRunCancellationService.layer.pipe(
-		Layer.provideMerge(
-			Layer.unwrap(
-				Effect.gen(function* () {
-					const executions = yield* Ref.make<ReadonlyArray<unknown>>([]);
-					const repository = ImportsRepository.layer.pipe(
-						Layer.provide(
-							fakeDatabaseSession({
-								select: () => ({
-									from: () => ({
-										where: () => ({ limit: () => Effect.succeed(run === null ? [] : [run]) }),
+	Layer.provideMerge(
+		ImportRunCancellationService.layer.pipe(
+			Layer.provideMerge(
+				Layer.unwrap(
+					Effect.gen(function* () {
+						const executions = yield* Ref.make<ReadonlyArray<unknown>>([]);
+						const repository = ImportsRepository.layer.pipe(
+							Layer.provide(
+								fakeDatabaseSession({
+									select: () => ({
+										from: () => ({
+											where: () => ({ limit: () => Effect.succeed(run === null ? [] : [run]) }),
+										}),
 									}),
 								}),
-							}),
-						),
-					);
-					return Layer.mergeAll(
-						repository,
-						Layer.succeed(FakeCancellationDispatch, { executions: Ref.get(executions) }),
-						Layer.succeed(
-							WorkflowEngine,
-							makeWorkflowEngine({
-								execute: (_workflow, options) => Ref.update(executions, (all) => [...all, options]),
-							}),
-						),
-					);
-				}),
+							),
+						);
+						return Layer.mergeAll(
+							repository,
+							Layer.succeed(FakeCancellationDispatch, { executions: Ref.get(executions) }),
+							Layer.succeed(
+								WorkflowEngine,
+								makeWorkflowEngine({
+									execute: (_workflow, options) =>
+										Ref.update(executions, (all) => [...all, options]),
+								}),
+							),
+						);
+					}),
+				),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	);
 
 layer(makeLayer({ id: runId, status: "running", executionKind: "source" }))((test) => {

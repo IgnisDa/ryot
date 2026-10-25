@@ -1,6 +1,7 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { Context, Effect, FileSystem, Layer, Path, PlatformError, Stream } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { AppConfig } from "../config/service";
 import { HmacSigner } from "./hmac-signer";
@@ -34,6 +35,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 	"@ryot-app/kernel-backend/platform/storage/local-storage/LocalStorageService",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const paths = yield* Path.Path;
 			const config = yield* AppConfig;
 			const signer = yield* HmacSigner;
@@ -239,7 +241,7 @@ export class LocalStorageService extends Context.Service<LocalStorageService>()(
 				if (declaredLength !== null && declaredLength > maxBytes) {
 					return yield* badRequest(`Upload exceeds maximum allowed size of ${maxBytes} bytes`);
 				}
-				const staged = `${target}.${crypto.randomUUID()}.part`;
+				const staged = `${target}.${yield* random.uuidV4()}.part`;
 				let size = 0;
 				const bounded = stream.pipe(
 					Stream.mapEffect((chunk) => {

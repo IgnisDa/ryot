@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { BadRequest, internalError } from "@ryot-app/contract/errors";
@@ -5,6 +6,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
+import type { SecureRandom } from "effect/crypto";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -192,14 +194,17 @@ layer(
 
 const liveOperationsLayer = <R, E>(dependencies: {
 	readonly database: Layer.Layer<DatabaseSession, E>;
-	readonly overrides: Layer.Layer<R, never, DatabaseSession>;
+	readonly overrides: Layer.Layer<R, never, DatabaseSession | SecureRandom.SecureRandom>;
 }) =>
-	UserLifecycleWorkflowOperationsLive.pipe(
-		Layer.provide(ingestionRetirementTestLayer),
-		Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
-		Layer.provide(WorkflowExecutionNotifications.layer),
-		Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
-		Layer.provideMerge(dependencies.database),
+	Layer.provideMerge(
+		UserLifecycleWorkflowOperationsLive.pipe(
+			Layer.provide(ingestionRetirementTestLayer),
+			Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
+			Layer.provide(WorkflowExecutionNotifications.layer),
+			Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
+			Layer.provideMerge(dependencies.database),
+		),
+		BunCrypto.layerSecureRandom,
 	);
 
 const deleteOperation = {

@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/instance-admin/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { classifyAuthState } from "#modules/accounts/lifecycle/auth-state";
@@ -27,6 +28,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 	"@ryot-app/kernel-backend/modules/instance-admin/service/InstanceAdminService",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const config = yield* AppConfig;
 			const repository = yield* InstanceAdminRepository;
 			const lifecycle = yield* UserLifecycleService;
@@ -50,7 +52,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 					});
 				}
 
-				const userId = UserId.make(crypto.randomUUID());
+				const userId = UserId.make(yield* random.uuidV4());
 
 				yield* createAuthUser({
 					id: userId,
@@ -63,7 +65,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 					yield* linkAuthAccount({
 						userId,
 						providerId: "oidc",
-						id: crypto.randomUUID(),
+						id: yield* random.uuidV4(),
 						accountId: input.oidcIssuerId,
 						issuer: createOAuthAccountIssuer("oidc"),
 					});

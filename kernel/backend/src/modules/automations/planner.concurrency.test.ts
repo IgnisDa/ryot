@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
@@ -30,7 +31,7 @@ const pluginId = "fixture-plugin";
 
 const makePlannerSchema = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
-	const name = `planner_test_${crypto.randomUUID().replaceAll("-", "")}`;
+	const name = `planner_test_${(yield* randomUuid).replaceAll("-", "")}`;
 	const statements = yield* baselineMigrationStatements();
 	yield* Effect.acquireRelease(
 		session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),

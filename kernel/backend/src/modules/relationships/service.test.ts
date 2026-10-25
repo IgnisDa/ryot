@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -15,7 +16,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
-import { Cause, DateTime, Effect, Exit } from "effect";
+import { Cause, DateTime, Effect, Exit, Layer } from "effect";
 import { assert, describe } from "vitest";
 
 import { insertManagedAsset } from "#lib/domain/managed-asset-writes.test-support";
@@ -1911,7 +1912,7 @@ describe("Relationships lifecycle owner", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRandom))((test) => {
 		test.effect(
 			"rejects another user's managed asset on single and batch relationship writes",
 			() =>

@@ -1,6 +1,8 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Deferred, Duration, Effect, Exit, Fiber, Metric, Schema, Scope } from "effect";
+import { Deferred, Duration, Effect, Exit, Fiber, Layer, Metric, Schema, Scope } from "effect";
 import type { PersistedQueue } from "effect/persistence";
 
 import { testRedisServiceLayer } from "#testing/redis";
@@ -84,7 +86,7 @@ const storeOptions = (prefix: string, overrides: Partial<FairQueueOptions>): Fai
 
 const makeTestStore = Effect.fnUntraced(function* (overrides: Partial<FairQueueOptions> = {}) {
 	const { client } = yield* RedisService;
-	const prefix = overrides.prefix ?? `ryot:test:fair:${crypto.randomUUID()}:`;
+	const prefix = overrides.prefix ?? `ryot:test:fair:${yield* randomUuid}:`;
 	yield* Effect.addFinalizer(() => deleteKeys(client, prefix));
 	const store = yield* makeFairQueueStore(storeOptions(prefix, overrides));
 	return { store, client, prefix, keys: fairQueueKeys(prefix, queueName) };
@@ -158,7 +160,9 @@ const dispatchOrder = Effect.fnUntraced(function* (aPlugins: ReadonlyArray<strin
 	return yield* interactiveFlowOrder(store, 80);
 });
 
-layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
+layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
+	excludeTestServices: true,
+})((test) => {
 	test.effect("execution_admission_is_fair_across_users_and_plugins", () =>
 		Effect.gen(function* () {
 			const threePlugins = yield* dispatchOrder(["pa1", "pa2", "pa3"]);
@@ -274,7 +278,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			const idle = yield* redisSnapshot(client, prefix);
 			const element = entry(interactive, "user:a", "p", 0);
 			const queued = entry(interactive, "user:a", "p", 1);
-			const id = crypto.randomUUID();
+			const id = yield* randomUuid;
 			yield* store.offer({ id, element, name: queueName, isCustomId: false });
 			const offered = yield* redisSnapshot(client, prefix);
 			const flow = yield* call(() => client.hget(keys.flows, id));
@@ -288,7 +292,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 				element: queued,
 				name: queueName,
 				isCustomId: false,
-				id: crypto.randomUUID(),
+				id: yield* randomUuid,
 			});
 			const failing = yield* holdTake(store);
 			expect((yield* Deferred.await(failing.received)).id).toBe(id);
@@ -323,11 +327,11 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 
 	test.effect("fair_queue_redispatches_expired_peer_locks", () =>
 		Effect.gen(function* () {
-			const prefix = `ryot:test:fair:${crypto.randomUUID()}:`;
+			const prefix = `ryot:test:fair:${yield* randomUuid}:`;
 			const peer = yield* makeTestStore({ prefix });
 			const flowElement = entry(interactive, "user:a", "p", 0);
 			const next = entry(interactive, "user:a", "p", 1);
-			const id = crypto.randomUUID();
+			const id = yield* randomUuid;
 			yield* peer.store.offer({ id, name: queueName, isCustomId: false, element: flowElement });
 			yield* offerAll(peer.store, [next]);
 

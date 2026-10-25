@@ -1,6 +1,7 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition } from "@ryot-app/contract/schema/property-schema";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -18,7 +19,7 @@ export const insertManagedAsset = Effect.fn(function* (ownerUserId: UserId, reti
 	const session = yield* DatabaseSession;
 	const locator: ManagedAssetLocator = {
 		type: "s3",
-		key: `permanent/${ownerUserId}_${crypto.randomUUID()}.png`,
+		key: `permanent/${ownerUserId}_${yield* randomUuid}.png`,
 	};
 	yield* session.run((db) =>
 		db

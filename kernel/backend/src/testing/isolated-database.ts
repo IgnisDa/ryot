@@ -1,3 +1,5 @@
+import { BunCrypto } from "@effect/platform-bun";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Redacted } from "effect";
 
@@ -19,7 +21,7 @@ export class IsolatedDatabase extends Context.Service<IsolatedDatabase, { readon
 export const isolatedDatabaseLayer = (prefix: string) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
-			const name = `${prefix}_${crypto.randomUUID().replaceAll("-", "")}`;
+			const name = `${prefix}_${(yield* randomUuid).replaceAll("-", "")}`;
 			const session = yield* DatabaseSession;
 			yield* session.run((admin) =>
 				Effect.acquireRelease(admin.execute(sql`create database ${sql.identifier(name)}`), () =>
@@ -53,4 +55,4 @@ export const isolatedDatabaseLayer = (prefix: string) =>
 				Layer.provideMerge(Layer.succeed(IsolatedDatabase, { url })),
 			);
 		}),
-	).pipe(Layer.provide(databaseLayer));
+	).pipe(Layer.provide(databaseLayer), Layer.provideMerge(BunCrypto.layerSecureRandom));

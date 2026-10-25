@@ -1,4 +1,5 @@
 import { expect, layer } from "@effect/vitest";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber } from "effect";
 
@@ -17,7 +18,7 @@ const epoch = new Date(0);
 
 const createWorld = Effect.fn(function* (scope: Scope) {
 	const session = yield* DatabaseSession;
-	const key = crypto.randomUUID();
+	const key = yield* randomUuid;
 	const userId = `user-${key}`;
 	const pluginId = `plugin-${key}`;
 	const packageId = testPluginPackageId();
@@ -113,7 +114,7 @@ const insertConfig = Effect.fn(function* (config: {
 });
 
 const install = Effect.fn(function* (world: World, userId: World["userId"] = world.userId) {
-	const id = `installation-${crypto.randomUUID()}`;
+	const id = `installation-${yield* randomUuid}`;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
 			.insert(tables.pluginInstallation)

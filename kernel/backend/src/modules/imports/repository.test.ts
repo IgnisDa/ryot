@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
@@ -48,35 +49,38 @@ const otherConstraintFailure = new DbError({
 	constraint: "import_run_pkey",
 });
 const makeRepositoryLayer = (conflict: DbError) =>
-	ImportsRepository.layer.pipe(
-		Layer.provideMerge(
-			Layer.unwrap(
-				Effect.gen(function* () {
-					const admitted = yield* Ref.make(false);
-					return fakeDatabaseSession({
-						execute: () => Effect.void,
-						select: () => ({
-							from: () => ({
-								where: () => ({
-									for: () => Effect.succeed([{ id: userId }]),
-									limit: () => Effect.succeed([{ id: userId }]),
+	Layer.provideMerge(
+		ImportsRepository.layer.pipe(
+			Layer.provideMerge(
+				Layer.unwrap(
+					Effect.gen(function* () {
+						const admitted = yield* Ref.make(false);
+						return fakeDatabaseSession({
+							execute: () => Effect.void,
+							select: () => ({
+								from: () => ({
+									where: () => ({
+										for: () => Effect.succeed([{ id: userId }]),
+										limit: () => Effect.succeed([{ id: userId }]),
+									}),
 								}),
 							}),
-						}),
-						insert: () => ({
-							values: () => ({
-								returning: () =>
-									Ref.getAndSet(admitted, true).pipe(
-										Effect.flatMap((alreadyAdmitted) =>
-											alreadyAdmitted ? Effect.fail(conflict) : Effect.succeed([row]),
+							insert: () => ({
+								values: () => ({
+									returning: () =>
+										Ref.getAndSet(admitted, true).pipe(
+											Effect.flatMap((alreadyAdmitted) =>
+												alreadyAdmitted ? Effect.fail(conflict) : Effect.succeed([row]),
+											),
 										),
-									),
+								}),
 							}),
-						}),
-					});
-				}),
+						});
+					}),
+				),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	);
 layer(makeRepositoryLayer(activeRunConflict))((test) => {
 	test.effect("admits a single yank run and refuses the concurrent loser", () =>

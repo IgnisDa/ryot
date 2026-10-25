@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
@@ -38,39 +39,42 @@ class FakeAuthSettings extends Context.Service<
 >()("@ryot-app/kernel-backend/modules/accounts/preferences/service.test/FakeAuthSettings") {}
 
 const serviceLayer = () =>
-	UserSettingsService.layer.pipe(
-		Layer.provideMerge(
-			Layer.effectContext(
-				Effect.gen(function* () {
-					const preferenceUpdates = yield* Ref.make<
-						ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
-					>([]);
-					const imageUpdates = yield* Ref.make<ReadonlyArray<{ image: string; userId: UserId }>>(
-						[],
-					);
-					const initializations = yield* Ref.make<
-						ReadonlyArray<{ userId: UserId; reportingTimeZone: string }>
-					>([]);
-					return Context.make(
-						AuthService,
-						partialFake<AuthService["Service"]>({
-							updateUserImage: (userId: UserId, image: string) =>
-								Ref.update(imageUpdates, (all) => [...all, { image, userId }]),
-							updateUserPreferences: (userId: UserId, preferences: UserPreferencesPatch) =>
-								Ref.update(preferenceUpdates, (all) => [...all, { userId, preferences }]),
-							initializeReportingTimeZone: (userId: UserId, reportingTimeZone: string) =>
-								Ref.update(initializations, (all) => [...all, { userId, reportingTimeZone }]),
-						}),
-					).pipe(
-						Context.add(FakeAuthSettings, {
-							imageUpdates: Ref.get(imageUpdates),
-							initializations: Ref.get(initializations),
-							preferenceUpdates: Ref.get(preferenceUpdates),
-						}),
-					);
-				}),
+	Layer.provideMerge(
+		UserSettingsService.layer.pipe(
+			Layer.provideMerge(
+				Layer.effectContext(
+					Effect.gen(function* () {
+						const preferenceUpdates = yield* Ref.make<
+							ReadonlyArray<{ userId: UserId; preferences: UserPreferencesPatch }>
+						>([]);
+						const imageUpdates = yield* Ref.make<ReadonlyArray<{ image: string; userId: UserId }>>(
+							[],
+						);
+						const initializations = yield* Ref.make<
+							ReadonlyArray<{ userId: UserId; reportingTimeZone: string }>
+						>([]);
+						return Context.make(
+							AuthService,
+							partialFake<AuthService["Service"]>({
+								updateUserImage: (userId: UserId, image: string) =>
+									Ref.update(imageUpdates, (all) => [...all, { image, userId }]),
+								updateUserPreferences: (userId: UserId, preferences: UserPreferencesPatch) =>
+									Ref.update(preferenceUpdates, (all) => [...all, { userId, preferences }]),
+								initializeReportingTimeZone: (userId: UserId, reportingTimeZone: string) =>
+									Ref.update(initializations, (all) => [...all, { userId, reportingTimeZone }]),
+							}),
+						).pipe(
+							Context.add(FakeAuthSettings, {
+								imageUpdates: Ref.get(imageUpdates),
+								initializations: Ref.get(initializations),
+								preferenceUpdates: Ref.get(preferenceUpdates),
+							}),
+						);
+					}),
+				),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	);
 
 layer(serviceLayer())((test) => {

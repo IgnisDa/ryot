@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 
@@ -61,7 +62,7 @@ const insertAsset = Effect.fn(function* (ownerUserId: UserId, checkAfter: Date) 
 	const session = yield* DatabaseSession;
 	const locator: ManagedAssetLocator = {
 		type: "s3",
-		key: `permanent/${ownerUserId}_${crypto.randomUUID()}.png`,
+		key: `permanent/${ownerUserId}_${yield* randomUuid}.png`,
 	};
 	yield* session.run((db) =>
 		db
@@ -112,7 +113,7 @@ layer(testLayer)((test) => {
 			const session = yield* DatabaseSession;
 			const collector = yield* ManagedAssetCollector;
 			const deletions = yield* ObjectDeletions;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const abandoned = yield* insertAsset(ownerUserId, due);
 			const referenced = yield* insertAsset(ownerUserId, due);
 			const fresh = yield* insertAsset(ownerUserId, future);
@@ -144,7 +145,7 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const collector = yield* ManagedAssetCollector;
 			const deletions = yield* ObjectDeletions;
-			const locator = yield* insertAsset(UserId.make(crypto.randomUUID()), due);
+			const locator = yield* insertAsset(UserId.make(yield* randomUuid), due);
 
 			yield* deletions.failFor(locator.key);
 			yield* collector.runBatch(100);

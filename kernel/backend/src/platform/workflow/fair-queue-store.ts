@@ -12,6 +12,7 @@ import {
 	Schedule,
 	Schema,
 } from "effect";
+import { SecureRandom } from "effect/crypto";
 import { PersistedQueue } from "effect/persistence";
 
 import { recordDurableQueueDispatch } from "../observability/runtime-metrics";
@@ -380,7 +381,7 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 	const { client } = yield* RedisService;
 	const scope = yield* Effect.scope;
 	const pollInterval = Duration.fromInputUnsafe(options.pollInterval);
-	const workerId = crypto.randomUUID();
+	const workerId = yield* SecureRandom.SecureRandom.use((random) => random.uuidV4());
 	const states = new Map<string, QueueState>();
 	const activeLocks = new Set<string>();
 

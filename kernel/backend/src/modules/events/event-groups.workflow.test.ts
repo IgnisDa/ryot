@@ -1,11 +1,13 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq } from "drizzle-orm";
-import { Effect, Exit, Schema } from "effect";
+import { Effect, Exit, Layer, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -53,7 +55,7 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 	return { ...fixture, input, result };
 });
 
-layer(eventGroupWorkflowLayer)((test) => {
+layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
 		"commits a complete group across event preparation pages and replays the same result",
 		() =>
@@ -129,7 +131,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 					fixture.userId,
 					{
 						...fixture.command,
-						...command(crypto.randomUUID()),
+						...command(yield* randomUuid),
 						writeContext: fixture.command.writeContext,
 					},
 				)).count,
@@ -144,7 +146,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 			expect(
 				(yield* entities.deleteByIds([fixture.result.entityId], {
 					...fixture.command,
-					...command(crypto.randomUUID()),
+					...command(yield* randomUuid),
 					writeContext: fixture.command.writeContext,
 				})).deletedCount,
 			).toBe(1);
@@ -224,7 +226,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 				});
 				const failedCommand = {
 					...fixture.command,
-					...command(crypto.randomUUID()),
+					...command(yield* randomUuid),
 					writeContext: fixture.command.writeContext,
 				};
 				assertExitFails(
@@ -291,7 +293,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 					userId: fixture.userId,
 					command: {
 						...fixture.command,
-						...command(crypto.randomUUID()),
+						...command(yield* randomUuid),
 						writeContext: fixture.command.writeContext,
 					},
 					payload: [
@@ -356,7 +358,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 						userId: fixture.userId,
 						command: {
 							...fixture.command,
-							...command(crypto.randomUUID()),
+							...command(yield* randomUuid),
 							writeContext: fixture.command.writeContext,
 						},
 					})).events,
@@ -395,7 +397,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 					populatedAt: null,
 					name: "Destination",
 					userId: fixture.userId,
-					id: EntityId.make(crypto.randomUUID()),
+					id: EntityId.make(yield* randomUuid),
 					entitySchemaPluginId: fixture.installed.pluginId,
 					entitySchemaSlug: EntitySchemaSlug.make("subject"),
 				},
@@ -411,7 +413,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 				},
 				{
 					...fixture.command,
-					...command(crypto.randomUUID()),
+					...command(yield* randomUuid),
 					writeContext: fixture.command.writeContext,
 				},
 			);
@@ -436,7 +438,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 					populatedAt: null,
 					name: "Destination",
 					userId: fixture.userId,
-					id: EntityId.make(crypto.randomUUID()),
+					id: EntityId.make(yield* randomUuid),
 					entitySchemaPluginId: fixture.installed.pluginId,
 					entitySchemaSlug: EntitySchemaSlug.make("session"),
 				},
@@ -454,7 +456,7 @@ layer(eventGroupWorkflowLayer)((test) => {
 						},
 						{
 							...fixture.command,
-							...command(crypto.randomUUID()),
+							...command(yield* randomUuid),
 							writeContext: fixture.command.writeContext,
 						},
 					),

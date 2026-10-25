@@ -7,6 +7,7 @@ import {
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { assert } from "vitest";
@@ -50,7 +51,7 @@ const insertEntity = Effect.fn(function* (input: {
 	readonly entitySchemaSlug: string;
 	readonly properties: Record<string, unknown>;
 }) {
-	const id = crypto.randomUUID();
+	const id = yield* randomUuid;
 	yield* (yield* DatabaseSession).run((db) =>
 		db.insert(tables.entity).values({ ...input, id, name: id, entitySchemaPluginId: null }),
 	);
@@ -58,7 +59,7 @@ const insertEntity = Effect.fn(function* (input: {
 });
 
 const insertKernelAssetSchema = Effect.fn(function* () {
-	const slug = `asset-schema-${crypto.randomUUID()}`;
+	const slug = `asset-schema-${yield* randomUuid}`;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
 			.insert(tables.definitionEntitySchema)
@@ -79,7 +80,7 @@ const insertTrigger = Effect.fn(function* (input: {
 	readonly scopeUserId: null | UserId;
 	readonly payload: AutomationSignalPayload;
 }) {
-	const id = crypto.randomUUID();
+	const id = yield* randomUuid;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
 			.insert(tables.automationTrigger)
@@ -106,7 +107,7 @@ const insertRun = Effect.fn(function* (input: {
 	readonly executionUserId: UserId;
 	readonly historyPayload: JsonValue;
 }) {
-	const id = crypto.randomUUID();
+	const id = yield* randomUuid;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
 			.insert(tables.automationRun)
@@ -172,7 +173,7 @@ const insertReferenceSource = Effect.fn(function* (
 		}
 		case "event":
 		case "projection": {
-			const id = crypto.randomUUID();
+			const id = yield* randomUuid;
 			yield* session.run((db) =>
 				db
 					.insert(tables.event)
@@ -186,7 +187,7 @@ const insertReferenceSource = Effect.fn(function* (
 					}),
 			);
 			if (source === "projection") {
-				const streamId = crypto.randomUUID();
+				const streamId = yield* randomUuid;
 				yield* session.run((db) =>
 					db
 						.insert(tables.eventStream)
@@ -217,7 +218,7 @@ const insertReferenceSource = Effect.fn(function* (
 		case "userSettings":
 		case "savedViewDefinition": {
 			const { revisionId, installation } = yield* installRevisionPackage(
-				revisionPackage(`source-${crypto.randomUUID()}`),
+				revisionPackage(`source-${yield* randomUuid}`),
 				ownerUserId,
 			);
 			if (source === "clientConfig" || source === "userSettings") {
@@ -301,7 +302,7 @@ const insertReferenceSource = Effect.fn(function* (
 });
 
 const insertEncryptedConfig = Effect.fn(function* (revisionId: string, ownerUserId: null | UserId) {
-	const id = crypto.randomUUID();
+	const id = yield* randomUuid;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
 			.insert(tables.pluginConfigRevision)
@@ -324,8 +325,8 @@ layer(testLayer)((test) => {
 		test.effect(`${source} matches only the owning scope and returns no candidate JSON`, () =>
 			Effect.gen(function* () {
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
-				const otherUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const otherUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				yield* insertManagedAsset(otherUserId);
 				yield* insertReferenceSource(source, otherUserId, locator);
@@ -347,7 +348,7 @@ layer(testLayer)((test) => {
 		test.effect(`${source} retains shared references`, () =>
 			Effect.gen(function* () {
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				yield* insertReferenceSource(source, null, locator);
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
@@ -361,12 +362,12 @@ layer(testLayer)((test) => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
 				yield* insertManagedAsset(ownerUserId);
 				for (const type of ["s3", "local"] as const) {
 					const locator: ManagedAssetLocator = {
 						type,
-						key: `permanent/quote"\\.'[$key]\n雪-${crypto.randomUUID()}`,
+						key: `permanent/quote"\\.'[$key]\n雪-${yield* randomUuid}`,
 					};
 					const entityId = yield* insertEntity({
 						properties: {},
@@ -428,7 +429,7 @@ layer(testLayer)((test) => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* session.run((db) =>
@@ -452,7 +453,7 @@ layer(testLayer)((test) => {
 	test.effect("returns only the referenced locators from one batch", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const referenced = yield* insertManagedAsset(ownerUserId);
 			const unreferenced = yield* insertManagedAsset(ownerUserId);
 			const otherProvider: ManagedAssetLocator = { type: "local", key: referenced.key };
@@ -470,8 +471,8 @@ layer(testLayer)((test) => {
 	test.effect("run history belongs to its trigger scope, not its execution user", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
-			const otherUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
+			const otherUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* insertManagedAsset(otherUserId);
 			const triggerId = yield* insertTrigger({
@@ -491,8 +492,8 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
-			const otherUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
+			const otherUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* insertManagedAsset(otherUserId);
 			const entityId = yield* insertEntity({
@@ -500,8 +501,8 @@ layer(testLayer)((test) => {
 				userId: ownerUserId,
 				entitySchemaSlug: "unknown",
 			});
-			const eventId = crypto.randomUUID();
-			const streamId = crypto.randomUUID();
+			const eventId = yield* randomUuid;
+			const streamId = yield* randomUuid;
 			yield* session.run((db) =>
 				db
 					.insert(tables.event)
@@ -541,8 +542,8 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
-				const otherUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const otherUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				yield* insertManagedAsset(otherUserId);
 				const schema: AppSchema = {
@@ -561,7 +562,7 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 						},
 					},
 				};
-				const packageValue = revisionPackage(`encrypted-${crypto.randomUUID()}`);
+				const packageValue = revisionPackage(`encrypted-${yield* randomUuid}`);
 				const { revisionId, installation } = yield* installRevisionPackage(
 					{ ...packageValue, manifest: { ...packageValue.manifest, configSchema: schema } },
 					ownerUserId,
@@ -604,10 +605,10 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				const { pluginId, revisionId, installation } = yield* installRevisionPackage(
-					revisionPackage(`missing-${crypto.randomUUID()}`),
+					revisionPackage(`missing-${yield* randomUuid}`),
 					ownerUserId,
 				);
 				const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
@@ -633,9 +634,9 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
-				const packageValue = revisionPackage(`shared-encrypted-${crypto.randomUUID()}`);
+				const packageValue = revisionPackage(`shared-encrypted-${yield* randomUuid}`);
 				const { revisionId, installation } = yield* installRevisionPackage(
 					{
 						...packageValue,
@@ -678,10 +679,10 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const references = yield* ManagedAssetReferencesRepository;
-				const ownerUserId = UserId.make(crypto.randomUUID());
+				const ownerUserId = UserId.make(yield* randomUuid);
 				const locator = yield* insertManagedAsset(ownerUserId);
 				const { pluginId, revisionId, installation } = yield* installRevisionPackage(
-					revisionPackage(`schema-${crypto.randomUUID()}`),
+					revisionPackage(`schema-${yield* randomUuid}`),
 					ownerUserId,
 				);
 				const [revision] = yield* session.run((db) =>
@@ -732,7 +733,7 @@ layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisio
 					[{ fields: { image: managedAssetProperty } }, true],
 				];
 				for (const [schema, assetBearing] of cases) {
-					const id = crypto.randomUUID();
+					const id = yield* randomUuid;
 					yield* session.transaction(
 						Effect.gen(function* () {
 							const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
@@ -796,15 +797,15 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			const entityId = yield* insertEntity({
 				properties: {},
 				userId: ownerUserId,
 				entitySchemaSlug: "projection-source",
 			});
-			const eventId = crypto.randomUUID();
-			const streamId = crypto.randomUUID();
+			const eventId = yield* randomUuid;
+			const streamId = yield* randomUuid;
 			yield* session.run((db) =>
 				db
 					.insert(tables.event)
@@ -839,14 +840,14 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
-			const otherUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
+			const otherUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			const otherLocator = yield* insertManagedAsset(otherUserId);
 			const entityId = yield* insertEntity({
 				userId: otherUserId,
 				properties: { image: otherLocator },
-				entitySchemaSlug: `unknown-${crypto.randomUUID()}`,
+				entitySchemaSlug: `unknown-${yield* randomUuid}`,
 			});
 			yield* session.run((db) =>
 				db
@@ -880,7 +881,7 @@ layer(testLayer)((test) => {
 					}),
 			);
 			const { installation } = yield* installRevisionPackage(
-				revisionPackage(`other-${crypto.randomUUID()}`),
+				revisionPackage(`other-${yield* randomUuid}`),
 				otherUserId,
 			);
 			yield* session.run((db) =>
@@ -910,7 +911,7 @@ layer(testLayer)((test) => {
 	test.effect("an unscoped trigger holding a different locator does not block cleanup", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* insertTrigger({
 				scopeUserId: null,
@@ -923,7 +924,7 @@ layer(testLayer)((test) => {
 	test.effect("the owner's entity holding the locator keeps it referenced", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* insertEntity({
 				userId: ownerUserId,
@@ -937,7 +938,7 @@ layer(testLayer)((test) => {
 	test.effect("a locator outside the schema's declared asset fields keeps it referenced", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* insertEntity({
 				userId: ownerUserId,
@@ -951,7 +952,7 @@ layer(testLayer)((test) => {
 	test.effect("a translation of the owner's entity holding the locator keeps it referenced", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			const entityId = yield* insertEntity({
 				properties: {},
@@ -975,8 +976,8 @@ layer(testLayer)((test) => {
 	test.effect("another user's run from the owner's trigger keeps the locator referenced", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
-			const otherUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
+			const otherUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* insertManagedAsset(otherUserId);
 			const triggerId = yield* insertTrigger({
@@ -995,7 +996,7 @@ layer(testLayer)((test) => {
 	test.effect("a kernel saved view definition holding the locator keeps it referenced", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			yield* (yield* DatabaseSession).run((db) =>
 				db
@@ -1019,12 +1020,12 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			const entityId = yield* insertEntity({
 				userId: ownerUserId,
 				properties: { image: unregisteredLocator() },
-				entitySchemaSlug: `unknown-${crypto.randomUUID()}`,
+				entitySchemaSlug: `unknown-${yield* randomUuid}`,
 			});
 			expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 			yield* session.run((db) =>
@@ -1040,10 +1041,10 @@ layer(testLayer)((test) => {
 	test.effect("an environment config revision without asset fields does not block cleanup", () =>
 		Effect.gen(function* () {
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator = yield* insertManagedAsset(ownerUserId);
 			const { revisionId } = yield* installRevisionPackage(
-				revisionPackage(`environment-${crypto.randomUUID()}`),
+				revisionPackage(`environment-${yield* randomUuid}`),
 			);
 			yield* (yield* DatabaseSession).run((db) =>
 				db

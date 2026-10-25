@@ -3,6 +3,7 @@ import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer, Schema } from "effect";
 
 import { PolicyBatchWorkflowLive } from "#modules/automations/lifecycle/policy-batch";
@@ -74,7 +75,7 @@ export const eventGroupWorkflowLayer = Layer.mergeAll(
 	Layer.provideMerge(workflowEngineTestLayer),
 );
 export const eventGroupFixture = Effect.fnUntraced(function* () {
-	const source = revisionPackage(`group-${crypto.randomUUID()}`, "fixture", "subject");
+	const source = revisionPackage(`group-${yield* randomUuid}`, "fixture", "subject");
 	const installed = yield* installRevisionPackage(
 		{
 			...source,
@@ -134,7 +135,7 @@ export const eventGroupFixture = Effect.fnUntraced(function* () {
 			properties: {},
 			name: "Subject",
 			populatedAt: null,
-			id: EntityId.make(crypto.randomUUID()),
+			id: EntityId.make(yield* randomUuid),
 			entitySchemaPluginId: installed.pluginId,
 			entitySchemaSlug: EntitySchemaSlug.make("subject"),
 		},
@@ -147,6 +148,6 @@ export const eventGroupFixture = Effect.fnUntraced(function* () {
 		installed,
 		subjectId: subject.id,
 		relationshipSchemaSlug,
-		command: { ...command(crypto.randomUUID()), accountGeneration, writeContext: principal },
+		command: { ...command(yield* randomUuid), accountGeneration, writeContext: principal },
 	};
 });

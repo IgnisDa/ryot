@@ -25,6 +25,7 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema, Stream } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -682,6 +683,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 	"@ryot-app/kernel-backend/modules/backups/restore/writer/BackupRestoreWriter",
 	{
 		make: Effect.gen(function* () {
+			const newUuid = (yield* SecureRandom.SecureRandom).uuidV4();
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const persistence = yield* BackupRestorePersistence;
 			const plugins = yield* PluginRepository;
@@ -827,9 +829,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				);
 				const installationIdByKey = new Map<string, string>();
 				const customViewIds = new Map(
-					records.savedViews
-						.filter((view) => view.kind === "custom")
-						.map((view) => [view.id, SavedViewId.make(crypto.randomUUID())]),
+					yield* Effect.forEach(
+						records.savedViews.filter((view) => view.kind === "custom"),
+						(view) => Effect.map(newUuid, (id) => [view.id, SavedViewId.make(id)] as const),
+					),
 				);
 				const privateKeys = new Set(records.privatePlugins.map(({ key }) => key));
 				const systemPackageIds = new Set(
@@ -950,10 +953,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					yield* persistence.restoreForUser({
 						userId,
 						providerSpecifics,
+						id: yield* newUuid,
 						lot: integration.lot,
 						pluginInstallationId,
 						name: integration.name,
-						id: crypto.randomUUID(),
 						provider: integration.provider,
 						extraSettings: integration.extraSettings,
 						syncOwnership: integration.syncOwnership,
@@ -969,7 +972,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				const entityIdMap = new Map<string, EntityId>();
 				const relationshipIdMap = new Map<string, string>(
-					records.relationships.map(({ id }) => [id, crypto.randomUUID()]),
+					yield* Effect.forEach(records.relationships, ({ id }) =>
+						Effect.map(newUuid, (restoredId) => [id, restoredId] as const),
+					),
 				);
 				const entitySchemaById = new Map<EntityId, EntitySchemaSlug>();
 				const rewriteProperties = (
@@ -993,7 +998,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				for (const entity of records.entities) {
 					entityIdMap.set(
 						entity.id,
-						bootstrapMappings.get(entity.id) ?? EntityId.make(crypto.randomUUID()),
+						bootstrapMappings.get(entity.id) ?? EntityId.make(yield* newUuid),
 					);
 				}
 				const dependencyTargets = new Map<
@@ -1221,7 +1226,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					});
 					relationshipIdMap.set(relationship.id, restoredId);
 				}
-				const reminderIds = new Map(records.reminders.map(({ id }) => [id, crypto.randomUUID()]));
+				const reminderIds = new Map(
+					yield* Effect.forEach(records.reminders, ({ id }) =>
+						Effect.map(newUuid, (restoredId) => [id, restoredId] as const),
+					),
+				);
 				const generation =
 					records.reminders.length === 0 ? null : yield* receipts.currentAccount(userId);
 				for (const row of records.reminders) {

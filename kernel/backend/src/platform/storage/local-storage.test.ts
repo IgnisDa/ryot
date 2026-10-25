@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
@@ -15,15 +15,18 @@ const key = "permanent/object.txt";
 const ROOT = "/tmp/ryot-local-storage-test";
 const TEMP_ROOT = "/tmp/ryot-local-storage-temp-test";
 
-const localStorageLayer = LocalStorageService.layer.pipe(
-	Layer.provideMerge(HmacSigner.layer),
-	Layer.provide(
-		makeAppConfigLayer({
-			fileStorage: { localDir: ROOT, localTempDir: TEMP_ROOT },
-			server: { adminAccessToken: Redacted.make("local-test-secret") },
-		}),
+const localStorageLayer = Layer.provideMerge(
+	LocalStorageService.layer.pipe(
+		Layer.provideMerge(HmacSigner.layer),
+		Layer.provide(
+			makeAppConfigLayer({
+				fileStorage: { localDir: ROOT, localTempDir: TEMP_ROOT },
+				server: { adminAccessToken: Redacted.make("local-test-secret") },
+			}),
+		),
+		Layer.provideMerge(BunServices.layer),
 	),
-	Layer.provideMerge(BunServices.layer),
+	BunCrypto.layerSecureRandom,
 );
 
 layer(localStorageLayer)((test) => {

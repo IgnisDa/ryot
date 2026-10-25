@@ -1,5 +1,7 @@
+import { BunCrypto } from "@effect/platform-bun";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Redacted } from "effect";
 import { assert } from "vitest";
@@ -25,8 +27,8 @@ import type { NormalizedPlugin } from "./types";
 
 export const makeRevisionDatabaseLayer = (poolMax = 1) =>
 	Layer.unwrap(
-		Effect.sync(() => {
-			const name = `revision_test_${crypto.randomUUID().replaceAll("-", "")}`;
+		Effect.gen(function* () {
+			const name = `revision_test_${(yield* randomUuid).replaceAll("-", "")}`;
 			const databaseUrl = new URL(testDatabaseUrl());
 			const options = databaseUrl.searchParams.get("options");
 			databaseUrl.searchParams.set(
@@ -92,7 +94,7 @@ export const makeRevisionDatabaseLayer = (poolMax = 1) =>
 				Layer.provideMerge(makeConfigProviderLayer()),
 			);
 		}),
-	);
+	).pipe(Layer.provideMerge(BunCrypto.layerSecureRandom));
 
 export const revisionDatabaseLayer = makeRevisionDatabaseLayer();
 

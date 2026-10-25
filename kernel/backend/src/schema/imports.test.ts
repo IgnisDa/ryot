@@ -1,4 +1,5 @@
 import { expect, layer } from "@effect/vitest";
+import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -66,7 +67,7 @@ const execution = { operationIds: [], executionId: "execution", workflowName: "w
 
 const seedRun = Effect.fn(function* () {
 	const session = yield* DatabaseSession;
-	const runId = crypto.randomUUID();
+	const runId = yield* randomUuid;
 	yield* session.run((db) =>
 		db.insert(user).values({ id: runId, name: "Owner", email: `${runId}@example.test` }),
 	);

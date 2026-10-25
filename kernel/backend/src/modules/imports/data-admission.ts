@@ -19,6 +19,7 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
@@ -42,6 +43,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 	"@ryot-app/kernel-backend/modules/imports/data-admission/DataImportAdmission",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const repository = yield* ImportsRepository;
 			const uploads = yield* UploadIntentsService;
 			const fs = yield* FileSystem.FileSystem;
@@ -77,7 +79,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 					const scope = {
 						accountGeneration,
 						userId: input.userId,
-						runId: ImportRunId.make(crypto.randomUUID()),
+						runId: ImportRunId.make(yield* random.uuidV4()),
 					};
 					const bytes = new TextEncoder().encode(stableStringify(document));
 					const payload = yield* payloads.describe({ scope, bytes, id: "admitted-data" });
@@ -210,7 +212,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 				const submit = Effect.gen(function* () {
 					const claimId =
 						input.submissionKey === undefined
-							? crypto.randomUUID()
+							? yield* random.uuidV4()
 							: sha256(stableStringify([user.id, input.submissionKey, uploadTokenHash]));
 					const claim = yield* uploads
 						.claimTemporaryUpload(input.uploadToken, user.id, claimId)

@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -117,33 +118,36 @@ const repositoryLayer = scriptRepositoryLayer((id) => ({
 }));
 const artifactLayer = compiledArtifactsLayer(repositoryLayer);
 
-const queueLayer = Layer.mergeAll(
-	queueWorkflowLive,
-	artifactLayer,
-	Layer.succeed(SandboxDurableHostDispatcher, {
-		cancelInline: () => Effect.void,
-		dispatch: () => Effect.die("durable dispatch is not expected"),
-		settleInline: () => Effect.die("inline dispatch is not expected"),
-	}),
-	unusedKernelWorkflowReferencesLayer,
-).pipe(
-	Layer.provideMerge(
-		PersistedQueue.layer.pipe(
-			Layer.provide(
-				fairQueueStoreLayer({
-					prefix,
-					pollInterval: "10 millis",
-					flowOf: sandboxSchedulingKey,
-					capacity: sandboxLaneCapacity(2),
-				}),
+const queueLayer = Layer.provideMerge(
+	Layer.mergeAll(
+		queueWorkflowLive,
+		artifactLayer,
+		Layer.succeed(SandboxDurableHostDispatcher, {
+			cancelInline: () => Effect.void,
+			dispatch: () => Effect.die("durable dispatch is not expected"),
+			settleInline: () => Effect.die("inline dispatch is not expected"),
+		}),
+		unusedKernelWorkflowReferencesLayer,
+	).pipe(
+		Layer.provideMerge(
+			PersistedQueue.layer.pipe(
+				Layer.provide(
+					fairQueueStoreLayer({
+						prefix,
+						pollInterval: "10 millis",
+						flowOf: sandboxSchedulingKey,
+						capacity: sandboxLaneCapacity(2),
+					}),
+				),
 			),
 		),
+		Layer.provideMerge(workflowEngineTestLayer),
+		Layer.provideMerge(runtimeLayer),
+		Layer.provideMerge(controlLayer),
+		Layer.provideMerge(makeAppConfigLayer({ sandbox: { workerConcurrency: 2 } })),
+		Layer.provideMerge(testRedisServiceLayer),
 	),
-	Layer.provideMerge(workflowEngineTestLayer),
-	Layer.provideMerge(runtimeLayer),
-	Layer.provideMerge(controlLayer),
-	Layer.provideMerge(makeAppConfigLayer({ sandbox: { workerConcurrency: 2 } })),
-	Layer.provideMerge(testRedisServiceLayer),
+	BunCrypto.layerSecureRandom,
 );
 
 const eventually = <E, R>(check: Effect.Effect<boolean, E, R>) =>

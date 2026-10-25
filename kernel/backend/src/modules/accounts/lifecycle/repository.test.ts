@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
@@ -77,7 +78,12 @@ const recordingSessionLayer = Layer.unwrap(
 	}),
 );
 
-layer(UserLifecycleRepository.layer.pipe(Layer.provideMerge(recordingSessionLayer)))((test) => {
+layer(
+	Layer.provideMerge(
+		UserLifecycleRepository.layer.pipe(Layer.provideMerge(recordingSessionLayer)),
+		BunCrypto.layerSecureRandom,
+	),
+)((test) => {
 	test.effect("acquires the per-user lock before reading an active operation", () =>
 		Effect.gen(function* () {
 			const repository = yield* UserLifecycleRepository;

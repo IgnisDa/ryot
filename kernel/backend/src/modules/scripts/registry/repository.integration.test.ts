@@ -14,6 +14,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Effect, Exit, Layer, Option, Schema } from "effect";
@@ -110,7 +111,7 @@ const persistPackage = Effect.fn(function* (
 
 const createWorld = Effect.fn(function* (scope: Scope) {
 	const session = yield* DatabaseSession;
-	const slug = `pin-${crypto.randomUUID()}`;
+	const slug = `pin-${yield* randomUuid}`;
 	const userId = UserId.make(`user-${slug}`);
 	yield* session.run((db) =>
 		db
@@ -122,7 +123,7 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 				accountGeneration: `generation-${userId}`,
 			}),
 	);
-	const packageId = PluginPackageId.make(`test/${crypto.randomUUID()}`);
+	const packageId = PluginPackageId.make(`test/${yield* randomUuid}`);
 	const { pluginId, installationId } = yield* persistPackage(scope, userId, slug, "v1", packageId);
 	const [plugin] = yield* session.run((db) =>
 		db.select().from(schema.plugin).where(eq(schema.plugin.id, pluginId)),
@@ -812,7 +813,7 @@ describe("single-statement script pin resolution", () => {
 			Effect.gen(function* () {
 				const authority = yield* SandboxExecutionAuthority;
 				const repository = yield* SandboxRepository;
-				const slug = `kernel-repoint-${crypto.randomUUID()}`;
+				const slug = `kernel-repoint-${yield* randomUuid}`;
 				const original = yield* persistKernel(slug, "original");
 				const originalPin = yield* repository.getScriptPin(original.scriptId);
 				assert(originalPin);

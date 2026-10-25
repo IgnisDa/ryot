@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
@@ -9,8 +10,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { type SQL, sql } from "drizzle-orm";
-import { Deferred, Effect, Fiber } from "effect";
+import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { relationshipDatabaseLayer, userId } from "#modules/relationships/lifecycle.test-support";
@@ -69,7 +71,7 @@ const fixture = Effect.fnUntraced(function* () {
 			},
 		],
 	});
-	const id = crypto.randomUUID();
+	const id = yield* randomUuid;
 	const subjectId = EntityId.make(`${id}-subject`);
 	const sessionId = EntityId.make(`${id}-session`);
 	yield* run(sql`insert into entity(id, name, entity_schema_slug, properties)
@@ -138,7 +140,7 @@ const count = Effect.fnUntraced(function* (input: Fixture) {
 	return row.count;
 });
 
-layer(relationshipDatabaseLayer())((test) => {
+layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRandom))((test) => {
 	test.effect("rolls back duplicate absent-key creation after serializing the session", () =>
 		Effect.gen(function* () {
 			const input = yield* fixture();
@@ -375,7 +377,7 @@ layer(relationshipDatabaseLayer())((test) => {
 			Effect.gen(function* () {
 				const input = yield* fixture();
 				yield* seed(input);
-				const otherUser = `user-${crypto.randomUUID()}`;
+				const otherUser = `user-${yield* randomUuid}`;
 				yield* run(
 					sql`insert into "user"(id, name, email, account_generation) values (${otherUser}, 'Other user', ${`${otherUser}@example.test`}, 'fixture')`,
 				);

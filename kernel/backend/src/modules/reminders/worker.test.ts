@@ -4,6 +4,7 @@ import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
 import { AutomationExecutionId, EntityId, ReminderId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
@@ -358,7 +359,7 @@ layer(services)((test) => {
 			Effect.gen(function* () {
 				const input = yield* processingInput();
 				const session = yield* DatabaseSession;
-				const destination = EntityId.make(crypto.randomUUID());
+				const destination = EntityId.make(yield* randomUuid);
 				yield* session.run((db) =>
 					db
 						.insert(tables.entity)

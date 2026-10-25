@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
@@ -113,25 +114,28 @@ const instanceAdminLayer = (options: {
 	readonly errors?: Parameters<typeof fakeAuthLayer>[0];
 	readonly lifecycle?: Layer.Layer<UserLifecycleService>;
 }) =>
-	InstanceAdminService.layer.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				InstanceAdminRepository.layer,
-				makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
-				fakeAuthLayer(options.errors ?? {}),
-				Layer.succeed(RedisService, makeRedisMock()),
-				Layer.mock(EntitiesService)({
-					create: () =>
-						Effect.succeed(
-							partialFake<Effect.Success<ReturnType<EntitiesService["Service"]["create"]>>>({}),
-						),
-				}),
-				Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
-				Layer.mock(SavedViewsService)({}),
-				Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),
-				options.lifecycle ?? defaultUserLifecycleServiceLayer,
-			).pipe(Layer.provideMerge(selectingDatabaseLayer(options.rows))),
+	Layer.provideMerge(
+		InstanceAdminService.layer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					InstanceAdminRepository.layer,
+					makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
+					fakeAuthLayer(options.errors ?? {}),
+					Layer.succeed(RedisService, makeRedisMock()),
+					Layer.mock(EntitiesService)({
+						create: () =>
+							Effect.succeed(
+								partialFake<Effect.Success<ReturnType<EntitiesService["Service"]["create"]>>>({}),
+							),
+					}),
+					Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
+					Layer.mock(SavedViewsService)({}),
+					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),
+					options.lifecycle ?? defaultUserLifecycleServiceLayer,
+				).pipe(Layer.provideMerge(selectingDatabaseLayer(options.rows))),
+			),
 		),
+		BunCrypto.layerSecureRandom,
 	);
 
 describe("classifyAuthState", () => {

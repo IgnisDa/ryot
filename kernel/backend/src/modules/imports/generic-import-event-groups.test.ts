@@ -1,6 +1,8 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -25,7 +27,7 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	const fixture = yield* eventGroupFixture();
 	const revision = fixture.command.writeContext.pluginRevision;
 	assert(revision);
-	const runId = ImportRunId.make(crypto.randomUUID());
+	const runId = ImportRunId.make(yield* randomUuid);
 	const command = {
 		...rootLifecycleCommand({
 			source: "import",
@@ -129,10 +131,13 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 });
 
 layer(
-	Layer.mergeAll(
-		eventGroupWorkflowLayer,
-		Layer.mock(CollectionsService)({}),
-		Layer.mock(EntityImportWorkflowOperations)({}),
+	Layer.provideMerge(
+		Layer.mergeAll(
+			eventGroupWorkflowLayer,
+			Layer.mock(CollectionsService)({}),
+			Layer.mock(EntityImportWorkflowOperations)({}),
+		),
+		BunCrypto.layerSecureRandom,
 	),
 )((test) => {
 	test.effect(

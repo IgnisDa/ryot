@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import {
 	PluginInvocationError,
@@ -135,9 +136,12 @@ const invoke = (mode: "crash" | "reject") =>
 	);
 
 layer(
-	OperationsService.layer.pipe(
-		Layer.provide(IntegrationOperationScopeResolverLive),
-		Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
+	Layer.provideMerge(
+		OperationsService.layer.pipe(
+			Layer.provide(IntegrationOperationScopeResolverLive),
+			Layer.provideMerge(fakeLayer.pipe(Layer.provideMerge(realSandboxLayer()))),
+		),
+		BunCrypto.layerSecureRandom,
 	),
 	{ excludeTestServices: true },
 )((test) => {

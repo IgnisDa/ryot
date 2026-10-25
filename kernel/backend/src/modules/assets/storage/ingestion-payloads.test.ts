@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, FileSystem, Layer } from "effect";
@@ -11,7 +11,7 @@ import { makeAppConfigLayer } from "#testing/effect";
 
 import { IngestionPayloadError, IngestionPayloads } from "./ingestion-payloads";
 
-layer(BunServices.layer)((test) => {
+layer(Layer.provideMerge(BunServices.layer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
 		"recovers permanent bytes after working files are lost and refuses changed immutable content",
 		() =>

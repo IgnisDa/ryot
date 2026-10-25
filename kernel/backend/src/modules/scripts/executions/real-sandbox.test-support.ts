@@ -4,6 +4,7 @@ import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflo
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, FileSystem, Layer, Redacted, Ref } from "effect";
 import { PersistedQueue } from "effect/persistence";
@@ -69,7 +70,7 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 			const fs = yield* FileSystem.FileSystem;
 			const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-real-sandbox-" });
 			const root = yield* fs.realPath(temporaryRoot);
-			const prefix = `ryot:test:real-sandbox:${crypto.randomUUID()}:`;
+			const prefix = `ryot:test:real-sandbox:${yield* randomUuid}:`;
 			const installed = yield* Ref.make(
 				new Map<
 					string,

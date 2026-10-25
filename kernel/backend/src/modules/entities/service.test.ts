@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
@@ -30,6 +31,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
@@ -166,386 +168,394 @@ class FakeEntityLifecycle extends Context.Service<
 >()("@ryot-app/kernel-backend/modules/entities/service.test/FakeEntityLifecycle") {}
 
 const entitiesLayer = (options: TestOptions = {}) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const name = `entity_test_${crypto.randomUUID().replaceAll("-", "")}`;
-			const changePlans = yield* Ref.make(0);
-			const catalogLocks = yield* Ref.make(0);
-			const policyCalls = yield* Ref.make<ReadonlyArray<string>>([]);
-			const skippedPolicyTriggers = yield* Ref.make<ReadonlyArray<string>>([]);
-			const recordSchema: DefinitionSource["entitySchemas"][number] = {
-				slug,
-				pluginId: null,
-				name: "Record",
-				icon: "record",
-				eventSchemas: [
-					{ pluginId: null, name: "Progress", slug: "progress", propertiesSchema: { fields: {} } },
-				],
-				propertiesSchema: {
-					fields: {
-						image: managedAssetProperty,
-						title: { type: "string", label: "Title", description: "Title" },
-						code: { label: "Code", type: "string", immutable: true, description: "Code" },
-						score: {
-							type: "number",
-							label: "Score",
-							description: "Score",
-							normalize: { round: { scale: 2 } },
+	Layer.provideMerge(
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const name = `entity_test_${(yield* randomUuid).replaceAll("-", "")}`;
+				const changePlans = yield* Ref.make(0);
+				const catalogLocks = yield* Ref.make(0);
+				const policyCalls = yield* Ref.make<ReadonlyArray<string>>([]);
+				const skippedPolicyTriggers = yield* Ref.make<ReadonlyArray<string>>([]);
+				const recordSchema: DefinitionSource["entitySchemas"][number] = {
+					slug,
+					pluginId: null,
+					name: "Record",
+					icon: "record",
+					eventSchemas: [
+						{
+							pluginId: null,
+							name: "Progress",
+							slug: "progress",
+							propertiesSchema: { fields: {} },
+						},
+					],
+					propertiesSchema: {
+						fields: {
+							image: managedAssetProperty,
+							title: { type: "string", label: "Title", description: "Title" },
+							code: { label: "Code", type: "string", immutable: true, description: "Code" },
+							score: {
+								type: "number",
+								label: "Score",
+								description: "Score",
+								normalize: { round: { scale: 2 } },
+							},
 						},
 					},
-				},
-			};
-			const source: DefinitionSource = {
-				savedViews: [],
-				signalSchemas: [],
-				calendarSources: [],
-				relationshipSchemas: [],
-				entitySchemas: [
-					recordSchema,
-					...kernelDefinitionSource().entitySchemas,
-					...Array.from({ length: options.extraEntitySchemas ?? 0 }, (_, index) => ({
-						...recordSchema,
-						eventSchemas: [],
-						slug: EntitySchemaSlug.make(`record-${index}`),
-					})),
-				],
-			};
-			const base = Layer.mergeAll(
-				PluginRepository.layer,
-				PluginInstallationRepository.layer,
-				PluginConfigRevisions.layer,
-				PluginConfigEncryptionKey.layer,
-			);
-			const schemaActivated = Effect.map(
-				Ref.get(catalogLocks),
-				(count) =>
-					options.activateSchemaOnLock !== undefined && count >= options.activateSchemaOnLock,
-			);
-			const activated = <D extends { propertiesSchema: AppSchema }>(definition: D) =>
-				Effect.map(schemaActivated, (active) =>
-					active
-						? {
-								...definition,
-								propertiesSchema: {
-									...definition.propertiesSchema,
-									fields: {
-										...definition.propertiesSchema.fields,
-										activated: {
-											label: "Activated",
-											type: "boolean" as const,
-											description: "Activated",
-										},
-										score: {
-											label: "Score",
-											description: "Score",
-											type: "number" as const,
-											normalize: { round: { scale: 0 } },
+				};
+				const source: DefinitionSource = {
+					savedViews: [],
+					signalSchemas: [],
+					calendarSources: [],
+					relationshipSchemas: [],
+					entitySchemas: [
+						recordSchema,
+						...kernelDefinitionSource().entitySchemas,
+						...Array.from({ length: options.extraEntitySchemas ?? 0 }, (_, index) => ({
+							...recordSchema,
+							eventSchemas: [],
+							slug: EntitySchemaSlug.make(`record-${index}`),
+						})),
+					],
+				};
+				const base = Layer.mergeAll(
+					PluginRepository.layer,
+					PluginInstallationRepository.layer,
+					PluginConfigRevisions.layer,
+					PluginConfigEncryptionKey.layer,
+				);
+				const schemaActivated = Effect.map(
+					Ref.get(catalogLocks),
+					(count) =>
+						options.activateSchemaOnLock !== undefined && count >= options.activateSchemaOnLock,
+				);
+				const activated = <D extends { propertiesSchema: AppSchema }>(definition: D) =>
+					Effect.map(schemaActivated, (active) =>
+						active
+							? {
+									...definition,
+									propertiesSchema: {
+										...definition.propertiesSchema,
+										fields: {
+											...definition.propertiesSchema.fields,
+											activated: {
+												label: "Activated",
+												type: "boolean" as const,
+												description: "Activated",
+											},
+											score: {
+												label: "Score",
+												description: "Score",
+												type: "number" as const,
+												normalize: { round: { scale: 0 } },
+											},
 										},
 									},
-								},
-							}
-						: definition,
+								}
+							: definition,
+					);
+				const runtime =
+					options.activateSchemaOnLock === undefined
+						? Layer.merge(
+								PluginRuntimeResolver.layer.pipe(Layer.provide(base)),
+								DefinitionRepository.layer,
+							)
+						: Layer.merge(
+								Layer.mock(PluginRuntimeResolver)({
+									lockCatalog: () => Ref.update(catalogLocks, (count) => count + 1),
+								}),
+								Layer.effect(
+									DefinitionRepository,
+									Effect.map(DefinitionRepository.make, (definitions) => ({
+										...definitions,
+										findGlobalEntitySchema: (reference) =>
+											definitions
+												.findGlobalEntitySchema(reference)
+												.pipe(
+													Effect.flatMap((definition) =>
+														definition ? activated(definition) : Effect.succeed(null),
+													),
+												),
+										findUserEntitySchemas: (userId, references) =>
+											definitions.findUserEntitySchemas(userId, references).pipe(
+												Effect.flatMap((found) =>
+													Effect.forEach(Object.entries(found), ([key, definition]) =>
+														Effect.map(activated(definition), (value) => [key, value] as const),
+													),
+												),
+												Effect.map(Object.fromEntries),
+											),
+									})),
+								),
+							);
+				const repositories = Layer.mergeAll(
+					EntitiesRepository.layer.pipe(Layer.provide(Layer.merge(base, runtime))),
+					DomainWriteChecksLive,
+					EventsRepository.layer,
+					EventSchemaReader.layer.pipe(Layer.provide(runtime)),
+					AutomationTriggerRepository.layer,
 				);
-			const runtime =
-				options.activateSchemaOnLock === undefined
-					? Layer.merge(
-							PluginRuntimeResolver.layer.pipe(Layer.provide(base)),
-							DefinitionRepository.layer,
-						)
-					: Layer.merge(
-							Layer.mock(PluginRuntimeResolver)({
-								lockCatalog: () => Ref.update(catalogLocks, (count) => count + 1),
-							}),
-							Layer.effect(
-								DefinitionRepository,
-								Effect.map(DefinitionRepository.make, (definitions) => ({
-									...definitions,
-									findGlobalEntitySchema: (reference) =>
-										definitions
-											.findGlobalEntitySchema(reference)
-											.pipe(
-												Effect.flatMap((definition) =>
-													definition ? activated(definition) : Effect.succeed(null),
-												),
-											),
-									findUserEntitySchemas: (userId, references) =>
-										definitions.findUserEntitySchemas(userId, references).pipe(
-											Effect.flatMap((found) =>
-												Effect.forEach(Object.entries(found), ([key, definition]) =>
-													Effect.map(activated(definition), (value) => [key, value] as const),
-												),
-											),
-											Effect.map(Object.fromEntries),
-										),
-								})),
+				const ports = Layer.effect(
+					LifecyclePlanner,
+					Effect.gen(function* () {
+						const triggers = yield* AutomationTriggerRepository;
+						const session = yield* DatabaseSession;
+						const eventRepository = yield* EventsRepository;
+						return LifecyclePlanner.of(
+							withLifecycleBatchPlanning(
+								{
+									plan: ({ trigger }) =>
+										Effect.gen(function* () {
+											expect(yield* session.isTransactionActive).toBe(true);
+											if (options.noHooks) {
+												return noHooksFixture();
+											}
+											let blockedReason: null | AutomationBlockedReason = null;
+											if (trigger.kind.category === "request" && options.blocked) {
+												blockedReason = {
+													omittedHooks: [],
+													hasRequiredHooks: false,
+													code: "automation-limit-reached",
+												};
+											} else if (
+												trigger.kind.category === "change" &&
+												options.blockedRequiredChange
+											) {
+												blockedReason = {
+													omittedHooks: [],
+													hasRequiredHooks: true,
+													code: "automation-limit-reached",
+												};
+											}
+											const persisted = yield* triggers.insert({ ...trigger, blockedReason });
+											if (
+												options.lateEventOnDelete &&
+												trigger.scopeUserId !== null &&
+												trigger.payload?.resource === "event" &&
+												trigger.payload.category === "request" &&
+												trigger.payload.operation === "delete"
+											) {
+												const before = trigger.payload.draft;
+												yield* eventRepository.createEvent({
+													entityId: before.entityId,
+													eventSchemaPluginId: null,
+													userId: trigger.scopeUserId,
+													eventSchemaName: "Progress",
+													properties: before.properties,
+													id: EventId.make("late-cascade-event"),
+													eventSchemaSlug: before.eventSchemaSlug,
+													occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
+													...(before.sessionEntityId === null
+														? {}
+														: { sessionEntityId: before.sessionEntityId }),
+												});
+											}
+											const changePlanCount =
+												trigger.kind.category === "change"
+													? yield* Ref.updateAndGet(changePlans, (count) => count + 1)
+													: yield* Ref.get(changePlans);
+											if (
+												trigger.kind.category === "change" &&
+												options.deadlockOnce &&
+												changePlanCount === 1
+											) {
+												return yield* new DbError({
+													code: "40P01",
+													message: "Injected deadlock after insert",
+												});
+											}
+											if (
+												trigger.kind.category === "change" &&
+												(options.failChange === true || options.failChange === changePlanCount)
+											) {
+												return yield* new DbError({
+													message: "Injected planning failure after insert",
+												});
+											}
+											return {
+												runs: [],
+												wasCreated: true,
+												trigger: persisted,
+												backgroundJobIds: [],
+												policies:
+													trigger.kind.category === "request"
+														? (options.policies ?? []).map((_, index) => ({
+																position: index,
+																runId: AutomationRunId.make(`policy-${index}`),
+															}))
+														: [],
+											};
+										}),
+								},
+								200,
+								!options.noHooks,
 							),
 						);
-			const repositories = Layer.mergeAll(
-				EntitiesRepository.layer.pipe(Layer.provide(Layer.merge(base, runtime))),
-				DomainWriteChecksLive,
-				EventsRepository.layer,
-				EventSchemaReader.layer.pipe(Layer.provide(runtime)),
-				AutomationTriggerRepository.layer,
-			);
-			const ports = Layer.effect(
-				LifecyclePlanner,
-				Effect.gen(function* () {
-					const triggers = yield* AutomationTriggerRepository;
-					const session = yield* DatabaseSession;
-					const eventRepository = yield* EventsRepository;
-					return LifecyclePlanner.of(
-						withLifecycleBatchPlanning(
+					}),
+				).pipe(Layer.provide(repositories));
+				const execution = Layer.effect(
+					LifecycleExecution,
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						return withLifecycleDispatch(
 							{
-								plan: ({ trigger }) =>
+								skipQueuedPolicies: ({ triggerId }) =>
+									Ref.update(skippedPolicyTriggers, (all) => [...all, triggerId]),
+								after: ({ triggerId }) =>
 									Effect.gen(function* () {
-										expect(yield* session.isTransactionActive).toBe(true);
-										if (options.noHooks) {
-											return noHooksFixture();
-										}
-										let blockedReason: null | AutomationBlockedReason = null;
-										if (trigger.kind.category === "request" && options.blocked) {
-											blockedReason = {
-												omittedHooks: [],
-												hasRequiredHooks: false,
-												code: "automation-limit-reached",
-											};
-										} else if (
-											trigger.kind.category === "change" &&
-											options.blockedRequiredChange
-										) {
-											blockedReason = {
-												omittedHooks: [],
-												hasRequiredHooks: true,
-												code: "automation-limit-reached",
-											};
-										}
-										const persisted = yield* triggers.insert({ ...trigger, blockedReason });
-										if (
-											options.lateEventOnDelete &&
-											trigger.scopeUserId !== null &&
-											trigger.payload?.resource === "event" &&
-											trigger.payload.category === "request" &&
-											trigger.payload.operation === "delete"
-										) {
-											const before = trigger.payload.draft;
-											yield* eventRepository.createEvent({
-												entityId: before.entityId,
-												eventSchemaPluginId: null,
-												userId: trigger.scopeUserId,
-												eventSchemaName: "Progress",
-												properties: before.properties,
-												id: EventId.make("late-cascade-event"),
-												eventSchemaSlug: before.eventSchemaSlug,
-												occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
-												...(before.sessionEntityId === null
-													? {}
-													: { sessionEntityId: before.sessionEntityId }),
-											});
-										}
-										const changePlanCount =
-											trigger.kind.category === "change"
-												? yield* Ref.updateAndGet(changePlans, (count) => count + 1)
-												: yield* Ref.get(changePlans);
-										if (
-											trigger.kind.category === "change" &&
-											options.deadlockOnce &&
-											changePlanCount === 1
-										) {
-											return yield* new DbError({
-												code: "40P01",
-												message: "Injected deadlock after insert",
-											});
-										}
-										if (
-											trigger.kind.category === "change" &&
-											(options.failChange === true || options.failChange === changePlanCount)
-										) {
-											return yield* new DbError({
-												message: "Injected planning failure after insert",
-											});
-										}
-										return {
-											runs: [],
-											wasCreated: true,
-											trigger: persisted,
-											backgroundJobIds: [],
-											policies:
-												trigger.kind.category === "request"
-													? (options.policies ?? []).map((_, index) => ({
-															position: index,
-															runId: AutomationRunId.make(`policy-${index}`),
-														}))
-													: [],
-										};
-									}),
-							},
-							200,
-							!options.noHooks,
-						),
-					);
-				}),
-			).pipe(Layer.provide(repositories));
-			const execution = Layer.effect(
-				LifecycleExecution,
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					return withLifecycleDispatch(
-						{
-							skipQueuedPolicies: ({ triggerId }) =>
-								Ref.update(skippedPolicyTriggers, (all) => [...all, triggerId]),
-							after: ({ triggerId }) =>
-								Effect.gen(function* () {
-									expect(yield* session.isTransactionActive).toBe(false);
-									const [trigger] = yield* session.run((db) =>
-										db
-											.select()
-											.from(tables.automationTrigger)
-											.where(eq(tables.automationTrigger.id, triggerId)),
-									);
-									assert(trigger);
-									expect(trigger.category).toBe("change");
-									return options.warnings ?? [];
-								}).pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
-							executePolicy: ({ runId, acceptedPatches }) =>
-								Effect.gen(function* () {
-									yield* Ref.update(policyCalls, (all) => [...all, runId]);
-									expect(yield* session.isTransactionActive).toBe(false);
-									const requests = yield* session
-										.run((db) =>
+										expect(yield* session.isTransactionActive).toBe(false);
+										const [trigger] = yield* session.run((db) =>
 											db
 												.select()
 												.from(tables.automationTrigger)
-												.where(eq(tables.automationTrigger.category, "request")),
-										)
-										.pipe(Effect.orDie);
-									expect(requests.length).toBeGreaterThan(0);
-									const index = Number(runId.split("-")[1]);
-									if (index === 1) {
-										expect(acceptedPatches).toEqual([
-											{
-												resource: "entity",
-												draft: {
-													name: "First",
-													properties: { remove: [], set: { title: "first" } },
-												},
-											},
-										]);
-									}
-									const output = options.policies?.[index];
-									assert(output);
-									if (options.policyEntityProvenance) {
-										const provenance = options.policyEntityProvenance;
-										yield* session
+												.where(eq(tables.automationTrigger.id, triggerId)),
+										);
+										assert(trigger);
+										expect(trigger.category).toBe("change");
+										return options.warnings ?? [];
+									}).pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
+								executePolicy: ({ runId, acceptedPatches }) =>
+									Effect.gen(function* () {
+										yield* Ref.update(policyCalls, (all) => [...all, runId]);
+										expect(yield* session.isTransactionActive).toBe(false);
+										const requests = yield* session
 											.run((db) =>
 												db
-													.update(tables.entity)
-													.set({ externalId: "policy-source", providerId: provenance.providerId })
-													.where(eq(tables.entity.id, provenance.entityId)),
+													.select()
+													.from(tables.automationTrigger)
+													.where(eq(tables.automationTrigger.category, "request")),
 											)
 											.pipe(Effect.orDie);
-									}
-									if (output === "fail") {
-										return yield* new AutomationPolicyExecutionError({
-											runId,
-											code: "policy-execution-failed",
-										});
-									}
-									return output;
-								}),
-						},
-						session,
-					);
-				}),
-			);
-			const eventsService = EventsService.layer.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						WorkflowExecutionNotifications.layer,
-						repositories,
-						ports,
-						execution,
-						Layer.succeed(
-							WorkflowEngine,
-							makeWorkflowEngine({
-								activityExecute: (activity) =>
-									Effect.map(
-										Effect.exit(activity.execute),
-										(exit) => new Workflow.Complete({ exit }),
-									),
-							}),
-						),
-					),
-				),
-			);
-			const services = Layer.mergeAll(
-				repositories,
-				EntitiesService.layer.pipe(
+										expect(requests.length).toBeGreaterThan(0);
+										const index = Number(runId.split("-")[1]);
+										if (index === 1) {
+											expect(acceptedPatches).toEqual([
+												{
+													resource: "entity",
+													draft: {
+														name: "First",
+														properties: { remove: [], set: { title: "first" } },
+													},
+												},
+											]);
+										}
+										const output = options.policies?.[index];
+										assert(output);
+										if (options.policyEntityProvenance) {
+											const provenance = options.policyEntityProvenance;
+											yield* session
+												.run((db) =>
+													db
+														.update(tables.entity)
+														.set({ externalId: "policy-source", providerId: provenance.providerId })
+														.where(eq(tables.entity.id, provenance.entityId)),
+												)
+												.pipe(Effect.orDie);
+										}
+										if (output === "fail") {
+											return yield* new AutomationPolicyExecutionError({
+												runId,
+												code: "policy-execution-failed",
+											});
+										}
+										return output;
+									}),
+							},
+							session,
+						);
+					}),
+				);
+				const eventsService = EventsService.layer.pipe(
 					Layer.provide(
 						Layer.mergeAll(
+							WorkflowExecutionNotifications.layer,
 							repositories,
 							ports,
 							execution,
-							eventsService,
-							emptyEntityUserDataAttachments,
+							Layer.succeed(
+								WorkflowEngine,
+								makeWorkflowEngine({
+									activityExecute: (activity) =>
+										Effect.map(
+											Effect.exit(activity.execute),
+											(exit) => new Workflow.Complete({ exit }),
+										),
+								}),
+							),
 						),
 					),
-				),
-			).pipe(
-				Layer.provideMerge(
-					recordingDatabaseLayer(options.recordStatements).pipe(
+				);
+				const services = Layer.mergeAll(
+					repositories,
+					EntitiesService.layer.pipe(
 						Layer.provide(
-							PgClient.layer({
-								url: Redacted.make(testDatabaseUrl()),
-								maxConnections: options.recordStatements ? 4 : 1,
-								startupParameters: { search_path: `${name}, public` },
-							}),
+							Layer.mergeAll(
+								repositories,
+								ports,
+								execution,
+								eventsService,
+								emptyEntityUserDataAttachments,
+							),
 						),
 					),
-				),
-				Layer.provide(
-					makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(testDatabaseUrl()) } }),
-				),
-			);
-			const schema = Layer.effectDiscard(
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const statements = yield* baselineMigrationStatements();
-					yield* Effect.acquireRelease(
-						session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
-						() =>
-							session
-								.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
-								.pipe(Effect.orDie),
-					);
-					yield* session.run((db) =>
-						Effect.gen(function* () {
-							yield* db.execute(sql`set search_path to ${sql.identifier(name)}, public`);
-							yield* applyBaselineMigration(statements, (statement) =>
-								db.execute(sql.raw(statement)),
-							);
-						}),
-					);
-					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
-					yield* session.run((db) =>
-						db
-							.insert(tables.user)
-							.values({
-								id: owner,
-								name: "Owner",
-								email: "owner@example.test",
-								accountGeneration: "test-account-generation",
+				).pipe(
+					Layer.provideMerge(
+						recordingDatabaseLayer(options.recordStatements).pipe(
+							Layer.provide(
+								PgClient.layer({
+									url: Redacted.make(testDatabaseUrl()),
+									maxConnections: options.recordStatements ? 4 : 1,
+									startupParameters: { search_path: `${name}, public` },
+								}),
+							),
+						),
+					),
+					Layer.provide(
+						makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(testDatabaseUrl()) } }),
+					),
+				);
+				const schema = Layer.effectDiscard(
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						const statements = yield* baselineMigrationStatements();
+						yield* Effect.acquireRelease(
+							session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
+							() =>
+								session
+									.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
+									.pipe(Effect.orDie),
+						);
+						yield* session.run((db) =>
+							Effect.gen(function* () {
+								yield* db.execute(sql`set search_path to ${sql.identifier(name)}, public`);
+								yield* applyBaselineMigration(statements, (statement) =>
+									db.execute(sql.raw(statement)),
+								);
 							}),
-					);
-				}),
-			);
-			return Layer.mergeAll(
-				schema,
-				Layer.succeed(FakeEntityLifecycle, {
-					policyCalls: Ref.get(policyCalls),
-					skippedPolicyTriggers: Ref.get(skippedPolicyTriggers),
-				}),
-			).pipe(Layer.provideMerge(services), Layer.provideMerge(makeConfigProviderLayer()));
-		}),
+						);
+						yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
+						yield* session.run((db) =>
+							db
+								.insert(tables.user)
+								.values({
+									id: owner,
+									name: "Owner",
+									email: "owner@example.test",
+									accountGeneration: "test-account-generation",
+								}),
+						);
+					}),
+				);
+				return Layer.mergeAll(
+					schema,
+					Layer.succeed(FakeEntityLifecycle, {
+						policyCalls: Ref.get(policyCalls),
+						skippedPolicyTriggers: Ref.get(skippedPolicyTriggers),
+					}),
+				).pipe(Layer.provideMerge(services), Layer.provideMerge(makeConfigProviderLayer()));
+			}),
+		),
+		BunCrypto.layerSecureRandom,
 	);
 
 const proposal = (name: string, properties: { title: string }) => ({

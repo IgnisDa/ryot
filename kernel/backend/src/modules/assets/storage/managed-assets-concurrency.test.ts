@@ -3,6 +3,7 @@ import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/sche
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
@@ -42,7 +43,7 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* ManagedAssetsRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
 			yield* session.run((db) =>
 				db
@@ -72,7 +73,7 @@ layer(testLayer)((test) => {
 			const session = yield* DatabaseSession;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const repository = yield* ManagedAssetsRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
 			yield* session.run((db) =>
 				db
@@ -146,7 +147,7 @@ layer(referenceTestLayer)((test) => {
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const repository = yield* ManagedAssetsRepository;
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
 			const entitySchemaSlug = `owned-asset-${ownerUserId}`;
 			yield* session.run((db) =>
@@ -223,7 +224,7 @@ layer(referenceTestLayer)((test) => {
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const references = yield* ManagedAssetReferencesRepository;
-			const ownerUserId = UserId.make(crypto.randomUUID());
+			const ownerUserId = UserId.make(yield* randomUuid);
 			const locator: ManagedAssetLocator = { type: "s3", key: `permanent/${ownerUserId}.png` };
 			yield* session.run((db) =>
 				db

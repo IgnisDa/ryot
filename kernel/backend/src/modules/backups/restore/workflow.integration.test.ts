@@ -1,11 +1,12 @@
 import { tmpdir } from "node:os";
 
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunCrypto, BunFileSystem } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect";
@@ -237,7 +238,7 @@ const operationsLayer = RestoreBackupWorkflowOperationsLive.pipe(
 
 const prepare = Effect.fnUntraced(function* (scenario: Scenario) {
 	const database = yield* DatabaseSession;
-	const userId = UserId.make(crypto.randomUUID());
+	const userId = UserId.make(yield* randomUuid);
 	yield* database.run((db) =>
 		db
 			.insert(user)
@@ -312,7 +313,7 @@ const streamState = (userId: UserId) =>
 		return stream;
 	});
 
-layer(operationsLayer)((test) => {
+layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect("commits historical data and completion before unavailable cleanup or replay", () =>
 		Effect.gen(function* () {
 			const payload = yield* prepare("success");

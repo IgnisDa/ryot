@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, describe, expect, layer } from "@effect/vitest";
 import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watches/contract";
 import {
@@ -7,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { stringMatching } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
 import * as Socket from "effect/socket/Socket";
 import { TestClock } from "effect/testing";
@@ -122,90 +124,95 @@ const makeLayer = (
 		readonly replaceOutcome?: "applied" | "limit-exceeded" | "revision-mismatch";
 	} = {},
 ) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const impersonationExpiresAt = yield* Ref.make<null | number>(null);
-			const activity = yield* Ref.make<ReadonlyArray<string>>([]);
-			const replacements = yield* Ref.make(0);
-			const reconciliationGate = yield* Deferred.make<void>();
-			const replaceGate = yield* Deferred.make<void>();
-			const replaceStarted = yield* Deferred.make<void>();
-			const record = (entry: string) => Ref.update(activity, (all) => [...all, entry]);
-			return Layer.mergeAll(
-				Layer.mock(EntityWatchTicketService)({
-					consume: () =>
-						Effect.gen(function* () {
-							const principal = {
-								preferredLanguage: "es",
-								userId: UserId.make("user-1"),
-								accountGeneration: {
+	Layer.provideMerge(
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const impersonationExpiresAt = yield* Ref.make<null | number>(null);
+				const activity = yield* Ref.make<ReadonlyArray<string>>([]);
+				const replacements = yield* Ref.make(0);
+				const reconciliationGate = yield* Deferred.make<void>();
+				const replaceGate = yield* Deferred.make<void>();
+				const replaceStarted = yield* Deferred.make<void>();
+				const record = (entry: string) => Ref.update(activity, (all) => [...all, entry]);
+				return Layer.mergeAll(
+					Layer.mock(EntityWatchTicketService)({
+						consume: () =>
+							Effect.gen(function* () {
+								const principal = {
+									preferredLanguage: "es",
 									userId: UserId.make("user-1"),
-									token: "test-account-generation",
-								},
-							};
-							if (options.impersonationExpiresInMs === undefined) {
-								return principal;
-							}
-							const expiresAt = (yield* Clock.currentTimeMillis) + options.impersonationExpiresInMs;
-							yield* Ref.set(impersonationExpiresAt, expiresAt);
-							return { ...principal, impersonation: { expiresAt, sessionId: "auth-session-1" } };
-						}),
-				}),
-				Layer.mock(ImpersonationSessions)({
-					getActive: (sessionId, userId) =>
-						record(`auth-session-check:${sessionId}:${userId}`).pipe(
-							Effect.andThen(Ref.get(impersonationExpiresAt)),
-							Effect.map((expiresAt) =>
-								options.activeImpersonation === "missing" || expiresAt === null
-									? null
-									: { expiresAt },
+									accountGeneration: {
+										userId: UserId.make("user-1"),
+										token: "test-account-generation",
+									},
+								};
+								if (options.impersonationExpiresInMs === undefined) {
+									return principal;
+								}
+								const expiresAt =
+									(yield* Clock.currentTimeMillis) + options.impersonationExpiresInMs;
+								yield* Ref.set(impersonationExpiresAt, expiresAt);
+								return { ...principal, impersonation: { expiresAt, sessionId: "auth-session-1" } };
+							}),
+					}),
+					Layer.mock(ImpersonationSessions)({
+						getActive: (sessionId, userId) =>
+							record(`auth-session-check:${sessionId}:${userId}`).pipe(
+								Effect.andThen(Ref.get(impersonationExpiresAt)),
+								Effect.map((expiresAt) =>
+									options.activeImpersonation === "missing" || expiresAt === null
+										? null
+										: { expiresAt },
+								),
 							),
-						),
-				}),
-				Layer.mock(EntityWatchStore)({
-					renewSession: () => Effect.succeed(true),
-					closeSession: (sessionId) => record(`close:${sessionId}`).pipe(Effect.as(true)),
-					openSession: ({ sessionId }) => record(`open:${sessionId}`).pipe(Effect.as(undefined)),
-					markReconciled: ({ pending }) => Effect.succeed(pending.map(({ entityId }) => entityId)),
-					replaceInterest: ({ revision }) =>
-						Effect.gen(function* () {
-							yield* Ref.update(replacements, (count) => count + 1);
-							yield* Deferred.succeed(replaceStarted, undefined);
-							if (options.holdReplace) {
-								yield* Deferred.await(replaceGate);
-							}
-							if (options.replaceOutcome === "limit-exceeded") {
-								return { status: "limit-exceeded" as const };
-							}
-							if (options.replaceOutcome === "revision-mismatch") {
-								return { status: "revision-mismatch" as const };
-							}
-							return {
-								revision,
-								status: "applied" as const,
-								pending: [{ revision, entityId: "entity-1", priority: "visible" as const }],
-							};
-						}),
-				}),
-				Layer.mock(InterestService)({
-					reconcile: () => Deferred.await(reconciliationGate).pipe(Effect.as([])),
-				}),
-				Layer.mock(LocalInterestSessions)({
-					remove: (sessionId) => record(`remove:${sessionId}`),
-					add: (sessionId, _enqueue, revocation) =>
-						record(
-							revocation === undefined
-								? `add:${sessionId}`
-								: `add:${sessionId}:auth:${revocation.authSessionId}`,
-						),
-				}),
-				Layer.succeed(FakeSessionDependencies, {
-					activity: Ref.get(activity),
-					replacements: Ref.get(replacements),
-					replaceStarted: Deferred.await(replaceStarted),
-				}),
-			);
-		}),
+					}),
+					Layer.mock(EntityWatchStore)({
+						renewSession: () => Effect.succeed(true),
+						closeSession: (sessionId) => record(`close:${sessionId}`).pipe(Effect.as(true)),
+						openSession: ({ sessionId }) => record(`open:${sessionId}`).pipe(Effect.as(undefined)),
+						markReconciled: ({ pending }) =>
+							Effect.succeed(pending.map(({ entityId }) => entityId)),
+						replaceInterest: ({ revision }) =>
+							Effect.gen(function* () {
+								yield* Ref.update(replacements, (count) => count + 1);
+								yield* Deferred.succeed(replaceStarted, undefined);
+								if (options.holdReplace) {
+									yield* Deferred.await(replaceGate);
+								}
+								if (options.replaceOutcome === "limit-exceeded") {
+									return { status: "limit-exceeded" as const };
+								}
+								if (options.replaceOutcome === "revision-mismatch") {
+									return { status: "revision-mismatch" as const };
+								}
+								return {
+									revision,
+									status: "applied" as const,
+									pending: [{ revision, entityId: "entity-1", priority: "visible" as const }],
+								};
+							}),
+					}),
+					Layer.mock(InterestService)({
+						reconcile: () => Deferred.await(reconciliationGate).pipe(Effect.as([])),
+					}),
+					Layer.mock(LocalInterestSessions)({
+						remove: (sessionId) => record(`remove:${sessionId}`),
+						add: (sessionId, _enqueue, revocation) =>
+							record(
+								revocation === undefined
+									? `add:${sessionId}`
+									: `add:${sessionId}:auth:${revocation.authSessionId}`,
+							),
+					}),
+					Layer.succeed(FakeSessionDependencies, {
+						activity: Ref.get(activity),
+						replacements: Ref.get(replacements),
+						replaceStarted: Deferred.await(replaceStarted),
+					}),
+				);
+			}),
+		),
+		BunCrypto.layerSecureRandom,
 	);
 
 class MarkAttempts extends Context.Service<
@@ -213,54 +220,64 @@ class MarkAttempts extends Context.Service<
 	{ readonly attempted: Effect.Effect<void> }
 >()("@ryot-app/kernel-backend/modules/entities/watches/socket-session.test/MarkAttempts") {}
 
-const obsoleteTokenLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const markAttempted = yield* Deferred.make<void>();
-		return Layer.mergeAll(
-			Layer.mock(EntityWatchTicketService)({
-				consume: () =>
-					Effect.succeed({
-						preferredLanguage: null,
-						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-					}),
-			}),
-			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityWatchStore)({
-				closeSession: () => Effect.succeed(true),
-				renewSession: () => Effect.succeed(true),
-				openSession: () => Effect.void.pipe(Effect.as(undefined)),
-				markReconciled: () => Deferred.succeed(markAttempted, undefined).pipe(Effect.as([])),
-				replaceInterest: () =>
-					Effect.succeed({
-						revision: 1,
-						status: "applied" as const,
-						pending: [{ revision: 1, entityId: "entity-1", priority: "visible" as const }],
-					}),
-			}),
-			Layer.mock(InterestService)({
-				reconcile: () =>
-					Effect.succeed([
-						{
-							pending: { revision: 1, entityId: "entity-1", priority: "visible" as const },
-							message: {
-								reason: "populated" as const,
-								type: "entity-updated" as const,
-								entityId: EntityId.make("entity-1"),
+const obsoleteTokenLayer = Layer.provideMerge(
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const markAttempted = yield* Deferred.make<void>();
+			return Layer.mergeAll(
+				Layer.mock(EntityWatchTicketService)({
+					consume: () =>
+						Effect.succeed({
+							preferredLanguage: null,
+							userId: UserId.make("user-1"),
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
 							},
-						},
-					]),
-			}),
-			Layer.mock(LocalInterestSessions)({ add: () => Effect.void, remove: () => Effect.void }),
-			Layer.succeed(MarkAttempts, { attempted: Deferred.await(markAttempted) }),
-		);
-	}),
+						}),
+				}),
+				Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
+				Layer.mock(EntityWatchStore)({
+					closeSession: () => Effect.succeed(true),
+					renewSession: () => Effect.succeed(true),
+					openSession: () => Effect.void.pipe(Effect.as(undefined)),
+					markReconciled: () => Deferred.succeed(markAttempted, undefined).pipe(Effect.as([])),
+					replaceInterest: () =>
+						Effect.succeed({
+							revision: 1,
+							status: "applied" as const,
+							pending: [{ revision: 1, entityId: "entity-1", priority: "visible" as const }],
+						}),
+				}),
+				Layer.mock(InterestService)({
+					reconcile: () =>
+						Effect.succeed([
+							{
+								pending: { revision: 1, entityId: "entity-1", priority: "visible" as const },
+								message: {
+									reason: "populated" as const,
+									type: "entity-updated" as const,
+									entityId: EntityId.make("entity-1"),
+								},
+							},
+						]),
+				}),
+				Layer.mock(LocalInterestSessions)({ add: () => Effect.void, remove: () => Effect.void }),
+				Layer.succeed(MarkAttempts, { attempted: Deferred.await(markAttempted) }),
+			);
+		}),
+	),
+	BunCrypto.layerSecureRandom,
 );
 
 describe("entity interest socket session", () => {
-	layer(EntityWatchStore.layer.pipe(Layer.provide(testRedisServiceLayer)), {
-		excludeTestServices: true,
-	})((test) => {
+	layer(
+		Layer.provideMerge(
+			EntityWatchStore.layer.pipe(Layer.provide(testRedisServiceLayer)),
+			BunCrypto.layerSecureRandom,
+		),
+		{ excludeTestServices: true },
+	)((test) => {
 		test.effect(
 			"drops real Redis output from removed and re-added interest before delivering its new token",
 			() =>
@@ -271,7 +288,7 @@ describe("entity interest socket session", () => {
 						const releaseFirst = yield* Deferred.make<void>();
 						const staleMarked = yield* Deferred.make<readonly string[]>();
 						const releaseLatest = yield* Deferred.make<void>();
-						const entityId = EntityId.make(`replacement-${crypto.randomUUID()}`);
+						const entityId = EntityId.make(`replacement-${yield* randomUuid}`);
 						const dependencies = Layer.mergeAll(
 							Layer.mock(EntityWatchTicketService)({
 								consume: () =>
@@ -408,7 +425,12 @@ describe("entity interest socket session", () => {
 		);
 	});
 
-	layer(makeLayer({ activeImpersonation: "missing", impersonationExpiresInMs: 60_000 }))((test) => {
+	layer(
+		Layer.provideMerge(
+			makeLayer({ activeImpersonation: "missing", impersonationExpiresInMs: 60_000 }),
+			BunCrypto.layerSecureRandom,
+		),
+	)((test) => {
 		test.effect("rechecks an impersonation session after local registration", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -436,14 +458,17 @@ describe("entity interest socket session", () => {
 	});
 
 	layer(
-		Layer.mergeAll(
-			Layer.mock(EntityWatchTicketService)({
-				consume: () => Effect.fail(new EntityWatchInvalidTicket()),
-			}),
-			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityWatchStore)({}),
-			Layer.mock(InterestService)({}),
-			Layer.mock(LocalInterestSessions)({}),
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.mock(EntityWatchTicketService)({
+					consume: () => Effect.fail(new EntityWatchInvalidTicket()),
+				}),
+				Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
+				Layer.mock(EntityWatchStore)({}),
+				Layer.mock(InterestService)({}),
+				Layer.mock(LocalInterestSessions)({}),
+			),
+			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
 		test.effect("uses the generic policy close for an invalid ticket", () =>
@@ -467,17 +492,20 @@ describe("entity interest socket session", () => {
 	});
 
 	layer(
-		Layer.mergeAll(
-			Layer.mock(EntityWatchTicketService)({
-				consume: () =>
-					Effect.fail(
-						new EntityWatchTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
-					),
-			}),
-			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityWatchStore)({}),
-			Layer.mock(InterestService)({}),
-			Layer.mock(LocalInterestSessions)({}),
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.mock(EntityWatchTicketService)({
+					consume: () =>
+						Effect.fail(
+							new EntityWatchTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
+						),
+				}),
+				Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
+				Layer.mock(EntityWatchStore)({}),
+				Layer.mock(InterestService)({}),
+				Layer.mock(LocalInterestSessions)({}),
+			),
+			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
 		test.effect("uses the internal-error close when the ticket store is unavailable", () =>
@@ -576,7 +604,12 @@ describe("entity interest socket session", () => {
 		);
 	});
 
-	layer(makeLayer({ replaceOutcome: "revision-mismatch" }))((test) => {
+	layer(
+		Layer.provideMerge(
+			makeLayer({ replaceOutcome: "revision-mismatch" }),
+			BunCrypto.layerSecureRandom,
+		),
+	)((test) => {
 		test.effect("closes on revision mismatch without processing another buffered command", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -598,7 +631,12 @@ describe("entity interest socket session", () => {
 		);
 	});
 
-	layer(makeLayer({ replaceOutcome: "limit-exceeded" }))((test) => {
+	layer(
+		Layer.provideMerge(
+			makeLayer({ replaceOutcome: "limit-exceeded" }),
+			BunCrypto.layerSecureRandom,
+		),
+	)((test) => {
 		test.effect("rejects over-limit commands without closing the session", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -768,12 +806,15 @@ describe("entity interest socket session", () => {
 	});
 
 	layer(
-		Layer.mergeAll(
-			Layer.mock(EntityWatchTicketService)({}),
-			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityWatchStore)({}),
-			Layer.mock(InterestService)({}),
-			Layer.mock(LocalInterestSessions)({}),
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.mock(EntityWatchTicketService)({}),
+				Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
+				Layer.mock(EntityWatchStore)({}),
+				Layer.mock(InterestService)({}),
+				Layer.mock(LocalInterestSessions)({}),
+			),
+			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
 		test.effect("closes unauthenticated sockets after exactly five seconds", () =>

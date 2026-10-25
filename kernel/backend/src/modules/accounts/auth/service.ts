@@ -41,6 +41,7 @@ import { verifyBearerToken } from "better-auth/oauth2";
 import { genericOAuth, jwt, twoFactor } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { Cause, Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 import { HttpServerRequest, type HttpServerResponse } from "effect/http";
 import type { HttpApiEndpoint } from "effect/http-api";
 import type Redis from "ioredis";
@@ -749,6 +750,7 @@ export class AuthService extends Context.Service<AuthService>()(
 	"@ryot-app/kernel-backend/modules/accounts/auth/service/AuthService",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const session = yield* DatabaseSession;
 			const config = yield* AppConfig;
 			const redis = yield* RedisService;
@@ -857,6 +859,7 @@ export class AuthService extends Context.Service<AuthService>()(
 			) {
 				return yield* captureResetLink({
 					email,
+					random,
 					transport: resetTransport,
 					frontendUrl: config.frontendUrl,
 					timeoutMs: RESET_LINK_TIMEOUT_MS,

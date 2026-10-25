@@ -1,5 +1,6 @@
 import { badRequest, type DbError, internalError } from "@ryot-app/contract/errors";
 import { Deferred, Effect, Schema } from "effect";
+import type { SecureRandom } from "effect/crypto";
 
 const captureHeader = "x-ryot-reset-capture-id";
 
@@ -65,6 +66,7 @@ export const captureResetLink = Effect.fn("AuthService.captureResetLink")(functi
 	readonly timeoutMs: number;
 	readonly frontendUrl: string;
 	readonly transport: ResetCaptureTransport;
+	readonly random: SecureRandom.SecureRandom["Service"];
 	readonly initiate: (request: Request) => Promise<Response>;
 }) {
 	return yield* Effect.scoped(
@@ -72,7 +74,7 @@ export const captureResetLink = Effect.fn("AuthService.captureResetLink")(functi
 			const runtime = yield* Effect.context();
 			const id = yield* Effect.acquireRelease(
 				Effect.gen(function* () {
-					const reservationId = crypto.randomUUID();
+					const reservationId = yield* args.random.uuidV4();
 					const reserved = yield* args.transport
 						.reserve(args.email, reservationId)
 						.pipe(Effect.mapError(() => internalError("Reset link reservation failed")));

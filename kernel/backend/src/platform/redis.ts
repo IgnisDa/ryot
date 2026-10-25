@@ -1,5 +1,6 @@
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
@@ -82,6 +83,7 @@ export class RedisService extends Context.Service<RedisService>()(
 	"@ryot-app/kernel-backend/platform/redis/RedisService",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const config = yield* AppConfig;
 			const client = new Redis(Redacted.value(config.redisUrl), {
 				lazyConnect: true,
@@ -143,7 +145,7 @@ export class RedisService extends Context.Service<RedisService>()(
 					).pipe(Effect.asVoid, Effect.orDie),
 				acquireLease: (key: string, ttlSeconds: number) =>
 					Effect.gen(function* () {
-						const owner = crypto.randomUUID();
+						const owner = yield* random.uuidV4();
 						const result = yield* Effect.tryPromise(() =>
 							client.set(key, owner, "EX", ttlSeconds, "NX"),
 						);

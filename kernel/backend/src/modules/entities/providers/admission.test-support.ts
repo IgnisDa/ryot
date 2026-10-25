@@ -1,4 +1,6 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sql } from "drizzle-orm";
 import { Effect, Layer, Redacted } from "effect";
 
@@ -15,8 +17,8 @@ export const bob = UserId.make("bob");
 
 /** The connection's search path points at a private schema, so code under test owns its transactions. */
 export const admissionDatabaseLayer = Layer.unwrap(
-	Effect.sync(() => {
-		const name = `admission_test_${crypto.randomUUID().replaceAll("-", "")}`;
+	Effect.gen(function* () {
+		const name = `admission_test_${(yield* randomUuid).replaceAll("-", "")}`;
 		const databaseUrl = new URL(testDatabaseUrl());
 		const options = databaseUrl.searchParams.get("options");
 		databaseUrl.searchParams.set(
@@ -65,4 +67,4 @@ export const admissionDatabaseLayer = Layer.unwrap(
 			makeConfigProviderLayer(),
 		).pipe(Layer.provideMerge(DatabaseSession.layer), Layer.provide(config));
 	}),
-);
+).pipe(Layer.provideMerge(BunCrypto.layerSecureRandom));

@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
@@ -11,6 +12,7 @@ import {
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq, inArray } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
@@ -143,9 +145,12 @@ const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
 			);
 		}),
 	).pipe(Layer.provideMerge(live));
-	return Layer.merge(UserCommandWorkflowDefinitionsLive, PolicyBatchWorkflowLive).pipe(
-		Layer.provideMerge(mutations),
-		Layer.provideMerge(workflowEngineTestLayer),
+	return Layer.provideMerge(
+		Layer.merge(UserCommandWorkflowDefinitionsLive, PolicyBatchWorkflowLive).pipe(
+			Layer.provideMerge(mutations),
+			Layer.provideMerge(workflowEngineTestLayer),
+		),
+		BunCrypto.layerSecureRandom,
 	);
 };
 
@@ -173,7 +178,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 			properties: {},
 			populatedAt: null,
 			name: "Existing target",
-			id: EntityId.make(crypto.randomUUID()),
+			id: EntityId.make(yield* randomUuid),
 			entitySchemaPluginId: installed.pluginId,
 			entitySchemaSlug: EntitySchemaSlug.make("record"),
 		},
@@ -212,7 +217,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 		session,
 		pluginId: installed.pluginId,
 		revisionId: installed.revisionId,
-		command: { ...command(crypto.randomUUID()), accountGeneration, writeContext: principal },
+		command: { ...command(yield* randomUuid), accountGeneration, writeContext: principal },
 	};
 });
 
@@ -477,7 +482,7 @@ layer(testLayer(false))((test) => {
 				input: matchingInput,
 				command: {
 					...matching.command,
-					...command(crypto.randomUUID()),
+					...command(yield* randomUuid),
 					writeContext: matching.command.writeContext,
 					accountGeneration: matching.command.accountGeneration,
 				},
@@ -535,7 +540,7 @@ layer(testLayer(false))((test) => {
 					input: racingInput,
 					command: {
 						...input.command,
-						...command(crypto.randomUUID()),
+						...command(yield* randomUuid),
 						writeContext: input.command.writeContext,
 						accountGeneration: input.command.accountGeneration,
 					},
@@ -583,7 +588,7 @@ layer(testLayer(false))((test) => {
 							input: staleInput,
 							command: {
 								...input.command,
-								...command(crypto.randomUUID()),
+								...command(yield* randomUuid),
 								writeContext: input.command.writeContext,
 								accountGeneration: input.command.accountGeneration,
 							},
@@ -688,7 +693,7 @@ layer(testLayer(false))((test) => {
 						input: commandInput,
 						command: {
 							...input.command,
-							...command(crypto.randomUUID()),
+							...command(yield* randomUuid),
 							writeContext: input.command.writeContext,
 							accountGeneration: input.command.accountGeneration,
 						},
@@ -908,7 +913,7 @@ layer(testLayer(false, true))((test) => {
 							...common,
 							entityId: child.id,
 							eventSchemaName: "Dependency",
-							id: EventId.make(crypto.randomUUID()),
+							id: EventId.make(yield* randomUuid),
 							properties: { child: child.id, parent: parent.id },
 							eventSchemaSlug: EventSchemaSlug.make("dependency"),
 						});
@@ -919,7 +924,7 @@ layer(testLayer(false, true))((test) => {
 							properties: {},
 							entityId: output.id,
 							eventSchemaName: "Summary",
-							id: EventId.make(crypto.randomUUID()),
+							id: EventId.make(yield* randomUuid),
 							eventSchemaSlug: EventSchemaSlug.make("summary"),
 						});
 					}
@@ -936,7 +941,7 @@ layer(testLayer(false, true))((test) => {
 										...common,
 										eventSchemaName: "Changed",
 										properties: { value: "Original" },
-										id: EventId.make(crypto.randomUUID()),
+										id: EventId.make(yield* randomUuid),
 										entityId: index < 50 ? first.id : last.id,
 										eventSchemaSlug: EventSchemaSlug.make("changed"),
 									});
@@ -976,7 +981,7 @@ layer(testLayer(false, true))((test) => {
 								eventSchemaPluginId: PluginId.make(input.pluginId),
 							},
 						});
-						const jobId = crypto.randomUUID();
+						const jobId = yield* randomUuid;
 						yield* input.session.run((db) =>
 							db
 								.insert(tables.backgroundWork)

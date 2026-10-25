@@ -10,6 +10,7 @@ import {
 	pluginPackageSegments,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import {
@@ -305,7 +306,7 @@ const startRun = Effect.fn(function* (
 		integration.pluginInstallationId,
 	);
 	assert(resolved?.script);
-	const runId = ImportRunId.make(`run-${crypto.randomUUID()}`);
+	const runId = ImportRunId.make(`run-${yield* randomUuid}`);
 	const pins = {
 		executionId: runId,
 		scriptId: resolved.script.id,

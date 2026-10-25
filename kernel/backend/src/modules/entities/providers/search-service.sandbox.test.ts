@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { ProviderEntityBadRequest } from "@ryot-app/contract/modules/entity-providers/schemas";
@@ -43,47 +44,50 @@ export default defineProvider({
 `;
 
 const searchLayer = (source: string) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const scripts = yield* RealSandboxScripts;
-			const installed = yield* scripts.install(source);
-			return ProviderEntitySearchService.layer.pipe(
-				Layer.provideMerge(
-					Layer.mock(PluginRuntimeResolver)({
-						resolveConfigKeyLabels: (_revisionId, keys) =>
-							Effect.succeed(keys.map((key) => (key === "apiKey" ? "Example API key" : key))),
-						findProviderAvailableToUser: () =>
-							Effect.succeed({
-								id: providerId,
-								name: "Failing",
-								createdAt: new Date(0),
-								updatedAt: new Date(0),
-								slug: "failing.provider",
-								pluginScope: "user" as const,
-								rootEntitySchemaSlug: "record",
-								information: { source: "failing" },
-								pluginId: installed.pluginRevision.id,
-							}),
-						resolveUserSearchScript: () =>
-							Effect.succeed({
-								source,
-								providerId,
-								compiledFormat: 1,
-								optionsSchema: null,
-								id: installed.scriptId,
-								name: "Failing search",
-								slug: "failing.search",
-								createdAt: new Date(0),
-								contentHash: installed.contentHash,
-								pluginId: installed.pluginRevision.id,
-								metadata: installed.compiled.manifest,
-								compiledCode: installed.compiled.javascript,
-								pluginRevisionId: installed.pluginRevision.revisionId,
-							}),
-					}),
-				),
-			);
-		}),
+	Layer.provideMerge(
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const scripts = yield* RealSandboxScripts;
+				const installed = yield* scripts.install(source);
+				return ProviderEntitySearchService.layer.pipe(
+					Layer.provideMerge(
+						Layer.mock(PluginRuntimeResolver)({
+							resolveConfigKeyLabels: (_revisionId, keys) =>
+								Effect.succeed(keys.map((key) => (key === "apiKey" ? "Example API key" : key))),
+							findProviderAvailableToUser: () =>
+								Effect.succeed({
+									id: providerId,
+									name: "Failing",
+									createdAt: new Date(0),
+									updatedAt: new Date(0),
+									slug: "failing.provider",
+									pluginScope: "user" as const,
+									rootEntitySchemaSlug: "record",
+									information: { source: "failing" },
+									pluginId: installed.pluginRevision.id,
+								}),
+							resolveUserSearchScript: () =>
+								Effect.succeed({
+									source,
+									providerId,
+									compiledFormat: 1,
+									optionsSchema: null,
+									id: installed.scriptId,
+									name: "Failing search",
+									slug: "failing.search",
+									createdAt: new Date(0),
+									contentHash: installed.contentHash,
+									pluginId: installed.pluginRevision.id,
+									metadata: installed.compiled.manifest,
+									compiledCode: installed.compiled.javascript,
+									pluginRevisionId: installed.pluginRevision.revisionId,
+								}),
+						}),
+					),
+				);
+			}),
+		),
+		BunCrypto.layerSecureRandom,
 	);
 
 const failingHost = (hostResult: ReturnType<typeof durableHostFailure>) =>
@@ -97,16 +101,19 @@ const search = Effect.gen(function* () {
 });
 
 layer(
-	searchLayer(providerSource('host.httpCall("GET", "https://example.test/search")')).pipe(
-		Layer.provideMerge(
-			failingHost(
-				durableHostFailure("Request failed with status 403", {
-					status: 403,
-					headers: {},
-					body: "forbidden",
-				}),
+	Layer.provideMerge(
+		searchLayer(providerSource('host.httpCall("GET", "https://example.test/search")')).pipe(
+			Layer.provideMerge(
+				failingHost(
+					durableHostFailure("Request failed with status 403", {
+						status: 403,
+						headers: {},
+						body: "forbidden",
+					}),
+				),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	),
 	{ excludeTestServices: true },
 )((test) => {
@@ -125,15 +132,18 @@ layer(
 });
 
 layer(
-	searchLayer(providerSource('host.getPluginConfig({ required: ["apiKey"] })')).pipe(
-		Layer.provideMerge(
-			failingHost(
-				durableHostFailure('Plugin config key "apiKey" is not configured for this execution', {
-					keys: ["apiKey"],
-					code: "missing-required-config",
-				}),
+	Layer.provideMerge(
+		searchLayer(providerSource('host.getPluginConfig({ required: ["apiKey"] })')).pipe(
+			Layer.provideMerge(
+				failingHost(
+					durableHostFailure('Plugin config key "apiKey" is not configured for this execution', {
+						keys: ["apiKey"],
+						code: "missing-required-config",
+					}),
+				),
 			),
 		),
+		BunCrypto.layerSecureRandom,
 	),
 	{ excludeTestServices: true },
 )((test) => {

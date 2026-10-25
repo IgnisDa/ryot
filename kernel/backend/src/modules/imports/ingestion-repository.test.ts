@@ -9,6 +9,7 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/br
 import { genericImportChunkOperationIds } from "@ryot-app/plugin-backend-sdk/imports";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
@@ -1363,13 +1364,13 @@ layer(
 						session.transaction(
 							repository.admitDataSubmission({
 								...input,
-								runId: ImportRunId.make(crypto.randomUUID()),
+								runId: ImportRunId.make(yield* randomUuid),
 							}),
 						),
 						session.transaction(
 							repository.admitDataSubmission({
 								...input,
-								runId: ImportRunId.make(crypto.randomUUID()),
+								runId: ImportRunId.make(yield* randomUuid),
 							}),
 						),
 					],
@@ -1381,7 +1382,7 @@ layer(
 					repository.admitDataSubmission({
 						...input,
 						digest: "changed-document",
-						runId: ImportRunId.make(crypto.randomUUID()),
+						runId: ImportRunId.make(yield* randomUuid),
 					}),
 				);
 				expect(changed).toEqual({ created: false, digest: "document", runId: admissions[0].runId });
@@ -1389,7 +1390,7 @@ layer(
 					repository.admitDataSubmission({
 						...input,
 						submissionKey: "new-data",
-						runId: ImportRunId.make(crypto.randomUUID()),
+						runId: ImportRunId.make(yield* randomUuid),
 					}),
 				);
 				expect(next.created).toBe(true);

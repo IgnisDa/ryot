@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import { Context, Effect, Layer } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { generateUserAvatar } from "#modules/accounts/auth/user-avatar";
@@ -9,6 +10,7 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 	"@ryot-app/kernel-backend/modules/accounts/preferences/service/UserSettingsService",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const auth = yield* AuthService;
 
 			const updatePreferences = Effect.fn("UserSettingsService.updatePreferences")(function* (
@@ -33,7 +35,7 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 			const refreshAvatar = Effect.fn("UserSettingsService.refreshAvatar")(function* (
 				user: CurrentUserValue,
 			) {
-				const image = generateUserAvatar(crypto.randomUUID());
+				const image = generateUserAvatar(yield* random.uuidV4());
 				yield* auth.updateUserImage(user.id, image);
 			});
 			return { refreshAvatar, updatePreferences };

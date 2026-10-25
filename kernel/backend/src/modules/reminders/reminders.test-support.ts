@@ -1,6 +1,7 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { CreateReminderBody } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
@@ -10,7 +11,7 @@ import * as tables from "#schema/tables/combined";
 
 export const reminderTestInput = Effect.fnUntraced(function* () {
 	const session = yield* DatabaseSession;
-	const id = UserId.make(crypto.randomUUID());
+	const id = UserId.make(yield* randomUuid);
 	const user = {
 		id,
 		image: null,
@@ -19,7 +20,7 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		accountGeneration: { userId: id, token: "generation" },
 		preferences: { language: null, reportingTimeZone: null, disableIntegrations: false },
 	} satisfies CurrentUserValue;
-	const entityId = EntityId.make(crypto.randomUUID());
+	const entityId = EntityId.make(yield* randomUuid);
 	yield* session.transaction(
 		Effect.gen(function* () {
 			yield* (yield* DefinitionRepository).replaceKernelDefinitions(kernelDefinitionSource());
@@ -54,7 +55,7 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		timezone: "Asia/Kolkata",
 		message: "  A reminder  ",
 		submittedAt: now.toISOString(),
-		idempotencyKey: crypto.randomUUID(),
+		idempotencyKey: yield* randomUuid,
 		dueAt: DateTime.formatIso(DateTime.addDuration(DateTime.makeUnsafe(now), "1 hour")),
 	};
 	return { user, body };

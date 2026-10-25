@@ -1,8 +1,10 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { stringMatching } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
@@ -33,7 +35,7 @@ const usePolicy = Effect.fnUntraced(function* (
 		requests: 1_000,
 		intervalMs: 1_000,
 		hash: "declaration-v1",
-		key: `test.${crypto.randomUUID()}`,
+		key: `test.${yield* randomUuid}`,
 		...overrides,
 	};
 	const { client } = yield* RedisService;
@@ -156,7 +158,9 @@ const range = (count: number) => Array.from({ length: count }, (_, index) => ind
 const grantNonce = (polled: ProviderHttpPoll) =>
 	polled.status === "granted" ? Effect.succeed(polled.nonce) : Effect.die("expected a grant");
 
-layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
+layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
+	excludeTestServices: true,
+})((test) => {
 	describe("http_admission_is_fair_across_instances_users_and_plugins", () => {
 		test.effect("alternates users within a round however many plugins one user rotates", () =>
 			Effect.scoped(

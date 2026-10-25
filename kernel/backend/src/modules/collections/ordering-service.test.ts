@@ -14,6 +14,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit, Layer } from "effect";
@@ -71,7 +72,7 @@ type FixtureOptions = {
 
 const makeFixture = Effect.fnUntraced(function* (options: FixtureOptions = {}) {
 	const session = yield* DatabaseSession;
-	const suffix = crypto.randomUUID().replaceAll("-", "");
+	const suffix = (yield* randomUuid).replaceAll("-", "");
 	const memberCount = options.memberCount ?? 5;
 	const seededMemberCount = options.seededMemberCount ?? memberCount;
 	const rankStep = options.rankStep ?? 100;
@@ -230,7 +231,7 @@ layer(orderingLayer)((test) => {
 							move.destination,
 							`move-${index}`,
 						),
-						lifecycleCommand(`${crypto.randomUUID()}-${index}`),
+						lifecycleCommand(`${yield* randomUuid}-${index}`),
 					);
 					revision += 1;
 					expect(result).toEqual({ orderRevision: revision, collectionId: fixture.collectionId });
@@ -239,7 +240,7 @@ layer(orderingLayer)((test) => {
 				const noOp = yield* ordering.reorder(
 					currentUser(ownerId),
 					reorderInput(fixture.collectionId, d, revision, { kind: "end" }, "already-at-end"),
-					lifecycleCommand(crypto.randomUUID()),
+					lifecycleCommand(yield* randomUuid),
 				);
 				expect(noOp.orderRevision).toBe(revision);
 				expect(yield* orderRevision(fixture.collectionId)).toBe(revision);
@@ -265,7 +266,7 @@ layer(orderingLayer)((test) => {
 				const [a, b, c] = fixture.memberIds;
 				assert(a && b && c);
 				const revision = yield* orderRevision(fixture.collectionId);
-				const command = lifecycleCommand(crypto.randomUUID());
+				const command = lifecycleCommand(yield* randomUuid);
 				const input = reorderInput(fixture.collectionId, a, revision, { kind: "end" }, "same-key");
 				const firstResult = yield* ordering.reorder(currentUser(ownerId), input, command);
 				const intervening = yield* ordering.reorder(
@@ -277,7 +278,7 @@ layer(orderingLayer)((test) => {
 						{ kind: "end" },
 						"intervening",
 					),
-					lifecycleCommand(crypto.randomUUID()),
+					lifecycleCommand(yield* randomUuid),
 				);
 				const laterOrder = yield* orderedMemberIds(fixture.collectionId);
 				expect(intervening.orderRevision).toBeGreaterThan(firstResult.orderRevision);
@@ -361,13 +362,13 @@ layer(orderingLayer)((test) => {
 					{ kind: "end" },
 					"right-change",
 				),
-				lifecycleCommand(crypto.randomUUID()),
+				lifecycleCommand(yield* randomUuid),
 			);
 			expect(changedRight.orderRevision).toBeGreaterThan(rightRevision);
 			const changedLeft = yield* ordering.reorder(
 				currentUser(ownerId),
 				reorderInput(left.collectionId, leftMember, leftRevision, { kind: "end" }, "left-change"),
-				lifecycleCommand(crypto.randomUUID()),
+				lifecycleCommand(yield* randomUuid),
 			);
 			expect(changedLeft.orderRevision).toBeGreaterThan(leftRevision);
 		}),
@@ -383,8 +384,8 @@ layer(orderingLayer)((test) => {
 				assert(member);
 				const revision = yield* orderRevision(fixture.collectionId);
 				const initialOrder = yield* orderedMemberIds(fixture.collectionId);
-				const missingMember = EntityId.make(`missing-member-${crypto.randomUUID()}`);
-				const missingAnchor = EntityId.make(`missing-anchor-${crypto.randomUUID()}`);
+				const missingMember = EntityId.make(`missing-member-${yield* randomUuid}`);
+				const missingAnchor = EntityId.make(`missing-anchor-${yield* randomUuid}`);
 				assertExitFails(
 					yield* Effect.exit(
 						ordering.reorder(
@@ -396,7 +397,7 @@ layer(orderingLayer)((test) => {
 								{ kind: "end" },
 								"missing-member",
 							),
-							lifecycleCommand(crypto.randomUUID()),
+							lifecycleCommand(yield* randomUuid),
 						),
 					),
 					new CollectionNotFound({
@@ -418,7 +419,7 @@ layer(orderingLayer)((test) => {
 								{ kind: "before", entityId: missingAnchor },
 								"missing-anchor",
 							),
-							lifecycleCommand(crypto.randomUUID()),
+							lifecycleCommand(yield* randomUuid),
 						),
 					),
 					new CollectionNotFound({
@@ -440,7 +441,7 @@ layer(orderingLayer)((test) => {
 								{ kind: "end" },
 								"foreign-owner",
 							),
-							lifecycleCommand(crypto.randomUUID(), recipientId),
+							lifecycleCommand(yield* randomUuid, recipientId),
 						),
 					),
 					new CollectionNotFound({
@@ -539,7 +540,7 @@ layer(orderingLayer)((test) => {
 							{ kind: "after", entityId: anchor },
 							`alternation-${index}`,
 						),
-						lifecycleCommand(`${crypto.randomUUID()}-${index}`),
+						lifecycleCommand(`${yield* randomUuid}-${index}`),
 					);
 					revision = result.orderRevision;
 				}
@@ -579,7 +580,7 @@ layer(orderingLayer)((test) => {
 					{ kind: "after", entityId: anchor },
 					"dense-middle",
 				),
-				lifecycleCommand(crypto.randomUUID()),
+				lifecycleCommand(yield* randomUuid),
 			);
 			const expectedOrder = [
 				...fixture.memberIds.slice(0, 311),
@@ -629,7 +630,7 @@ layer(orderingLayer)((test) => {
 							{ kind: "end" },
 							"deleted-stale",
 						),
-						lifecycleCommand(crypto.randomUUID()),
+						lifecycleCommand(yield* randomUuid),
 					),
 				),
 				new CollectionConflict({ reason: { code: "order-stale" } }),
@@ -659,7 +660,7 @@ layer(orderingLayer)((test) => {
 							{ kind: "end" },
 							"cascade-stale",
 						),
-						lifecycleCommand(crypto.randomUUID()),
+						lifecycleCommand(yield* randomUuid),
 					),
 				),
 				new CollectionConflict({ reason: { code: "order-stale" } }),
@@ -675,8 +676,8 @@ layer(orderingLayer)((test) => {
 				const fixture = yield* makeFixture({ memberCount: 2 });
 				const member = fixture.memberIds[0];
 				assert(member);
-				const pluginId = PluginId.make(`ordering-plugin-${crypto.randomUUID()}`);
-				const relationshipId = RelationshipId.make(`plugin-membership-${crypto.randomUUID()}`);
+				const pluginId = PluginId.make(`ordering-plugin-${yield* randomUuid}`);
+				const relationshipId = RelationshipId.make(`plugin-membership-${yield* randomUuid}`);
 				yield* session.run((db) =>
 					db
 						.insert(tables.plugin)

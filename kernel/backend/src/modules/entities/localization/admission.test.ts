@@ -5,6 +5,7 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -48,7 +49,7 @@ const harness = Effect.fnUntraced(function* (
 	const pinning = yield* SandboxWorkflowPinning;
 	const references = yield* SandboxWorkflowReferenceRepository;
 	const runtime = yield* PluginRuntimeResolver;
-	const slug = `translation-admission-${crypto.randomUUID()}`;
+	const slug = `translation-admission-${yield* randomUuid}`;
 	const original = revisionPackage(slug, "one", "record");
 	const declaration = {
 		...emptySandboxExecutionMetadata,
@@ -84,7 +85,7 @@ const harness = Effect.fnUntraced(function* (
 		owner: definitionOwner(installed.pluginId),
 	});
 	assert(provider);
-	const entityId = EntityId.make(`translation-${crypto.randomUUID()}`);
+	const entityId = EntityId.make(`translation-${yield* randomUuid}`);
 	const populatedAt = yield* DateTime.nowAsDate;
 	yield* session.run((db) =>
 		db

@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -44,18 +45,21 @@ const restartedConfigRevisionsLayer = Layer.effect(
 	),
 );
 
-const sharedDatabaseEncryptionKeyLayer = PluginConfigEncryptionKey.layer.pipe(
-	Layer.provideMerge(
-		Layer.unwrap(
-			Effect.sync(() =>
-				DatabaseSession.layer.pipe(
-					Layer.provide(
-						makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } }),
+const sharedDatabaseEncryptionKeyLayer = Layer.provideMerge(
+	PluginConfigEncryptionKey.layer.pipe(
+		Layer.provideMerge(
+			Layer.unwrap(
+				Effect.sync(() =>
+					DatabaseSession.layer.pipe(
+						Layer.provide(
+							makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } }),
+						),
 					),
 				),
 			),
 		),
 	),
+	BunCrypto.layerSecureRandom,
 );
 
 describe("persisted plugin configuration encryption key", () => {

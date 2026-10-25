@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq, inArray, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { assert } from "vitest";
@@ -50,7 +51,7 @@ const populated = new Date("2026-01-02T00:00:00.000Z");
 const future = new Date("2999-01-01T00:00:00.000Z");
 
 const installGraphPlugin = Effect.fn(function* () {
-	const slug = `graph-${crypto.randomUUID().slice(0, 8)}`;
+	const slug = `graph-${(yield* randomUuid).slice(0, 8)}`;
 	const plugin = revisionPackage(slug);
 	const endpoints = {
 		propertiesSchema: { fields: {} },
@@ -76,7 +77,7 @@ const installGraphPlugin = Effect.fn(function* () {
 	);
 	assert(provider);
 	const entity = Effect.fn(function* (checkAfter: Date = due) {
-		const id = crypto.randomUUID();
+		const id = yield* randomUuid;
 		yield* (yield* DatabaseSession).run((db) =>
 			db
 				.insert(tables.entity)
@@ -402,7 +403,7 @@ layer(testLayer)((test) => {
 		Effect.gen(function* () {
 			const graph = yield* installGraphPlugin();
 			const referenced = yield* graph.entity();
-			const slug = `reference-schema-${crypto.randomUUID()}`;
+			const slug = `reference-schema-${yield* randomUuid}`;
 			const session = yield* DatabaseSession;
 			yield* session.run((db) =>
 				db

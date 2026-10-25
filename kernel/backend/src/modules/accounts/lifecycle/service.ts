@@ -6,6 +6,7 @@ import {
 import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
+import { SecureRandom } from "effect/crypto";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -29,6 +30,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 	"@ryot-app/kernel-backend/modules/accounts/lifecycle/service/UserLifecycleService",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const auth = yield* AuthService;
 			const config = yield* AppConfig;
 			const database = yield* DatabaseSession;
@@ -178,11 +180,11 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 								return yield* repository.create({
 									kind,
 									userId,
-									id: crypto.randomUUID(),
+									id: yield* random.uuidV4(),
 									metadata: {
 										...preparation.metadata,
 										usesLocalAuth,
-										recreatedAccountId: crypto.randomUUID(),
+										recreatedAccountId: yield* random.uuidV4(),
 									},
 								});
 							}),

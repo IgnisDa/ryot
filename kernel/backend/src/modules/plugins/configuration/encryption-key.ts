@@ -1,6 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
 
 import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
 import { DatabaseSession } from "#platform/db/session";
@@ -86,6 +87,7 @@ export class PluginConfigEncryptionKey extends Context.Service<PluginConfigEncry
 	"@ryot-app/kernel-backend/modules/plugins/configuration/encryption-key/PluginConfigEncryptionKey",
 	{
 		make: Effect.gen(function* () {
+			const random = yield* SecureRandom.SecureRandom;
 			const repository = yield* PluginConfigEncryptionKeyRepository;
 			const database = yield* DatabaseSession;
 			const load = Effect.gen(function* () {
@@ -102,7 +104,7 @@ export class PluginConfigEncryptionKey extends Context.Service<PluginConfigEncry
 								});
 							}
 							const generated = yield* repository.insert({
-								id: crypto.randomUUID(),
+								id: yield* random.uuidV4(),
 								key: Buffer.from(crypto.getRandomValues(new Uint8Array(32))),
 							});
 							return createPluginConfigEncryption(generated);

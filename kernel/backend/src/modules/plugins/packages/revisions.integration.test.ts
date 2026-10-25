@@ -1,3 +1,4 @@
+import { BunCrypto } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
@@ -10,6 +11,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq, sql } from "drizzle-orm";
 import { ConfigProvider, Context, Effect, Layer, Redacted, Ref, Result } from "effect";
 import { assert, describe } from "vitest";
@@ -64,10 +66,13 @@ const pluginEnvironmentLayer = Layer.effectContext(
 
 describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 	layer(
-		services.pipe(
-			Layer.provideMerge(DatabaseSession.layer),
-			Layer.provide(config),
-			Layer.provideMerge(pluginEnvironmentLayer),
+		Layer.provideMerge(
+			services.pipe(
+				Layer.provideMerge(DatabaseSession.layer),
+				Layer.provide(config),
+				Layer.provideMerge(pluginEnvironmentLayer),
+			),
+			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
 		test.effect(
@@ -83,7 +88,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 					const configs = yield* PluginConfigRevisions;
 					const sandbox = yield* SandboxRepository;
 					const statements = yield* baselineMigrationStatements();
-					const name = `revision_validation_${crypto.randomUUID().replaceAll("-", "")}`;
+					const name = `revision_validation_${(yield* randomUuid).replaceAll("-", "")}`;
 					yield* session.run((transaction) =>
 						Effect.gen(function* () {
 							yield* transaction.execute(sql`create schema ${sql.identifier(name)}`);

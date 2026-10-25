@@ -5,6 +5,7 @@ import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -387,7 +388,7 @@ layer(userWorkDatabaseLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const repository = yield* BackgroundWorkRepository.make;
 			const session = yield* DatabaseSession;
-			const id = `user-work-replay-${crypto.randomUUID()}`;
+			const id = `user-work-replay-${yield* randomUuid}`;
 			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
 				backgroundWorkInput(fixture, {
 					id,
@@ -413,7 +414,7 @@ layer(userWorkDatabaseLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const repository = yield* BackgroundWorkRepository.make;
 			const session = yield* DatabaseSession;
-			const id = `user-work-changed-${crypto.randomUUID()}`;
+			const id = `user-work-changed-${yield* randomUuid}`;
 			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
 				backgroundWorkInput(fixture, {
 					id,
@@ -453,7 +454,7 @@ layer(userWorkDatabaseLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const repository = yield* BackgroundWorkRepository.make;
 			const session = yield* DatabaseSession;
-			const id = `user-work-scope-${crypto.randomUUID()}`;
+			const id = `user-work-scope-${yield* randomUuid}`;
 			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
 				backgroundWorkInput(fixture, {
 					id,
@@ -488,7 +489,7 @@ layer(userWorkDatabaseLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
 			const repository = yield* BackgroundWorkRepository.make;
-			const id = `user-work-owner-conflict-${crypto.randomUUID()}`;
+			const id = `user-work-owner-conflict-${yield* randomUuid}`;
 			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
 				backgroundWorkInput(fixture, {
 					id,
@@ -515,7 +516,7 @@ layer(userWorkDatabaseLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
 			const repository = yield* BackgroundWorkRepository.make;
-			const id = `user-work-settled-${crypto.randomUUID()}`;
+			const id = `user-work-settled-${yield* randomUuid}`;
 			const payload = yield* Schema.encodeUnknownEffect(JsonValue)(
 				backgroundWorkInput(fixture, {
 					id,
@@ -544,7 +545,7 @@ layer(userWorkHostLayer())((test) => {
 				const host = yield* makeUserWorkScriptHost;
 				const references = yield* SandboxWorkflowReferenceRepository.make;
 				const calls = yield* UserWorkHostCalls;
-				const key = `host-work-${crypto.randomUUID()}`;
+				const key = `host-work-${yield* randomUuid}`;
 				const request = workRequest(key);
 				const first = yield* host.requestUserWork(runInput(fixture), request, workReference);
 				const replay = yield* host.requestUserWork(runInput(fixture), request, workReference);
@@ -649,7 +650,7 @@ layer(userWorkHostLayer())((test) => {
 			const session = yield* DatabaseSession;
 			const work = yield* BackgroundWorkService;
 			const calls = yield* UserWorkHostCalls;
-			const id = `user-work-recover-${crypto.randomUUID()}`;
+			const id = `user-work-recover-${yield* randomUuid}`;
 			const before = yield* calls.dispatches;
 			const input = backgroundWorkInput(fixture, {
 				id,
@@ -674,7 +675,7 @@ layer(userWorkHostLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
 			const work = yield* BackgroundWorkService;
-			const scope = `serial-${crypto.randomUUID()}`;
+			const scope = `serial-${yield* randomUuid}`;
 			const first = `${scope}-first`;
 			const second = `${scope}-second`;
 			yield* admitQueued(fixture, first, scope);
@@ -698,7 +699,7 @@ layer(userWorkHostLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const work = yield* BackgroundWorkService;
 			const repository = yield* BackgroundWorkRepository.make;
-			const scope = `parallel-${crypto.randomUUID()}`;
+			const scope = `parallel-${yield* randomUuid}`;
 			const otherScope = `${scope}-other`;
 			const userJob = `${scope}-user`;
 			const otherScopeJob = `${scope}-other-scope`;
@@ -725,7 +726,7 @@ layer(userWorkHostLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
 			const work = yield* BackgroundWorkService;
-			const scope = `failure-${crypto.randomUUID()}`;
+			const scope = `failure-${yield* randomUuid}`;
 			const first = `${scope}-first`;
 			const second = `${scope}-second`;
 			yield* admitQueued(fixture, first, scope);
@@ -743,7 +744,7 @@ layer(userWorkHostLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
 			const work = yield* BackgroundWorkService;
-			const scope = `expired-${crypto.randomUUID()}`;
+			const scope = `expired-${yield* randomUuid}`;
 			const first = `${scope}-first`;
 			const second = `${scope}-second`;
 			yield* admitQueued(fixture, first, scope);
@@ -762,7 +763,7 @@ layer(userWorkHostLayer())((test) => {
 		Effect.gen(function* () {
 			const fixture = yield* UserWorkFixture;
 			const work = yield* BackgroundWorkService;
-			const id = `claimed-${crypto.randomUUID()}`;
+			const id = `claimed-${yield* randomUuid}`;
 			yield* admitQueued(fixture, id, id);
 			yield* markRunning(id);
 			expect(yield* workflowCallsFor(id)).toEqual([]);
@@ -778,7 +779,7 @@ layer(userWorkHostLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const session = yield* DatabaseSession;
 			const work = yield* BackgroundWorkService;
-			const scope = `race-${crypto.randomUUID()}`;
+			const scope = `race-${yield* randomUuid}`;
 			const ids = [0, 1, 2].map((index) => `${scope}-${index}`);
 			for (const id of ids) {
 				yield* admitQueued(fixture, id, scope);
@@ -798,7 +799,7 @@ layer(userWorkHostLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const session = yield* DatabaseSession;
 			const work = yield* BackgroundWorkService;
-			const base = `crowd-${crypto.randomUUID()}`;
+			const base = `crowd-${yield* randomUuid}`;
 			const crowdScope = `${base}-crowd`;
 			const scope = `${base}-target`;
 			const first = `${scope}-first`;
@@ -844,7 +845,7 @@ layer(userWorkHostLayer())((test) => {
 			const fixture = yield* UserWorkFixture;
 			const work = yield* BackgroundWorkService;
 			const repository = yield* BackgroundWorkRepository.make;
-			const scope = `heal-${crypto.randomUUID()}`;
+			const scope = `heal-${yield* randomUuid}`;
 			const first = `${scope}-first`;
 			const second = `${scope}-second`;
 			yield* admitQueued(fixture, first, scope);
@@ -867,7 +868,7 @@ layer(userWorkHostLayer())((test) => {
 			const session = yield* DatabaseSession;
 			const work = yield* BackgroundWorkService;
 			const references = yield* SandboxWorkflowReferenceRepository.make;
-			const id = `user-work-rollback-${crypto.randomUUID()}`;
+			const id = `user-work-rollback-${yield* randomUuid}`;
 			const input = backgroundWorkInput(fixture, {
 				id,
 				key: id,
@@ -902,7 +903,7 @@ layer(userWorkHostLayer())((test) => {
 			const work = yield* BackgroundWorkService;
 			const repository = yield* BackgroundWorkRepository.make;
 			const references = yield* SandboxWorkflowReferenceRepository.make;
-			const id = `user-work-suspended-${crypto.randomUUID()}`;
+			const id = `user-work-suspended-${yield* randomUuid}`;
 			yield* session.transaction(
 				work.admit(backgroundWorkInput(fixture, { id, key: id, input: null, scope: "suspension" })),
 			);
@@ -965,7 +966,7 @@ layer(userWorkHostLayer())((test) => {
 				const repository = yield* BackgroundWorkRepository.make;
 				const references = yield* SandboxWorkflowReferenceRepository.make;
 				const calls = yield* UserWorkHostCalls;
-				const id = `user-work-expired-${crypto.randomUUID()}`;
+				const id = `user-work-expired-${yield* randomUuid}`;
 				const job = backgroundWorkInput(fixture, { id, key: id, input: null, scope: "expiry" });
 				const denied = { ...job, id: `${id}-invalid`, purpose: "event-projection" as const };
 				assertExitFails(
@@ -1014,7 +1015,7 @@ layer(userWorkWorkflowLayer())((test) => {
 			const work = yield* BackgroundWorkService;
 			const engine = yield* WorkflowEngine;
 			const calls = yield* UserWorkChildCalls;
-			const id = `user-work-concurrent-${crypto.randomUUID()}`;
+			const id = `user-work-concurrent-${yield* randomUuid}`;
 			yield* session.transaction(
 				work.admit(
 					backgroundWorkInput(fixture, { id, key: id, input: "failure", scope: "concurrency" }),
@@ -1064,7 +1065,7 @@ layer(userWorkWorkflowLayer())((test) => {
 				["success", "success", "succeeded"],
 				["failure", "failure", "failed"],
 			] as const) {
-				const id = `user-work-${name}-${crypto.randomUUID()}`;
+				const id = `user-work-${name}-${yield* randomUuid}`;
 				const job = backgroundWorkInput(fixture, { id, input, key: id, scope: "workflow-test" });
 				yield* session.transaction(work.admit(job));
 				yield* markRunning(id);
@@ -1090,7 +1091,7 @@ layer(userWorkWorkflowLayer())((test) => {
 			const work = yield* BackgroundWorkService;
 			const session = yield* DatabaseSession;
 			const references = yield* SandboxWorkflowReferenceRepository.make;
-			const id = `user-work-retired-${crypto.randomUUID()}`;
+			const id = `user-work-retired-${yield* randomUuid}`;
 			const job = backgroundWorkInput(fixture, {
 				id,
 				key: id,

@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Clock, Duration, Effect, Layer, Schedule, Schema } from "effect";
@@ -51,52 +51,53 @@ const awaitParent = (id: string, runIds: ReadonlyArray<string>) =>
 		return { warnings, elapsedMs: (yield* Clock.currentTimeMillis) - started };
 	});
 
-it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices: true })(
-	(test) => {
-		test.effect("resumes a waiting workflow on the cluster engine when its hooks complete", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const engineLayer = yield* makeSqlClusterWorkflowEngine();
-					const context = yield* Layer.build(
-						Layer.mergeAll(waitingParentLive, runWorkflowLive).pipe(
-							Layer.provideMerge(
-								LifecycleExecutionLive.pipe(
-									Layer.provide(noLifecycleWorkLayer),
-									Layer.provide(Layer.mock(DatabaseSession)({})),
-								),
+it.layer(
+	Layer.provideMerge(Layer.merge(BunServices.layer, Reactivity.layer), BunCrypto.layerSecureRandom),
+	{ excludeTestServices: true },
+)((test) => {
+	test.effect("resumes a waiting workflow on the cluster engine when its hooks complete", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const engineLayer = yield* makeSqlClusterWorkflowEngine();
+				const context = yield* Layer.build(
+					Layer.mergeAll(waitingParentLive, runWorkflowLive).pipe(
+						Layer.provideMerge(
+							LifecycleExecutionLive.pipe(
+								Layer.provide(noLifecycleWorkLayer),
+								Layer.provide(Layer.mock(DatabaseSession)({})),
 							),
-							Layer.provideMerge(WorkflowExecutionNotifications.layer),
-							Layer.provideMerge(operationsLive),
-							Layer.provideMerge(engineLayer),
-							Layer.provideMerge(runControlLayer(1_200)),
 						),
-					);
-					yield* behave({
-						"held-cluster": { hold: true },
-						"held-pair-first": { hold: true },
-						"held-pair-second": { hold: true },
-						"late-cluster": { lateExit: true },
-					}).pipe(Effect.provideContext(context));
-					const [single, pair, late] = yield* Effect.all(
-						[
-							Effect.forkChild(Effect.delay(release("held-cluster"), "200 millis")).pipe(
-								Effect.andThen(awaitParent("single", ["held-cluster"])),
-							),
-							Effect.forkChild(
-								Effect.all([
-									Effect.delay(release("held-pair-first"), "100 millis"),
-									Effect.delay(release("held-pair-second"), "300 millis"),
-								]),
-							).pipe(Effect.andThen(awaitParent("pair", ["held-pair-first", "held-pair-second"]))),
-							awaitParent("late", ["late-cluster"]),
-						],
-						{ concurrency: "unbounded" },
-					).pipe(Effect.provideContext(context));
-					expect([single.warnings, pair.warnings, late.warnings]).toEqual([[], [], []]);
-					expect(single.elapsedMs).toBeLessThan(1_000);
-					expect(pair.elapsedMs).toBeLessThan(1_000);
-				}),
-			),
-		);
-	},
-);
+						Layer.provideMerge(WorkflowExecutionNotifications.layer),
+						Layer.provideMerge(operationsLive),
+						Layer.provideMerge(engineLayer),
+						Layer.provideMerge(runControlLayer(1_200)),
+					),
+				);
+				yield* behave({
+					"held-cluster": { hold: true },
+					"held-pair-first": { hold: true },
+					"held-pair-second": { hold: true },
+					"late-cluster": { lateExit: true },
+				}).pipe(Effect.provideContext(context));
+				const [single, pair, late] = yield* Effect.all(
+					[
+						Effect.forkChild(Effect.delay(release("held-cluster"), "200 millis")).pipe(
+							Effect.andThen(awaitParent("single", ["held-cluster"])),
+						),
+						Effect.forkChild(
+							Effect.all([
+								Effect.delay(release("held-pair-first"), "100 millis"),
+								Effect.delay(release("held-pair-second"), "300 millis"),
+							]),
+						).pipe(Effect.andThen(awaitParent("pair", ["held-pair-first", "held-pair-second"]))),
+						awaitParent("late", ["late-cluster"]),
+					],
+					{ concurrency: "unbounded" },
+				).pipe(Effect.provideContext(context));
+				expect([single.warnings, pair.warnings, late.warnings]).toEqual([[], [], []]);
+				expect(single.elapsedMs).toBeLessThan(1_000);
+				expect(pair.elapsedMs).toBeLessThan(1_000);
+			}),
+		),
+	);
+});

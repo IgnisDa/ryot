@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/notifications/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
@@ -40,7 +41,7 @@ const admissionInput = (sourceKey: string): NotificationAdmission => ({
 
 const freshInput = Effect.fnUntraced(function* (sourceKey: string) {
 	const session = yield* DatabaseSession;
-	const id = UserId.make(crypto.randomUUID());
+	const id = UserId.make(yield* randomUuid);
 	yield* session.run((db) =>
 		db
 			.insert(user)

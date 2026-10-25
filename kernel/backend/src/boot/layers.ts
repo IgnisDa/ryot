@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";
@@ -184,7 +184,7 @@ import { ProjectionFinalizerLive, ProjectionRecoveryLive } from "./projection-fi
 import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
 import { ServerLive } from "./server";
 
-const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
+const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer, BunCrypto.layerSecureRandom);
 
 const SignedUrlInfrastructureLive = Layer.provideMerge(
 	Layer.mergeAll(LocalStorageService.layer, DownloadTickets.layer),

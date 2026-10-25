@@ -1,6 +1,7 @@
 import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { randomUuid } from "@ryot-app/testing/random";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
@@ -30,6 +31,7 @@ export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make)
 	Layer.provideMerge(
 		Layer.unwrap(Effect.sync(() => PgClient.layer({ url: Redacted.make(testDatabaseUrl()) }))),
 	),
+	Layer.provideMerge(BunCrypto.layerSecureRandom),
 );
 
 export const fakeDatabaseSession = (
@@ -96,7 +98,7 @@ export const workflowEngineTestLayer = workflowEngineMemoryLayer;
 // The cluster engine persists its messages in a schema private to the calling scope.
 export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
 	const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
-	const schemaName = `workflow_${crypto.randomUUID().replaceAll("-", "")}`;
+	const schemaName = `workflow_${(yield* randomUuid).replaceAll("-", "")}`;
 	yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
 		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
 	);
