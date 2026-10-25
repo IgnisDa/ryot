@@ -1,4 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
+import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/pages/schemas";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -25,7 +26,7 @@ type CompositionRow = {
 	createdAt: Date;
 	compositionKey: string;
 	compositionHash: string;
-	identity: typeof graphIdentity;
+	identity: ClientPageCompositionIdentity;
 	manifest: ReturnType<typeof composeClientPage>;
 };
 

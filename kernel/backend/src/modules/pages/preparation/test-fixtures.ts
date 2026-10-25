@@ -17,7 +17,10 @@ export const presentationReference = {
 	packageId: PluginPackageId.make("test/presentation"),
 };
 
-export const identity = (): ClientPageCompositionIdentity => ({
+export const identity = (): Extract<
+	ClientPageCompositionIdentity,
+	{ readonly application: "page" }
+> => ({
 	name: "Page",
 	application: "page",
 	analyticsSections: [],

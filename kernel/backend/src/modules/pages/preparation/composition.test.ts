@@ -33,8 +33,8 @@ it("rejects a selected module whose specifier or binding is not declared", () =>
 		expect(() =>
 			composeClientPage({
 				artifacts: descriptions(),
+				identity: { ...identity(), entry },
 				runtimeEntries: { bootstrap: "bootstrap.js" },
-				identity: { ...identity(), entry, application: "page" },
 			}),
 		).toThrow("Client composition export is missing");
 	}
