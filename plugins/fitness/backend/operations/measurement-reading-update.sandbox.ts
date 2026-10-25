@@ -1,9 +1,8 @@
 import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Array, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
-import { chunk } from "../../shared/collections";
 import {
 	measurementEntryProperties,
 	measurementReadingProperties,
@@ -62,10 +61,10 @@ export default defineOperation({
 				expected: { name: entry.name, updatedAt: entry.updatedAt, properties: entry.properties },
 			});
 			let count = 0;
-			for (const batch of chunk(updates, MEASUREMENT_EVENT_BATCH_SIZE)) {
+			for (const batch of Array.chunksOf(updates, MEASUREMENT_EVENT_BATCH_SIZE)) {
 				count += (yield* host.updateEvents(batch)).count;
 			}
-			for (const batch of chunk([...pending], MEASUREMENT_EVENT_BATCH_SIZE)) {
+			for (const batch of Array.chunksOf([...pending], MEASUREMENT_EVENT_BATCH_SIZE)) {
 				const created = yield* host.createEvents(
 					batch.map(([metricId, value]) => ({
 						occurredAt,
@@ -77,7 +76,7 @@ export default defineOperation({
 				);
 				count += created.count;
 			}
-			for (const batch of chunk(removed, MEASUREMENT_EVENT_BATCH_SIZE)) {
+			for (const batch of Array.chunksOf(removed, MEASUREMENT_EVENT_BATCH_SIZE)) {
 				count += (yield* host.deleteEvents(batch)).count;
 			}
 			return { count };

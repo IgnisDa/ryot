@@ -1,9 +1,8 @@
 import { readCursorPages } from "@ryot-app/plugin-client-sdk";
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Array, DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
-import { chunk } from "../../shared/collections";
 import {
 	MEASUREMENT_SERIES_BATCH_SIZE,
 	type MeasurementEntryReading,
@@ -82,7 +81,7 @@ export const seriesQuery = createRyotQuery<
 		);
 		return Effect.map(
 			Effect.forEach(
-				chunk(input.metricIds, MEASUREMENT_SERIES_BATCH_SIZE),
+				Array.chunksOf(input.metricIds, MEASUREMENT_SERIES_BATCH_SIZE),
 				(metricIds) =>
 					client.data.query(
 						measurementSeriesRecipe({

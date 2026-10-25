@@ -1,4 +1,5 @@
 export {
+	Array,
 	Clock,
 	Effect,
 	Option,

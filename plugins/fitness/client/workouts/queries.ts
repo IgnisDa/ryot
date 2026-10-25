@@ -3,12 +3,11 @@ import {
 	type RyotClient,
 	type RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Array, DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { ViewFilter } from "@ryot-app/plugin-client-sdk/filters";
 import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
-import { chunk } from "../../shared/collections";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	workoutCardsRecipe,
@@ -47,7 +46,7 @@ export const batched = <A>(
 	read: (batch: readonly string[]) => Effect.Effect<readonly A[], RyotClientError>,
 ) =>
 	Effect.map(
-		Effect.forEach(chunk([...ids], LOOKUP_BATCH_SIZE), read, { concurrency: 4 }),
+		Effect.forEach(Array.chunksOf([...ids], LOOKUP_BATCH_SIZE), read, { concurrency: 4 }),
 		(batches) => batches.flat(),
 	);
 

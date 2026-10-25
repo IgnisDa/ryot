@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Array, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsInput,
@@ -76,25 +76,6 @@ const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"
 const HTTP_CALL_LIMIT = 50;
 const SEASON_APPEND_LIMIT = 20;
 const FIXED_HTTP_CALLS = 2;
-
-const chunksOf = <A>(items: readonly A[], size: number) =>
-	Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
-		items.slice(index * size, index * size + size),
-	);
-
-const loadInBatches = <A, B, Failure>(
-	items: readonly A[],
-	load: (item: A) => Effect.Effect<B, Failure>,
-) =>
-	Array.from({ length: Math.ceil(items.length / 5) }, (_, index) =>
-		items.slice(index * 5, index * 5 + 5),
-	).reduce<Effect.Effect<B[], Failure>>(
-		(loaded, batch) =>
-			Effect.flatMap(loaded, (results) =>
-				Effect.map(Effect.forEach(batch, load), (batchResults) => [...results, ...batchResults]),
-			),
-		Effect.succeed([]),
-	);
 
 const buildSeason = (
 	parentShowExternalId: string,
@@ -266,8 +247,8 @@ export const getTmdbShowDetails = (
 			const value = numberValue(season["season_number"]);
 			return value === null ? [] : [{ id: season["id"], number: Math.trunc(value) }];
 		});
-		const seasonChunks = chunksOf(listedSeasons, SEASON_APPEND_LIMIT);
-		const seasonDataList = (yield* loadInBatches(seasonChunks, (seasons) =>
+		const seasonChunks = Array.chunksOf(listedSeasons, SEASON_APPEND_LIMIT);
+		const seasonDataList = (yield* Effect.forEach(seasonChunks, (seasons) =>
 			tmdbGet(
 				host,
 				`/tv/${input.externalId}`,
@@ -291,7 +272,7 @@ export const getTmdbShowDetails = (
 			0,
 			HTTP_CALL_LIMIT - FIXED_HTTP_CALLS - seasonChunks.length,
 		);
-		const episodeOrders = yield* loadInBatches(
+		const episodeOrders = yield* Effect.forEach(
 			episodeOrderHeaders.slice(0, episodeOrderBudget),
 			(header) =>
 				tmdbGet(

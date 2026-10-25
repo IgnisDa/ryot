@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Array, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	executeRyotqlRecipe,
 	readAllRyotqlPages,
@@ -6,7 +6,6 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { chunk } from "../../shared/collections";
 import { MEASUREMENT_EVENT_BATCH_SIZE } from "../../shared/measurement-reading-operations";
 import {
 	measurementEntryReadingsRecipe,
@@ -50,8 +49,9 @@ export const requireMeasurementMetrics = Effect.fn("requireMeasurementMetrics")(
 	executeRyotql: ExecuteRyotql,
 ) {
 	const unique = [...new Set(metricIds)];
-	const found = (yield* Effect.forEach(chunk(unique, MEASUREMENT_EVENT_BATCH_SIZE), (ids) =>
-		executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe(ids)),
+	const found = (yield* Effect.forEach(
+		Array.chunksOf(unique, MEASUREMENT_EVENT_BATCH_SIZE),
+		(ids) => executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe(ids)),
 	)).flat();
 	if (found.length !== unique.length) {
 		return yield* new MeasurementMetricNotFoundError({ message: "Measurement metric not found" });
