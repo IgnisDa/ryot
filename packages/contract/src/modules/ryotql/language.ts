@@ -443,38 +443,11 @@ export const AggregateOutput = strictStruct({
 }).annotate({ identifier: "RyotQLAggregateOutput" });
 export type AggregateOutput = typeof AggregateOutput.Type;
 
-const TimeSeriesMeasure = strictStruct({
-	aggregation: Schema.Union([
-		strictStruct({ function: Schema.Literal("count") }),
-		strictStruct({
-			expr: ScalarExpression,
-			function: Schema.Literals(["average", "maximum", "minimum", "sum"]),
-		}),
-	]),
-}).annotate({ identifier: "RyotQLTimeSeriesMeasure" });
-
-const TimeSeriesRange = strictStruct({ endAt: Schema.String, startAt: Schema.String }).annotate({
-	identifier: "RyotQLTimeSeriesRange",
-});
-
-const TimeSeriesTime = strictStruct({
-	expr: ScalarExpression,
-	range: TimeSeriesRange,
-	bucket: DateBucketUnit,
-}).annotate({ identifier: "RyotQLTimeSeriesTime" });
-
-export const TimeSeriesOutput = strictStruct({
-	time: TimeSeriesTime,
-	measure: TimeSeriesMeasure,
-	type: Schema.Literal("timeSeries"),
-}).annotate({ identifier: "RyotQLTimeSeriesOutput" });
-export type TimeSeriesOutput = typeof TimeSeriesOutput.Type;
-
 export const NamedQuery = strictStruct({
 	from: TableReference,
 	where: Schema.optional(Predicate),
 	joins: Schema.optional(Schema.NonEmptyArray(Join)),
-	output: Schema.Union([RowsOutput, AggregateOutput, TimeSeriesOutput]),
+	output: Schema.Union([RowsOutput, AggregateOutput]),
 }).annotate({ identifier: "RyotQLNamedQuery" });
 export type NamedQuery = typeof NamedQuery.Type;
 
@@ -490,7 +463,7 @@ export type RyotQLDocumentWithSelections<Selection extends RowSelection> = {
 export type NamedQueryWithSelections<Selection extends RowSelection> = Omit<
 	NamedQuery,
 	"output"
-> & { readonly output: AggregateOutput | TimeSeriesOutput | RowsOutputWithSelections<Selection> };
+> & { readonly output: AggregateOutput | RowsOutputWithSelections<Selection> };
 
 export type IncludeWithSelections<Selection extends RowSelection> = Omit<
 	Include,
@@ -653,7 +626,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	document: RyotQLDocumentWithSelections<Selection>,
 	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
 ): RyotQLDocumentWithSelections<Selection | FieldSelection> => {
-	const { field, ordering, querySet, expression, aggregation } = languageMapper({
+	const { field, ordering, querySet, aggregation } = languageMapper({
 		reference: transform,
 		alias: (alias) => alias,
 	});
@@ -694,23 +667,6 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 							aggregation: aggregation(measure.aggregation),
 						})),
 						...(output.groupBy === undefined ? {} : { groupBy: output.groupBy.map(field) }),
-					},
-				};
-			case "timeSeries":
-				return {
-					...querySet(value),
-					output: {
-						...output,
-						time: { ...output.time, expr: expression(output.time.expr) },
-						measure: {
-							aggregation:
-								output.measure.aggregation.function === "count"
-									? output.measure.aggregation
-									: {
-											...output.measure.aggregation,
-											expr: expression(output.measure.aggregation.expr),
-										},
-						},
 					},
 				};
 			default:
@@ -765,19 +721,7 @@ export const AggregateResult = strictStruct({
 }).annotate({ identifier: "RyotQLAggregateResult" });
 export type AggregateResult = typeof AggregateResult.Type;
 
-const TimeSeriesBucket = strictStruct({
-	value: Schema.Finite,
-	endAt: Schema.String,
-	startAt: Schema.String,
-}).annotate({ identifier: "RyotQLTimeSeriesBucket" });
-
-export const TimeSeriesResult = strictStruct({
-	type: Schema.Literal("timeSeries"),
-	buckets: Schema.Array(TimeSeriesBucket),
-}).annotate({ identifier: "RyotQLTimeSeriesResult" });
-export type TimeSeriesResult = typeof TimeSeriesResult.Type;
-
-export const RyotQLResult = Schema.Union([RowsResult, AggregateResult, TimeSeriesResult]).annotate({
+export const RyotQLResult = Schema.Union([RowsResult, AggregateResult]).annotate({
 	identifier: "RyotQLResult",
 });
 export type RyotQLResult = typeof RyotQLResult.Type;

@@ -67,12 +67,10 @@ import {
 	selectedRow,
 	selectedRows,
 	selectedRowsSource,
-	selectedTimeSeries,
 	star,
 	subtract,
 	sum,
 	table,
-	timeSeries,
 	titleCase,
 } from "./index";
 
@@ -554,28 +552,6 @@ describe("RyotQL builders", () => {
 		expect(Result.isFailure(countQuery.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
 	});
 
-	it("decodes selected time-series bucket boundaries and values", () => {
-		const event = table("event", "event");
-		const query = selectedTimeSeries(event, {
-			bucket: "day",
-			endAt: "2026-01-02",
-			startAt: "2026-01-01",
-			measure: { function: "count" },
-			time: column(event, "occurredAt"),
-			selection: { endAt: Schema.String, startAt: Schema.String, value: Schema.FiniteFromString },
-		});
-
-		expect(
-			Result.getOrThrow(
-				query.decodeResult({
-					type: "timeSeries",
-					buckets: [{ value: "4", endAt: "2026-01-02", startAt: "2026-01-01" }],
-				}),
-			),
-		).toEqual({ buckets: [{ value: 4, endAt: "2026-01-02", startAt: "2026-01-01" }] });
-		expect(Result.isFailure(query.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
-	});
-
 	it("decodes multiple named queries and infers recipe success for zero-argument factories", () => {
 		const entity = table("entity", "entity");
 		const recipe = defineRecipe(() => ({
@@ -873,52 +849,6 @@ describe("RyotQL builders", () => {
 				measures: [countIdentifier],
 				orderBy: [{ key: "count", direction: "desc" }],
 			},
-		});
-	});
-
-	it("builds time-series outputs with generic query options", () => {
-		const event = table("event", "event");
-		const entity = table("entity", "entity");
-		const occurredAt = column(event, "occurredAt");
-		const query = timeSeries(event, {
-			bucket: "day",
-			time: occurredAt,
-			endAt: "2026-01-03T00:00:00.000Z",
-			startAt: "2026-01-01T00:00:00.000Z",
-			measure: { function: "sum", expr: literal(1) },
-			where: eq(column(event, "eventSchemaSlug"), literal("completion")),
-			joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
-		});
-
-		expect(query).toEqual({
-			from: { table: "event", alias: "event" },
-			where: {
-				operator: "eq",
-				type: "comparison",
-				right: { type: "literal", value: "completion" },
-				left: { type: "column", tableAlias: "event", field: "eventSchemaSlug" },
-			},
-			output: {
-				type: "timeSeries",
-				measure: { aggregation: { function: "sum", expr: { value: 1, type: "literal" } } },
-				time: {
-					bucket: "day",
-					expr: occurredAt,
-					range: { endAt: "2026-01-03T00:00:00.000Z", startAt: "2026-01-01T00:00:00.000Z" },
-				},
-			},
-			joins: [
-				{
-					type: "inner",
-					table: { table: "entity", alias: "entity" },
-					on: {
-						operator: "eq",
-						type: "comparison",
-						right: { field: "id", type: "column", tableAlias: "entity" },
-						left: { type: "column", field: "entityId", tableAlias: "event" },
-					},
-				},
-			],
 		});
 	});
 });

@@ -4,7 +4,7 @@ RyotQL is the only read surface for persisted rows. `POST /ryotql/execute` and `
 
 ## Document And Result Shape
 
-A document has a non-empty `queries` record. Each named query has `from: { table, alias }`, optional `joins` and `where`, and one `rows`, `aggregate`, or `timeSeries` output.
+A document has a non-empty `queries` record. Each named query has `from: { table, alias }`, optional `joins` and `where`, and one `rows` or `aggregate` output.
 
 ```json
 {
@@ -21,11 +21,10 @@ The response is `{ data: { [queryName]: result } }`. Semantic validation expands
 
 Rows select `{ key, expr }` fields or `{ type: "wildcard", tableAlias }`. A wildcard expands only the approved fields for that alias; hidden physical and authorization columns remain inaccessible. Duplicate output keys fail validation.
 
-| Output       | Required shape                                                                  | Result                                                              |
-| ------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `rows`       | `fields`, `orderBy`, `pagination: { limit, after? }`, optional `include`        | `{ type: "rows", items, pageInfo: { limit, hasMore, nextCursor } }` |
-| `aggregate`  | Non-empty `measures`; optional `groupBy`, `orderBy`, and `limit`                | `{ type: "aggregate", items, pageInfo? }`                           |
-| `timeSeries` | `time: { expr, range: { startAt, endAt }, bucket }`, `measure: { aggregation }` | `{ type: "timeSeries", buckets: [{ startAt, endAt, value }] }`      |
+| Output      | Required shape                                                            | Result                                                              |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `rows`      | `fields`, `orderBy`, `pagination: { limit, after? }`, optional `include`  | `{ type: "rows", items, pageInfo: { limit, hasMore, nextCursor } }` |
+| `aggregate` | Non-empty `measures`; optional `groupBy`, `orderBy`, `limit`, and `after` | `{ type: "aggregate", items, pageInfo? }`                           |
 
 ## Scopes And Visibility
 
@@ -69,7 +68,7 @@ System-plugin ownership checks use the exact local plugin ID and pinned declarat
 
 Expression kinds are text, date, number, boolean, JSON, and null. Kind inference is shared by validation and compilation; unknown aliases or fields are validation errors.
 
-Scalar expressions include columns, JSON literals, `jsonPath`, casts, `coalesce`, `concat`, conditionals, `kebabCase`/`titleCase` transforms, `floor`, `round`, integer conversion, null checks, arithmetic, `dateBucket`, `currentDate`, and correlated `exists`, `first`, or aggregate queries. Correlated aliases are lexical: ancestors are visible, siblings and forward joins are not. `first` requires ordering and receives primary-key tie breakers. A cast evaluates its operand once, so casting a correlated value does not repeat its query.
+Scalar expressions include columns, JSON literals, `jsonPath`, casts, `coalesce`, `concat`, conditionals, `kebabCase`/`titleCase` transforms, `floor`, `round`, integer conversion, null checks, arithmetic, `dateBucket`, `localHour`, `localDate`, `currentDate`, and correlated `exists`, `first`, or aggregate queries. Correlated aliases are lexical: ancestors are visible, siblings and forward joins are not. `first` requires ordering and receives primary-key tie breakers. A cast evaluates its operand once, so casting a correlated value does not repeat its query.
 
 `pluginId` selects an exact local owner as text through a typed `self`, `local`, or scoped `package` reference. Binding uses one persisted identity catalog inside the execution transaction. User identities include ready hidden installations, but not quarantined, uninstalled, or another user's private installations. This does not change definition visibility or execution authority. `self` requires a trusted plugin context; admin queries cannot select a user-scoped package. Unresolved references return `unresolved-query-owner`, never SQL null or kernel ownership. Ordinary JSON literals are unchanged. Cursors include the resolved owner identity.
 
@@ -81,7 +80,7 @@ JSON arrays use `jsonElement` plus the `jsonExists`, `jsonFirst`, and `jsonCount
 
 A `jsonElements` join (`{ type: "jsonElements", mode, alias, expr }`) instead emits one row per item of a JSON array. `expr` must be a JSON expression over aliases already in scope and is field-checked with the same audience and credential rules as any other expression. The alias exposes only `value` (the item, null for a JSON null) and `ordinal` (its 1-based position), wildcards included. With `mode: "inner"`, an empty, missing, null, object, or scalar value yields no rows, so the parent row drops out, including when `expr` reads a left-joined table that matched nothing. With `mode: "left"`, such a parent appears once with `value` and `ordinal` null; non-empty arrays behave as in `inner`. These joins count toward the join limit and are allowed in roots, includes, and correlated queries.
 
-`dateBucket` accepts hour, day, week, month, or year plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. `localHour` accepts a date expression and IANA zone and returns the local hour from 0 through 23, so repeated DST hours share one hourly category. `localDate` accepts a date expression and IANA zone and returns the local calendar date as `YYYY-MM-DD` text; a null date stays null. Date-only intent must be explicit in the input expression; RyotQL does not infer source precision. Invalid zones and non-date inputs fail validation. Date-only source evidence must not be passed to hourly activity measures.
+`dateBucket` accepts hour, day, week, month, or year plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. `localHour` accepts a date expression and IANA zone and returns the local hour from 0 through 23, so repeated DST hours share one hourly category. `localDate` returns the local calendar date as `YYYY-MM-DD` text, null for a null date. RyotQL does not infer source precision, so callers pass date-only values explicitly. Invalid zones and non-date inputs fail validation.
 
 `currentDate` takes no operands and returns the server's current UTC day as a date at UTC midnight, the same shape as `castDate` of a date-only string, so `castDate(publishDate) <= currentDate()` is a plain date comparison. It is evaluated once per statement.
 
@@ -119,13 +118,11 @@ Canonical `contentGeneration` advances only when entity `name` or canonical `pro
 
 `user.twoFactorStatus` is a kernel-only, non-demo `{ enabled, available }` projection. `enabled` normalizes the stored flag to a boolean; `available` requires a linked credential account. `oauthConnection.status` reports `expired` when its expiry has elapsed at statement time unless the stored status is `failed`. Null expiry preserves the stored status. OAuth credentials, codes, verifiers, hashes, and refresh leases are not catalog fields.
 
-## Aggregate And Time Series
+## Aggregates
 
-Root and correlated aggregates support count, count distinct, sum, average, minimum, and maximum. Counts return zero for an empty set; other measures return null. Sum and average cast safely to numbers, minimum and maximum preserve the operand kind (so `maximum(date)` is a date), count distinct ignores null, and joins retain normal multiplicity. Time-series measures stay numeric.
+Root and correlated aggregates support count, count distinct, sum, average, minimum, and maximum. Counts return zero for an empty set; other measures return null. Sum and average cast safely to numbers, minimum and maximum preserve the operand kind (so `maximum(date)` is a date), count distinct ignores null, and joins retain normal multiplicity.
 
 Ungrouped aggregates return one item without page info and accept no cursor. Grouped aggregates require group fields, limit, and ordering by group or measure key; they do not support arbitrary-expression ordering, and JSON groups cannot order. The limit counts unique combinations of all group fields. Group keys not already ordered break ties in ascending order, so pages page forward with an optional opaque `after` cursor when every group is scalar. Results use `{ items, pageInfo: { limit, hasMore, nextCursor } }`; `nextCursor` is null unless another page exists and every group can order.
-
-Time series apply one count, sum, average, minimum, or maximum measure. The time expression is a physical date or explicit date cast; `[startAt, endAt)` is half-open. Hour/day/week/month/year buckets align in UTC, weeks start Monday, and empty buckets return zero. Multiple measures or series, custom units, and pagination are unsupported. Reporting in an account timezone uses grouped `dateBucket` aggregates instead of changing UTC time-series labels.
 
 ## Compilation
 
@@ -145,6 +142,5 @@ Catalog sources return their `from` fragment plus named CTEs; the executor owns 
 | Joins per named query                  |          8 |
 | Root rows / include rows               |  100 / 100 |
 | Grouped aggregate rows                 |      1,000 |
-| Aligned time-series buckets            |      1,000 |
 | Include depth / correlated query depth |      3 / 3 |
 | Transaction-local statement timeout    | 30 seconds |

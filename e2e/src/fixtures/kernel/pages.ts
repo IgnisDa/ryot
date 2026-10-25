@@ -7,22 +7,18 @@ import {
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import {
-	aggregate,
 	and,
 	ascending,
 	column,
 	document,
 	eq,
 	field,
-	groupAscending,
 	inArray,
 	join,
 	jsonPath,
 	literal,
-	measure,
 	rows,
 	table,
-	timeSeries,
 } from "@ryot-app/ryotql";
 import { normalizeSlug } from "@ryot-app/ts-utils/slug";
 import { Effect } from "effect";
@@ -235,39 +231,6 @@ export const createResultsTableSavedView = (
 				}),
 			),
 		);
-};
-
-export const buildNamedDataSources = (
-	entityIds: readonly string[],
-	range: { readonly endAt: string; readonly startAt: string },
-) => {
-	const entity = table("entity", "structuredEntity");
-	const selected = inArray(
-		column(entity, "id"),
-		entityIds.map((entityId) => literal(entityId)),
-	);
-	return document({
-		timeline: timeSeries(entity, {
-			...range,
-			bucket: "day",
-			where: selected,
-			measure: { function: "count" },
-			time: column(entity, "createdAt"),
-		}),
-		native: rows(entity, {
-			limit: 10,
-			where: selected,
-			orderBy: [ascending(column(entity, "name"))],
-			fields: [field("name", column(entity, "name"))],
-		}),
-		grouped: aggregate(entity, {
-			limit: 10,
-			where: selected,
-			orderBy: [groupAscending("schema")],
-			measures: [measure("count", { function: "count" })],
-			groupBy: [field("schema", column(entity, "entitySchemaSlug"))],
-		}),
-	});
 };
 
 export const collectionWorkflowRendererSource = `

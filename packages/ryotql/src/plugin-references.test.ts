@@ -38,7 +38,6 @@ import {
 	startsWith,
 	sum,
 	table,
-	timeSeries,
 	transform,
 } from "./index";
 
@@ -47,7 +46,6 @@ const localOwner: PluginIdentityReference = { kind: "local", pluginId: PluginId.
 
 const pluginReferenceDocument = (reference: PluginIdentityReference) => {
 	const entity = table("entity", "entity");
-	const related = table("relationship", "related");
 	const child = table("entity", "child");
 	const leaf = table("entity", "leaf");
 	const event = table("event", "event");
@@ -79,15 +77,6 @@ const pluginReferenceDocument = (reference: PluginIdentityReference) => {
 			groupBy: [field("owner", plugin())],
 			joins: [join("inner", event, byPluginId(event))],
 			measures: [measure("total", { expr: plugin(), function: "sum" })],
-		}),
-		series: timeSeries(event, {
-			bucket: "day",
-			time: plugin(),
-			endAt: "2026-01-02",
-			startAt: "2026-01-01",
-			where: byPluginId(event),
-			measure: { expr: plugin(), function: "sum" },
-			joins: [join("inner", related, byPluginId(related))],
 		}),
 		entities: rows(entity, {
 			include: [childInclude],
@@ -157,8 +146,8 @@ describe("RyotQL plugin identity references", () => {
 			return localOwner;
 		});
 
-		expect(transformedReferences).toHaveLength(58);
-		expect(transformedReferences).toEqual(Array.from({ length: 58 }, () => selfReference));
+		expect(transformedReferences).toHaveLength(54);
+		expect(transformedReferences).toEqual(Array.from({ length: 54 }, () => selfReference));
 		expect(mapped).toEqual(pluginReferenceDocument(localOwner));
 	});
 

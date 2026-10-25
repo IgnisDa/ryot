@@ -15,10 +15,8 @@ import type {
 	RyotQLDocumentWithSelections,
 	ScalarExpression,
 	TableReference,
-	TimeSeriesOutput,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
-import { DateTime, Duration, Option } from "effect";
 
 import {
 	canAccessCatalogTable,
@@ -38,7 +36,6 @@ export const MAX_ROOT_PAGE_SIZE = 100;
 export const MAX_CORRELATED_DEPTH = 3;
 export const MAX_JSON_ELEMENT_DEPTH = 3;
 export const MAX_DOCUMENT_QUERIES = 10;
-export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
 export const savedViewDataSourceAccess: RyotQLAccess = {
@@ -700,81 +697,6 @@ const validateAggregateOutput = (
 	return null;
 };
 
-const addTimeSeriesBucket = (
-	value: DateTime.DateTime,
-	bucket: TimeSeriesOutput["time"]["bucket"],
-) => {
-	if (bucket === "hour") {
-		return DateTime.addDuration(value, Duration.hours(1));
-	}
-	if (bucket === "day") {
-		return DateTime.addDuration(value, Duration.days(1));
-	}
-	if (bucket === "week") {
-		return DateTime.addDuration(value, Duration.days(7));
-	}
-	return DateTime.add(value, bucket === "year" ? { years: 1 } : { months: 1 });
-};
-
-const countTimeSeriesBuckets = (output: TimeSeriesOutput) => {
-	const startAt = DateTime.make(output.time.range.startAt);
-	const endAt = DateTime.make(output.time.range.endAt);
-	if (Option.isNone(startAt) || Option.isNone(endAt)) {
-		return { endAt, startAt, count: null };
-	}
-	if (!DateTime.isLessThan(startAt.value, endAt.value)) {
-		return { endAt, startAt, count: null };
-	}
-	let count = 0;
-	let cursor: DateTime.DateTime = DateTime.startOf(startAt.value, output.time.bucket, {
-		weekStartsOn: 1,
-	});
-	const alignedEnd = addTimeSeriesBucket(
-		DateTime.startOf(
-			DateTime.subtractDuration(endAt.value, Duration.millis(1)),
-			output.time.bucket,
-			{ weekStartsOn: 1 },
-		),
-		output.time.bucket,
-	);
-	while (DateTime.isLessThan(cursor, alignedEnd) && count <= MAX_TIME_SERIES_BUCKETS) {
-		count += 1;
-		cursor = addTimeSeriesBucket(cursor, output.time.bucket);
-	}
-	return { count, endAt, startAt };
-};
-
-const validateTimeSeriesOutput = (
-	output: TimeSeriesOutput,
-	scope: AliasScope,
-	executionScope: RyotQLAccess,
-): null | string => {
-	const range = countTimeSeriesBuckets(output);
-	if (Option.isNone(range.startAt) || Option.isNone(range.endAt)) {
-		return "Time-series range startAt and endAt must be valid dates";
-	}
-	if (!DateTime.isLessThan(range.startAt.value, range.endAt.value)) {
-		return "Time-series range startAt must be before endAt";
-	}
-	if (range.count !== null && range.count > MAX_TIME_SERIES_BUCKETS) {
-		return `Time-series bucket count exceeds maximum of ${MAX_TIME_SERIES_BUCKETS}`;
-	}
-	const timeError = validateExpression(output.time.expr, scope, 0, executionScope);
-	if (timeError) {
-		return timeError;
-	}
-	const validTimeExpression =
-		(output.time.expr.type === "column" &&
-			expressionKind(output.time.expr, scope, executionScope) === "date") ||
-		(output.time.expr.type === "cast" && output.time.expr.target === "date");
-	if (!validTimeExpression) {
-		return "Time-series time expressions require a date field or explicit date cast";
-	}
-	return output.measure.aggregation.function === "count"
-		? null
-		: validateExpression(output.measure.aggregation.expr, scope, 0, executionScope);
-};
-
 const validateNamedQuery = (
 	query: NamedQuery,
 	executionScope: RyotQLAccess,
@@ -785,10 +707,6 @@ const validateNamedQuery = (
 	}
 	if (query.output.type === "aggregate") {
 		const error = validateAggregateOutput(query.output, querySet.value, executionScope);
-		return error ? invalid(error) : { error: null, value: { ...query, output: query.output } };
-	}
-	if (query.output.type === "timeSeries") {
-		const error = validateTimeSeriesOutput(query.output, querySet.value, executionScope);
 		return error ? invalid(error) : { error: null, value: { ...query, output: query.output } };
 	}
 	if (query.output.pagination.limit > MAX_ROOT_PAGE_SIZE) {

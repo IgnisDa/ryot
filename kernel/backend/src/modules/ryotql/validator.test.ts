@@ -45,7 +45,6 @@ import {
 	startsWith,
 	sum,
 	table,
-	timeSeries,
 	titleCase,
 } from "@ryot-app/ryotql";
 
@@ -1284,74 +1283,6 @@ it("types currentDate as a date operand", () => {
 	expect(
 		validateRyotQLDocument(query(eq(column(entity, "name"), currentDate())), userAccess).error,
 	).toBe("Query 'entities': Comparison operands must have compatible types");
-});
-
-it("validates time-series ranges, expressions, measures, and bucket limits", () => {
-	const entity = table("entity", "entity");
-	const input = {
-		bucket: "day" as const,
-		endAt: "2026-01-03T00:00:00.000Z",
-		time: column(entity, "createdAt"),
-		startAt: "2026-01-01T00:00:00.000Z",
-		measure: { function: "count" } as const,
-	};
-
-	expect(
-		validateRyotQLDocument(document({ entities: timeSeries(entity, input) }), userAccess).error,
-	).toBeNull();
-	expect(
-		validateRyotQLDocument(
-			document({
-				entities: timeSeries(entity, {
-					...input,
-					time: castDate(jsonPath(column(entity, "properties"), "publishedAt")),
-					measure: {
-						function: "sum",
-						expr: castNumber(jsonPath(column(entity, "properties"), "duration")),
-					},
-				}),
-			}),
-			userAccess,
-		).error,
-	).toBeNull();
-	expect(
-		validateRyotQLDocument(
-			document({ entities: timeSeries(entity, { ...input, time: column(entity, "name") }) }),
-			userAccess,
-		).error,
-	).toBe(
-		"Query 'entities': Time-series time expressions require a date field or explicit date cast",
-	);
-	expect(
-		validateRyotQLDocument(
-			document({ entities: timeSeries(entity, { ...input, endAt: "2026-01-01T00:00:00.000Z" }) }),
-			userAccess,
-		).error,
-	).toBe("Query 'entities': Time-series range startAt must be before endAt");
-	expect(
-		validateRyotQLDocument(
-			document({ entities: timeSeries(entity, { ...input, endAt: "not-a-date" }) }),
-			userAccess,
-		).error,
-	).toBe("Query 'entities': Time-series range startAt and endAt must be valid dates");
-	expect(
-		validateRyotQLDocument(
-			document({ entities: timeSeries(entity, { ...input, endAt: "2028-10-01T00:00:00.000Z" }) }),
-			userAccess,
-		).error,
-	).toBe("Query 'entities': Time-series bucket count exceeds maximum of 1000");
-	expect(
-		validateRyotQLDocument(
-			document({
-				entities: timeSeries(entity, {
-					...input,
-					endAt: "2022-09-27T00:00:00.000500Z",
-					startAt: "2020-01-01T01:00:00.000+01:00",
-				}),
-			}),
-			userAccess,
-		).error,
-	).toBeNull();
 });
 
 it("rejects document and join counts above the retained limits", () => {

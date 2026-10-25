@@ -57,7 +57,6 @@ import {
 	star,
 	sum,
 	table,
-	timeSeries,
 	titleCase,
 } from "@ryot-app/ryotql";
 import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
@@ -748,17 +747,14 @@ layer(
 			{
 				m0: "3",
 				m1: null,
-				value: "2",
 				g0k: "date",
 				totalGroups: "1",
 				g0v: new Date("2026-08-01T00:00:00.000Z"),
-				endAt: new Date("2026-08-02T00:00:00.000Z"),
-				startAt: new Date("2026-08-01T00:00:00.000Z"),
 			},
 		]),
 	),
 )((test) => {
-	test.effect("returns plain aggregate and time-series values", () => {
+	test.effect("returns plain and grouped aggregate values", () => {
 		const entity = table("entity", "entity");
 		const document = {
 			queries: {
@@ -767,13 +763,6 @@ layer(
 						measure("count", { function: "count" }),
 						measure("total", { function: "sum", expr: literal(2) }),
 					],
-				}),
-				series: timeSeries(entity, {
-					bucket: "day",
-					measure: { function: "count" },
-					endAt: "2026-08-03T00:00:00.000Z",
-					time: column(entity, "createdAt"),
-					startAt: "2026-08-01T00:00:00.000Z",
 				}),
 				grouped: aggregate(entity, {
 					limit: 10,
@@ -811,12 +800,6 @@ layer(
 				type: "aggregate",
 				pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 				items: [{ count: 3, total: null, day: "2026-08-01T00:00:00.000Z" }],
-			});
-			expect(response.data["series"]).toEqual({
-				type: "timeSeries",
-				buckets: [
-					{ value: 2, endAt: "2026-08-02T00:00:00.000Z", startAt: "2026-08-01T00:00:00.000Z" },
-				],
 			});
 		});
 	});

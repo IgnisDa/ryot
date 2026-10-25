@@ -31,7 +31,6 @@ import type {
 	RyotQLDocument,
 	ScalarExpression,
 	TableReference,
-	TimeSeriesOutput,
 	WildcardSelection,
 } from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
@@ -931,32 +930,6 @@ export const aggregate = (
 	},
 });
 
-export const timeSeries = (
-	from: TableReference,
-	input: {
-		readonly endAt: string;
-		readonly startAt: string;
-		readonly time: ScalarExpression;
-		readonly where?: Predicate | undefined;
-		readonly joins?: undefined | readonly Join[];
-		readonly bucket: TimeSeriesOutput["time"]["bucket"];
-		readonly measure: TimeSeriesOutput["measure"]["aggregation"];
-	},
-): NamedQuery & { readonly output: TimeSeriesOutput } => ({
-	from,
-	...(input.where ? { where: input.where } : {}),
-	...(isNonEmpty(input.joins) ? { joins: [...input.joins] } : {}),
-	output: {
-		type: "timeSeries",
-		measure: { aggregation: input.measure },
-		time: {
-			expr: input.time,
-			bucket: input.bucket,
-			range: { endAt: input.endAt, startAt: input.startAt },
-		},
-	},
-});
-
 export type SelectedMeasure<A, I = unknown> = {
 	readonly codec: Schema.Codec<A, I>;
 	readonly aggregation: AggregationSpec;
@@ -1020,26 +993,6 @@ const decodeSelectedAggregateRow = <
 		);
 	});
 
-export type SelectedTimeSeriesResult<Selection extends SelectedTimeSeriesSelection> = {
-	readonly buckets: readonly SelectedTimeSeriesBucket<Selection>[];
-};
-export type SelectedTimeSeriesBucket<Selection extends SelectedTimeSeriesSelection> = {
-	readonly endAt: CodecValue<Selection["endAt"]>;
-	readonly value: CodecValue<Selection["value"]>;
-	readonly startAt: CodecValue<Selection["startAt"]>;
-};
-type CodecValue<Codec> = Codec extends Schema.Codec<infer A, infer _I> ? A : never;
-
-type SelectedTimeSeriesInput<Selection extends SelectedTimeSeriesSelection> = {
-	readonly selection: Selection;
-} & Omit<Parameters<typeof timeSeries>[1], "selection">;
-
-type SelectedTimeSeriesSelection = {
-	readonly endAt: Schema.Codec<unknown, unknown>;
-	readonly value: Schema.Codec<unknown, unknown>;
-	readonly startAt: Schema.Codec<unknown, unknown>;
-};
-
 export function selectedAggregate<const Measures extends SelectedMeasures>(
 	from: TableReference,
 	input: SelectedUngroupedAggregateInput<Measures>,
@@ -1100,43 +1053,6 @@ export function selectedAggregate(
 			}),
 	};
 }
-
-export const selectedTimeSeries = <const Selection extends SelectedTimeSeriesSelection>(
-	from: TableReference,
-	input: SelectedTimeSeriesInput<Selection>,
-): SelectedQuery<SelectedTimeSeriesResult<Selection>> => {
-	const { selection, ...timeSeriesInput } = input;
-	return {
-		document: timeSeries(from, timeSeriesInput),
-		decodeResult: (result) =>
-			Result.flatMap(record(result, "RyotQL time-series result is malformed"), (seriesResult) => {
-				if (seriesResult["type"] !== "timeSeries") {
-					return fail("RyotQL result is not timeSeries");
-				}
-				if (!Array.isArray(seriesResult["buckets"])) {
-					return fail("RyotQL time-series buckets are malformed");
-				}
-				return Result.map(
-					Result.all(
-						seriesResult["buckets"].map((value) =>
-							Result.flatMap(record(value, "RyotQL time-series bucket is malformed"), (bucket) =>
-								Result.all({
-									endAt: decodeValue(bucket["endAt"], selection.endAt, "bucket.endAt"),
-									value: decodeValue(bucket["value"], selection.value, "bucket.value"),
-									startAt: decodeValue(bucket["startAt"], selection.startAt, "bucket.startAt"),
-								}),
-							),
-						),
-					),
-					(buckets) => {
-						// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-						const typedBuckets = buckets as readonly SelectedTimeSeriesBucket<Selection>[];
-						return { buckets: typedBuckets };
-					},
-				);
-			}),
-	};
-};
 
 export const document = <const Queries extends Readonly<Record<string, NamedQuery>>>(
 	queries: Queries,

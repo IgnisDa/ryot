@@ -581,19 +581,6 @@ export const planQuery = (
 			false,
 		);
 	}
-	if (output.type === "timeSeries") {
-		return planScope(
-			planner,
-			{
-				query,
-				includes: [],
-				nodes: [output.time.expr, ...aggregationNodes(output.measure.aggregation)],
-			},
-			undefined,
-			execution,
-			false,
-		);
-	}
 	return planScope(
 		planner,
 		{

@@ -4,7 +4,6 @@ import {
 	aggregate,
 	and,
 	ascending,
-	castDate,
 	coalesce,
 	column,
 	conditional,
@@ -27,7 +26,6 @@ import {
 	rows,
 	star,
 	table,
-	timeSeries,
 } from "@ryot-app/ryotql";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect } from "effect";
@@ -141,14 +139,6 @@ it.effect(
 						where: eq(owner, owner),
 						groupBy: [field("owner", owner)],
 						measures: [measure("owners", { expr: owner, function: "countDistinct" })],
-					}),
-					time: timeSeries(root, {
-						bucket: "day",
-						time: castDate(owner),
-						where: eq(owner, owner),
-						endAt: "2026-01-02T00:00:00Z",
-						startAt: "2026-01-01T00:00:00Z",
-						measure: { expr: owner, function: "minimum" },
 					}),
 					rows: rows(root, {
 						orderBy: [ascending(owner)],
