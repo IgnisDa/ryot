@@ -24,38 +24,25 @@ describe("media activity recipe", () => {
 		).toBeNull();
 	});
 
-	it("filters repaired attribution and active evidence for daily counts and shares", () => {
+	it("bounds every aggregate by the window and counts timed and date-only days together", () => {
 		const { queries } = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document;
-		const where = (name: string) => JSON.stringify(queries[name]?.where);
-
-		expect(where("days")).toContain("activeObservation");
-		expect(where("dates")).toContain("attribution");
-		expect(where("mediaTypes")).toContain("projectionStatus");
+		for (const name of ["days", "figures", "mediaTypes"]) {
+			expect(JSON.stringify(queries[name]?.where)).toContain("attribution");
+		}
+		expect(JSON.stringify(queries["days"]?.where)).toContain("activeObservation");
+		expect(JSON.stringify(queries["reviews"]?.where)).toContain(INPUT.from);
+		expect(JSON.stringify(queries)).not.toContain("projectionStatus");
 	});
 
 	it("reads the empty sums of a quiet year as zero", () => {
 		const decoded = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
 			data: {
 				days: { items: [], type: "aggregate" },
-				dates: { items: [], type: "aggregate" },
 				mediaTypes: { items: [], type: "aggregate" },
-				activeWork: {
-					type: "rows",
-					items: [],
-					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-				},
+				reviews: { type: "aggregate", items: [{ reviews: 0 }] },
 				figures: {
 					type: "aggregate",
-					items: [
-						{
-							failed: 0,
-							pending: 0,
-							minutes: null,
-							reviews: null,
-							finished: null,
-							minutesMissing: 0,
-						},
-					],
+					items: [{ minutes: null, finished: null, minutesMissing: null }],
 				},
 			},
 		});
@@ -65,29 +52,5 @@ describe("media activity recipe", () => {
 			finished: 0,
 			minutesMissing: 0,
 		});
-	});
-	it("combines date-only and timed activity on the same local day and exposes incomplete repairs", () => {
-		const result = Result.getOrThrow(
-			mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
-				data: {
-					mediaTypes: { items: [], type: "aggregate" },
-					activeWork: {
-						type: "rows",
-						items: [],
-						pageInfo: { hasMore: false, limit: 1, nextCursor: null },
-					},
-					dates: { type: "aggregate", items: [{ events: 3, day: "2026-09-25" }] },
-					days: { type: "aggregate", items: [{ events: 2, day: "2026-09-24T18:30:00.000Z" }] },
-					figures: {
-						type: "aggregate",
-						items: [
-							{ failed: 0, minutes: 0, reviews: 0, pending: 1, finished: 0, minutesMissing: 0 },
-						],
-					},
-				},
-			}),
-		);
-		expect(result.days).toEqual([{ events: 5, day: "2026-09-25" }]);
-		expect(result.processing).toBe("pending");
 	});
 });

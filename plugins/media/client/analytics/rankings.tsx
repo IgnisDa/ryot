@@ -23,7 +23,6 @@ import { useMemo, useState } from "react";
 
 import {
 	type MediaAnalyticsRanking,
-	mediaTypeLabel,
 	rankingModel,
 	type RankingsRecordsProps,
 	type RecordsDrillRequest,
@@ -33,10 +32,9 @@ import { analyticsPageInput, mediaAnalyticsRankingQuery } from "./queries";
 export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 	const viewport = useRyotViewport();
 	const [mediaType, setMediaType] = useState<string>();
-	const mediaTypes = props.report.current.items.map(({ mediaType: slug }) => slug);
 	const choices = [
 		{ value: "", label: "All media types" },
-		...mediaTypes.map((slug) => ({ value: slug, label: mediaTypeLabel(slug) })),
+		...props.summary.current.types.map((row) => ({ label: row.label, value: row.mediaType })),
 	];
 	return (
 		<section
@@ -63,7 +61,7 @@ export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 			<RankingResults
 				input={props.input}
 				mediaType={mediaType}
-				report={props.report}
+				summary={props.summary}
 				onDrill={props.onDrill}
 			/>
 		</section>
@@ -116,7 +114,7 @@ function RankingTable(props: {
 										{row.name}
 									</PluginLink>
 								</td>
-								<td className="px-3 py-2.5 text-text-muted">{row.category}</td>
+								<td className="px-3 py-2.5 text-text-muted">{row.label}</td>
 								<td className="px-3 py-2.5 text-right text-text-muted">
 									{formatExactValue(row.activeObservations, "observations")}
 								</td>
@@ -153,14 +151,14 @@ function RankingTable(props: {
 function RankingResults(props: {
 	readonly mediaType: string | undefined;
 	readonly input: RankingsRecordsProps["input"];
-	readonly report: RankingsRecordsProps["report"];
+	readonly summary: RankingsRecordsProps["summary"];
 	readonly onDrill: RankingsRecordsProps["onDrill"];
 }) {
 	const result = useRyotInfiniteQuery(
 		mediaAnalyticsRankingQuery,
 		{
 			...props.input,
-			processing: props.report.processing,
+			processing: props.summary.processing,
 			...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
 		},
 		{
@@ -179,8 +177,8 @@ function RankingResults(props: {
 		[result.pages],
 	);
 	const modeledRows = useMemo(
-		() => rankingModel(rows, props.report.processing),
-		[props.report.processing, rows],
+		() => rankingModel(rows, props.summary.processing),
+		[props.summary.processing, rows],
 	);
 	const firstPage = result.pages[0];
 	const preview = useMemo(
@@ -271,10 +269,10 @@ function RankingResults(props: {
 							{errorMessage}
 						</StatusMessage>
 					) : null}
-					{props.report.processing === "ready" ? null : (
-						<StatusMessage tone={props.report.processing === "failed" ? "error" : "pending"}>
+					{props.summary.processing === "ready" ? null : (
+						<StatusMessage tone={props.summary.processing === "failed" ? "error" : "pending"}>
 							Ranking counts are unavailable while consumption processing is{" "}
-							{props.report.processing}.
+							{props.summary.processing}.
 						</StatusMessage>
 					)}
 					{rows.length === 0 ? (

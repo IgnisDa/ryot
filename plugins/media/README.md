@@ -140,15 +140,15 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
   The rail merges sources by local day and, per title, keeps the soonest entry with "+N more".
   User settings `upcomingDaysAhead` (default 14, 1–365) and `upcomingOnePerTitle` (default on)
   control the window and deduplication.
-- `activity-recipes.ts` reads canonical title completions, minutes, and active observations over
-  52 local Monday-start weeks, with source reviews in the same period. Episode activity counts toward
-  its parent. Date-only and timed observations combine on their calendar day; unknown dates do not
-  enter the bounded period. Pending/failed repair replaces the figures, heatmap, and shares.
+- `activity-recipes.ts` reads canonical title completions, minutes, active days, and type shares over
+  52 local Monday-start weeks in four period-filtered aggregates, plus source reviews dated in the
+  window. Episode activity counts toward its parent. Date-only and timed observations group on one
+  local calendar day; unknown dates do not enter the period. Figures show whatever contributions are
+  ready and converge as projections finish; the section neither waits for nor polls processing.
 
-The Home activity section and screen use the account reporting timezone, stable `{ timeZone }`
-query input, execution-clock windows, and actual account-midnight/DST scheduling. They retain
-refresh-failure state and link to Analytics. `activity-model.ts` is unchanged. Formatting, lint, and
-whitespace passed; full Media tests, typecheck, and package check remain unrun.
+The Home activity section uses the account reporting timezone, stable `{ timeZone }` query input,
+execution-clock windows, and account-midnight/DST scheduling, retains refresh-failure state, and
+links to Analytics.
 
 Entity interest covers loaded subjects/selected seasons as foreground and displayed related entities
 as visible. Activity declares referenced entity IDs, not event IDs. Settle marks commit after fresh
@@ -564,8 +564,9 @@ Flat media with no progress, completion occurrences, temporary coverage, or miss
 settles a fresh run in one guarded checkpoint. Explicit completions and independent numbered items
 need no empty audit/progress/prune/clear checkpoints. Existing correction evidence and episodic
 coverage still use the paged state machine.
-Conflicts reread and retry up to five times, then yield to a fresh durable continuation. Ten
-consecutive continuations that commit no step fail the job; any committed step resets the count. Large
+A stale or conflicting commit fails with `HistoryCorrectionConflict` and yields to a fresh durable
+continuation without retrying inline. Ten consecutive continuations that commit no step fail the job;
+any committed step resets the count. Large
 repairs can become visible in stages. The Activity tab shows pending or failed work and offers Try
 again, which starts a fresh chain, without rolling back the recorded source facts.
 The shared background-work record exposes job status without exposing its execution input or pins;
@@ -636,8 +637,10 @@ music uses `minutes/duration` with the source seconds divided by 60; visual nove
 `chapters/chapters`. Games use `{ unit: "minutes" }` with no metadata estimate. Show/Podcast parents
 use `{ unit: "episodes" }` with no total; parent completion never supplies child duration.
 
-The single `media.consumption` before-policy captures a missing basis on creation across runtime
-writers. Updates retain the original basis, including an unavailable total. Supplying an explicit
+Field shapes, units, the anime integer item number, nonblank source runs and calendar-date format
+are manifest property validation; manifest choices derive from the `shared/consumption.ts` literal
+schemas. The single `media.consumption` before-policy keeps only cross-field and immutability rules and
+captures a missing basis on creation across runtime writers. Updates retain the original basis, including an unavailable total. Supplying an explicit
 amount corrects the observation without rewriting the retained metadata. A supplied historical basis
 must use the target's unit/property mapping. Automatic completions must supply retained evidence;
 they cannot recapture current providers. A create carrying `sourceRun` must supply its basis, including
@@ -710,24 +713,28 @@ parent inputs, or evidence change, so allocation converges after correction. Rev
 and library-admission writes also schedule correction. Child correction excludes sessioned sources
 whose completion repair belongs to the parent.
 
-`shared/consumption-recipes.ts` provides current/previous totals, recorded/estimated/missing coverage,
-date attribution, repair counts, trends, hourly activity, title rankings, and review aggregates.
-Its public input remains `{ reference, selection, now, timeZone, entityId? }`. `current.items` and
-`previous.items` group by `mediaType`, with completion/activity counts and each unit's `Recorded`,
-`Estimated`, and `Missing` fields. Additive `trends`, `hourly`, `rankings`, and `reviews` retain bounded
-page information. Trends retain separate date/instant precision rows on normalized calendar buckets;
-consumers sum both precision rows for one media-type bucket. Hourly activity excludes date-only and
-undated observations. Rankings use active observations, with entity identity as the stable tie-break.
-Reviews use their own recorded review date and expose rated-count coverage beside the average.
-All consumption sections share the report's processing state: pending while any consumption
-projection is pending or any Media background work for the account is queued or running, failed when
-a projection failed. Ready-only partial amounts must not be presented as complete while processing is
-pending or failed. Failed history correction is reported per title by the correction status.
-One full-history coverage query retains repair and undated counts. Current and previous quantity
-queries apply the reporting period before aggregation, rather than repeating the same period condition
-inside each measure. Their decoder joins coverage back by media type, retaining zero quantities for
-types whose dated history falls outside the period. The complete report uses at most eight named queries; the previous-period query is omitted when the
-selection has no previous period.
+`shared/consumption-recipes.ts` holds the shared predicates: a contribution is ready when its
+projection is visible (the catalog exposes projections only for ready streams), and a reporting period
+filters contributions by attribution before aggregation. `shared/analytics-recipes.ts` builds the
+Analytics reads from them:
+
+- `mediaAnalyticsSummaryRecipe` is one document: full-history coverage (pending, failed and undated
+  counts), and per period the per-media-type measures with distinct titles and active days, global
+  active days, and per-type reviews (rated count and average, on the review's own date, for Media
+  entities only). Previous-period queries are omitted without a comparison. Only coverage reads
+  stream status. Processing is pending while any contribution is not ready and failed when a
+  projection failed.
+- `mediaAnalyticsTrendRecipe` groups by one local calendar bucket per row (date-only evidence keeps
+  its UTC calendar date) for the current and optional previous period, optionally for one media type.
+  The contract's bucket limit bounds rows, so there is no client windowing. The daily heatmap reuses
+  it with day grouping over at most the last 366 days of the period.
+- `mediaAnalyticsHoursRecipe` groups exact instants by local hour; rankings and records page real
+  rows with cursors. Media type labels come from the entity schema name.
+
+The client runs the summary with SDK `refreshWhile` while processing is pending. Chart, ranking and
+record queries carry the summary's processing state in their input, so they reload when it settles;
+projection-updated hints only refresh queries that declare entity interests, which aggregate reads
+cannot. Values stay masked while processing is pending or failed.
 
 Home, flat-detail, and episodic lifetime metrics use canonical contributions. Current episode coverage
 and lifecycle status remain separate. Episodic activity never replaces missing frozen time with current

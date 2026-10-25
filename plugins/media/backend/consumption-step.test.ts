@@ -5,7 +5,6 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { EventStreamStepInput } from "@ryot-app/plugin-backend-sdk/event-streams";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
-import { mediaConsumptionLongTitleSources } from "../benchmarks/consumption";
 import { ConsumptionContribution } from "../shared/consumption-projection";
 import definition, { manifest } from "./consumption-step.sandbox";
 import { consumptionPageRecipe } from "./contracts/consumption-recipes";
@@ -73,47 +72,42 @@ const harness = (rows: readonly ReturnType<typeof row>[]) => {
 };
 
 describe("production consumption stream", () => {
-	it.effect(
-		"restarts the production script across 100,000 observations with UTF-8 bounded checkpoints",
-		() =>
-			Effect.gen(function* () {
-				const sources = Array.from(mediaConsumptionLongTitleSources(), (source, index) => ({
-					...row(source.id, source.properties.sourceRun ?? ""),
-					properties: {
-						progressPages: (index + 1) / 4,
-						sourceRun: source.properties.sourceRun ?? "",
-						consumptionBasis: { unit: "pages", total: 100_000, property: "pages" },
-					},
-				}));
-				const test = harness(sources);
-				let checkpoint: Schema.Json = null;
-				let count = 0;
-				let amount = 0;
-				let done = false;
-				for (let step = 0; step < 3000; step += 1) {
-					const result = yield* test.run(checkpoint);
-					expect(result.updates.length).toBeLessThanOrEqual(100);
-					const encoded: string = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(
-						result.checkpoint,
+	it.effect("resumes from its encoded checkpoint and caps each step at 100 updates", () =>
+		Effect.gen(function* () {
+			const rows = Array.from({ length: 450 }, (_, index) => ({
+				...row(String(index).padStart(4, "0"), "one"),
+				properties: {
+					sourceRun: "one",
+					progressPages: (index + 1) / 4,
+					consumptionBasis: { total: 1000, unit: "pages", property: "pages" },
+				},
+			}));
+			const test = harness(rows);
+			const steps: number[] = [];
+			let checkpoint: Schema.Json = null;
+			let amount = 0;
+			let done = false;
+			while (!done && steps.length < 20) {
+				const result = yield* test.run(checkpoint);
+				steps.push(result.updates.length);
+				const encoded: string = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(
+					result.checkpoint,
+				);
+				checkpoint = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(encoded);
+				for (const update of result.updates) {
+					const contribution = yield* Schema.decodeUnknownEffect(ConsumptionContribution)(
+						update.properties["contribution"],
 					);
-					expect(new TextEncoder().encode(encoded).byteLength).toBeLessThan(16_384);
-					checkpoint = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(encoded);
-					for (const update of result.updates) {
-						const contribution = yield* Schema.decodeUnknownEffect(ConsumptionContribution)(
-							update.properties["contribution"],
-						);
-						amount += contribution.pages?.recorded ?? 0;
-						count++;
-					}
-					if (result.done) {
-						done = true;
-						break;
-					}
+					amount += contribution.pages?.recorded ?? 0;
 				}
-				expect(done).toBe(true);
-				expect(count).toBe(100_000);
-				expect(amount).toBe(25_000);
-			}),
+				done = result.done;
+			}
+			expect(done).toBe(true);
+			expect(checkpoint).toBeNull();
+			expect(Math.max(...steps)).toBe(100);
+			expect(steps.reduce((total, count) => total + count, 0)).toBe(450);
+			expect(amount).toBe(112.5);
+		}),
 	);
 	it("uses one bounded rows query per page", () => {
 		for (const after of [

@@ -1,54 +1,41 @@
 import {
 	addCalendarDays,
-	addCalendarUnits,
 	type AnalyticsSectionProps,
 	calendarBuckets,
-	calendarDaysBetween,
-	calendarPeriod,
 	localDateOf,
 	type Reported,
-	type ReportingExecution,
-	type ReportingPeriod,
+	REPORTING_BUCKET_LIMIT,
 	type ReportingSelection,
-	selectionForPeriod,
-	startOfCalendarUnit,
+	resolveReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
-import {
-	type MediaAnalyticsCalendarInput,
-	type mediaAnalyticsConsistencyRecipe,
-	type MediaAnalyticsFilter,
-	type mediaAnalyticsHoursRecipe,
-	type MediaAnalyticsInput,
-	mediaAnalyticsPeriods,
-	type mediaAnalyticsRankingRecipe,
-	type mediaAnalyticsRecordsRecipe,
-	type mediaAnalyticsStatsRecipe,
-	type mediaAnalyticsTrendRecipe,
-	resolveMediaAnalyticsPeriods,
+import type {
+	MediaAnalyticsFilter,
+	mediaAnalyticsHoursRecipe,
+	MediaAnalyticsInput,
+	mediaAnalyticsRankingRecipe,
+	mediaAnalyticsRecordsRecipe,
+	mediaAnalyticsSummaryRecipe,
+	mediaAnalyticsTrendRecipe,
 } from "../../shared/analytics-recipes";
 import type { ConsumptionMeasureUnit } from "../../shared/consumption-allocation";
-import type { mediaConsumptionReportRecipe } from "../../shared/consumption-recipes";
 
+export type SummaryChartsProps = RankingsRecordsProps;
 export type AnalyticsInput = Omit<MediaAnalyticsInput, "now">;
-export type MediaAnalyticsSectionInput = AnalyticsSectionProps;
 export type MediaAnalyticsRecord = MediaAnalyticsRecords["items"][number];
-export type MediaAnalyticsStats = Recipe.Success<typeof mediaAnalyticsStatsRecipe>;
+export type MediaAnalyticsProcessing = MediaAnalyticsSummary["processing"];
 export type MediaAnalyticsTrend = Recipe.Success<typeof mediaAnalyticsTrendRecipe>;
 export type MediaAnalyticsHours = Recipe.Success<typeof mediaAnalyticsHoursRecipe>;
 export type MediaAnalyticsRanking = Recipe.Success<typeof mediaAnalyticsRankingRecipe>;
 export type MediaAnalyticsRecords = Recipe.Success<typeof mediaAnalyticsRecordsRecipe>;
-export type MediaConsumptionReport = Recipe.Success<typeof mediaConsumptionReportRecipe>;
-export type AnalyticsWindowInput = AnalyticsCalendarInput & { readonly anchorDate: string };
-export type MediaAnalyticsConsistency = Recipe.Success<typeof mediaAnalyticsConsistencyRecipe>;
-export type AnalyticsCalendarInput = AnalyticsInput & Omit<MediaAnalyticsCalendarInput, "now">;
+export type MediaAnalyticsSummary = Recipe.Success<typeof mediaAnalyticsSummaryRecipe>;
 export type MediaAnalyticsMetric =
 	"titleCompletions" | "episodeCompletions" | "activeObservations" | ConsumptionMeasureUnit;
 export type RankingsRecordsProps = {
 	readonly input: AnalyticsInput;
-	readonly report: Reported<MediaConsumptionReport>;
+	readonly summary: Reported<MediaAnalyticsSummary>;
 	readonly onDrill: (request: RecordsDrillRequest) => void;
 };
 export type RecordsDrillRequest = MediaAnalyticsFilter & {
@@ -57,230 +44,47 @@ export type RecordsDrillRequest = MediaAnalyticsFilter & {
 	readonly periodCaption: string;
 	readonly selection: ReportingSelection;
 };
-export type SummaryChartsProps = {
-	readonly input: AnalyticsInput;
-	readonly stats?: Reported<MediaAnalyticsStats>;
-	readonly report: Reported<MediaConsumptionReport>;
-	readonly onDrill: (request: RecordsDrillRequest) => void;
-};
 
 export const analyticsInput = ({
 	owner,
 	timeZone,
 	selection,
 }: AnalyticsSectionProps): AnalyticsInput => ({ timeZone, selection, reference: owner });
-/** Trend and daily windows end at the period's last day, or today for all time. */
-export const anchorDateOf = (reporting: ReportingExecution) =>
-	reporting.resolved.current?.endDate ?? localDateOf(reporting.now, reporting.resolved.timeZone);
-export const analyticsCalendarInput = (
-	input: AnalyticsInput,
-	reporting: ReportingExecution,
-): AnalyticsCalendarInput => ({
-	timeZone: input.timeZone,
-	reference: input.reference,
-	selection: input.selection,
-	...(input.entityId === undefined ? {} : { entityId: input.entityId }),
-	periods: mediaAnalyticsPeriods(reporting.resolved),
-});
-export const analyticsWindowInput = (
-	input: AnalyticsInput,
-	reporting: ReportingExecution,
-): AnalyticsWindowInput => ({
-	...analyticsCalendarInput(input, reporting),
-	anchorDate: anchorDateOf(reporting),
-});
-export const calendarReportingExecution = (
-	input: AnalyticsCalendarInput,
-	now: number,
-): ReportingExecution => {
-	const resolved = resolveMediaAnalyticsPeriods({ ...input, now });
-	return {
+
+/** The daily heatmap shows at most one bucket-limit of days ending at the period end or today. */
+export const consistencySelection = (input: AnalyticsInput, now: number) => {
+	const current = resolveReportingSelection(input.selection, {
 		now,
-		resolved,
-		selection: selectionForPeriod(
-			{ ...input.selection, grouping: resolved.grouping },
-			resolved.current,
-		),
-	};
-};
-export const mediaTypeLabel = (slug: string) => {
-	switch (slug) {
-		case "group":
-			return "Groups";
-		case "person":
-			return "People";
-		case "company":
-			return "Companies";
-		case "book-group":
-			return "Book groups";
-		case "comic-book":
-			return "Comic books";
-		case "video-game":
-			return "Video games";
-		case "movie-group":
-			return "Movie groups";
-		case "music-group":
-			return "Music groups";
-		case "show-season":
-			return "Show seasons";
-		case "show-episode":
-			return "Show episodes";
-		case "visual-novel":
-			return "Visual novels";
-		case "audiobook-group":
-			return "Audiobook groups";
-		case "podcast-episode":
-			return "Podcast episodes";
-		case "comic-book-group":
-			return "Comic book groups";
-		case "video-game-group":
-			return "Video game groups";
-		default:
-			return slug.charAt(0).toUpperCase() + slug.slice(1);
-	}
-};
-export const reviewTargetKind = (slug: string) => {
-	if (slug === "person" || slug === "company") {
-		return "creator" as const;
-	}
-	if (slug.endsWith("-group")) {
-		return "group" as const;
-	}
-	return slug.endsWith("-episode") || slug.endsWith("-season")
-		? ("child" as const)
-		: ("title" as const);
-};
-export const displayMediaType = (slug: string) => {
-	if (slug === "show-episode") {
-		return "show";
-	}
-	return slug === "podcast-episode" ? "podcast" : slug;
-};
-
-type Grouping = ReportingExecution["resolved"]["grouping"];
-
-const bucketDistance = (from: string, until: string, grouping: Grouping) => {
-	if (grouping === "year") {
-		return Number(until.slice(0, 4)) - Number(from.slice(0, 4));
-	}
-	if (grouping === "month") {
-		return (
-			(Number(until.slice(0, 4)) - Number(from.slice(0, 4))) * 12 +
-			Number(until.slice(5, 7)) -
-			Number(from.slice(5, 7))
-		);
-	}
-	return Math.round(calendarDaysBetween(from, until) / (grouping === "week" ? 7 : 1));
-};
-export type AnalyticsWindow = {
-	readonly grouping: Grouping;
-	readonly period: ReportingPeriod;
-	readonly nextCursor: null | string;
-	readonly previousCursor: null | string;
-};
-export const analyticsWindow = (
-	reporting: ReportingExecution,
-	kind: "trend" | "daily",
-	anchorDate: string,
-	endCursor?: string,
-): AnalyticsWindow => {
-	const grouping = kind === "daily" ? "day" : reporting.resolved.grouping;
-	const limit = kind === "daily" ? 400 : 32;
-	const range = reporting.resolved.current;
-	const last = range?.endDate ?? anchorDate;
-	const cursor = endCursor === undefined || endCursor > last ? last : endCursor;
-	const endDate = range !== null && cursor < range.startDate ? range.startDate : cursor;
-	const first = addCalendarUnits(startOfCalendarUnit(endDate, grouping), grouping, -(limit - 1));
-	const startDate = range !== null && range.startDate > first ? range.startDate : first;
-	const nextEnd = addCalendarDays(
-		addCalendarUnits(startOfCalendarUnit(endDate, grouping), grouping, limit + 1),
-		-1,
-	);
-	const nextCursor = nextEnd > last ? last : nextEnd;
+		timeZone: input.timeZone,
+	}).current;
+	const endDate = current?.endDate ?? localDateOf(now, input.timeZone);
+	const earliest = addCalendarDays(endDate, 1 - REPORTING_BUCKET_LIMIT);
+	const startDate = current === null || current.startDate < earliest ? earliest : current.startDate;
 	return {
-		grouping,
-		nextCursor: endDate >= last ? null : nextCursor,
-		period: calendarPeriod(startDate, endDate, reporting.resolved.timeZone),
-		previousCursor:
-			range !== null && startDate <= range.startDate ? null : addCalendarDays(startDate, -1),
+		clipped: current === null || current.startDate < startDate,
+		selection: {
+			grouping: "day",
+			comparison: "none",
+			range: { endDate, startDate, kind: "custom" },
+		} satisfies ReportingSelection,
 	};
 };
-export const comparisonWindow = (
-	reporting: ReportingExecution,
-	window: AnalyticsWindow,
-): null | ReportingPeriod => {
-	const current = reporting.resolved.current;
-	const previous = reporting.resolved.previous;
-	if (current === null || previous === null) {
-		return null;
-	}
-	const grouping = window.grouping;
-	const offset = bucketDistance(
-		startOfCalendarUnit(current.startDate, grouping),
-		startOfCalendarUnit(window.period.startDate, grouping),
-		grouping,
-	);
-	const start = addCalendarUnits(
-		startOfCalendarUnit(previous.startDate, grouping),
-		grouping,
-		offset,
-	);
-	if (start > previous.endDate) {
-		return null;
-	}
-	const count =
-		bucketDistance(
-			startOfCalendarUnit(window.period.startDate, grouping),
-			startOfCalendarUnit(window.period.endDate, grouping),
-			grouping,
-		) + 1;
-	const bound = addCalendarDays(addCalendarUnits(start, grouping, 32), -1);
-	const alignedEnd =
-		window.period.endDate === current.endDate
-			? previous.endDate
-			: addCalendarDays(addCalendarUnits(start, grouping, count), -1);
-	const end = alignedEnd > bound ? bound : alignedEnd;
-	return calendarPeriod(
-		start < previous.startDate ? previous.startDate : start,
-		end > previous.endDate ? previous.endDate : end,
-		reporting.resolved.timeZone,
-	);
-};
-export const extraPreviousWindow = (
-	reporting: ReportingExecution,
-	window: AnalyticsWindow,
-	previousWindow: null | ReportingPeriod,
-): null | ReportingPeriod => {
-	const previous = reporting.resolved.previous;
-	if (
-		previousWindow === null ||
-		previous === null ||
-		window.period.endDate !== reporting.resolved.current.endDate ||
-		previousWindow.endDate >= previous.endDate
-	) {
-		return null;
-	}
-	return calendarPeriod(
-		addCalendarDays(previousWindow.endDate, 1),
-		previous.endDate,
-		reporting.resolved.timeZone,
-	);
-};
 
-type QuantityRow = MediaAnalyticsTrend["items"][number];
-type QuantityPresence = MediaAnalyticsStats["current"]["global"];
-type QuantityTotals = MediaConsumptionReport["current"]["items"][number];
-type QuantityMeasures = Omit<QuantityRow, "at" | "precision" | "mediaType">;
+type TypeRow = MediaAnalyticsSummary["current"]["types"][number];
+type MeasureRow = Omit<MediaAnalyticsTrend["current"]["items"][number], "at">;
+
+const total = <Row>(rows: readonly Row[], value: (row: Row) => null | number | undefined) =>
+	rows.reduce((sum, row) => sum + (value(row) ?? 0), 0);
+
 export const quantityValue = (
-	source: QuantityTotals | QuantityMeasures,
-	presence: QuantityMeasures | QuantityPresence,
+	rows: readonly MeasureRow[],
 	unit: ConsumptionMeasureUnit,
 	ready = true,
 ) => {
-	const recorded = source[`${unit}Recorded`] ?? 0;
-	const estimated = source[`${unit}Estimated`] ?? 0;
-	const missing = source[`${unit}Missing`] ?? 0;
-	const known = presence[`${unit}Known`] ?? 0;
+	const known = total(rows, (row) => row[`${unit}Known`]);
+	const missing = total(rows, (row) => row[`${unit}Missing`]);
+	const recorded = total(rows, (row) => row[`${unit}Recorded`]);
+	const estimated = total(rows, (row) => row[`${unit}Estimated`]);
 	return {
 		known: ready ? known : null,
 		partial: !ready || missing > 0,
@@ -288,102 +92,68 @@ export const quantityValue = (
 		recorded: ready ? recorded : null,
 		estimated: ready ? estimated : null,
 		value: ready && known > 0 ? recorded + estimated : null,
-		superseded: ready ? (presence[`${unit}Superseded`] ?? 0) : null,
+		superseded: ready ? total(rows, (row) => row[`${unit}Superseded`]) : null,
 	};
 };
 
-export const summaryModel = (
-	report: MediaConsumptionReport,
-	stats: undefined | MediaAnalyticsStats,
-) => {
-	const ready = report.processing === "ready";
-	const period = (
-		totals: MediaConsumptionReport["current"],
-		supplemental: undefined | MediaAnalyticsStats["current"],
-	) => {
-		const partial = totals.pageInfo.hasMore || (supplemental?.types.pageInfo?.hasMore ?? false);
-		const quantity = (unit: ConsumptionMeasureUnit) => {
-			const recorded = totals.items.reduce(
-				(total, row) => total + (row[`${unit}Recorded`] ?? 0),
-				0,
-			);
-			const estimated = totals.items.reduce(
-				(total, row) => total + (row[`${unit}Estimated`] ?? 0),
-				0,
-			);
-			const missing = totals.items.reduce((total, row) => total + (row[`${unit}Missing`] ?? 0), 0);
-			const known = supplemental?.global[`${unit}Known`] ?? null;
-			return {
-				known: ready ? known : null,
-				missing: ready ? missing : null,
-				recorded: ready ? recorded : null,
-				estimated: ready ? estimated : null,
-				partial: !ready || partial || missing > 0,
-				value: ready && known !== null && known > 0 ? recorded + estimated : null,
-			};
-		};
-		return {
-			partial,
-			activeDays: ready ? (supplemental?.global.activeDays ?? null) : null,
-			distinctTitles: ready ? (supplemental?.global.distinctTitles ?? null) : null,
-			unknownDate: ready
-				? totals.items.reduce((total, row) => total + (row.unknownDate ?? 0), 0)
-				: null,
-			titleCompletions: ready
-				? totals.items.reduce((total, row) => total + (row.titleCompletions ?? 0), 0)
-				: null,
-			episodeCompletions: ready
-				? totals.items.reduce((total, row) => total + (row.episodeCompletions ?? 0), 0)
-				: null,
-			activeObservations: ready
-				? totals.items.reduce((total, row) => total + (row.activeObservations ?? 0), 0)
-				: null,
-			quantities: {
-				pages: quantity("pages"),
-				minutes: quantity("minutes"),
-				volumes: quantity("volumes"),
-				episodes: quantity("episodes"),
-				chapters: quantity("chapters"),
-			},
-			types: totals.items.map((row) => {
-				const presence = supplemental?.types.items.find((item) => item.mediaType === row.mediaType);
-				return {
-					source: row,
-					label: mediaTypeLabel(row.mediaType),
-					unknownDate: ready ? (row.unknownDate ?? 0) : null,
-					activeDays: ready ? (presence?.activeDays ?? null) : null,
-					titleCompletions: ready ? (row.titleCompletions ?? 0) : null,
-					episodeCompletions: ready ? (row.episodeCompletions ?? 0) : null,
-					activeObservations: ready ? (row.activeObservations ?? 0) : null,
-					distinctTitles: ready ? (presence?.distinctTitles ?? null) : null,
-					quantities:
-						presence === undefined
-							? null
-							: {
-									pages: quantityValue(row, presence, "pages", ready),
-									minutes: quantityValue(row, presence, "minutes", ready),
-									volumes: quantityValue(row, presence, "volumes", ready),
-									episodes: quantityValue(row, presence, "episodes", ready),
-									chapters: quantityValue(row, presence, "chapters", ready),
-								},
-				};
-			}),
-		};
-	};
+const quantities = (rows: readonly MeasureRow[], ready: boolean) => ({
+	pages: quantityValue(rows, "pages", ready),
+	minutes: quantityValue(rows, "minutes", ready),
+	volumes: quantityValue(rows, "volumes", ready),
+	episodes: quantityValue(rows, "episodes", ready),
+	chapters: quantityValue(rows, "chapters", ready),
+});
+
+const counts = (rows: readonly TypeRow[], ready: boolean) => {
+	const count = (value: (row: TypeRow) => null | number | undefined) =>
+		ready ? total(rows, value) : null;
 	return {
-		processing: report.processing,
-		reviews: stats?.reviews ?? null,
-		current: period(report.current, stats?.current),
-		previous:
-			report.previous === null ? null : period(report.previous, stats?.previous ?? undefined),
+		distinctTitles: count((row) => row.distinctTitles),
+		titleCompletions: count((row) => row.titleCompletions),
+		episodeCompletions: count((row) => row.episodeCompletions),
+		activeObservations: count((row) => row.activeObservations),
+	};
+};
+
+export const reviewModel = (reviews: MediaAnalyticsSummary["current"]["reviews"]) => {
+	const rated = total(reviews, (row) => row.rated);
+	return {
+		rated,
+		categories: reviews,
+		reviews: total(reviews, (row) => row.reviews),
+		averageRating:
+			rated === 0
+				? null
+				: total(reviews, (row) => (row.averageRating ?? 0) * (row.rated ?? 0)) / rated,
+	};
+};
+
+export const summaryModel = (summary: MediaAnalyticsSummary) => {
+	const ready = summary.processing === "ready";
+	const period = (data: NonNullable<MediaAnalyticsSummary["previous"]>) => ({
+		...counts(data.types, ready),
+		reviews: reviewModel(data.reviews),
+		quantities: quantities(data.types, ready),
+		activeDays: ready ? data.activeDays : null,
+		types: data.types.map((row) => ({
+			source: row,
+			...counts([row], ready),
+			quantities: quantities([row], ready),
+			activeDays: ready ? row.activeDays : null,
+		})),
+	});
+	return {
+		processing: summary.processing,
+		current: period(summary.current),
+		unknownDate: ready ? summary.unknownDate : null,
+		previous: summary.previous === null ? null : period(summary.previous),
 	};
 };
 
 const chartValue = (
-	rows: readonly QuantityMeasures[],
+	rows: readonly MeasureRow[],
 	metric: MediaAnalyticsMetric,
-	processing: MediaConsumptionReport["processing"],
-	partial: boolean,
+	processing: MediaAnalyticsProcessing,
 ) => {
 	if (processing !== "ready") {
 		return {
@@ -405,151 +175,70 @@ const chartValue = (
 			missing: null,
 			recorded: null,
 			estimated: null,
-			lowerBound: partial,
-			value:
-				partial && rows.length === 0
-					? null
-					: rows.reduce((total, row) => total + (row[metric] ?? 0), 0),
+			lowerBound: false,
+			value: total(rows, (row) => row[metric]),
 		};
 	}
-	const values = rows.map((row) => quantityValue(row, row, metric));
-	const known = values.reduce((total, row) => total + (row.known ?? 0), 0);
-	const missing = values.reduce((total, row) => total + (row.missing ?? 0), 0);
-	const recorded = values.reduce((total, row) => total + (row.recorded ?? 0), 0);
-	const estimated = values.reduce((total, row) => total + (row.estimated ?? 0), 0);
-	return {
-		known,
-		missing,
-		recorded,
-		estimated,
-		lowerBound: partial || missing > 0,
-		value: known > 0 ? recorded + estimated : null,
-	};
+	const { known, value, missing, recorded, estimated } = quantityValue(rows, metric);
+	return { known, value, missing, recorded, estimated, lowerBound: (missing ?? 0) > 0 };
 };
-export type TrendBucket = ReturnType<typeof trendGrid>["buckets"][number];
-export const trendGrid = (
+
+export type TrendBucket = ReturnType<typeof trendBuckets>[number];
+export const trendBuckets = (
 	trend: MediaAnalyticsTrend,
+	series: MediaAnalyticsTrend["current"],
 	metric: MediaAnalyticsMetric,
-	processing: MediaConsumptionReport["processing"],
+	processing: MediaAnalyticsProcessing,
 	timeZone: TimeZone,
-	mediaType?: string,
-) => {
-	const partial = trend.pageInfo?.hasMore ?? false;
-	const rows = trend.items.filter((row) => mediaType === undefined || row.mediaType === mediaType);
-	const buckets = calendarBuckets(rows, {
+) =>
+	calendarBuckets(series.items, {
 		timeZone,
 		at: (row) => row.at,
-		period: trend.period,
+		period: series.period,
 		grouping: trend.grouping,
 	}).map((bucket) =>
 		Object.assign(
-			{
-				date: bucket.date,
-				period: bucket.period,
-				sources: bucket.points,
-				at: bucket.period.startAt,
-			},
-			chartValue(bucket.points, metric, processing, partial),
+			{ date: bucket.date, period: bucket.period },
+			chartValue(bucket.points, metric, processing),
 		),
 	);
-	return { buckets, partial, processing };
-};
-export const trendModel = (
-	current: MediaAnalyticsTrend,
-	previous: null | MediaAnalyticsTrend,
-	metric: MediaAnalyticsMetric,
-	processing: MediaConsumptionReport["processing"],
-	timeZone: TimeZone,
-	mediaType?: string,
-) => {
-	const currentGrid = trendGrid(current, metric, processing, timeZone, mediaType);
-	const previousGrid =
-		previous === null ? null : trendGrid(previous, metric, processing, timeZone, mediaType);
-	return {
-		current: currentGrid,
-		previous: previousGrid,
-		partial: currentGrid.partial || (previousGrid?.partial ?? false),
-	};
-};
+
 export const hourlyModel = (
 	hours: MediaAnalyticsHours,
 	metric: MediaAnalyticsMetric,
-	processing: MediaConsumptionReport["processing"],
-	mediaType?: string,
-) => {
-	const partial = hours.pageInfo?.hasMore ?? false;
-	return {
-		partial,
-		hours: Array.from({ length: 24 }, (_, hour) => ({
-			hour,
-			...chartValue(
-				hours.items.filter(
-					(row) => row.hour === hour && (mediaType === undefined || row.mediaType === mediaType),
-				),
-				metric,
-				processing,
-				partial,
-			),
-		})),
-	};
-};
+	processing: MediaAnalyticsProcessing,
+) =>
+	Array.from({ length: 24 }, (_, hour) => ({
+		hour,
+		...chartValue(
+			hours.filter((row) => row.hour === hour),
+			metric,
+			processing,
+		),
+	}));
+
 export const consistencyModel = (
-	data: MediaAnalyticsConsistency,
-	processing: MediaConsumptionReport["processing"],
+	trend: MediaAnalyticsTrend,
+	processing: MediaAnalyticsProcessing,
 	timeZone: TimeZone,
-) => ({
-	processing,
-	period: data.period,
-	partial: data.hasMore,
-	days: calendarBuckets(data.days, {
-		timeZone,
-		grouping: "day",
-		period: data.period,
-		at: (row) => row.day,
-	}).map((bucket) => ({
-		date: bucket.date,
-		period: bucket.period,
-		value: processing !== "ready" ? null : (bucket.points[0]?.events ?? (data.hasMore ? null : 0)),
-	})),
-});
+) =>
+	trendBuckets(trend, trend.current, "activeObservations", processing, timeZone).map(
+		({ date, value, period }) => ({ date, value, period }),
+	);
+
 export const rankingModel = (
 	rows: MediaAnalyticsRanking["items"],
-	processing: MediaConsumptionReport["processing"],
+	processing: MediaAnalyticsProcessing,
 ) =>
 	rows.map((row) => ({
 		...row,
-		category: mediaTypeLabel(row.mediaType),
 		titleCompletions: processing === "ready" ? row.titleCompletions : null,
 		activeObservations: processing === "ready" ? row.activeObservations : null,
 		episodeCompletions: processing === "ready" ? row.episodeCompletions : null,
 	}));
-export const reviewModel = (reviews: MediaAnalyticsStats["reviews"]) => ({
-	current: {
-		...reviews.current,
-		categories: reviews.current.types.items.map((row) => ({
-			...row,
-			label: mediaTypeLabel(row.mediaType),
-			kind: reviewTargetKind(row.mediaType),
-		})),
-	},
-	previous:
-		reviews.previous === null
-			? null
-			: {
-					...reviews.previous,
-					categories: reviews.previous.types.items.map((row) => ({
-						...row,
-						label: mediaTypeLabel(row.mediaType),
-						kind: reviewTargetKind(row.mediaType),
-					})),
-				},
-});
-export const recordModel = (
-	row: MediaAnalyticsRecord,
-	processing: MediaConsumptionReport["processing"],
-) => ({
+
+export const recordModel = (row: MediaAnalyticsRecord, processing: MediaAnalyticsProcessing) => ({
 	source: row,
-	category: mediaTypeLabel(row.mediaType),
 	manualMinutes: row.facts.timeSpent ?? null,
 	contribution: processing === "ready" ? row.contribution : null,
 	date:

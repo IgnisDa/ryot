@@ -5,10 +5,12 @@ import {
 	castBoolean,
 	castDate,
 	castJson,
+	castNumber,
 	castText,
 	coalesce,
 	column,
 	conditional,
+	dateBucket,
 	defineRecipe,
 	descending,
 	eq,
@@ -16,9 +18,12 @@ import {
 	groupAscending,
 	gt,
 	isNotNull,
+	join,
+	jsonPath,
 	literal,
 	localDate,
 	localHour,
+	not,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -26,9 +31,11 @@ import {
 	selectedRows,
 	sum,
 	table,
+	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
-	localDateOf,
+	type CalendarUnit,
+	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
 	type ReportingSelection,
 	resolveReportingSelection,
@@ -36,391 +43,301 @@ import {
 	UTC,
 } from "@ryot-app/plugin-kit/schema";
 
-import { consumptionDailySelection } from "./activity-recipes";
 import { ConsumedItem, ConsumptionBasis, SourceProgress } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
-import { ConsumptionContribution } from "./consumption-projection";
+import { ConsumptionContribution, consumptionProcessingState } from "./consumption-projection";
 import {
+	consumptionActiveDay,
 	consumptionDetail,
-	consumptionMeasures,
 	consumptionNumber,
 	consumptionPeriod,
-	consumptionReviewMeasures,
-	consumptionReviewSource,
+	consumptionReady,
 	consumptionRows,
 	type ConsumptionScope,
 	consumptionScope,
-	consumptionTrendSelection,
 	consumptionValue,
+	mediaTypeJoin,
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
 
-export type MediaAnalyticsWindow = { readonly endDate: string; readonly startDate: string };
 export type MediaAnalyticsFilter = {
 	readonly hour?: number;
 	readonly mediaType?: string;
 	readonly activeOnly?: boolean;
-};
-export type MediaAnalyticsCalendarInput = Omit<MediaAnalyticsInput, "selection"> & {
-	readonly periods: MediaAnalyticsPeriods;
 };
 export type MediaAnalyticsInput = ConsumptionScope & {
 	readonly now: number;
 	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 };
-export type MediaAnalyticsPeriods = {
-	readonly grouping: ReturnType<typeof resolveReportingSelection>["grouping"];
-} & (
-	| { readonly current: null; readonly previous: null }
-	| { readonly current: MediaAnalyticsWindow; readonly previous: null | MediaAnalyticsWindow }
-);
-const periodDates = (period: ReportingPeriod): MediaAnalyticsWindow => ({
-	endDate: period.endDate,
-	startDate: period.startDate,
-});
-export const mediaAnalyticsPeriods = (
-	resolved: ReturnType<typeof resolveReportingSelection>,
-): MediaAnalyticsPeriods => {
-	if (resolved.current === null) {
-		return { current: null, previous: null, grouping: resolved.grouping };
-	}
-	return {
-		grouping: resolved.grouping,
-		current: periodDates(resolved.current),
-		previous: resolved.previous === null ? null : periodDates(resolved.previous),
-	};
-};
-export const resolveMediaAnalyticsPeriods = (
-	input: Pick<MediaAnalyticsCalendarInput, "now" | "periods" | "timeZone">,
-) => {
-	const resolve = (window: null | MediaAnalyticsWindow) =>
-		window === null
-			? null
-			: resolveReportingSelection(
-					{
-						comparison: "none",
-						grouping: input.periods.grouping,
-						range: { kind: "custom", ...window },
-					},
-					input,
-				).current;
-	const current = resolve(input.periods.current);
-	if (current === null) {
-		return {
-			current: null,
-			previous: null,
-			timeZone: input.timeZone,
-			grouping: input.periods.grouping,
-		};
-	}
-	return {
-		current,
-		timeZone: input.timeZone,
-		grouping: input.periods.grouping,
-		previous: resolve(input.periods.previous),
-	};
-};
 
 const nullableNumber = Schema.NullOr(Schema.Finite);
-const sumWhen = (predicate: Parameters<typeof conditional>[0]) =>
-	selectedMeasure(
-		{ function: "sum", expr: conditional(predicate, literal(1), literal(0)) },
-		nullableNumber,
-	);
+const sumOf = (expr: Parameters<typeof coalesce>[0]) =>
+	selectedMeasure({ expr, function: "sum" }, nullableNumber);
+const countWhen = (predicate: Parameters<typeof conditional>[0]) =>
+	sumOf(conditional(predicate, literal(1), literal(0)));
+const flag = (event: Table, ...path: string[]) =>
+	eq(castBoolean(consumptionValue(event, ...path)), literal(true));
 const attributionKind = (event: Table) => castText(consumptionValue(event, "attribution", "kind"));
-export const consumptionActiveDay = (event: Table, timeZone: TimeZone) =>
+const attributedAt = (event: Table) => castDate(consumptionValue(event, "attribution", "value"));
+
+const consumptionBucket = (event: Table, timeZone: TimeZone, bucket: CalendarUnit) =>
 	conditional(
 		eq(attributionKind(event), literal("date")),
-		castText(consumptionValue(event, "attribution", "value")),
-		conditional(
-			eq(attributionKind(event), literal("instant")),
-			localDate(castDate(consumptionValue(event, "attribution", "value")), { timeZone }),
-			literal(null),
+		localDate(dateBucket(attributedAt(event), { bucket, timeZone: UTC }), { timeZone: UTC }),
+		localDate(dateBucket(attributedAt(event), { bucket, timeZone }), { timeZone }),
+	);
+
+const recorded = (event: Table, unit: ConsumptionMeasureUnit) =>
+	sumOf(coalesce(consumptionNumber(event, unit, "recorded"), literal(0)));
+const estimated = (event: Table, unit: ConsumptionMeasureUnit) =>
+	sumOf(coalesce(consumptionNumber(event, unit, "estimated"), literal(0)));
+const missing = (event: Table, unit: ConsumptionMeasureUnit) =>
+	countWhen(flag(event, unit, "missing"));
+const superseded = (event: Table, unit: ConsumptionMeasureUnit) =>
+	countWhen(flag(event, unit, "supersededEstimate"));
+const known = (event: Table, unit: ConsumptionMeasureUnit) =>
+	countWhen(
+		and(
+			isNotNull(consumptionValue(event, unit)),
+			not(flag(event, unit, "missing")),
+			not(flag(event, unit, "supersededEstimate")),
 		),
 	);
 
-export const consumptionQuantityPresence = (event: Table) => {
-	const known = (unit: ConsumptionMeasureUnit) =>
-		sumWhen(
-			and(
-				isNotNull(consumptionValue(event, unit)),
-				eq(castBoolean(consumptionValue(event, unit, "missing")), literal(false)),
-				eq(castBoolean(consumptionValue(event, unit, "supersededEstimate")), literal(false)),
-			),
-		);
-	const superseded = (unit: ConsumptionMeasureUnit) =>
-		sumWhen(eq(castBoolean(consumptionValue(event, unit, "supersededEstimate")), literal(true)));
-	return {
-		pagesKnown: known("pages"),
-		minutesKnown: known("minutes"),
-		volumesKnown: known("volumes"),
-		episodesKnown: known("episodes"),
-		chaptersKnown: known("chapters"),
-		pagesSuperseded: superseded("pages"),
-		minutesSuperseded: superseded("minutes"),
-		volumesSuperseded: superseded("volumes"),
-		episodesSuperseded: superseded("episodes"),
-		chaptersSuperseded: superseded("chapters"),
-	};
-};
+export const consumptionMeasures = (event: Table) => ({
+	pagesKnown: known(event, "pages"),
+	minutesKnown: known(event, "minutes"),
+	pagesMissing: missing(event, "pages"),
+	volumesKnown: known(event, "volumes"),
+	pagesRecorded: recorded(event, "pages"),
+	episodesKnown: known(event, "episodes"),
+	chaptersKnown: known(event, "chapters"),
+	minutesMissing: missing(event, "minutes"),
+	pagesEstimated: estimated(event, "pages"),
+	volumesMissing: missing(event, "volumes"),
+	minutesRecorded: recorded(event, "minutes"),
+	pagesSuperseded: superseded(event, "pages"),
+	episodesMissing: missing(event, "episodes"),
+	chaptersMissing: missing(event, "chapters"),
+	volumesRecorded: recorded(event, "volumes"),
+	minutesEstimated: estimated(event, "minutes"),
+	episodesRecorded: recorded(event, "episodes"),
+	chaptersRecorded: recorded(event, "chapters"),
+	volumesEstimated: estimated(event, "volumes"),
+	minutesSuperseded: superseded(event, "minutes"),
+	episodesEstimated: estimated(event, "episodes"),
+	chaptersEstimated: estimated(event, "chapters"),
+	volumesSuperseded: superseded(event, "volumes"),
+	episodesSuperseded: superseded(event, "episodes"),
+	chaptersSuperseded: superseded(event, "chapters"),
+	activeObservations: countWhen(flag(event, "activeObservation")),
+	titleCompletions: sumOf(coalesce(consumptionNumber(event, "titleCompletions"), literal(0))),
+	episodeCompletions: sumOf(coalesce(consumptionNumber(event, "episodeCompletions"), literal(0))),
+});
 
-const statsMeasures = (event: Table, timeZone: TimeZone) => ({
-	distinctTitles: selectedMeasure(
+const activeDays = (event: Table, timeZone: TimeZone) =>
+	selectedMeasure(
 		{
 			function: "countDistinct",
 			expr: conditional(
-				gt(consumptionNumber(event, "titleCompletions"), literal(0)),
-				column(event, "entityId"),
-				literal(null),
-			),
-		},
-		Schema.Finite,
-	),
-	activeDays: selectedMeasure(
-		{
-			function: "countDistinct",
-			expr: conditional(
-				eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true)),
+				flag(event, "activeObservation"),
 				consumptionActiveDay(event, timeZone),
 				literal(null),
 			),
 		},
 		Schema.Finite,
-	),
-	...consumptionQuantityPresence(event),
-});
+	);
 
-export const mediaAnalyticsStatsRecipe = defineRecipe((input: MediaAnalyticsCalendarInput) => {
-	const resolved = resolveMediaAnalyticsPeriods(input);
-	const current = consumptionDetail(input, "analyticsCurrent", resolved.current);
-	const previous =
-		resolved.previous === null
-			? undefined
-			: consumptionDetail(input, "analyticsPrevious", resolved.previous);
-	const review = (period: null | ReportingPeriod, alias: string) => {
-		const source = consumptionReviewSource(input, period, `${alias}Event`, `${alias}Entity`);
-		return {
-			...source,
+const periodSummary = (
+	input: MediaAnalyticsInput,
+	period: null | ReportingPeriod,
+	alias: string,
+) => {
+	const source = consumptionDetail(input, `${alias}Consumption`, period);
+	const type = mediaTypeJoin(source.entity, `${alias}Type`, input.reference);
+	const review = table("event", `${alias}Review`);
+	const reviewed = table("entity", `${alias}Reviewed`);
+	const reviewType = mediaTypeJoin(reviewed, `${alias}ReviewType`, input.reference);
+	return {
+		activeDays: selectedAggregate(source.event, {
+			joins: source.joins,
+			where: source.where,
+			measures: { activeDays: activeDays(source.event, input.timeZone) },
+		}),
+		types: selectedAggregate(source.event, {
+			limit: 100,
+			where: source.where,
+			joins: [...source.joins, type.join],
+			orderBy: [groupAscending("mediaType")],
+			groupBy: { label: type.label, mediaType: type.slug },
+			measures: {
+				...consumptionMeasures(source.event),
+				activeDays: activeDays(source.event, input.timeZone),
+				distinctTitles: selectedMeasure(
+					{
+						function: "countDistinct",
+						expr: conditional(
+							gt(consumptionNumber(source.event, "titleCompletions"), literal(0)),
+							column(source.event, "entityId"),
+							literal(null),
+						),
+					},
+					Schema.Finite,
+				),
+			},
+		}),
+		reviews: selectedAggregate(review, {
+			limit: 100,
+			orderBy: [groupAscending("mediaType")],
+			groupBy: { label: reviewType.label, mediaType: reviewType.slug },
+			joins: [
+				join("inner", reviewed, eq(column(review, "entityId"), column(reviewed, "id"))),
+				reviewType.join,
+			],
 			where: and(
-				source.where,
-				schemaOwnerPredicate(source.entity, "entitySchemaPluginId", input.reference),
+				consumptionScope(review, input),
+				schemaOwnerPredicate(reviewed, "entitySchemaPluginId", input.reference),
+				eq(column(review, "eventSchemaSlug"), literal("review")),
+				withinPeriod(column(review, "occurredAt"), period),
 			),
-		};
+			measures: {
+				reviews: selectedMeasure({ function: "count" }, Schema.Finite),
+				rated: countWhen(isNotNull(jsonPath(column(review, "properties"), "rating"))),
+				averageRating: selectedMeasure(
+					{
+						function: "average",
+						expr: castNumber(jsonPath(column(review, "properties"), "rating")),
+					},
+					nullableNumber,
+				),
+			},
+		}),
 	};
-	const currentReview = review(resolved.current, "analyticsCurrentReview");
-	const previousReview =
-		resolved.previous === null ? undefined : review(resolved.previous, "analyticsPreviousReview");
-	const globalStats = (source: typeof current) =>
-		selectedAggregate(source.event, {
-			joins: source.joins,
-			where: source.where,
-			measures: statsMeasures(source.event, input.timeZone),
-		});
-	const typeStats = (source: typeof current) =>
-		selectedAggregate(source.event, {
-			limit: 100,
-			joins: source.joins,
-			where: source.where,
-			orderBy: [groupAscending("mediaType")],
-			measures: statsMeasures(source.event, input.timeZone),
-			groupBy: {
-				mediaType: selectedField(column(source.entity, "entitySchemaSlug"), Schema.String),
-			},
-		});
-	const globalReviews = (source: typeof currentReview) =>
-		selectedAggregate(source.review, {
-			joins: source.joins,
-			where: source.where,
-			measures: consumptionReviewMeasures(source.review),
-		});
-	const typeReviews = (source: typeof currentReview) =>
-		selectedAggregate(source.review, {
-			limit: 100,
-			joins: source.joins,
-			where: source.where,
-			orderBy: [groupAscending("mediaType")],
-			measures: consumptionReviewMeasures(source.review),
-			groupBy: {
-				mediaType: selectedField(column(source.entity, "entitySchemaSlug"), Schema.String),
-			},
-		});
+};
+
+/** Period totals by media type, global active days and reviews, with full-history coverage. */
+export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsInput) => {
+	const resolved = resolveReportingSelection(input.selection, input);
+	const current = periodSummary(input, resolved.current, "current");
+	const previous =
+		resolved.previous === null ? undefined : periodSummary(input, resolved.previous, "previous");
+	const coverage = table("event", "coverageEvent");
 	return {
 		queries: {
-			currentTypes: typeStats(current),
-			currentGlobal: globalStats(current),
-			currentReviews: globalReviews(currentReview),
-			currentReviewTypes: typeReviews(currentReview),
-			previousTypes: previous && typeStats(previous),
-			previousGlobal: previous && globalStats(previous),
-			previousReviews: previousReview && globalReviews(previousReview),
-			previousReviewTypes: previousReview && typeReviews(previousReview),
-		},
-		map: ({
-			currentTypes,
-			currentGlobal,
-			previousTypes,
-			previousGlobal,
-			currentReviews,
-			previousReviews,
-			currentReviewTypes,
-			previousReviewTypes,
-		}) =>
-			Result.succeed({
-				current: { types: currentTypes, global: currentGlobal },
-				previous:
-					previousTypes === undefined || previousGlobal === undefined
-						? null
-						: { types: previousTypes, global: previousGlobal },
-				reviews: {
-					current: { global: currentReviews, types: currentReviewTypes },
-					previous:
-						previousReviews === undefined || previousReviewTypes === undefined
-							? null
-							: { global: previousReviews, types: previousReviewTypes },
+			currentTypes: current.types,
+			previousTypes: previous?.types,
+			currentReviews: current.reviews,
+			previousReviews: previous?.reviews,
+			currentActiveDays: current.activeDays,
+			previousActiveDays: previous?.activeDays,
+			coverage: selectedAggregate(coverage, {
+				where: and(consumptionScope(coverage, input), consumptionRows(coverage)),
+				measures: {
+					pending: countWhen(not(consumptionReady(coverage))),
+					failed: countWhen(eq(column(coverage, "projectionStatus"), literal("failed"))),
+					unknownDate: countWhen(
+						and(consumptionReady(coverage), eq(attributionKind(coverage), literal("unknown"))),
+					),
 				},
 			}),
+		},
+		map: (result) => {
+			const period = (
+				types: undefined | typeof result.currentTypes,
+				reviews: undefined | typeof result.currentReviews,
+				days: undefined | typeof result.currentActiveDays,
+			) =>
+				types === undefined || reviews === undefined || days === undefined
+					? null
+					: { types: types.items, reviews: reviews.items, activeDays: days.activeDays };
+			return Result.succeed({
+				unknownDate: result.coverage.unknownDate ?? 0,
+				previous: period(result.previousTypes, result.previousReviews, result.previousActiveDays),
+				processing: consumptionProcessingState(
+					result.coverage.pending ?? 0,
+					result.coverage.failed ?? 0,
+				),
+				current: {
+					types: result.currentTypes.items,
+					reviews: result.currentReviews.items,
+					activeDays: result.currentActiveDays.activeDays,
+				},
+			});
+		},
 	};
 });
 
-const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / 86_400_000;
-const bucketNumber = (
-	date: string,
-	grouping: ReturnType<typeof resolveReportingSelection>["grouping"],
-) => {
-	if (grouping === "year") {
-		return Number(date.slice(0, 4));
-	}
-	if (grouping === "month") {
-		return Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7)) - 1;
-	}
-	return grouping === "week" ? Math.floor((dayNumber(date) + 3) / 7) : dayNumber(date);
-};
-const windowPeriod = (
-	input: MediaAnalyticsCalendarInput,
-	window: MediaAnalyticsWindow,
-	daily: boolean,
-	prior = false,
-) => {
-	const resolved = resolveMediaAnalyticsPeriods(input);
-	const period = prior ? resolved.previous : resolved.current;
-	if (window.startDate > window.endDate) {
-		throw new Error("Analytics window dates are reversed");
-	}
-	if (prior && period === null) {
-		throw new Error("No previous reporting period");
-	}
-	const grouping = daily ? "day" : resolved.grouping;
-	if (
-		bucketNumber(window.endDate, grouping) - bucketNumber(window.startDate, grouping) + 1 >
-		(daily ? 400 : 32)
-	) {
-		throw new Error("Analytics window exceeds its calendar bucket bound");
-	}
-	if (period !== null && (window.startDate < period.startDate || window.endDate > period.endDate)) {
-		throw new Error("Analytics window is outside the reporting period");
-	}
-	const bounded = resolveReportingSelection(
-		{ grouping, comparison: "none", range: { kind: "custom", ...window } },
-		input,
-	).current;
-	if (bounded === null) {
-		throw new Error("Analytics window must be dated");
-	}
-	return { grouping, period: bounded };
-};
+const filtered = (source: ReturnType<typeof consumptionDetail>, mediaType: string | undefined) =>
+	mediaType === undefined
+		? source.where
+		: and(source.where, eq(column(source.entity, "entitySchemaSlug"), literal(mediaType)));
 
+/** Consumption by local calendar bucket for the current period and, when compared, the previous. */
 export const mediaAnalyticsTrendRecipe = defineRecipe(
-	(
-		input: MediaAnalyticsCalendarInput & {
-			readonly window: MediaAnalyticsWindow;
-			readonly period?: "current" | "previous";
-		},
-	) => {
-		const { period, grouping } = windowPeriod(
-			input,
-			input.window,
-			false,
-			input.period === "previous",
-		);
-		const source = consumptionTrendSelection(input, period, grouping, "analyticsTrend");
+	(input: MediaAnalyticsInput & { readonly mediaType?: string }) => {
+		const resolved = resolveReportingSelection(input.selection, input);
+		const trend = (period: null | ReportingPeriod, alias: string) => {
+			const source = consumptionDetail(input, alias, period);
+			return selectedAggregate(source.event, {
+				joins: source.joins,
+				limit: REPORTING_BUCKET_LIMIT,
+				orderBy: [groupAscending("at")],
+				measures: consumptionMeasures(source.event),
+				where: and(
+					filtered(source, input.mediaType),
+					isNotNull(consumptionActiveDay(source.event, input.timeZone)),
+				),
+				groupBy: {
+					at: selectedField(
+						consumptionBucket(source.event, input.timeZone, resolved.grouping),
+						Schema.String,
+					),
+				},
+			});
+		};
 		return {
 			queries: {
-				trend: selectedAggregate(source.event, {
-					...source.selection,
-					measures: { ...source.selection.measures, ...consumptionQuantityPresence(source.event) },
-				}),
+				current: trend(resolved.current, "trendCurrent"),
+				previous:
+					resolved.previous === null ? undefined : trend(resolved.previous, "trendPrevious"),
 			},
-			map: ({ trend }) =>
+			map: ({ current, previous }) =>
 				Result.succeed({
-					...trend,
-					period,
-					grouping,
-					items: trend.items.map((row) => ({
-						...row,
-						at: localDateOf(row.at, row.precision === "date" ? UTC : input.timeZone),
-					})),
+					grouping: resolved.grouping,
+					current: { items: current.items, period: resolved.current },
+					previous:
+						previous === undefined || resolved.previous === null
+							? null
+							: { items: previous.items, period: resolved.previous },
 				}),
 		};
 	},
 );
 
-export const mediaAnalyticsHoursRecipe = defineRecipe((input: MediaAnalyticsCalendarInput) => {
-	const resolved = resolveMediaAnalyticsPeriods(input);
-	const source = consumptionDetail(input, "analyticsHour", resolved.current);
-	return {
-		map: ({ hourly }) => Result.succeed(hourly),
-		queries: {
-			hourly: selectedAggregate(source.event, {
-				limit: 1000,
-				joins: source.joins,
-				orderBy: [groupAscending("hour"), groupAscending("mediaType")],
-				where: and(source.where, eq(attributionKind(source.event), literal("instant"))),
-				measures: {
-					...consumptionMeasures(source.event),
-					...consumptionQuantityPresence(source.event),
-				},
-				groupBy: {
-					mediaType: selectedField(column(source.entity, "entitySchemaSlug"), Schema.String),
-					hour: selectedField(
-						localHour(castDate(consumptionValue(source.event, "attribution", "value")), {
-							timeZone: input.timeZone,
-						}),
-						Schema.Finite,
-					),
-				},
-			}),
-		},
-	};
-});
-
-export const mediaAnalyticsConsistencyRecipe = defineRecipe(
-	(input: MediaAnalyticsCalendarInput & { readonly window: MediaAnalyticsWindow }) => {
-		const { period } = windowPeriod(input, input.window, true);
-		const source = consumptionDetail(input, "analyticsConsistency", period);
+export const mediaAnalyticsHoursRecipe = defineRecipe(
+	(input: MediaAnalyticsInput & { readonly mediaType?: string }) => {
+		const period = resolveReportingSelection(input.selection, input).current;
+		const source = consumptionDetail(input, "analyticsHour", period);
 		return {
+			map: ({ hourly }) => Result.succeed(hourly.items),
 			queries: {
-				dates: consumptionDailySelection(source, "date", { ...input, period }),
-				instants: consumptionDailySelection(source, "instant", { ...input, period }),
-			},
-			map: ({ dates, instants }) => {
-				const counts = new Map<string, number>();
-				for (const row of [
-					...dates.items,
-					...instants.items.map((item) => ({
-						...item,
-						day: localDateOf(item.day, input.timeZone),
-					})),
-				]) {
-					counts.set(row.day, (counts.get(row.day) ?? 0) + row.events);
-				}
-				return Result.succeed({
-					period,
-					hasMore: (dates.pageInfo?.hasMore ?? false) || (instants.pageInfo?.hasMore ?? false),
-					days: [...counts]
-						.sort(([a], [b]) => a.localeCompare(b))
-						.map(([day, events]) => ({ day, events })),
-				});
+				hourly: selectedAggregate(source.event, {
+					limit: 24,
+					joins: source.joins,
+					orderBy: [groupAscending("hour")],
+					measures: consumptionMeasures(source.event),
+					where: and(
+						filtered(source, input.mediaType),
+						eq(attributionKind(source.event), literal("instant")),
+					),
+					groupBy: {
+						hour: selectedField(
+							localHour(attributedAt(source.event), { timeZone: input.timeZone }),
+							Schema.Finite,
+						),
+					},
+				}),
 			},
 		};
 	},
@@ -431,30 +348,23 @@ export const mediaAnalyticsRankingRecipe = defineRecipe(
 		const period = resolveReportingSelection(input.selection, input).current;
 		const entity = table("entity", "analyticsRankEntity");
 		const event = table("event", "analyticsRankEvent");
+		const type = mediaTypeJoin(entity, "analyticsRankType", input.reference);
 		const where = and(
 			consumptionScope(event, input),
 			consumptionRows(event),
 			consumptionPeriod(event, period),
 			eq(column(event, "entityId"), column(entity, "id")),
 		);
-		const score = coalesce(
-			sum(
-				event,
-				conditional(
-					eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true)),
-					literal(1),
-					literal(0),
-				),
-				{ where },
-			),
-			literal(0),
-		);
+		const total = (expr: Parameters<typeof sum>[1]) =>
+			coalesce(sum(event, expr, { where }), literal(0));
+		const score = total(conditional(flag(event, "activeObservation"), literal(1), literal(0)));
 		return {
 			map: ({ ranking }) => Result.succeed(ranking),
 			queries: {
 				ranking: selectedRows(entity, {
 					limit: 100,
 					after: input.after,
+					joins: [type.join],
 					orderBy: [descending(score), ascending(column(entity, "id"))],
 					where: and(
 						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
@@ -464,22 +374,17 @@ export const mediaAnalyticsRankingRecipe = defineRecipe(
 							: [eq(column(entity, "entitySchemaSlug"), literal(input.mediaType))]),
 					),
 					selection: {
+						label: type.label,
+						mediaType: type.slug,
 						activeObservations: selectedField(score, Schema.Finite),
 						name: selectedField(column(entity, "name"), Schema.String),
 						entityId: selectedField(column(entity, "id"), Schema.String),
-						mediaType: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
 						titleCompletions: selectedField(
-							coalesce(
-								sum(event, consumptionNumber(event, "titleCompletions"), { where }),
-								literal(0),
-							),
+							total(consumptionNumber(event, "titleCompletions")),
 							Schema.Finite,
 						),
 						episodeCompletions: selectedField(
-							coalesce(
-								sum(event, consumptionNumber(event, "episodeCompletions"), { where }),
-								literal(0),
-							),
+							total(consumptionNumber(event, "episodeCompletions")),
 							Schema.Finite,
 						),
 					},
@@ -510,6 +415,7 @@ export const mediaAnalyticsRecordsRecipe = defineRecipe(
 	(input: MediaAnalyticsInput & MediaAnalyticsFilter & { readonly after?: string }) => {
 		const period = resolveReportingSelection(input.selection, input).current;
 		const source = consumptionDetail(input, "analyticsRecord", period);
+		const type = mediaTypeJoin(source.entity, "analyticsRecordType", input.reference);
 		const event = source.event;
 		return {
 			map: ({ records }) => Result.succeed(records),
@@ -517,7 +423,7 @@ export const mediaAnalyticsRecordsRecipe = defineRecipe(
 				records: selectedRows(event, {
 					limit: 100,
 					after: input.after,
-					joins: source.joins,
+					joins: [...source.joins, type.join],
 					orderBy: [
 						descending(column(event, "occurredAt")),
 						descending(column(event, "orderCreatedAt")),
@@ -525,27 +431,21 @@ export const mediaAnalyticsRecordsRecipe = defineRecipe(
 						descending(column(event, "id")),
 					],
 					where: and(
-						source.where,
-						schemaOwnerPredicate(source.entity, "entitySchemaPluginId", input.reference),
-						...(input.mediaType === undefined
-							? []
-							: [eq(column(source.entity, "entitySchemaSlug"), literal(input.mediaType))]),
-						...(input.activeOnly === true
-							? [eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true))]
-							: []),
+						filtered(source, input.mediaType),
+						...(input.activeOnly === true ? [flag(event, "activeObservation")] : []),
 						...(input.hour === undefined
 							? []
 							: [
 									eq(attributionKind(event), literal("instant")),
 									eq(
-										localHour(castDate(consumptionValue(event, "attribution", "value")), {
-											timeZone: input.timeZone,
-										}),
+										localHour(attributedAt(event), { timeZone: input.timeZone }),
 										literal(input.hour),
 									),
 								]),
 					),
 					selection: {
+						label: type.label,
+						mediaType: type.slug,
 						id: selectedField(column(event, "id"), Schema.String),
 						entityId: selectedField(column(event, "entityId"), Schema.String),
 						name: selectedField(column(source.entity, "name"), Schema.String),
@@ -553,7 +453,6 @@ export const mediaAnalyticsRecordsRecipe = defineRecipe(
 						occurredAt: selectedField(column(event, "occurredAt"), Schema.String),
 						eventType: selectedField(column(event, "eventSchemaSlug"), Schema.String),
 						orderCreatedAt: selectedField(column(event, "orderCreatedAt"), Schema.String),
-						mediaType: selectedField(column(source.entity, "entitySchemaSlug"), Schema.String),
 						facts: selectedField(castJson(column(event, "properties")), MediaConsumptionFacts),
 						contribution: selectedField(castJson(consumptionValue(event)), ConsumptionContribution),
 					},

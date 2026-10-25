@@ -91,59 +91,21 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>, Component =
 const aggregate = (items: readonly Record<string, null | number | string>[]) => ({
 	items,
 	type: "aggregate" as const,
-	pageInfo: { limit: 100, hasMore: false },
 });
 
-const reportResponse = (pending = 0) => ({
-	data: {
-		hourly: aggregate([]),
-		trends: aggregate([]),
-		current: aggregate([]),
-		reviews: aggregate([]),
-		previous: aggregate([]),
-		rankings: aggregate([]),
-		coverage: aggregate(
-			pending === 0 ? [] : [{ pending, failed: 0, unknownDate: 0, mediaType: "book" }],
-		),
-		activeWork: {
-			items: [],
-			type: "rows" as const,
-			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-		},
-	},
-});
-
-const presence = {
-	activeDays: 1,
-	pagesKnown: 0,
-	minutesKnown: 1,
-	volumesKnown: 0,
-	episodesKnown: 0,
-	chaptersKnown: 0,
-	distinctTitles: 1,
-	pagesSuperseded: 0,
-	minutesSuperseded: 0,
-	volumesSuperseded: 0,
-	episodesSuperseded: 0,
-	chaptersSuperseded: 0,
-};
-
-const statsResponse = {
+const summaryResponse = (pending = 0) => ({
 	data: {
 		currentTypes: aggregate([]),
 		previousTypes: aggregate([]),
-		currentReviewTypes: aggregate([]),
-		previousReviewTypes: aggregate([]),
-		currentGlobal: aggregate([presence]),
-		previousGlobal: aggregate([presence]),
-		currentReviews: aggregate([{ rated: 0, reviews: 0, averageRating: null }]),
-		previousReviews: aggregate([{ rated: 0, reviews: 0, averageRating: null }]),
+		currentReviews: aggregate([]),
+		previousReviews: aggregate([]),
+		currentActiveDays: aggregate([{ activeDays: 0 }]),
+		previousActiveDays: aggregate([{ activeDays: 0 }]),
+		coverage: aggregate([{ pending, failed: 0, unknownDate: 0 }]),
 	},
-};
+});
 
 const reportRequests = (page: ReturnType<typeof mountSection>) => page.queryRequests("coverage");
-const statsRequests = (page: ReturnType<typeof mountSection>) =>
-	page.queryRequests("currentGlobal");
 const queryText = (request: ReturnType<ReturnType<typeof mountSection>["queryRequests"]>[number]) =>
 	JSON.stringify(request.document);
 
@@ -155,10 +117,7 @@ const waitForRequest = <Request,>(get: () => readonly Request[]) =>
 	});
 
 const replyReport = (page: ReturnType<typeof mountSection>, requestId: string, pending = 0) =>
-	page.replyQuery(requestId, { outcome: "success", response: reportResponse(pending) });
-
-const replyStats = (page: ReturnType<typeof mountSection>, requestId: string) =>
-	page.replyQuery(requestId, { outcome: "success", response: statsResponse });
+	page.replyQuery(requestId, { outcome: "success", response: summaryResponse(pending) });
 
 describe("media analytics section", () => {
 	it.live("retries the primary report and mounts accessible tabs lazily", () =>
@@ -176,7 +135,6 @@ describe("media analytics section", () => {
 						),
 					),
 				);
-				expect(statsRequests(page)).toHaveLength(0);
 
 				act(() => {
 					fireEvent.click(screen.getByRole("button", { name: "Retry media analytics" }));
@@ -189,8 +147,6 @@ describe("media analytics section", () => {
 					}),
 				);
 				replyReport(page, retry.requestId);
-				const stats = yield* Effect.promise(() => waitForRequest(() => statsRequests(page)));
-				replyStats(page, stats.requestId);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
 				);
@@ -225,106 +181,45 @@ describe("media analytics section", () => {
 		}),
 	);
 
-	it.live(
-		"keeps the report active through independent breakdown failures and refreshes on readiness",
-		() =>
-			Effect.gen(function* () {
-				const clock = createTestRyotClock();
-				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
-				const page = mountSection(clock);
-				try {
-					const firstReport = yield* Effect.promise(() =>
-						waitForRequest(() => reportRequests(page)),
-					);
-					replyReport(page, firstReport.requestId, 1);
-					const firstStats = yield* Effect.promise(() => waitForRequest(() => statsRequests(page)));
-					page.replyQuery(firstStats.requestId, { outcome: "failure", reason: "query-failed" });
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByRole("alert").textContent).toContain(
-								"Could not load media analytics breakdowns.",
-							),
-						),
-					);
-					expect(screen.getByRole("tab", { name: "Charts" })).toBeDefined();
-
-					act(() => {
-						fireEvent.click(
-							screen.getByRole("button", { name: "Retry media analytics breakdowns" }),
-						);
-					});
-					const statsRetry = yield* Effect.promise(() =>
-						waitFor(() => {
-							const request = statsRequests(page)[1];
-							assert(request);
-							return request;
-						}),
-					);
-					replyStats(page, statsRetry.requestId);
-					yield* Effect.promise(() => clock.advance(1000));
-					const pendingReport = yield* Effect.promise(() =>
-						waitFor(() => {
-							const request = reportRequests(page)[1];
-							assert(request);
-							return request;
-						}),
-					);
-					replyReport(page, pendingReport.requestId, 1);
-					yield* waitForMessagePortMacrotask;
-					yield* Effect.promise(() => clock.advance(1000));
-					const readyReport = yield* Effect.promise(() =>
-						waitFor(() => {
-							const request = reportRequests(page)[2];
-							assert(request);
-							return request;
-						}),
-					);
-					replyReport(page, readyReport.requestId);
-					expect(statsRequests(page)).toHaveLength(2);
-					const readyStats = yield* Effect.promise(() =>
-						waitFor(() => {
-							const request = statsRequests(page)[2];
-							assert(request);
-							return request;
-						}),
-					);
-					expect(queryText(readyStats)).toBe(queryText(statsRetry));
-					page.replyQuery(readyStats.requestId, { outcome: "failure", reason: "query-failed" });
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByRole("alert").textContent).toContain(
-								"Could not update media analytics breakdowns.",
-							),
-						),
-					);
-					expect(screen.getByRole("tablist")).toBeDefined();
-					act(() => {
-						fireEvent.click(
-							screen.getByRole("button", { name: "Retry media analytics breakdowns" }),
-						);
-					});
-					const refreshedStats = yield* Effect.promise(() =>
-						waitFor(() => {
-							const request = statsRequests(page)[3];
-							assert(request);
-							return request;
-						}),
-					);
-					replyStats(page, refreshedStats.requestId);
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(
-								screen.queryByText(
-									"Could not update media analytics breakdowns. Showing the last loaded values.",
-								),
-							).toBeNull(),
-						),
-					);
-				} finally {
-					page.dispose();
-					yield* Effect.promise(() => clock.dispose());
-				}
-			}),
+	it.live("polls a pending summary until it settles", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
+			const page = mountSection(clock);
+			try {
+				const first = yield* Effect.promise(() => waitForRequest(() => reportRequests(page)));
+				replyReport(page, first.requestId, 1);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByText("Media history repair is pending. These analytics are not final."),
+						).toBeDefined(),
+					),
+				);
+				yield* Effect.promise(() => clock.advance(1000));
+				const ready = yield* Effect.promise(() =>
+					waitFor(() => {
+						const request = reportRequests(page)[1];
+						assert(request);
+						return request;
+					}),
+				);
+				expect(queryText(ready)).toBe(queryText(first));
+				replyReport(page, ready.requestId);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.queryByText("Media history repair is pending. These analytics are not final."),
+						).toBeNull(),
+					),
+				);
+				yield* Effect.promise(() => clock.advance(5000));
+				expect(reportRequests(page)).toHaveLength(2);
+			} finally {
+				page.dispose();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
 	);
 
 	it.live("retains report content after a failed pending refresh and retries the report", () =>
@@ -335,8 +230,6 @@ describe("media analytics section", () => {
 			try {
 				const firstReport = yield* Effect.promise(() => waitForRequest(() => reportRequests(page)));
 				replyReport(page, firstReport.requestId, 1);
-				const firstStats = yield* Effect.promise(() => waitForRequest(() => statsRequests(page)));
-				replyStats(page, firstStats.requestId);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
 				);
@@ -371,14 +264,6 @@ describe("media analytics section", () => {
 					}),
 				);
 				replyReport(page, retry.requestId);
-				const statsRefresh = yield* Effect.promise(() =>
-					waitFor(() => {
-						const request = statsRequests(page)[1];
-						assert(request);
-						return request;
-					}),
-				);
-				replyStats(page, statsRefresh.requestId);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(
@@ -401,8 +286,6 @@ describe("media analytics section", () => {
 			try {
 				const firstReport = yield* Effect.promise(() => waitForRequest(() => reportRequests(page)));
 				replyReport(page, firstReport.requestId);
-				const firstStats = yield* Effect.promise(() => waitForRequest(() => statsRequests(page)));
-				replyStats(page, firstStats.requestId);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
 				);
@@ -431,14 +314,6 @@ describe("media analytics section", () => {
 				);
 				expect(queryText(nextReport)).toContain("media-other");
 				replyReport(page, nextReport.requestId);
-				const nextStats = yield* Effect.promise(() =>
-					waitFor(() => {
-						const request = statsRequests(page)[1];
-						assert(request);
-						return request;
-					}),
-				);
-				replyStats(page, nextStats.requestId);
 				page.replyQuery(records.requestId, {
 					outcome: "success",
 					response: {
@@ -449,6 +324,7 @@ describe("media analytics section", () => {
 								items: [
 									{
 										facts: {},
+										label: "Music",
 										id: "late-record",
 										mediaType: "music",
 										entityId: "old-title",
@@ -488,8 +364,6 @@ describe("media analytics section", () => {
 			try {
 				const report = yield* Effect.promise(() => waitForRequest(() => reportRequests(page)));
 				replyReport(page, report.requestId);
-				const stats = yield* Effect.promise(() => waitForRequest(() => statsRequests(page)));
-				replyStats(page, stats.requestId);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
 				);
@@ -511,6 +385,7 @@ describe("media analytics section", () => {
 								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 								items: [
 									{
+										label: "Book",
 										mediaType: "book",
 										titleCompletions: 1,
 										name: "Ranked title",
@@ -554,6 +429,7 @@ describe("media analytics section", () => {
 								items: [
 									{
 										facts: {},
+										label: "Book",
 										mediaType: "book",
 										eventType: "progress",
 										id: "record/ranked-title",

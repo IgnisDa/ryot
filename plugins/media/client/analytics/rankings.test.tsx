@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
-import {
-	periodCaption,
-	PluginId,
-	type Reported,
-	reportingExecution,
-} from "@ryot-app/plugin-client-sdk/plugin";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { periodCaption, PluginId, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -18,14 +13,9 @@ import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
-import { mediaConsumptionReportRecipe } from "../../shared/consumption-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import type {
-	AnalyticsInput,
-	MediaAnalyticsRanking,
-	MediaConsumptionReport,
-	RecordsDrillRequest,
-} from "./model";
+import { analyticsSummary } from "../../tests/client/analytics-fixture";
+import type { AnalyticsInput, MediaAnalyticsRanking, RecordsDrillRequest } from "./model";
 import { MediaAnalyticsRankings } from "./rankings";
 
 afterEach(disposePluginBridges);
@@ -44,49 +34,6 @@ const makeInput = (
 	selection: selected,
 	reference: { kind: "local", pluginId: PluginId.make(owner) },
 });
-const aggregate = (items: readonly Record<string, unknown>[]) => ({
-	items,
-	type: "aggregate" as const,
-	pageInfo: { limit: 100, hasMore: false },
-});
-const reportFor = (
-	input: AnalyticsInput,
-	processing: MediaConsumptionReport["processing"] = "ready",
-): Reported<MediaConsumptionReport> => {
-	const decoded = Result.getOrThrow(
-		mediaConsumptionReportRecipe({ ...input, now: Date.parse("2026-11-01T18:00:00Z") }).decode({
-			data: {
-				hourly: aggregate([]),
-				trends: aggregate([]),
-				current: aggregate([]),
-				reviews: aggregate([]),
-				previous: aggregate([]),
-				rankings: aggregate([]),
-				activeWork: {
-					items: [],
-					type: "rows",
-					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-				},
-				coverage: aggregate(
-					["book", "show-episode"].map((mediaType) => ({
-						mediaType,
-						unknownDate: 0,
-						failed: processing === "failed" ? 1 : 0,
-						pending: processing === "pending" ? 1 : 0,
-					})),
-				),
-			},
-		}),
-	);
-	return {
-		...decoded,
-		reporting: reportingExecution(input.selection, {
-			timeZone: input.timeZone,
-			now: Date.parse("2026-11-01T18:00:00Z"),
-		}),
-	};
-};
-
 const rankingRow = (
 	entityId: string,
 	name: string,
@@ -100,6 +47,7 @@ const rankingRow = (
 	activeObservations,
 	titleCompletions: options.titleCompletions ?? 0,
 	episodeCompletions: options.episodeCompletions ?? 0,
+	label: mediaType === "book" ? "Book" : "Show episode",
 });
 const rankingResponse = (
 	nextCursor: null | string,
@@ -135,11 +83,11 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 const mountRankings = (
 	clock: ReturnType<typeof createTestRyotClock>,
 	input: AnalyticsInput,
-	report = reportFor(input),
+	summary = analyticsSummary(input),
 	onDrill: (request: RecordsDrillRequest) => void = () => {},
 ) =>
 	mountPage(clock, () => (
-		<MediaAnalyticsRankings input={input} report={report} onDrill={onDrill} />
+		<MediaAnalyticsRankings input={input} summary={summary} onDrill={onDrill} />
 	));
 
 const itemAt = <Item,>(items: readonly Item[], index: number): Item => {
@@ -193,7 +141,7 @@ describe("Media analytics rankings", () => {
 					expect(within(preview).getAllByRole("listitem")).toHaveLength(10);
 					expect(within(preview).getByText("First 10 loaded rows")).toBeDefined();
 					expect(within(preview).queryByText("Entity 11")).toBeNull();
-					expect(within(rankingTable).getByText("Show episodes")).toBeDefined();
+					expect(within(rankingTable).getByText("Show episode")).toBeDefined();
 					expect(within(rankingTable).getByText("2 episodes")).toBeDefined();
 					act(() => {
 						fireEvent.click(screen.getByRole("button", { name: "Show more rankings" }));
@@ -225,7 +173,7 @@ describe("Media analytics rankings", () => {
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
 				const input = makeInput();
-				const page = mountRankings(clock, input, reportFor(input, processing));
+				const page = mountRankings(clock, input, analyticsSummary(input, { processing }));
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
 					page.replyQuery(itemAt(rankingRequests(page), 0).requestId, {
@@ -278,9 +226,9 @@ describe("Media analytics rankings", () => {
 						);
 					});
 					expect(screen.getByRole("radio", { name: "Book" })).toBeDefined();
-					expect(screen.getByRole("radio", { name: "Show episodes" })).toBeDefined();
+					expect(screen.getByRole("radio", { name: "Show episode" })).toBeDefined();
 					act(() => {
-						fireEvent.click(screen.getByRole("radio", { name: "Show episodes" }));
+						fireEvent.click(screen.getByRole("radio", { name: "Show episode" }));
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(2)));
 					const filteredRequest = itemAt(rankingRequests(page), 1);
@@ -302,7 +250,7 @@ describe("Media analytics rankings", () => {
 					);
 					expect(within(getCurrentRankingTable()).queryByText("Late book result")).toBeNull();
 					expect(
-						screen.getByRole("button", { name: "Ranking media type: Show episodes" }),
+						screen.getByRole("button", { name: "Ranking media type: Show episode" }),
 					).toBeDefined();
 				} finally {
 					page.dispose();
@@ -317,7 +265,9 @@ describe("Media analytics rankings", () => {
 			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
 			const opened: RecordsDrillRequest[] = [];
 			const input = makeInput();
-			const page = mountRankings(clock, input, reportFor(input), (request) => opened.push(request));
+			const page = mountRankings(clock, input, analyticsSummary(input), (request) =>
+				opened.push(request),
+			);
 			try {
 				yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
 				const firstRequest = itemAt(rankingRequests(page), 0);
@@ -472,7 +422,7 @@ describe("Media analytics rankings", () => {
 				const original = makeInput();
 				function ScopeProbe() {
 					const [input, setInput] = useState(original);
-					const report = reportFor(original);
+					const summary = analyticsSummary(original);
 					return (
 						<>
 							<button
@@ -489,7 +439,7 @@ describe("Media analytics rankings", () => {
 							>
 								Change ranking scope
 							</button>
-							<MediaAnalyticsRankings input={input} report={report} onDrill={() => {}} />
+							<MediaAnalyticsRankings input={input} summary={summary} onDrill={() => {}} />
 						</>
 					);
 				}

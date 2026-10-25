@@ -95,11 +95,7 @@ describe("media video game query recipes", () => {
 				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
 			),
 		);
-		const readyProjection = and(
-			eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
-			isNotNull(projection),
-			isNotNull(jsonPath(projection, "contribution")),
-		);
+		const readyProjection = isNotNull(jsonPath(projection, "contribution"));
 		const ready = and(scope, readyProjection);
 
 		expect(fieldExpr(TOTALS, "totals", "consumedAmount")).toEqual(

@@ -23,8 +23,9 @@ import { useMemo } from "react";
 
 import {
 	type AnalyticsInput,
+	type MediaAnalyticsProcessing,
 	type MediaAnalyticsRecord,
-	type MediaConsumptionReport,
+	type MediaAnalyticsSummary,
 	recordModel,
 	type RecordsDrillRequest,
 } from "./model";
@@ -34,7 +35,7 @@ export function MediaAnalyticsRecords(props: {
 	readonly onClose: () => void;
 	readonly input: AnalyticsInput;
 	readonly request: RecordsDrillRequest;
-	readonly report: Reported<MediaConsumptionReport>;
+	readonly summary: Reported<MediaAnalyticsSummary>;
 }) {
 	const viewport = useRyotViewport();
 	const result = useRyotInfiniteQuery(
@@ -43,7 +44,7 @@ export function MediaAnalyticsRecords(props: {
 			timeZone: props.input.timeZone,
 			reference: props.input.reference,
 			selection: props.request.selection,
-			processing: props.report.processing,
+			processing: props.summary.processing,
 			...(props.request.entityId === undefined ? {} : { entityId: props.request.entityId }),
 			...(props.request.mediaType === undefined ? {} : { mediaType: props.request.mediaType }),
 			...(props.request.hour === undefined ? {} : { hour: props.request.hour }),
@@ -153,7 +154,7 @@ export function MediaAnalyticsRecords(props: {
 								<RecordTable
 									items={items}
 									timeZone={props.input.timeZone}
-									processing={props.report.processing}
+									processing={props.summary.processing}
 								/>
 							)}
 							{result.hasNextPage && !result.isError ? (
@@ -195,7 +196,7 @@ function RecordDate(props: { readonly timeZone: TimeZone; readonly row: MediaAna
 }
 
 function Contribution(props: {
-	readonly processing: MediaConsumptionReport["processing"];
+	readonly processing: MediaAnalyticsProcessing;
 	readonly contribution: ReturnType<typeof recordModel>["contribution"];
 }) {
 	if (props.contribution === null) {
@@ -242,8 +243,8 @@ function Contribution(props: {
 
 function RecordTable(props: {
 	readonly timeZone: TimeZone;
+	readonly processing: MediaAnalyticsProcessing;
 	readonly items: readonly MediaAnalyticsRecord[];
-	readonly processing: MediaConsumptionReport["processing"];
 }) {
 	return (
 		<Card padding="none" className="overflow-x-auto">
@@ -284,7 +285,7 @@ function RecordTable(props: {
 										{row.name}
 									</PluginLink>
 								</td>
-								<td className="px-3 py-2.5 text-text-muted">{modeled.category}</td>
+								<td className="px-3 py-2.5 text-text-muted">{row.label}</td>
 								<td className="px-3 py-2.5 text-text-muted">{row.eventType}</td>
 								<td className="whitespace-nowrap px-3 py-2.5 text-text-muted">
 									<RecordDate row={row} timeZone={props.timeZone} />

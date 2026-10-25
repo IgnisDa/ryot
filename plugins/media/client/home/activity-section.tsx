@@ -47,7 +47,7 @@ const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivityResu
 			)
 			.pipe(Effect.map((activity) => ({ window, activity })));
 	},
-	{ cancelOnUnmount: true, refreshWhile: ({ data }) => data.activity.processing === "pending" },
+	{ cancelOnUnmount: true },
 );
 
 const formatHours = (minutes: number) => Math.round(minutes / 60).toLocaleString("en-US");
@@ -58,13 +58,6 @@ function ActivityBody(props: {
 	readonly activity: MediaActivity;
 }) {
 	const { window, activity } = props;
-	if (activity.processing !== "ready") {
-		return (
-			<StatusMessage tone={activity.processing === "failed" ? "error" : "pending"}>
-				{activity.processing === "failed" ? "Consumption repair failed." : "Updating consumption…"}
-			</StatusMessage>
-		);
-	}
 	const counts = new Map(activity.days.map(({ day, events }) => [day, events]));
 	const shares = activityShares(activity.mediaTypes);
 	const shareLabels = new Map(shares.map(({ key, share }) => [key, share]));

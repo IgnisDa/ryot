@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId, type Reported, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -13,12 +13,12 @@ import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
-import { mediaConsumptionReportRecipe } from "../../shared/consumption-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { analyticsSummary } from "../../tests/client/analytics-fixture";
 import type {
 	AnalyticsInput,
+	MediaAnalyticsProcessing,
 	MediaAnalyticsRecord,
-	MediaConsumptionReport,
 	RecordsDrillRequest,
 } from "./model";
 import { MediaAnalyticsRecords } from "./records";
@@ -48,47 +48,8 @@ const request: RecordsDrillRequest = {
 	entityId: "title/record-source",
 	periodCaption: "2026-09-01 – 2026-09-07",
 };
-const aggregate = (items: readonly Record<string, unknown>[]) => ({
-	items,
-	type: "aggregate" as const,
-	pageInfo: { limit: 100, hasMore: false },
-});
-const reportFor = (
-	processing: MediaConsumptionReport["processing"] = "ready",
-): Reported<MediaConsumptionReport> => {
-	const decoded = Result.getOrThrow(
-		mediaConsumptionReportRecipe({ ...input, now: Date.parse("2026-10-29T12:00:00Z") }).decode({
-			data: {
-				hourly: aggregate([]),
-				trends: aggregate([]),
-				current: aggregate([]),
-				reviews: aggregate([]),
-				previous: aggregate([]),
-				rankings: aggregate([]),
-				activeWork: {
-					items: [],
-					type: "rows",
-					pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-				},
-				coverage: aggregate([
-					{
-						unknownDate: 0,
-						mediaType: "book",
-						failed: processing === "failed" ? 1 : 0,
-						pending: processing === "pending" ? 1 : 0,
-					},
-				]),
-			},
-		}),
-	);
-	return {
-		...decoded,
-		reporting: reportingExecution(input.selection, {
-			timeZone: input.timeZone,
-			now: Date.parse("2026-10-29T12:00:00Z"),
-		}),
-	};
-};
+const summaryFor = (processing: MediaAnalyticsProcessing = "ready") =>
+	analyticsSummary(input, { processing, now: Date.parse("2026-10-29T12:00:00Z") });
 const contribution = (
 	attribution: MediaAnalyticsRecord["contribution"]["attribution"] = {
 		kind: "instant",
@@ -122,6 +83,7 @@ const recordRow = (
 	contribution: options.contribution ?? contribution(),
 	occurredAt: options.occurredAt ?? "2026-09-04T14:00:00Z",
 	orderCreatedAt: options.occurredAt ?? "2026-09-04T14:00:00Z",
+	label: options.mediaType === "show-episode" ? "Show episode" : "Book",
 });
 const recordsResponse = (
 	nextCursor: null | string,
@@ -156,13 +118,13 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 const mountRecords = (
 	clock: ReturnType<typeof createTestRyotClock>,
 	selectedRequest = request,
-	selectedReport = reportFor(),
+	selectedSummary = summaryFor(),
 ) =>
 	mountPage(clock, () => (
 		<MediaAnalyticsRecords
 			input={input}
 			onClose={() => {}}
-			report={selectedReport}
+			summary={selectedSummary}
 			request={selectedRequest}
 		/>
 	));
@@ -199,7 +161,7 @@ function DrillProbe() {
 			{open ? (
 				<MediaAnalyticsRecords
 					input={input}
-					report={reportFor()}
+					summary={summaryFor()}
 					request={drillRequest}
 					onClose={() => setOpen(false)}
 				/>
@@ -334,7 +296,7 @@ describe("Media analytics records drill", () => {
 					);
 					const table = screen.getByRole("table", { name: "Media analytics records" });
 					const itemRow = within(table).getByRole("row", { name: /Independent episode item/ });
-					expect(within(itemRow).getByText("Show episodes")).toBeDefined();
+					expect(within(itemRow).getByText("Show episode")).toBeDefined();
 					expect(within(itemRow).getByText("item-complete")).toBeDefined();
 					expect(within(itemRow).getByText("Consumed item position:")).toBeDefined();
 					expect(within(itemRow).getByText("episodes position 12")).toBeDefined();
@@ -380,7 +342,7 @@ describe("Media analytics records drill", () => {
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
-				const page = mountRecords(clock, request, reportFor("pending"));
+				const page = mountRecords(clock, request, summaryFor("pending"));
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
 					page.replyQuery(itemAt(recordsRequests(page), 0).requestId, {

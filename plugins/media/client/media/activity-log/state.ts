@@ -1,6 +1,5 @@
 import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { localDay } from "@ryot-app/plugin-client-sdk/react";
-import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { ConsumedItem } from "../../../shared/consumption";
@@ -762,7 +761,9 @@ export const activityEditPatch = (input: {
 	const patch: { -readonly [Key in keyof MediaActivityPatch]: MediaActivityPatch[Key] } = {};
 	if (
 		draft.consumedItem !== undefined &&
-		!jsonValueEquals(draft.consumedItem, initial.consumedItem)
+		(draft.consumedItem.unit !== initial.consumedItem?.unit ||
+			draft.consumedItem.position !== initial.consumedItem.position ||
+			draft.consumedItem.volume !== initial.consumedItem.volume)
 	) {
 		patch.consumedItem = draft.consumedItem;
 	}

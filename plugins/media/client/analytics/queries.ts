@@ -3,29 +3,21 @@ import { type Reported, reportingExecution } from "@ryot-app/plugin-client-sdk/p
 import { createRyotQuery, type ReportingPageParam } from "@ryot-app/plugin-client-sdk/react";
 
 import {
-	mediaAnalyticsConsistencyRecipe,
 	mediaAnalyticsHoursRecipe,
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
-	mediaAnalyticsStatsRecipe,
+	mediaAnalyticsSummaryRecipe,
 	mediaAnalyticsTrendRecipe,
 } from "../../shared/analytics-recipes";
-import { mediaConsumptionReportRecipe } from "../../shared/consumption-recipes";
 import {
-	type AnalyticsCalendarInput,
 	type AnalyticsInput,
-	analyticsWindow,
-	type AnalyticsWindowInput,
-	calendarReportingExecution,
-	comparisonWindow,
-	extraPreviousWindow,
-	type MediaAnalyticsConsistency,
+	consistencySelection,
 	type MediaAnalyticsHours,
+	type MediaAnalyticsProcessing,
 	type MediaAnalyticsRanking,
 	type MediaAnalyticsRecords,
-	type MediaAnalyticsStats,
+	type MediaAnalyticsSummary,
 	type MediaAnalyticsTrend,
-	type MediaConsumptionReport,
 } from "./model";
 
 export type AnalyticsPageInput<Input> = Input & { readonly page?: ReportingPageParam };
@@ -34,137 +26,70 @@ export const analyticsPageInput = <Input>(
 	page: ReportingPageParam,
 ): AnalyticsPageInput<Input> => ({ ...input, page });
 
-export const mediaAnalyticsReportQuery = createRyotQuery<
+/** Dependent inputs carry the summary's processing state so they reload when it settles. */
+export type ChartInput = AnalyticsInput & {
+	readonly mediaType?: string;
+	readonly processing: MediaAnalyticsProcessing;
+};
+
+export const mediaAnalyticsSummaryQuery = createRyotQuery<
 	AnalyticsInput,
-	Reported<MediaConsumptionReport>
+	Reported<MediaAnalyticsSummary>
 >(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
 			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
-			const report = yield* client.data.query(mediaConsumptionReportRecipe({ ...input, now }));
-			return { ...report, reporting };
+			const summary = yield* client.data.query(mediaAnalyticsSummaryRecipe({ ...input, now }));
+			return { ...summary, reporting };
 		}),
 	{ cancelOnUnmount: true, refreshWhile: ({ data }) => data.processing === "pending" },
 );
 
-export const mediaAnalyticsStatsQuery = createRyotQuery<
-	AnalyticsCalendarInput,
-	Reported<MediaAnalyticsStats>
->(
+export const mediaAnalyticsTrendQuery = createRyotQuery<ChartInput, Reported<MediaAnalyticsTrend>>(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting = calendarReportingExecution(input, now);
-			const stats = yield* client.data.query(mediaAnalyticsStatsRecipe({ ...input, now }));
-			return { ...stats, reporting };
+			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
+			const trend = yield* client.data.query(mediaAnalyticsTrendRecipe({ ...input, now }));
+			return { ...trend, reporting };
 		}),
 	{ cancelOnUnmount: true },
 );
-export type AnalyticsTrendQueryInput = AnalyticsWindowInput & { readonly endCursor?: string };
-export type MediaAnalyticsTrendPage = Reported<{
-	readonly current: MediaAnalyticsTrend;
-	readonly previous: null | MediaAnalyticsTrend;
-	readonly window: ReturnType<typeof analyticsWindow>;
-}>;
-export const mediaAnalyticsTrendQuery = createRyotQuery<
-	AnalyticsTrendQueryInput,
-	MediaAnalyticsTrendPage
->(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = calendarReportingExecution(input, now);
-			const window = analyticsWindow(reporting, "trend", input.anchorDate, input.endCursor);
-			const previous = comparisonWindow(reporting, window);
-			const extra = extraPreviousWindow(reporting, window, previous);
-			const results = yield* Effect.all(
-				{
-					current: client.data.query(
-						mediaAnalyticsTrendRecipe({ ...input, now, window: window.period }),
-					),
-					extra:
-						extra === null
-							? Effect.succeed(null)
-							: client.data.query(
-									mediaAnalyticsTrendRecipe({ ...input, now, window: extra, period: "previous" }),
-								),
-					previous:
-						previous === null
-							? Effect.succeed(null)
-							: client.data.query(
-									mediaAnalyticsTrendRecipe({
-										...input,
-										now,
-										window: previous,
-										period: "previous",
-									}),
-								),
-				},
-				{ concurrency: 2 },
-			);
-			return {
-				window,
-				reporting,
-				current: results.current,
-				previous:
-					results.previous === null || results.extra === null
-						? results.previous
-						: {
-								...results.previous,
-								items: [...results.previous.items, ...results.extra.items],
-								period: {
-									...results.previous.period,
-									endAt: results.extra.period.endAt,
-									endDate: results.extra.period.endDate,
-								},
-								pageInfo: {
-									limit: 1000,
-									hasMore:
-										(results.previous.pageInfo?.hasMore ?? false) ||
-										(results.extra.pageInfo?.hasMore ?? false),
-								},
-							},
-			};
-		}),
-	{ cancelOnUnmount: true },
-);
-export const mediaAnalyticsHoursQuery = createRyotQuery<
-	AnalyticsCalendarInput,
-	Reported<MediaAnalyticsHours>
->(
-	({ input, client, schedule }) =>
-		Effect.gen(function* () {
-			const now = schedule.now();
-			const reporting = calendarReportingExecution(input, now);
-			const hours = yield* client.data.query(mediaAnalyticsHoursRecipe({ ...input, now }));
-			return { ...hours, reporting };
-		}),
-	{ cancelOnUnmount: true },
-);
-export type MediaAnalyticsConsistencyPage = Reported<
-	MediaAnalyticsConsistency & { readonly window: ReturnType<typeof analyticsWindow> }
->;
+
 export const mediaAnalyticsConsistencyQuery = createRyotQuery<
-	AnalyticsTrendQueryInput,
-	MediaAnalyticsConsistencyPage
+	ChartInput,
+	Reported<MediaAnalyticsTrend> & { readonly clipped: boolean }
 >(
 	({ input, client, schedule }) =>
 		Effect.gen(function* () {
 			const now = schedule.now();
-			const reporting = calendarReportingExecution(input, now);
-			const window = analyticsWindow(reporting, "daily", input.anchorDate, input.endCursor);
-			const consistency = yield* client.data.query(
-				mediaAnalyticsConsistencyRecipe({ ...input, now, window: window.period }),
+			const { clipped, selection } = consistencySelection(input, now);
+			const reporting = reportingExecution(selection, { now, timeZone: input.timeZone });
+			const trend = yield* client.data.query(
+				mediaAnalyticsTrendRecipe({ ...input, now, selection }),
 			);
-			return { ...consistency, window, reporting };
+			return { ...trend, clipped, reporting };
+		}),
+	{ cancelOnUnmount: true },
+);
+
+export const mediaAnalyticsHoursQuery = createRyotQuery<
+	ChartInput,
+	Reported<{ readonly hours: MediaAnalyticsHours }>
+>(
+	({ input, client, schedule }) =>
+		Effect.gen(function* () {
+			const now = schedule.now();
+			const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
+			const hours = yield* client.data.query(mediaAnalyticsHoursRecipe({ ...input, now }));
+			return { hours, reporting };
 		}),
 	{ cancelOnUnmount: true },
 );
 
 export type AnalyticsRankingInput = AnalyticsPageInput<
-	Pick<MediaConsumptionReport, "processing"> &
-		Omit<Parameters<typeof mediaAnalyticsRankingRecipe>[0], "now" | "after">
+	ChartInput & Omit<Parameters<typeof mediaAnalyticsRankingRecipe>[0], "now" | "after">
 >;
 export const mediaAnalyticsRankingQuery = createRyotQuery<
 	AnalyticsRankingInput,
@@ -189,9 +114,9 @@ export const mediaAnalyticsRankingQuery = createRyotQuery<
 		}),
 	{ cancelOnUnmount: true },
 );
+
 export type AnalyticsRecordsInput = AnalyticsPageInput<
-	Pick<MediaConsumptionReport, "processing"> &
-		Omit<Parameters<typeof mediaAnalyticsRecordsRecipe>[0], "now" | "after">
+	ChartInput & Omit<Parameters<typeof mediaAnalyticsRecordsRecipe>[0], "now" | "after">
 >;
 export const mediaAnalyticsRecordsQuery = createRyotQuery<
 	AnalyticsRecordsInput,

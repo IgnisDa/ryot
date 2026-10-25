@@ -141,7 +141,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			"Source average · 40 /100",
 		]);
 		expect(yield* previousReviews.getByRole("definition").allTextContents()).toEqual([
-			"0 reviews · Unknown",
+			"0 reviews · 0 rated",
 			"Source average · Unknown",
 		]);
 		const reviewTable = summary.getByRole("table", {
@@ -150,13 +150,13 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		});
 		expect(
 			yield* reviewTable
-				.getByRole("row", { name: "Book (title)" })
+				.getByRole("row", { name: "Book" })
 				.getByRole("cell")
 				.allTextContents(),
 		).toEqual(["1 reviews", "1 ratings", "0 /100", "Unknown", "Unknown", "Unknown"]);
 		expect(
 			yield* reviewTable
-				.getByRole("row", { name: "Movie (title)" })
+				.getByRole("row", { name: "Movie" })
 				.getByRole("cell")
 				.nth(2)
 				.innerText(),

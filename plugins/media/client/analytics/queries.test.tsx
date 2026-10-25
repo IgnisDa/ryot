@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import {
-	periodCaption,
-	PluginId,
-	type ReportingExecution,
-	reportingExecution,
-} from "@ryot-app/plugin-client-sdk/plugin";
+import { periodCaption, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	reportingPageParam,
 	useRyotInfiniteQuery,
@@ -24,20 +19,15 @@ import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import {
-	analyticsCalendarInput,
-	type AnalyticsInput,
-	analyticsWindowInput,
-	type MediaAnalyticsRecord,
-} from "./model";
+import { zeroMeasures } from "../../tests/client/analytics-fixture";
+import type { AnalyticsInput, MediaAnalyticsRecord } from "./model";
 import {
 	analyticsPageInput,
 	mediaAnalyticsConsistencyQuery,
 	mediaAnalyticsHoursQuery,
 	mediaAnalyticsRankingQuery,
 	mediaAnalyticsRecordsQuery,
-	mediaAnalyticsReportQuery,
-	mediaAnalyticsStatsQuery,
+	mediaAnalyticsSummaryQuery,
 	mediaAnalyticsTrendQuery,
 } from "./queries";
 
@@ -55,24 +45,16 @@ const input = {
 const aggregate = (items: readonly Record<string, null | number | string>[]) => ({
 	items,
 	type: "aggregate" as const,
-	pageInfo: { limit: 100, hasMore: false },
 });
 const reportResponse = (pending = 0) => ({
 	data: {
-		hourly: aggregate([]),
-		trends: aggregate([]),
-		current: aggregate([]),
-		reviews: aggregate([]),
-		previous: aggregate([]),
-		rankings: aggregate([]),
-		coverage: aggregate(
-			pending === 0 ? [] : [{ pending, failed: 0, unknownDate: 0, mediaType: "book" }],
-		),
-		activeWork: {
-			items: [],
-			type: "rows" as const,
-			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-		},
+		currentTypes: aggregate([]),
+		previousTypes: aggregate([]),
+		currentReviews: aggregate([]),
+		previousReviews: aggregate([]),
+		currentActiveDays: aggregate([{ activeDays: 0 }]),
+		previousActiveDays: aggregate([{ activeDays: 0 }]),
+		coverage: aggregate([{ pending, failed: 0, unknownDate: 0 }]),
 	},
 });
 const cursorResponse = (
@@ -89,8 +71,31 @@ const cursorResponse = (
 	},
 });
 
+function UnmountProbe() {
+	const [visible, setVisible] = useState(true);
+	return (
+		<>
+			<button onClick={() => setVisible(false)}>Hide</button>
+			{visible ? <ReportProbe /> : null}
+		</>
+	);
+}
+function ConsistencyProbe() {
+	const query = useRyotQuery(mediaAnalyticsConsistencyQuery, {
+		...input,
+		processing: "ready" as const,
+	});
+	return (
+		<>
+			<output>
+				{query.data === undefined ? "Loading" : periodCaption(query.data.current.period)}
+			</output>
+			<output aria-label="Clipped">{String(query.data?.clipped ?? "None")}</output>
+		</>
+	);
+}
 function ReportProbe() {
-	const query = useRyotQuery(mediaAnalyticsReportQuery, input);
+	const query = useRyotQuery(mediaAnalyticsSummaryQuery, input);
 	return (
 		<>
 			<button onClick={query.refetch}>Refresh report</button>
@@ -159,153 +164,57 @@ function RecordsProbe() {
 		</>
 	);
 }
-const captured = reportingExecution(input.selection, {
-	timeZone: input.timeZone,
-	now: Date.parse("2026-11-01T18:00:00Z"),
-});
-function UnmountProbe() {
-	const [visible, setVisible] = useState(true);
-	return (
-		<>
-			<button onClick={() => setVisible(false)}>Hide</button>
-			{visible ? <ReportProbe /> : null}
-		</>
-	);
-}
-function SnapshotProbe() {
-	const query = useRyotQuery(mediaAnalyticsConsistencyQuery, analyticsWindowInput(input, captured));
-	return (
-		<>
-			<output>{query.data === undefined ? "Loading" : periodCaption(query.data.period)}</output>
-			<output aria-label="Supplement clock">{query.data?.reporting.now ?? "None"}</output>
-		</>
-	);
-}
-const presence = {
-	activeDays: 1,
-	pagesKnown: 0,
-	minutesKnown: 1,
-	volumesKnown: 0,
-	episodesKnown: 0,
-	chaptersKnown: 0,
-	distinctTitles: 1,
-	pagesSuperseded: 0,
-	minutesSuperseded: 0,
-	volumesSuperseded: 0,
-	episodesSuperseded: 0,
-	chaptersSuperseded: 0,
-};
-const hourRow = {
-	...presence,
-	hour: 1,
-	pagesMissing: 0,
-	pagesRecorded: 0,
-	minutesMissing: 0,
-	pagesEstimated: 0,
-	volumesMissing: 0,
-	mediaType: "music",
-	episodesMissing: 0,
-	chaptersMissing: 0,
-	volumesRecorded: 0,
-	titleCompletions: 1,
-	minutesEstimated: 0,
-	episodesRecorded: 0,
-	chaptersRecorded: 0,
-	volumesEstimated: 0,
-	episodesEstimated: 0,
-	chaptersEstimated: 0,
-	episodeCompletions: 0,
-	activeObservations: 1,
-	minutesRecorded: 2.125,
-};
-const statsResponse = {
-	data: {
-		currentTypes: aggregate([]),
-		previousTypes: aggregate([]),
-		currentReviewTypes: aggregate([]),
-		previousReviewTypes: aggregate([]),
-		currentGlobal: aggregate([presence]),
-		previousGlobal: aggregate([presence]),
-		currentReviews: aggregate([{ rated: 0, reviews: 0, averageRating: null }]),
-		previousReviews: aggregate([{ rated: 0, reviews: 0, averageRating: null }]),
-	},
-};
+const hourRow = { ...zeroMeasures, hour: 1, titleCompletions: 1, minutesRecorded: 2.125 };
 function CoupledProbe() {
-	const report = useRyotQuery(mediaAnalyticsReportQuery, input);
+	const summary = useRyotQuery(mediaAnalyticsSummaryQuery, input);
 	return (
 		<>
-			<button onClick={report.refetch}>Refresh primary</button>
-			<output aria-label="Primary clock">{report.data?.reporting.now ?? "None"}</output>
-			{report.data === undefined ? null : <SupplementalProbe reporting={report.data.reporting} />}
+			<output aria-label="Primary clock">{summary.data?.reporting.now ?? "None"}</output>
+			{summary.data === undefined ? null : <ChartProbe processing={summary.data.processing} />}
 		</>
 	);
 }
-function SupplementalProbe({ reporting }: { readonly reporting: ReportingExecution }) {
-	const calendar = analyticsCalendarInput(input, reporting);
-	const window = analyticsWindowInput(input, reporting);
-	const stats = useRyotQuery(mediaAnalyticsStatsQuery, calendar);
-	const hours = useRyotQuery(mediaAnalyticsHoursQuery, calendar);
-	const trend = useRyotQuery(mediaAnalyticsTrendQuery, window);
-	const daily = useRyotQuery(mediaAnalyticsConsistencyQuery, window);
+function ChartProbe(props: { readonly processing: "ready" | "failed" | "pending" }) {
+	const chartInput = { ...input, processing: props.processing };
+	const hours = useRyotQuery(mediaAnalyticsHoursQuery, chartInput);
+	const trend = useRyotQuery(mediaAnalyticsTrendQuery, chartInput);
+	const daily = useRyotQuery(mediaAnalyticsConsistencyQuery, chartInput);
 	return (
-		<>
-			<button onClick={hours.refetch}>Refresh hours</button>
-			<output aria-label="Calendar input">{documentText(calendar)}</output>
-			<output aria-label="Window input">{documentText(window)}</output>
-			<output aria-label="Hour rows">{hours.data?.items.length ?? "None"}</output>
-			<output aria-label="Hours state">
-				{hours.error === null ? "Hours ready" : "Hours failed"}
-			</output>
-			<output aria-label="Supplement clocks">
-				{[
-					stats.data?.reporting.now,
-					hours.data?.reporting.now,
-					trend.data?.reporting.now,
-					daily.data?.reporting.now,
-				]
-					.map((value) => value ?? "None")
-					.join(",")}
-			</output>
-			{stats.data !== undefined &&
-			hours.data !== undefined &&
-			trend.data !== undefined &&
-			daily.data !== undefined ? (
-				<output>Supplement ready</output>
-			) : null}
-		</>
+		<output aria-label="Chart clocks">
+			{[hours.data?.reporting.now, trend.data?.reporting.now, daily.data?.reporting.now]
+				.map((value) => value ?? "None")
+				.join(",")}
+		</output>
 	);
 }
-const monthProbe = (selected: AnalyticsInput, capturedNow: number): ComponentType => {
-	const parent = reportingExecution(selected.selection, {
-		now: capturedNow,
-		timeZone: selected.timeZone,
-	});
-	return function MonthProbe() {
-		const stats = useRyotQuery(mediaAnalyticsStatsQuery, analyticsCalendarInput(selected, parent));
-		const trend = useRyotQuery(mediaAnalyticsTrendQuery, analyticsWindowInput(selected, parent));
+const monthProbe = (selected: AnalyticsInput): ComponentType =>
+	function MonthProbe() {
+		const summary = useRyotQuery(mediaAnalyticsSummaryQuery, selected);
+		const trend = useRyotQuery(mediaAnalyticsTrendQuery, { ...selected, processing: "ready" });
 		return (
 			<>
 				<output aria-label="Month current">
-					{stats.data === undefined ? "None" : periodCaption(stats.data.reporting.resolved.current)}
+					{summary.data === undefined
+						? "None"
+						: periodCaption(summary.data.reporting.resolved.current)}
 				</output>
 				<output aria-label="Month prior">
-					{stats.data === undefined
+					{summary.data === undefined
 						? "None"
-						: periodCaption(stats.data.reporting.resolved.previous)}
+						: periodCaption(summary.data.reporting.resolved.previous)}
 				</output>
-				<output aria-label="Month clock">{stats.data?.reporting.now ?? "None"}</output>
 				<output aria-label="Prior chart">
 					{trend.data === undefined ? "None" : periodCaption(trend.data.previous?.period ?? null)}
 				</output>
 			</>
 		);
 	};
-};
 const sourceRecord = (name: string): MediaAnalyticsRecord => ({
 	name,
 	id: name,
 	facts: {},
 	orderKey: name,
+	label: "Music",
 	mediaType: "music",
 	eventType: "complete",
 	entityId: "original-title",
@@ -335,37 +244,28 @@ const mount = (clock: ReturnType<typeof createTestRyotClock>, Probe: ComponentTy
 			),
 		},
 	});
-const supplementalRequests = (page: ReturnType<typeof mount>) =>
+const chartRequests = (page: ReturnType<typeof mount>) =>
 	page.queryRequests().filter(({ document }) => !Object.hasOwn(document.queries, "coverage"));
-const replySupplemental = (
-	page: ReturnType<typeof mount>,
-	requests = supplementalRequests(page),
-) => {
+const replyCharts = (page: ReturnType<typeof mount>, requests = chartRequests(page)) => {
 	for (const request of requests) {
-		if (Object.hasOwn(request.document.queries, "currentGlobal")) {
-			page.replyQuery(request.requestId, { outcome: "success", response: statsResponse });
-		} else if (Object.hasOwn(request.document.queries, "trend")) {
-			page.replyQuery(request.requestId, {
-				outcome: "success",
-				response: { data: { trend: aggregate([]) } },
-			});
-		} else if (Object.hasOwn(request.document.queries, "instants")) {
-			page.replyQuery(request.requestId, {
-				outcome: "success",
-				response: { data: { dates: aggregate([]), instants: aggregate([]) } },
-			});
-		} else {
-			page.replyQuery(request.requestId, {
-				outcome: "success",
-				response: { data: { hourly: aggregate([hourRow]) } },
-			});
-		}
+		const queries = request.document.queries;
+		page.replyQuery(request.requestId, {
+			outcome: "success",
+			response: {
+				data: Object.hasOwn(queries, "hourly")
+					? { hourly: aggregate([hourRow]) }
+					: {
+							current: aggregate([]),
+							...(Object.hasOwn(queries, "previous") ? { previous: aggregate([]) } : {}),
+						},
+			},
+		});
 	}
 };
 
 describe("Media analytics query adapters", () => {
 	it.live(
-		"retains all supplemental cache entries through same-day primary refresh and pending polls, including a failed supplemental refresh",
+		"keeps chart results through pending summary polls and reloads them once it settles",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -376,96 +276,51 @@ describe("Media analytics query adapters", () => {
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(1)),
 					);
-					yield* Effect.promise(() => clock.advance(500));
 					for (const request of page.queryRequests("coverage")) {
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
 					}
+					yield* Effect.promise(() => waitFor(() => expect(chartRequests(page)).toHaveLength(3)));
+					replyCharts(page);
 					yield* Effect.promise(() =>
-						waitFor(() => expect(supplementalRequests(page)).toHaveLength(5)),
-					);
-					replySupplemental(page);
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("Supplement ready")).toBeDefined()),
-					);
-					const calendarKey = screen.getByLabelText("Calendar input").textContent;
-					const windowKey = screen.getByLabelText("Window input").textContent;
-					expect(calendarKey).not.toContain('"now"');
-					expect(windowKey).not.toContain('"now"');
-					expect(screen.getByLabelText("Supplement clocks").textContent).toBe(
-						Array.from({ length: 4 }, () => started + 500).join(","),
-					);
-					for (const [index, pending] of [1, 0].entries()) {
-						yield* Effect.promise(() => clock.advance(1000));
-						yield* Effect.promise(() =>
-							waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(index + 2)),
-						);
-						for (const request of page.queryRequests("coverage").slice(index + 1)) {
-							page.replyQuery(request.requestId, {
-								outcome: "success",
-								response: reportResponse(pending),
-							});
-						}
-						yield* Effect.promise(() =>
-							waitFor(() =>
-								expect(screen.getByLabelText("Primary clock").textContent).toBe(
-									String(started + 1500 + index * 1000),
-								),
+						waitFor(() =>
+							expect(screen.getByLabelText("Chart clocks").textContent).toBe(
+								[started, started, started].join(","),
 							),
-						);
-						expect(screen.getByLabelText("Calendar input").textContent).toBe(calendarKey);
-						expect(screen.getByLabelText("Window input").textContent).toBe(windowKey);
-						expect(supplementalRequests(page)).toHaveLength(5);
-						expect(screen.getByLabelText("Hour rows").textContent).toBe("1");
-					}
-					yield* Effect.promise(() => clock.advance(500));
-					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Refresh primary" }));
-					});
-					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(4)),
+						),
 					);
-					for (const request of page.queryRequests("coverage").slice(3)) {
-						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
+					yield* Effect.promise(() => clock.advance(1000));
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(2)),
+					);
+					for (const request of page.queryRequests("coverage").slice(1)) {
+						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
 					}
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByLabelText("Primary clock").textContent).toBe(
-								String(started + 3000),
+								String(started + 1000),
 							),
 						),
 					);
-					expect(supplementalRequests(page)).toHaveLength(5);
-					expect(screen.getByLabelText("Calendar input").textContent).toBe(calendarKey);
-					expect(screen.getByLabelText("Window input").textContent).toBe(windowKey);
-					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Refresh hours" }));
-					});
+					expect(chartRequests(page)).toHaveLength(3);
+					yield* Effect.promise(() => clock.advance(1000));
 					yield* Effect.promise(() =>
-						waitFor(() => expect(supplementalRequests(page)).toHaveLength(6)),
+						waitFor(() => expect(page.queryRequests("coverage")).toHaveLength(3)),
 					);
-					expect(screen.getByLabelText("Hour rows").textContent).toBe("1");
-					for (const request of supplementalRequests(page).slice(5)) {
-						page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
+					for (const request of page.queryRequests("coverage").slice(2)) {
+						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("Hours failed")).toBeDefined()),
-					);
-					expect(screen.getByLabelText("Hour rows").textContent).toBe("1");
-					yield* Effect.promise(() => clock.advance(500));
-					act(() => {
-						fireEvent.click(screen.getByRole("button", { name: "Refresh hours" }));
-					});
-					yield* Effect.promise(() =>
-						waitFor(() => expect(supplementalRequests(page)).toHaveLength(7)),
-					);
-					replySupplemental(page, supplementalRequests(page).slice(6));
+					yield* Effect.promise(() => waitFor(() => expect(chartRequests(page)).toHaveLength(6)));
+					replyCharts(page, chartRequests(page).slice(3));
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByLabelText("Supplement clocks").textContent).toBe(
-								[started + 500, started + 3500, started + 500, started + 500].join(","),
+							expect(screen.getByLabelText("Chart clocks").textContent).toBe(
+								Array.from({ length: 3 }, () => started + 2000).join(","),
 							),
 						),
 					);
+					yield* Effect.promise(() => clock.advance(3000));
+					expect(page.queryRequests("coverage")).toHaveLength(3);
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());
@@ -491,12 +346,10 @@ describe("Media analytics query adapters", () => {
 		},
 	] as const) {
 		it.live(
-			`keeps actual unequal calendar comparison dates and DST boundaries for offset ${sample.offset}`,
+			`resolves actual unequal calendar comparison dates and DST boundaries for offset ${sample.offset}`,
 			() =>
 				Effect.gen(function* () {
 					const clock = createTestRyotClock();
-					const executedAt = Date.parse("2026-11-02T18:00:00Z");
-					yield* Effect.promise(() => clock.setTime(executedAt));
 					const selected = {
 						...input,
 						selection: {
@@ -504,23 +357,28 @@ describe("Media analytics query adapters", () => {
 							range: { unit: "month", kind: "calendar", offset: sample.offset },
 						},
 					} as const;
-					const page = mount(clock, monthProbe(selected, Date.parse("2026-03-15T12:00:00Z")));
+					yield* Effect.promise(() => clock.setTime(Date.parse("2026-03-15T12:00:00Z")));
+					const page = mount(clock, monthProbe(selected));
 					try {
 						yield* Effect.promise(() =>
-							waitFor(() => expect(page.queryRequests()).toHaveLength(3)),
+							waitFor(() => expect(page.queryRequests()).toHaveLength(2)),
 						);
-						for (const request of page.queryRequests("currentGlobal")) {
-							expect(yield* documentText(request.document.queries["currentGlobal"])).toContain(
+						for (const request of page.queryRequests("coverage")) {
+							expect(yield* documentText(request.document.queries["currentTypes"])).toContain(
 								sample.start,
 							);
-							expect(yield* documentText(request.document.queries["currentGlobal"])).toContain(
+							expect(yield* documentText(request.document.queries["currentTypes"])).toContain(
 								sample.end,
 							);
-							expect(yield* documentText(request.document.queries["previousGlobal"])).toContain(
+							expect(yield* documentText(request.document.queries["previousTypes"])).toContain(
 								sample.previousStart,
 							);
+							page.replyQuery(request.requestId, {
+								outcome: "success",
+								response: reportResponse(),
+							});
 						}
-						replySupplemental(page);
+						replyCharts(page);
 						yield* Effect.promise(() =>
 							waitFor(() =>
 								expect(screen.getByLabelText("Month current").textContent).toBe(sample.current),
@@ -532,7 +390,6 @@ describe("Media analytics query adapters", () => {
 								expect(screen.getByLabelText("Prior chart").textContent).toBe(sample.previous),
 							),
 						);
-						expect(screen.getByLabelText("Month clock").textContent).toBe(String(executedAt));
 					} finally {
 						page.dispose();
 						yield* Effect.promise(() => clock.dispose());
@@ -541,7 +398,7 @@ describe("Media analytics query adapters", () => {
 		);
 	}
 	it.live(
-		"executes one atomic eight-query report and labels it from the same captured clock across refresh",
+		"executes one seven-query summary and labels it from the same captured clock across refresh",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -550,7 +407,7 @@ describe("Media analytics query adapters", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
-						expect(Object.keys(request.document.queries)).toHaveLength(8);
+						expect(Object.keys(request.document.queries)).toHaveLength(7);
 						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}
@@ -606,34 +463,32 @@ describe("Media analytics query adapters", () => {
 			}
 		}),
 	);
-	it.live(
-		"keeps captured report dates while sampling the supplied execution clock across a day boundary",
-		() =>
-			Effect.gen(function* () {
-				const clock = createTestRyotClock();
-				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
-				const page = mount(clock, SnapshotProbe);
-				try {
-					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-					for (const request of page.queryRequests()) {
-						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
-						expect(yield* documentText(request.document)).not.toContain("2026-11-03T05:00:00.000Z");
-						page.replyQuery(request.requestId, {
-							outcome: "success",
-							response: { data: { dates: aggregate([]), instants: aggregate([]) } },
-						});
-					}
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("2026-10-26 – 2026-11-01")).toBeDefined()),
-					);
-					expect(screen.getByLabelText("Supplement clock").textContent).toBe(
-						String(Date.parse("2026-11-02T18:00:00Z")),
-					);
-				} finally {
-					page.dispose();
-					yield* Effect.promise(() => clock.dispose());
+	it.live("clips the daily heatmap to the most recent bucket-limit days of all time", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
+			const page = mount(clock, ConsistencyProbe);
+			try {
+				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
+				for (const request of page.queryRequests()) {
+					const text = yield* documentText(request.document);
+					expect(text).toContain("2026-10-27T04:00:00.000Z");
+					expect(text).toContain('"bucket":"day"');
+					expect(Object.keys(request.document.queries)).toEqual(["current"]);
+					page.replyQuery(request.requestId, {
+						outcome: "success",
+						response: { data: { current: aggregate([]) } },
+					});
 				}
-			}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByText("2026-10-27 – 2026-11-02")).toBeDefined()),
+				);
+				expect(screen.getByLabelText("Clipped").textContent).toBe("false");
+			} finally {
+				page.dispose();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
 	);
 	for (const { key, Probe } of [
 		{ key: "ranking", Probe: RankingProbe },
@@ -915,7 +770,7 @@ describe("Media analytics query adapters", () => {
 			}
 		}),
 	);
-	it.live("cancels the atomic report request when the section unmounts", () =>
+	it.live("cancels the summary request when the section unmounts", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const page = mount(clock, UnmountProbe);

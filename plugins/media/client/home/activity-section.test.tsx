@@ -39,30 +39,12 @@ const aggregate = (items: readonly Record<string, JsonValue>[] = []) => ({
 });
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
-const activityResponse = (input: {
-	readonly pending?: number;
-	readonly finished?: number;
-	readonly activeDay?: string;
-}) => ({
+const activityResponse = (input: { readonly finished?: number; readonly activeDay?: string }) => ({
 	data: {
-		days: aggregate(),
 		mediaTypes: aggregate(),
-		dates: aggregate(input.activeDay === undefined ? [] : [{ events: 1, day: input.activeDay }]),
-		activeWork: {
-			items: [],
-			type: "rows" as const,
-			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
-		},
-		figures: aggregate([
-			{
-				failed: 0,
-				reviews: 0,
-				minutes: 0,
-				minutesMissing: 0,
-				pending: input.pending ?? 0,
-				finished: input.finished ?? 1,
-			},
-		]),
+		reviews: aggregate([{ reviews: 0 }]),
+		figures: aggregate([{ minutes: 0, minutesMissing: 0, finished: input.finished ?? 1 }]),
+		days: aggregate(input.activeDay === undefined ? [] : [{ events: 1, day: input.activeDay }]),
 	},
 });
 
@@ -107,7 +89,7 @@ const activityRequests = (page: ActivityPage) =>
 	page
 		.queryRequests()
 		.filter(({ document }) =>
-			["dates", "days", "figures", "mediaTypes"].every((name) =>
+			["days", "figures", "mediaTypes", "reviews"].every((name) =>
 				Object.hasOwn(document.queries, name),
 			),
 		);
@@ -137,15 +119,10 @@ const replyReportingPreferences = (
 const replyActivity = (
 	page: ActivityPage,
 	request: ActivityRequest,
-	input: {
-		readonly pending?: number;
-		readonly finished?: number;
-		readonly activeDay?: string;
-	} = {},
+	input: { readonly finished?: number; readonly activeDay?: string } = {},
 ) => page.replyQuery(request.requestId, { outcome: "success", response: activityResponse(input) });
 
 const activity: MediaActivity = {
-	processing: "ready",
 	figures: { reviews: 7, minutes: 5430, finished: 1204, minutesMissing: 0 },
 	mediaTypes: [
 		{ events: 995, slug: "show", label: "Show" },
@@ -183,12 +160,6 @@ describe("ActivitySectionView", () => {
 			),
 		);
 		expect(getByText(view.container, "Hours").nextElementSibling?.textContent).toBe("≥1");
-		view.unmount();
-	});
-	it("shows repair state before displaying consumption figures", () => {
-		const view = mount(readyQueryResult(activityResult({ ...activity, processing: "pending" })));
-		expect(getByText(view.container, "Updating consumption…")).toBeDefined();
-		expect(view.container.textContent).not.toContain("1,204");
 		view.unmount();
 	});
 	it("shows a loading placeholder while the first result is pending", () => {
@@ -252,38 +223,6 @@ describe("ActivitySectionView", () => {
 });
 
 describe("ActivitySection reporting window", () => {
-	it.live("keeps the repair mask and polls pending activity until it settles", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountActivity(clock);
-			try {
-				const preference = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 0),
-				);
-				replyReportingPreferences(page, preference.requestId, "success");
-				const initial = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 0),
-				);
-				replyActivity(page, initial, { pending: 1, finished: 99 });
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Updating consumption…")).toBeDefined()),
-				);
-				expect(page.container?.textContent).not.toContain("99");
-				yield* Effect.promise(() => clock.advance("1 second"));
-				const poll = yield* Effect.promise(() => waitForRequest(() => activityRequests(page), 1));
-				replyActivity(page, poll, { finished: 8 });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("8"),
-					),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
-
 	it.live("uses the account time zone at UTC date boundaries and links to kernel analytics", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();

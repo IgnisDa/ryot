@@ -10,13 +10,7 @@ import {
 	type ConsumptionMeasureUnit,
 	consumptionMeasureUnits,
 } from "../../shared/consumption-allocation";
-import {
-	type MediaAnalyticsStats,
-	mediaTypeLabel,
-	reviewModel,
-	type SummaryChartsProps,
-	summaryModel,
-} from "./model";
+import { type reviewModel, type SummaryChartsProps, summaryModel } from "./model";
 
 type QuantitySummary = ReturnType<typeof summaryModel>["current"]["quantities"]["pages"];
 
@@ -28,13 +22,12 @@ const measureLabels: Record<ConsumptionMeasureUnit, string> = {
 	episodes: "Episodes",
 };
 
-const countValue = (value: null | number, partial: boolean, unit: string) =>
-	value === null ? "Unknown" : `${partial ? "≥ " : ""}${formatExactValue(value, unit)}`;
+const countValue = (value: null | number, unit: string) =>
+	value === null ? "Unknown" : formatExactValue(value, unit);
 
 const comparisonDetail = (
 	current: null | number,
 	previous: null | number | undefined,
-	partial: boolean,
 	unit: string,
 	currentCaption: string,
 	previousCaption: null | string,
@@ -42,10 +35,10 @@ const comparisonDetail = (
 	if (previousCaption === null) {
 		return `${currentCaption} · No previous period`;
 	}
-	const comparison = compareValues(partial ? null : current, previous ?? null);
+	const comparison = compareValues(current, previous ?? null);
 	const periods = `${currentCaption} vs ${previousCaption}`;
 	if (comparison.kind === "unknown") {
-		return `${periods} · Change unavailable${partial ? " · Partial lower bound" : ""}`;
+		return `${periods} · Change unavailable`;
 	}
 	if (comparison.kind === "new-activity") {
 		return `${periods} · New activity · +${formatExactValue(comparison.absolute, unit)}`;
@@ -68,25 +61,16 @@ const quantityDetail = (quantity: null | QuantitySummary, unit: string) => {
 
 export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 	const { compact } = useRyotViewport();
-	const model = summaryModel(props.report, props.stats);
-	const reviews = props.stats === undefined ? null : reviewModel(props.stats.reviews);
-	const currentCaption = periodCaption(props.report.reporting.resolved.current);
+	const model = summaryModel(props.summary);
+	const currentCaption = periodCaption(props.summary.reporting.resolved.current);
 	const previousCaption =
-		props.report.reporting.resolved.previous === null
+		props.summary.reporting.resolved.previous === null
 			? null
-			: periodCaption(props.report.reporting.resolved.previous);
+			: periodCaption(props.summary.reporting.resolved.previous);
 	const current = model.current;
 	const previous = model.previous;
-	const currentPartial = current.partial;
 	const comparison = (value: null | number, oldValue: null | number | undefined, unit: string) =>
-		comparisonDetail(
-			value,
-			oldValue,
-			currentPartial || (previous?.partial ?? false),
-			unit,
-			currentCaption,
-			previousCaption,
-		);
+		comparisonDetail(value, oldValue, unit, currentCaption, previousCaption);
 
 	return (
 		<section aria-label="Media analytics summary" className="flex min-w-0 flex-col gap-4 font-ui">
@@ -110,11 +94,6 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 					Consumption values are unavailable because source repair failed. Reviews are independent.
 				</Notice>
 			) : null}
-			{props.stats === undefined ? (
-				<p className="text-sm text-text-muted">
-					Supplementary counts and review statistics are loading; dependent values show Unknown.
-				</p>
-			) : null}
 			<StatStrip
 				compact={compact}
 				className="min-w-0"
@@ -122,13 +101,13 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 					{
 						key: "title-completions",
 						label: "Title completion occurrences",
-						value: countValue(current.titleCompletions, currentPartial, "titles"),
+						value: countValue(current.titleCompletions, "titles"),
 						detail: comparison(current.titleCompletions, previous?.titleCompletions, "titles"),
 					},
 					{
 						key: "episode-completions",
 						label: "Episode completion occurrences",
-						value: countValue(current.episodeCompletions, currentPartial, "occurrences"),
+						value: countValue(current.episodeCompletions, "occurrences"),
 						detail: comparison(
 							current.episodeCompletions,
 							previous?.episodeCompletions,
@@ -138,19 +117,19 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 					{
 						key: "distinct-titles",
 						label: "Distinct completed titles",
-						value: countValue(current.distinctTitles, currentPartial, "titles"),
+						value: countValue(current.distinctTitles, "titles"),
 						detail: comparison(current.distinctTitles, previous?.distinctTitles, "titles"),
 					},
 					{
 						key: "active-days",
 						label: "Active days",
-						value: countValue(current.activeDays, currentPartial, "days"),
+						value: countValue(current.activeDays, "days"),
 						detail: comparison(current.activeDays, previous?.activeDays, "days"),
 					},
 					{
 						key: "active-observations",
 						label: "Active observations",
-						value: countValue(current.activeObservations, currentPartial, "observations"),
+						value: countValue(current.activeObservations, "observations"),
 						detail: comparison(
 							current.activeObservations,
 							previous?.activeObservations,
@@ -192,16 +171,10 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 						);
 					})}
 				</div>
-				{current.partial ? (
-					<p className="text-sm text-warning">
-						Some current-period source rows are not present. Shown amounts are lower bounds.
-					</p>
-				) : null}
-				{model.processing === "ready" &&
-				props.report.current.items.some((row) => (row.unknownDate ?? 0) > 0) ? (
+				{model.unknownDate !== null && model.unknownDate > 0 ? (
 					<p className="text-sm text-text-muted">
 						Full-history source coverage includes{" "}
-						{formatExactValue(current.unknownDate, "unknown-date observations")}; these records are
+						{formatExactValue(model.unknownDate, "unknown-date observations")}; these records are
 						not assigned to a reporting date.
 					</p>
 				) : null}
@@ -246,37 +219,30 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 							{current.types.map((row) => (
 								<tr key={row.source.mediaType}>
 									<th scope="row" className="py-2 pr-3 align-top font-medium text-text">
-										{mediaTypeLabel(row.source.mediaType)}
-										{row.source.mediaType.endsWith("-episode") ||
-										row.source.mediaType.endsWith("-season") ? (
-											<span className="block text-xs font-normal text-text-muted">Child row</span>
-										) : null}
+										{row.source.label}
 									</th>
 									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{countValue(row.titleCompletions, currentPartial, "titles")}
+										{countValue(row.titleCompletions, "titles")}
 									</td>
 									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{countValue(row.episodeCompletions, currentPartial, "occurrences")}
+										{countValue(row.episodeCompletions, "occurrences")}
 									</td>
 									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{countValue(row.activeObservations, currentPartial, "observations")}
+										{countValue(row.activeObservations, "observations")}
 									</td>
 									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{countValue(row.distinctTitles, currentPartial, "titles")}
+										{countValue(row.distinctTitles, "titles")}
 									</td>
 									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{countValue(row.activeDays, currentPartial, "days")}
+										{countValue(row.activeDays, "days")}
 									</td>
 									<td className="py-2 align-top">
 										<div className="flex min-w-48 flex-col gap-2">
 											{consumptionMeasureUnits.map((unit) => {
-												const quantity = row.quantities?.[unit] ?? null;
 												return (
 													<p key={unit} className="text-xs text-text-muted">
 														<span className="font-medium text-text">{measureLabels[unit]} · </span>
-														{quantity === null
-															? "Unknown coverage"
-															: quantityDetail(quantity, unit)}
+														{quantityDetail(row.quantities[unit], unit)}
 													</p>
 												);
 											})}
@@ -287,99 +253,78 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 						</tbody>
 					</table>
 				</div>
-				{props.report.current.pageInfo.hasMore || props.stats?.current.types.pageInfo?.hasMore ? (
-					<p className="text-sm text-warning">
-						Media-type rows are truncated. Counts and quantities are partial lower bounds; omitted
-						types are unknown.
-					</p>
-				) : null}
 			</Card>
 			<Card className="flex min-w-0 flex-col gap-3">
 				<h3 className="text-body font-semibold text-text">Reviews</h3>
-				{reviews === null ? (
-					<p className="text-sm text-text-muted">Review statistics are loading.</p>
-				) : (
-					<>
-						<div
-							className={
-								compact ? "grid min-w-0 grid-cols-1 gap-4" : "grid min-w-0 grid-cols-2 gap-4"
-							}
-						>
-							<ReviewGlobal global={reviews.current.global} label={`Current · ${currentCaption}`} />
-							{reviews.previous === null ? (
-								<p className="text-sm text-text-muted">No previous review period.</p>
-							) : (
-								<ReviewGlobal
-									global={reviews.previous.global}
-									label={`Previous · ${previousCaption}`}
-								/>
-							)}
-						</div>
-						<div className="min-w-0 overflow-x-auto">
-							<table className="w-full min-w-[36rem] border-collapse text-left text-sm">
-								<caption className="sr-only">Review count and rating by media category</caption>
-								<thead className="text-xs text-text-muted">
-									<tr>
-										<th scope="col" className="py-2 pr-3 font-medium">
-											Category
+				<div
+					className={compact ? "grid min-w-0 grid-cols-1 gap-4" : "grid min-w-0 grid-cols-2 gap-4"}
+				>
+					<ReviewGlobal reviews={current.reviews} label={`Current · ${currentCaption}`} />
+					{previous === null ? (
+						<p className="text-sm text-text-muted">No previous review period.</p>
+					) : (
+						<ReviewGlobal reviews={previous.reviews} label={`Previous · ${previousCaption}`} />
+					)}
+				</div>
+				<div className="min-w-0 overflow-x-auto">
+					<table className="w-full min-w-[36rem] border-collapse text-left text-sm">
+						<caption className="sr-only">Review count and rating by media category</caption>
+						<thead className="text-xs text-text-muted">
+							<tr>
+								<th scope="col" className="py-2 pr-3 font-medium">
+									Category
+								</th>
+								<th scope="col" className="py-2 pr-3 font-medium">
+									Current reviews
+								</th>
+								<th scope="col" className="py-2 pr-3 font-medium">
+									Current rated
+								</th>
+								<th scope="col" className="py-2 pr-3 font-medium">
+									Current average
+								</th>
+								<th scope="col" className="py-2 pr-3 font-medium">
+									Previous reviews
+								</th>
+								<th scope="col" className="py-2 pr-3 font-medium">
+									Previous rated
+								</th>
+								<th scope="col" className="py-2 font-medium">
+									Previous average
+								</th>
+							</tr>
+						</thead>
+						<tbody className="divide-y divide-border">
+							{reviewCategories(current.reviews.categories, previous?.reviews.categories ?? []).map(
+								({ current: row, previous: old }) => (
+									<tr key={row?.mediaType ?? old?.mediaType}>
+										<th scope="row" className="py-2 pr-3 font-medium text-text">
+											{row?.label ?? old?.label}
 										</th>
-										<th scope="col" className="py-2 pr-3 font-medium">
-											Current reviews
-										</th>
-										<th scope="col" className="py-2 pr-3 font-medium">
-											Current rated
-										</th>
-										<th scope="col" className="py-2 pr-3 font-medium">
-											Current average
-										</th>
-										<th scope="col" className="py-2 pr-3 font-medium">
-											Previous reviews
-										</th>
-										<th scope="col" className="py-2 pr-3 font-medium">
-											Previous rated
-										</th>
-										<th scope="col" className="py-2 font-medium">
-											Previous average
-										</th>
+										<td className="py-2 pr-3 tabular-nums">
+											{formatExactValue(row?.reviews ?? null, "reviews")}
+										</td>
+										<td className="py-2 pr-3 tabular-nums">
+											{formatExactValue(row?.rated ?? null, "ratings")}
+										</td>
+										<td className="py-2 pr-3 tabular-nums">
+											{formatExactValue(row?.averageRating ?? null, "/100")}
+										</td>
+										<td className="py-2 pr-3 tabular-nums">
+											{formatExactValue(old?.reviews ?? null, "reviews")}
+										</td>
+										<td className="py-2 pr-3 tabular-nums">
+											{formatExactValue(old?.rated ?? null, "ratings")}
+										</td>
+										<td className="py-2 tabular-nums">
+											{formatExactValue(old?.averageRating ?? null, "/100")}
+										</td>
 									</tr>
-								</thead>
-								<tbody className="divide-y divide-border">
-									{reviewCategories(
-										reviews.current.categories,
-										reviews.previous?.categories ?? [],
-									).map(({ current: row, previous: old }) => (
-										<tr key={row?.mediaType ?? old?.mediaType}>
-											<th scope="row" className="py-2 pr-3 font-medium text-text">
-												{row?.label ?? old?.label}{" "}
-												<span className="font-normal text-text-muted">
-													({row?.kind ?? old?.kind})
-												</span>
-											</th>
-											<td className="py-2 pr-3 tabular-nums">
-												{formatExactValue(row?.reviews ?? null, "reviews")}
-											</td>
-											<td className="py-2 pr-3 tabular-nums">
-												{formatExactValue(row?.rated ?? null, "ratings")}
-											</td>
-											<td className="py-2 pr-3 tabular-nums">
-												{formatExactValue(row?.averageRating ?? null, "/100")}
-											</td>
-											<td className="py-2 pr-3 tabular-nums">
-												{formatExactValue(old?.reviews ?? null, "reviews")}
-											</td>
-											<td className="py-2 pr-3 tabular-nums">
-												{formatExactValue(old?.rated ?? null, "ratings")}
-											</td>
-											<td className="py-2 tabular-nums">
-												{formatExactValue(old?.averageRating ?? null, "/100")}
-											</td>
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
-					</>
-				)}
+								),
+							)}
+						</tbody>
+					</table>
+				</div>
 			</Card>
 		</section>
 	);
@@ -387,17 +332,17 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 
 function ReviewGlobal(props: {
 	readonly label: string;
-	readonly global: MediaAnalyticsStats["reviews"]["current"]["global"];
+	readonly reviews: ReturnType<typeof reviewModel>;
 }) {
 	return (
 		<dl className="flex min-w-0 flex-col gap-1">
 			<dt className="text-label text-text-muted">{props.label}</dt>
 			<dd className="break-words text-sm text-text">
-				{formatExactValue(props.global.reviews, "reviews")} ·{" "}
-				{formatExactValue(props.global.rated, "rated")}
+				{formatExactValue(props.reviews.reviews, "reviews")} ·{" "}
+				{formatExactValue(props.reviews.rated, "rated")}
 			</dd>
 			<dd className="break-words text-sm text-text-muted">
-				Source average · {formatExactValue(props.global.averageRating, "/100")}
+				Source average · {formatExactValue(props.reviews.averageRating, "/100")}
 			</dd>
 		</dl>
 	);

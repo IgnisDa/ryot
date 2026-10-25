@@ -277,7 +277,7 @@ describe("Media consumption projection and reporting", () => {
 				const allTimeMinutes = yield* mediaConsumptionMeasure(allTimeMovie, "minutes");
 				expect(allTimeMinutes.total).toBe(250);
 				expect(allTimeMovie.titleCompletions).toBe(2);
-				expect(allTimeMovie.unknownDate).toBe(1);
+				expect(withUnknown.unknownDate).toBe(1);
 
 				const dated = yield* waitForMediaConsumptionReport(client, {
 					reference,

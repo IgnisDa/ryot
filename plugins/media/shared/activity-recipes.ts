@@ -2,43 +2,36 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	castBoolean,
-	castDate,
-	castText,
 	coalesce,
 	column,
 	conditional,
-	dateBucket,
 	defineRecipe,
 	eq,
 	groupAscending,
-	gte,
 	inArray,
 	join,
 	literal,
-	lt,
 	measureDescending,
-	not,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
 	table,
+	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
 	localDateOf,
 	type PluginIdentityReference,
-	type ReportingPeriod,
 	type TimeZone,
 } from "@ryot-app/plugin-kit/schema";
 
-import { consumptionEventSlugs, consumptionProcessingState } from "./consumption-projection";
+import { consumptionEventSlugs } from "./consumption-projection";
 import {
-	consumptionActiveWork,
+	consumptionActiveDay,
 	consumptionAmount,
 	consumptionNumber,
 	consumptionPeriod,
-	consumptionReady,
 	consumptionValue,
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
@@ -75,52 +68,14 @@ const mediaTypeOf = (entity: Table) =>
 		column(entity, "entitySchemaSlug"),
 	);
 
-const countWhen = (predicate: Parameters<typeof conditional>[0]) =>
-	selectedMeasure(
-		{ function: "sum", expr: conditional(predicate, literal(1), literal(0)) },
-		Schema.NullOr(Schema.Finite),
-	);
+const sumOf = (expr: Parameters<typeof coalesce>[0]) =>
+	selectedMeasure({ expr, function: "sum" }, Schema.NullOr(Schema.Finite));
 
-/** A year of daily buckets, with room for a leap year and slack. */
-const DAY_LIMIT = 400;
+const active = (event: Table) =>
+	eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true));
 
-export const consumptionActive = (event: Table, period: null | ReportingPeriod) =>
-	and(
-		consumptionPeriod(event, period),
-		eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true)),
-	);
-
-export const consumptionDailySelection = (
-	source: {
-		readonly event: Table;
-		readonly where: ReturnType<typeof and>;
-		readonly joins: readonly ReturnType<typeof join>[];
-	},
-	kind: "date" | "instant",
-	input: { readonly timeZone: TimeZone; readonly period: null | ReportingPeriod },
-) =>
-	selectedAggregate(source.event, {
-		limit: DAY_LIMIT,
-		joins: source.joins,
-		orderBy: [groupAscending("day")],
-		measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
-		where: and(
-			source.where,
-			consumptionActive(source.event, input.period),
-			eq(castText(consumptionValue(source.event, "attribution", "kind")), literal(kind)),
-		),
-		groupBy: {
-			day: selectedField(
-				kind === "date"
-					? castText(consumptionValue(source.event, "attribution", "value"))
-					: dateBucket(castDate(consumptionValue(source.event, "attribution", "value")), {
-							bucket: "day",
-							timeZone: input.timeZone,
-						}),
-				Schema.String,
-			),
-		},
-	});
+/** The home window covers 52 weeks back to a Monday: at most 370 local days. */
+const DAY_LIMIT = 371;
 
 export const mediaActivityRecipe = defineRecipe(
 	(input: {
@@ -150,45 +105,63 @@ export const mediaActivityRecipe = defineRecipe(
 				),
 			};
 		};
-		const figures = scoped("activityFigures", [...consumptionEventSlugs, "review"]);
-		const days = scoped("activityDays", consumptionEventSlugs);
-		const dates = scoped("activityDates", consumptionEventSlugs);
-		const types = scoped("activityTypes", consumptionEventSlugs);
-		const active = (event: Table) => consumptionActive(event, period);
-		const dayQuery = (source: typeof days, kind: "date" | "instant") =>
-			consumptionDailySelection(source, kind, { period, timeZone: input.timeZone });
+		const consumed = (alias: string) => {
+			const source = scoped(alias, consumptionEventSlugs);
+			return { ...source, where: and(source.where, consumptionPeriod(source.event, period)) };
+		};
+		const figures = consumed("activityFigures");
+		const days = consumed("activityDays");
+		const types = consumed("activityTypes");
+		const reviews = scoped("activityReviews", ["review"]);
 		const typeSchema = table("entitySchema", "activityTypesSchema");
 		return {
-			map: ({ mediaTypes, days: dayRows, dates: dateRows, figures: totals, activeWork }) => {
-				const counts = new Map<string, number>();
-				for (const row of [
-					...dayRows.items.map((bucket) => ({
-						events: bucket.events,
-						day: localDateOf(bucket.day, input.timeZone),
-					})),
-					...dateRows.items,
-				]) {
-					counts.set(row.day, (counts.get(row.day) ?? 0) + row.events);
-				}
-				return Result.succeed({
+			map: ({ mediaTypes, days: dayRows, figures: totals, reviews: reviewed }) =>
+				Result.succeed({
+					days: dayRows.items,
 					mediaTypes: mediaTypes.items,
-					days: Array.from(counts, ([day, events]) => ({ day, events })),
-					processing: consumptionProcessingState(
-						activeWork.items.length + (totals.pending ?? 0),
-						totals.failed ?? 0,
-					),
 					figures: {
+						reviews: reviewed.reviews,
 						minutes: totals.minutes ?? 0,
-						reviews: totals.reviews ?? 0,
 						finished: totals.finished ?? 0,
 						minutesMissing: totals.minutesMissing ?? 0,
 					},
-				});
-			},
+				}),
 			queries: {
-				activeWork: consumptionActiveWork(input.reference),
-				dates: dayQuery(dates, "date"),
-				days: dayQuery(days, "instant"),
+				reviews: selectedAggregate(reviews.event, {
+					joins: reviews.joins,
+					measures: { reviews: selectedMeasure({ function: "count" }, Schema.Finite) },
+					where: and(reviews.where, withinPeriod(column(reviews.event, "occurredAt"), period)),
+				}),
+				days: selectedAggregate(days.event, {
+					limit: DAY_LIMIT,
+					joins: days.joins,
+					orderBy: [groupAscending("day")],
+					where: and(days.where, active(days.event)),
+					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
+					groupBy: {
+						day: selectedField(consumptionActiveDay(days.event, input.timeZone), Schema.String),
+					},
+				}),
+				figures: selectedAggregate(figures.event, {
+					joins: figures.joins,
+					where: figures.where,
+					measures: {
+						minutes: sumOf(consumptionAmount(figures.event, "minutes")),
+						finished: sumOf(
+							coalesce(consumptionNumber(figures.event, "titleCompletions"), literal(0)),
+						),
+						minutesMissing: sumOf(
+							conditional(
+								eq(
+									castBoolean(consumptionValue(figures.event, "minutes", "missing")),
+									literal(true),
+								),
+								literal(1),
+								literal(0),
+							),
+						),
+					},
+				}),
 				mediaTypes: selectedAggregate(types.event, {
 					limit: builtinMediaEntitySchemaSlugs.length,
 					where: and(types.where, active(types.event)),
@@ -212,57 +185,6 @@ export const mediaActivityRecipe = defineRecipe(
 							),
 						),
 					],
-				}),
-				figures: selectedAggregate(figures.event, {
-					joins: figures.joins,
-					where: figures.where,
-					measures: {
-						failed: countWhen(eq(column(figures.event, "projectionStatus"), literal("failed"))),
-						pending: countWhen(
-							and(
-								eventSlugIsOneOf(figures.event, consumptionEventSlugs),
-								not(consumptionReady(figures.event)),
-							),
-						),
-						minutesMissing: countWhen(
-							and(
-								consumptionPeriod(figures.event, period),
-								eq(
-									castBoolean(consumptionValue(figures.event, "minutes", "missing")),
-									literal(true),
-								),
-							),
-						),
-						minutes: selectedMeasure(
-							{
-								function: "sum",
-								expr: conditional(
-									consumptionPeriod(figures.event, period),
-									consumptionAmount(figures.event, "minutes"),
-									literal(null),
-								),
-							},
-							Schema.NullOr(Schema.Finite),
-						),
-						reviews: countWhen(
-							and(
-								eq(column(figures.event, "eventSchemaSlug"), literal("review")),
-								gte(column(figures.event, "occurredAt"), castDate(literal(input.from))),
-								lt(column(figures.event, "occurredAt"), castDate(literal(input.until))),
-							),
-						),
-						finished: selectedMeasure(
-							{
-								function: "sum",
-								expr: conditional(
-									consumptionPeriod(figures.event, period),
-									coalesce(consumptionNumber(figures.event, "titleCompletions"), literal(0)),
-									literal(0),
-								),
-							},
-							Schema.NullOr(Schema.Finite),
-						),
-					},
 				}),
 			},
 		};

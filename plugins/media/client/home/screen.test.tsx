@@ -19,14 +19,15 @@ import {
 import { HomeBody } from "./screen";
 
 const libraryCount = (count: number) => ({ type: "aggregate", items: [{ count }] });
-const activityAggregates = new Set(["days", "dates", "figures", "mediaTypes"]);
-const emptyActivityResult = (name: string) =>
-	name === "figures"
-		? {
-				type: "aggregate",
-				items: [{ failed: 0, minutes: 0, pending: 0, reviews: 0, finished: 0, minutesMissing: 0 }],
-			}
+const activityAggregates = new Set(["days", "figures", "reviews", "mediaTypes"]);
+const emptyActivityResult = (name: string) => {
+	if (name === "figures") {
+		return { type: "aggregate", items: [{ minutes: 0, finished: 0, minutesMissing: 0 }] };
+	}
+	return name === "reviews"
+		? { type: "aggregate", items: [{ reviews: 0 }] }
 		: { items: [], type: "aggregate" };
+};
 
 const inProgressMovie = flatRow("movie-1", "Heat", "movie", {
 	progressPercent: 40,
@@ -225,12 +226,10 @@ describe("home gate", () => {
 						gate,
 						responses: {
 							days: { items: [], type: "aggregate" },
-							dates: { items: [], type: "aggregate" },
 							mediaTypes: { items: [], type: "aggregate" },
-							activeWork: {
-								items: [],
-								type: "rows",
-								pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+							figures: {
+								type: "aggregate",
+								items: [{ finished: 1, minutes: 116, minutesMissing: 0 }],
 							},
 							"trending.trending": rows([
 								{
@@ -239,19 +238,6 @@ describe("home gate", () => {
 									fetchedAt: "2026-09-24T10:00:00.000Z",
 								},
 							]),
-							figures: {
-								type: "aggregate",
-								items: [
-									{
-										failed: 0,
-										pending: 0,
-										reviews: 0,
-										finished: 1,
-										minutes: 116,
-										minutesMissing: 0,
-									},
-								],
-							},
 						},
 					});
 					const view = mountHome(home.adapter);
@@ -384,7 +370,7 @@ describe("home sections", () => {
 			expect(documents().slice(4)).toEqual([
 				["suggestions.items", "suggestions.source"],
 				["trending.trending"],
-				["activeWork", "dates", "days", "figures", "mediaTypes"],
+				["days", "figures", "mediaTypes", "reviews"],
 			]);
 			expect(home.reportingPreferenceReads()).toBe(1);
 			view.unmount();

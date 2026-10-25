@@ -1,8 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
-import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Result } from "@ryot-app/plugin-kit/effect";
 import {
-	castBoolean,
 	castDate,
 	castText,
 	column,
@@ -12,27 +11,18 @@ import {
 	localDate,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { Effect } from "effect";
 
-import { mediaActivityRecipe } from "./activity-recipes";
 import {
-	consumptionActiveDay,
-	mediaAnalyticsConsistencyRecipe,
+	consumptionMeasures,
 	mediaAnalyticsHoursRecipe,
-	type MediaAnalyticsInput,
-	mediaAnalyticsPeriods,
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
-	mediaAnalyticsStatsRecipe,
+	mediaAnalyticsSummaryRecipe,
 	mediaAnalyticsTrendRecipe,
 } from "./analytics-recipes";
-import {
-	consumptionNumber,
-	consumptionValue,
-	mediaConsumptionReportRecipe,
-} from "./consumption-recipes";
+import { consumptionActiveDay, consumptionValue } from "./consumption-recipes";
 
 const input = {
 	reference: { kind: "self" },
@@ -44,163 +34,93 @@ const input = {
 		range: { days: 30, kind: "rolling" },
 	},
 } as const;
-const calendarInput = (value: MediaAnalyticsInput = input) => ({
-	...value,
-	periods: mediaAnalyticsPeriods(resolveReportingSelection(value.selection, value)),
-});
-const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
-const documentHash = Effect.fnUntraced(function* (document: unknown) {
-	const text = yield* documentText(document);
-	const hash = yield* Effect.promise(() =>
-		crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)),
-	);
-	return Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("");
-});
-const aggregate = (items: readonly unknown[], hasMore = false) => ({
-	items,
-	type: "aggregate",
-	pageInfo: { hasMore, limit: 1000 },
-});
+const aggregate = (items: readonly unknown[]) => ({ items, type: "aggregate" });
 const rows = (items: readonly unknown[], nextCursor: null | string = null) => ({
 	items,
 	type: "rows",
 	pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 });
-const measures = {
-	pagesKnown: 0,
-	minutesKnown: 0,
-	pagesMissing: 0,
-	volumesKnown: 0,
-	pagesRecorded: 0,
-	episodesKnown: 0,
-	chaptersKnown: 0,
-	minutesMissing: 0,
-	pagesEstimated: 0,
-	volumesMissing: 0,
-	minutesRecorded: 0,
-	pagesSuperseded: 0,
-	episodesMissing: 0,
-	chaptersMissing: 0,
-	volumesRecorded: 0,
-	titleCompletions: 0,
-	minutesEstimated: 0,
-	episodesRecorded: 0,
-	chaptersRecorded: 0,
-	volumesEstimated: 0,
-	minutesSuperseded: 0,
-	episodesEstimated: 0,
-	chaptersEstimated: 0,
-	volumesSuperseded: 0,
-	episodeCompletions: 0,
-	activeObservations: 0,
-	episodesSuperseded: 0,
-	chaptersSuperseded: 0,
-};
+const validate = (document: Parameters<typeof validateRyotQLDocument>[0]) =>
+	validateRyotQLDocument(document, { type: "user", audience: "plugin", accessClass: "standard" })
+		.error;
+const allTime = {
+	...input,
+	selection: { ...input.selection, range: { kind: "all-time" } },
+} as const;
+const zeros = Object.fromEntries(
+	Object.keys(consumptionMeasures(table("event", "zero"))).map((key) => [key, 0]),
+);
+const coverage = (pending: number, failed: number) =>
+	aggregate([{ failed, pending, unknownDate: 3 }]);
 
-describe("supplemental Media analytics recipes", () => {
-	it("keeps explicitly captured 28-day current and 31-day prior calendar months when the execution clock advances", () => {
-		const captured = calendarInput({
-			...input,
-			now: Date.parse("2026-03-15T12:00:00Z"),
-			selection: {
-				grouping: "day",
-				comparison: "previous-period",
-				range: { offset: -1, unit: "month", kind: "calendar" },
-			},
-		});
-		const later = { ...captured, now: Date.parse("2026-11-02T18:00:00Z") };
-		const queries = mediaAnalyticsStatsRecipe(later).document.queries;
-		expect(JSON.stringify(queries["currentGlobal"]?.where)).toContain("2026-02-01T05:00:00.000Z");
-		expect(JSON.stringify(queries["previousGlobal"]?.where)).toContain("2026-01-01T05:00:00.000Z");
-		expect(JSON.stringify(queries["previousGlobal"]?.where)).not.toContain(
-			"2026-01-04T05:00:00.000Z",
-		);
-		const recipe = mediaAnalyticsTrendRecipe({
-			...later,
-			period: "previous",
-			window: { endDate: "2026-01-31", startDate: "2026-01-01" },
-		});
-		const decoded = Result.getOrThrow(recipe.decode({ data: { trend: aggregate([]) } }));
-		expect(decoded.period).toMatchObject({ endDate: "2026-01-31", startDate: "2026-01-01" });
+describe("Media analytics recipes", () => {
+	it("reads one summary document and omits previous-period queries without a comparison", () => {
+		expect(Object.keys(mediaAnalyticsSummaryRecipe(input).document.queries).sort()).toEqual([
+			"coverage",
+			"currentActiveDays",
+			"currentReviews",
+			"currentTypes",
+			"previousActiveDays",
+			"previousReviews",
+			"previousTypes",
+		]);
+		expect(Object.keys(mediaAnalyticsSummaryRecipe(allTime).document.queries).sort()).toEqual([
+			"coverage",
+			"currentActiveDays",
+			"currentReviews",
+			"currentTypes",
+		]);
+		for (const value of [input, allTime]) {
+			expect(validate(mediaAnalyticsSummaryRecipe(value).document)).toBeNull();
+		}
 	});
-	it.live("retains the exact production report and activity documents", () =>
-		Effect.gen(function* () {
-			const hashes = [
-				"a75976b28ad9b291f34d78f0ecb4a6ae80e6559b7f632bc6d0f0d9626dda260f",
-				"35d1fbc58120f7fc738c26553f5d805baa68b0fd571eda7ccc425b2efbcf8e57",
-				"2c099a18566bd74bcc91d4cf3b118727a4dbb817bb0e30fec092320fce38ebbd",
-			];
-			const ranges = [
-				{ kind: "all-time" },
-				{ days: 30, kind: "rolling" },
-				{ kind: "custom", endDate: "2026-03-08", startDate: "2026-03-08" },
-			] as const;
-			for (const [index, range] of ranges.entries()) {
-				const report = mediaConsumptionReportRecipe({
-					...input,
-					selection: { range, grouping: "auto", comparison: "previous-period" },
-				});
-				expect(Object.keys(report.document.queries)).toEqual([
-					"current",
-					...(range.kind === "all-time" ? [] : ["previous"]),
-					"rankings",
-					"hourly",
-					"trends",
-					"coverage",
-					"activeWork",
-					"reviews",
-				]);
-				expect(yield* documentHash(report.document)).toBe(hashes[index]);
-			}
-			const activity = mediaActivityRecipe({
-				reference: input.reference,
-				from: "2025-09-28T18:30:00.000Z",
-				until: "2026-09-25T18:30:00.000Z",
-				timeZone: TimeZone.make("Asia/Kolkata"),
-			});
-			expect(yield* documentHash(activity.document)).toBe(
-				"212403e0a91a0384260c0c1e702e53bfe0193701ff6b2f85e67fbcdd07bcd584",
-			);
-		}),
-	);
-	it("counts completed title identities and one canonical calendar key, not rows or per-type day sums", () => {
-		const document = mediaAnalyticsStatsRecipe(calendarInput()).document;
-		const event = table("event", "analyticsCurrentEvent");
-		const global = document.queries["currentGlobal"];
-		expect(global?.output).toMatchObject({
+	it.each([
+		{ failed: 0, pending: 0, processing: "ready" },
+		{ failed: 0, pending: 2, processing: "pending" },
+		{ failed: 1, pending: 2, processing: "failed" },
+	])("derives processing from full-history coverage: %s", ({ failed, pending, processing }) => {
+		const result = Result.getOrThrow(
+			mediaAnalyticsSummaryRecipe(allTime).decode({
+				data: {
+					currentTypes: aggregate([]),
+					currentReviews: aggregate([]),
+					coverage: coverage(pending, failed),
+					currentActiveDays: aggregate([{ activeDays: 0 }]),
+				},
+			}),
+		);
+		expect(result).toEqual({
+			processing,
+			unknownDate: 3,
+			previous: null,
+			current: { types: [], reviews: [], activeDays: 0 },
+		});
+	});
+	it("applies each period before aggregation and only reads stream status for coverage", () => {
+		const { queries } = mediaAnalyticsSummaryRecipe(input).document;
+		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-30T04:00:00.000Z");
+		expect(JSON.stringify(queries["previousTypes"]?.where)).toContain("2026-08-31T04:00:00.000Z");
+		expect(JSON.stringify(queries["previousReviews"]?.where)).toContain("2026-08-31T04:00:00.000Z");
+		for (const name of ["currentTypes", "currentReviews", "currentActiveDays"]) {
+			expect(JSON.stringify(queries[name])).not.toContain("projectionStatus");
+		}
+		expect(JSON.stringify(queries["coverage"])).toContain("projectionStatus");
+		expect(queries["currentReviews"]?.output).toMatchObject({
 			type: "aggregate",
 			measures: arrayContaining([
-				{
-					key: "distinctTitles",
-					aggregation: {
-						function: "countDistinct",
-						expr: conditional(
-							{
-								operator: "gt",
-								right: literal(0),
-								type: "comparison",
-								left: consumptionNumber(event, "titleCompletions"),
-							},
-							column(event, "entityId"),
-							literal(null),
-						),
-					},
-				},
-				{
-					key: "activeDays",
-					aggregation: {
-						function: "countDistinct",
-						expr: conditional(
-							eq(castBoolean(consumptionValue(event, "activeObservation")), literal(true)),
-							consumptionActiveDay(event, input.timeZone),
-							literal(null),
-						),
-					},
-				},
+				objectContaining({
+					key: "averageRating",
+					aggregation: objectContaining({ function: "average" }),
+				}),
+				objectContaining({
+					key: "rated",
+					aggregation: objectContaining({
+						function: "sum",
+						expr: objectContaining({ condition: objectContaining({ type: "isNotNull" }) }),
+					}),
+				}),
 			]),
 		});
-		expect(JSON.stringify(global?.where)).toContain("projectionStatus");
-		expect(JSON.stringify(global?.where)).toContain("2026-09-30T04:00:00.000Z");
 	});
 	it("keeps date-only days and excludes unknown precision from the instant calendar conversion", () => {
 		const event = table("event", "source");
@@ -219,98 +139,49 @@ describe("supplemental Media analytics recipes", () => {
 			),
 		);
 	});
-	it("uses retained unit presence rather than current metadata for known-zero, missing, and superseded charts", () => {
-		const recipe = mediaAnalyticsTrendRecipe({
-			...calendarInput(),
-			window: { endDate: "2026-10-29", startDate: "2026-10-01" },
-		});
-		const text = JSON.stringify(recipe.document);
-		expect(text).toContain("supersededEstimate");
-		expect(text).toContain("minutesKnown");
-		expect(text).not.toContain("runtime");
+	it("groups trends by one local bucket per row and resolves the compared period", () => {
+		const recipe = mediaAnalyticsTrendRecipe({ ...input, mediaType: "book" });
+		const text = JSON.stringify(recipe.document.queries["current"]);
+		expect(text).toContain("book");
+		expect(text).toContain("dateBucket");
+		expect(text).not.toContain("mediaType");
+		expect(validate(recipe.document)).toBeNull();
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					trend: aggregate(
-						[
-							{
-								...measures,
-								pagesKnown: 1,
-								mediaType: "book",
-								precision: "date",
-								at: "2026-10-01T00:00:00Z",
-							},
-						],
-						true,
-					),
+					previous: aggregate([]),
+					current: aggregate([{ ...zeros, pagesKnown: 1, at: "2026-10-01", pagesRecorded: 4 }]),
 				},
 			}),
 		);
-		expect(result.items[0]).toMatchObject({ pagesKnown: 1, pagesRecorded: 0, at: "2026-10-01" });
-		expect(result.pageInfo?.hasMore).toBe(true);
-	});
-	it("merges local instant and retained date-only daily observations across DST without fabricating hours", () => {
-		const recipe = mediaAnalyticsConsistencyRecipe({
-			...calendarInput({
-				...input,
-				selection: {
-					...input.selection,
-					range: { kind: "custom", endDate: "2026-11-01", startDate: "2026-11-01" },
-				},
-			}),
-			window: { endDate: "2026-11-01", startDate: "2026-11-01" },
+		expect(result.grouping).toBe("day");
+		expect(result.current).toMatchObject({
+			period: { endDate: "2026-10-29", startDate: "2026-09-30" },
+			items: [{ pagesKnown: 1, at: "2026-10-01", pagesRecorded: 4 }],
 		});
-		const result = Result.getOrThrow(
-			recipe.decode({
-				data: {
-					dates: aggregate([{ events: 2, day: "2026-11-01" }]),
-					instants: aggregate([{ events: 3, day: "2026-11-01T04:00:00.000Z" }]),
-				},
-			}),
-		);
-		expect(result.days).toEqual([{ events: 5, day: "2026-11-01" }]);
-		expect(result.period).toMatchObject({
-			endAt: "2026-11-02T05:00:00.000Z",
-			startAt: "2026-11-01T04:00:00.000Z",
+		expect(result.previous).toMatchObject({
+			items: [],
+			period: { endDate: "2026-09-29", startDate: "2026-08-31" },
 		});
-		expect(JSON.stringify(recipe.document)).toContain("activeObservation");
-		expect(JSON.stringify(recipe.document)).not.toContain('"unknown"');
+		expect(Object.keys(mediaAnalyticsTrendRecipe(allTime).document.queries)).toEqual(["current"]);
 	});
-	it("bounds daily and explicitly grouped chart windows and reports overflow", () => {
-		expect(() =>
-			mediaAnalyticsTrendRecipe({
-				...calendarInput({
-					...input,
-					selection: { ...input.selection, range: { kind: "all-time" } },
-				}),
-				window: { endDate: "2026-10-29", startDate: "2025-01-01" },
-			}),
-		).toThrow("bucket bound");
-		expect(() =>
-			mediaAnalyticsConsistencyRecipe({
-				...calendarInput({
-					...input,
-					selection: { ...input.selection, range: { kind: "all-time" } },
-				}),
-				window: { endDate: "2026-10-29", startDate: "2025-01-01" },
-			}),
-		).toThrow("bucket bound");
-		const recipe = mediaAnalyticsConsistencyRecipe({
-			...calendarInput(),
-			window: { endDate: "2026-10-29", startDate: "2026-10-01" },
-		});
-		const result = Result.getOrThrow(
-			recipe.decode({ data: { instants: aggregate([]), dates: aggregate([], true) } }),
-		);
-		expect(result.hasMore).toBe(true);
+	it("groups hours by instant evidence only", () => {
+		const recipe = mediaAnalyticsHoursRecipe(input);
+		const query = recipe.document.queries["hourly"];
+		expect(JSON.stringify(query?.where)).toContain('"instant"');
+		expect(validate(recipe.document)).toBeNull();
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { hourly: aggregate([{ ...zeros, hour: 7 }]) } })),
+		).toEqual([{ ...zeros, hour: 7 }]);
 	});
-	it("pages real entity roots with preview-compatible zero scores and stable identity ties", () => {
+	it("pages real entity roots with zero scores, stable identity ties and schema labels", () => {
 		const recipe = mediaAnalyticsRankingRecipe({
 			...input,
 			mediaType: "show-episode",
 			after: "opaque-ranking-cursor",
 		});
 		const query = recipe.document.queries["ranking"];
+		expect(validate(recipe.document)).toBeNull();
 		expect(query?.from).toEqual(table("entity", "analyticsRankEntity"));
 		expect(query?.output).toMatchObject({
 			type: "rows",
@@ -320,14 +191,13 @@ describe("supplemental Media analytics recipes", () => {
 				{ direction: "asc", expr: column(table("entity", "analyticsRankEntity"), "id") },
 			],
 		});
-		expect(JSON.stringify(query?.where)).toContain('"exists"');
-		expect(JSON.stringify(query?.where)).not.toContain('"operator":"gt"');
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
 					ranking: rows(
 						[
 							{
+								label: "Show",
 								name: "Parent",
 								mediaType: "show",
 								entityId: "parent",
@@ -341,7 +211,7 @@ describe("supplemental Media analytics recipes", () => {
 				},
 			}),
 		);
-		expect(result.items[0]?.activeObservations).toBe(0);
+		expect(result.items[0]).toMatchObject({ label: "Show", activeObservations: 0 });
 		expect(result.pageInfo.nextCursor).toBe("next-opaque");
 	});
 	it("keeps source facts and canonical contributions separate in logical-order event cursor rows", () => {
@@ -353,6 +223,7 @@ describe("supplemental Media analytics recipes", () => {
 			entityId: "owned-title",
 			after: "opaque-source-cursor",
 		});
+		expect(validate(recipe.document)).toBeNull();
 		const query = recipe.document.queries["records"];
 		expect(query?.output).toMatchObject({
 			type: "rows",
@@ -365,44 +236,33 @@ describe("supplemental Media analytics recipes", () => {
 			],
 		});
 		const text = JSON.stringify(query?.where);
-		for (const value of [
-			"owned-title",
-			"eventSchemaPluginId",
-			"entitySchemaPluginId",
-			"item-complete",
-			"projectionStatus",
-			"attribution",
-			"localHour",
-		]) {
+		for (const value of ["owned-title", "eventSchemaPluginId", "item-complete", "localHour"]) {
 			expect(text).toContain(value);
 		}
 		for (const value of ["list-state", '"review"']) {
 			expect(text).not.toContain(value);
 		}
-		const contribution = {
-			titleCompletions: 0,
-			episodeCompletions: 0,
-			activeObservation: true,
-			attribution: { kind: "date", value: "2026-10-10" },
-			episodes: { recorded: 1, estimated: 0, missing: false, supersededEstimate: false },
-		};
 		const result = Result.getOrThrow(
 			recipe.decode({
 				data: {
 					records: rows([
 						{
 							id: "item",
-							contribution,
 							name: "Anime",
+							label: "Anime",
 							orderKey: "item",
 							entityId: "title",
 							mediaType: "anime",
 							eventType: "item-complete",
 							occurredAt: "2026-10-10T00:00:00Z",
 							orderCreatedAt: "2026-10-10T00:00:00Z",
-							facts: {
-								consumedItem: { position: 12, unit: "episodes" },
-								sourceProgress: { percent: 50, position: 12, unit: "episodes" },
+							facts: { consumedItem: { position: 12, unit: "episodes" } },
+							contribution: {
+								titleCompletions: 0,
+								episodeCompletions: 0,
+								activeObservation: true,
+								attribution: { kind: "date", value: "2026-10-10" },
+								episodes: { recorded: 1, estimated: 0, missing: false, supersededEstimate: false },
 							},
 						},
 					]),
@@ -411,51 +271,5 @@ describe("supplemental Media analytics recipes", () => {
 		);
 		expect(result.items[0]?.facts.consumedItem?.position).toBe(12);
 		expect(result.items[0]?.contribution.episodes?.recorded).toBe(1);
-	});
-	it("queries review sources independently, including zero ratings and exact overall averages", () => {
-		const document = mediaAnalyticsStatsRecipe(calendarInput()).document;
-		expect(JSON.stringify(document.queries["currentReviews"]?.where)).not.toContain(
-			"projectionStatus",
-		);
-		expect(JSON.stringify(document.queries["previousReviews"]?.where)).toContain(
-			"2026-08-31T04:00:00.000Z",
-		);
-		const query = document.queries["currentReviews"];
-		expect(query?.from.table).toBe("event");
-		expect(query?.output).toMatchObject({
-			type: "aggregate",
-			measures: arrayContaining([
-				objectContaining({
-					key: "averageRating",
-					aggregation: objectContaining({ function: "average" }),
-				}),
-				objectContaining({
-					key: "rated",
-					aggregation: objectContaining({
-						function: "sum",
-						expr: objectContaining({ condition: objectContaining({ type: "isNotNull" }) }),
-					}),
-				}),
-			]),
-		});
-	});
-	it("stays within ordinary plugin document limits", () => {
-		const window = { endDate: "2026-10-29", startDate: "2026-10-01" };
-		for (const recipe of [
-			mediaAnalyticsStatsRecipe(calendarInput()),
-			mediaAnalyticsTrendRecipe({ ...calendarInput(), window }),
-			mediaAnalyticsConsistencyRecipe({ ...calendarInput(), window }),
-			mediaAnalyticsHoursRecipe(calendarInput()),
-			mediaAnalyticsRankingRecipe(input),
-			mediaAnalyticsRecordsRecipe(input),
-		]) {
-			expect(
-				validateRyotQLDocument(recipe.document, {
-					type: "user",
-					audience: "plugin",
-					accessClass: "standard",
-				}).error,
-			).toBeNull();
-		}
 	});
 });

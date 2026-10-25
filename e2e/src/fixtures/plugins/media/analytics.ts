@@ -37,7 +37,6 @@ const expectedSourceValues = {
 	],
 	canonical: [
 		{
-			unknownDate: 0,
 			mediaType: "anime",
 			episodesMissing: 0,
 			titleCompletions: 0,
@@ -47,7 +46,6 @@ const expectedSourceValues = {
 			activeObservations: 1,
 		},
 		{
-			unknownDate: 0,
 			pagesMissing: 0,
 			mediaType: "book",
 			pagesRecorded: 40,
@@ -56,7 +54,6 @@ const expectedSourceValues = {
 			activeObservations: 2,
 		},
 		{
-			unknownDate: 1,
 			minutesMissing: 1,
 			mediaType: "movie",
 			minutesRecorded: 0,
@@ -187,11 +184,14 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		reference,
 		selection: reportingSelection,
 	});
-	assertCondition(report.current.items.length === 3, "Expected exactly three Media report groups");
-	assertCondition(!report.current.pageInfo.hasMore, "Expected complete Media fixture totals");
+	assertCondition(report.current.types.length === 3, "Expected exactly three Media report groups");
+	assertCondition(
+		report.unknownDate === expectedSourceValues.unknownDate,
+		"Unexpected undated Media observations",
+	);
 	for (const expected of expectedSourceValues.canonical) {
 		const row = requirePresent(
-			report.current.items.find(({ mediaType }) => mediaType === expected.mediaType),
+			report.current.types.find(({ mediaType }) => mediaType === expected.mediaType),
 			`Missing analytics totals for ${expected.mediaType}`,
 		);
 		assertCondition(

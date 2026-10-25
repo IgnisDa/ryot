@@ -81,14 +81,7 @@ describe("media anime query recipes", () => {
 				["progress", "complete", "item-complete", "dropped", "on_hold"].map(literal),
 			),
 		);
-		const ready = and(
-			scope,
-			and(
-				eq(coalesce(column(event, "projectionStatus"), literal("pending")), literal("ready")),
-				isNotNull(projection),
-				isNotNull(jsonPath(projection, "contribution")),
-			),
-		);
+		const ready = and(scope, isNotNull(jsonPath(projection, "contribution")));
 
 		expect(fieldExpr(ACTIVITY_RECIPE, "totals", "consumedAmount")).toEqual(
 			sum(

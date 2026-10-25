@@ -1,16 +1,11 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import {
-	type ReportingSelection,
-	resolveReportingSelection,
-} from "@ryot-app/contract/modules/analytics/reporting";
+import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
-	mediaAnalyticsConsistencyRecipe,
 	mediaAnalyticsHoursRecipe,
-	mediaAnalyticsPeriods,
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
-	mediaAnalyticsStatsRecipe,
+	mediaAnalyticsSummaryRecipe,
 	mediaAnalyticsTrendRecipe,
 } from "@ryot-app/media-plugin/shared/analytics-recipes";
 import { animeRecipes } from "@ryot-app/media-plugin/shared/anime-recipes";
@@ -48,13 +43,9 @@ const analyticsInput = (
 	timeZone: fixture.timeZone,
 	reference: fixture.reference,
 	selection: fixture.reportingSelection,
-	periods: mediaAnalyticsPeriods(
-		resolveReportingSelection(fixture.reportingSelection, {
-			now: fixture.now,
-			timeZone: fixture.timeZone,
-		}),
-	),
 });
+const sum = <Row,>(rows: readonly Row[], value: (row: Row) => null | number | undefined) =>
+	rows.reduce((total, row) => total + (value(row) ?? 0), 0);
 
 const pagingInstants = Array.from({ length: 101 }, (_, index) =>
 	new Date(Date.parse("2026-09-04T19:00:00.000Z") + Math.floor(index / 2) * 1000).toISOString(),
@@ -91,83 +82,49 @@ describe("Media analytics supplemental SQL recipes", () => {
 			expect(written.failure).toBeNull();
 			expect(written.outcomes.map(({ status }) => status)).toEqual(["written"]);
 
-			const stats = yield* executeRyotQLRecipe(client, mediaAnalyticsStatsRecipe(input));
-			expect(stats.current.global).toMatchObject({
-				pagesKnown: 2,
-				minutesKnown: 1,
-				episodesKnown: 1,
-				activeDays: expectedSourceValues.activeDays,
-				distinctTitles: expectedSourceValues.distinctTitles,
-			});
-			expect(stats.current.types.items).toMatchObject([
+			expect(report.current.activeDays).toBe(expectedSourceValues.activeDays);
+			expect(sum(report.current.types, (row) => row.distinctTitles)).toBe(
+				expectedSourceValues.distinctTitles,
+			);
+			expect(report.current.types).toMatchObject([
 				{ activeDays: 1, episodesKnown: 1, distinctTitles: 0, mediaType: "anime" },
 				{ activeDays: 2, pagesKnown: 2, mediaType: "book", distinctTitles: 1 },
 				{ activeDays: 2, minutesKnown: 1, distinctTitles: 1, mediaType: "movie" },
 			]);
-			expect(stats.current.types.pageInfo?.hasMore).toBe(false);
-			expect(stats.previous?.global).toMatchObject({ activeDays: 0, distinctTitles: 0 });
-			expect(stats.previous?.types.items).toEqual([]);
-			expect(stats.reviews.current.global).toEqual(expectedSourceValues.reviews);
-			expect(stats.reviews.current.types.items).toEqual([
+			expect(report.previous).toEqual({ activeDays: 0, types: [], reviews: [] });
+			expect(report.current.reviews).toMatchObject([
 				{ rated: 1, reviews: 1, averageRating: 0, mediaType: "book" },
 				{ rated: 1, reviews: 1, averageRating: 80, mediaType: "movie" },
 			]);
-			expect(stats.reviews.previous?.global).toEqual({
-				reviews: 0,
-				rated: null,
-				averageRating: null,
-			});
-			const bookStats = yield* executeRyotQLRecipe(
+			const bookSummary = yield* executeRyotQLRecipe(
 				client,
-				mediaAnalyticsStatsRecipe({ ...input, entityId: entities.book.id }),
+				mediaAnalyticsSummaryRecipe({ ...input, entityId: entities.book.id }),
 			);
-			expect(bookStats.reviews.current.global).toEqual({ rated: 1, reviews: 1, averageRating: 0 });
+			expect(bookSummary.current.reviews).toMatchObject([
+				{ rated: 1, reviews: 1, averageRating: 0 },
+			]);
 			for (const expected of expectedSourceValues.canonical) {
 				expect(requireMediaConsumptionGroup(report, expected.mediaType)).toMatchObject(expected);
 			}
-			expect(report.current.items.reduce((sum, row) => sum + (row.titleCompletions ?? 0), 0)).toBe(
-				3,
-			);
-			expect(report.current.items.reduce((sum, row) => sum + (row.unknownDate ?? 0), 0)).toBe(1);
-			const previous = requirePresent(report.previous, "Expected previous Media totals");
-			expect(previous.items).toHaveLength(3);
-			for (const row of previous.items) {
-				expect(row).toMatchObject({
-					pagesRecorded: 0,
-					pagesEstimated: 0,
-					minutesMissing: 0,
-					minutesRecorded: 0,
-					titleCompletions: 0,
-					episodesRecorded: 0,
-					minutesEstimated: 0,
-					activeObservations: 0,
-				});
-			}
+			expect(sum(report.current.types, (row) => row.titleCompletions)).toBe(3);
+			expect(report.unknownDate).toBe(1);
 
-			const lifetimeInput = {
+			const lifetime = yield* waitForMediaConsumptionReport(client, {
 				...input,
 				selection: allTime,
-				periods: mediaAnalyticsPeriods(resolveReportingSelection(allTime, input)),
-			};
-			const lifetime = yield* waitForMediaConsumptionReport(client, lifetimeInput);
+			});
+			expect(lifetime.unknownDate).toBe(1);
 			expect(requireMediaConsumptionGroup(lifetime, "movie")).toMatchObject({
-				unknownDate: 1,
+				minutesKnown: 1,
 				minutesMissing: 2,
+				distinctTitles: 1,
 				minutesRecorded: 0,
 				titleCompletions: 3,
 				minutesEstimated: 0,
 				activeObservations: 3,
 			});
-			const lifetimeStats = yield* executeRyotQLRecipe(
-				client,
-				mediaAnalyticsStatsRecipe(lifetimeInput),
-			);
-			expect(lifetimeStats.current.global).toMatchObject({
-				activeDays: 3,
-				minutesKnown: 1,
-				distinctTitles: 2,
-			});
-			expect(lifetimeStats.previous).toBeNull();
+			expect(lifetime.current.activeDays).toBe(3);
+			expect(lifetime.previous).toBeNull();
 
 			const other = yield* createAuthenticatedClient();
 			yield* Effect.addFinalizer(() =>
@@ -175,11 +132,9 @@ describe("Media analytics supplemental SQL recipes", () => {
 			);
 			const isolated = yield* executeRyotQLRecipe(
 				other.client,
-				mediaAnalyticsStatsRecipe({ ...input, entityId: entities.book.id }),
+				mediaAnalyticsSummaryRecipe({ ...input, entityId: entities.book.id }),
 			);
-			expect(isolated.current.global).toMatchObject({ activeDays: 0, distinctTitles: 0 });
-			expect(isolated.current.types.items).toEqual([]);
-			expect(isolated.reviews.current.global).toMatchObject({ reviews: 0 });
+			expect(isolated.current).toEqual({ activeDays: 0, types: [], reviews: [] });
 			expect(
 				(yield* executeRyotQLRecipe(other.client, mediaAnalyticsRecordsRecipe(input))).items,
 			).toEqual([]);
@@ -187,76 +142,51 @@ describe("Media analytics supplemental SQL recipes", () => {
 	);
 
 	it.live(
-		"decodes bounded daily trends, timed hours and the union of calendar and instant days",
+		"decodes local-bucket trends with calendar and instant days, and timed hours",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* createMediaAnalyticsFixture();
 				const { client } = fixture.account;
 				const input = analyticsInput(fixture);
-				const window = requirePresent(input.periods.current, "Expected the fixed reporting window");
-				const trend = yield* executeRyotQLRecipe(
-					client,
-					mediaAnalyticsTrendRecipe({ ...input, window }),
-				);
-				expect(trend.pageInfo?.hasMore).toBe(false);
+				const trend = yield* executeRyotQLRecipe(client, mediaAnalyticsTrendRecipe(input));
 				expect(
-					trend.items.map(({ at, mediaType, precision, activeObservations }) => ({
-						at,
-						mediaType,
-						precision,
-						activeObservations,
-					})),
+					trend.current.items.map(({ at, activeObservations }) => ({ at, activeObservations })),
 				).toEqual([
-					{ at: "2026-09-02", mediaType: "anime", precision: "instant", activeObservations: 1 },
-					{ at: "2026-09-02", mediaType: "book", precision: "date", activeObservations: 1 },
-					{ at: "2026-09-02", mediaType: "movie", precision: "instant", activeObservations: 1 },
-					{ at: "2026-09-04", mediaType: "book", precision: "date", activeObservations: 1 },
-					{ at: "2026-09-05", mediaType: "movie", precision: "instant", activeObservations: 1 },
+					{ at: "2026-09-02", activeObservations: 3 },
+					{ at: "2026-09-04", activeObservations: 1 },
+					{ at: "2026-09-05", activeObservations: 1 },
 				]);
-				expect(trend.items.reduce((sum, row) => sum + (row.activeObservations ?? 0), 0)).toBe(5);
-				expect(trend.items.reduce((sum, row) => sum + (row.titleCompletions ?? 0), 0)).toBe(3);
-				expect(trend.items.reduce((sum, row) => sum + (row.pagesRecorded ?? 0), 0)).toBe(40);
-				expect(trend.items.reduce((sum, row) => sum + (row.pagesEstimated ?? 0), 0)).toBe(60);
-				expect(trend.items.reduce((sum, row) => sum + (row.episodesRecorded ?? 0), 0)).toBe(1);
-				expect(trend.items.reduce((sum, row) => sum + (row.minutesMissing ?? 0), 0)).toBe(1);
-				const previousTrend = yield* executeRyotQLRecipe(
-					client,
-					mediaAnalyticsTrendRecipe({
-						...input,
-						period: "previous",
-						window: requirePresent(input.periods.previous, "Expected a previous reporting window"),
-					}),
+				expect(trend.current.items).toEqual(
+					expect.arrayContaining(
+						fixture.expectedSourceValues.consistency.map(({ day, events }) =>
+							expect.objectContaining({ at: day, activeObservations: events }),
+						),
+					),
 				);
-				expect(previousTrend.items).toEqual([]);
+				expect(sum(trend.current.items, (row) => row.titleCompletions)).toBe(3);
+				expect(sum(trend.current.items, (row) => row.pagesRecorded)).toBe(40);
+				expect(sum(trend.current.items, (row) => row.pagesEstimated)).toBe(60);
+				expect(sum(trend.current.items, (row) => row.episodesRecorded)).toBe(1);
+				expect(sum(trend.current.items, (row) => row.minutesMissing)).toBe(1);
+				expect(trend.previous?.items).toEqual([]);
+				const bookTrend = yield* executeRyotQLRecipe(
+					client,
+					mediaAnalyticsTrendRecipe({ ...input, mediaType: "book" }),
+				);
+				expect(bookTrend.current.items.map(({ at }) => at)).toEqual(["2026-09-02", "2026-09-04"]);
 				const hours = yield* executeRyotQLRecipe(client, mediaAnalyticsHoursRecipe(input));
-				expect(hours.pageInfo?.hasMore).toBe(false);
-				expect(hours.items).toMatchObject([
+				expect(hours).toMatchObject([
 					{
 						hour: 18,
 						minutesKnown: 1,
 						minutesMissing: 1,
-						mediaType: "movie",
 						minutesRecorded: 0,
 						titleCompletions: 2,
 						minutesEstimated: 0,
 						activeObservations: 2,
 					},
-					{
-						hour: 19,
-						episodesKnown: 1,
-						mediaType: "anime",
-						titleCompletions: 0,
-						episodesRecorded: 1,
-						activeObservations: 1,
-					},
+					{ hour: 19, episodesKnown: 1, titleCompletions: 0, episodesRecorded: 1 },
 				]);
-				const consistency = yield* executeRyotQLRecipe(
-					client,
-					mediaAnalyticsConsistencyRecipe({ ...input, window }),
-				);
-				expect(consistency.hasMore).toBe(false);
-				expect(consistency.days).toEqual(fixture.expectedSourceValues.consistency);
-				expect(consistency.days).toHaveLength(fixture.expectedSourceValues.activeDays);
 			}),
 	);
 

@@ -178,7 +178,7 @@ describe("Media consumption evidence retention", () => {
 			const beforeBook = requireMediaConsumptionGroup(before, "book");
 			expect((yield* mediaConsumptionMeasure(beforeBook, "pages")).total).toBe(300);
 			expect(beforeBook.titleCompletions).toBe(2);
-			expect(beforeBook.unknownDate).toBe(1);
+			expect(before.unknownDate).toBe(1);
 
 			const mergeRequest = {
 				mergeFrom: EntityId.make(source.entityId),
@@ -397,7 +397,7 @@ describe("Media consumption evidence retention", () => {
 				expect(sourceAllTimePages.recorded).toBe(40);
 				expect(sourceAllTimePages.estimated).toBe(160);
 				expect(sourceAllTimeBook.titleCompletions).toBe(2);
-				expect(sourceAllTimeBook.unknownDate).toBe(1);
+				expect(sourceAllTime.unknownDate).toBe(1);
 				const sourceJan2 = yield* waitForReport(
 					source.client,
 					sourceReference,
@@ -408,7 +408,7 @@ describe("Media consumption evidence retention", () => {
 				expect(sourceJan2Pages.total).toBe(60);
 				expect(sourceJan2Pages.recorded).toBe(0);
 				expect(sourceJan2Pages.estimated).toBe(60);
-				expect(sourceJan2Book.unknownDate).toBe(1);
+				expect(sourceJan2.unknownDate).toBe(1);
 
 				const sourceEvents = yield* historyEventsFor(source.client, book.id);
 				const sourceRevisions = yield* executeRyotQLRecipe(
@@ -490,7 +490,7 @@ describe("Media consumption evidence retention", () => {
 				const targetAllTimePages = yield* mediaConsumptionMeasure(targetAllTimeBook, "pages");
 				expect(targetAllTimePages).toEqual(sourceAllTimePages);
 				expect(targetAllTimeBook.titleCompletions).toBe(2);
-				expect(targetAllTimeBook.unknownDate).toBe(1);
+				expect(targetAllTime.unknownDate).toBe(1);
 				expect(targetAllTime.current.items).toEqual(sourceAllTime.current.items);
 				const targetJan2 = yield* waitForReport(
 					target.client,
@@ -500,7 +500,7 @@ describe("Media consumption evidence retention", () => {
 				const targetJan2Book = requireMediaConsumptionGroup(targetJan2, "book");
 				const targetJan2Pages = yield* mediaConsumptionMeasure(targetJan2Book, "pages");
 				expect(targetJan2Pages).toEqual(sourceJan2Pages);
-				expect(targetJan2Book.unknownDate).toBe(1);
+				expect(targetJan2.unknownDate).toBe(1);
 				expect(targetJan2.current.items).toEqual(sourceJan2.current.items);
 			}),
 	);
