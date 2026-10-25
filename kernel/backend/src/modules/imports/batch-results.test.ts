@@ -86,13 +86,11 @@ it.effect(
 			const [item] = chunk.items;
 			assert(item);
 			const receipts = [
-				{
-					...ingestionTestReceipt("committed", "event:create", {
-						processed: [],
-						eventId: "event-1",
-					}),
-					itemIdentity: genericImportOperationIdentity(ingestionTestScope.runId, item, "committed"),
-				},
+				ingestionTestReceipt(
+					genericImportOperationIdentity(ingestionTestScope.runId, item, "committed"),
+					"event:create",
+					{ processed: [], eventId: "event-1" },
+				),
 			];
 			const outcomes = new Map(
 				[

@@ -15,8 +15,6 @@ import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
 import { fakeDatabaseSession } from "#testing/effect";
 
-import { ingestionItemIdentity } from "./outcomes";
-
 export const ingestionTestScope = {
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
@@ -81,13 +79,14 @@ export const ingestionTestSource = {
 };
 
 export const ingestionTestReceipt = (
-	operationId: string,
+	itemIdentity: string,
 	commandKind: string,
 	result: (typeof mutationReceipt.$inferSelect)["result"],
 ): typeof mutationReceipt.$inferSelect => ({
 	result,
 	commandKind,
 	dispatch: [],
+	itemIdentity,
 	batchId: null,
 	evidence: null,
 	pluginId: null,
@@ -97,16 +96,15 @@ export const ingestionTestReceipt = (
 	mutationScope: "user",
 	sandboxScriptId: null,
 	pluginRevisionId: null,
-	id: `receipt:${operationId}`,
 	pluginConfigRevisionId: null,
+	id: `receipt:${itemIdentity}`,
 	executionId: ingestionTestScope.runId,
 	ownerUserId: ingestionTestScope.userId,
 	scopeUserId: ingestionTestScope.userId,
 	recordedAt: new Date(ingestionTestNow),
 	rootExecutionId: ingestionTestScope.runId,
-	inputFingerprint: `fingerprint:${operationId}`,
+	inputFingerprint: `fingerprint:${itemIdentity}`,
 	accountGeneration: ingestionTestScope.accountGeneration,
-	itemIdentity: ingestionItemIdentity(ingestionTestScope.runId, operationId),
 });
 
 export const ingestionTestDatabase = (

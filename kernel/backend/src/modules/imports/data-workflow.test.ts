@@ -167,7 +167,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					}
 					if (!receipts.some((receipt) => receipt.itemIdentity === lifecycle.itemIdentity)) {
 						receipts.push(
-							ingestionTestReceipt(`data:event:${key}`, "event:create", {
+							ingestionTestReceipt(lifecycle.itemIdentity, "event:create", {
 								eventId: key,
 								processed: [],
 							}),

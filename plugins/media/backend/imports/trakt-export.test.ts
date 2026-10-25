@@ -226,12 +226,10 @@ it("preserves decoded history, provider priority, missing identifiers, and failu
 	expect(normalizeTraktRecord({}, { name: "Owned", type: "collection" }).failures[0]?.message).toBe(
 		"Item is neither a movie nor a show",
 	);
-	expect(() =>
-		normalizeTraktRecord(
-			{ movie: { ids: { tmdb: "bad" } } },
-			{ name: "Owned", type: "collection" },
-		),
-	).toThrow();
+	expect(
+		normalizeTraktRecord({ movie: { ids: { tmdb: "bad" } } }, { name: "Owned", type: "collection" })
+			.failures[0]?.message,
+	).toBe("Trakt record is malformed");
 });
 
 it("keeps filename classification at the ZIP boundary and ignores aggregate watched files", () => {

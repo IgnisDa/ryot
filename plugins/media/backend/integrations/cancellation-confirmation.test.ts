@@ -14,6 +14,7 @@ import {
 	ingestionTestScope,
 	ingestionTestSource,
 } from "@ryot-app/kernel-backend/modules/imports/ingestion.test-support";
+import { genericImportOperationIdentity } from "@ryot-app/kernel-backend/modules/imports/outcomes";
 import { ImportsRepository } from "@ryot-app/kernel-backend/modules/imports/repository";
 import { ImportSourceStateStore } from "@ryot-app/kernel-backend/modules/imports/runtime/source-state-store";
 import { ImportWorkflowPinning } from "@ryot-app/kernel-backend/modules/imports/workflow-pinning";
@@ -158,12 +159,14 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				},
 				execution.startedAt,
 			);
-			const event = chunk.items[0]?.events[0];
-			assert(event);
-			const receipt = ingestionTestReceipt(event.operationId, "event:create", {
-				processed: [],
-				eventId: "committed-event",
-			});
+			const item = chunk.items[0];
+			const event = item?.events[0];
+			assert(item && event);
+			const receipt = ingestionTestReceipt(
+				genericImportOperationIdentity(ingestionTestScope.runId, item, event.operationId),
+				"event:create",
+				{ processed: [], eventId: "committed-event" },
+			);
 			let batch: IngestionBatch = {
 				ordinal: 0,
 				id: "batch",
