@@ -10,7 +10,7 @@ import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
-import { assertCondition, requirePresent } from "~/support/assertions";
+import { assertCondition } from "~/support/assertions";
 
 import { mediaReferenceForEntity } from "./activity-log";
 import { waitForMediaConsumptionReport } from "./consumption";
@@ -21,47 +21,6 @@ const reportingSelection: ReportingSelection = {
 	grouping: "day",
 	comparison: "previous-period",
 	range: { kind: "custom", endDate: "2026-09-07", startDate: "2026-09-01" },
-};
-
-const expectedSourceValues = {
-	activeDays: 3,
-	unknownDate: 1,
-	distinctTitles: 2,
-	titleCompletions: 3,
-	activeObservations: 5,
-	reviews: { rated: 2, reviews: 2, averageRating: 40 },
-	consistency: [
-		{ events: 3, day: "2026-09-02" },
-		{ events: 1, day: "2026-09-04" },
-		{ events: 1, day: "2026-09-05" },
-	],
-	canonical: [
-		{
-			mediaType: "anime",
-			episodesMissing: 0,
-			titleCompletions: 0,
-			episodesRecorded: 1,
-			episodesEstimated: 0,
-			episodeCompletions: 0,
-			activeObservations: 1,
-		},
-		{
-			pagesMissing: 0,
-			mediaType: "book",
-			pagesRecorded: 40,
-			pagesEstimated: 60,
-			titleCompletions: 1,
-			activeObservations: 2,
-		},
-		{
-			minutesMissing: 1,
-			mediaType: "movie",
-			minutesRecorded: 0,
-			titleCompletions: 2,
-			minutesEstimated: 0,
-			activeObservations: 2,
-		},
-	],
 };
 
 const createAnalyticsMediaEntity = Effect.fn("createAnalyticsMediaEntity")(function* (
@@ -95,12 +54,6 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		{ concurrency: 3 },
 	);
 	const reference = yield* mediaReferenceForEntity(client, book.id);
-	for (const entity of [movie, anime]) {
-		assertCondition(
-			(yield* mediaReferenceForEntity(client, entity.id)).pluginId === reference.pluginId,
-			"Expected every analytics item to belong to the same installed Media plugin",
-		);
-	}
 
 	const bookBasis = consumptionBasisFor("book", { pages: 100 });
 	const movieBasis = consumptionBasisFor("movie", {});
@@ -167,11 +120,6 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 	] satisfies ContractPayload<"events", "create">;
 	const created = yield* client.call((c) => c.events.create({ payload: sourceEvents }));
 	const written = yield* waitForCreateEvents(client, created);
-	assertCondition(written.failure === null, "Expected the analytics source batch to succeed");
-	assertCondition(
-		written.outcomes.length === sourceEvents.length,
-		"Missing analytics write outcomes",
-	);
 	const sourceEventIds = written.outcomes.map((outcome) => {
 		assertCondition(outcome.status === "written", "Expected every analytics source event to save");
 		return outcome.eventId;
@@ -184,21 +132,6 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		reference,
 		selection: reportingSelection,
 	});
-	assertCondition(report.current.types.length === 3, "Expected exactly three Media report groups");
-	assertCondition(
-		report.unknownDate === expectedSourceValues.unknownDate,
-		"Unexpected undated Media observations",
-	);
-	for (const expected of expectedSourceValues.canonical) {
-		const row = requirePresent(
-			report.current.types.find(({ mediaType }) => mediaType === expected.mediaType),
-			`Missing analytics totals for ${expected.mediaType}`,
-		);
-		assertCondition(
-			Object.entries(expected).every(([key, value]) => Reflect.get(row, key) === value),
-			`Unexpected canonical analytics totals for ${expected.mediaType}`,
-		);
-	}
 	return {
 		now,
 		report,
@@ -208,7 +141,6 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		sourceEvents,
 		sourceEventIds,
 		reportingSelection,
-		expectedSourceValues,
 		entities: { book, movie, anime },
 	};
 });

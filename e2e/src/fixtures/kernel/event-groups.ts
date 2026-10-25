@@ -23,6 +23,11 @@ const entitySchemas: EntitySchemas = [
 			{
 				slug: "anchor",
 				name: "Group anchor",
+				eventGroup: {
+					keyProperties: ["position"],
+					immutableProperties: ["kind", "evidence"],
+					dependents: [{ eventSchemaSlug: "member", matchProperties: ["position", "kind"] }],
+				},
 				propertiesSchema: {
 					unknownKeys: "strict",
 					fields: {
@@ -30,11 +35,6 @@ const entitySchemas: EntitySchemas = [
 						position: { type: "integer", label: "Position", description: "Group position" },
 						evidence: { type: "string", label: "Evidence", description: "Recorded evidence" },
 					},
-				},
-				eventGroup: {
-					keyProperties: ["position"],
-					immutableProperties: ["kind", "evidence"],
-					dependents: [{ eventSchemaSlug: "member", matchProperties: ["position", "kind"] }],
 				},
 			},
 			{

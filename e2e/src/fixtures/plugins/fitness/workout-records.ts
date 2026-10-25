@@ -3,7 +3,7 @@ import type { ExerciseKind } from "@ryot-app/fitness-plugin/exercise-kinds";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
-import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
+import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { getEntity } from "~/fixtures/kernel/entities";
 import { pollUntil } from "~/fixtures/kernel/polling";
