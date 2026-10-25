@@ -3,12 +3,12 @@ import { createRequestListener } from "@mjackson/node-fetch-server";
 import compression from "compression";
 import express from "express";
 import morgan from "morgan";
-import { createRequestHandler } from "react-router";
 
 process.env.NODE_ENV ??= "production";
 
 const app = express();
 const build = await import("./build/server/index.js");
+const { createRequestHandler } = await import("react-router");
 const handleRequest = createRequestHandler(build, process.env.NODE_ENV);
 
 app.disable("x-powered-by");

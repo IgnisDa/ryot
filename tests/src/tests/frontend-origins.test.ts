@@ -132,6 +132,32 @@ describe("Frontend action origins without FRONTEND_URL", () => {
 		expect(response.headers.getSetCookie()).toHaveLength(0);
 	});
 
+	it.each([
+		undefined,
+		"production",
+	])("renders pages when NODE_ENV is %s", async (nodeEnv) => {
+		await withFrontendService(
+			process.execPath,
+			["./server.mjs"],
+			{
+				FRONTEND_URL: "",
+				NODE_ENV: nodeEnv,
+				API_URL: `${url}/backend`,
+			},
+			async (frontendUrl) => {
+				const response = await fetch(
+					`${frontendUrl}/auth?autoOidcLaunch=false`,
+				);
+				expect(response.status).toBe(200);
+				expect(await response.text()).toContain("Authentication | Ryot");
+				await expectLogin(
+					await login("/auth.data", { Origin: frontendUrl }, frontendUrl),
+					"/auth.data",
+				);
+			},
+		);
+	});
+
 	it("does not use FRONTEND_URL to validate login", async () => {
 		await withFrontendService(
 			process.execPath,
