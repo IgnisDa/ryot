@@ -534,8 +534,20 @@ describe("RyotQL builders", () => {
 					pageInfo: { limit: 20, hasMore: false },
 					items: [{ count: "2", status: "active" }],
 				}),
-			).items,
-		).toEqual([{ count: 2, status: "active" }]);
+			),
+		).toEqual({
+			items: [{ count: 2, status: "active" }],
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
+		});
+		expect(
+			Result.getOrThrow(
+				grouped.decodeResult({
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 20, hasMore: true, nextCursor: "next" },
+				}),
+			).pageInfo?.nextCursor,
+		).toBe("next");
 		expect(
 			Result.getOrThrow(countQuery.decodeResult({ type: "aggregate", items: [{ count: 3 }] })),
 		).toEqual({ count: 3 });

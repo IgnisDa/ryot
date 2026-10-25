@@ -1102,6 +1102,26 @@ it("validates aggregate keys, grouped requirements, ordering, and limits", () =>
 	).toBeNull();
 	expect(
 		validateRyotQLDocument(
+			document({ entities: aggregate(entity, { after: "cursor", measures: [countMeasure] }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Only grouped aggregate outputs accept a cursor");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					after: "cursor",
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+					groupBy: [field("properties", column(entity, "properties"))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Grouped aggregate cursors require scalar group values");
+	expect(
+		validateRyotQLDocument(
 			document({
 				entities: aggregate(entity, {
 					groupBy: [group],

@@ -674,6 +674,14 @@ const validateAggregateOutput = (
 		if (output.orderBy === undefined) {
 			return "Grouped aggregate outputs require non-empty orderBy";
 		}
+		if (
+			output.after !== undefined &&
+			[...groupKinds.values()].some((kind) => kind === undefined || kind === "json")
+		) {
+			return "Grouped aggregate cursors require scalar group values";
+		}
+	} else if (output.after !== undefined) {
+		return "Only grouped aggregate outputs accept a cursor";
 	}
 
 	for (const order of output.orderBy ?? []) {

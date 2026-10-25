@@ -581,6 +581,19 @@ const decodeIncludePageInfo = (value: unknown, path: string) =>
 		}),
 	);
 
+const decodeAggregatePageInfo = (value: unknown) =>
+	Result.flatMap(record(value, "RyotQL aggregate pageInfo is malformed"), (pageInfo) =>
+		Result.all({
+			limit: decodeValue(pageInfo["limit"], Schema.Int, "aggregate.pageInfo.limit"),
+			hasMore: decodeValue(pageInfo["hasMore"], Schema.Boolean, "aggregate.pageInfo.hasMore"),
+			nextCursor: decodeValue(
+				pageInfo["nextCursor"] ?? null,
+				Schema.NullOr(Schema.String),
+				"aggregate.pageInfo.nextCursor",
+			),
+		}),
+	);
+
 const decodeRowsPageInfo = (value: unknown) =>
 	Result.flatMap(record(value, "RyotQL rows pageInfo is malformed"), (pageInfo) =>
 		Result.all({
@@ -908,6 +921,7 @@ export const aggregate = (
 	from: TableReference,
 	input: {
 		readonly limit?: number | undefined;
+		readonly after?: string | undefined;
 		readonly where?: Predicate | undefined;
 		readonly joins?: undefined | readonly Join[];
 		readonly groupBy?: undefined | readonly FieldSelection[];
@@ -922,6 +936,7 @@ export const aggregate = (
 		type: "aggregate",
 		measures: [...input.measures] as [AggregateMeasure, ...AggregateMeasure[]],
 		...(input.limit !== undefined ? { limit: input.limit } : {}),
+		...(input.after !== undefined ? { after: input.after } : {}),
 		...(input.groupBy && input.groupBy.length > 0 ? { groupBy: [...input.groupBy] } : {}),
 		...(input.orderBy && input.orderBy.length > 0
 			? { orderBy: [...input.orderBy] as [AggregateOrderBy, ...AggregateOrderBy[]] }
@@ -978,7 +993,7 @@ export type SelectedAggregateResult<
 	GroupBy extends SelectedSelection,
 	Measures extends SelectedMeasures,
 > = {
-	readonly pageInfo?: undefined | SelectedIncludePageInfo;
+	readonly pageInfo?: undefined | SelectedRowsPageInfo;
 	readonly items: readonly SelectedAggregateRow<GroupBy, Measures>[];
 };
 
@@ -986,10 +1001,10 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
-	readonly measures: Measures;
-	readonly groupBy?: undefined;
-};
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = { readonly measures: Measures; readonly groupBy?: undefined } & Omit<
+	Parameters<typeof aggregate>[1],
+	"groupBy" | "measures"
+>;
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,
@@ -1095,9 +1110,8 @@ export function selectedAggregate(
 				if (aggregateResult["pageInfo"] === undefined) {
 					return Result.map(decodedItems, (items) => ({ items }));
 				}
-				return Result.flatMap(
-					decodeIncludePageInfo(aggregateResult["pageInfo"], "aggregate"),
-					(pageInfo) => Result.map(decodedItems, (items) => ({ items, pageInfo })),
+				return Result.flatMap(decodeAggregatePageInfo(aggregateResult["pageInfo"]), (pageInfo) =>
+					Result.map(decodedItems, (items) => ({ items, pageInfo })),
 				);
 			}),
 	};

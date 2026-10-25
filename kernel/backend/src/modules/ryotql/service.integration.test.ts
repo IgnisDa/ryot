@@ -46,6 +46,7 @@ import {
 	localHour,
 	lt,
 	measure,
+	measureDescending,
 	not,
 	or,
 	rows,
@@ -884,6 +885,35 @@ layer(catalogDatabaseLayer)((test) => {
 				type: "aggregate",
 				items: [{ count: 4, day: pages[0]?.["day"] }],
 			});
+
+			const groupPage = (after: string | undefined) =>
+				service
+					.executeForAdmin({
+						queries: {
+							groups: aggregate(users, {
+								after,
+								limit: 3,
+								orderBy: [measureDescending("count")],
+								groupBy: [field("id", column(users, "id"))],
+								measures: [measure("count", { function: "count" })],
+							}),
+						},
+					})
+					.pipe(
+						Effect.map(({ data }) => {
+							const result = data["groups"];
+							assert(result?.type === "aggregate" && result.pageInfo);
+							return {
+								after: result.pageInfo.nextCursor,
+								ids: result.items.map((item) => item["id"]),
+							};
+						}),
+					);
+			const first = yield* groupPage(undefined);
+			const second = yield* groupPage(first.after);
+			const groupPages = [first.ids, second.ids];
+			expect(second.after).toBeUndefined();
+			expect(groupPages).toEqual([["mixed", "other", "owner"], ["plain"]]);
 
 			const choices = jsonElementsJoin("inner", "choice", literal(["date-only", "instant"]));
 			const sameDay = conditional(

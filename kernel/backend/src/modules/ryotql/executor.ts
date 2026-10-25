@@ -1124,35 +1124,36 @@ const cursorSqlValue = (value: Exclude<CursorValue, { kind: "null" }>) => {
 	return sql`${value.value}::text`;
 };
 
-const compileCursorPredicate = (
-	orders: readonly Order[],
-	values: readonly CursorValue[],
-	ctx: Context,
-) => {
+type KeysetColumn = {
+	readonly nullable: boolean;
+	readonly value: SqlFragment;
+	readonly direction: Order["direction"];
+};
+
+const keysetPredicate = (columns: readonly KeysetColumn[], values: readonly CursorValue[]) => {
 	const terms: SqlFragment[] = [];
-	for (const [index, order] of orders.entries()) {
+	for (const [index, column] of columns.entries()) {
 		const current = values[index];
 		if (!current || current.kind === "null") {
 			continue;
 		}
-		const prefix = orders.slice(0, index).map((prefixOrder, prefixIndex) => {
+		const prefix = columns.slice(0, index).map((prefixColumn, prefixIndex) => {
 			const prefixValue = values[prefixIndex];
 			if (!prefixValue) {
 				throw new Error("RyotQL compiler received a cursor with missing order values");
 			}
-			const expression = compileExpression(prefixOrder.expr, ctx);
 			return prefixValue.kind === "null"
-				? sql`${expression} IS NOT DISTINCT FROM NULL`
-				: sql`${expression} IS NOT DISTINCT FROM ${cursorSqlValue(prefixValue)}`;
+				? sql`${prefixColumn.value} IS NOT DISTINCT FROM NULL`
+				: sql`${prefixColumn.value} IS NOT DISTINCT FROM ${cursorSqlValue(prefixValue)}`;
 		});
-		const expression = compileExpression(order.expr, ctx);
 		const value = cursorSqlValue(current);
-		const orderedExpression = current.kind === "text" ? sql`${expression} COLLATE "C"` : expression;
+		const orderedExpression =
+			current.kind === "text" ? sql`${column.value} COLLATE "C"` : column.value;
 		const orderedValue = current.kind === "text" ? sql`${value} COLLATE "C"` : value;
-		const operator = order.direction === "asc" ? sql`>` : sql`<`;
+		const operator = column.direction === "asc" ? sql`>` : sql`<`;
 		const orderedComparison = sql`${orderedExpression} ${operator} ${orderedValue}`;
-		const comparison = expressionNullable(order.expr, ctx)
-			? sql`(${orderedComparison} OR ${expression} IS NULL)`
+		const comparison = column.nullable
+			? sql`(${orderedComparison} OR ${column.value} IS NULL)`
 			: orderedComparison;
 		terms.push(
 			prefix.length === 0 ? comparison : sql`(${sql.join(prefix, sql` AND `)} AND ${comparison})`,
@@ -1160,6 +1161,20 @@ const compileCursorPredicate = (
 	}
 	return terms.length === 0 ? sql`false` : sql`(${sql.join(terms, sql` OR `)})`;
 };
+
+const compileCursorPredicate = (
+	orders: readonly Order[],
+	values: readonly CursorValue[],
+	ctx: Context,
+) =>
+	keysetPredicate(
+		orders.map((order) => ({
+			direction: order.direction,
+			value: compileExpression(order.expr, ctx),
+			nullable: expressionNullable(order.expr, ctx),
+		})),
+		values,
+	);
 
 const compileExists = (expr: Extract<ScalarExpression, { type: "exists" }>, ctx: Context) =>
 	sql`EXISTS (SELECT 1 ${querySetSql(expr.query, correlatedContext(ctx, expr.query))})`;
@@ -1326,7 +1341,52 @@ const compileRowsQuery = (
 	);
 };
 
-const compileAggregateQuery = (query: AggregateQuery, plan: PlannedScope) => {
+type AggregateOrder = {
+	readonly column: string;
+	readonly kind: ScalarKind;
+	readonly direction: Order["direction"];
+};
+
+// Group keys missing from the requested order break ties, so pages are stable and resumable.
+const aggregateOrders = (query: AggregateQuery, plan: PlannedScope): AggregateOrder[] => {
+	const groups = query.output.groupBy ?? [];
+	const requested = (query.output.orderBy ?? []).map((order): AggregateOrder => {
+		const groupIndex = groups.findIndex((group) => group.key === order.key);
+		const group = groups[groupIndex];
+		if (group !== undefined) {
+			return {
+				column: `g${groupIndex}v`,
+				direction: order.direction,
+				kind: expressionKind(group.expr, plan),
+			};
+		}
+		const measureIndex = query.output.measures.findIndex((measure) => measure.key === order.key);
+		const measure = query.output.measures[measureIndex];
+		if (measure === undefined) {
+			throw new Error(`RyotQL compiler received unknown aggregate order key '${order.key}'`);
+		}
+		return {
+			direction: order.direction,
+			column: `m${measureIndex}`,
+			kind: aggregationMeasureKind(measure, plan) ?? "number",
+		};
+	});
+	const ordered = new Set(requested.map((order) => order.column));
+	const tieBreakers = groups.flatMap((group, index): AggregateOrder[] => {
+		const kind = expressionKind(group.expr, plan);
+		return ordered.has(`g${index}v`) || kind === "json" || hasRuntimeOutputKind(group.expr, plan)
+			? []
+			: [{ kind, direction: "asc", column: `g${index}v` }];
+	});
+	return [...requested, ...tieBreakers];
+};
+
+const compileAggregateQuery = (
+	query: AggregateQuery,
+	plan: PlannedScope,
+	orders: readonly AggregateOrder[],
+	cursor: undefined | readonly CursorValue[],
+) => {
 	const ctx = rootContext(plan);
 	const groups = query.output.groupBy ?? [];
 	const groupColumns = groups.flatMap((group, index) =>
@@ -1342,48 +1402,43 @@ const compileAggregateQuery = (query: AggregateQuery, plan: PlannedScope) => {
 			sql`SELECT ${sql.join(measureColumns, sql`, `)} ${querySetSql(query, ctx)}`,
 		);
 	}
-	if (query.output.limit === undefined || query.output.orderBy === undefined) {
-		throw new Error("RyotQL grouped aggregate is missing limit or orderBy after validation");
+	if (query.output.limit === undefined) {
+		throw new Error("RyotQL grouped aggregate is missing a limit after validation");
 	}
 	let groupOrdinal = 1;
 	const groupOrdinals = groups.flatMap((group) => {
 		const count = hasRuntimeOutputKind(group.expr, plan) ? 2 : 1;
 		return Array.from({ length: count }, () => groupOrdinal++);
 	});
-	const groupIndexes = new Map(groups.map((group, index) => [group.key, index]));
-	const measureIndexes = new Map(
-		query.output.measures.map((measure, index) => [measure.key, index]),
-	);
-	const ordering = query.output.orderBy.map((order) => {
-		const groupIndex = groupIndexes.get(order.key);
-		const measureIndex = measureIndexes.get(order.key);
-		if (groupIndex === undefined && measureIndex === undefined) {
-			throw new Error(`RyotQL compiler received unknown aggregate order key '${order.key}'`);
-		}
-		const group = groupIndex === undefined ? undefined : groups[groupIndex];
-		const value = identifier(group === undefined ? `m${measureIndex}` : `g${groupIndex}v`);
-		const collation =
-			group !== undefined && expressionKind(group.expr, plan) === "text"
-				? sql` COLLATE "C"`
-				: sql``;
+	const ordering = orders.map((order) => {
+		const collation = order.kind === "text" ? sql` COLLATE "C"` : sql``;
 		const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
-		return sql`${value}${collation} ${direction} NULLS LAST`;
+		return sql`${identifier(order.column)}${collation} ${direction} NULLS LAST`;
 	});
+	const after = cursor
+		? sql`WHERE ${keysetPredicate(
+				orders.map((order) => ({
+					nullable: true,
+					direction: order.direction,
+					value: sql`"aggregateGroups".${identifier(order.column)}`,
+				})),
+				cursor,
+			)}`
+		: sql``;
 	return withCtes(
 		plan,
 		sql`
 		SELECT * FROM (
-			SELECT
-				${sql.join([...groupColumns, ...measureColumns], sql`, `)},
-				COUNT(*) OVER()::integer AS "totalGroups"
+			SELECT ${sql.join([...groupColumns, ...measureColumns], sql`, `)}
 			${querySetSql(query, ctx)}
 			GROUP BY ${sql.join(
 				groupOrdinals.map((ordinal) => sql.raw(String(ordinal))),
 				sql`, `,
 			)}
 		) "aggregateGroups"
+		${after}
 		ORDER BY ${sql.join(ordering, sql`, `)}
-		LIMIT ${query.output.limit}
+		LIMIT ${query.output.limit + 1}
 	`,
 	);
 };
@@ -1592,6 +1647,14 @@ const reconstructAggregateItem = (
 	return item;
 };
 
+const queryOwnerIdentity = (executionScope: RyotQLExecutionScope, query: ExpandedNamedQuery) =>
+	encodeJson({
+		scope: executionScope,
+		references: pluginIdentityReferences({ queries: { query } })
+			.map((reference) => stableStringify(reference))
+			.sort(),
+	}).pipe(Effect.map(sha256Hex));
+
 const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (
 	executionScope: RyotQLExecutionScope,
 	query: AggregateQuery,
@@ -1600,23 +1663,60 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	budget: undefined | RyotQLResultBudget,
 ) {
 	const plan = planQuery(query, executionScope);
-	const rows = yield* executeSql(compileAggregateQuery(query, plan), queryName, db, budget);
 	const groups = query.output.groupBy ?? [];
-	const items = rows.map((row) =>
-		reconstructAggregateItem(row, groups, query.output.measures, plan),
+	const orders = groups.length === 0 ? [] : aggregateOrders(query, plan);
+	const kinds = orders.map((order) => order.kind);
+	const directions = orders.map((order) => order.direction);
+	const ownerIdentity = yield* queryOwnerIdentity(executionScope, query);
+	const cursor = query.output.after
+		? yield* decodeCursor(query.output.after, kinds, directions, ownerIdentity)
+		: undefined;
+	const rows = yield* executeSql(
+		compileAggregateQuery(query, plan, orders, cursor),
+		queryName,
+		db,
+		budget,
 	);
 	if (groups.length === 0) {
+		const items = rows.map((row) =>
+			reconstructAggregateItem(row, groups, query.output.measures, plan),
+		);
 		return { items, type: "aggregate" } satisfies AggregateResult;
 	}
 	const limit = query.output.limit;
 	if (limit === undefined) {
 		throw new Error("RyotQL grouped aggregate is missing a limit after validation");
 	}
-	const totalGroups = rows[0] ? Number(rows[0]["totalGroups"]) : 0;
+	const hasMore = rows.length > limit;
+	const returnedRows = rows.slice(0, limit);
+	const items = returnedRows.map((row) =>
+		reconstructAggregateItem(row, groups, query.output.measures, plan),
+	);
+	const resumable = groups.every((_, index) =>
+		orders.some((order) => order.column === `g${index}v`),
+	);
+	const last = hasMore && resumable ? returnedRows.at(-1) : undefined;
+	const nextCursor = last
+		? yield* encodeCursor(
+				orders.map((order): CursorValue => {
+					const value = last[order.column];
+					if (value === null || value === undefined) {
+						return { value: null, kind: "null" };
+					}
+					const cursorValue = makeCursorValue(order.kind, normalizeValue(value, order.kind));
+					if (!cursorValue) {
+						throw new Error("RyotQL received an invalid aggregate order value");
+					}
+					return cursorValue;
+				}),
+				directions,
+				ownerIdentity,
+			)
+		: null;
 	return {
 		items,
 		type: "aggregate",
-		pageInfo: { limit, hasMore: totalGroups > limit },
+		pageInfo: { limit, hasMore, ...(nextCursor === null ? {} : { nextCursor }) },
 	} satisfies AggregateResult;
 });
 
@@ -1674,14 +1774,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	const orders = appendPrimaryKeyOrders(rowsQuery, plan, rowsQuery.output.orderBy);
 	const orderKinds = orders.map((order) => expressionKind(order.expr, plan));
 	const orderDirections = orders.map((order) => order.direction);
-	const ownerIdentity = sha256Hex(
-		yield* encodeJson({
-			scope: executionScope,
-			references: pluginIdentityReferences({ queries: { query: rowsQuery } })
-				.map((reference) => stableStringify(reference))
-				.sort(),
-		}),
-	);
+	const ownerIdentity = yield* queryOwnerIdentity(executionScope, rowsQuery);
 	const cursor = rowsQuery.output.pagination.after
 		? yield* decodeCursor(
 				rowsQuery.output.pagination.after,

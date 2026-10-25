@@ -435,6 +435,7 @@ export type RowsOutput = typeof RowsOutput.Type;
 
 export const AggregateOutput = strictStruct({
 	type: Schema.Literal("aggregate"),
+	after: Schema.optional(Schema.String),
 	measures: Schema.NonEmptyArray(AggregateMeasure),
 	groupBy: Schema.optional(Schema.Array(FieldSelection)),
 	orderBy: Schema.optional(Schema.NonEmptyArray(AggregateOrderBy)),
@@ -757,9 +758,15 @@ export const RowsResult = rowsResultSchema(Schema.Record(Schema.String, ResultVa
 });
 export type RowsResult = typeof RowsResult.Type;
 
+const AggregatePageInfo = strictStruct({
+	limit: Schema.Int,
+	hasMore: Schema.Boolean,
+	nextCursor: Schema.optional(Schema.String),
+}).annotate({ identifier: "RyotQLAggregatePageInfo" });
+
 export const AggregateResult = strictStruct({
 	type: Schema.Literal("aggregate"),
-	pageInfo: Schema.optional(IncludePageInfo),
+	pageInfo: Schema.optional(AggregatePageInfo),
 	items: Schema.Array(Schema.Record(Schema.String, JsonValue)),
 }).annotate({ identifier: "RyotQLAggregateResult" });
 export type AggregateResult = typeof AggregateResult.Type;
