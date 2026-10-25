@@ -5,7 +5,7 @@ import {
 	startOfCalendarUnit,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { DateTime } from "effect";
+import { DateTime } from "@ryot-app/plugin-client-sdk/effect";
 
 import { countMuscleSets, elapsedWorkoutSeconds } from "../../shared/fitness-metrics";
 import type {
