@@ -102,7 +102,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 						? {}
 						: { subjectEntityId: input.subjectEntityId }),
 				}).pipe(Effect.mapError(() => badRequest("Invalid signal properties")));
-				const trigger = lifecycleTrigger(command, actorUserId, normalized);
+				const trigger = yield* lifecycleTrigger(command, actorUserId, normalized);
 				const existing = yield* triggers.findById(trigger.id);
 				let recipients: ReadonlyArray<UserId> = [];
 				if (!existing) {

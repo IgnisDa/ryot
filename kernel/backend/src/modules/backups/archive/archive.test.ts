@@ -140,17 +140,28 @@ const archiveBytes = Effect.fn(function* (
 const asChunks = (value: Uint8Array) => Stream.toAsyncIterable(Stream.make(value));
 
 const decodeManifest = (value: Uint8Array) =>
-	Schema.decodeSync(Schema.fromJsonString(ArchiveManifest))(new TextDecoder().decode(value));
+	Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(new TextDecoder().decode(value)).pipe(
+		Effect.orDie,
+	);
 
-const encodeManifest = (manifest: ArchiveManifest) =>
-	encoder.encode(`${stableStringify(Schema.encodeUnknownSync(ArchiveManifest)(manifest))}\n`);
+const updateManifest = Effect.fnUntraced(function* (
+	files: Record<string, Uint8Array>,
+	update: (manifest: ArchiveManifest) => ArchiveManifest,
+) {
+	const manifestFile = files["manifest.json"];
+	assert(manifestFile !== undefined);
+	const manifest = yield* Schema.encodeEffect(ArchiveManifest)(
+		update(yield* decodeManifest(manifestFile)),
+	).pipe(Effect.orDie);
+	files["manifest.json"] = encoder.encode(`${stableStringify(manifest)}\n`);
+});
 
 const mutateArchive = Effect.fn(function* (
 	archiveInput: CreateArchiveInput,
-	mutate: (files: Record<string, Uint8Array>) => void,
+	mutate: (files: Record<string, Uint8Array>) => Effect.Effect<void>,
 ) {
 	const files = unzipSync(yield* archiveBytes(archiveInput)) as Record<string, Uint8Array>;
-	mutate(files);
+	yield* mutate(files);
 	return zipSync(files);
 });
 
@@ -160,21 +171,18 @@ const replaceSection = (
 	payload: Uint8Array,
 	count?: number,
 ) => {
-	const manifestFile = files["manifest.json"];
-	assert(manifestFile !== undefined);
-	const manifest = decodeManifest(manifestFile);
 	const hash = new IncrementalSha256();
 	hash.update(payload);
 	const sha256 = hash.digest().sha256;
 	files[path] = payload;
-	files["manifest.json"] = encodeManifest({
+	return updateManifest(files, (manifest) => ({
 		...manifest,
 		sections: manifest.sections.map((section) =>
 			section.path === path
 				? Object.assign({}, section, { sha256, count: count ?? section.count })
 				: section,
 		),
-	});
+	}));
 };
 
 const validationError = Effect.fn(function* (
@@ -458,7 +466,7 @@ layer(BunFileSystem.layer)((test) => {
 				},
 			] as const) {
 				const archive = yield* mutateArchive(input(), (files) => {
-					replaceSection(
+					return replaceSection(
 						files,
 						path,
 						encoder.encode(values.map((value) => `${JSON.stringify(value)}\n`).join("")),
@@ -495,7 +503,7 @@ layer(BunFileSystem.layer)((test) => {
 				},
 			] as const) {
 				const archive = yield* mutateArchive(input(), (files) => {
-					replaceSection(files, path, encoder.encode(`${JSON.stringify(value)}\n`), 1);
+					return replaceSection(files, path, encoder.encode(`${JSON.stringify(value)}\n`), 1);
 				});
 				expect(yield* validationError(archive)).toMatchObject({ path, reason: "invalid_entry" });
 			}
@@ -550,7 +558,7 @@ layer(BunFileSystem.layer)((test) => {
 				const invalid = yield* mutateArchive(archiveInput, (files) => {
 					const missing = { ...incomplete };
 					Reflect.deleteProperty(missing, "isInitialized");
-					replaceSection(
+					return replaceSection(
 						files,
 						"installations.ndjson",
 						encoder.encode(`${JSON.stringify(missing)}\n`),
@@ -593,7 +601,7 @@ layer(BunFileSystem.layer)((test) => {
 			const files = unzipSync(yield* archiveBytes());
 			const manifestFile = files["manifest.json"];
 			assert(manifestFile);
-			const sectionPaths = decodeManifest(manifestFile).sections.map(({ path }) => path);
+			const sectionPaths = (yield* decodeManifest(manifestFile)).sections.map(({ path }) => path);
 			for (const path of excludedAccountArchiveSections) {
 				expect(files).not.toHaveProperty(path);
 				expect(sectionPaths).not.toContain(path);
@@ -655,39 +663,37 @@ layer(BunFileSystem.layer)((test) => {
 				events: eventsInput([event()]),
 				records: { ...records, entities: [entity()] },
 			});
-			const boundedDigest = yield* mutateArchive(populated, (files) => {
-				files["entities.ndjson"] = encoder.encode("\n");
-			});
+			const boundedDigest = yield* mutateArchive(populated, (files) =>
+				Effect.sync(() => {
+					files["entities.ndjson"] = encoder.encode("\n");
+				}),
+			);
 			expect((yield* validationError(boundedDigest)).reason).toBe("checksum_mismatch");
 
-			const eventDigest = yield* mutateArchive(populated, (files) => {
-				files["events.ndjson"] = encoder.encode("\n");
-			});
+			const eventDigest = yield* mutateArchive(populated, (files) =>
+				Effect.sync(() => {
+					files["events.ndjson"] = encoder.encode("\n");
+				}),
+			);
 			expect((yield* validationError(eventDigest)).reason).toBe("checksum_mismatch");
 
 			const boundedCount = yield* mutateArchive(populated, (files) => {
-				const manifestFile = files["manifest.json"];
-				assert(manifestFile !== undefined);
-				const manifest = decodeManifest(manifestFile);
-				files["manifest.json"] = encodeManifest({
+				return updateManifest(files, (manifest) => ({
 					...manifest,
 					sections: manifest.sections.map((section) =>
 						section.path === "entities.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
 					),
-				});
+				}));
 			});
 			expect((yield* validationError(boundedCount)).reason).toBe("count_mismatch");
 
 			const eventCount = yield* mutateArchive(populated, (files) => {
-				const manifestFile = files["manifest.json"];
-				assert(manifestFile !== undefined);
-				const manifest = decodeManifest(manifestFile);
-				files["manifest.json"] = encodeManifest({
+				return updateManifest(files, (manifest) => ({
 					...manifest,
 					sections: manifest.sections.map((section) =>
 						section.path === "events.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
 					),
-				});
+				}));
 			});
 			yield* Effect.gen(function* () {
 				const validated = yield* validateArchive(asChunks(eventCount));
@@ -702,9 +708,11 @@ layer(BunFileSystem.layer)((test) => {
 			expect((yield* validationError(rawZip(["manifest.json", "manifest.json"]))).reason).toBe(
 				"duplicate_path",
 			);
-			const missing = yield* mutateArchive(input(), (files) => {
-				Reflect.deleteProperty(files, "entities.ndjson");
-			});
+			const missing = yield* mutateArchive(input(), (files) =>
+				Effect.sync(() => {
+					Reflect.deleteProperty(files, "entities.ndjson");
+				}),
+			);
 			expect((yield* validationError(missing)).reason).toBe("missing_entry");
 
 			const unsupported = (yield* archiveBytes()).slice();
@@ -728,12 +736,12 @@ layer(BunFileSystem.layer)((test) => {
 				{ payload: '{"id":', reason: "truncated_ndjson" },
 			] as const) {
 				const bounded = yield* mutateArchive(input(), (files) => {
-					replaceSection(files, "entities.ndjson", encoder.encode(payload));
+					return replaceSection(files, "entities.ndjson", encoder.encode(payload));
 				});
 				expect((yield* validationError(bounded)).reason).toBe(reason);
 
 				const streamed = yield* mutateArchive(input(), (files) => {
-					replaceSection(files, "events.ndjson", encoder.encode(payload));
+					return replaceSection(files, "events.ndjson", encoder.encode(payload));
 				});
 				yield* Effect.gen(function* () {
 					const validated = yield* validateArchive(asChunks(streamed));
@@ -748,29 +756,32 @@ layer(BunFileSystem.layer)((test) => {
 		Effect.gen(function* () {
 			const { asset } = assetInput();
 			const archiveInput = input({ assets: [asset] });
-			const undeclared = yield* mutateArchive(archiveInput, (files) => {
-				files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
-			});
+			const undeclared = yield* mutateArchive(archiveInput, (files) =>
+				Effect.sync(() => {
+					files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
+				}),
+			);
 			expect((yield* validationError(undeclared)).reason).toBe("undeclared_asset");
 
-			const missing = yield* mutateArchive(archiveInput, (files) => {
-				Reflect.deleteProperty(files, asset.metadata.path);
-			});
+			const missing = yield* mutateArchive(archiveInput, (files) =>
+				Effect.sync(() => {
+					Reflect.deleteProperty(files, asset.metadata.path);
+				}),
+			);
 			expect((yield* validationError(missing)).reason).toBe("missing_entry");
 
-			const digest = yield* mutateArchive(archiveInput, (files) => {
-				files[asset.metadata.path] = encoder.encode("changed asset");
-			});
+			const digest = yield* mutateArchive(archiveInput, (files) =>
+				Effect.sync(() => {
+					files[asset.metadata.path] = encoder.encode("changed asset");
+				}),
+			);
 			expect((yield* validationError(digest)).reason).toBe("checksum_mismatch");
 
 			const size = yield* mutateArchive(archiveInput, (files) => {
-				const manifestFile = files["manifest.json"];
-				assert(manifestFile !== undefined);
-				const manifest = decodeManifest(manifestFile);
-				files["manifest.json"] = encodeManifest({
+				return updateManifest(files, (manifest) => ({
 					...manifest,
 					assets: manifest.assets.map((item) => Object.assign({}, item, { size: item.size + 1 })),
-				});
+				}));
 			});
 			expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
 		}),
@@ -792,7 +803,7 @@ layer(BunFileSystem.layer)((test) => {
 			expect(yield* spoolEntries()).toBe(0);
 
 			const truncated = yield* mutateArchive(input(), (files) => {
-				replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
+				return replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
 			});
 			yield* Effect.gen(function* () {
 				const validated = yield* validateArchive(asChunks(truncated), { directory: root });
@@ -831,18 +842,7 @@ layer(BunFileSystem.layer)((test) => {
 					const payload = encoder.encode(
 						values.map((value) => `${JSON.stringify(value)}\n`).join(""),
 					);
-					replaceSection(files, path, payload);
-					const manifestFile = files["manifest.json"];
-					assert(manifestFile !== undefined);
-					const manifest = decodeManifest(manifestFile);
-					files["manifest.json"] = encodeManifest({
-						...manifest,
-						sections: manifest.sections.map((section) =>
-							section.path === path
-								? Object.assign({}, section, { count: values.length })
-								: section,
-						),
-					});
+					return replaceSection(files, path, payload, values.length);
 				});
 				expect((yield* validationError(archive)).reason).toBe(reason);
 			}
@@ -852,7 +852,7 @@ layer(BunFileSystem.layer)((test) => {
 	test.effect("rejects invalid private plugin archive records", () =>
 		Effect.gen(function* () {
 			const archive = yield* mutateArchive(input(), (files) => {
-				replaceSection(
+				return replaceSection(
 					files,
 					"private-plugins.ndjson",
 					encoder.encode(
@@ -893,7 +893,7 @@ layer(BunFileSystem.layer)((test) => {
 					timezone: "Not/A_Zone",
 					originalSchedule: null,
 				};
-				replaceSection(
+				return replaceSection(
 					files,
 					"reminders.ndjson",
 					encoder.encode(`${JSON.stringify(reminder)}\n`),

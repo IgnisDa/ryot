@@ -29,6 +29,8 @@ const INTERNAL_ERROR = new Socket.CloseEvent(1011, "Internal error");
 const SESSION_EXPIRED = new Socket.CloseEvent(4001, "Session expired");
 const HEARTBEAT_ERROR = new Socket.CloseEvent(4000, "Heartbeat timeout");
 const AUTHENTICATION_ERROR = new Socket.CloseEvent(1008, "Authentication failed");
+const serverFrame = (message: EntityWatchServerMessage) =>
+	Effect.fromResult(encodeEntityWatchServerMessage(message)).pipe(Effect.orDie);
 
 type Outbound = Effect.Success<ReturnType<typeof makeOutbound>>;
 type Completion = ReconciledCompletion | EntityWatchEntityUpdatedMessage;
@@ -114,7 +116,7 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 						yield* Deferred.succeed(stopped, undefined);
 						continue;
 					}
-					yield* write(encodeEntityWatchServerMessage(control.value.message));
+					yield* write(yield* serverFrame(control.value.message));
 					if (control.value.written !== undefined) {
 						yield* Deferred.succeed(control.value.written, undefined);
 					}
@@ -132,7 +134,7 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 						continue;
 					}
 				}
-				yield* write(encodeEntityWatchServerMessage("message" in value ? value.message : value));
+				yield* write(yield* serverFrame("message" in value ? value.message : value));
 			}
 		}
 	}).pipe(

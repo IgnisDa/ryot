@@ -3,7 +3,8 @@ import {
 	type AutomationRun,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { PluginBeforeHook, PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import type { AutomationTriggerId } from "@ryot-app/contract/schema/brands";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -27,21 +28,21 @@ const accountGeneration = { userId, token: "generation" };
 const writeContext = makeUserPrincipal({
 	subject: { userId, type: "user", accountGeneration, afterHooks: "skip" },
 });
-const before = Schema.decodeSync(PluginBeforeHook)({
+const before = PluginBeforeHook.make({
 	name: "Policy",
 	slug: "policy",
 	stage: "before",
 	scriptSlug: "policy",
 	targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "record" }],
 });
-const after = Schema.decodeSync(PluginHook)({
+const after: PluginHook = {
 	stage: "after",
 	name: "Changed",
 	slug: "changed",
 	delivery: "async",
 	scriptSlug: "changed",
 	targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "record" }],
-});
+};
 type ResolvedHook = Effect.Success<
 	ReturnType<AutomationPlannerResolver["Service"]["resolve"]>
 >[number];
@@ -77,7 +78,7 @@ const trigger = (id: string, category: "change" | "request" = "change") => {
 		updatedAt: "2026-09-15T00:00:00.000Z",
 	};
 	const { id: _id, createdAt: _created, updatedAt: _updated, ...draft } = snapshot;
-	return Schema.decodeUnknownSync(AutomationTrigger)({
+	return Schema.decodeUnknownEffect(AutomationTrigger)({
 		...triggerFixture(id),
 		scopeUserId: userId,
 		kind: { category, resource: "entity", operation: "create" },
@@ -87,7 +88,7 @@ const trigger = (id: string, category: "change" | "request" = "change") => {
 			operation: "create",
 			...(category === "request" ? { draft } : { after: snapshot }),
 		},
-	});
+	}).pipe(Effect.orDie);
 };
 
 const withPlanner = <A, E>(
@@ -218,7 +219,7 @@ it.effect(
 	() =>
 		withPlanner(({ planner, admitted, admissionContexts }) =>
 			Effect.gen(function* () {
-				const change = trigger("changed");
+				const change = yield* trigger("changed");
 				const skipped = yield* planner.plan({ writeContext, trigger: change });
 				expect(skipped).toMatchObject({
 					runs: [],
@@ -227,19 +228,18 @@ it.effect(
 				});
 				const policy = yield* planner.plan({
 					writeContext,
-					trigger: trigger("requested", "request"),
+					trigger: yield* trigger("requested", "request"),
 				});
 				expect(policy.runs.map(({ stage }) => stage)).toEqual(["before"]);
 				expect(policy.policies).toHaveLength(1);
 				expect(
-					yield* planner.plan({ writeContext, trigger: trigger("requested", "request") }),
+					yield* planner.plan({ writeContext, trigger: yield* trigger("requested", "request") }),
 				).toEqual({ ...policy, wasCreated: false });
-				const normal = yield* planner.plan({ trigger: trigger("ordinary") });
+				const normal = yield* planner.plan({ trigger: yield* trigger("ordinary") });
 				expect(normal.runs.map(({ stage }) => stage)).toEqual(["after"]);
-				expect(yield* planner.plan({ writeContext, trigger: trigger("ordinary") })).toMatchObject({
-					runs: [],
-					backgroundJobIds: ["projection-job"],
-				});
+				expect(
+					yield* planner.plan({ writeContext, trigger: yield* trigger("ordinary") }),
+				).toMatchObject({ runs: [], backgroundJobIds: ["projection-job"] });
 				expect(admitted.map(({ id }) => id)).toEqual([
 					"changed",
 					"requested",
@@ -268,7 +268,7 @@ it.effect(
 it.effect("records an empty durable batch candidate decision only for trusted suppression", () =>
 	withPlanner(({ planner, decisions, batchSelections }) =>
 		Effect.gen(function* () {
-			const change = trigger("batch");
+			const change = yield* trigger("batch");
 			const command = {
 				...rootLifecycleCommand({
 					source: "api",

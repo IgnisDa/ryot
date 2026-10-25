@@ -13,7 +13,7 @@ const GenreInput = Schema.Struct({
 	userId: Schema.NullOr(Schema.String),
 });
 const decodeInputs = Schema.decodeUnknownEffect(Schema.Array(GenreInput));
-const encodeLinks = Schema.encodeSync(
+const encodeLinks = Schema.encodeEffect(
 	Schema.fromJsonString(
 		Schema.Array(
 			Schema.Struct({
@@ -125,7 +125,7 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 			`INSERT INTO _legacy_media_genre_links
 			SELECT * FROM jsonb_to_recordset($1::jsonb) AS link("sourceId" text, "userId" text, "externalId" text, name text, schema text)
 			ON CONFLICT DO NOTHING`,
-			[encodeLinks(links)],
+			[yield* encodeLinks(links).pipe(Effect.orDie)],
 		);
 	}
 	yield* connection.executeRaw(

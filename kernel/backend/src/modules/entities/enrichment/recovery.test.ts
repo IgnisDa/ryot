@@ -6,9 +6,10 @@ import {
 	EntitySchemaSlug,
 	PluginId,
 	SandboxProviderId,
+	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Cause, Effect, Exit, Option, Schema } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -36,13 +37,13 @@ type RequestRow = NonNullable<Effect.Success<ReturnType<EnrichmentRequests["Serv
 const now = new Date("2026-10-26T00:00:00.000Z");
 const userId = UserId.make("recovery-user");
 const account = { userId, token: "test-account-generation" };
-const principal = Schema.decodeSync(ScriptExecutionPrincipal)({
-	providerId: "provider",
-	scriptId: "pinned-script",
+const principal = ScriptExecutionPrincipal.make({
 	scriptSlug: "pinned-script",
 	subject: { type: "system" },
 	contentHash: "pinned-content",
 	pluginRevision: ingestionTestRevision,
+	providerId: SandboxProviderId.make("provider"),
+	scriptId: SandboxScriptId.make("pinned-script"),
 	metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
 });
 const command = (id: string) => ({
@@ -108,13 +109,13 @@ const request = (id: string, patch: Partial<RequestRow> = {}): RequestRow => ({
 	populationMode: null,
 	externalId: "record",
 	requesterUserId: null,
-	providerId: "provider",
 	operation: "population",
 	requesterGeneration: null,
 	entitySchemaSlug: "record",
 	registrationReleasedAt: null,
 	sourceContentGeneration: null,
 	payload: populationPayload(id),
+	providerId: SandboxProviderId.make("provider"),
 	workflowName: ProviderEntityPopulationWorkflow._tag,
 	...patch,
 });

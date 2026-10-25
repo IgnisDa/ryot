@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import {
-	AutomationRun,
+	AutomationPluginAfterRun,
 	type AutomationTrigger,
 	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -22,7 +22,7 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { partialFake } from "@ryot-app/testing/fakes";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -64,7 +64,7 @@ const entity = {
 };
 
 const makeRun = (trigger: AutomationTrigger) =>
-	Schema.decodeSync(AutomationRun)({
+	AutomationPluginAfterRun.make({
 		queuedAt: now,
 		stage: "after",
 		startedAt: null,

@@ -93,7 +93,7 @@ const wireLifecycleCommand = (
 ): LifecycleCommand => {
 	const subject = callerAuthority.subject;
 	if (subject.type === "automation-run") {
-		return Schema.decodeSync(LifecycleCommand)({
+		return LifecycleCommand.make({
 			occurredAt,
 			itemIdentity,
 			accountGeneration: subject.accountGeneration,

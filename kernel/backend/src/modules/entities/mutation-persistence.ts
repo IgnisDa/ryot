@@ -1,3 +1,4 @@
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	type AutomationEntityChangePayload,
 	AutomationEntityDraft,
@@ -52,7 +53,9 @@ export const PreparedEntityMutation = Schema.Struct({
 export type PreparedMutation = typeof PreparedEntityMutation.Type;
 
 export const snapshot = (entity: ListedEntity) =>
-	Schema.decodeUnknownSync(AutomationEntitySnapshot)(entity);
+	Schema.decodeUnknownEffect(AutomationEntitySnapshot)(entity).pipe(
+		Effect.mapError(() => new DbError({ message: "Invalid persisted entity snapshot" })),
+	);
 export const draftOf = ({
 	id: _id,
 	createdAt: _createdAt,
@@ -226,7 +229,7 @@ export const makePersistMutation = <E, R, Result>({
 		for (const item of items) {
 			const { input } = item;
 			const current = rows.get(input.entityId) ?? null;
-			const before = current ? snapshot(current.entity) : null;
+			const before = current ? yield* snapshot(current.entity) : null;
 			if (
 				current &&
 				(current.userId !== input.scopeUserId ||
@@ -327,7 +330,7 @@ export const makePersistMutation = <E, R, Result>({
 						category: "change",
 						resource: "entity",
 						operation: "create",
-						after: snapshot(created),
+						after: yield* snapshot(created),
 					};
 				}
 			} else if (before && !same(draftOf(before), effectiveDraft(item, before))) {
@@ -353,7 +356,7 @@ export const makePersistMutation = <E, R, Result>({
 					category: "change",
 					resource: "entity",
 					operation: "update",
-					after: snapshot(entity),
+					after: yield* snapshot(entity),
 				};
 			}
 			if (!entity) {
@@ -368,7 +371,7 @@ export const makePersistMutation = <E, R, Result>({
 			const plan = evidence
 				? yield* planner.plan({
 						writeContext: input.lifecycle.writeContext,
-						trigger: lifecycleTrigger(
+						trigger: yield* lifecycleTrigger(
 							{
 								...input.lifecycle,
 								causation: {

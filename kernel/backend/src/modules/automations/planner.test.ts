@@ -73,7 +73,7 @@ const largerBudgetPlannerLayer = Layer.effect(
 	LargerBudgetPlanner,
 	Effect.service(LifecyclePlanner),
 ).pipe(Layer.provide(plannerLayer(10000)));
-const asDescendant = <T extends ReturnType<typeof entityTrigger>>(trigger: T) => ({
+const asDescendant = <T extends Effect.Success<ReturnType<typeof entityTrigger>>>(trigger: T) => ({
 	...trigger,
 	causation: { ...trigger.causation, depth: 1 },
 });
@@ -100,7 +100,7 @@ const entityTrigger = (
 		operation === "delete"
 			? { before: snapshot }
 			: { after: snapshot, ...(operation === "update" ? { before: snapshot } : {}) };
-	return Schema.decodeUnknownSync(AutomationTrigger)({
+	return Schema.decodeUnknownEffect(AutomationTrigger)({
 		...triggerFixture(id),
 		scopeUserId: owner,
 		kind: { category, operation, resource: "entity" },
@@ -115,7 +115,7 @@ const entityTrigger = (
 					}
 				: change),
 		},
-	});
+	}).pipe(Effect.orDie);
 };
 
 const entityChange = (
@@ -140,7 +140,7 @@ const entityChange = (
 	},
 });
 const eventChange = (pluginId: null | string, id: string, eventSchemaSlug = "changed") =>
-	Schema.decodeSync(AutomationEventChangePayload)({
+	Schema.decodeEffect(AutomationEventChangePayload)({
 		resource: "event",
 		category: "change",
 		operation: "create",
@@ -157,7 +157,7 @@ const eventChange = (pluginId: null | string, id: string, eventSchemaSlug = "cha
 			updatedAt: "2026-09-15T00:00:00.000Z",
 			occurredAt: "2026-09-15T00:00:00.000Z",
 		},
-	});
+	}).pipe(Effect.orDie);
 const eventTarget = (eventSchemaSlug: string): PluginHookTarget => ({
 	eventSchemaSlug,
 	resource: "event",
@@ -165,12 +165,12 @@ const eventTarget = (eventSchemaSlug: string): PluginHookTarget => ({
 	entitySchemaSlug: "fixture-entity",
 });
 const entityBatchTrigger = (id: string, items: ReadonlyArray<ReturnType<typeof entityChange>>) =>
-	Schema.decodeSync(AutomationTrigger)({
+	Schema.decodeEffect(AutomationTrigger)({
 		...triggerFixture(id),
 		scopeUserId: owner,
 		kind: { category: "change", operation: "batch", resource: "entity" },
 		payload: { items, category: "change", operation: "batch", resource: "entity" },
-	});
+	}).pipe(Effect.orDie);
 
 type HookDeclaration = PluginManifest["hooks"][number];
 
@@ -464,7 +464,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						db.delete(tables.sandboxScript).where(eq(tables.sandboxScript.slug, "fixture.policy")),
 					);
 					const accepted = yield* nested(
-						planner.plan({ trigger: entityTrigger(installed.pluginId, "unselected-missing") }),
+						planner.plan({
+							trigger: yield* entityTrigger(installed.pluginId, "unselected-missing"),
+						}),
 					);
 					expect(accepted.runs.map(({ hookSlug }) => hookSlug)).toEqual(["fixture.changed"]);
 					const failed = yield* nested(
@@ -476,7 +478,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									.where(eq(tables.user.id, owner)),
 							);
 							return yield* planner.plan({
-								trigger: entityTrigger(installed.pluginId, "selected-missing", "request"),
+								trigger: yield* entityTrigger(installed.pluginId, "selected-missing", "request"),
 							});
 						}),
 					).pipe(Effect.exit);
@@ -628,12 +630,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						manifest: yield* Schema.decodeEffect(PluginManifest)(candidate.manifest),
 					});
 					const planner = yield* LifecyclePlanner;
-					const makePayload = (pluginId: null | string) => {
-						const change = eventChange(pluginId, "collection-item", target.eventSchemaSlug);
+					const makePayload = Effect.fnUntraced(function* (pluginId: null | string) {
+						const change = yield* eventChange(pluginId, "collection-item", target.eventSchemaSlug);
 						assert(change.operation === "create");
 						return { ...change, after: { ...change.after, entitySchemaSlug: "collection" } };
-					};
-					const kernelPayload = makePayload(null);
+					});
+					const kernelPayload = yield* makePayload(null);
 					const request = yield* Schema.decodeEffect(AutomationTrigger)({
 						...triggerFixture("kernel-request"),
 						scopeUserId: owner,
@@ -681,7 +683,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							resource: "event",
 							category: "change",
 							operation: "batch",
-							items: [makePayload(installed.pluginId)],
+							items: [yield* makePayload(installed.pluginId)],
 						},
 					});
 					expect((yield* planner.plan({ trigger: pluginBatch })).runs).toEqual([]);
@@ -732,7 +734,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			Effect.gen(function* () {
 				const installed = yield* installRevisionPackage(hookPackage());
 				const planned = yield* (yield* LifecyclePlanner).plan({
-					trigger: entityTrigger(installed.pluginId, "injected-resolver"),
+					trigger: yield* entityTrigger(installed.pluginId, "injected-resolver"),
 				});
 				expect(planned.runs).toEqual([]);
 				expect(planned).toEqual({
@@ -791,7 +793,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						.runs,
 				).toHaveLength(2);
 				const accepted = yield* planner.plan({
-					trigger: entityTrigger(installed.pluginId, "remaining-budget"),
+					trigger: yield* entityTrigger(installed.pluginId, "remaining-budget"),
 				});
 				expect(accepted.runs).toHaveLength(1);
 				assert(accepted.trigger);
@@ -877,7 +879,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							hookSlug: AutomationHookSlug.make(hookSlug),
 						}),
 					);
-					const entity = entityTrigger(installed.pluginId, "entity-request", "request");
+					const entity = yield* entityTrigger(installed.pluginId, "entity-request", "request");
 					const before = yield* planner.plan({
 						trigger: entity,
 						excludedOncePerSubjectPolicies: exclusions,
@@ -886,7 +888,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(before.trigger).toEqual(entity);
 					const after = yield* planner.plan({
 						excludedOncePerSubjectPolicies: exclusions,
-						trigger: entityTrigger(installed.pluginId, "entity-change"),
+						trigger: yield* entityTrigger(installed.pluginId, "entity-change"),
 					});
 					expect(after.runs.map(({ hookSlug }) => hookSlug)).toEqual(["fixture.changed"]);
 					const value = eventPolicyPackage("v2", 7, "item");
@@ -1078,7 +1080,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						],
 					},
 				});
-				const bounded = entityTrigger(installed.pluginId, "bounded");
+				const bounded = yield* entityTrigger(installed.pluginId, "bounded");
 				const boundedDescendant = { ...bounded, causation: { ...bounded.causation, depth: 1 } };
 				const blocked = yield* planner.plan({ trigger: boundedDescendant });
 				assert(blocked.trigger);
@@ -1180,7 +1182,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(hookPackage());
 					const policies = yield* planner.plan({
-						trigger: entityTrigger(installed.pluginId, "request", "request"),
+						trigger: yield* entityTrigger(installed.pluginId, "request", "request"),
 					});
 					expect(
 						policies.runs.map(({ hookSlug, delivery, retryPolicy }) => ({
@@ -1198,7 +1200,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					]);
 					for (const operation of ["create", "update", "delete"] as const) {
 						const planned = yield* planner.plan({
-							trigger: entityTrigger(installed.pluginId, operation, "change", operation),
+							trigger: yield* entityTrigger(installed.pluginId, operation, "change", operation),
 						});
 						expect(planned.runs).toHaveLength(1);
 						expect(planned.runs[0]).toMatchObject({
@@ -1213,21 +1215,21 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						expect(planned.runs[0].id).toBe(lifecycleRunId(planned.runs[0]));
 					}
 					const original = yield* planner.plan({
-						trigger: entityTrigger(installed.pluginId, "create"),
+						trigger: yield* entityTrigger(installed.pluginId, "create"),
 					});
 					yield* installRevisionPackage(hookPackage("v2"));
 					expect(
-						yield* planner.plan({ trigger: entityTrigger(installed.pluginId, "create") }),
+						yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "create") }),
 					).toEqual({ ...original, wasCreated: false });
 					const next = yield* nested(
-						planner.plan({ trigger: entityTrigger(installed.pluginId, "new") }),
+						planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "new") }),
 					);
 					expect(next.runs[0]?.pluginRevisionId).not.toBe(original.runs[0]?.pluginRevisionId);
 					expect(next.runs[0]?.sandboxScriptId).not.toBe(original.runs[0]?.sandboxScriptId);
 					expect(next.runs[0]?.pluginConfigRevisionId).not.toBe(
 						original.runs[0]?.pluginConfigRevisionId,
 					);
-					const filtered = entityTrigger(installed.pluginId, "filtered");
+					const filtered = yield* entityTrigger(installed.pluginId, "filtered");
 					expect(
 						yield* planner.plan({
 							trigger: { ...filtered, causation: { ...filtered.causation, source: "bootstrap" } },
@@ -1252,7 +1254,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						yield* planner
 							.plan({
 								trigger: {
-									...entityTrigger(installed.pluginId, "create"),
+									...(yield* entityTrigger(installed.pluginId, "create")),
 									occurredAt: "2026-09-16T00:00:00.000Z",
 								},
 							})
@@ -1271,19 +1273,25 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(hookPackage(), owner);
 					const ready = yield* planner.plan({
-						trigger: entityTrigger(installed.pluginId, "ready"),
+						trigger: yield* entityTrigger(installed.pluginId, "ready"),
 					});
 					expect(ready.runs).toHaveLength(1);
 					const activeConfigRevisionId = ready.runs[0]?.pluginConfigRevisionId;
 					assert(activeConfigRevisionId);
 					expect(
 						yield* planner.plan({
-							trigger: { ...entityTrigger(installed.pluginId, "other"), scopeUserId: recipient },
+							trigger: {
+								...(yield* entityTrigger(installed.pluginId, "other")),
+								scopeUserId: recipient,
+							},
 						}),
 					).toMatchObject({ runs: [], policies: [] });
 					expect(
 						yield* planner.plan({
-							trigger: { ...entityTrigger(installed.pluginId, "global"), scopeUserId: null },
+							trigger: {
+								...(yield* entityTrigger(installed.pluginId, "global")),
+								scopeUserId: null,
+							},
 						}),
 					).toMatchObject({ runs: [], policies: [] });
 					for (const [id, state] of [
@@ -1305,7 +1313,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 						);
 						expect(
-							yield* nested(planner.plan({ trigger: entityTrigger(installed.pluginId, id) })),
+							yield* nested(
+								planner.plan({ trigger: yield* entityTrigger(installed.pluginId, id) }),
+							),
 						).toMatchObject({ runs: [], policies: [] });
 					}
 					const configs = yield* session.run((db) => db.select().from(tables.pluginConfigRevision));
@@ -1325,10 +1335,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 					);
 					expect(
-						yield* nested(planner.plan({ trigger: entityTrigger(installed.pluginId, "mismatch") })),
+						yield* nested(
+							planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "mismatch") }),
+						),
 					).toMatchObject({ runs: [], policies: [] });
 					expect(
-						yield* planner.plan({ trigger: entityTrigger(installed.pluginId, "ready") }),
+						yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "ready") }),
 					).toEqual({ ...ready, wasCreated: false });
 				}),
 		);
@@ -1484,14 +1496,16 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					const triggers = yield* AutomationTriggerRepository;
 					const session = yield* DatabaseSession;
 					const installed = yield* installRevisionPackage(hookPackage());
-					const firstTrigger = asDescendant(entityTrigger(installed.pluginId, "first"));
+					const firstTrigger = asDescendant(yield* entityTrigger(installed.pluginId, "first"));
 					const first = yield* planner.plan({ trigger: firstTrigger });
 					expect(first.runs).toHaveLength(1);
 					expect(yield* planner.plan({ trigger: firstTrigger })).toEqual({
 						...first,
 						wasCreated: false,
 					});
-					const request = asDescendant(entityTrigger(installed.pluginId, "blocked", "request"));
+					const request = asDescendant(
+						yield* entityTrigger(installed.pluginId, "blocked", "request"),
+					);
 					const blocked = yield* planner.plan({ trigger: request });
 					assert(blocked.trigger);
 					expect(blocked).toMatchObject({ runs: [], policies: [] });
@@ -1504,7 +1518,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						...blocked,
 						wasCreated: false,
 					});
-					const deep = entityTrigger(installed.pluginId, "deep");
+					const deep = yield* entityTrigger(installed.pluginId, "deep");
 					const deepPlan = yield* planner.plan({
 						trigger: { ...deep, causation: { ...deep.causation, depth: 3 } },
 					});
@@ -1524,7 +1538,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 										.set({ name: "must roll back" })
 										.where(eq(tables.user.id, owner)),
 								);
-								yield* planner.plan({ trigger: entityTrigger(installed.pluginId, "rollback") });
+								yield* planner.plan({
+									trigger: yield* entityTrigger(installed.pluginId, "rollback"),
+								});
 								return yield* planner.plan({
 									trigger: { ...firstTrigger, scopeUserId: recipient },
 								});
@@ -1547,21 +1563,26 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				const installed = yield* installRevisionPackage(
 					afterHookPackage("v1", { executionScope: "user" }),
 				);
-				const globalTrigger = (id: string) => ({
-					...entityTrigger(installed.pluginId, id),
-					scopeUserId: null,
-				});
+				const globalTrigger = (id: string) =>
+					Effect.map(entityTrigger(installed.pluginId, id), (trigger) => ({
+						...trigger,
+						scopeUserId: null,
+					}));
 				expect(
-					(yield* planner.plan({ trigger: entityTrigger(installed.pluginId, "user-a") })).runs,
+					(yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "user-a") }))
+						.runs,
 				).toHaveLength(1);
-				expect((yield* planner.plan({ trigger: globalTrigger("global-a") })).runs).toEqual([]);
+				expect((yield* planner.plan({ trigger: yield* globalTrigger("global-a") })).runs).toEqual(
+					[],
+				);
 				yield* installRevisionPackage(afterHookPackage("v2", { executionScope: "global" }));
 				expect(
-					(yield* nested(planner.plan({ trigger: entityTrigger(installed.pluginId, "user-b") })))
-						.runs,
+					(yield* nested(
+						planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "user-b") }),
+					)).runs,
 				).toEqual([]);
 				expect(
-					(yield* nested(planner.plan({ trigger: globalTrigger("global-b") }))).runs,
+					(yield* nested(planner.plan({ trigger: yield* globalTrigger("global-b") }))).runs,
 				).toHaveLength(1);
 			}),
 		);
@@ -1577,23 +1598,25 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					entityChange(installed.pluginId, "entity-2"),
 				];
 				expect(
-					(yield* planner.plan({ trigger: entityTrigger(installed.pluginId, "item") })).runs,
+					(yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "item") })).runs,
 				).toHaveLength(1);
-				expect((yield* planner.plan({ trigger: entityBatchTrigger("batch", items) })).runs).toEqual(
-					[],
-				);
+				expect(
+					(yield* planner.plan({ trigger: yield* entityBatchTrigger("batch", items) })).runs,
+				).toEqual([]);
 				yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }));
 				expect(
-					(yield* nested(planner.plan({ trigger: entityTrigger(installed.pluginId, "item-2") })))
-						.runs,
+					(yield* nested(
+						planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "item-2") }),
+					)).runs,
 				).toEqual([]);
 				expect(
-					(yield* nested(planner.plan({ trigger: entityBatchTrigger("batch-2", items) }))).runs,
+					(yield* nested(planner.plan({ trigger: yield* entityBatchTrigger("batch-2", items) })))
+						.runs,
 				).toHaveLength(1);
 				expect(
 					(yield* nested(
 						planner.plan({
-							trigger: entityBatchTrigger("batch-partial", [
+							trigger: yield* entityBatchTrigger("batch-partial", [
 								entityChange(installed.pluginId, "other", "absent-entity"),
 								entityChange(installed.pluginId, "entity-3"),
 							]),
@@ -1603,7 +1626,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				expect(
 					(yield* nested(
 						planner.plan({
-							trigger: entityBatchTrigger("batch-none", [
+							trigger: yield* entityBatchTrigger("batch-none", [
 								entityChange(installed.pluginId, "other", "absent-entity"),
 							]),
 						}),
@@ -2246,7 +2269,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								result: { id },
 								batchId: decision.id,
 								evidence: yield* Schema.decodeEffect(AutomationEventChangePayload)(
-									eventChange(installed.pluginId, id),
+									yield* eventChange(installed.pluginId, id),
 								),
 								identity: mutationReceiptIdentity({
 									input: { id },
@@ -2317,7 +2340,7 @@ describe("automation preparation", () => {
 				const operations = yield* AutomationRunWorkflowOperations;
 				const installed = yield* installRevisionPackage(preparationPackage("v1"));
 				const planned = yield* planner.plan({
-					trigger: entityTrigger(installed.pluginId, "pinned-preparation"),
+					trigger: yield* entityTrigger(installed.pluginId, "pinned-preparation"),
 				});
 				const run = planned.runs.find(({ hookSlug }) => hookSlug === "fixture.changed");
 				assert(run);

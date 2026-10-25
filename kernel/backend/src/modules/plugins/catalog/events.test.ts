@@ -269,7 +269,7 @@ layer(
 
 					yield* subscriber.dispatch(
 						redisKeys.pluginCatalogUserChannel,
-						encodePluginCatalogInvalidatedMessage({ userId: firstUser }),
+						yield* Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId: firstUser })),
 					);
 					expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
 					expect(Option.isNone(yield* Queue.poll(second))).toBe(true);

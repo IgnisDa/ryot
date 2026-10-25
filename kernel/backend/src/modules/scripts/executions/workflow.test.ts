@@ -217,19 +217,21 @@ layer(
 )((test) => {
 	test.effect(
 		"pins retained automation roots without active resolution and preserves serialized ownership",
-		() => {
-			const payload = Schema.decodeSync(Schema.fromJsonString(ScriptExecutionWorkflowPayload))(
-				JSON.stringify({
-					input: {},
-					pluginRevision,
-					lane: "background",
-					resolutionMode: "active",
-					executionId: "execution-1",
-					subject: automationSubject,
-					scriptId: "historical-script",
-				}),
-			);
-			return Effect.gen(function* () {
+		() =>
+			Effect.gen(function* () {
+				const payload = yield* Schema.decodeEffect(
+					Schema.fromJsonString(ScriptExecutionWorkflowPayload),
+				)(
+					yield* encodeJson({
+						input: {},
+						pluginRevision,
+						lane: "background",
+						resolutionMode: "active",
+						executionId: "execution-1",
+						subject: automationSubject,
+						scriptId: "historical-script",
+					}),
+				).pipe(Effect.orDie);
 				const calls = yield* WorkflowTestCalls;
 				const result = yield* (yield* SandboxWorkflowPinning).establish(payload, "execution-1");
 				expect(yield* calls.entries("pin-requests")).toEqual([
@@ -274,8 +276,7 @@ layer(
 						message: "Sandbox workflow pin conflicts with automation ownership",
 					}),
 				);
-			});
-		},
+			}),
 	);
 });
 
@@ -403,7 +404,7 @@ const hotSwapMetadata = {
 const historicalScript = hotSwapScript(historicalScriptId, historicalContent, hotSwapMetadata);
 const replacementScript = hotSwapScript(replacementScriptId, replacementContent, hotSwapMetadata);
 const hotSwapExecutionId = testExecutionId("workflow-execution");
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const decodeEnvelope = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(workflowReplayEnvelopeSchema),
 );
@@ -484,8 +485,8 @@ const hotSwapLayer = recordingLayer(
 							const process = yield* spawner.spawn(
 								ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
 									env: {
-										REQUEST: encodeJson(hotSwapRequest),
-										JOURNAL: encodeJson(journal.map(({ value }) => value)),
+										REQUEST: yield* encodeJson(hotSwapRequest),
+										JOURNAL: yield* encodeJson(journal.map(({ value }) => value)),
 									},
 								}),
 							);

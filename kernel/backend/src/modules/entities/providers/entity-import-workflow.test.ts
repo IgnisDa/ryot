@@ -179,22 +179,25 @@ const listedEntity = (input: {
 
 const childEntityWork = (
 	input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
-): PlannedEntityWork => {
-	const entity = listedEntity({
-		name: input.name,
-		externalId: input.externalId,
-		providerId: input.providerId,
-		entitySchemaSlug: input.entitySchema.slug,
-		id: EntityId.make(`entity-${input.externalId}`),
-		populatedAt: input.populatedAt?.toISOString() ?? null,
-		entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
-		properties: Schema.decodeUnknownSync(Schema.Record(Schema.String, JsonValue))(input.properties),
-	});
-	return {
-		result: { entity },
-		dispatch: [toLifecycleDispatchPlan(planFixture(`entity-${input.externalId}`))],
-	};
-};
+): Effect.Effect<PlannedEntityWork> =>
+	Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(input.properties).pipe(
+		Effect.orDie,
+		Effect.map((properties) => ({
+			dispatch: [toLifecycleDispatchPlan(planFixture(`entity-${input.externalId}`))],
+			result: {
+				entity: listedEntity({
+					properties,
+					name: input.name,
+					externalId: input.externalId,
+					providerId: input.providerId,
+					entitySchemaSlug: input.entitySchema.slug,
+					id: EntityId.make(`entity-${input.externalId}`),
+					populatedAt: input.populatedAt?.toISOString() ?? null,
+					entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
+				}),
+			},
+		})),
+	);
 
 type Reconcile = RelationshipsService["Service"]["persistPlannedReconciliation"];
 type UpsertInput = Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0];
@@ -262,7 +265,10 @@ const providerWritesLayer = (options: {
 						Effect.forEach(input.items, (item) =>
 							transaction
 								.expectTransaction(true)
-								.pipe(Effect.andThen(transaction.persist(item)), Effect.as(childEntityWork(item))),
+								.pipe(
+									Effect.andThen(transaction.persist(item)),
+									Effect.andThen(childEntityWork(item)),
+								),
 						).pipe(
 							Effect.map((works) => ({
 								results: works.map(({ result }) => result),

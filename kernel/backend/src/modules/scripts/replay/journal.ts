@@ -6,7 +6,7 @@ import { Effect, Schema } from "effect";
 import { appendSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { RedisService } from "#platform/redis";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJournalEntry = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 export const hashWorkflowCallArgs = (args: unknown) => sha256Base64Url(stableStringify(args));
 
@@ -16,11 +16,9 @@ export const appendWorkflowJournalWithRedis = (
 	firstIndex: number,
 	entries: ReadonlyArray<WorkflowReplayJournalEntry>,
 ) =>
-	appendSandboxJournal(
-		redis,
-		executionId,
-		firstIndex,
-		entries.map(({ value, request }) => encodeJson({ value, request })),
+	Effect.forEach(entries, ({ value, request }) => encodeJournalEntry({ value, request })).pipe(
+		Effect.orDie,
+		Effect.flatMap((texts) => appendSandboxJournal(redis, executionId, firstIndex, texts)),
 	);
 
 export const appendWorkflowJournal = (

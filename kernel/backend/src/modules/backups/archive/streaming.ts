@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 
 import { archiveError, BackupArchiveError } from "./error";
 
@@ -56,7 +56,15 @@ export class NdjsonDecoder<A, I> {
 				if (text.length === 0) {
 					throw archiveError("invalid_entry", `Empty NDJSON line ${this.#line}`, this.#path);
 				}
-				yield Schema.decodeUnknownSync(this.#codec)(JSON.parse(text));
+				const decoded = Schema.decodeUnknownResult(this.#codec)(JSON.parse(text));
+				if (Result.isFailure(decoded)) {
+					throw archiveError(
+						"invalid_entry",
+						`Invalid NDJSON at line ${this.#line + 1}`,
+						this.#path,
+					);
+				}
+				yield decoded.success;
 				newline = this.#buffered.indexOf("\n");
 			}
 		} catch (error) {
@@ -68,13 +76,33 @@ export class NdjsonDecoder<A, I> {
 	}
 }
 
+export const decodeArchiveJson = <A, I>(
+	codec: Schema.Codec<A, I>,
+	value: unknown,
+	path: string,
+) => {
+	const decoded = Schema.decodeUnknownResult(codec)(value);
+	if (Result.isFailure(decoded)) {
+		throw archiveError("invalid_entry", `Invalid ${path}`, path);
+	}
+	return decoded.success;
+};
+
+export const encodeArchiveJsonLine = <A, I>(codec: Schema.Codec<A, I>, value: A, path: string) => {
+	const encoded = Schema.encodeResult(codec)(value);
+	if (Result.isFailure(encoded)) {
+		throw archiveError("invalid_entry", `Invalid ${path}`, path);
+	}
+	return encoder.encode(`${JSON.stringify(encoded.success)}\n`);
+};
+
 export function* encodeNdjson<A, I>(
 	values: Iterable<A>,
 	codec: Schema.Codec<A, I>,
+	path = "ndjson",
 ): Generator<Uint8Array> {
 	for (const value of values) {
-		const encoded = Schema.encodeUnknownSync(codec)(value);
-		yield encoder.encode(`${JSON.stringify(encoded)}\n`);
+		yield encodeArchiveJsonLine(codec, value, path);
 	}
 }
 

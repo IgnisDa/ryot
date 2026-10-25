@@ -16,7 +16,7 @@ export const ImpersonationEndedMessage = Schema.fromJsonString(
 
 export const WorkflowExecutionNotificationMessage = Schema.fromJsonString(WorkflowIdentity);
 
-export const encodeWorkflowExecutionNotificationMessage = Schema.encodeSync(
+export const encodeWorkflowExecutionNotificationMessage = Schema.encodeEffect(
 	WorkflowExecutionNotificationMessage,
 );
 export const decodeWorkflowExecutionNotificationMessage = Schema.decodeUnknownOption(

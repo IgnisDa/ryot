@@ -13,7 +13,7 @@ import { validSandboxSource } from "./compiler.test-support";
 const decodeWorkerResponse = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(CompilerWorkerResponse),
 );
-const encodeWorkerRequest = Schema.encodeSync(Schema.fromJsonString(CompilerWorkerRequest));
+const encodeWorkerRequest = Schema.encodeEffect(Schema.fromJsonString(CompilerWorkerRequest));
 
 layer(BunServices.layer, { excludeTestServices: true })((test) => {
 	test.effect("builds and executes the standalone production compiler worker", () =>
@@ -53,7 +53,7 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 				stderr: "pipe",
 				stdin: Stream.succeed(
 					new TextEncoder().encode(
-						encodeWorkerRequest({
+						yield* encodeWorkerRequest({
 							workspaceJobId,
 							workspaceParentPath,
 							source: validSandboxSource,

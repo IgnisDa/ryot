@@ -118,22 +118,20 @@ export class WorkflowExecutionNotifications extends Context.Service<WorkflowExec
 			return {
 				listen: hub.listen,
 				publish: (identity: WorkflowIdentity) =>
-					hub
-						.publish(identity)
-						.pipe(
-							Effect.andThen(
-								Effect.sync(() =>
-									runFork(
-										redis
-											.publish(
-												redisKeys.workflowExecutionNotificationChannel,
-												encodeWorkflowExecutionNotificationMessage(identity),
-											)
-											.pipe(logFailure("workflow execution notification publish failed")),
+					hub.publish(identity).pipe(
+						Effect.andThen(
+							Effect.sync(() =>
+								runFork(
+									encodeWorkflowExecutionNotificationMessage(identity).pipe(
+										Effect.flatMap((message) =>
+											redis.publish(redisKeys.workflowExecutionNotificationChannel, message),
+										),
+										logFailure("workflow execution notification publish failed"),
 									),
 								),
 							),
 						),
+					),
 			};
 		}),
 	);

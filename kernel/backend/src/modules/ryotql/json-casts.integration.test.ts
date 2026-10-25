@@ -36,7 +36,7 @@ import { RyotQLService } from "./service";
 const source = table("event", "source");
 const subject = table("entity", "subject");
 const occurredAt = new Date("2026-01-01T00:00:00.000Z");
-const encodeRows = Schema.encodeSync(Schema.fromJsonString(RowsResult));
+const encodeRows = Schema.encodeEffect(Schema.fromJsonString(RowsResult));
 const numericInputs = [
 	"0",
 	"-0",
@@ -254,7 +254,7 @@ layer(databaseLayer)((test) => {
 			Effect.gen(function* () {
 				const actual = yield* execute(numericQuery(false));
 				const baseline = yield* execute(numericQuery(true));
-				expect(encodeRows(actual.result)).toBe(encodeRows(baseline.result));
+				expect(yield* encodeRows(actual.result)).toBe(yield* encodeRows(baseline.result));
 				expect(actual.result.items.map((item) => item["value"])).toEqual([
 					0,
 					0,
@@ -298,7 +298,9 @@ layer(databaseLayer)((test) => {
 	test.effect("keeps nulls, scalar kinds and strict object traversal unchanged", () =>
 		Effect.gen(function* () {
 			const actual = yield* execute(shapeQuery(false));
-			expect(encodeRows(actual.result)).toBe(encodeRows((yield* execute(shapeQuery(true))).result));
+			expect(yield* encodeRows(actual.result)).toBe(
+				yield* encodeRows((yield* execute(shapeQuery(true))).result),
+			);
 			expect(actual.result.items.slice(0, 15)).toEqual(
 				Array.from({ length: 15 }, () => ({ text: null, number: null, boolean: null })),
 			);
@@ -318,7 +320,9 @@ layer(databaseLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const actual = yield* execute(keyQuery(false));
-				expect(encodeRows(actual.result)).toBe(encodeRows((yield* execute(keyQuery(true))).result));
+				expect(yield* encodeRows(actual.result)).toBe(
+					yield* encodeRows((yield* execute(keyQuery(true))).result),
+				);
 				expect(actual.result.items).toEqual([
 					Object.fromEntries(
 						keys.flatMap((key, index) => [

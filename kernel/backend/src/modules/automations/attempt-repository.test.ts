@@ -1,11 +1,11 @@
-import { layer } from "@effect/vitest";
+import { it, layer } from "@effect/vitest";
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
-import { DateTime, Effect, Layer } from "effect";
+import { DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe, expect, it as unit } from "vitest";
 
 import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
@@ -28,6 +28,8 @@ import {
 	type FinalizeAutomationAttempt,
 	projectAutomationAttemptHistory,
 } from "./attempt-repository";
+
+const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const now = new Date("2026-09-15T00:00:00.000Z");
 const runId = AutomationRunId.make("attempt-test");
@@ -151,49 +153,53 @@ const diagnostics = {
 	],
 } satisfies Parameters<typeof projectAutomationAttemptHistory>[0];
 
-unit("projects attempt history with sensitive diagnostic redaction", () => {
-	const projected = projectAutomationAttemptHistory(diagnostics);
-	expect(projected.historyError).toEqual({
-		code: "business-failure",
-		message: "Authorization: [REDACTED]",
-	});
-	expect(projected.historyLogs).toEqual([
-		{
-			level: "error",
-			message: "password=[REDACTED]",
-			attributes: { nested: { count: 2, apiKey: "[REDACTED]" } },
-		},
-	]);
-	expect(JSON.stringify(projected)).not.toContain("private-");
-});
+it.effect("projects attempt history with sensitive diagnostic redaction", () =>
+	Effect.gen(function* () {
+		const projected = yield* projectAutomationAttemptHistory(diagnostics);
+		expect(projected.historyError).toEqual({
+			code: "business-failure",
+			message: "Authorization: [REDACTED]",
+		});
+		expect(projected.historyLogs).toEqual([
+			{
+				level: "error",
+				message: "password=[REDACTED]",
+				attributes: { nested: { count: 2, apiKey: "[REDACTED]" } },
+			},
+		]);
+		expect(yield* encodeJson(projected)).not.toContain("private-");
+	}),
+);
 
-unit("bounds UTF-8 attempt history and marks truncation", () => {
-	const huge = "😀".repeat(AUTOMATION_HISTORY_LIMITS.attemptBytes);
-	const projected = projectAutomationAttemptHistory({
-		...diagnostics,
-		error: { message: huge, code: "failure" },
-		logs: [
-			{ level: "info", message: huge },
-			{ level: "info", message: "small" },
-		],
-	});
-	expect(projected.historyArtifactsTruncated).toBe(true);
-	expect(projected.historyLogs).toEqual([{ level: "info", message: "small" }]);
-	expect(
-		Buffer.byteLength(
-			JSON.stringify({ logs: projected.historyLogs, error: projected.historyError }),
-		),
-	).toBeLessThan(AUTOMATION_HISTORY_LIMITS.attemptBytes);
-	const many = projectAutomationAttemptHistory({
-		...diagnostics,
-		logs: Array.from({ length: 100 }, () => ({ level: "info", message: "token=x ".repeat(30) })),
-	});
-	expect(many.historyArtifactsTruncated).toBe(true);
-	expect(many.historyLogs?.length).toBeGreaterThan(0);
-	expect(
-		Buffer.byteLength(JSON.stringify({ logs: many.historyLogs, error: many.historyError })),
-	).toBeLessThanOrEqual(AUTOMATION_HISTORY_LIMITS.attemptBytes);
-});
+it.effect("bounds UTF-8 attempt history and marks truncation", () =>
+	Effect.gen(function* () {
+		const huge = "😀".repeat(AUTOMATION_HISTORY_LIMITS.attemptBytes);
+		const projected = yield* projectAutomationAttemptHistory({
+			...diagnostics,
+			error: { message: huge, code: "failure" },
+			logs: [
+				{ level: "info", message: huge },
+				{ level: "info", message: "small" },
+			],
+		});
+		expect(projected.historyArtifactsTruncated).toBe(true);
+		expect(projected.historyLogs).toEqual([{ level: "info", message: "small" }]);
+		expect(
+			Buffer.byteLength(
+				yield* encodeJson({ logs: projected.historyLogs, error: projected.historyError }),
+			),
+		).toBeLessThan(AUTOMATION_HISTORY_LIMITS.attemptBytes);
+		const many = yield* projectAutomationAttemptHistory({
+			...diagnostics,
+			logs: Array.from({ length: 100 }, () => ({ level: "info", message: "token=x ".repeat(30) })),
+		});
+		expect(many.historyArtifactsTruncated).toBe(true);
+		expect(many.historyLogs?.length).toBeGreaterThan(0);
+		expect(
+			Buffer.byteLength(yield* encodeJson({ logs: many.historyLogs, error: many.historyError })),
+		).toBeLessThanOrEqual(AUTOMATION_HISTORY_LIMITS.attemptBytes);
+	}),
+);
 
 describe("AutomationAttemptRepository (PostgreSQL)", () => {
 	layer(attemptDatabaseLayer)((test) => {

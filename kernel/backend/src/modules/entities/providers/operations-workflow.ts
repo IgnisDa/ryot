@@ -339,7 +339,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 								);
 								const result = yield* planner.plan({
 									writeContext: payload.command.writeContext,
-									trigger: lifecycleTrigger(
+									trigger: yield* lifecycleTrigger(
 										payload.command,
 										payload.entityScope.userId,
 										completion,

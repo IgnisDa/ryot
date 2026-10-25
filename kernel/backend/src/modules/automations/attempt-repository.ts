@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
 	AutomationRunAttempt,
-	AutomationRunSkipReason,
+	type AutomationRunSkipReason,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
@@ -86,36 +86,38 @@ export const boundAutomationAttemptArtifacts = (
 const historyBytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value), "utf8");
 const DiagnosticLog = Schema.Struct(AutomationRunAttempt.fields.logs.members[0].value.fields);
 
-export const projectAutomationAttemptHistory = (
+const decodeDiagnosticLog = Schema.decodeEffect(Schema.fromJsonString(DiagnosticLog));
+
+export const projectAutomationAttemptHistory = Effect.fnUntraced(function* (
 	attempt: Pick<AutomationRunAttempt, "logs" | "error" | "failureKind">,
-): {
+): Effect.fn.Return<{
 	historyArtifactsTruncated: boolean;
 	historyLogs: AutomationHistoryAttempt["logs"];
 	historyError: AutomationHistoryAttempt["error"];
-} => {
+}> {
 	const limit = AUTOMATION_HISTORY_LIMITS.attemptBytes;
 	const collector = makeSandboxObservabilityCollector();
 	let truncated = false;
-	const sanitize = (entry: typeof DiagnosticLog.Type) => {
+	const sanitize = Effect.fnUntraced(function* (entry: typeof DiagnosticLog.Type) {
 		if (historyBytes(entry) > limit || collector.record("log", [entry]) !== null) {
 			truncated = true;
 			return null;
 		}
 		const serialized = collector.logs[collector.logs.length - 1];
-		const sanitized = Schema.decodeSync(Schema.fromJsonString(DiagnosticLog))(serialized ?? "null");
+		const sanitized = yield* decodeDiagnosticLog(serialized ?? "null").pipe(Effect.orDie);
 		if (historyBytes(sanitized) > limit) {
 			truncated = true;
 			return null;
 		}
 		return sanitized;
-	};
+	});
 	let error =
 		attempt.error === null
 			? null
 			: {
 					code: attempt.failureKind ?? "execution-failed",
 					message:
-						sanitize({ level: "error", message: attempt.error.message })?.message ??
+						(yield* sanitize({ level: "error", message: attempt.error.message }))?.message ??
 						"[History error omitted: size limit]",
 				};
 	if (error !== null && historyBytes({ error, logs: [] }) > limit) {
@@ -127,8 +129,7 @@ export const projectAutomationAttemptHistory = (
 	const logs =
 		attempt.logs === null
 			? null
-			: attempt.logs.flatMap((entry) => {
-					const value = sanitize(entry);
+			: (yield* Effect.forEach(attempt.logs, sanitize)).flatMap((value) => {
 					if (value === null) {
 						return [];
 					}
@@ -142,7 +143,7 @@ export const projectAutomationAttemptHistory = (
 					return [value];
 				});
 	return { historyLogs: logs, historyError: error, historyArtifactsTruncated: truncated };
-};
+});
 
 export const automationAttemptIdentity = (runId: AutomationRunId, attemptNumber: number) => {
 	const hash = sha256Base64Url(stableStringify([runId, attemptNumber]));
@@ -170,7 +171,7 @@ const decodeRow = ({
 	);
 
 const conflict = (message: string) => new DbError({ message });
-const userDisabled = Schema.decodeSync(AutomationRunSkipReason)({ code: "user-disabled" });
+const userDisabled: AutomationRunSkipReason = { code: "user-disabled" };
 const validateTime = (now: Date) =>
 	Number.isFinite(now.getTime()) ? Effect.void : Effect.fail(conflict("Invalid attempt time"));
 
@@ -447,7 +448,11 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 									: null;
 							yield* db
 								.update(table)
-								.set({ ...outcome, ...projectAutomationAttemptHistory(outcome), finishedAt: now })
+								.set({
+									...outcome,
+									...(yield* projectAutomationAttemptHistory(outcome)),
+									finishedAt: now,
+								})
 								.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
 							const rejected =
 								run.stage === "before" &&

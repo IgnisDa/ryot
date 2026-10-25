@@ -39,7 +39,7 @@ const queuedReplay = {
 	workflowExecutionId: "workflow-id",
 	startedAt: "2026-01-01T00:00:00.000Z",
 };
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
 	cancelInline: () => Effect.void,
@@ -409,7 +409,7 @@ layer(
 			});
 			const pinned = (yield* (yield* RecordedRuns).runs).at(-1)?.replayJournal;
 			assert(pinned !== undefined);
-			expect(pinned.bytes).toBe(utf8ByteLength(encodeJson(journal)));
+			expect(pinned.bytes).toBe(utf8ByteLength(yield* encodeJson(journal)));
 			expect(yield* readPinnedJournal(pinned)).toEqual(journal);
 		}),
 	);

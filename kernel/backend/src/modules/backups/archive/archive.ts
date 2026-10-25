@@ -1,5 +1,5 @@
 import { identityTupleKey, pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import { Cause, Effect, FileSystem, type PlatformError, Schema, Stream } from "effect";
+import { Cause, Effect, FileSystem, type PlatformError, type Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { archiveError, BackupArchiveError } from "./error";
@@ -17,11 +17,17 @@ import {
 	type ArchiveSectionManifest,
 	type ArchiveSectionPath,
 } from "./schemas";
-import { decodeNdjson, encodeNdjson, IncrementalSha256, NdjsonDecoder } from "./streaming";
+import {
+	decodeArchiveJson,
+	decodeNdjson,
+	encodeArchiveJsonLine,
+	encodeNdjson,
+	IncrementalSha256,
+	NdjsonDecoder,
+} from "./streaming";
 
 const ZIP_EOCD_BYTES = 22;
 const MAX_ZIP_PATH_BYTES = 71;
-const encoder = new TextEncoder();
 const ZIP_MAX_COMMENT_BYTES = 65_535;
 const ZIP_CENTRAL_HEADER_BYTES = 46;
 const DETERMINISTIC_MTIME = new Date("1980-01-01T00:00:00.000Z");
@@ -137,11 +143,11 @@ type BoundedSectionPath = Exclude<ArchiveSectionPath, "profile.json" | "events.n
 function* sectionChunks(path: BoundedSectionPath, records: ArchiveRecords) {
 	const values = recordCollections(records)[path];
 	const codec = ARCHIVE_CODECS[path] as Schema.Codec<(typeof values)[number], unknown>;
-	yield* encodeNdjson(values, codec);
+	yield* encodeNdjson(values, codec, path);
 }
 
 const profileChunk = (profile: ArchiveProfile) =>
-	encoder.encode(`${JSON.stringify(Schema.encodeUnknownSync(ArchiveProfile)(profile))}\n`);
+	encodeArchiveJsonLine(ArchiveProfile, profile, "profile.json");
 
 type ArchiveSection = {
 	readonly bytes: number;
@@ -433,7 +439,7 @@ const buildManifest = (
 	if (sections.length + input.assets.length + 1 > limits.maxEntryCount) {
 		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded");
 	}
-	const manifest = Schema.decodeSync(ArchiveManifest)({
+	const manifest = ArchiveManifest.make({
 		version: 1,
 		format: "ryot-backup",
 		createdAt: input.createdAt,
@@ -446,9 +452,7 @@ const buildManifest = (
 			.map(({ metadata }) => metadata)
 			.sort((a, b) => a.path.localeCompare(b.path)),
 	});
-	const manifestPayload = encoder.encode(
-		`${JSON.stringify(Schema.encodeUnknownSync(ArchiveManifest)(manifest))}\n`,
-	);
+	const manifestPayload = encodeArchiveJsonLine(ArchiveManifest, manifest, "manifest.json");
 	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
 		throw archiveError("entry_too_large", "ZIP entry is too large", "manifest.json");
 	}
@@ -749,11 +753,13 @@ const takeChunks = (entry: ExtractedEntry) => {
 
 const decodeJson = <A, I>(codec: Schema.Codec<A, I>, entry: ExtractedEntry) => {
 	const chunks = takeChunks(entry);
+	let value: unknown;
 	try {
-		return Schema.decodeUnknownSync(codec)(JSON.parse(decoder.decode(concatChunks(chunks))));
+		value = JSON.parse(decoder.decode(concatChunks(chunks)));
 	} catch {
 		throw archiveError("invalid_entry", `Invalid ${entry.path}`, entry.path);
 	}
+	return decodeArchiveJson(codec, value, entry.path);
 };
 
 const decodeRecords = <A, I>(codec: Schema.Codec<A, I>, entry: ExtractedEntry, limit: number) => {

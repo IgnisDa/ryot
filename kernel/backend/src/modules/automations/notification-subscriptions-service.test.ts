@@ -305,12 +305,12 @@ layer(makeLayer())((test) => {
 	);
 });
 
-it("rejects arbitrary fields in the public install payload", () => {
-	expect(() =>
-		Schema.decodeUnknownSync(InstallNotificationRuleBody)({
+it.effect("rejects arbitrary fields in the public install payload", () =>
+	Effect.flip(
+		Schema.decodeUnknownEffect(InstallNotificationRuleBody)({
 			scriptId,
 			operation: "signal",
 			signalSchema: signalReference,
 		}),
-	).toThrow();
-});
+	),
+);

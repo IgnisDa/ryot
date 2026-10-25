@@ -857,7 +857,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						return yield* badRequest("Backup plugin installation mapping is invalid");
 					}
 					const config = yield* rewriteManagedAssetLocators(
-						decodeArchiveJsonObject(state.config),
+						yield* decodeArchiveJsonObject(state.config).pipe(Effect.orDie),
 						installedPlugin.configSchema,
 						assetLocators,
 					).pipe(Effect.mapError(archiveReferenceError));
@@ -942,7 +942,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						return yield* badRequest("Backup integration mapping is invalid");
 					}
 					const providerSpecifics = yield* rewriteManagedAssetLocators(
-						decodeArchiveJsonObject(integration.providerSpecifics),
+						yield* decodeArchiveJsonObject(integration.providerSpecifics).pipe(Effect.orDie),
 						settingsSchema,
 						assetLocators,
 					).pipe(Effect.mapError(archiveReferenceError));
@@ -978,7 +978,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				) =>
 					Effect.gen(function* () {
 						const references = yield* rewritePropertyReferences(
-							decodeArchiveJsonObject(properties),
+							yield* decodeArchiveJsonObject(properties).pipe(Effect.orDie),
 							propertiesSchema,
 							entityIdMap,
 							relationshipIdMap,

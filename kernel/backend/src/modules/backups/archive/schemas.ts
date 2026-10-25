@@ -41,7 +41,7 @@ const positiveInteger = Schema.Finite.pipe(
 const sha256 = Schema.String.pipe(
 	Schema.check(Schema.makeFilter((value) => /^[a-f0-9]{64}$/.test(value))),
 );
-export const decodeArchiveJsonObject = Schema.decodeUnknownSync(DataRecordProperties);
+export const decodeArchiveJsonObject = Schema.decodeUnknownEffect(DataRecordProperties);
 
 export const isArchiveJsonObject = (value: unknown): value is Record<string, JsonValue> =>
 	isObjectRecord(value);

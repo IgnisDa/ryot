@@ -17,7 +17,7 @@ import {
 import { column, field, rows, table } from "@ryot-app/ryotql";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { and, eq } from "drizzle-orm";
-import { DateTime, Effect, Layer, Ref, Schema } from "effect";
+import { DateTime, Effect, Layer, Ref } from "effect";
 import { assert, describe } from "vitest";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -354,15 +354,13 @@ const tablesState = Effect.gen(function* () {
 });
 
 const expectedOf = (
-	entity: { name: string; updatedAt: string; properties: unknown },
+	entity: { name: string; updatedAt: string; properties: Readonly<Record<string, unknown>> },
 	relationships: EntityEditorSaveSubmission["relationships"] = [],
 ) => ({
 	relationships,
 	name: entity.name,
 	updatedAt: entity.updatedAt,
-	properties: Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
-		entity.properties,
-	),
+	properties: entity.properties,
 });
 
 const dispatched = Effect.gen(function* () {

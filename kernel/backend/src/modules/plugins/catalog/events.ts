@@ -115,9 +115,9 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 		const publish = (userId: null | UserId) =>
 			userId === null
 				? redis.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
-				: redis.publish(
-						redisKeys.pluginCatalogUserChannel,
-						encodePluginCatalogInvalidatedMessage({ userId }),
+				: Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(
+						Effect.orDie,
+						Effect.flatMap((message) => redis.publish(redisKeys.pluginCatalogUserChannel, message)),
 					);
 		const deliver = Effect.fn("PluginCatalogInvalidator.deliver")(function* (
 			userId: null | UserId,

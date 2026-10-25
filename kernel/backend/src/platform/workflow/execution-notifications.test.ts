@@ -179,11 +179,9 @@ it.effect("resubscribes after the Redis subscriber reconnects", () =>
 				workflowName: "ReconnectedWorkflow",
 			};
 			const freshWaiter = yield* notifications.listen(freshIdentity);
+			const message = yield* encodeWorkflowExecutionNotificationMessage(freshIdentity);
 			yield* Effect.tryPromise(() =>
-				publisher.client.publish(
-					redisKeys.workflowExecutionNotificationChannel,
-					encodeWorkflowExecutionNotificationMessage(freshIdentity),
-				),
+				publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, message),
 			);
 			expect(
 				Option.isSome(

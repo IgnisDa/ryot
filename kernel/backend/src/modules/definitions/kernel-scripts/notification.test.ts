@@ -7,7 +7,7 @@ import { Cause, Exit } from "effect";
 import definition, { manifest } from "./notification.sandbox";
 
 const inputFor = (executionUserId: null | string, reminder = false) =>
-	Schema.decodeSync(automationInputSchema)({
+	Schema.decodeEffect(automationInputSchema)({
 		automation: {
 			runId: "run-1",
 			executionUserId,
@@ -41,13 +41,13 @@ const inputFor = (executionUserId: null | string, reminder = false) =>
 					: { providerName: "Example", integrationId: "integration-1" },
 			},
 		},
-	});
+	}).pipe(Effect.orDie);
 
 it.effect("formats the inline signal for the trusted execution recipient", () =>
 	Effect.gen(function* () {
 		const messages: string[] = [];
 		const result = yield* definition.run(
-			inputFor("recipient"),
+			yield* inputFor("recipient"),
 			defineSandboxTestHost(manifest, {
 				sendNotification: (message) => {
 					messages.push(message);
@@ -65,7 +65,7 @@ it.effect("does not use the actor as a fallback for a missing execution recipien
 		const messages: string[] = [];
 		const exit = yield* Effect.exit(
 			definition.run(
-				inputFor(null),
+				yield* inputFor(null),
 				defineSandboxTestHost(manifest, {
 					sendNotification: (message) => {
 						messages.push(message);
@@ -86,7 +86,7 @@ it.effect("formats reminder evidence as plain text for the trusted recipient", (
 	Effect.gen(function* () {
 		const messages: string[] = [];
 		yield* definition.run(
-			inputFor("recipient", true),
+			yield* inputFor("recipient", true),
 			defineSandboxTestHost(manifest, {
 				sendNotification: (message) => {
 					messages.push(message);

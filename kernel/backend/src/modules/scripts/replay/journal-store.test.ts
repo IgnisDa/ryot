@@ -21,7 +21,7 @@ const entry = (index: number, value: string) => ({
 		args: { input: null, scriptSlug: "activity" },
 	},
 });
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 layer(testRedisServiceLayer)((test) => {
 	test.effect("journal inspection pins exact prefix bytes without returning values", () =>
@@ -33,12 +33,11 @@ layer(testRedisServiceLayer)((test) => {
 
 			const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
 			assert(inspection !== null);
-			expect(inspection.bytes).toBe(utf8ByteLength(encodeJson(journal.slice(0, 2))));
+			expect(inspection.bytes).toBe(utf8ByteLength(yield* encodeJson(journal.slice(0, 2))));
 			expect(inspection.entries).toEqual(
-				journal.slice(0, 2).map((value) => {
-					const text = encodeJson(value);
-					return [utf8ByteLength(text), 1, sha256Hex(text)];
-				}),
+				yield* Effect.forEach(journal.slice(0, 2), (value) =>
+					Effect.map(encodeJson(value), (text) => [utf8ByteLength(text), 1, sha256Hex(text)]),
+				),
 			);
 			expect(yield* inspectSandboxJournal(redis, executionId, 0)).toEqual({
 				bytes: 2,
@@ -80,7 +79,7 @@ layer(testRedisServiceLayer)((test) => {
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 			const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
 			assert(inspection !== null);
-			const largeBytes = utf8ByteLength(encodeJson(large));
+			const largeBytes = utf8ByteLength(yield* encodeJson(large));
 			const largeChunks = Math.ceil(largeBytes / SANDBOX_JOURNAL_CHUNK_BYTES);
 			expect(largeChunks).toBeGreaterThan(2);
 			expect(inspection.entries[1]?.slice(0, 2)).toEqual([largeBytes, largeChunks]);

@@ -12,7 +12,7 @@ import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
-import type { Workflow } from "effect/workflow";
+import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -64,18 +64,26 @@ const sandboxExecutionFailure = (error: SandboxRunError) => ({
 const toPluginWorkflowResult = (result: undefined | Workflow.Result<JsonValue, SandboxRunError>) =>
 	toWorkflowRunResult(result, { onFailure: String, onSuccess: (output) => ({ output }) });
 
-const toSandboxRunResult = (result: undefined | Workflow.Result<JsonValue, SandboxRunError>) =>
-	toWorkflowRunResult(result, {
+const decodeSandboxExecutionResult = Schema.decodeUnknownEffect(SandboxExecutionResult);
+
+const toSandboxRunResult = Effect.fnUntraced(function* (
+	result: undefined | Workflow.Result<JsonValue, SandboxRunError>,
+) {
+	const decoded =
+		result?._tag === "Complete"
+			? new Workflow.Complete({
+					exit: yield* Effect.exit(
+						Effect.flatMap(result.exit, (value) =>
+							decodeSandboxExecutionResult(value).pipe(Effect.orDie),
+						),
+					),
+				})
+			: result;
+	return toWorkflowRunResult(decoded, {
 		onFailure: String,
-		onSuccess: (value) => {
-			const {
-				status: _status,
-				harvest: _harvest,
-				...completed
-			} = Schema.decodeUnknownSync(SandboxExecutionResult)(value);
-			return completed;
-		},
+		onSuccess: ({ status: _status, harvest: _harvest, ...completed }) => completed,
 	});
+});
 
 export class ScriptExecutionService extends Context.Service<ScriptExecutionService>()(
 	"ScriptExecutionService",
@@ -180,7 +188,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 					return yield* notFound(sandboxJobNotFoundError);
 				}
 
-				return toSandboxRunResult(
+				return yield* toSandboxRunResult(
 					Option.getOrUndefined(yield* engine.poll(ScriptExecutionWorkflow, job.executionId)),
 				);
 			});

@@ -593,7 +593,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				return yield* Effect.void;
 			}
 			const parsed = yield* validateDraft(
-				draftOf(snapshot(entity)),
+				draftOf(yield* snapshot(entity)),
 				scopeUserId,
 				definitionOwner(entity.entitySchemaPluginId),
 				lifecycle,
@@ -660,7 +660,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			const planned = yield* planner.plan({
 				writeContext: lifecycle.writeContext,
-				trigger: lifecycleTrigger(lifecycle, input.scopeUserId, request),
+				trigger: yield* lifecycleTrigger(lifecycle, input.scopeUserId, request),
 			});
 			if (planned.trigger?.blockedReason) {
 				return { _tag: "Blocked" as const };
@@ -957,8 +957,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				scopeUserId,
 				receiptInput,
 				lifecycle: input.lifecycle,
-				before: existing && !replay ? snapshot(existing) : null,
 				entityId: existing?.id ?? commandEntityId(input.lifecycle),
+				before: existing && !replay ? yield* snapshot(existing) : null,
 				operation: existing && !replay ? ("update" as const) : ("create" as const),
 			};
 			return {
@@ -993,7 +993,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			const planned = yield* planCreate(input, updateExisting, undefined, undefined, true);
 			if (planned.existing) {
-				const before = snapshot(planned.existing);
+				const before = yield* snapshot(planned.existing);
 				const result = { entity: planned.existing };
 				return yield* transaction(
 					Effect.gen(function* () {
@@ -1010,7 +1010,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							};
 						}
 						const current = yield* repository.getMutationEntity(planned.existing.id, true);
-						if (!current || !same(snapshot(current.entity), before)) {
+						if (!current || !same(yield* snapshot(current.entity), before)) {
 							return yield* bad("mutation-conflict", "Entity changed before no-op was recorded");
 						}
 						const batchScope = { identity: ["batch"], command: input.lifecycle };
@@ -1184,7 +1184,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					settled.set(entry.index, { result, dispatch: [] });
 					continue;
 				}
-				const before = existing && !replay ? snapshot(existing) : null;
+				const before = existing && !replay ? yield* snapshot(existing) : null;
 				const prepared: PreparedMutation = {
 					before,
 					requestId: null,
@@ -1319,7 +1319,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					reason: { code: "entity-not-found", entityId: input.entityId },
 				});
 			}
-			const before = snapshot(current.entity);
+			const before = yield* snapshot(current.entity);
 			if (
 				input.expected &&
 				!same(input.expected, {
@@ -1430,7 +1430,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				yield* writeChecks
 					.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
 					.pipe(Effect.mapError(writeFailure));
-				const before = snapshot(current.entity);
+				const before = yield* snapshot(current.entity);
 				if (
 					!same(expected, {
 						name: before.name,
@@ -1624,7 +1624,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						if (!matchesTarget(current)) {
 							return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 						}
-						const before = snapshot(current.entity);
+						const before = yield* snapshot(current.entity);
 						yield* validateExistingEntity(current.entity, current.userId, command);
 						const validated = yield* validateDraft(
 							draftOf(before),

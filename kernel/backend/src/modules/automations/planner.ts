@@ -465,10 +465,12 @@ export const LifecyclePlannerLive = Layer.effect(
 					? [{ payload, scopeUserId }]
 					: [],
 			);
-			const changeTriggers = changes.map(({ payload, scopeUserId }, index) => ({
-				scopeUserId,
-				trigger: lifecycleTrigger(input.command, scopeUserId, payload, `batch-evidence:${index}`),
-			}));
+			const changeTriggers = yield* Effect.forEach(changes, ({ payload, scopeUserId }, index) =>
+				Effect.map(
+					lifecycleTrigger(input.command, scopeUserId, payload, `batch-evidence:${index}`),
+					(trigger) => ({ trigger, scopeUserId }),
+				),
+			);
 			const maxItems = candidates.reduce((globalMaxItems, { payload, references }) => {
 				const { hook } = payload;
 				if (
@@ -488,7 +490,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				return matchesCommittedItem ? Math.min(globalMaxItems, hook.batchMaxItems) : globalMaxItems;
 			}, contents.maxItems);
 			const planned = yield* Effect.forEach(
-				lifecycleBatchTriggers(input, maxItems, changes),
+				yield* lifecycleBatchTriggers(input, maxItems, changes),
 				(trigger) =>
 					plan({
 						trigger,

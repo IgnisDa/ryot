@@ -2034,13 +2034,14 @@ layer(makeLayer({ privateInstallations: [surfaceConflictRow, definitionConflictR
 const sharedSavedView = (() => {
 	const kernelView = kernelDefinitionSource().savedViews[0];
 	assert(kernelView);
-	const config = Schema.decodeUnknownSync(AuthoredSavedViewRendererConfig)({
+	const config = Schema.decodeUnknownOption(AuthoredSavedViewRendererConfig)({
 		renderer: kernelView.renderer,
 		settings: kernelView.settings,
 		dataSources: kernelView.dataSources,
 	});
+	assert(Option.isSome(config));
 	return {
-		...config,
+		...config.value,
 		sortOrder: 0,
 		name: "Shared View",
 		slug: "shared-view",

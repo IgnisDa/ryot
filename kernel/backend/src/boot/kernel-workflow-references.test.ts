@@ -35,8 +35,8 @@ import { makeWorkflowEngine } from "#testing/effect";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
-const callerAuthority = (subject: SandboxExecutionSubject): ScriptExecutionPrincipal =>
-	Schema.decodeSync(ScriptExecutionPrincipal)({
+const callerAuthority = (subject: SandboxExecutionSubject) =>
+	Schema.decodeEffect(ScriptExecutionPrincipal)({
 		subject,
 		providerId: null,
 		scriptId: "caller-script",
@@ -47,16 +47,18 @@ const callerAuthority = (subject: SandboxExecutionSubject): ScriptExecutionPrinc
 			...ingestionTestRevision,
 			schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record", "group"] },
 		},
-	});
-const populationAuthority = (subject: SandboxExecutionSubject): ScriptExecutionPrincipal =>
-	Schema.decodeSync(ScriptExecutionPrincipal)({
-		...callerAuthority(subject),
-		pluginRevision: {
-			...ingestionTestRevision,
-			id: "provider-owner",
-			schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record"] },
-		},
-	});
+	}).pipe(Effect.orDie);
+const populationAuthority = (subject: SandboxExecutionSubject) =>
+	Effect.flatMap(callerAuthority(subject), (caller) =>
+		Schema.decodeEffect(ScriptExecutionPrincipal)({
+			...caller,
+			pluginRevision: {
+				...ingestionTestRevision,
+				id: "provider-owner",
+				schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record"] },
+			},
+		}),
+	).pipe(Effect.orDie);
 const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (principal) =>
 		Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
@@ -261,7 +263,7 @@ layer(
 				"background",
 				"capture-child",
 				"run-1-import",
-				callerAuthority({
+				yield* callerAuthority({
 					type: "user",
 					userId: UserId.make("user-1"),
 					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
@@ -308,7 +310,7 @@ layer(
 				"interactive",
 				"entity-import-execution",
 				"parent-execution",
-				callerAuthority(subject),
+				yield* callerAuthority(subject),
 			);
 			yield* references.execute(
 				KERNEL_EVENT_CREATE_WORKFLOW,
@@ -316,7 +318,7 @@ layer(
 				"interactive",
 				"event-create-execution",
 				"parent-execution",
-				callerAuthority(subject),
+				yield* callerAuthority(subject),
 			);
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
@@ -375,7 +377,7 @@ layer(
 				"interactive",
 				"entity-import-execution",
 				"parent-execution",
-				callerAuthority({
+				yield* callerAuthority({
 					type: "user",
 					userId: UserId.make("trusted-user"),
 					accountGeneration: {
@@ -457,7 +459,7 @@ layer(
 				"background",
 				"child-execution",
 				"parent/execution",
-				callerAuthority({
+				yield* callerAuthority({
 					type: "user",
 					userId: UserId.make("trusted-user"),
 					accountGeneration: {
@@ -500,7 +502,7 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 					"interactive",
 					"entity-import-execution",
 					"parent-execution",
-					callerAuthority({ type: "system" }),
+					yield* callerAuthority({ type: "system" }),
 				),
 			);
 
@@ -526,7 +528,7 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 					"background",
 					"entity-import-execution",
 					"parent-execution",
-					callerAuthority({
+					yield* callerAuthority({
 						type: "user",
 						userId: UserId.make("trusted-user"),
 						accountGeneration: {
@@ -555,7 +557,7 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 					"interactive",
 					"event-create-execution",
 					"parent-execution",
-					callerAuthority({
+					yield* callerAuthority({
 						type: "user",
 						userId: UserId.make("trusted-user"),
 						integrationId: IntegrationId.make("victim-integration"),
@@ -608,7 +610,7 @@ layer(
 					"interactive",
 					"population-reference",
 					"parent-execution",
-					populationAuthority({ type: "system" }),
+					yield* populationAuthority({ type: "system" }),
 				);
 
 				const dispatches = yield* RecordedWorkflowDispatches;
@@ -673,7 +675,7 @@ layer(
 					"interactive",
 					"population-reference",
 					"parent-execution",
-					populationAuthority({ type: "system" }),
+					yield* populationAuthority({ type: "system" }),
 				),
 			);
 
@@ -704,7 +706,7 @@ layer(
 					type: "user",
 					accountGeneration: { userId, token: "test-account-generation" },
 				} as const;
-				const pinned = populationAuthority(subject);
+				const pinned = yield* populationAuthority(subject);
 				const principal = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)({
 					...pinned,
 					pluginRevision: { ...pinned.pluginRevision, scope: "user", ownerId: userId },
@@ -743,7 +745,7 @@ layer(
 					"interactive",
 					"user-call",
 					"parent-execution",
-					populationAuthority({
+					yield* populationAuthority({
 						type: "user",
 						userId: UserId.make("user-1"),
 						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
@@ -759,7 +761,7 @@ layer(
 					"interactive",
 					"foreign-call",
 					"parent-execution",
-					populationAuthority({ type: "system" }),
+					yield* populationAuthority({ type: "system" }),
 				),
 			);
 			expect(ownershipExit.toString()).toContain(
@@ -791,7 +793,7 @@ layer(
 					"interactive",
 					"population-reference",
 					"parent-execution",
-					populationAuthority({ type: "system" }),
+					yield* populationAuthority({ type: "system" }),
 				),
 			);
 
@@ -829,7 +831,7 @@ layer(
 						"interactive",
 						`valid-batch-${items.length}`,
 						"parent-execution",
-						populationAuthority({ type: "system" }),
+						yield* populationAuthority({ type: "system" }),
 					);
 				}
 				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(101);
@@ -842,7 +844,7 @@ layer(
 							"interactive",
 							"invalid-batch",
 							"parent-execution",
-							populationAuthority({ type: "system" }),
+							yield* populationAuthority({ type: "system" }),
 						),
 					);
 					expect(exit.toString()).toContain("Invalid kernel workflow input");

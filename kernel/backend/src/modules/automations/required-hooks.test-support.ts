@@ -1,5 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { AutomationRunId, type AutomationTriggerId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationHookSlug,
+	AutomationRunId,
+	type AutomationTriggerId,
+} from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Effect, Layer, Ref, Schema } from "effect";
 import { DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -50,13 +54,13 @@ export const requiredRun = (
 	triggerId: AutomationTriggerId,
 	delivery: "async" | "required" = "required",
 ) =>
-	Schema.decodeSync(LifecycleDispatchRun)({
-		id,
+	LifecycleDispatchRun.make({
 		delivery,
 		triggerId,
-		hookSlug: id,
 		stage: "after",
 		status: "queued",
+		id: AutomationRunId.make(id),
+		hookSlug: AutomationHookSlug.make(id),
 	});
 export const executionIdOf = (runId: string) =>
 	automationAttemptIdentity(AutomationRunId.make(runId), 1).workflowExecutionId;

@@ -1,7 +1,10 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
+	AutomationExecutionId,
+	AutomationRunId,
+	AutomationTriggerId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginPackageId,
@@ -153,32 +156,31 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 const userSubject = (userId: UserId, token = `generation-${userId}`) =>
 	({ userId, type: "user", accountGeneration: { token, userId } }) as const;
 
-const automationSubject = (executionUserId: null | UserId) =>
-	Schema.decodeSync(SandboxExecutionSubject)({
-		stage: "after",
-		pluginId: null,
-		executionUserId,
-		runId: "pin-run",
-		delivery: "async",
-		pluginRevisionId: null,
-		type: "automation-run",
-		triggerId: "pin-trigger",
-		pluginConfigRevisionId: null,
-		accountGeneration:
-			executionUserId === null
-				? null
-				: { userId: executionUserId, token: `generation-${executionUserId}` },
-		causation: {
-			depth: 0,
-			source: "api",
-			parentRunId: null,
-			lane: "background",
-			parentTriggerId: null,
-			executionId: "pin-execution",
-			rootExecutionId: "pin-execution",
-			initiator: { id: null, kind: "system" },
-		},
-	});
+const automationSubject = (executionUserId: null | UserId): SandboxExecutionSubject => ({
+	stage: "after",
+	pluginId: null,
+	executionUserId,
+	delivery: "async",
+	pluginRevisionId: null,
+	type: "automation-run",
+	pluginConfigRevisionId: null,
+	runId: AutomationRunId.make("pin-run"),
+	triggerId: AutomationTriggerId.make("pin-trigger"),
+	accountGeneration:
+		executionUserId === null
+			? null
+			: { userId: executionUserId, token: `generation-${executionUserId}` },
+	causation: {
+		depth: 0,
+		source: "api",
+		parentRunId: null,
+		lane: "background",
+		parentTriggerId: null,
+		initiator: { id: null, kind: "system" },
+		executionId: AutomationExecutionId.make("pin-execution"),
+		rootExecutionId: AutomationExecutionId.make("pin-execution"),
+	},
+});
 
 const subjectsFor = (world: World): ReadonlyArray<undefined | SandboxExecutionSubject> => [
 	undefined,

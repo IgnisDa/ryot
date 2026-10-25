@@ -76,11 +76,10 @@ export type CatalogDefinitionFingerprint = typeof CatalogDefinitionFingerprint.T
 
 export const catalogDefinitionFingerprint = (definition: {
 	readonly pluginId?: null | string | undefined;
-}) =>
-	Schema.decodeSync(CatalogDefinitionFingerprint)({
-		pluginId: definition.pluginId ?? null,
-		digest: sha256Base64Url(stableStringify(definition)),
-	});
+}): CatalogDefinitionFingerprint => ({
+	digest: sha256Base64Url(stableStringify(definition)),
+	pluginId: definition.pluginId == null ? null : PluginId.make(definition.pluginId),
+});
 
 export const pluginConfigContextFor = (
 	plugin: Pick<AvailablePlugin, "ownerUserId" | "pluginRevisionId" | "pluginConfigRevisionId">,

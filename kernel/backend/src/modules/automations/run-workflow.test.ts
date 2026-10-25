@@ -1,13 +1,24 @@
 import { expect, it, layer } from "@effect/vitest";
 import { DbError, type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
 import {
+	AutomationPluginAfterRun,
 	AutomationRequestPayload,
-	AutomationRun,
+	type AutomationRun,
 	AutomationRunAttempt,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
-import { EntityId, EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationHookSlug,
+	AutomationRunId,
+	EntityId,
+	EntitySchemaSlug,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -29,28 +40,28 @@ import {
 
 const trigger = triggerFixture();
 const accountGeneration = { userId: UserId.make("owner"), token: "test-account-generation" };
-const run = Schema.decodeSync(AutomationRun)({
-	id: "run",
+const run = AutomationPluginAfterRun.make({
 	stage: "after",
 	attemptCount: 0,
 	startedAt: null,
-	hookSlug: "hook",
 	hookName: "Hook",
 	status: "queued",
 	finishedAt: null,
 	skipReason: null,
-	pluginId: "plugin",
 	nextAttemptAt: null,
 	delivery: "required",
 	triggerId: trigger.id,
-	executionUserId: "owner",
 	scriptSlug: "hook-script",
 	queuedAt: trigger.createdAt,
 	scriptContentHash: "hash-old",
-	sandboxScriptId: "script-old",
-	pluginRevisionId: "revision-old",
-	pluginConfigRevisionId: "config-old",
+	id: AutomationRunId.make("run"),
+	pluginId: PluginId.make("plugin"),
+	executionUserId: UserId.make("owner"),
+	hookSlug: AutomationHookSlug.make("hook"),
 	artifactsExpireAt: "2026-09-22T00:00:00.000Z",
+	sandboxScriptId: SandboxScriptId.make("script-old"),
+	pluginRevisionId: PluginRevisionId.make("revision-old"),
+	pluginConfigRevisionId: PluginConfigRevisionId.make("config-old"),
 	retryPolicy: {
 		maxAttempts: 3,
 		maxDelayMs: 10000,
@@ -73,7 +84,7 @@ const policyScript = {
 	inputProjection: { entity: { properties: [] } },
 } as const;
 const identity = automationAttemptIdentity(run.id, 1);
-const initialAttempt = Schema.decodeSync(AutomationRunAttempt)({
+const initialAttempt = AutomationRunAttempt.make({
 	...identity,
 	logs: null,
 	error: null,
@@ -88,7 +99,7 @@ const initialAttempt = Schema.decodeSync(AutomationRunAttempt)({
 	startedAt: trigger.createdAt,
 	attemptNumber: payload.attemptNumber,
 });
-const requestData = {
+const request: AutomationRequestPayload = {
 	resource: "entity",
 	category: "request",
 	operation: "create",
@@ -98,11 +109,10 @@ const requestData = {
 		externalId: null,
 		providerId: null,
 		populatedAt: null,
-		entitySchemaSlug: "record",
 		entitySchemaPluginId: null,
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
 	},
-} as const;
-const request = Schema.decodeSync(AutomationRequestPayload)(requestData);
+};
 
 it.effect(
 	"replays captured kernel collection observer targets without changing plugin write ownership",
@@ -219,18 +229,18 @@ it.effect(
 			).toEqual(retained);
 		}),
 );
-const requestTrigger = Schema.decodeSync(AutomationTrigger)({
+const requestTrigger = AutomationTrigger.make({
 	...trigger,
 	payload: request,
 	kind: { resource: "entity", category: "request", operation: "create" },
 });
-const beforeRun = Schema.decodeSync(AutomationRun)({
+const beforeRun: AutomationRun = {
 	...run,
 	stage: "before",
 	retryPolicy: null,
 	delivery: "policy",
 	nextAttemptAt: null,
-});
+};
 
 type Operations = AutomationRunWorkflowOperations["Service"];
 
@@ -506,10 +516,7 @@ it.effect(
 			};
 			const after = (delivery: "async" | "required") =>
 				prepareAutomationInvocation(
-					Schema.decodeUnknownSync(AutomationRun)({
-						...Schema.encodeSync(AutomationRun)(run),
-						delivery,
-					}),
+					{ ...run, delivery },
 					interactive,
 					payload,
 					afterScript,

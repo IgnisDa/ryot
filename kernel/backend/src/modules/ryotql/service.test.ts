@@ -77,8 +77,9 @@ const getCollectionsQuery = () => {
 	return query;
 };
 const encodeCursor = (value: unknown) =>
-	Buffer.from(Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(value)).toString(
-		"base64url",
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(
+		Effect.orDie,
+		Effect.map((text) => Buffer.from(text).toString("base64url")),
 	);
 
 class RecordedStatements extends Context.Service<
@@ -432,16 +433,21 @@ layer(
 
 layer(makeServiceLayer())((test) => {
 	test.effect("rejects malformed cursor envelopes before row SQL", () => {
-		const cases = [
-			"not+base64url",
-			encodeCursor({ version: 2, values: [] }),
-			encodeCursor({ version: 1, values: [] }),
-			encodeCursor({ version: 1, values: [{ value: 1, kind: "number" }] }),
-			encodeCursor({ version: 1, values: [{ value: 1, kind: "text" }] }),
-		];
 		const entity = table("entity", "entity");
 
 		return Effect.gen(function* () {
+			const cases = [
+				"not+base64url",
+				...(yield* Effect.forEach(
+					[
+						{ version: 2, values: [] },
+						{ version: 1, values: [] },
+						{ version: 1, values: [{ value: 1, kind: "number" }] },
+						{ version: 1, values: [{ value: 1, kind: "text" }] },
+					],
+					encodeCursor,
+				)),
+			];
 			const service = yield* RyotQLService;
 			for (const after of cases) {
 				const exit = yield* Effect.exit(

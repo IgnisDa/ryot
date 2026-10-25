@@ -63,7 +63,9 @@ const workerFailure = Match.type<CompilerWorkerFailure>().pipe(
 const decodeCompilerWorkerResponse = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(CompilerWorkerResponse),
 );
-const encodeCompilerWorkerRequest = Schema.encodeSync(Schema.fromJsonString(CompilerWorkerRequest));
+const encodeCompilerWorkerRequest = Schema.encodeEffect(
+	Schema.fromJsonString(CompilerWorkerRequest),
+);
 
 export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 	Effect.gen(function* () {
@@ -106,9 +108,9 @@ export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 			return Effect.acquireUseRelease(
 				workspaceRoot,
 				() =>
-					runWorker(
-						encodeCompilerWorkerRequest({ source, workspaceJobId, workspaceParentPath }),
-					).pipe(
+					encodeCompilerWorkerRequest({ source, workspaceJobId, workspaceParentPath }).pipe(
+						Effect.orDie,
+						Effect.flatMap(runWorker),
 						Effect.flatMap((output) =>
 							decodeCompilerWorkerResponse(output).pipe(
 								Effect.mapError(() =>

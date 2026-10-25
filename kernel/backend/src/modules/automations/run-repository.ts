@@ -3,7 +3,7 @@ import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automation
 import {
 	type AutomationPopulationContext,
 	AutomationRun,
-	AutomationRunSkipReason,
+	type AutomationRunSkipReason,
 	type AutomationTriggerPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -34,9 +34,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { automationRun as table } from "#schema/tables/automations";
 import { pluginRevision } from "#schema/tables/core";
 
-const policyChainStopped = Schema.decodeSync(AutomationRunSkipReason)({
-	code: "policy-chain-stopped",
-});
+const policyChainStopped: AutomationRunSkipReason = { code: "policy-chain-stopped" };
 
 const decodeRow = ({
 	historyPayload: _historyPayload,
@@ -66,11 +64,14 @@ type PinnedSchemas = Pick<
 const properties = (schema: AppSchema | undefined, values: Readonly<Record<string, unknown>>) =>
 	schema ? redactPluginConfig(schema, values).config : {};
 
-export const redactAutomationHistoryPayload = (
+const toJsonValue = (value: unknown) =>
+	Schema.decodeUnknownEffect(JsonValue)(value).pipe(Effect.orDie);
+
+export const redactAutomationHistoryPayload = Effect.fnUntraced(function* (
 	payload: AutomationTriggerPayload,
 	manifest: null | PinnedSchemas,
 	pluginId: AutomationRun["pluginId"],
-): JsonValue => {
+): Effect.fn.Return<JsonValue> {
 	const entitySchema = (slug: string) =>
 		manifest?.entitySchemas.find((schema) => schema.slug === slug);
 	if (payload.resource === "signal") {
@@ -78,7 +79,7 @@ export const redactAutomationHistoryPayload = (
 			payload.signalSchemaPluginId === pluginId
 				? manifest?.signalSchemas.find((schema) => schema.slug === payload.signalSchemaSlug)
 				: undefined;
-		return Schema.decodeUnknownSync(JsonValue)({
+		return yield* toJsonValue({
 			...payload,
 			properties: properties(signalSchema?.propertiesSchema, payload.properties),
 		});
@@ -100,9 +101,11 @@ export const redactAutomationHistoryPayload = (
 				}
 			: population;
 	if (payload.operation === "batch") {
-		return Schema.decodeSync(JsonValue)({
+		return yield* toJsonValue({
 			...payload,
-			items: payload.items.map((item) => redactAutomationHistoryPayload(item, manifest, pluginId)),
+			items: yield* Effect.forEach(payload.items, (item) =>
+				redactAutomationHistoryPayload(item, manifest, pluginId),
+			),
 		});
 	}
 	const snapshot = (value: Readonly<Record<string, unknown>>) => {
@@ -134,8 +137,8 @@ export const redactAutomationHistoryPayload = (
 	if ("population" in payload && payload.population) {
 		result["population"] = redactPopulation(payload.population);
 	}
-	return Schema.decodeUnknownSync(JsonValue)(result);
-};
+	return yield* toJsonValue(result);
+});
 
 const immutableFields = (run: AutomationRun) => ({
 	id: run.id,
@@ -224,36 +227,38 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 					string,
 					Pick<typeof table.$inferSelect, "historyPayload" | "historyPayloadTruncated">
 				>();
-				const rows = values.map((value) => {
-					const key = stableStringify([value.pluginRevisionId, value.pluginId]);
-					let history = histories.get(key);
-					if (!history) {
-						const manifest =
-							value.pluginRevisionId === null
-								? null
-								: (schemas.get(value.pluginRevisionId) ?? null);
-						const redacted = redactAutomationHistoryPayload(
-							input.triggerPayload,
-							manifest,
-							value.pluginId,
-						);
-						const truncated = jsonBytes(redacted) > AUTOMATION_HISTORY_LIMITS.payloadBytes;
-						history = {
-							historyPayloadTruncated: truncated,
-							historyPayload: truncated ? null : redacted,
+				const rows = yield* Effect.forEach(values, (value) =>
+					Effect.gen(function* () {
+						const key = stableStringify([value.pluginRevisionId, value.pluginId]);
+						let history = histories.get(key);
+						if (!history) {
+							const manifest =
+								value.pluginRevisionId === null
+									? null
+									: (schemas.get(value.pluginRevisionId) ?? null);
+							const redacted = yield* redactAutomationHistoryPayload(
+								input.triggerPayload,
+								manifest,
+								value.pluginId,
+							);
+							const truncated = jsonBytes(redacted) > AUTOMATION_HISTORY_LIMITS.payloadBytes;
+							history = {
+								historyPayloadTruncated: truncated,
+								historyPayload: truncated ? null : redacted,
+							};
+							histories.set(key, history);
+						}
+						return {
+							...value,
+							...history,
+							startedAt: null,
+							finishedAt: null,
+							nextAttemptAt: null,
+							queuedAt: DateTime.toDate(DateTime.makeUnsafe(value.queuedAt)),
+							artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(value.artifactsExpireAt)),
 						};
-						histories.set(key, history);
-					}
-					return {
-						...value,
-						...history,
-						startedAt: null,
-						finishedAt: null,
-						nextAttemptAt: null,
-						queuedAt: DateTime.toDate(DateTime.makeUnsafe(value.queuedAt)),
-						artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(value.artifactsExpireAt)),
-					};
-				});
+					}),
+				);
 				for (const chunk of Arr.chunksOf(rows, insertChunkSize(table))) {
 					yield* session.run((db) => db.insert(table).values(chunk).onConflictDoNothing());
 				}

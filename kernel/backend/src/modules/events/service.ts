@@ -829,7 +829,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						draft: initial.draft,
 					};
 					const trigger = submitted.expected
-						? lifecycleTrigger(
+						? yield* lifecycleTrigger(
 								command,
 								userId,
 								request,
@@ -839,7 +839,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 									initial.referenceContextFingerprint,
 								]),
 							)
-						: lifecycleTrigger(command, userId, request);
+						: yield* lifecycleTrigger(command, userId, request);
 					const plan = yield* planner.plan({ trigger, writeContext: command.writeContext });
 					return {
 						plan,
@@ -1114,8 +1114,8 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						writeContext: command.writeContext,
 						trigger:
 							discriminator === undefined
-								? lifecycleTrigger(command, input.userId, request)
-								: lifecycleTrigger(command, input.userId, request, discriminator),
+								? yield* lifecycleTrigger(command, input.userId, request)
+								: yield* lifecycleTrigger(command, input.userId, request, discriminator),
 					});
 					if (plan.trigger?.blockedReason) {
 						return yield* eventBadRequest(
@@ -1528,7 +1528,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			}
 			const plan = yield* planner.plan({
 				writeContext: prepared.command.writeContext,
-				trigger: lifecycleTrigger(
+				trigger: yield* lifecycleTrigger(
 					{
 						...prepared.command,
 						causation: {

@@ -39,6 +39,7 @@ import {
 	decodeArchiveJsonObject,
 	isArchiveJsonObject,
 } from "./schemas";
+import { decodeArchiveJson } from "./streaming";
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
@@ -80,7 +81,9 @@ export const exportRendererSettings = Effect.fn(function* (
 		addAction: mapEntityBrowserAddActionSchema(action, toArchive),
 		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toArchive) },
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
-	return decodeArchiveJsonObject(encoded);
+	return yield* decodeArchiveJsonObject(encoded).pipe(
+		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	);
 });
 
 export const importRendererSettings = Effect.fn(function* (
@@ -120,7 +123,9 @@ export const importRendererSettings = Effect.fn(function* (
 		addAction: mapEntityBrowserAddActionSchema(action, toLocal),
 		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toLocal) },
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
-	return decodeArchiveJsonObject(encoded);
+	return yield* decodeArchiveJsonObject(encoded).pipe(
+		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	);
 });
 
 const rewriteQueryReferences = Effect.fn(function* (
@@ -264,9 +269,11 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			addQueryPackages(view.dataSources);
 		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
-			const { subject, addAction } = Schema.decodeUnknownSync(
+			const { subject, addAction } = decodeArchiveJson(
 				ArchiveEntityBrowserSavedViewSettings,
-			)(view.settings);
+				view.settings,
+				"saved-views.ndjson",
+			);
 			for (const { pluginKey } of subject.schemas) {
 				add(pluginKey);
 			}

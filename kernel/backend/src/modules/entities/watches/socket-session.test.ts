@@ -3,6 +3,7 @@ import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watc
 import {
 	decodeEntityWatchServerMessage,
 	encodeEntityWatchClientMessage,
+	type EntityWatchClientMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { stringMatching } from "@ryot-app/testing/matchers";
@@ -18,6 +19,9 @@ import { InterestService } from "./service";
 import { runEntityWatchSocketSession } from "./socket-session";
 import { EntityWatchStore } from "./store";
 import { EntityWatchInvalidTicket, EntityWatchTicketService } from "./ticket-service";
+
+const clientFrame = (message: EntityWatchClientMessage) =>
+	Effect.fromResult(encodeEntityWatchClientMessage(message)).pipe(Effect.orDie);
 
 const makeSocket = Effect.fn(function* (
 	readyWriteGate?: Deferred.Deferred<void>,
@@ -40,7 +44,7 @@ const makeSocket = Effect.fn(function* (
 				if (Result.isSuccess(decoded) && decoded.success.type === "ping") {
 					yield* Queue.offer(
 						inbound,
-						encodeEntityWatchClientMessage({ type: "pong", nonce: decoded.success.nonce }),
+						yield* clientFrame({ type: "pong", nonce: decoded.success.nonce }),
 					);
 				}
 			}
@@ -89,7 +93,12 @@ const makeSocket = Effect.fn(function* (
 		socket,
 		nextMessage,
 		remoteClose: Queue.offer(inbound, null).pipe(Effect.asVoid),
-		send: (frame: string) => Queue.offer(inbound, frame).pipe(Effect.asVoid),
+		sendFrame: (frame: string) => Queue.offer(inbound, frame).pipe(Effect.asVoid),
+		send: (message: EntityWatchClientMessage) =>
+			clientFrame(message).pipe(
+				Effect.flatMap((frame) => Queue.offer(inbound, frame)),
+				Effect.asVoid,
+			),
 	};
 });
 
@@ -318,20 +327,16 @@ describe("entity interest socket session", () => {
 							Effect.forkChild,
 						);
 						yield* Deferred.await(socket.opened);
-						yield* socket.send(
-							encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-						);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
 						const ready = yield* socket.nextMessage();
 						assert(ready.type === "ready");
 						for (const revision of [1, 2, 3]) {
-							yield* socket.send(
-								encodeEntityWatchClientMessage({
-									revision,
-									type: "replace",
-									entityIds: revision === 2 ? [] : [entityId],
-									foregroundIds: revision === 2 ? [] : [entityId],
-								}),
-							);
+							yield* socket.send({
+								revision,
+								type: "replace",
+								entityIds: revision === 2 ? [] : [entityId],
+								foregroundIds: revision === 2 ? [] : [entityId],
+							});
 							expect(yield* socket.nextMessage()).toEqual({ revision, type: "applied" });
 							if (revision === 1) {
 								yield* Deferred.await(firstStarted);
@@ -365,31 +370,25 @@ describe("entity interest socket session", () => {
 						const socket = yield* makeSocket();
 						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 						yield* Deferred.await(socket.opened);
-						yield* socket.send(
-							encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-						);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
 						const ready = yield* socket.nextMessage();
 						if (ready.type !== "ready") {
 							return yield* Effect.die("expected ready message");
 						}
 
-						yield* socket.send(
-							encodeEntityWatchClientMessage({
-								revision: 1,
-								type: "replace",
-								foregroundIds: [],
-								entityIds: ["entity-1"],
-							}),
-						);
+						yield* socket.send({
+							revision: 1,
+							type: "replace",
+							foregroundIds: [],
+							entityIds: ["entity-1"],
+						});
 						expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
-						yield* socket.send(
-							encodeEntityWatchClientMessage({
-								revision: 2,
-								type: "replace",
-								foregroundIds: [],
-								entityIds: ["entity-1", "entity-2"],
-							}),
-						);
+						yield* socket.send({
+							revision: 2,
+							type: "replace",
+							foregroundIds: [],
+							entityIds: ["entity-1", "entity-2"],
+						});
 						expect(yield* socket.nextMessage()).toEqual({ revision: 2, type: "applied" });
 
 						yield* socket.remoteClose;
@@ -415,9 +414,7 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 
 					const close = yield* Queue.take(socket.writes);
 					assert(Socket.isCloseEvent(close));
@@ -453,9 +450,7 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "invalid", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "invalid", type: "authenticate" });
 					const close = yield* Queue.take(socket.writes);
 					if (!Socket.isCloseEvent(close)) {
 						return yield* Effect.die("expected close event");
@@ -489,9 +484,7 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					const close = yield* Queue.take(socket.writes);
 					expect(Socket.isCloseEvent(close) && close.code).toBe(1011);
 					expect(Socket.isCloseEvent(close) && close.reason).toBe("Internal error");
@@ -510,17 +503,13 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket(readyWriteGate);
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							type: "replace",
-							foregroundIds: [],
-							entityIds: ["entity-1"],
-						}),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
+					yield* socket.send({
+						revision: 1,
+						type: "replace",
+						foregroundIds: [],
+						entityIds: ["entity-1"],
+					});
 
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* Effect.yieldNow;
@@ -542,9 +531,7 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket(undefined, true);
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					const ready = yield* socket.nextMessage();
 					if (ready.type !== "ready") {
 						return yield* Effect.die("expected ready message");
@@ -571,21 +558,12 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send(
+					yield* socket.sendFrame(
 						'{"type":"update","revision":1,"add":["invalid"],"remove":[],"addForeground":[],"removeForeground":[]}',
 					);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							entityIds: [],
-							type: "replace",
-							foregroundIds: [],
-						}),
-					);
+					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 
 					const close = yield* Queue.take(socket.writes);
 					expect(Socket.isCloseEvent(close) && close.code).toBe(1002);
@@ -604,26 +582,10 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							entityIds: [],
-							type: "replace",
-							foregroundIds: [],
-						}),
-					);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							entityIds: [],
-							type: "replace",
-							foregroundIds: [],
-						}),
-					);
+					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
+					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 
 					const close = yield* Queue.take(socket.writes);
 					expect(Socket.isCloseEvent(close) && close.code).toBe(1002);
@@ -641,18 +603,9 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							entityIds: [],
-							type: "replace",
-							foregroundIds: [],
-						}),
-					);
+					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 
 					expect(yield* socket.nextMessage()).toEqual({
 						revision: 1,
@@ -675,18 +628,14 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							type: "replace",
-							foregroundIds: [],
-							entityIds: ["entity-1"],
-						}),
-					);
+					yield* socket.send({
+						revision: 1,
+						type: "replace",
+						foregroundIds: [],
+						entityIds: ["entity-1"],
+					});
 					expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
 					yield* (yield* MarkAttempts).attempted;
 					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
@@ -705,9 +654,7 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* TestClock.adjust("25 seconds");
 					expect((yield* socket.nextMessage()).type).toBe("ping");
@@ -728,9 +675,7 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket(undefined, false, true);
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					const ready = yield* socket.nextMessage();
 					assert(ready.type === "ready");
 
@@ -772,9 +717,7 @@ describe("entity interest socket session", () => {
 						const socket = yield* makeSocket();
 						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 						yield* Deferred.await(socket.opened);
-						yield* socket.send(
-							encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-						);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
 						assert((yield* socket.nextMessage()).type === "ready");
 						yield* Effect.yieldNow;
 
@@ -804,27 +747,11 @@ describe("entity interest socket session", () => {
 					const socket = yield* makeSocket();
 					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
-					yield* socket.send(
-						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
-					);
+					yield* socket.send({ ticket: "ticket", type: "authenticate" });
 					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 1,
-							entityIds: [],
-							type: "replace",
-							foregroundIds: [],
-						}),
-					);
+					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 					yield* fake.replaceStarted;
-					yield* socket.send(
-						encodeEntityWatchClientMessage({
-							revision: 2,
-							entityIds: [],
-							type: "replace",
-							foregroundIds: [],
-						}),
-					);
+					yield* socket.send({ revision: 2, entityIds: [], type: "replace", foregroundIds: [] });
 
 					yield* TestClock.adjust("25 seconds");
 					expect((yield* socket.nextMessage()).type).toBe("ping");

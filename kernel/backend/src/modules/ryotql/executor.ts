@@ -85,7 +85,8 @@ class CompileScope extends Map<string, CompileTable> {
 }
 
 const CURSOR_VERSION = 1;
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = (value: unknown) =>
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(Effect.orDie);
 
 const identifier = (value: string): SqlFragment => sql`${sql.identifier(value)}`;
 
@@ -1546,8 +1547,8 @@ const encodeCursor = (
 	directions: readonly Order["direction"][],
 	ownerIdentity: string,
 ) =>
-	Buffer.from(encodeJson({ values, directions, ownerIdentity, version: CURSOR_VERSION })).toString(
-		"base64url",
+	encodeJson({ values, directions, ownerIdentity, version: CURSOR_VERSION }).pipe(
+		Effect.map((json) => Buffer.from(json).toString("base64url")),
 	);
 
 const cursorSqlValue = (value: Exclude<CursorValue, { kind: "null" }>) => {
@@ -2243,7 +2244,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	const orderKinds = orders.map((order) => expressionKind(order.expr, scope));
 	const orderDirections = orders.map((order) => order.direction);
 	const ownerIdentity = sha256Hex(
-		encodeJson({
+		yield* encodeJson({
 			scope: executionScope,
 			references: pluginIdentityReferences({ queries: { query: rowsQuery } })
 				.map((reference) => stableStringify(reference))
@@ -2282,7 +2283,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	});
 	const last = hasMore ? returnedRows.at(-1) : undefined;
 	const nextCursor = last
-		? encodeCursor(
+		? yield* encodeCursor(
 				orderKinds.map((kind, index): CursorValue => {
 					const value = last[`o${index}`];
 					if (value === null) {

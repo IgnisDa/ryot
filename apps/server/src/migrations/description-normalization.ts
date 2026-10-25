@@ -69,7 +69,7 @@ const decodeInputs = Schema.decodeUnknownEffect(Schema.Array(DescriptionInput));
 const decodeUpdated = Schema.decodeUnknownEffect(
 	Schema.Array(Schema.Struct({ id: Schema.String })),
 );
-const encodePatches = Schema.encodeSync(
+const encodePatches = Schema.encodeEffect(
 	Schema.fromJsonString(
 		Schema.Array(
 			Schema.Struct({ entityId: Schema.String, description: Schema.NullOr(Schema.String) }),
@@ -148,6 +148,7 @@ const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 				Effect.orDie,
 			),
 		);
+		const encodedPatches = yield* encodePatches(patches).pipe(Effect.orDie);
 		const updated = yield* connection
 			.execute(
 				`UPDATE "entity" entity
@@ -159,7 +160,7 @@ const normalizeDescriptions = Effect.fn("normalizeDescriptions")(function* (
 			FROM jsonb_to_recordset($1::jsonb) AS patch("entityId" text, description text)
 			WHERE entity.id = patch."entityId" AND entity."properties" ? 'description'
 			RETURNING entity.id`,
-				[encodePatches(patches)],
+				[encodedPatches],
 				undefined,
 			)
 			.pipe(Effect.flatMap(decodeUpdated), Effect.orDie);

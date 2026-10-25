@@ -52,7 +52,7 @@ import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./inp
 import { automationPayloadPluginId, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import {
-	AutomationAttemptResult,
+	automationAttemptResult,
 	AutomationPolicyRunOutput,
 	AutomationRunWorkflow,
 	type AutomationRunWorkflowPayload,
@@ -542,10 +542,7 @@ export const classifyAutomationSandboxError = (
 const completion = (
 	attempt: AutomationRunAttempt,
 	policyOutput: AutomationRunWorkflowResult["policyOutput"],
-): AutomationRunWorkflowResult => ({
-	policyOutput,
-	attempt: Schema.decodeSync(AutomationAttemptResult)(attempt),
-});
+): AutomationRunWorkflowResult => ({ policyOutput, attempt: automationAttemptResult(attempt) });
 
 export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(function* (
 	payload: AutomationRunWorkflowPayload,

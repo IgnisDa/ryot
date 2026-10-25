@@ -4,8 +4,8 @@ import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { encodeJsonString } from "@ryot-app/ts-utils/json";
 import { Effect, Schema, Stream } from "effect";
 
-const encodeIssue = Schema.encodeSync(Schema.fromJsonString(IngestionIssue));
-const encodeFailureReason = Schema.encodeSync(
+const encodeIssue = Schema.encodeEffect(Schema.fromJsonString(IngestionIssue));
+const encodeFailureReason = Schema.encodeEffect(
 	Schema.fromJsonString(Schema.NullOr(ImportRunFailureReason)),
 );
 
@@ -21,11 +21,17 @@ export const createIssuesExport = <E>(input: {
 	const page = (after?: string): Stream.Stream<Uint8Array, E> =>
 		Stream.fromEffect(Effect.suspend(() => input.listPage(after))).pipe(
 			Stream.flatMap((items) =>
-				Stream.fromIterable(
-					items.map(({ data }, index) =>
-						encoder.encode(`${after === undefined && index === 0 ? "" : ","}${encodeIssue(data)}`),
+				Stream.fromEffect(
+					Effect.forEach(items, ({ data }, index) =>
+						encodeIssue(data).pipe(
+							Effect.orDie,
+							Effect.map((issue) =>
+								encoder.encode(`${after === undefined && index === 0 ? "" : ","}${issue}`),
+							),
+						),
 					),
 				).pipe(
+					Stream.flatMap(Stream.fromIterable),
 					Stream.concat(
 						items.length < 100 ? Stream.empty : Stream.suspend(() => page(items.at(-1)?.data.id)),
 					),
@@ -34,9 +40,14 @@ export const createIssuesExport = <E>(input: {
 		);
 	return {
 		fileName: `ryot-import-issues-${input.runId}.json`,
-		stream: Stream.succeed(
-			encoder.encode(
-				`{"runId":${encodeJsonString(input.runId)},"source":${encodeJsonString(input.source)},"failureReason":${encodeFailureReason(input.failureReason)},"issues":[`,
+		stream: Stream.fromEffect(
+			encodeFailureReason(input.failureReason).pipe(
+				Effect.orDie,
+				Effect.map((failureReason) =>
+					encoder.encode(
+						`{"runId":${encodeJsonString(input.runId)},"source":${encodeJsonString(input.source)},"failureReason":${failureReason},"issues":[`,
+					),
+				),
 			),
 		).pipe(Stream.concat(page()), Stream.concat(Stream.succeed(encoder.encode("]}")))),
 	};

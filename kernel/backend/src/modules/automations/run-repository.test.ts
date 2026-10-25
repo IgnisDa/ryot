@@ -1,4 +1,4 @@
-import { expect, layer } from "@effect/vitest";
+import { expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRun,
@@ -20,7 +20,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { DateTime, Duration, Effect, Layer, Schema, type Tracer } from "effect";
 import { TestClock } from "effect/testing";
-import { assert, describe, it as unit } from "vitest";
+import { assert, describe } from "vitest";
 
 import { lifecycleRunId, lifecycleTriggerId } from "#modules/automations/lifecycle/planning";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -40,6 +40,8 @@ import { AutomationAttemptRepository } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
 import { AutomationRunRepository, redactAutomationHistoryPayload } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
+
+const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const fixture = fixtureManifest();
 const queueRun = Effect.fn(function* (
@@ -97,117 +99,130 @@ const signalManifest: PluginManifest = {
 	})),
 };
 
-unit(
+it.effect(
 	"redacts secret fields from the retained revision, including nested objects and array items",
-	() => {
-		const payload = Schema.decodeSync(AutomationSignalPayload)({
-			operation: "emit",
-			category: "signal",
-			resource: "signal",
-			actorUserId: "owner",
-			signalSchemaPluginId: "plugin-1",
-			signalSchemaSlug: "fixture.signal",
-			properties: {
-				public: "visible",
-				password: "hidden",
-				items: [{ label: "ok", private: "hidden" }],
-				nested: { visible: "ok", credential: "hidden" },
-			},
-		});
-		expect(
-			redactAutomationHistoryPayload(payload, signalManifest, payload.signalSchemaPluginId),
-		).toEqual({
-			...payload,
-			properties: { public: "visible", items: [{ label: "ok" }], nested: { visible: "ok" } },
-		});
-		expect(redactAutomationHistoryPayload(payload, null, payload.signalSchemaPluginId)).toEqual({
-			...payload,
-			properties: {},
-		});
-		expect(redactAutomationHistoryPayload(payload, signalManifest, null)).toEqual({
-			...payload,
-			properties: {},
-		});
-		expect(payload.properties).toMatchObject({ password: "hidden" });
-	},
+	() =>
+		Effect.gen(function* () {
+			const payload = yield* Schema.decodeEffect(AutomationSignalPayload)({
+				operation: "emit",
+				category: "signal",
+				resource: "signal",
+				actorUserId: "owner",
+				signalSchemaPluginId: "plugin-1",
+				signalSchemaSlug: "fixture.signal",
+				properties: {
+					public: "visible",
+					password: "hidden",
+					items: [{ label: "ok", private: "hidden" }],
+					nested: { visible: "ok", credential: "hidden" },
+				},
+			});
+			expect(
+				yield* redactAutomationHistoryPayload(
+					payload,
+					signalManifest,
+					payload.signalSchemaPluginId,
+				),
+			).toEqual({
+				...payload,
+				properties: { public: "visible", items: [{ label: "ok" }], nested: { visible: "ok" } },
+			});
+			expect(
+				yield* redactAutomationHistoryPayload(payload, null, payload.signalSchemaPluginId),
+			).toEqual({ ...payload, properties: {} });
+			expect(yield* redactAutomationHistoryPayload(payload, signalManifest, null)).toEqual({
+				...payload,
+				properties: {},
+			});
+			expect(payload.properties).toMatchObject({ password: "hidden" });
+		}),
 );
 
-unit("redacts mutation snapshots and parent population properties with their own schemas", () => {
-	const pinned: PluginManifest = {
-		...fixture,
-		entitySchemas: fixture.entitySchemas.map((entity) =>
-			Object.assign({}, entity, {
-				propertiesSchema: {
-					fields: {
-						count: { type: "number", label: "Count", description: "Counter" },
-						token: { secret: true, type: "string", label: "Token", description: "Secret token" },
-					},
-				} satisfies AppSchema,
-			}),
-		),
-	};
-	const snapshot = {
-		id: "entity",
-		name: "Item",
-		externalId: null,
-		providerId: null,
-		populatedAt: null,
-		entitySchemaPluginId: null,
-		entitySchemaSlug: "fixture-entity",
-		createdAt: "2026-09-15T00:00:00.000Z",
-		updatedAt: "2026-09-15T00:00:00.000Z",
-		properties: { count: 2, token: "hidden" },
-	};
-	const item = {
-		after: snapshot,
-		before: snapshot,
-		category: "change",
-		resource: "entity",
-		operation: "update",
-	} as const;
-	const population = {
-		rootPreviouslyPopulated: true,
-		scopeEntity: {
-			id: "entity",
-			name: "Item",
-			entitySchemaPluginId: null,
-			entitySchemaSlug: "fixture-entity",
-		},
-		parentEntity: {
-			name: "Parent",
-			entitySchemaPluginId: null,
-			entitySchemaSlug: "fixture-entity",
-			properties: { count: 1, token: "hidden" },
-		},
-	};
-	const payload = Schema.decodeSync(AutomationTriggerPayload)({ ...item, population });
-	expect(redactAutomationHistoryPayload(payload, pinned, null)).toMatchObject({
-		after: { properties: { count: 2 } },
-		before: { properties: { count: 2 } },
-		population: { parentEntity: { properties: { count: 1 } } },
-	});
-	expect(JSON.stringify(redactAutomationHistoryPayload(payload, pinned, null))).not.toContain(
-		"hidden",
-	);
-	const batch = Schema.decodeSync(AutomationTriggerPayload)({
-		category: "change",
-		resource: "entity",
-		operation: "batch",
-		items: [{ ...item, population }],
-	});
-	expect(redactAutomationHistoryPayload(batch, pinned, null)).toMatchObject({
-		items: [
-			{
+it.effect(
+	"redacts mutation snapshots and parent population properties with their own schemas",
+	() =>
+		Effect.gen(function* () {
+			const pinned: PluginManifest = {
+				...fixture,
+				entitySchemas: fixture.entitySchemas.map((entity) =>
+					Object.assign({}, entity, {
+						propertiesSchema: {
+							fields: {
+								count: { type: "number", label: "Count", description: "Counter" },
+								token: {
+									secret: true,
+									type: "string",
+									label: "Token",
+									description: "Secret token",
+								},
+							},
+						} satisfies AppSchema,
+					}),
+				),
+			};
+			const snapshot = {
+				id: "entity",
+				name: "Item",
+				externalId: null,
+				providerId: null,
+				populatedAt: null,
+				entitySchemaPluginId: null,
+				entitySchemaSlug: "fixture-entity",
+				createdAt: "2026-09-15T00:00:00.000Z",
+				updatedAt: "2026-09-15T00:00:00.000Z",
+				properties: { count: 2, token: "hidden" },
+			};
+			const item = {
+				after: snapshot,
+				before: snapshot,
+				category: "change",
+				resource: "entity",
+				operation: "update",
+			} as const;
+			const population = {
+				rootPreviouslyPopulated: true,
+				scopeEntity: {
+					id: "entity",
+					name: "Item",
+					entitySchemaPluginId: null,
+					entitySchemaSlug: "fixture-entity",
+				},
+				parentEntity: {
+					name: "Parent",
+					entitySchemaPluginId: null,
+					entitySchemaSlug: "fixture-entity",
+					properties: { count: 1, token: "hidden" },
+				},
+			};
+			const payload = yield* Schema.decodeEffect(AutomationTriggerPayload)({ ...item, population });
+			expect(yield* redactAutomationHistoryPayload(payload, pinned, null)).toMatchObject({
 				after: { properties: { count: 2 } },
 				before: { properties: { count: 2 } },
 				population: { parentEntity: { properties: { count: 1 } } },
-			},
-		],
-	});
-	expect(JSON.stringify(redactAutomationHistoryPayload(batch, pinned, null))).not.toContain(
-		"hidden",
-	);
-});
+			});
+			expect(
+				yield* encodeJson(yield* redactAutomationHistoryPayload(payload, pinned, null)),
+			).not.toContain("hidden");
+			const batch = yield* Schema.decodeEffect(AutomationTriggerPayload)({
+				category: "change",
+				resource: "entity",
+				operation: "batch",
+				items: [{ ...item, population }],
+			});
+			expect(yield* redactAutomationHistoryPayload(batch, pinned, null)).toMatchObject({
+				items: [
+					{
+						after: { properties: { count: 2 } },
+						before: { properties: { count: 2 } },
+						population: { parentEntity: { properties: { count: 1 } } },
+					},
+				],
+			});
+			expect(
+				yield* encodeJson(yield* redactAutomationHistoryPayload(batch, pinned, null)),
+			).not.toContain("hidden");
+		}),
+);
 
 describe("AutomationRunRepository", () => {
 	layer(

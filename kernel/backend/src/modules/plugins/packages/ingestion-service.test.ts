@@ -435,9 +435,9 @@ const makeLayer = (input?: {
 							deliverPending: () => Effect.void,
 							all: publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated"),
 							user: (userId: UserId) =>
-								publish(
-									redisKeys.pluginCatalogUserChannel,
-									encodePluginCatalogInvalidatedMessage({ userId }),
+								Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(
+									Effect.orDie,
+									Effect.flatMap((message) => publish(redisKeys.pluginCatalogUserChannel, message)),
 								),
 						};
 					}),

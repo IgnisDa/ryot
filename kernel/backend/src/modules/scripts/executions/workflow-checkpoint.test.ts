@@ -34,7 +34,7 @@ import {
 } from "effect/workflow/WorkflowEngine";
 
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
+import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import { RedisService } from "#platform/redis";
 import { implementWorkflow } from "#platform/workflow/scope";
 import { user } from "#schema/tables/auth";
@@ -89,7 +89,7 @@ const httpDeclaration = {
 	key: "http:api.test",
 	hash: "checkpoint-hash",
 };
-const httpProgress = Schema.decodeSync(SandboxHttpProgress)({
+const httpProgress: SandboxHttpProgress = {
 	attempt: 1,
 	networkAttempt: 2,
 	blockWaitAttempt: 3,
@@ -108,7 +108,7 @@ const httpProgress = Schema.decodeSync(SandboxHttpProgress)({
 			id: "checkpoint-http-ticket",
 		},
 	},
-});
+};
 const httpPending: ScriptInlineProgress = {
 	_tag: "Http",
 	request: httpRequest,

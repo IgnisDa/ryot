@@ -1,7 +1,10 @@
 import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	PluginConfigRevisionId,
+	PluginId,
 	PluginPackageId,
+	PluginRevisionId,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
@@ -47,17 +50,17 @@ const hostWith = (client: HttpClient.HttpClient, classify: SandboxHttpClassify =
 const input = makeUserRunInput();
 const pluginInput = makeUserRunInput({
 	principal: {
-		pluginRevision: Schema.decodeSync(ScriptPluginRevision)({
+		pluginRevision: ScriptPluginRevision.make({
 			ownerId: null,
-			id: "plugin-a",
 			scope: "system",
 			compiledHashes: {},
 			workflowScripts: {},
-			revisionId: "revision-1",
-			configRevisionId: "config-1",
 			configSchema: { fields: {} },
 			userBootstrapScriptSlugs: [],
+			id: PluginId.make("plugin-a"),
+			revisionId: PluginRevisionId.make("revision-1"),
 			packageId: fixtureManifest().metadata.packageId,
+			configRevisionId: PluginConfigRevisionId.make("config-1"),
 			schemaScope: {
 				eventSchemas: [],
 				entitySchemaSlugs: [],

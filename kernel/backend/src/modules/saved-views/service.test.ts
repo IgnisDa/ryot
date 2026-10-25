@@ -24,7 +24,7 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
 
-const encodeSavedViewReferenceJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeSavedViewReferenceJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const user = {
 	image: null,
@@ -159,7 +159,10 @@ const makeLayer = (options: {
 						Layer.mock(PluginInstallationRepository)({
 							listForUser: () => Effect.succeed([]),
 							clearHomeSavedViewReferences: (_userId, reference) =>
-								record(`clear:${encodeSavedViewReferenceJson(reference)}`),
+								encodeSavedViewReferenceJson(reference).pipe(
+									Effect.orDie,
+									Effect.flatMap((json) => record(`clear:${json}`)),
+								),
 						}),
 						Layer.succeed(PluginCatalogInvalidator, {
 							all: Effect.void,
@@ -341,7 +344,7 @@ layer(
 			expect(updated).toEqual({ id: baseView.id });
 			expect(yield* (yield* SavedViewsCalls).events).toEqual([
 				"update",
-				`clear:${encodeSavedViewReferenceJson(baseView.reference)}`,
+				`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
 				"invalidate",
 			]);
 		}),
@@ -380,7 +383,7 @@ layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
 			expect(updated).toEqual({ id: baseView.id });
 			expect(yield* (yield* SavedViewsCalls).events).toEqual([
 				"update",
-				`clear:${encodeSavedViewReferenceJson(baseView.reference)}`,
+				`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
 				"invalidate",
 			]);
 		}),

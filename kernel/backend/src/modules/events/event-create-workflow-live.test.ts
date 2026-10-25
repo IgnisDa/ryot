@@ -216,7 +216,7 @@ const hookRun = (
 ) => {
 	const pluginId = PluginId.make(hook.plugin ?? "plugin");
 	const hookSlug = AutomationHookSlug.make(hook.slug);
-	return Schema.decodeUnknownSync(AutomationRun)({
+	return Schema.decodeUnknownEffect(AutomationRun)({
 		pluginId,
 		hookSlug,
 		queuedAt: now,
@@ -239,7 +239,7 @@ const hookRun = (
 		delivery: hook.stage === "before" ? "policy" : "required",
 		retryPolicy: hook.stage === "before" ? null : DEFAULT_AUTOMATION_RETRY_POLICY,
 		id: lifecycleRunId({ pluginId, hookSlug, triggerId: trigger.id, executionUserId: userId }),
-	});
+	}).pipe(Effect.orDie);
 };
 
 type HarnessState = {
@@ -487,10 +487,12 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											policies: [],
 											wasCreated: true,
 											backgroundJobIds: [],
-											runs: afterHook ? [hookRun(trigger, { slug: "after", stage: "after" })] : [],
+											runs: afterHook
+												? [yield* hookRun(trigger, { slug: "after", stage: "after" })]
+												: [],
 										});
 									}
-									const runs = declarations.map((policy) =>
+									const runs = yield* Effect.forEach(declarations, (policy) =>
 										hookRun(trigger, { stage: "before", slug: policy.slug, plugin: policy.plugin }),
 									);
 									const requestPayload = trigger.payload;
@@ -902,9 +904,9 @@ const run = (input = payload) =>
 					return Effect.die(`Unexpected workflow: ${workflow._tag}`);
 				}
 				const childInstance = WorkflowInstance.initial(PolicyBatchWorkflow, options.executionId);
-				return runPolicyBatchWorkflow(
-					Schema.decodeUnknownSync(PolicyBatchPayload)(options.payload),
-				).pipe(
+				return Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
+					Effect.orDie,
+					Effect.flatMap(runPolicyBatchWorkflow),
 					Effect.onExit((exit) => Scope.close(childInstance.scope, exit)),
 					Effect.provideService(WorkflowEngine, currentEngine),
 					Effect.provideService(WorkflowInstance, childInstance),
@@ -1169,7 +1171,7 @@ layer(
 					index: 0,
 					reason: {
 						code: "policy-execution-failed",
-						runId: hookRun(requestTrigger, { slug: "fail", stage: "before" }).id,
+						runId: (yield* hookRun(requestTrigger, { slug: "fail", stage: "before" })).id,
 					},
 				},
 			});
@@ -1376,7 +1378,7 @@ layer(
 					index: 0,
 					reason: {
 						code: "policy-execution-failed",
-						runId: hookRun(requestTrigger, { slug: "policy", stage: "before" }).id,
+						runId: (yield* hookRun(requestTrigger, { slug: "policy", stage: "before" })).id,
 					},
 				},
 			});
@@ -1855,7 +1857,7 @@ layer(
 	);
 });
 
-const revokedPrincipal = Schema.decodeSync(ScriptExecutionPrincipal)({
+const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 	providerId: null,
 	contentHash: "hash",
 	scriptSlug: "script",
@@ -1901,7 +1903,7 @@ const revokedPrincipal = Schema.decodeSync(ScriptExecutionPrincipal)({
 			initiator: { id: null, kind: "system" },
 		},
 	},
-});
+}).pipe(Effect.orDie);
 
 layer(harnessLayer({ noHooks: true }))((test) => {
 	test.effect("fails a chunk with the principal-owner check error of a revoked plugin", () =>
@@ -1912,7 +1914,7 @@ layer(harnessLayer({ noHooks: true }))((test) => {
 					run({
 						...payload,
 						payload: ratedItems([1, 2]),
-						command: { ...command, writeContext: revokedPrincipal },
+						command: { ...command, writeContext: yield* revokedPrincipal },
 					}),
 				),
 				new DbError({ message: "Pinned domain write authority is unavailable" }),

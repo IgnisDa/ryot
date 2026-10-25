@@ -602,12 +602,8 @@ const snapshotFields = {
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
 };
-const deletePlan = (id: string, resource: "event" | "relationship"): LifecyclePlan => ({
-	runs: [],
-	policies: [],
-	wasCreated: true,
-	backgroundJobIds: [],
-	trigger: Schema.decodeUnknownSync(AutomationTrigger)({
+const deletePlan = (id: string, resource: "event" | "relationship"): Effect.Effect<LifecyclePlan> =>
+	Schema.decodeUnknownEffect(AutomationTrigger)({
 		...triggerFixture(id),
 		kind: { resource, category: "change", operation: "delete" },
 		payload: {
@@ -636,10 +632,21 @@ const deletePlan = (id: string, resource: "event" | "relationship"): LifecyclePl
 							relationshipSchemaSlug: "relationship-schema",
 						},
 		},
-	}),
-});
+	}).pipe(
+		Effect.orDie,
+		Effect.map((trigger) => ({
+			trigger,
+			runs: [],
+			policies: [],
+			wasCreated: true,
+			backgroundJobIds: [],
+		})),
+	);
 
-const eventPlans = [deletePlan("event-trigger-1", "event"), deletePlan("event-trigger-2", "event")];
+const eventPlans = Effect.all([
+	deletePlan("event-trigger-1", "event"),
+	deletePlan("event-trigger-2", "event"),
+]);
 const relationshipPlan = deletePlan("relationship-trigger", "relationship");
 const eventWarning = {
 	code: "required-hook-pending" as const,
@@ -684,7 +691,7 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					yield* call("persist:relationship");
 					return {
 						result: persistedRelationship,
-						dispatch: [toLifecycleDispatchPlan(relationshipPlan)],
+						dispatch: [toLifecycleDispatchPlan(yield* relationshipPlan)],
 					};
 				}),
 		}),
@@ -710,7 +717,7 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					expect(yield* session.isTransactionActive).toBe(true);
 					yield* call("persist:event");
 					const persisted = callsOf(yield* recorded).filter((value) => value === "persist:event");
-					const plan = eventPlans[persisted.length - 1];
+					const plan = (yield* eventPlans)[persisted.length - 1];
 					assert(plan);
 					return { result: EventId.make("event-1"), dispatch: [toLifecycleDispatchPlan(plan)] };
 				}),
@@ -723,8 +730,11 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 					const calls = callsOf(yield* recorded);
 					const plans =
 						input.resource === "event"
-							? eventPlans.slice(0, calls.filter((value) => value === "persist:event").length)
-							: [relationshipPlan].slice(
+							? (yield* eventPlans).slice(
+									0,
+									calls.filter((value) => value === "persist:event").length,
+								)
+							: [yield* relationshipPlan].slice(
 									0,
 									calls.filter((value) => value === "persist:relationship").length,
 								);
@@ -736,18 +746,20 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 							? [{ payload, scopeUserId: trigger.scopeUserId }]
 							: [];
 					});
-					return yield* Effect.forEach(lifecycleBatchTriggers(input, 200, changes), (trigger) =>
-						record({ trigger, kind: "batch" }).pipe(
-							Effect.as(
-								toLifecycleDispatchPlan({
-									trigger,
-									runs: [],
-									policies: [],
-									wasCreated: true,
-									backgroundJobIds: [],
-								}),
+					return yield* Effect.forEach(
+						yield* lifecycleBatchTriggers(input, 200, changes),
+						(trigger) =>
+							record({ trigger, kind: "batch" }).pipe(
+								Effect.as(
+									toLifecycleDispatchPlan({
+										trigger,
+										runs: [],
+										policies: [],
+										wasCreated: true,
+										backgroundJobIds: [],
+									}),
+								),
 							),
-						),
 					);
 				}),
 		}),

@@ -7,7 +7,7 @@ import {
 	AutomationRunAttempt,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, EntityId } from "@ryot-app/contract/schema/brands";
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Struct } from "effect";
 import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#boot/workflow-engine";
@@ -27,6 +27,8 @@ export const AutomationAttemptResult = Schema.Struct({
 	workflowExecutionId: AutomationRunAttempt.fields.workflowExecutionId,
 });
 export type AutomationAttemptResult = typeof AutomationAttemptResult.Type;
+export const automationAttemptResult = (attempt: AutomationRunAttempt): AutomationAttemptResult =>
+	Struct.pick(attempt, Struct.keys(AutomationAttemptResult.fields));
 export const AutomationPolicyRunOutput = Schema.Union([
 	AutomationPolicyOutput,
 	AutomationPolicyBatchOutput,
@@ -73,10 +75,7 @@ export const settledAutomationRunResult = (
 					),
 				)
 			: Effect.succeed(null),
-		(policyOutput) => ({
-			policyOutput,
-			attempt: Schema.decodeSync(AutomationAttemptResult)(attempt),
-		}),
+		(policyOutput) => ({ policyOutput, attempt: automationAttemptResult(attempt) }),
 	);
 
 export const AutomationRunSettlement = Schema.Union([

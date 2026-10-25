@@ -49,7 +49,7 @@ const userId = UserId.make("owner");
 const callerSlug = "durable-user-work.task";
 const targetSlug = "durable-user-work.worker";
 
-const userWorkPackage = () => {
+const userWorkPackage = Effect.fnUntraced(function* () {
 	const value = revisionPackage("durable-user-work");
 	const caller = value.scripts.find(({ slug }) => slug === callerSlug);
 	assert(caller?.metadata.kind === "script");
@@ -65,7 +65,7 @@ const userWorkPackage = () => {
 		capabilities: [],
 		executableDependencies: [],
 	};
-	const manifest = Schema.decodeSync(PluginManifest)({
+	const manifest = yield* Schema.decodeEffect(PluginManifest)({
 		...value.manifest,
 		scripts: [
 			...value.manifest.scripts.map((script) =>
@@ -73,7 +73,7 @@ const userWorkPackage = () => {
 			),
 			{ ...targetMetadata, entry: "backend/worker.sandbox.ts" },
 		],
-	});
+	}).pipe(Effect.orDie);
 	return {
 		...value,
 		manifest,
@@ -94,7 +94,7 @@ const userWorkPackage = () => {
 			},
 		],
 	};
-};
+});
 
 type UserSubject = Extract<SandboxExecutionSubject, { readonly type: "user" }>;
 
@@ -116,7 +116,7 @@ const userWorkDatabaseLayer = () =>
 	Layer.effect(
 		UserWorkFixture,
 		Effect.gen(function* () {
-			const installed = yield* installRevisionPackage(userWorkPackage(), userId);
+			const installed = yield* installRevisionPackage(yield* userWorkPackage(), userId);
 			const session = yield* DatabaseSession;
 			const scripts = yield* session.run((db) =>
 				db

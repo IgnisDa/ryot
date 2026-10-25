@@ -585,7 +585,7 @@ export const makeRelationshipMutationPrimitives = ({
 		};
 		const plan = yield* planner.plan({
 			writeContext: command.writeContext,
-			trigger: lifecycleTrigger(
+			trigger: yield* lifecycleTrigger(
 				{
 					...command,
 					causation: {

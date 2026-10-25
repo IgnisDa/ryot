@@ -10,7 +10,7 @@ import { Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
 import { kernelScripts } from "../src/modules/definitions/kernel-source";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const sandboxSource = (file: string) => file.endsWith(".sandbox.ts");
 
@@ -53,7 +53,7 @@ const embedKernelScripts = (kernelDirectory: string, scripts: Readonly<Record<st
 		});
 		yield* fs.writeFileString(
 			path.join(registryDirectory, "kernel-scripts.compiled.generated.ts"),
-			`export const kernelScriptCompiledOutputs = ${encodeJson(outputs)} as const;\n`,
+			`export const kernelScriptCompiledOutputs = ${yield* encodeJson(outputs)} as const;\n`,
 		);
 		yield* Effect.logInfo("Embedded kernel sandbox scripts");
 	});

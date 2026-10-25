@@ -4,9 +4,20 @@ import {
 	type AutomationWarning,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	AutomationHookSlug,
+	AutomationRunId,
+	AutomationTriggerId,
+	ImportRunId,
+	IntegrationId,
+	type PluginId,
+	SandboxScriptId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer } from "effect";
 
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -86,7 +97,7 @@ export const withLifecycleBatchPlanning = (
 					.splice(0)
 					.filter(({ executionId }) => executionId === input.command.causation.executionId);
 				const planned = yield* Effect.forEach(
-					lifecycleBatchTriggers(input, maxItems, relevant),
+					yield* lifecycleBatchTriggers(input, maxItems, relevant),
 					(trigger) =>
 						planner
 							.plan({ trigger })
@@ -146,8 +157,7 @@ export const planFixture = (id: string): LifecyclePlan => ({
 });
 
 export const queuedRunFixture = (id: string) =>
-	Schema.decodeSync(AutomationRun)({
-		id,
+	AutomationRun.make({
 		stage: "after",
 		pluginId: null,
 		attemptCount: 0,
@@ -156,27 +166,28 @@ export const queuedRunFixture = (id: string) =>
 		finishedAt: null,
 		skipReason: null,
 		delivery: "async",
-		hookSlug: "fixture",
 		hookName: "Fixture",
 		nextAttemptAt: null,
 		executionUserId: null,
 		scriptSlug: "fixture",
 		pluginRevisionId: null,
-		triggerId: "trigger-test",
+		id: AutomationRunId.make(id),
 		pluginConfigRevisionId: null,
-		sandboxScriptId: "fixture-script",
 		scriptContentHash: "fixture-hash",
 		queuedAt: "2026-09-15T00:00:00.000Z",
+		hookSlug: AutomationHookSlug.make("fixture"),
 		retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
 		artifactsExpireAt: "2026-09-22T00:00:00.000Z",
+		triggerId: AutomationTriggerId.make("trigger-test"),
+		sandboxScriptId: SandboxScriptId.make("fixture-script"),
 	});
 
 export const triggerFixture = (id = "trigger-test", signalSchemaPluginId: null | PluginId = null) =>
-	Schema.decodeSync(AutomationTrigger)({
-		id,
+	AutomationTrigger.make({
 		scopeUserId: null,
 		blockedReason: null,
 		payloadPrunedAt: null,
+		id: AutomationTriggerId.make(id),
 		createdAt: "2026-09-15T00:00:00.000Z",
 		occurredAt: "2026-09-15T00:00:00.000Z",
 		kind: { operation: "emit", category: "signal", resource: "signal" },
@@ -184,10 +195,10 @@ export const triggerFixture = (id = "trigger-test", signalSchemaPluginId: null |
 			operation: "emit",
 			category: "signal",
 			resource: "signal",
-			actorUserId: "owner",
 			signalSchemaPluginId,
-			signalSchemaSlug: "fixture.signal",
+			actorUserId: UserId.make("owner"),
 			properties: { nested: { a: 1, b: 2 } },
+			signalSchemaSlug: SignalSchemaSlug.make("fixture.signal"),
 		},
 		causation: {
 			depth: 0,
@@ -195,11 +206,11 @@ export const triggerFixture = (id = "trigger-test", signalSchemaPluginId: null |
 			parentRunId: null,
 			lane: "interactive",
 			parentTriggerId: null,
-			importRunId: "import",
-			executionId: "command",
-			rootExecutionId: "command",
-			integrationId: "integration",
-			providerExecutionId: "provider",
-			initiator: { id: "owner", kind: "user" },
+			importRunId: ImportRunId.make("import"),
+			integrationId: IntegrationId.make("integration"),
+			executionId: AutomationExecutionId.make("command"),
+			initiator: { kind: "user", id: UserId.make("owner") },
+			rootExecutionId: AutomationExecutionId.make("command"),
+			providerExecutionId: AutomationExecutionId.make("provider"),
 		},
 	});

@@ -704,7 +704,7 @@ const httpDispatchLayer = (options: {
 		}),
 	);
 
-const decodeHttpProgress = Schema.decodeUnknownSync(SandboxHttpProgress);
+const decodeHttpProgress = Schema.decodeUnknownEffect(SandboxHttpProgress);
 
 const runHttpDispatch = (
 	url = `${providerOrigin}/private?token=secret`,
@@ -823,7 +823,11 @@ describe("live HTTP settlement admits each matched hop", () => {
 				const progress = deferred.pending.at(-1);
 				assert(progress?._tag === "Http");
 				expect(
-					yield* runHttpDispatch(undefined, undefined, decodeHttpProgress(progress.progress)),
+					yield* runHttpDispatch(
+						undefined,
+						undefined,
+						yield* decodeHttpProgress(progress.progress),
+					),
 				).toMatchObject({ state: "success" });
 				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
 					ticketId(0, 0),
@@ -906,7 +910,11 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 					current: { hop: 1, url: `${nextOrigin}/target` },
 				});
 				expect(
-					yield* runHttpDispatch(undefined, undefined, decodeHttpProgress(progress.progress)),
+					yield* runHttpDispatch(
+						undefined,
+						undefined,
+						yield* decodeHttpProgress(progress.progress),
+					),
 				).toMatchObject({ state: "success" });
 				expect(httpEvents(yield* harness.events)).toEqual([
 					`http:GET ${providerOrigin}/private?token=secret`,
@@ -933,7 +941,11 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 					phase: { blockedUntilMs: 2_000, _tag: "WaitingForRateLimitBlock" },
 				});
 				expect(
-					yield* runHttpDispatch(undefined, undefined, decodeHttpProgress(progress.progress)),
+					yield* runHttpDispatch(
+						undefined,
+						undefined,
+						yield* decodeHttpProgress(progress.progress),
+					),
 				).toMatchObject({ state: "success" });
 				expect(withPrefix(yield* harness.events, "block:")).toEqual(["block:2000"]);
 				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
@@ -966,7 +978,11 @@ describe("live HTTP settlement preserves redirect and retry semantics", () => {
 				});
 				expect(httpEvents(yield* harness.events)).toHaveLength(1);
 				expect(
-					yield* runHttpDispatch(undefined, undefined, decodeHttpProgress(progress.progress)),
+					yield* runHttpDispatch(
+						undefined,
+						undefined,
+						yield* decodeHttpProgress(progress.progress),
+					),
 				).toMatchObject({ state: "success" });
 				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
 					ticketId(0, 0),
@@ -1077,7 +1093,7 @@ describe("HTTP continuation phase transitions", () => {
 					attempt: 1,
 					phase: { _tag: "Admitting", rateLimit: { error: { message: "HTTP 429" } } },
 				});
-				const progress = decodeHttpProgress(retained.progress);
+				const progress = yield* decodeHttpProgress(retained.progress);
 				expect(yield* runHttpDispatch(undefined, undefined, progress)).toEqual(
 					progress.phase.rateLimit,
 				);
@@ -1098,7 +1114,7 @@ describe("HTTP continuation phase transitions", () => {
 					const deferred = yield* runInlineHttp();
 					const retained = deferred.pending.at(-1);
 					assert(retained?._tag === "Http");
-					const progress = decodeHttpProgress(retained.progress);
+					const progress = yield* decodeHttpProgress(retained.progress);
 					assert(progress.phase._tag === "WaitingForRateLimitBlock");
 					yield* TestClock.adjust(Duration.millis(elapsedMs));
 					expect(yield* runHttpDispatch(undefined, undefined, progress)).toEqual(
@@ -1156,7 +1172,7 @@ describe("prepared HTTP hops survive redirect handoff", () => {
 				const deferred = yield* runInlineHttp(url, args);
 				const retained = deferred.pending.at(-1);
 				assert(retained?._tag === "Http");
-				const progress = decodeHttpProgress(retained.progress);
+				const progress = yield* decodeHttpProgress(retained.progress);
 				expect(progress.current).toMatchObject({
 					hop: 0,
 					method: "POST",
@@ -1218,7 +1234,7 @@ describe("prepared HTTP hops survive redirect handoff", () => {
 						const deferred = yield* runInlineHttp(source, args);
 						const retained = deferred.pending.at(-1);
 						assert(retained?._tag === "Http");
-						const progress = decodeHttpProgress(retained.progress);
+						const progress = yield* decodeHttpProgress(retained.progress);
 						const rewrite = status === 301 || status === 302 || status === 303;
 						expect(retained.progress).toMatchObject({
 							phase: { rateLimit: null, _tag: "Admitting" },

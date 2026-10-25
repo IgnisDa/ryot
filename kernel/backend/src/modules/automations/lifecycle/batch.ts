@@ -5,12 +5,12 @@ import {
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "./command";
 import type { LifecycleBatchChange, LifecycleBatchInput } from "./planning";
 
-const batchPayload = Schema.decodeUnknownSync(AutomationBatchChangePayload);
+const decodeBatchPayload = Schema.decodeUnknownEffect(AutomationBatchChangePayload);
 
 // Half the sandbox context limit leaves room for the invocation envelope and hook metadata.
 const BATCH_PAYLOAD_BYTES = SANDBOX_LIMITS.execution.contextBytes / 2;
@@ -41,11 +41,11 @@ const chunkItems = <Item>(
  * respect both the item cap and the sandbox input budget; boundaries follow the caller's plan
  * order, so a replayed command reuses the same trigger ids.
  */
-export const lifecycleBatchTriggers = (
+export const lifecycleBatchTriggers = Effect.fnUntraced(function* (
 	input: LifecycleBatchInput,
 	maxItems: number,
 	changes: ReadonlyArray<LifecycleBatchChange>,
-): ReadonlyArray<AutomationTrigger> => {
+): Effect.fn.Return<ReadonlyArray<AutomationTrigger>> {
 	const triggers: AutomationTrigger[] = [];
 	const scopes = [...new Set(changes.map(({ scopeUserId }) => scopeUserId))].sort((left, right) =>
 		(left ?? "").localeCompare(right ?? ""),
@@ -66,15 +66,9 @@ export const lifecycleBatchTriggers = (
 			.filter(({ resource }) => resource === input.resource);
 		const chunks = chunkItems(items, maxItems, jsonByteLength({ ...base, items: [] }) ?? 0);
 		for (const [chunkIndex, chunk] of chunks.entries()) {
-			triggers.push(
-				lifecycleTrigger(
-					command,
-					scopeUserId,
-					batchPayload({ ...base, items: chunk }),
-					`batch:${chunkIndex}`,
-				),
-			);
+			const payload = yield* decodeBatchPayload({ ...base, items: chunk }).pipe(Effect.orDie);
+			triggers.push(yield* lifecycleTrigger(command, scopeUserId, payload, `batch:${chunkIndex}`));
 		}
 	}
 	return triggers;
-};
+});

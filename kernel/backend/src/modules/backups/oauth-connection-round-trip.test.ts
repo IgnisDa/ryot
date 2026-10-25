@@ -129,7 +129,7 @@ const roundTripLayer = Layer.mergeAll(
 	),
 );
 
-const archiveText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const archiveText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 layer(roundTripLayer)((test) => {
 	test.effect(
@@ -227,7 +227,7 @@ layer(roundTripLayer)((test) => {
 					`/integrations/${integrationId}/providerSpecifics/account`,
 				);
 				expect(
-					archiveText({ records: validated.records, manifest: validated.manifest }),
+					yield* archiveText({ records: validated.records, manifest: validated.manifest }),
 				).not.toMatch(
 					new RegExp(
 						`${connectionId}|${secret}|backup-access-token|backup-refresh-token|backup-auth-code|client-secret-1`,

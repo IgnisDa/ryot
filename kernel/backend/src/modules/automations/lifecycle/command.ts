@@ -18,7 +18,7 @@ import type {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { lifecycleTriggerId } from "./planning";
 
@@ -113,17 +113,19 @@ export const rootLifecycleCommand = (
 	accountGeneration: input.accountGeneration,
 });
 
-export const lifecycleTrigger = (
+const decodeTriggerKind = Schema.decodeUnknownEffect(AutomationTriggerKind);
+
+export const lifecycleTrigger = Effect.fnUntraced(function* (
 	command: LifecycleCommand,
 	scopeUserId: null | UserId,
 	payload: AutomationTriggerPayload,
-	discriminator = "lifecycle",
-): AutomationTrigger => {
-	const kind = Schema.decodeUnknownSync(AutomationTriggerKind)({
+	discriminator?: string,
+): Effect.fn.Return<AutomationTrigger> {
+	const kind = yield* decodeTriggerKind({
 		category: payload.category,
 		resource: payload.resource,
 		operation: payload.operation,
-	});
+	}).pipe(Effect.orDie);
 
 	return {
 		kind,
@@ -136,9 +138,9 @@ export const lifecycleTrigger = (
 		occurredAt: command.occurredAt,
 		id: lifecycleTriggerId({
 			kind,
-			discriminator,
 			itemIdentity: command.itemIdentity,
 			executionId: command.causation.executionId,
+			discriminator: discriminator ?? "lifecycle",
 		}),
 	};
-};
+});

@@ -230,6 +230,8 @@ const definitionLookups = (
 	),
 });
 
+const storedJsonObject = (value: unknown) => decodeArchiveJsonObject(value).pipe(Effect.orDie);
+
 const toArchiveEntity = Effect.fn(function* (
 	entity: PortableEntityRecord,
 	pluginKeyById: ReadonlyMap<string, string>,
@@ -245,7 +247,7 @@ const toArchiveEntity = Effect.fn(function* (
 		updatedAt: entity.updatedAt.toISOString(),
 		entitySchemaSlug: entity.entitySchemaSlug,
 		populatedAt: entity.populatedAt?.toISOString() ?? null,
-		properties: decodeArchiveJsonObject(entity.properties),
+		properties: yield* storedJsonObject(entity.properties),
 		entitySchemaPluginKey: entity.entitySchemaPluginId
 			? yield* requirePluginKey(pluginKeyById, entity.entitySchemaPluginId)
 			: null,
@@ -463,16 +465,22 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							return {
 								...(yield* toArchiveEntity(entity, pluginKeyById)),
 								identity: yield* dependencyIdentity(entity, pluginKeyById),
-								translations: (translationsByEntity.get(entity.id) ?? []).map((translation) => ({
-									name: translation.name,
-									language: translation.language,
-									createdAt: translation.createdAt.toISOString(),
-									updatedAt: translation.updatedAt.toISOString(),
-									populatedAt: translation.populatedAt?.toISOString() ?? null,
-									properties: translation.properties
-										? decodeArchiveJsonObject(translation.properties)
-										: null,
-								})),
+								translations: yield* Effect.forEach(
+									translationsByEntity.get(entity.id) ?? [],
+									(translation) =>
+										Effect.gen(function* () {
+											return {
+												name: translation.name,
+												language: translation.language,
+												createdAt: translation.createdAt.toISOString(),
+												updatedAt: translation.updatedAt.toISOString(),
+												populatedAt: translation.populatedAt?.toISOString() ?? null,
+												properties: translation.properties
+													? yield* storedJsonObject(translation.properties)
+													: null,
+											};
+										}),
+								),
 							} satisfies ArchiveEntityDependency;
 						}),
 				);
@@ -487,7 +495,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								targetEntityId: relationship.targetEntityId,
 								createdAt: relationship.createdAt.toISOString(),
 								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-								properties: decodeArchiveJsonObject(relationship.properties),
+								properties: yield* storedJsonObject(relationship.properties),
 								relationshipSchemaPluginKey: relationship.relationshipSchemaPluginId
 									? yield* requirePluginKey(pluginKeyById, relationship.relationshipSchemaPluginId)
 									: null,
@@ -672,10 +680,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
 								incompatibilityReason: state.incompatibilityReason,
-								userSettings: decodeArchiveJsonObject(state.userSettings),
+								userSettings: yield* storedJsonObject(state.userSettings),
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isHidden),
-								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
+								config: plugin?.scope === "system" ? {} : yield* storedJsonObject(state.config),
 								homeSavedView:
 									state.homeSavedView?.kind === "plugin"
 										? {
@@ -712,7 +720,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								createdAt: integration.createdAt.toISOString(),
 								updatedAt: integration.updatedAt.toISOString(),
 								lastFinishedAt: integration.lastFinishedAt?.toISOString() ?? null,
-								providerSpecifics: decodeArchiveJsonObject(integration.providerSpecifics),
+								providerSpecifics: yield* storedJsonObject(integration.providerSpecifics),
 								packageKey: installation
 									? yield* requirePluginKey(pluginKeyById, installation.pluginId)
 									: null,
@@ -815,7 +823,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							createdAt: row.createdAt.toISOString(),
 							updatedAt: row.updatedAt.toISOString(),
 							occurredAt: row.occurredAt.toISOString(),
-							properties: decodeArchiveJsonObject(row.properties),
+							properties: yield* storedJsonObject(row.properties),
 							orderCreatedAt: (row.orderCreatedAt ?? row.createdAt).toISOString(),
 							eventSchemaPluginKey: row.eventSchemaPluginId
 								? yield* requirePluginKey(input.pluginKeyById, row.eventSchemaPluginId)
@@ -967,7 +975,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						path: string,
 					) {
 						const redacted = redactSchemaSecrets(
-							decodeArchiveJsonObject(properties),
+							yield* storedJsonObject(properties),
 							propertiesSchema,
 							path,
 						);

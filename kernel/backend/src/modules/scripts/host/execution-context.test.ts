@@ -35,14 +35,16 @@ it.effect("propagates trusted suppression without changing write authority or ca
 	}),
 );
 
-it("refuses authored authority fields at public script and user-work boundaries", () => {
-	expect(() =>
-		Schema.decodeUnknownSync(EnqueueSandboxBody)({ scriptId: "script", afterHooks: "skip" }),
-	).toThrow();
-	expect(() =>
-		Schema.decodeUnknownSync(requestUserWorkArgsSchema)([
-			{ input: {}, key: "key", scope: "scope", afterHooks: "skip" },
-			{ scriptSlug: "worker", referenceKind: "script" },
-		]),
-	).toThrow();
-});
+it.effect("refuses authored authority fields at public script and user-work boundaries", () =>
+	Effect.gen(function* () {
+		yield* Effect.flip(
+			Schema.decodeUnknownEffect(EnqueueSandboxBody)({ scriptId: "script", afterHooks: "skip" }),
+		);
+		yield* Effect.flip(
+			Schema.decodeUnknownEffect(requestUserWorkArgsSchema)([
+				{ input: {}, key: "key", scope: "scope", afterHooks: "skip" },
+				{ scriptSlug: "worker", referenceKind: "script" },
+			]),
+		);
+	}),
+);
