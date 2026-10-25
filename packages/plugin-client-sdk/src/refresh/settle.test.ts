@@ -10,15 +10,14 @@ const scheduleLayer = Layer.provide(RyotScheduleService.layer, SecureRandom.laye
 
 describe("createSettleTracker", () => {
 	layer(scheduleLayer)((test) => {
-		test.effect("does not mark projection refreshes as population settling", () =>
+		test.effect("does not mark failure or progress updates as population settling", () =>
 			Effect.gen(function* () {
 				const schedule = yield* RyotScheduleService;
 				const tracker = createSettleTracker(schedule, 900);
 				tracker.stage({ entityId: "a", reason: "populated" });
 				tracker.commit();
 				yield* advanceRyotSchedule(600);
-				tracker.stage({ entityId: "a", reason: "projection-updated" });
-				tracker.stage({ entityId: "b", reason: "projection-updated" });
+				tracker.stage({ entityId: "b", reason: "population-failed" });
 				tracker.stage({ entityId: "a", reason: "enrichment-updated" });
 				tracker.stage({ entityId: "c", reason: "enrichment-updated" });
 				tracker.commit();

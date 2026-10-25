@@ -1,6 +1,6 @@
 # Entity Interest
 
-Entity interest lets authenticated clients declare which entities are visible and receive population, translation, or projection completion hints. Reads remain side-effect-free; pending interest drives background work.
+Entity interest lets authenticated clients declare which entities are visible and receive population and translation completion hints. The same socket carries user-scoped projection completion hints. Reads remain side-effect-free; pending interest drives background work.
 
 ## Transport
 
@@ -22,13 +22,14 @@ Client frames:
 
 Server frames:
 
-| `type`           | Fields                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `ready`          | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                                                  |
-| `applied`        | `revision`                                                                                                          |
-| `rejected`       | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                                       |
-| `entity-updated` | `entityId`, `reason`: `populated`, `translated`, `population-failed`, `projection-updated`, or `enrichment-updated` |
-| `ping`           | `nonce`                                                                                                             |
+| `type`                | Fields                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `ready`               | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                            |
+| `applied`             | `revision`                                                                                    |
+| `rejected`            | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                 |
+| `entity-updated`      | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `enrichment-updated` |
+| `projections-updated` | none                                                                                          |
+| `ping`                | `nonce`                                                                                       |
 
 After `ready`, send a complete `replace` at revision 1. Each later `replace` increments the current revision by one and carries both complete sets. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
 
@@ -42,7 +43,7 @@ Priority chooses the population level. Pending interest requests `base` when vis
 
 Population and translation failures appear in their status objects. Reconciliation returns `enrichment-updated` for status refresh rather than treating missing data as proof of an active or terminal population. Translated still wins when completion hints coalesce.
 
-`projection-updated` refreshes computed results after completion or failure. Its internal publication includes the owning user ID, so a shared source entity never sends one user's processing state to another user's session. Public frames omit that ID. Projection hints do not complete population progression or start population settling indicators; pending-result queries also refresh while processing to recover from missed hints.
+`projections-updated` is sent to every session of a user after one of that user's event-stream or relationship projection steps completes or fails, independent of entity interest, because aggregate reads cannot declare the entities they cover. Event-stream and relationship projection workers publish the user ID on the non-durable `ryot:projections:updated` channel; each backend writes the frame to its local sessions for that user, and a session coalesces pending frames into one. Clients refresh their open queries on this frame and after every reconnect, which recovers a missed publication.
 
 ## Lifetime And Delivery
 

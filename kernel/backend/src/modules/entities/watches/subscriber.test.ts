@@ -2,10 +2,10 @@ import { expect, layer } from "@effect/vitest";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { derivedFake } from "@ryot-app/testing/fakes";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 import Redis from "ioredis";
 
-import { RedisService } from "#platform/redis";
+import { ProjectionsUpdatedMessage, RedisService } from "#platform/redis";
 import { databaseLayer, makeRedisService } from "#testing/effect";
 
 import { LocalInterestSessions } from "./connections";
@@ -103,7 +103,7 @@ layer(subscriberLayer({ watching: ["session-1", "remote-session"] }))((test) => 
 			const sessions = yield* LocalInterestSessions;
 			const interestSubscriber = yield* EntityWatchSubscriber;
 			const frames: unknown[] = [];
-			yield* sessions.add("session-1", (frame) => frames.push(frame));
+			yield* sessions.add("session-1", UserId.make("user-1"), (frame) => frames.push(frame));
 
 			yield* interestSubscriber.dispatch("not-json");
 			yield* interestSubscriber.dispatch(
@@ -153,7 +153,7 @@ layer(subscriberLayer({ watching: [] }))((test) => {
 			const sessions = yield* LocalInterestSessions;
 			const interestSubscriber = yield* EntityWatchSubscriber;
 			const frames: unknown[] = [];
-			yield* sessions.add("session-1", (frame) => frames.push(frame));
+			yield* sessions.add("session-1", UserId.make("user-1"), (frame) => frames.push(frame));
 
 			yield* interestSubscriber.dispatch(
 				encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
@@ -177,24 +177,33 @@ layer(
 		sessionUsers: { "owner-session": "owner", "other-session": "other" },
 	}),
 )((test) => {
-	test.effect("routes scoped projection and enrichment updates only to the owning user", () =>
+	test.effect("routes scoped enrichment and projection updates only to the owning user", () =>
 		Effect.gen(function* () {
 			const sessions = yield* LocalInterestSessions;
 			const interestSubscriber = yield* EntityWatchSubscriber;
 			const ownerFrames: unknown[] = [];
 			const otherFrames: unknown[] = [];
-			yield* sessions.add("owner-session", (frame) => ownerFrames.push(frame));
-			yield* sessions.add("other-session", (frame) => otherFrames.push(frame));
+			yield* sessions.add("owner-session", UserId.make("owner"), (frame) =>
+				ownerFrames.push(frame),
+			);
+			yield* sessions.add("other-session", UserId.make("other"), (frame) =>
+				otherFrames.push(frame),
+			);
 
-			for (const reason of ["projection-updated", "enrichment-updated"] as const) {
-				yield* interestSubscriber.dispatch(
-					encodeEntityUpdatedMessage(EntityId.make("global-entity"), reason, UserId.make("owner")),
-				);
-			}
+			yield* interestSubscriber.dispatch(
+				encodeEntityUpdatedMessage(
+					EntityId.make("global-entity"),
+					"enrichment-updated",
+					UserId.make("owner"),
+				),
+			);
+			yield* interestSubscriber.dispatchProjectionsUpdated(
+				yield* Schema.encodeEffect(ProjectionsUpdatedMessage)({ userId: UserId.make("owner") }),
+			);
 
 			expect(ownerFrames).toEqual([
-				{ type: "entity-updated", entityId: "global-entity", reason: "projection-updated" },
 				{ type: "entity-updated", entityId: "global-entity", reason: "enrichment-updated" },
+				{ type: "projections-updated" },
 			]);
 			expect(otherFrames).toEqual([]);
 			expect(yield* (yield* FakeSubscriberDependencies).progressed).toEqual([]);

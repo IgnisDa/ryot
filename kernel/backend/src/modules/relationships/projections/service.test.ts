@@ -33,7 +33,7 @@ import {
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
+import { ProjectionsUpdatedMessage, redisKeys, RedisService } from "#platform/redis";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -182,8 +182,8 @@ const testLayer = Layer.unwrap(
 		const redisLayer = Layer.succeed(
 			RedisService,
 			makeRedisService({
-				publish: (_channel, message) =>
-					Ref.update(hints, (all) => [...all, message]).pipe(Effect.as(0)),
+				publish: (channel, message) =>
+					Ref.update(hints, (all) => [...all, `${channel} ${message}`]).pipe(Effect.as(0)),
 			}),
 		);
 		const dependencies = Layer.mergeAll(
@@ -375,9 +375,9 @@ layer(testLayer)((test) => {
 			expect(
 				(yield* (yield* RelationshipProjectionRepository).get(workId))?.currentJobId,
 			).toBeNull();
-			expect((yield* (yield* ProjectionControls).hints).some((hint) => hint.includes(first))).toBe(
-				true,
-			);
+			expect(yield* (yield* ProjectionControls).hints).toEqual([
+				`${redisKeys.projectionsUpdatedChannel} ${yield* Schema.encodeEffect(ProjectionsUpdatedMessage)({ userId })}`,
+			]);
 		}),
 	);
 });

@@ -789,6 +789,29 @@ describe("entity interest session", () => {
 		}),
 	);
 
+	it.live("notifies projection listeners on projection frames and reconnects", () =>
+		Effect.gen(function* () {
+			const test = setup();
+			let notified = 0;
+			const stop = test.service.onProjectionsUpdated(scope, () => notified++);
+			test.service.onProjectionsUpdated({ ...scope, userId: "other" }, () => notified--);
+			test.service.acquire(scope);
+			yield* Effect.promise(() => settle());
+			test.socket().ready();
+			expect(notified).toBe(0);
+			test.socket().frame({ type: "projections-updated" });
+			expect(notified).toBe(1);
+			test.socket().dispatchEvent(new CloseEvent("close", { code: 4001 }));
+			test.advance(1000);
+			yield* Effect.promise(() => settle());
+			test.socket().ready();
+			expect(notified).toBe(2);
+			stop();
+			test.socket().frame({ type: "projections-updated" });
+			expect(notified).toBe(2);
+		}),
+	);
+
 	it.live.each([
 		{ revision: 5, type: "applied" },
 		{ type: "ready", maxEntityIds: 500, sessionId: "duplicate", heartbeatIntervalMs: 25_000 },

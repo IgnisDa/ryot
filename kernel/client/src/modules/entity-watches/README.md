@@ -2,7 +2,10 @@
 
 `EntityWatchService` is synchronously constructed. `watch` returns a mutable, idempotently
 disposable owner; `acquire` starts the authenticated server/user session and returns its release
-function; `reconnect` affects only the matching active scope.
+function; `reconnect` affects only the matching active scope. `onProjectionsUpdated` registers a
+scope listener that runs on each `projections-updated` frame and on every `ready` after the first
+connection, since a reconnect may have missed frames. The authenticated layout connects it to
+`mutationCompleted.hint`, so open pages refresh computed results.
 
 Owners can declare interest before session acquisition. Scopes compare by `apiScopeKey`. Releasing a
 session clears its owners, and changing scope discards declarations for the previous scope.

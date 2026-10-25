@@ -185,6 +185,8 @@ creation is not offered. The kernel keeps one picker
 open at a time and the page inert while it is open. After a successful import or creation, the host
 sends one narrow `page-refresh` signal. Client pages can register their
 current source refetch with `usePageRefresh`; successful shared mutations use the same refresh registry.
+The host also sends `page-refresh` when the user's projected results change, so queries over computed
+values converge without polling or entity interests.
 
 ## Queries And Mutations
 
@@ -264,8 +266,8 @@ continue, such as wizards, entity-editor creation, and navigation after a save.
 
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns
 `{ update(interest), dispose() }`. The callback receives
-`{ entityId, reason }`, where `reason` is `populated`, `translated`, `population-failed`,
-`enrichment-updated`, or `projection-updated`. Progress and failure updates never start a settle highlight. Disposal is idempotent, suppresses later
+`{ entityId, reason }`, where `reason` is `populated`, `translated`, `population-failed`, or
+`enrichment-updated`. Progress and failure updates never start a settle highlight. Disposal is idempotent, suppresses later
 callbacks, and makes later updates fail with `disposed`. Invalid declarations fail synchronously with
 `invalid-input`, a missing adapter fails with `unsupported-capability`, and transport failures use
 `RyotClientError("transport")`.

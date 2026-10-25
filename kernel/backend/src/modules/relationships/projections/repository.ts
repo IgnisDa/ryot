@@ -244,7 +244,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 			) {
 				yield* requireTransaction;
 				if (updates.length === 0) {
-					return [];
+					return;
 				}
 				const values = sql.join(
 					updates.map(
@@ -253,18 +253,15 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 					),
 					sql`, `,
 				);
-				const rows = yield* session.run((db) =>
-					db.execute<{ sourceEntityId: string }>(
+				yield* session.run((db) =>
+					db.execute(
 						sql`update ${schema.relationshipProjection} p
 							set properties = v.properties, projected_revision = v.revision, updated_at = now()
-							from (values ${values}) as v(relationship_id, revision, properties), ${schema.relationship} r
+							from (values ${values}) as v(relationship_id, revision, properties)
 							where p.relationship_id = v.relationship_id and p.work_id = ${id}
-							and p.revision = v.revision and r.id = p.relationship_id
-							returning r.source_entity_id as "sourceEntityId"`,
-						"objects",
+							and p.revision = v.revision`,
 					),
 				);
-				return [...new Set(rows.map((row) => row.sourceEntityId))];
 			});
 
 			const release = Effect.fn("RelationshipProjectionRepository.release")(function* (

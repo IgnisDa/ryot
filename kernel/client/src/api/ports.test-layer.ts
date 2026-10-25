@@ -39,6 +39,7 @@ export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Se
 		refresh: () => {},
 		reconnect: () => {},
 		acquire: () => () => {},
+		onProjectionsUpdated: () => () => {},
 		watch: () => ({ update: () => {}, dispose: () => {} }),
 		...overrides,
 	});

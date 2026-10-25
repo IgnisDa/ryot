@@ -120,6 +120,15 @@ function AuthenticatedLayout() {
 			),
 		[runtime, serverUrl, userId],
 	);
+	useEffect(
+		() =>
+			runtime.runSync(
+				Effect.map(EntityWatchService, (service) =>
+					service.onProjectionsUpdated({ userId, serverUrl }, ryot.mutationCompleted.hint),
+				),
+			),
+		[runtime, ryot, serverUrl, userId],
+	);
 	return (
 		<KernelRyotProvider client={ryot} store={ryotClients} hostServices={hostServices}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>

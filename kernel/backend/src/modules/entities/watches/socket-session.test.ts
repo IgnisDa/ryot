@@ -197,7 +197,7 @@ const makeLayer = (
 					}),
 					Layer.mock(LocalInterestSessions)({
 						remove: (sessionId) => record(`remove:${sessionId}`),
-						add: (sessionId, _enqueue, revocation) =>
+						add: (sessionId, _userId, _enqueue, revocation) =>
 							record(
 								revocation === undefined
 									? `add:${sessionId}`

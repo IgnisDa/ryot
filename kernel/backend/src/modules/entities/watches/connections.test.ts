@@ -1,10 +1,12 @@
 import { expect, layer } from "@effect/vitest";
 import { NotFound } from "@ryot-app/contract/errors";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
 
 import { type LocalInterestSessionEnqueue, LocalInterestSessions } from "./connections";
+
+const userId = UserId.make("user-1");
 
 const message = {
 	reason: "populated",
@@ -19,7 +21,7 @@ layer(LocalInterestSessions.layer)((test) => {
 			const messages: unknown[] = [];
 			const enqueue: LocalInterestSessionEnqueue = (received) => messages.push(received);
 
-			yield* sessions.add("session-1", enqueue);
+			yield* sessions.add("session-1", userId, enqueue);
 			yield* sessions.enqueue("session-1", message);
 			yield* sessions.enqueue("remote-session", message);
 			yield* sessions.remove("session-1", enqueue);
@@ -39,8 +41,8 @@ layer(LocalInterestSessions.layer)((test) => {
 			const first: LocalInterestSessionEnqueue = (received) => firstMessages.push(received);
 			const second: LocalInterestSessionEnqueue = (received) => secondMessages.push(received);
 
-			yield* sessions.add("session-1", first);
-			const duplicate = yield* Effect.exit(sessions.add("session-1", second));
+			yield* sessions.add("session-1", userId, first);
+			const duplicate = yield* Effect.exit(sessions.add("session-1", userId, second));
 			yield* sessions.enqueue("session-1", message);
 
 			assertExitFails(duplicate, new NotFound({ message: "Unknown session" }));
@@ -59,9 +61,9 @@ layer(LocalInterestSessions.layer)((test) => {
 			const messages: unknown[] = [];
 			const second: LocalInterestSessionEnqueue = (received) => messages.push(received);
 
-			yield* sessions.add("session-1", first);
+			yield* sessions.add("session-1", userId, first);
 			yield* sessions.remove("session-1", first);
-			yield* sessions.add("session-1", second);
+			yield* sessions.add("session-1", userId, second);
 			yield* sessions.remove("session-1", first);
 			yield* sessions.enqueue("session-1", message);
 
@@ -75,15 +77,15 @@ layer(LocalInterestSessions.layer)((test) => {
 		Effect.gen(function* () {
 			const sessions = yield* LocalInterestSessions;
 			const closed: string[] = [];
-			yield* sessions.add("socket-a", () => undefined, {
+			yield* sessions.add("socket-a", userId, () => undefined, {
 				authSessionId: "auth-session-a",
 				close: () => Effect.sync(() => closed.push("socket-a")).pipe(Effect.asVoid),
 			});
-			yield* sessions.add("socket-b", () => undefined, {
+			yield* sessions.add("socket-b", userId, () => undefined, {
 				authSessionId: "auth-session-b",
 				close: () => Effect.sync(() => closed.push("socket-b")).pipe(Effect.asVoid),
 			});
-			yield* sessions.add("socket-normal", () => undefined);
+			yield* sessions.add("socket-normal", userId, () => undefined);
 
 			yield* sessions.closeAuthSession("auth-session-a");
 

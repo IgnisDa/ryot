@@ -1,14 +1,21 @@
 import { notFound } from "@ryot-app/contract/errors";
-import type { EntityWatchEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
+import type {
+	EntityWatchEntityUpdatedMessage,
+	EntityWatchProjectionsUpdatedMessage,
+} from "@ryot-app/contract/modules/entity-watches/messages";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-export type LocalInterestSessionEnqueue = (message: EntityWatchEntityUpdatedMessage) => void;
+export type LocalInterestSessionEnqueue = (
+	message: EntityWatchEntityUpdatedMessage | EntityWatchProjectionsUpdatedMessage,
+) => void;
 type LocalInterestSessionRevocation = {
 	readonly authSessionId: string;
 	readonly close: () => Effect.Effect<void>;
 };
 
 type LocalInterestSession = {
+	readonly userId: UserId;
 	readonly enqueue: LocalInterestSessionEnqueue;
 	readonly revocation?: LocalInterestSessionRevocation;
 };
@@ -20,6 +27,7 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 			const sessions = new Map<string, LocalInterestSession>();
 			const add = (
 				sessionId: string,
+				userId: UserId,
 				enqueue: LocalInterestSessionEnqueue,
 				revocation?: LocalInterestSessionRevocation,
 			) =>
@@ -27,7 +35,11 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 					if (sessions.has(sessionId)) {
 						return false;
 					}
-					sessions.set(sessionId, { enqueue, ...(revocation === undefined ? {} : { revocation }) });
+					sessions.set(sessionId, {
+						userId,
+						enqueue,
+						...(revocation === undefined ? {} : { revocation }),
+					});
 					return true;
 				}).pipe(
 					Effect.flatMap((claimed) =>
@@ -42,6 +54,14 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 				});
 			const enqueue = (sessionId: string, message: EntityWatchEntityUpdatedMessage) =>
 				Effect.sync(() => sessions.get(sessionId)?.enqueue(message));
+			const projectionsUpdated = (userId: UserId) =>
+				Effect.sync(() => {
+					for (const session of sessions.values()) {
+						if (session.userId === userId) {
+							session.enqueue({ type: "projections-updated" });
+						}
+					}
+				});
 			const closeAuthSession = Effect.fn("LocalInterestSessions.closeAuthSession")(function* (
 				authSessionId: string,
 			) {
@@ -54,7 +74,7 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 				yield* Effect.forEach(closeCallbacks, (close) => close(), { discard: true });
 			});
 
-			return { add, remove, enqueue, closeAuthSession };
+			return { add, remove, enqueue, closeAuthSession, projectionsUpdated };
 		}),
 	},
 ) {

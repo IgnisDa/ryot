@@ -7,7 +7,6 @@ export const EntityUpdatedReason = Schema.Literals([
 	"populated",
 	"translated",
 	"population-failed",
-	"projection-updated",
 	"enrichment-updated",
 ]);
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
@@ -116,6 +115,12 @@ export const EntityWatchEntityUpdatedMessage = Schema.Struct({
 });
 export type EntityWatchEntityUpdatedMessage = typeof EntityWatchEntityUpdatedMessage.Type;
 
+/** A refresh hint that computed results changed somewhere in the session user's data. */
+export const EntityWatchProjectionsUpdatedMessage = Schema.Struct({
+	type: Schema.Literal("projections-updated"),
+});
+export type EntityWatchProjectionsUpdatedMessage = typeof EntityWatchProjectionsUpdatedMessage.Type;
+
 export const EntityWatchPingMessage = Schema.Struct({
 	nonce: Schema.String,
 	type: Schema.Literal("ping"),
@@ -136,6 +141,7 @@ export const EntityWatchServerMessage = Schema.Union([
 	EntityWatchAppliedMessage,
 	EntityWatchRejectedMessage,
 	EntityWatchEntityUpdatedMessage,
+	EntityWatchProjectionsUpdatedMessage,
 ]);
 export type EntityWatchServerMessage = typeof EntityWatchServerMessage.Type;
 

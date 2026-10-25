@@ -173,6 +173,6 @@ Admission locks the account before stream state, matching account reset. Dirty-s
 failures are isolated per stream and candidates are keyset-paged, so an unavailable processor cannot
 block healthy streams.
 
-After completed processing or a failure, the service emits a user-scoped `projection-updated` entity
-hint. The hint carries no projection data. Readers refresh from RyotQL and can poll while
-`projectionStatus` is pending.
+After completed processing or a failure, the service publishes a user-scoped projections-updated
+hint (see [entity interest](../entities/watches/README.md)). The hint carries no projection data;
+readers refresh from RyotQL.

@@ -30,6 +30,28 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 			const io = yield* EntityWatchTransport;
 			const runTicket = yield* FiberHandle.makeRuntime<never, never, void>();
 			const declarations = new Map<string, Set<Owner>>();
+			const projectionListeners = new Map<string, Set<() => void>>();
+			const projectionsUpdated = (key: string) => {
+				for (const listener of projectionListeners.get(key) ?? []) {
+					try {
+						listener();
+					} catch {
+						/* A listener must not stop transport. */
+					}
+				}
+			};
+			const onProjectionsUpdated = (scope: ApiScope, listener: () => void) => {
+				const key = apiScopeKey(scope);
+				const listeners = projectionListeners.get(key) ?? new Set();
+				projectionListeners.set(key, listeners);
+				listeners.add(listener);
+				return () => {
+					listeners.delete(listener);
+					if (!listeners.size && projectionListeners.get(key) === listeners) {
+						projectionListeners.delete(key);
+					}
+				};
+			};
 			let active:
 				| undefined
 				| {
@@ -93,6 +115,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				let failures = 0;
 				let revision = 0;
 				let ready = false;
+				let connectedBefore = false;
 				let disposed = false;
 				let heartbeatMs = 90_000;
 				let reportedOverflow = false;
@@ -302,6 +325,10 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 													return;
 												}
 												ready = true;
+												if (connectedBefore) {
+													projectionsUpdated(key);
+												}
+												connectedBefore = true;
 												failures = revision = 0;
 												applied = new Set();
 												appliedForeground = new Set();
@@ -329,6 +356,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 												send({ nonce, type: "pong" });
 											}),
 											Match.when({ type: "rejected" }, failed),
+											Match.when({ type: "projections-updated" }, () => projectionsUpdated(key)),
 											Match.when({ type: "entity-updated" }, (message) => {
 												for (const owner of declarations.get(key) ?? []) {
 													if (!isCurrent()) {
@@ -405,11 +433,13 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				Effect.sync(() => {
 					active?.release();
 					declarations.clear();
+					projectionListeners.clear();
 				}),
 			);
 			return {
 				watch,
 				acquire,
+				onProjectionsUpdated,
 				refresh: (scope: ApiScope) => {
 					if (active?.key === apiScopeKey(scope)) {
 						active.refresh();

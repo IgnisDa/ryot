@@ -6,11 +6,7 @@ export type EntitySettleReason = "populating" | "translating";
 export type EntitySettle = ReadonlyMap<string, EntitySettleReason>;
 
 const settleReason = (reason: EntityUpdate["reason"]): null | EntitySettleReason => {
-	if (
-		reason === "projection-updated" ||
-		reason === "population-failed" ||
-		reason === "enrichment-updated"
-	) {
+	if (reason === "population-failed" || reason === "enrichment-updated") {
 		return null;
 	}
 	return reason === "translated" ? "translating" : "populating";

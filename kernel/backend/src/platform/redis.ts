@@ -1,4 +1,5 @@
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 import Redis from "ioredis";
@@ -15,6 +16,8 @@ export const ImpersonationEndedMessage = Schema.fromJsonString(
 	Schema.Struct({ sessionId: Schema.String }),
 );
 
+export const ProjectionsUpdatedMessage = Schema.fromJsonString(Schema.Struct({ userId: UserId }));
+
 export const WorkflowExecutionNotificationMessage = Schema.fromJsonString(WorkflowIdentity);
 
 export const encodeWorkflowExecutionNotificationMessage = Schema.encodeEffect(
@@ -28,6 +31,7 @@ export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
 	pluginCatalogChannel: "ryot:plugins:catalog",
 	uploadIntentExpiry: "ryot:upload:intents:expiry",
+	projectionsUpdatedChannel: "ryot:projections:updated",
 	pluginCatalogUserChannel: "ryot:plugins:catalog:user",
 	impersonationEndedChannel: "ryot:auth:impersonation-ended",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
@@ -212,3 +216,11 @@ export class RedisService extends Context.Service<RedisService>()(
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+/** A non-durable hint; clients also refresh on reconnect, so a lost publication only delays refresh. */
+export const publishProjectionsUpdated = (redis: RedisService["Service"], userId: UserId) =>
+	Schema.encodeEffect(ProjectionsUpdatedMessage)({ userId }).pipe(
+		Effect.flatMap((message) => redis.publish(redisKeys.projectionsUpdatedChannel, message)),
+		Effect.catchCause((cause) => Effect.logWarning("Projection refresh publication failed", cause)),
+		Effect.asVoid,
+	);

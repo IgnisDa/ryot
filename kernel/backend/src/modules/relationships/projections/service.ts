@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { RelationshipProjectionRequest } from "@ryot-app/contract/modules/relationships/projections";
 import {
@@ -7,12 +6,7 @@ import {
 	RelationshipProjectionStepOutput,
 } from "@ryot-app/contract/modules/relationships/projections";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import {
-	EntityId,
-	RelationshipSchemaSlug,
-	SandboxScriptId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { RelationshipSchemaSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -30,7 +24,7 @@ import { DomainWriteChecks } from "#modules/entities/write-context";
 import { sameRevisionPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
+import { publishProjectionsUpdated, RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
@@ -59,23 +53,6 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const bindings = yield* ProjectionBindings;
 			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
-
-			const publishUpdates = (entityIds: ReadonlyArray<string>, userId: UserId) =>
-				Effect.forEach(
-					entityIds,
-					(entityId) =>
-						redis
-							.publish(
-								redisKeys.entityUpdatedChannel,
-								encodeEntityUpdatedMessage(EntityId.make(entityId), "projection-updated", userId),
-							)
-							.pipe(
-								Effect.catchCause((cause) =>
-									Effect.logWarning("Projection refresh publication failed", cause),
-								),
-							),
-					{ discard: true },
-				);
 
 			const currentBinding = Effect.fn("RelationshipProjectionService.currentBinding")(function* (
 				key: RelationshipProjectionKey,
@@ -359,7 +336,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				};
 				const published = yield* makeActivity({
 					error: DbError,
-					success: Schema.Array(Schema.String),
+					success: Schema.Boolean,
 					name: "publish-relationship-projection",
 					execute: session
 						.transaction(
@@ -369,7 +346,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 									yield* repository.release(claim.id, claim.jobId);
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(claim.id);
-									return [];
+									return false;
 								}
 								const binding = yield* currentBinding(key);
 								if (!binding) {
@@ -382,7 +359,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 									yield* repository.bind(key, binding.persisted);
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(claim.id);
-									return [];
+									return false;
 								}
 								yield* assets
 									.lock(
@@ -398,16 +375,18 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 												new DbError({ message: "Projection output contains an unavailable asset" }),
 										),
 									);
-								const entityIds = yield* repository.publish(claim.id, updates);
+								yield* repository.publish(claim.id, updates);
 								yield* repository.release(claim.id, claim.jobId);
 								yield* background.settle(job.id, "succeeded");
 								yield* arrange(claim.id);
-								return entityIds;
+								return true;
 							}),
 						)
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				});
-				yield* publishUpdates(published, claim.accountGeneration.userId);
+				if (published) {
+					yield* publishProjectionsUpdated(redis, claim.accountGeneration.userId);
+				}
 				return undefined;
 			});
 
@@ -421,10 +400,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 						() => new DbError({ message: "Invalid persisted relationship projection claim" }),
 					),
 				);
-				yield* publishUpdates(
-					[...new Set(claim.input.relationships.map(({ sourceEntityId }) => sourceEntityId))],
-					claim.accountGeneration.userId,
-				);
+				yield* publishProjectionsUpdated(redis, claim.accountGeneration.userId);
 			});
 
 			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* () {

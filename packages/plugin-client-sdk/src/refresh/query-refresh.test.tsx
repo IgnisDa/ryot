@@ -94,7 +94,7 @@ const mountQueries = (
 		);
 	};
 	const hintEntity = () =>
-		act(() => watches.at(-1)?.hint({ entityId: "root", reason: "projection-updated" }));
+		act(() => watches.at(-1)?.hint({ entityId: "root", reason: "populated" }));
 	return { clock, render, watches, results, requests, hintEntity };
 };
 

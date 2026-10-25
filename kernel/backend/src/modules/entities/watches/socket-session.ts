@@ -3,6 +3,7 @@ import {
 	encodeEntityWatchServerMessage,
 	type EntityWatchClientMessage,
 	type EntityWatchEntityUpdatedMessage,
+	type EntityWatchProjectionsUpdatedMessage,
 	type EntityWatchServerMessage,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
@@ -48,6 +49,7 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 ) {
 	let accepting = true;
 	let closed = false;
+	let projectionsUpdated = false;
 	const completions = new Map<string, Completion>();
 	const controls = yield* Queue.unbounded<Control>();
 	const wake = yield* Queue.dropping<void>(1);
@@ -74,8 +76,13 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 			Deferred.await(stopped).pipe(Effect.as(false)),
 		);
 	});
-	const enqueueCompletion = (completion: Completion) => {
+	const enqueueCompletion = (completion: Completion | EntityWatchProjectionsUpdatedMessage) => {
 		if (!accepting) {
+			return;
+		}
+		if ("type" in completion && completion.type === "projections-updated") {
+			projectionsUpdated = true;
+			signal();
 			return;
 		}
 		const message = "message" in completion ? completion.message : completion;
@@ -123,6 +130,11 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 					}
 					continue;
 				}
+				if (projectionsUpdated) {
+					projectionsUpdated = false;
+					yield* write(yield* serverFrame({ type: "projections-updated" }));
+					continue;
+				}
 				const completion = completions.entries().next().value;
 				if (completion === undefined) {
 					break;
@@ -145,6 +157,7 @@ const makeOutbound = Effect.fn("EntityWatchSocketSession.makeOutbound")(function
 	);
 	const stop = Effect.suspend(() => {
 		accepting = false;
+		projectionsUpdated = false;
 		completions.clear();
 		if (closed) {
 			return signalShutdown;
@@ -283,6 +296,7 @@ const runSocketSession = Effect.fn("EntityWatchSocketSession.run")(function* (
 	yield* sessions
 		.add(
 			sessionId,
+			principal.userId,
 			output.enqueueCompletion,
 			principal.impersonation === undefined
 				? undefined

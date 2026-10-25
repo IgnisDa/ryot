@@ -1,7 +1,12 @@
 import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Cause, Context, Effect, FiberSet, Layer, Option, Result, Schema } from "effect";
 
-import { ImpersonationEndedMessage, redisKeys, RedisService } from "#platform/redis";
+import {
+	ImpersonationEndedMessage,
+	ProjectionsUpdatedMessage,
+	redisKeys,
+	RedisService,
+} from "#platform/redis";
 
 import { LocalInterestSessions } from "./connections";
 import { EntityWatchProgression } from "./progression";
@@ -15,7 +20,11 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 			const store = yield* EntityWatchStore;
 			const runFork = yield* FiberSet.makeRuntime();
 			const sessions = yield* LocalInterestSessions;
-			const channels = [redisKeys.entityUpdatedChannel, redisKeys.impersonationEndedChannel];
+			const channels = [
+				redisKeys.entityUpdatedChannel,
+				redisKeys.impersonationEndedChannel,
+				redisKeys.projectionsUpdatedChannel,
+			];
 			const progression = yield* EntityWatchProgression;
 
 			const dispatch = Effect.fn("EntityWatchSubscriber.dispatch")(function* (raw: string) {
@@ -66,12 +75,23 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 				}
 			});
 
+			const dispatchProjectionsUpdated = Effect.fn(
+				"EntityWatchSubscriber.dispatchProjectionsUpdated",
+			)(function* (raw: string) {
+				const decoded = Schema.decodeOption(ProjectionsUpdatedMessage)(raw);
+				if (Option.isSome(decoded)) {
+					yield* sessions.projectionsUpdated(decoded.value.userId);
+				}
+			});
+
 			const subscriber = redis.client.duplicate();
 			subscriber.on("message", (incoming, message) => {
 				if (incoming === redisKeys.entityUpdatedChannel) {
 					runFork(dispatch(message).pipe(Effect.catchCause(Effect.logWarning)));
 				} else if (incoming === redisKeys.impersonationEndedChannel) {
 					runFork(dispatchImpersonationEnded(message).pipe(Effect.catchCause(Effect.logWarning)));
+				} else if (incoming === redisKeys.projectionsUpdatedChannel) {
+					runFork(dispatchProjectionsUpdated(message));
 				}
 			});
 			subscriber.on("ready", () => {
@@ -84,7 +104,7 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 				),
 			);
 
-			return { dispatch };
+			return { dispatch, dispatchProjectionsUpdated };
 		}),
 	},
 ) {

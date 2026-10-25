@@ -1,6 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import {
 	EventStreamStepInput,
 	EventStreamStepOutput,
@@ -40,7 +39,7 @@ import {
 } from "#modules/scripts/authorization/principal";
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
+import { publishProjectionsUpdated, RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
@@ -86,18 +85,6 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			const bindings = yield* ProjectionBindings;
 			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
-			const publishUpdate = (entityId: EntityId, userId: UserId) =>
-				redis
-					.publish(
-						redisKeys.entityUpdatedChannel,
-						encodeEntityUpdatedMessage(entityId, "projection-updated", userId),
-					)
-					.pipe(
-						Effect.catchCause((cause) =>
-							Effect.logWarning("Projection refresh publication failed", cause),
-						),
-						Effect.asVoid,
-					);
 			const claimFor = (
 				work: NonNullable<Effect.Success<ReturnType<typeof repository.prepare>>>,
 				jobId: string,
@@ -552,16 +539,13 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				});
 				if (published) {
-					yield* publishUpdate(
-						EntityId.make(workClaim.input.entityId),
-						workClaim.accountGeneration.userId,
-					);
+					yield* publishProjectionsUpdated(redis, workClaim.accountGeneration.userId);
 				}
 				return undefined;
 			});
 
 			const failed = (job: BackgroundWorkInput) =>
-				publishUpdate(EntityId.make(job.scope), job.accountGeneration.userId);
+				publishProjectionsUpdated(redis, job.accountGeneration.userId);
 			const bindDeclaration = Effect.fn("EventStreamWorkService.bindDeclaration")(function* (
 				declaration: EventStreamBindingDeclaration,
 				scriptSlug: string,
