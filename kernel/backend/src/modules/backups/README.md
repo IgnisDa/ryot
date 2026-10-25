@@ -14,7 +14,7 @@ The manifest contains `format: "ryot-backup"`, version 1, archive/application id
 
 `profile.json` contains complete canonical user preferences. Export decodes the stored value; archive validation and historical restore reject malformed or incomplete preferences instead of filling missing fields.
 
-The reporting timezone is restored like any other preference. The zone chosen at account creation
+The timezone preference is restored like any other preference. The zone chosen at account creation
 does not make a restore target unclean; the archived preference replaces it. Other non-default
 account preferences still make the target unclean.
 
@@ -51,18 +51,18 @@ entities belong in global entity dependencies; preflight rejects them in the use
 
 Historical writes and run completion occur in the same database transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Replay uses completed status, not display progress. A transaction failure rereads that status before retrying or reporting failure, so a lost commit acknowledgement does not repeat committed writes. Temporary upload deletion is best effort after completion; deletion failure is logged and swallowed.
 
-Event archives contain source rows and their schema-backed evidence, not derived events or projection
-checkpoints. Restore remaps typed evidence references and marks affected streams for normal
-reconciliation instead of trusting archived calculations.
+Event archives contain source rows and their schema-backed properties, not derived events or projection
+checkpoints. Restore remaps typed references and marks affected streams for normal reconciliation
+instead of trusting archived calculations.
 
 Restore seeds and touches the restored streams in the data transaction, so their runtime claims are
-cleared and their revisions advance; completed restore does not mean completed analytics. The
+cleared and their revisions advance; completed restore does not mean completed projections. The
 frequent reconciler admits processor work for those streams and for relationship schemas whose links
 lack notes. Unavailable plugins, configuration, artifacts, and disabled account generations do not
 gain authority or become ready through restore.
 
 After the complete event stream is inserted, restore checks declared event-group consistency with
-set-based SQL. It does not load account history into memory or recapture immutable recording evidence
+set-based SQL. It does not load account history into memory or recapture immutable recorded properties
 from current metadata. An inconsistent group rolls back the restore as an invalid event archive entry.
 
 `restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
@@ -95,7 +95,7 @@ A restore target is clean only when every existing entity looks bootstrap-create
 Reminder records are required metadata in the current archive. Export includes reminder-only global
 targets and parent scopes as dependencies. Restore remaps targets, parents and replacement links.
 Unfinished records become `needs-scheduling`, with no active instant, formatter, trigger, dispatch or
-delivery claim. Original date/time evidence remains, including whether a Processing source may have
+delivery claim. Original date/time values remain, including whether a Processing source may have
 sent. Settled/cancelled outcomes remain history. Existing reminders make an account unclean, including
 retained removal fences. Channels and delivery ledgers are not portable and are never restored.
 
