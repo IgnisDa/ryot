@@ -13,6 +13,12 @@ import {
 	quoteSqlString,
 } from "./shared";
 
+export const legacyWorkoutSetEventIdSql = (
+	workoutId: string,
+	exerciseOrder: string,
+	setOrder: string,
+) => `md5(${workoutId} || ':' || ${exerciseOrder} || ':' || ${setOrder})`;
+
 const workoutValueOmittedSentence =
 	"The original negative value was omitted so this property remains unknown. The workout timestamps are unchanged, and the value was not clamped.";
 
@@ -451,7 +457,7 @@ BEGIN
 			"occurred_at"
 		)
 		SELECT
-			md5(w.id || ':' || (ex.ordinality - 1)::text || ':' || (s.ordinality - 1)::text),
+			${legacyWorkoutSetEventIdSql("w.id", "(ex.ordinality - 1)::text", "(s.ordinality - 1)::text")},
 			w.user_id,
 			ex.value ->> 'id',
 			w.id,

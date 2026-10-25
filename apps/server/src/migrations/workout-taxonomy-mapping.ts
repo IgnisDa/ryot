@@ -1,6 +1,7 @@
 import { exerciseKinds } from "@ryot-app/fitness-plugin/exercise-kinds";
 import { WORKOUT_TAXONOMY_LIMIT } from "@ryot-app/fitness-plugin/workout-taxonomy";
 
+import { legacyEquipmentExternalIdSql } from "./exercise-taxonomy-mapping";
 import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildAbortOnRowsSql,
@@ -9,6 +10,7 @@ import {
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";
+import { legacyWorkoutSetEventIdSql } from "./workout-mapping";
 
 export const buildWorkoutTaxonomyMigrationSql = (input: {
 	targetProviderId: string;
@@ -78,8 +80,7 @@ BEGIN
 	LEFT JOIN LATERAL (
 		SELECT jsonb_agg(taxonomy.id ORDER BY taxonomy.id) AS identities
 		FROM "entity" taxonomy
-		WHERE taxonomy.external_id = CASE legacy_exercise.equipment
-			WHEN 'e_z_curl_bar' THEN 'ez_curl_bar' ELSE legacy_exercise.equipment END
+		WHERE taxonomy.external_id = ${legacyEquipmentExternalIdSql("legacy_exercise.equipment")}
 			AND taxonomy.entity_schema_slug = ${quoteSqlString(input.equipmentEntitySchema.slug)}
 			AND taxonomy.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.equipmentEntitySchema.pluginId)}
 			AND taxonomy.provider_id = ${quoteSqlString(input.equipmentProviderId)}
@@ -139,30 +140,8 @@ BEGIN
 			'exerciseOrder', exercise_order, 'exerciseKind', exercise_kind,
 			'provenance', 'legacy', 'targets', targets, 'equipment', equipment
 		), start_time, start_time
-	FROM _legacy_workout_occurrences
-	ON CONFLICT DO NOTHING;
+	FROM _legacy_workout_occurrences;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-
-	${buildAbortOnRowsSql({
-		countVariable: "invalid_rows",
-		sampleVariable: "invalid_sample",
-		message:
-			"workout exercises -> taxonomy events: % recorded occurrence(s) have missing or conflicting deterministic output: %. The phase has been rolled back. Keep the dump and report the conflict; retrying the same source and build will not repair it.",
-		source: `SELECT source.workout_id || ':' || source.exercise_order::text AS label
-			FROM _legacy_workout_occurrences source
-			LEFT JOIN "event" event ON event.id = source.event_id
-			WHERE event.id IS NULL OR event.user_id IS DISTINCT FROM source.user_id
-				OR event.entity_id IS DISTINCT FROM source.exercise_id
-				OR event.session_entity_id IS DISTINCT FROM source.workout_id
-				OR event.event_schema_slug IS DISTINCT FROM ${quoteSqlString(input.occurrenceEventSchema.slug)}
-				OR event.event_schema_plugin_id IS DISTINCT FROM ${quoteNullableSqlString(input.occurrenceEventSchema.pluginId)}
-				OR event.created_at IS DISTINCT FROM source.start_time
-				OR event.occurred_at IS DISTINCT FROM source.start_time
-				OR event.properties IS DISTINCT FROM jsonb_build_object(
-					'exerciseOrder', source.exercise_order, 'exerciseKind', source.exercise_kind,
-					'provenance', 'legacy', 'targets', source.targets, 'equipment', source.equipment
-				)`,
-	})}
 
 	${buildAbortOnRowsSql({
 		countVariable: "invalid_rows",
@@ -172,7 +151,7 @@ BEGIN
 		source: `SELECT source.workout_id || ':' || source.exercise_order::text || ':' || (sets.ordinality - 1)::text AS label
 			FROM _legacy_workout_occurrences source
 			CROSS JOIN LATERAL jsonb_array_elements(source.source_sets) WITH ORDINALITY sets(value, ordinality)
-			LEFT JOIN "event" event ON event.id = md5(source.workout_id || ':' || source.exercise_order::text || ':' || (sets.ordinality - 1)::text)
+			LEFT JOIN "event" event ON event.id = ${legacyWorkoutSetEventIdSql("source.workout_id", "source.exercise_order::text", "(sets.ordinality - 1)::text")}
 			WHERE event.id IS NULL OR event.user_id IS DISTINCT FROM source.user_id
 				OR event.entity_id IS DISTINCT FROM source.exercise_id
 				OR event.session_entity_id IS DISTINCT FROM source.workout_id

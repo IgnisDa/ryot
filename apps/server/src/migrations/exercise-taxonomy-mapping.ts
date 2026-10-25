@@ -11,6 +11,9 @@ import {
 	quoteSqlString,
 } from "./shared";
 
+export const legacyEquipmentExternalIdSql = (column: string) =>
+	`CASE ${column} WHEN 'e_z_curl_bar' THEN 'ez_curl_bar' ELSE ${column} END`;
+
 type ExerciseTaxonomyMigrationInput = {
 	fitnessPluginId: string;
 	targetProviderId: string;
@@ -151,10 +154,7 @@ BEGIN
 						BTRIM(exercise.equipment::text) = ''
 						OR NOT EXISTS (
 							SELECT 1 FROM (VALUES ${equipmentExternalIdValuesSql}) AS equipment_catalog(external_id)
-							WHERE equipment_catalog.external_id = CASE exercise.equipment::text
-								WHEN 'e_z_curl_bar' THEN 'ez_curl_bar'
-								ELSE exercise.equipment::text
-							END
+							WHERE equipment_catalog.external_id = ${legacyEquipmentExternalIdSql("exercise.equipment::text")}
 						)
 					)
 			) invalid
@@ -171,10 +171,7 @@ BEGIN
 		FROM _legacy_exercise_taxonomy_exercises exercise
 		CROSS JOIN LATERAL unnest(exercise.muscles) AS muscle(value)
 	), used_equipment AS (
-		SELECT DISTINCT CASE exercise.equipment
-			WHEN 'e_z_curl_bar' THEN 'ez_curl_bar'
-			ELSE exercise.equipment
-		END AS external_id
+		SELECT DISTINCT ${legacyEquipmentExternalIdSql("exercise.equipment")} AS external_id
 		FROM _legacy_exercise_taxonomy_exercises exercise
 		WHERE exercise.equipment IS NOT NULL
 	)
@@ -288,10 +285,7 @@ BEGIN
 		SELECT DISTINCT
 			exercise.exercise_id,
 			exercise.user_id,
-			CASE exercise.equipment
-				WHEN 'e_z_curl_bar' THEN 'ez_curl_bar'
-				ELSE exercise.equipment
-			END AS external_id
+			${legacyEquipmentExternalIdSql("exercise.equipment")} AS external_id
 		FROM _legacy_exercise_taxonomy_exercises exercise
 		WHERE exercise.equipment IS NOT NULL
 	)
