@@ -4,9 +4,8 @@ import * as Effect from "effect/Effect";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import * as Atom from "effect/reactivity/Atom";
 import * as AtomRegistry from "effect/reactivity/AtomRegistry";
-import { useContext, useEffect, useMemo } from "react";
+import { useContext, useMemo } from "react";
 
-import { ActiveScreenContext } from "../active-screen";
 import { useQueryRefresh } from "../refresh/query-refresh";
 import {
 	definitionHostServices,
@@ -85,40 +84,6 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 		query.entityWatch,
 		options?.refreshOnMutation !== false,
 	);
-	const active = useContext(ActiveScreenContext);
-	useEffect(() => {
-		if (!active || !query.refreshWhile) {
-			return undefined;
-		}
-		let cancel: undefined | (() => void);
-		let disposed = false;
-		const arm = () => {
-			cancel?.();
-			cancel = undefined;
-			const result = registry.get(atom);
-			if (
-				disposed ||
-				!AsyncResult.isSuccess(result) ||
-				!query.refreshWhile?.({ input, data: result.value })
-			) {
-				return;
-			}
-			cancel = schedule.after(1000, () => {
-				cancel = undefined;
-				if (!disposed && !registry.get(atom).waiting) {
-					registry.refresh(atom);
-				}
-				arm();
-			});
-		};
-		const unsubscribe = registry.subscribe(atom, arm);
-		arm();
-		return () => {
-			disposed = true;
-			cancel?.();
-			unsubscribe();
-		};
-	}, [active, atom, registry, schedule, query, input]);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
 	const isError = AsyncResult.isFailure(result);

@@ -53,7 +53,6 @@ export type RyotQueryOptions<Input, Data> = {
 	/** Cancels in-flight work when the final consumer for an input unmounts. */
 	readonly cancelOnUnmount?: boolean;
 	readonly initialData?: (input: Input) => Data;
-	readonly refreshWhile?: (context: { readonly data: Data; readonly input: Input }) => boolean;
 	readonly entityWatch?: (context: {
 		readonly input: Input;
 		readonly data: Data | undefined;
@@ -117,7 +116,6 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 			cancelOnUnmount?: boolean,
 		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
 		readonly entityWatch?: RyotQueryOptions<Input, Data>["entityWatch"],
-		readonly refreshWhile?: RyotQueryOptions<Input, Data>["refreshWhile"],
 	) {}
 }
 
@@ -229,6 +227,5 @@ export function createRyotQuery<
 			return clientQueries.inputs({ input, cancelOnUnmount });
 		},
 		options?.entityWatch,
-		options?.refreshWhile,
 	);
 }

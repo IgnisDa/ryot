@@ -18,7 +18,7 @@ const response = (
 ) => ({ data: { work: rows(work), active: rows(active), checkpoint: rows(checkpoint) } });
 
 describe("media history correction status", () => {
-	it.live("shows pending history and refreshes activity after correction settles", () =>
+	it.live("refreshes pending history on page refresh and refreshes activity once settled", () =>
 		Effect.gen(function* () {
 			let phase: "pending" | "settled" = "pending";
 			let queries = 0;
@@ -51,8 +51,12 @@ describe("media history correction status", () => {
 				expect(mounted.container.textContent).toContain("Large corrections can appear in stages.");
 				expect(queries).toBe(1);
 
-				phase = "settled";
 				yield* Effect.promise(() => mounted.advance(1000));
+				expect(queries).toBe(1);
+
+				phase = "settled";
+				mounted.client.mutationCompleted.hint();
+				yield* Effect.promise(() => mounted.advance(250));
 				expect(queries).toBe(2);
 				expect(refreshes).toBe(1);
 				expect(queryByRole(mounted.container, "status")).toBeNull();

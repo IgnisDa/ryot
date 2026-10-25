@@ -185,8 +185,9 @@ creation is not offered. The kernel keeps one picker
 open at a time and the page inert while it is open. After a successful import or creation, the host
 sends one narrow `page-refresh` signal. Client pages can register their
 current source refetch with `usePageRefresh`; successful shared mutations use the same refresh registry.
-The host also sends `page-refresh` when the user's projected results change, so queries over computed
-values converge without polling or entity interests.
+The host also sends `page-refresh`, at most once every few seconds, when the user's derived results
+or background-work status change, so computed values and job status converge without polling or
+entity interests.
 
 ## Queries And Mutations
 

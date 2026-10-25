@@ -18,15 +18,13 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 const historyCorrectionStatusQuery = createRyotQuery<
 	{ readonly entityId: string },
 	MediaHistoryCorrectionStatusData
->(
-	({ input, client }) =>
-		client.data.query(
-			mediaHistoryCorrectionStatusRecipe({
-				entityId: input.entityId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		),
-	{ refreshWhile: ({ data }) => data.status === "pending" },
+>(({ input, client }) =>
+	client.data.query(
+		mediaHistoryCorrectionStatusRecipe({
+			entityId: input.entityId,
+			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+		}),
+	),
 );
 
 const retryHistoryCorrection = createRyotBackgroundSubmission({
