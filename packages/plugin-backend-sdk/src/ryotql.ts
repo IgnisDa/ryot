@@ -5,6 +5,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 export * from "@ryot-app/ryotql";
 export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
+export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
 export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
 export {
