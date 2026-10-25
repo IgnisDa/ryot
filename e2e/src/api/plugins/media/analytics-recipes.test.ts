@@ -91,7 +91,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 				{ activeDays: 2, pagesKnown: 2, mediaType: "book", distinctTitles: 1 },
 				{ activeDays: 2, minutesKnown: 1, distinctTitles: 1, mediaType: "movie" },
 			]);
-			expect(report.previous).toEqual({ activeDays: 0, types: [], reviews: [] });
+			expect(report.previous).toEqual({ types: [], reviews: [], activeDays: 0 });
 			expect(report.current.reviews).toMatchObject([
 				{ rated: 1, reviews: 1, averageRating: 0, mediaType: "book" },
 				{ rated: 1, reviews: 1, averageRating: 80, mediaType: "movie" },
@@ -134,7 +134,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 				other.client,
 				mediaAnalyticsSummaryRecipe({ ...input, entityId: entities.book.id }),
 			);
-			expect(isolated.current).toEqual({ activeDays: 0, types: [], reviews: [] });
+			expect(isolated.current).toEqual({ types: [], reviews: [], activeDays: 0 });
 			expect(
 				(yield* executeRyotQLRecipe(other.client, mediaAnalyticsRecordsRecipe(input))).items,
 			).toEqual([]);
@@ -148,19 +148,11 @@ describe("Media analytics supplemental SQL recipes", () => {
 			const input = analyticsInput(fixture);
 			const trend = yield* executeRyotQLRecipe(client, mediaAnalyticsTrendRecipe(input));
 			expect(
-				trend.current.items.map(({ at, activeObservations }) => ({ at, activeObservations })),
-			).toEqual([
-				{ at: "2026-09-02", activeObservations: 3 },
-				{ at: "2026-09-04", activeObservations: 1 },
-				{ at: "2026-09-05", activeObservations: 1 },
-			]);
-			expect(trend.current.items).toEqual(
-				expect.arrayContaining(
-					fixture.expectedSourceValues.consistency.map(({ day, events }) =>
-						expect.objectContaining({ at: day, activeObservations: events }),
-					),
-				),
-			);
+				trend.current.items.map(({ at, activeObservations }) => ({
+					day: at,
+					events: activeObservations,
+				})),
+			).toEqual(fixture.expectedSourceValues.consistency);
 			expect(sum(trend.current.items, (row) => row.titleCompletions)).toBe(3);
 			expect(sum(trend.current.items, (row) => row.pagesRecorded)).toBe(40);
 			expect(sum(trend.current.items, (row) => row.pagesEstimated)).toBe(60);
