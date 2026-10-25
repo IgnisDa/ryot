@@ -34,7 +34,7 @@ describe("generic Analytics contributions", () => {
 			Effect.gen(function* () {
 				const first = yield* createAuthenticatedClient();
 				const second = yield* createAuthenticatedClient();
-				const source = analyticsContributionPackage();
+				const source = yield* analyticsContributionPackage();
 				const a = yield* installAnalyticsContribution(first.client, source);
 				const b = yield* installAnalyticsContribution(second.client, source);
 				expect(a.pluginId).not.toBe(b.pluginId);
@@ -105,7 +105,7 @@ describe("generic Analytics contributions", () => {
 					client,
 					installationId: installed.installationId,
 					expectedContentHash: installed.installation.contentHash,
-					payload: analyticsContributionPackage({
+					payload: yield* analyticsContributionPackage({
 						revision: "updated",
 						packageId: installed.source.manifest.metadata.packageId,
 					}),
@@ -181,7 +181,7 @@ describe("generic Analytics contributions", () => {
 				const dependency = yield* installAnalyticsContribution(client);
 				const unavailable = yield* installAnalyticsContribution(
 					client,
-					analyticsContributionPackage({
+					yield* analyticsContributionPackage({
 						dependency: dependency.source.manifest.metadata.packageId,
 					}),
 				);

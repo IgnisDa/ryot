@@ -3,6 +3,7 @@ import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/re
 import { mediaAnalyticsRecordsRecipe } from "@ryot-app/media-plugin/shared/analytics-recipes";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
 import type { Recipe } from "@ryot-app/ryotql";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -73,16 +74,18 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		const fixture = yield* createMediaAnalyticsFixture();
 		const { account, entities } = fixture;
 		const { client } = account;
-		const batch = Array.from({ length: 101 }, (_, index) => ({
-			entityId: entities.anime.id,
-			occurredAt: new Date(Date.parse("2026-09-04T19:00:00.000Z") + index * 1000).toISOString(),
-			eventSchemaSlug: requireEventSchemaBySlug(entities.anime.eventSchemas, "item-complete").id,
-			properties: {
-				sourceRun: crypto.randomUUID(),
-				consumedItem: { position: 7, unit: "episodes" },
-				consumptionBasis: consumptionBasisFor("anime", { episodes: 12 }),
-			},
-		})) satisfies ContractPayload<"events", "create">;
+		const batch = (yield* Effect.forEach(Array.from({ length: 101 }), (_, index) =>
+			Effect.map(randomUuid, (sourceRun) => ({
+				entityId: entities.anime.id,
+				occurredAt: new Date(Date.parse("2026-09-04T19:00:00.000Z") + index * 1000).toISOString(),
+				eventSchemaSlug: requireEventSchemaBySlug(entities.anime.eventSchemas, "item-complete").id,
+				properties: {
+					sourceRun,
+					consumedItem: { position: 7, unit: "episodes" },
+					consumptionBasis: consumptionBasisFor("anime", { episodes: 12 }),
+				},
+			})),
+		)) satisfies ContractPayload<"events", "create">;
 		const created = yield* client.call((c) => c.events.create({ payload: batch }));
 		const written = yield* waitForCreateEvents(client, created);
 		expect(written.failure).toBeNull();

@@ -1,5 +1,6 @@
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
@@ -27,51 +28,55 @@ export default function Section({ owner, selection, timeZone }: AnalyticsSection
 }
 `;
 
-export const analyticsContributionPackage = (
+export const analyticsContributionPackage = Effect.fn(function* (
 	input: {
 		readonly revision?: string;
 		readonly packageId?: PluginPackageId;
 		readonly dependency?: PluginPackageId;
 	} = {},
-): PluginPackageInput => ({
-	files: encodePluginSourceFiles({
-		"client/failure.tsx": sectionSource("failure", true),
-		"client/activity.tsx": sectionSource(`activity-${input.revision ?? "initial"}`, false),
-	}),
-	manifest: testPluginManifest({
-		pluginSlug: `analytics-${crypto.randomUUID()}`,
-		packageId: input.packageId ?? testPluginPackageId(),
-		clientDefinition: {
-			homeView: null,
-			apiVersion: CLIENT_API_VERSION,
-			pluginDependencies:
-				input.dependency === undefined
-					? {}
-					: { required: { scope: "user", packageId: input.dependency } },
-			analyticsSections: {
-				failure: { icon: "box", sortOrder: 1, exportName: "failure", name: "Fixture failure" },
-				activity: { icon: "box", sortOrder: 0, exportName: "activity", name: "Fixture activity" },
-			},
-			exports: {
-				failure: {
-					kind: "analytics-section",
-					entry: "client/failure.tsx",
-					automaticEntityPresentations: false,
+) {
+	const source: PluginPackageInput = {
+		files: encodePluginSourceFiles({
+			"client/failure.tsx": sectionSource("failure", true),
+			"client/activity.tsx": sectionSource(`activity-${input.revision ?? "initial"}`, false),
+		}),
+		manifest: testPluginManifest({
+			pluginSlug: `analytics-${yield* randomUuid}`,
+			packageId: input.packageId ?? testPluginPackageId(),
+			clientDefinition: {
+				homeView: null,
+				apiVersion: CLIENT_API_VERSION,
+				pluginDependencies:
+					input.dependency === undefined
+						? {}
+						: { required: { scope: "user", packageId: input.dependency } },
+				analyticsSections: {
+					failure: { icon: "box", sortOrder: 1, exportName: "failure", name: "Fixture failure" },
+					activity: { icon: "box", sortOrder: 0, exportName: "activity", name: "Fixture activity" },
 				},
-				activity: {
-					kind: "analytics-section",
-					entry: "client/activity.tsx",
-					automaticEntityPresentations: false,
+				exports: {
+					failure: {
+						kind: "analytics-section",
+						entry: "client/failure.tsx",
+						automaticEntityPresentations: false,
+					},
+					activity: {
+						kind: "analytics-section",
+						entry: "client/activity.tsx",
+						automaticEntityPresentations: false,
+					},
 				},
 			},
-		},
-	}),
+		}),
+	};
+	return source;
 });
 
 export const installAnalyticsContribution = Effect.fn(function* (
 	client: Client,
-	source: PluginPackageInput = analyticsContributionPackage(),
+	input?: PluginPackageInput,
 ) {
+	const source = input ?? (yield* analyticsContributionPackage());
 	const pluginPackage = yield* compilePluginPackage(source);
 	const installed = yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });
 	const installation = yield* settledPrivateInstallation(client, installed.id);

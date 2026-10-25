@@ -25,7 +25,7 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 		const installation = yield* installPrivatePluginPackage({
 			client,
 			config: {},
-			pluginPackage: reportingChartsPluginPackage(),
+			pluginPackage: yield* reportingChartsPluginPackage(),
 		});
 		const installed = yield* settledPrivateInstallation(client, installation.id);
 		const fixturePath = pluginPath(installed.packageId);

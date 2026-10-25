@@ -1,4 +1,6 @@
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
+import { randomUuid } from "@ryot-app/testing/random";
+import { Effect } from "effect";
 
 import { encodePluginSourceFiles, testPluginManifest, testPluginPackageId } from "./test-plugin";
 
@@ -107,8 +109,8 @@ export default function Home() {
 }
 `;
 
-export const reportingChartsPluginPackage = () => {
-	const pluginSlug = `reporting-charts-${crypto.randomUUID()}`;
+export const reportingChartsPluginPackage = Effect.fn(function* () {
+	const pluginSlug = `reporting-charts-${yield* randomUuid}`;
 	return {
 		files: encodePluginSourceFiles({ "client/home.tsx": homeSource }),
 		manifest: testPluginManifest({
@@ -131,4 +133,4 @@ export const reportingChartsPluginPackage = () => {
 			},
 		}),
 	};
-};
+});
