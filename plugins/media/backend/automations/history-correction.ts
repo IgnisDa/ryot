@@ -29,8 +29,6 @@ import {
 } from "../../shared/lifecycle-expressions";
 import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
 import type { HistoryCorrectionRequest } from "../contracts/history-correction";
-import type {
-	historyProperty} from "../contracts/history-correction-recipes";
 import {
 	consumptionDependenciesPageRecipe,
 	correctionCoverageRecipe,
@@ -40,6 +38,7 @@ import {
 	coverageBasisRecipe,
 	historyCorrectionContextRecipe,
 	type HistoryEvent,
+	type historyProperty,
 	historyPropertyIs,
 	historyRecordRecipe,
 	historySourceRecipe,

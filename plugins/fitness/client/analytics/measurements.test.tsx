@@ -61,7 +61,11 @@ const pageResponse = (
 });
 const trendResponse = (points: readonly Readonly<Record<string, JsonValue>>[]) => ({
 	data: {
-		trend: { items: points, type: "aggregate" as const, pageInfo: { limit: 366, hasMore: false } },
+		trend: {
+			items: points,
+			type: "aggregate" as const,
+			pageInfo: { limit: 366, hasMore: false, nextCursor: null },
+		},
 	},
 });
 const reading = (

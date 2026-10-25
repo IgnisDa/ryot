@@ -155,7 +155,7 @@ describe("fitness analytics trends", () => {
 					data: {
 						setTrend: {
 							type: "aggregate",
-							pageInfo: { limit: 366, hasMore: false },
+							pageInfo: { limit: 366, hasMore: false, nextCursor: null },
 							items: [
 								{
 									value: 500,
@@ -185,7 +185,7 @@ describe("fitness analytics trends", () => {
 				data: {
 					workoutTrend: {
 						type: "aggregate",
-						pageInfo: { limit: 366, hasMore: false },
+						pageInfo: { limit: 366, hasMore: false, nextCursor: null },
 						items: [{ value: 60, knownValues: 1, observations: 1, at: "2026-11-01T04:00:00.000Z" }],
 					},
 				},
@@ -201,7 +201,7 @@ describe("fitness analytics trends", () => {
 				data: {
 					hours: {
 						type: "aggregate",
-						pageInfo: { limit: 24, hasMore: false },
+						pageInfo: { limit: 24, hasMore: false, nextCursor: null },
 						items: [
 							{ hour: 1, starts: 2 },
 							{ hour: 18, starts: 1 },
@@ -221,7 +221,7 @@ describe("fitness analytics trends", () => {
 				data: {
 					trend: {
 						type: "aggregate",
-						pageInfo: { limit: 366, hasMore: false },
+						pageInfo: { limit: 366, hasMore: false, nextCursor: null },
 						items: [
 							{ value: 0, unit: "kg", readings: 1, at: "2026-10-29T04:00:00.000Z" },
 							{ value: 70, unit: "kg", readings: 2, at: "2026-11-01T04:00:00.000Z" },

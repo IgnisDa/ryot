@@ -211,8 +211,8 @@ describe("collection review analytics", () => {
 						previous: { type: "aggregate", items: [{ count: 0 }] },
 						buckets: {
 							type: "aggregate",
-							pageInfo: { limit: 1, hasMore: true },
 							items: [{ count: 2, at: "2026-03-08T05:00:00.000Z" }],
+							pageInfo: { limit: 1, hasMore: true, nextCursor: null },
 						},
 					},
 				}),
@@ -221,8 +221,8 @@ describe("collection review analytics", () => {
 			current: 42,
 			previous: 0,
 			buckets: {
-				pageInfo: { limit: 1, hasMore: true },
 				items: [{ count: 2, at: "2026-03-08T05:00:00.000Z" }],
+				pageInfo: { limit: 1, hasMore: true, nextCursor: null },
 			},
 		});
 	});
@@ -243,14 +243,18 @@ describe("collection review analytics", () => {
 				recipe.decode({
 					data: {
 						current: { type: "aggregate", items: [{ count: 0 }] },
-						buckets: { items: [], type: "aggregate", pageInfo: { limit: 1000, hasMore: false } },
+						buckets: {
+							items: [],
+							type: "aggregate",
+							pageInfo: { limit: 1000, hasMore: false, nextCursor: null },
+						},
 					},
 				}),
 			),
 		).toEqual({
 			current: 0,
 			previous: null,
-			buckets: { items: [], pageInfo: { limit: 1000, hasMore: false } },
+			buckets: { items: [], pageInfo: { limit: 1000, hasMore: false, nextCursor: null } },
 		});
 	});
 });

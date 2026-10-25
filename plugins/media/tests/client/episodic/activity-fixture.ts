@@ -222,7 +222,7 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 				),
 				watchDays: {
 					type: "aggregate",
-					pageInfo: { hasMore, limit: 1000 },
+					pageInfo: { hasMore, limit: 1000, nextCursor: null },
 					items: input.watchDays ?? [episodicFirstWatchDayRow, episodicSecondWatchDayRow],
 				},
 				parentEvents: activityRows(

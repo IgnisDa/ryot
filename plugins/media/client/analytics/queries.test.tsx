@@ -46,6 +46,7 @@ const input = {
 const aggregate = (items: readonly Record<string, null | number | string>[]) => ({
 	items,
 	type: "aggregate" as const,
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 const reportResponse = (pending = 0) => ({
 	data: {
@@ -70,11 +71,7 @@ const cursorResponse = (
 				? {
 						items,
 						type: "aggregate" as const,
-						pageInfo: {
-							limit: 100,
-							hasMore: nextCursor !== null,
-							...(nextCursor === null ? {} : { nextCursor }),
-						},
+						pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 					}
 				: {
 						items,

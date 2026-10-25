@@ -58,13 +58,21 @@ const context = (overrides: Record<string, unknown> = {}) =>
 	Result.getOrThrow(
 		mediaActivityLogContextRecipe({ entityId: "entity-1", reference: { kind: "self" } }).decode({
 			data: {
-				recentConsumedOn: { items: [], type: "aggregate", pageInfo: { limit: 5, hasMore: false } },
-				entityConsumedOn: { items: [], type: "aggregate", pageInfo: { limit: 10, hasMore: false } },
 				target: rowsResult([contextTarget(overrides)], {
 					limit: 1,
 					hasMore: false,
 					nextCursor: null,
 				}),
+				recentConsumedOn: {
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 5, hasMore: false, nextCursor: null },
+				},
+				entityConsumedOn: {
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+				},
 			},
 		}),
 	);

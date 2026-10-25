@@ -272,10 +272,7 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 		const workout = table("entity", "rankWorkout");
 		const taxonomy = rankingTaxonomy(occurrence, input.kind);
 		return {
-			map: ({ ranking: { items, pageInfo } }) =>
-				pageInfo === undefined
-					? Result.fail(new Error("Fitness ranking page info is missing"))
-					: Result.succeed({ items, pageInfo }),
+			map: ({ ranking }) => Result.succeed(ranking),
 			queries: {
 				ranking: selectedAggregate(occurrence, {
 					limit: 100,

@@ -824,7 +824,13 @@ const replyChoices = (
 	page.replyQuery(requestId, {
 		outcome: "success",
 		response: {
-			data: { choices: { type: "aggregate", items: items.map((item) => ({ ...item, links: 1 })) } },
+			data: {
+				choices: {
+					type: "aggregate",
+					items: items.map((item) => ({ ...item, links: 1 })),
+					pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+				},
+			},
 		},
 	});
 

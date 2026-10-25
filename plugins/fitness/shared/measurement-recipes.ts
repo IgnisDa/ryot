@@ -180,7 +180,7 @@ export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
 				if (averages === undefined) {
 					return Result.fail(new Error("Measurement series response is incomplete"));
 				}
-				if (averages.pageInfo?.hasMore) {
+				if (averages.pageInfo.hasMore) {
 					return Result.fail(new Error("Measurement series response is truncated"));
 				}
 				return Result.succeed({ metricId, points: averages.items });

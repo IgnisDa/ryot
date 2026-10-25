@@ -33,8 +33,8 @@ const aggregate = (
 ): {
 	readonly type: "aggregate";
 	readonly items: readonly Record<string, null | number | string>[];
-	readonly pageInfo: { readonly limit: number; readonly hasMore: boolean };
-} => ({ items, type: "aggregate", pageInfo: { limit: 366, hasMore: false } });
+	readonly pageInfo: { nextCursor: null; readonly limit: number; readonly hasMore: boolean };
+} => ({ items, type: "aggregate", pageInfo: { limit: 366, hasMore: false, nextCursor: null } });
 const trendResponse = (
 	points: readonly Record<string, null | number | string>[],
 	key: "setTrend" | "workoutTrend" = "workoutTrend",

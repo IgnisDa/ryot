@@ -531,8 +531,8 @@ describe("RyotQL builders", () => {
 			Result.getOrThrow(
 				grouped.decodeResult({
 					type: "aggregate",
-					pageInfo: { limit: 20, hasMore: false },
 					items: [{ count: "2", status: "active" }],
+					pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 				}),
 			),
 		).toEqual({
@@ -546,7 +546,7 @@ describe("RyotQL builders", () => {
 					type: "aggregate",
 					pageInfo: { limit: 20, hasMore: true, nextCursor: "next" },
 				}),
-			).pageInfo?.nextCursor,
+			).pageInfo.nextCursor,
 		).toBe("next");
 		expect(
 			Result.getOrThrow(countQuery.decodeResult({ type: "aggregate", items: [{ count: 3 }] })),

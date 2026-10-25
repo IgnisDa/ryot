@@ -40,7 +40,11 @@ describe("complete activity history recipes", () => {
 			coverage: rows([], true),
 			episodeProgress: rows([]),
 			collectionEvents: rows([]),
-			watchDays: { items: [], type: "aggregate", pageInfo: { limit: 1000, hasMore: false } },
+			watchDays: {
+				items: [],
+				type: "aggregate",
+				pageInfo: { limit: 1000, hasMore: false, nextCursor: null },
+			},
 			totals: rows([
 				{
 					consumedAmount: 0,

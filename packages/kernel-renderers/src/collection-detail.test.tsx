@@ -123,7 +123,7 @@ const answerChrome = (
 					aggregate: {
 						type: "aggregate",
 						items: input.groups ?? [],
-						...(input.groupsHaveMore ? { pageInfo: { limit: 100, hasMore: true } } : {}),
+						pageInfo: { limit: 100, nextCursor: null, hasMore: input.groupsHaveMore ?? false },
 					},
 				},
 			},
@@ -753,7 +753,15 @@ describe("collection detail", () => {
 			const count = yield* request(page, "count");
 			page.replyQuery(aggregate.requestId, {
 				outcome: "success",
-				response: { data: { aggregate: { items: [], type: "aggregate" } } },
+				response: {
+					data: {
+						aggregate: {
+							items: [],
+							type: "aggregate",
+							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+						},
+					},
+				},
 			});
 			page.replyQuery(count.requestId, {
 				outcome: "success",

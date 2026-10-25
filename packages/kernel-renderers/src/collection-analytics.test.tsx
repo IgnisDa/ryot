@@ -70,7 +70,11 @@ const replySummary = (
 		response: {
 			data: {
 				previous: { type: "aggregate", items: [{ count: 0 }] },
-				buckets: { items, type: "aggregate", pageInfo: { limit: 366, hasMore: false } },
+				buckets: {
+					items,
+					type: "aggregate",
+					pageInfo: { limit: 366, hasMore: false, nextCursor: null },
+				},
 				current: {
 					type: "aggregate",
 					items: [{ count: items.reduce((total, row) => total + row.count, 0) }],

@@ -278,7 +278,7 @@ describe("RyotQLDocument", () => {
 				data: {
 					lessons: {
 						type: "aggregate",
-						pageInfo: { limit: 10, hasMore: false },
+						pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 						items: [
 							{
 								count: 2,

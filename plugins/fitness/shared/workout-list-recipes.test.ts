@@ -15,6 +15,7 @@ import {
 const aggregate = (items: readonly Record<string, unknown>[]) => ({
 	type: "aggregate",
 	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 const range = { endAt: "2026-10-18T00:00:00.000Z", startAt: "2026-09-18T00:00:00.000Z" };
 const workoutTotals = (workouts: number, activeDuration: null | number, timedWorkouts: number) => ({

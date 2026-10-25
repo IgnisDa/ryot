@@ -355,10 +355,7 @@ export const mediaAnalyticsRankingRecipe = defineRecipe(
 		const source = consumptionDetail(input, "analyticsRank", period);
 		const type = mediaTypeJoin(source.entity, "analyticsRankType", input.reference);
 		return {
-			map: ({ ranking: { items, pageInfo } }) =>
-				pageInfo === undefined
-					? Result.fail(new Error("Media ranking page info is missing"))
-					: Result.succeed({ items, pageInfo }),
+			map: ({ ranking }) => Result.succeed(ranking),
 			queries: {
 				ranking: selectedAggregate(source.event, {
 					limit: 100,

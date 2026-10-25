@@ -507,7 +507,7 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				mode: "replace",
 				type: "page-search",
-				update: { section: "other-owner/activity", start: "2024-01-01" },
+				update: { start: "2024-01-01", section: "other-owner/activity" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>

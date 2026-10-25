@@ -103,7 +103,7 @@ const WATCH_DAY_ROW = {
 const aggregateRows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "aggregate" as const,
-	pageInfo: { limit: 500, hasMore: false },
+	pageInfo: { limit: 500, hasMore: false, nextCursor: null },
 });
 
 const SEASON_ROW = {

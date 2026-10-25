@@ -312,11 +312,7 @@ const pageResponse = (
 				? {
 						items: [],
 						type: "aggregate" as const,
-						pageInfo: {
-							limit: 100,
-							hasMore: nextCursor !== null,
-							...(nextCursor === null ? {} : { nextCursor }),
-						},
+						pageInfo: { limit: 100, nextCursor, hasMore: nextCursor !== null },
 					}
 				: {
 						items,

@@ -1716,7 +1716,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	return {
 		items,
 		type: "aggregate",
-		pageInfo: { limit, hasMore, ...(nextCursor === null ? {} : { nextCursor }) },
+		pageInfo: { limit, hasMore, nextCursor },
 	} satisfies AggregateResult;
 });
 

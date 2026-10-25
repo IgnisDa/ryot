@@ -886,13 +886,13 @@ layer(catalogDatabaseLayer)((test) => {
 				items: [{ count: 4, day: pages[0]?.["day"] }],
 			});
 
-			const groupPage = (after: string | undefined) =>
+			const groupPage = (after: null | string) =>
 				service
 					.executeForAdmin({
 						queries: {
 							groups: aggregate(users, {
-								after,
 								limit: 3,
+								after: after ?? undefined,
 								orderBy: [measureDescending("count")],
 								groupBy: [field("id", column(users, "id"))],
 								measures: [measure("count", { function: "count" })],
@@ -909,10 +909,10 @@ layer(catalogDatabaseLayer)((test) => {
 							};
 						}),
 					);
-			const first = yield* groupPage(undefined);
+			const first = yield* groupPage(null);
 			const second = yield* groupPage(first.after);
 			const groupPages = [first.ids, second.ids];
-			expect(second.after).toBeUndefined();
+			expect(second.after).toBeNull();
 			expect(groupPages).toEqual([["mixed", "other", "owner"], ["plain"]]);
 
 			const choices = jsonElementsJoin("inner", "choice", literal(["date-only", "instant"]));

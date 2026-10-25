@@ -256,7 +256,7 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 				),
 				watchDays: {
 					type: "aggregate",
-					pageInfo: { limit: 1000, hasMore: hasMore },
+					pageInfo: { limit: 1000, hasMore: hasMore, nextCursor: null },
 					items: input.watchDays ?? [firstWatchDayRow, secondWatchDayRow],
 				},
 				totals: activityRows(

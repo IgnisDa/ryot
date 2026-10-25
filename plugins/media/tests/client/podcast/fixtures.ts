@@ -121,7 +121,11 @@ export const decodePodcastActivity = (
 				episodeProgress: rows([]),
 				collectionEvents: rows([]),
 				coverage: rows(input.coverage ?? [podcastCoverageRow]),
-				watchDays: { items: [], type: "aggregate", pageInfo: { limit: 1000, hasMore: false } },
+				watchDays: {
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 1000, hasMore: false, nextCursor: null },
+				},
 				totals: rows([
 					{
 						completionCount: 4,

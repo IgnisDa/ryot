@@ -59,6 +59,7 @@ const series = (counts: readonly number[], values: readonly number[]): Aggregate
 		const value = values[index];
 		return count === 0 || value === undefined ? [] : [{ value, at: daysAgo(10 - index) }];
 	}),
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const reading = (

@@ -36,6 +36,7 @@ type ActivityResult = { readonly window: ActivityWindow; readonly activity: Medi
 const aggregate = (items: readonly Record<string, JsonValue>[] = []) => ({
 	items,
 	type: "aggregate" as const,
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 

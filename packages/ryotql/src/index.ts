@@ -581,19 +581,6 @@ const decodeIncludePageInfo = (value: unknown, path: string) =>
 		}),
 	);
 
-const decodeAggregatePageInfo = (value: unknown) =>
-	Result.flatMap(record(value, "RyotQL aggregate pageInfo is malformed"), (pageInfo) =>
-		Result.all({
-			limit: decodeValue(pageInfo["limit"], Schema.Int, "aggregate.pageInfo.limit"),
-			hasMore: decodeValue(pageInfo["hasMore"], Schema.Boolean, "aggregate.pageInfo.hasMore"),
-			nextCursor: decodeValue(
-				pageInfo["nextCursor"] ?? null,
-				Schema.NullOr(Schema.String),
-				"aggregate.pageInfo.nextCursor",
-			),
-		}),
-	);
-
 const decodeRowsPageInfo = (value: unknown) =>
 	Result.flatMap(record(value, "RyotQL rows pageInfo is malformed"), (pageInfo) =>
 		Result.all({
@@ -993,7 +980,7 @@ export type SelectedAggregateResult<
 	GroupBy extends SelectedSelection,
 	Measures extends SelectedMeasures,
 > = {
-	readonly pageInfo?: undefined | SelectedRowsPageInfo;
+	readonly pageInfo: SelectedRowsPageInfo;
 	readonly items: readonly SelectedAggregateRow<GroupBy, Measures>[];
 };
 
@@ -1107,10 +1094,7 @@ export function selectedAggregate(
 						return Result.succeed(items[0]);
 					});
 				}
-				if (aggregateResult["pageInfo"] === undefined) {
-					return Result.map(decodedItems, (items) => ({ items }));
-				}
-				return Result.flatMap(decodeAggregatePageInfo(aggregateResult["pageInfo"]), (pageInfo) =>
+				return Result.flatMap(decodeRowsPageInfo(aggregateResult["pageInfo"]), (pageInfo) =>
 					Result.map(decodedItems, (items) => ({ items, pageInfo })),
 				);
 			}),

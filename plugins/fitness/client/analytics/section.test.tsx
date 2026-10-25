@@ -126,7 +126,7 @@ const targetRankingResponse = {
 	data: {
 		ranking: {
 			type: "aggregate" as const,
-			pageInfo: { limit: 100, hasMore: false },
+			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 			items: [
 				{
 					sets: 3,

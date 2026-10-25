@@ -21,8 +21,16 @@ describe("measurementSeriesRecipe", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					average1: { type: "aggregate", items: [{ value: 0, at: "2026-01-01T00:00:00.000Z" }] },
-					average0: { type: "aggregate", items: [{ value: 73.5, at: "2026-01-02T00:00:00.000Z" }] },
+					average1: {
+						type: "aggregate",
+						items: [{ value: 0, at: "2026-01-01T00:00:00.000Z" }],
+						pageInfo: { limit: 900, hasMore: false, nextCursor: null },
+					},
+					average0: {
+						type: "aggregate",
+						items: [{ value: 73.5, at: "2026-01-02T00:00:00.000Z" }],
+						pageInfo: { limit: 900, hasMore: false, nextCursor: null },
+					},
 				},
 			}),
 		);

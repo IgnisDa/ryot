@@ -26,7 +26,7 @@ const emptyActivityResult = (name: string) => {
 	}
 	return name === "reviews"
 		? { type: "aggregate", items: [{ reviews: 0 }] }
-		: { items: [], type: "aggregate" };
+		: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } };
 };
 
 const inProgressMovie = flatRow("movie-1", "Heat", "movie", {
@@ -225,8 +225,8 @@ describe("home gate", () => {
 					const home = homeAdapter({
 						gate,
 						responses: {
-							days: { items: [], type: "aggregate" },
-							mediaTypes: { items: [], type: "aggregate" },
+							days: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
+							mediaTypes: { items: [], type: "aggregate", pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
 							figures: {
 								type: "aggregate",
 								items: [{ finished: 1, minutes: 116, minutesMissing: 0 }],

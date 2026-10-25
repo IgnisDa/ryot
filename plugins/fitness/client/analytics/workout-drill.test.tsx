@@ -62,7 +62,7 @@ const rankingResponse = {
 		ranking: {
 			items: [rankingRow()],
 			type: "aggregate" as const,
-			pageInfo: { limit: 100, hasMore: false },
+			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 		},
 	},
 };

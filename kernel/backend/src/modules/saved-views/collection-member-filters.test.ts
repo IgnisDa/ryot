@@ -48,7 +48,12 @@ const fields = {
 		{ pluginId: null, slug: "collection", browse: { fields: [rating("a"), links] } },
 		{ slug: "note", pluginId: null, browse: { fields: [rating("b")] } },
 	],
+	membershipPropertiesSchema: collectionFieldsToAppSchema([
+		{ key: "notes", type: "text", label: "Notes", required: false },
+		{ key: "score", label: "Score", type: "number", required: false },
+	]),
 	groups: {
+		pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 		items: [
 			{
 				count: 1,
@@ -59,10 +64,6 @@ const fields = {
 			},
 		],
 	},
-	membershipPropertiesSchema: collectionFieldsToAppSchema([
-		{ key: "notes", type: "text", label: "Notes", required: false },
-		{ key: "score", label: "Score", type: "number", required: false },
-	]),
 };
 
 const filters: readonly Filter[] = [

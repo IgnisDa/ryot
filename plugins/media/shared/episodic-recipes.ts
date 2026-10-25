@@ -935,7 +935,7 @@ export const mediaEpisodicRecipes = <
 					),
 					truncated:
 						coverage.pageInfo.hasMore ||
-						watchDays.pageInfo?.hasMore === true ||
+						watchDays.pageInfo.hasMore ||
 						parentEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
 						episodeProgress.pageInfo.hasMore ||
@@ -948,7 +948,7 @@ export const mediaEpisodicRecipes = <
 									0,
 								) +
 								displayedWatches ||
-						watchDays.pageInfo?.hasMore === true ||
+						watchDays.pageInfo.hasMore ||
 						parentEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
 						episodeProgress.pageInfo.hasMore ||

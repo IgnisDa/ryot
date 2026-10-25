@@ -91,6 +91,7 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>, Component =
 const aggregate = (items: readonly Record<string, null | number | string>[]) => ({
 	items,
 	type: "aggregate" as const,
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const summaryResponse = (pending = 0) => ({
@@ -383,7 +384,7 @@ describe("media analytics section", () => {
 						data: {
 							ranking: {
 								type: "aggregate",
-								pageInfo: { limit: 100, hasMore: false },
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 								items: [
 									{
 										label: "Book",

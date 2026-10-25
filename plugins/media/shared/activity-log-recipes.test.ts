@@ -26,7 +26,7 @@ const includeRows = (items: readonly Record<string, unknown>[]) => ({
 
 const aggregateRows = (consumedOn: readonly string[]) => ({
 	type: "aggregate" as const,
-	pageInfo: { limit: 10, hasMore: false },
+	pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 	items: consumedOn.map((value) => ({ consumedOn: value, lastUsedAt: "2026-03-01T00:00:00.000Z" })),
 });
 

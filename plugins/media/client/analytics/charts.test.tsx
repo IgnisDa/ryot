@@ -31,6 +31,7 @@ const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const aggregate = (items: readonly Record<string, null | number | string>[]) => ({
 	items,
 	type: "aggregate" as const,
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const inputFor = (selection: AnalyticsInput["selection"]): AnalyticsInput => ({

@@ -13,7 +13,11 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	type: "rows",
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
-const aggregate = (items: readonly Record<string, unknown>[]) => ({ items, type: "aggregate" });
+const aggregate = (items: readonly Record<string, unknown>[]) => ({
+	items,
+	type: "aggregate",
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+});
 
 describe("muscleActivityRecipe", () => {
 	const recipe = muscleActivityRecipe({ reference, weekStartAt: "2026-10-14T00:00:00.000Z" });

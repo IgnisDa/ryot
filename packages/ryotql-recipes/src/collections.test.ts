@@ -25,8 +25,8 @@ const memberFields = (
 	overrides: Partial<CollectionMemberFields> = {},
 ): CollectionMemberFields => ({
 	schemas: [],
-	groups: { items: [] },
 	membershipPropertiesSchema: schema,
+	groups: { items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } },
 	...overrides,
 });
 
@@ -523,6 +523,7 @@ describe("collections recipes", () => {
 					data: {
 						collectionMembersCounts: {
 							type: "aggregate",
+							pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 							items: [
 								{ total: 2, collectionId: "collection-1" },
 								{ total: 1, collectionId: "collection-2" },
@@ -550,7 +551,7 @@ describe("collections recipes", () => {
 					data: {
 						aggregate: {
 							type: "aggregate",
-							pageInfo: { limit: 100, hasMore: true },
+							pageInfo: { limit: 100, hasMore: true, nextCursor: null },
 							items: [
 								{
 									count: 2,
@@ -570,7 +571,7 @@ describe("collections recipes", () => {
 				}),
 			),
 		).toEqual({
-			pageInfo: { limit: 100, hasMore: true },
+			pageInfo: { limit: 100, hasMore: true, nextCursor: null },
 			items: [
 				{
 					count: 2,
@@ -607,6 +608,7 @@ describe("collections recipes", () => {
 	describe("member filters", () => {
 		const now = DateTime.makeUnsafe("2026-03-10T12:00:00.000Z");
 		const groups = {
+			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 			items: [
 				{
 					count: 2,

@@ -61,7 +61,7 @@ const rows = (items: readonly Record<string, unknown>[]) =>
 const aggregateRows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "aggregate" as const,
-	pageInfo: { limit: 500, hasMore: false },
+	pageInfo: { limit: 500, hasMore: false, nextCursor: null },
 });
 
 const progressRows = (items: readonly Record<string, unknown>[]) =>

@@ -809,7 +809,7 @@ layer(
 			});
 			expect(response.data["grouped"]).toEqual({
 				type: "aggregate",
-				pageInfo: { limit: 10, hasMore: false },
+				pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 				items: [{ count: 3, total: null, day: "2026-08-01T00:00:00.000Z" }],
 			});
 			expect(response.data["series"]).toEqual({

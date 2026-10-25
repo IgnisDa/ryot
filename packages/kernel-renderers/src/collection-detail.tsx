@@ -215,7 +215,7 @@ const CollectionBrowser = ({
 								{group.count.toLocaleString()} {group.typeLabel}
 							</span>
 						))}
-						{groups.pageInfo?.hasMore && <span>More types not shown</span>}
+						{groups.pageInfo.hasMore && <span>More types not shown</span>}
 					</section>
 				</>
 			)}
