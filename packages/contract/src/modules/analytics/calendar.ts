@@ -1,14 +1,10 @@
-import { DateTime } from "effect";
+import { DateTime, Duration } from "effect";
 
 import type { TimeZone } from "../../schema/time-zone";
 
 export type CalendarUnit = "day" | "week" | "year" | "month";
 
-const DAY_MS = 86_400_000;
-
-const dateMillis = (date: string) => Date.parse(`${date}T00:00:00.000Z`);
-
-const isoDate = (millis: number) => new Date(millis).toISOString().slice(0, 10);
+const calendarDateTime = (date: string) => DateTime.makeUnsafe(`${date}T00:00:00.000Z`);
 
 export const isCalendarDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
@@ -24,31 +20,20 @@ export const startOfLocalDay = (date: string, timeZone: TimeZone) =>
 	);
 
 export const addCalendarDays = (date: string, days: number) =>
-	isoDate(dateMillis(date) + days * DAY_MS);
+	DateTime.formatIsoDate(DateTime.add(calendarDateTime(date), { days }));
 
 export const calendarDaysBetween = (from: string, until: string) =>
-	Math.round((dateMillis(until) - dateMillis(from)) / DAY_MS);
+	Duration.toDays(DateTime.distance(calendarDateTime(from), calendarDateTime(until)));
 
-export const startOfCalendarUnit = (date: string, unit: CalendarUnit) => {
-	if (unit === "year") {
-		return `${date.slice(0, 4)}-01-01`;
-	}
-	if (unit === "month") {
-		return `${date.slice(0, 7)}-01`;
-	}
-	return unit === "week"
-		? addCalendarDays(date, -((new Date(dateMillis(date)).getUTCDay() + 6) % 7))
-		: date;
-};
+export const startOfCalendarUnit = (date: string, unit: CalendarUnit) =>
+	DateTime.formatIsoDate(DateTime.startOf(calendarDateTime(date), unit, { weekStartsOn: 1 }));
 
-export const addCalendarUnits = (date: string, unit: CalendarUnit, count: number) => {
-	const next = new Date(dateMillis(date));
-	if (unit === "year") {
-		next.setUTCFullYear(next.getUTCFullYear() + count);
-	} else if (unit === "month") {
-		next.setUTCMonth(next.getUTCMonth() + count);
-	} else {
-		next.setUTCDate(next.getUTCDate() + count * (unit === "week" ? 7 : 1));
-	}
-	return next.toISOString().slice(0, 10);
-};
+const unitParts = {
+	day: (days: number) => ({ days }),
+	week: (weeks: number) => ({ weeks }),
+	year: (years: number) => ({ years }),
+	month: (months: number) => ({ months }),
+} satisfies Record<CalendarUnit, (count: number) => Partial<DateTime.DateTime.PartsForMath>>;
+
+export const addCalendarUnits = (date: string, unit: CalendarUnit, count: number) =>
+	DateTime.formatIsoDate(DateTime.add(calendarDateTime(date), unitParts[unit](count)));

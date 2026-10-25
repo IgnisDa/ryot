@@ -1,4 +1,4 @@
-import { DateTime, Result, Schema } from "effect";
+import { Array, DateTime, Option, Order, Record, Result, Schema } from "effect";
 
 import { TimeZone } from "../../schema/time-zone";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
@@ -16,13 +16,11 @@ export const ReportingPreferences = strictStruct({ timeZone: TimeZone });
 export type ReportingPreferences = typeof ReportingPreferences.Type;
 
 export const CalendarDate = Schema.String.check(
-	Schema.makeFilter((value) => {
-		if (!isCalendarDate(value)) {
-			return false;
-		}
-		const date = new Date(`${value}T00:00:00.000Z`);
-		return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-	}),
+	Schema.makeFilter(
+		(value) =>
+			isCalendarDate(value) &&
+			Option.exists(DateTime.make(value), (date) => DateTime.formatIsoDate(date) === value),
+	),
 );
 
 export const ReportingGrouping = Schema.Literals(["auto", "day", "week", "month", "year"]);
@@ -78,14 +76,14 @@ const automaticGrouping = (days: number): CalendarUnit => {
 	return days <= 3653 ? "month" : "year";
 };
 
-const monthIndex = (date: string) => Number(date.slice(0, 4)) * 12 + Number(date.slice(5, 7));
-
 const bucketCount = (startDate: string, endDate: string, unit: CalendarUnit) => {
+	const start = DateTime.toParts(DateTime.makeUnsafe(startDate));
+	const end = DateTime.toParts(DateTime.makeUnsafe(endDate));
 	if (unit === "year") {
-		return Number(endDate.slice(0, 4)) - Number(startDate.slice(0, 4)) + 1;
+		return end.year - start.year + 1;
 	}
 	if (unit === "month") {
-		return monthIndex(endDate) - monthIndex(startDate) + 1;
+		return (end.year - start.year) * 12 + end.month - start.month + 1;
 	}
 	const days = calendarDaysBetween(startOfCalendarUnit(startDate, unit), endDate) + 1;
 	return unit === "week" ? Math.ceil(days / 7) : days;
@@ -224,17 +222,10 @@ export const calendarBuckets = <Point>(
 		readonly period: null | ReportingPeriod;
 	},
 ): ReadonlyArray<CalendarBucket<Point>> => {
-	const grouped = new Map<string, Point[]>();
-	for (const point of points) {
-		const date = startOfCalendarUnit(localDateOf(input.at(point), input.timeZone), input.grouping);
-		const bucket = grouped.get(date);
-		if (bucket === undefined) {
-			grouped.set(date, [point]);
-		} else {
-			bucket.push(point);
-		}
-	}
-	const dates = [...grouped.keys()].sort();
+	const grouped = Array.groupBy(points, (point) =>
+		startOfCalendarUnit(localDateOf(input.at(point), input.timeZone), input.grouping),
+	);
+	const dates = Array.sort(Record.keys(grouped), Order.String);
 	const first = input.period?.startDate ?? dates[0];
 	const lastDate = dates.at(-1);
 	const last =
@@ -254,7 +245,7 @@ export const calendarBuckets = <Point>(
 		const endDate = addCalendarDays(addCalendarUnits(date, input.grouping, 1), -1);
 		buckets.push({
 			date,
-			points: grouped.get(date) ?? [],
+			points: grouped[date] ?? [],
 			period: calendarPeriod(
 				date < first ? first : date,
 				endDate > last ? last : endDate,

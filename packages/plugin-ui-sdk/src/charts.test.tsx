@@ -147,7 +147,7 @@ describe("formatReportingDateTime", () => {
 	it("formats an instant in the reporting time zone", () => {
 		expect(
 			formatReportingDateTime("2026-09-02T01:30:00.000Z", TimeZone.make("America/New_York")),
-		).toBe("Sep 1, 2026, 9:30 PM");
+		).toMatch(/^Sep 1, 2026,\s9:30\sPM$/u);
 	});
 });
 

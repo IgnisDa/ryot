@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
+import { DateTime, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	add,
 	and,
@@ -30,11 +30,10 @@ import {
 	table,
 	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
-import {
-	addCalendarDays,
-	type PluginIdentityReference,
-	type ReportingPeriod,
-	type TimeZone,
+import type {
+	PluginIdentityReference,
+	ReportingPeriod,
+	TimeZone,
 } from "@ryot-app/plugin-kit/schema";
 
 import { CALENDAR_DATE_TOLERANCE_DAYS } from "./consumption";
@@ -72,8 +71,8 @@ export const consumptionActiveDay = (event: Table, timeZone: TimeZone) => {
 	);
 };
 
-const calendarDayStart = (date: string, offsetDays: number) =>
-	`${addCalendarDays(date, offsetDays)}T00:00:00.000Z`;
+const calendarDayStart = (date: string, days: number) =>
+	DateTime.formatIso(DateTime.add(DateTime.makeUnsafe(date), { days }));
 
 /**
  * Attribution equals the source `calendarDate` or `occurredAt`. The consumption policy keeps a

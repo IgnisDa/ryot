@@ -1,4 +1,8 @@
-import { isCalendarDate } from "@ryot-app/contract/modules/analytics/calendar";
+import {
+	addCalendarDays,
+	calendarDaysBetween,
+	isCalendarDate,
+} from "@ryot-app/contract/modules/analytics/calendar";
 import { type TimeZone, UTC } from "@ryot-app/contract/schema/time-zone";
 import { areaY, barY, defineChart, dot, lineY } from "@tanstack/charts";
 import { decorative } from "@tanstack/charts/mark/decorative";
@@ -8,6 +12,7 @@ import { scaleBand } from "@tanstack/charts/scales/band";
 import { scaleLinear } from "@tanstack/charts/scales/linear";
 import { tooltip } from "@tanstack/charts/tooltip";
 import { portal } from "@tanstack/charts/tooltip/portal";
+import { DateTime } from "effect";
 import { type ReactNode, useMemo, useState } from "react";
 
 import { Button } from "./button";
@@ -23,8 +28,8 @@ const REPORTING_LOCALE = "en-US";
 const reportingStyles = {
 	month: { month: "short" },
 	day: { day: "numeric", month: "short" },
-	time: { hour: "numeric", minute: "2-digit" },
 	date: { day: "numeric", month: "short", year: "numeric" },
+	dateTime: { day: "numeric", month: "short", hour: "numeric", year: "numeric", minute: "2-digit" },
 } satisfies Record<string, Intl.DateTimeFormatOptions>;
 const reportingFormats = new Map<string, Intl.DateTimeFormat>();
 
@@ -42,10 +47,8 @@ const reportingFormat = (style: keyof typeof reportingStyles, timeZone: string) 
 const reportingDate = (at: string, timeZone: TimeZone, full: boolean) =>
 	reportingFormat(full ? "date" : "day", isCalendarDate(at) ? UTC : timeZone).format(new Date(at));
 
-export const formatReportingDateTime = (at: string, timeZone: TimeZone) => {
-	const date = new Date(at);
-	return `${reportingFormat("date", timeZone).format(date)}, ${reportingFormat("time", timeZone).format(date)}`;
-};
+export const formatReportingDateTime = (at: string, timeZone: TimeZone) =>
+	reportingFormat("dateTime", timeZone).format(new Date(at));
 
 export type CalendarHeatmapLevel = (typeof LEVELS)[number];
 
@@ -74,10 +77,10 @@ type CalendarCell<Day> = {
 	readonly level: CalendarHeatmapLevel;
 };
 
-const dayNumber = (date: string) => {
-	const [year = 0, month = 1, day = 1] = date.split("-").map(Number);
-	return Date.UTC(year, month - 1, day) / DAY_MS;
-};
+const calendarParts = (date: string) => DateTime.toParts(DateTime.makeUnsafe(date));
+
+const leadingDays = (date: string, weekStart: 0 | 1) =>
+	(calendarParts(date).weekDay - weekStart + 7) % 7;
 
 /** Level 0 is no activity; positive values split into five equal bands of the maximum value. */
 const levelOf = (value: number, max: number): CalendarHeatmapLevel =>
@@ -92,11 +95,10 @@ const calendarCells = <Day extends CalendarHeatmapDay>(
 	if (first === undefined) {
 		return { weeks: 0, cells: [], days: sorted };
 	}
-	const start = dayNumber(first.date);
-	const leading = (new Date(start * DAY_MS).getUTCDay() - weekStart + 7) % 7;
+	const leading = leadingDays(first.date, weekStart);
 	const max = Math.max(0, ...sorted.map(({ value }) => value ?? 0));
 	const cells = sorted.flatMap((day): ReadonlyArray<CalendarCell<Day>> => {
-		const offset = dayNumber(day.date) - start + leading;
+		const offset = calendarDaysBetween(first.date, day.date) + leading;
 		return day.value === null
 			? []
 			: [
@@ -113,7 +115,7 @@ const calendarCells = <Day extends CalendarHeatmapDay>(
 	return {
 		cells,
 		days: sorted,
-		weeks: Math.floor((dayNumber(last.date) - start + leading) / 7) + 1,
+		weeks: Math.floor((calendarDaysBetween(first.date, last.date) + leading) / 7) + 1,
 	};
 };
 
@@ -123,18 +125,17 @@ const monthLabels = (days: ReadonlyArray<CalendarHeatmapDay>, weekStart: 0 | 1) 
 	if (first === undefined || last === undefined) {
 		return [];
 	}
-	const start = dayNumber(first.date);
-	const leading = (new Date(start * DAY_MS).getUTCDay() - weekStart + 7) % 7;
+	const leading = leadingDays(first.date, weekStart);
 	const labels: { readonly week: number; readonly label: string }[] = [];
-	for (let day = start; day <= dayNumber(last.date); day++) {
-		const date = new Date(day * DAY_MS);
+	for (let offset = 0; offset <= calendarDaysBetween(first.date, last.date); offset++) {
+		const date = addCalendarDays(first.date, offset);
 		const previous = labels.at(-1);
-		const week = Math.floor((day - start + leading) / 7);
+		const week = Math.floor((offset + leading) / 7);
 		if (
-			date.getUTCDate() === 1 &&
+			calendarParts(date).day === 1 &&
 			(previous === undefined || week - previous.week >= MIN_MONTH_LABEL_GAP_WEEKS)
 		) {
-			labels.push({ week, label: reportingFormat("month", UTC).format(date) });
+			labels.push({ week, label: reportingFormat("month", UTC).format(new Date(date)) });
 		}
 	}
 	return labels;

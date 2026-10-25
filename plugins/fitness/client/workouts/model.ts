@@ -1,10 +1,11 @@
 import {
 	addCalendarDays,
+	calendarPeriod,
 	localDateOf,
-	resolveReportingSelection,
 	startOfCalendarUnit,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
+import { DateTime } from "effect";
 
 import { countMuscleSets, elapsedWorkoutSeconds } from "../../shared/fitness-metrics";
 import type {
@@ -34,35 +35,20 @@ export type PeriodKey = (typeof periodOptions)[number]["key"];
 const periodOf = (key: PeriodKey) =>
 	periodOptions.find((option) => option.key === key) ?? periodOptions[1];
 
-const iso = (time: number) => new Date(time).toISOString();
-
 export const summaryWindows = (period: PeriodKey, now: Date, timeZone: TimeZone) => {
-	const clock = { timeZone, now: now.getTime() };
-	const { current, previous } = resolveReportingSelection(
-		{
-			grouping: "day",
-			comparison: "previous-period",
-			range: { kind: "rolling", days: periodOf(period).days },
-		},
-		clock,
-	);
 	const today = localDateOf(now, timeZone);
-	const { current: days } = resolveReportingSelection(
-		{
-			grouping: "day",
-			comparison: "none",
-			range: {
-				kind: "custom",
-				endDate: today,
-				startDate: addCalendarDays(today, -(HEATMAP_WEEKS * 7 + 1)),
-			},
-		},
-		clock,
-	);
-	if (current === null || previous === null || days === null) {
-		throw new Error("Workout summary requires bounded reporting periods");
-	}
-	return { days, current, previous };
+	const days = periodOf(period).days;
+	const window = (endOffset: number, length: number) =>
+		calendarPeriod(
+			addCalendarDays(today, endOffset - length + 1),
+			addCalendarDays(today, endOffset),
+			timeZone,
+		);
+	return {
+		current: window(0, days),
+		previous: window(-days, days),
+		days: window(0, HEATMAP_WEEKS * 7 + 2),
+	};
 };
 
 const keyDate = (key: string) => new Date(`${key}T00:00:00.000Z`);
@@ -340,8 +326,8 @@ export const weeksWindow = (cards: readonly WorkoutCard[]) => {
 	return first === undefined || last === undefined
 		? null
 		: {
-				endAt: iso(keyDate(addCalendarDays(last, 8)).getTime()),
-				startAt: iso(keyDate(addCalendarDays(first, -1)).getTime()),
+				endAt: DateTime.formatIso(DateTime.makeUnsafe(addCalendarDays(last, 8))),
+				startAt: DateTime.formatIso(DateTime.makeUnsafe(addCalendarDays(first, -1))),
 			};
 };
 
