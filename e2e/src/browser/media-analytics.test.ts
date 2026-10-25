@@ -7,7 +7,6 @@ import {
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
 } from "@ryot-app/media-plugin/shared/analytics-recipes";
-import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Clock, Effect, Option, Result, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -24,7 +23,6 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
 const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
-const screenshotDirectory = "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode";
 const currentRange = "2026-09-01 – 2026-09-07";
 const previousRange = "2026-08-25 – 2026-08-31";
 const desktopViewport = { width: 1280, height: 900 };
@@ -202,7 +200,6 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		yield* frame
 			.getByRole("img", { exact: true, name: `Daily active observations · ${currentRange}` })
 			.waitFor({ state: "visible" });
-		const screenshotId = yield* randomUuid;
 		for (const visualCase of visualCases) {
 			yield* page.setViewportSize(visualCase.viewport);
 			for (const colorScheme of colorSchemes) {
@@ -239,34 +236,6 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 				expect(
 					yield* frame.locator("html").evaluate((html) => html.scrollWidth > html.clientWidth),
 				).toBe(false);
-				yield* page.use((nativePage) =>
-					nativePage
-						.locator(iframeSelector)
-						.contentFrame()
-						.getByRole("img", { exact: true, name: "Active observations by reporting period" })
-						.screenshot({
-							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}.png`,
-						}),
-				);
-				yield* page.use((nativePage) =>
-					nativePage
-						.locator(iframeSelector)
-						.contentFrame()
-						.getByRole("img", { exact: true, name: "Active observations by local hour" })
-						.screenshot({
-							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}-hours.png`,
-						}),
-				);
-				yield* page.use((nativePage) =>
-					nativePage
-						.locator(iframeSelector)
-						.contentFrame()
-						.getByRole("heading", { exact: true, name: "Daily consistency" })
-						.locator("..")
-						.screenshot({
-							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}-calendar.png`,
-						}),
-				);
 			}
 		}
 

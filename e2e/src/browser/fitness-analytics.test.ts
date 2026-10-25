@@ -3,7 +3,6 @@ import {
 	reportingSelectionSearch,
 } from "@ryot-app/contract/modules/analytics/reporting";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Option, Result, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -14,7 +13,6 @@ import { expect, it } from "~/support/effect-test";
 
 const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
 const analyticsFrame = (page: Playwright.Page) => page.locator(iframeSelector);
-const screenshotDirectory = "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode";
 const desktopViewport = { width: 1280, height: 900 };
 const colorSchemes: ReadonlyArray<"dark" | "light"> = ["light", "dark"];
 const currentWorkoutRows: ReadonlyArray<{ readonly date: string; readonly value: string }> = [
@@ -76,7 +74,6 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		});
 		const page = yield* context.newPage;
 		const frameElement = analyticsFrame(page);
-		const screenshotId = yield* randomUuid;
 
 		yield* signInThroughHostedOAuth(page, fixture.account.email, fixture.account.password, {
 			entryPath,
@@ -200,9 +197,6 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 					);
 				expect(hostFits).toBe(true);
 				expect(iframeFits).toBe(true);
-				const screenshotPath = `${screenshotDirectory}/fitness-analytics-${screenshotId}-${visualCase.name}-${colorScheme}`;
-				yield* trendChart.screenshot({ path: `${screenshotPath}-trend.png` });
-				yield* hourChart.screenshot({ path: `${screenshotPath}-hours.png` });
 			}
 		}
 

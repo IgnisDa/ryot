@@ -230,7 +230,7 @@ const operationsLayer = RestoreBackupWorkflowOperationsLive.pipe(
 	Layer.provide(
 		makeAppConfigLayer({
 			fileStorage: {
-				localTempDir: `${tmpdir()}/opencode/ryot-restore-atomic-${crypto.randomUUID()}`,
+				localTempDir: `${tmpdir()}/ryot-restore-atomic-${crypto.randomUUID()}`,
 			},
 		}),
 	),

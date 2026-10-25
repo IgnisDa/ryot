@@ -13,7 +13,6 @@ import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const iframeSelector = 'main > div:not([aria-hidden="true"]) iframe';
-const screenshotDirectory = "/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode";
 
 const visualCases = [
 	{ name: "desktop", compact: "wide", viewport: { width: 1280, height: 800 } },
@@ -81,18 +80,6 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 						);
 					expect(hostOverflow).toBe(true);
 					expect(pluginOverflow).toBe(true);
-					for (const surface of ["trend", "histogram"] as const) {
-						const screenshotPath = `${screenshotDirectory}/reporting-charts-${visualCase.name}-${colorScheme}-${reducedMotion}-${surface}.png`;
-						yield* page.use((nativePage) =>
-							nativePage
-								.locator(iframeSelector)
-								.contentFrame()
-								.getByRole("region", {
-									name: surface === "trend" ? "Period trend chart" : "Hourly histogram chart",
-								})
-								.screenshot({ path: screenshotPath }),
-						);
-					}
 				}
 			}
 		}
