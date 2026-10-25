@@ -364,10 +364,12 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
 - `fitness.workout-records` batches changed sets by exercise and requests event-projection work for
-  each affected exercise. The common background-work owner dispatches bounded steps; the event stream
-  retains its checkpoint, dirty boundary, and freshness state separately from the canonical job status.
-  Workers compute statistics/badges per recorded kind into separate projection rows without changing
-  source events or replaying historical hooks. Workout start changes trigger
+  each affected exercise. The common background-work owner runs one batch of dirty exercises per
+  user; `script.workout-record-step` reads the batch with one 100-row query per round ordered by
+  exercise and set order, resuming each exercise from its own position. Each event stream retains its
+  checkpoint, dirty boundary, and freshness state separately from the canonical job status. Workers
+  compute statistics/badges per recorded kind into separate projection rows without changing source
+  events or replaying historical hooks. Workout start changes trigger
   `fitness.workout-context-records` repairs. A projection is visible only while it matches the current
   source revision and plugin revision/configuration/installation binding; pending or failed status is
   noted until processing finishes.

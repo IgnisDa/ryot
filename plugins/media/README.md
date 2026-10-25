@@ -705,9 +705,12 @@ cumulative chapter progress are not consumed volumes; only explicit volume occur
 that quantity. Date-only observations retain their calendar date, unknown dates stay undated, and
 reporting periods filter contributions after complete run repair.
 
-`backend/consumption-step.sandbox.ts` pages ordered source-run groups and local run boundaries using
-`backend/contracts/consumption-recipes.ts`. Each step retains one plan/replay cursor, reads at most
-eight 50-row pages, and publishes at most 100 updates for its own event schema. A finished stream
+`backend/consumption-step.sandbox.ts` processes a batch of titles with
+`backend/contracts/consumption-recipes.ts`: each round is one 100-row query over every unfinished
+title, ordered by title and then source-run group and local run order from each title's own
+position. Each title retains one plan/replay cursor; a run planned within one round replays from the
+rows already read, and only runs crossing a round boundary are read again. A run reads at most 20
+rounds and publishes at most 100 updates per title for its own event schema. A finished stream
 returns a null checkpoint, so a later append replans from the start.
 
 The step computes from the current source rows and treats correction-frozen run boundaries as data;

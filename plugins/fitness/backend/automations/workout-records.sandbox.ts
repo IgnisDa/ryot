@@ -3,8 +3,8 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import {
-	EventStreamStepInput,
-	EventStreamStepOutput,
+	EventStreamBatchInput,
+	EventStreamBatchOutput,
 } from "@ryot-app/plugin-backend-sdk/event-streams";
 import { continuationCursor, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -42,12 +42,12 @@ export const manifest = defineManifest({
 });
 
 const recordStepReference = defineScriptReference({
-	input: EventStreamStepInput,
-	output: EventStreamStepOutput,
+	input: EventStreamBatchInput,
+	output: EventStreamBatchOutput,
 	scriptSlug: "script.workout-record-step",
 });
 
-const workoutSetSchemaSlug = EventStreamStepInput.fields.eventSchemaSlug.make("workout-set");
+const workoutSetSchemaSlug = EventStreamBatchInput.fields.eventSchemaSlug.make("workout-set");
 
 type EventSnapshot = Extract<EventBatchItem, { operation: "create" }>["after"];
 

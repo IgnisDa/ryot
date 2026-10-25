@@ -1,18 +1,16 @@
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
-	EventStreamStepInput,
-	EventStreamStepOutput,
+	EVENT_STREAM_BATCH_LIMITS,
+	EventStreamBatchInput,
+	EventStreamBatchOutput,
 } from "@ryot-app/plugin-backend-sdk/event-streams";
-import {
-	continuationCursor,
-	executeRyotqlRecipe,
-	IsoDateString,
-} from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import {
-	workoutRecordRowsRecipe,
-	type WorkoutRecordRowsResult,
+	workoutRecordBatchRecipe,
+	type WorkoutRecordBatchResult,
+	WorkoutRecordPosition,
 } from "../shared/workout-record-recipes";
 import {
 	awardWorkoutPersonalBests,
@@ -26,24 +24,26 @@ export const manifest = defineManifest({
 	slug: "script.workout-record-step",
 });
 
-const checkpointLimit = 16_384;
-const pageLimit = 50;
+const roundsPerBatch = 20;
+const updatesPerStream = 100;
 
 const WorkoutRecordCheckpointSchema = Schema.Struct({
-	after: Schema.NullOr(Schema.String),
+	after: Schema.NullOr(WorkoutRecordPosition),
 	lastOccurredAt: Schema.NullOr(IsoDateString),
 	phase: Schema.Literals(["records", "complete"]),
 	maxima: Schema.Record(Schema.String, WorkoutRecordMaximaSchema),
 });
 
-type WorkoutRecordRow = WorkoutRecordRowsResult["items"][number];
-type EventStreamStepResult = Schema.Schema.Type<typeof EventStreamStepOutput>;
+type WorkoutRecordRow = WorkoutRecordBatchResult["items"][number];
+type StreamOutput = (typeof EventStreamBatchOutput.Type)["streams"][number];
 type WorkoutRecordCheckpoint = Schema.Schema.Type<typeof WorkoutRecordCheckpointSchema>;
-
-class WorkoutRecordStepError extends Schema.TaggedError<
-	WorkoutRecordStepError,
-	{ readonly brand: unique symbol }
->()("WorkoutRecordStepError", { message: Schema.String }) {}
+type Stream = {
+	done: boolean;
+	readonly dirtyFrom: null | string;
+	checkpoint: WorkoutRecordCheckpoint;
+	readonly entityId: StreamOutput["entityId"];
+	readonly updates: Array<StreamOutput["updates"][number]>;
+};
 
 const initialCheckpoint = (): WorkoutRecordCheckpoint => ({
 	maxima: {},
@@ -52,6 +52,18 @@ const initialCheckpoint = (): WorkoutRecordCheckpoint => ({
 	lastOccurredAt: null,
 });
 
+const resumeCheckpoint = (checkpoint: WorkoutRecordCheckpoint, dirtyFrom: null | string) => {
+	if (checkpoint.phase === "records") {
+		return checkpoint;
+	}
+	const canAppend =
+		checkpoint.after !== null &&
+		dirtyFrom !== null &&
+		checkpoint.lastOccurredAt !== null &&
+		dirtyFrom > checkpoint.lastOccurredAt;
+	return canAppend ? { ...checkpoint, phase: "records" as const } : initialCheckpoint();
+};
+
 const measurementsOf = (row: WorkoutRecordRow) => ({
 	reps: row.reps ?? undefined,
 	weight: row.weight ?? undefined,
@@ -59,15 +71,32 @@ const measurementsOf = (row: WorkoutRecordRow) => ({
 	distance: row.distance ?? undefined,
 });
 
-const recordPage = (
-	rows: readonly WorkoutRecordRow[],
-	checkpoint: WorkoutRecordCheckpoint,
-	dirtyFrom: null | string,
+const positionOf = (row: WorkoutRecordRow) => ({
+	id: row.id,
+	setOrder: row.setOrder,
+	sessionId: row.sessionId,
+	occurredAt: row.occurredAt,
+	exerciseOrder: row.exerciseOrder,
+	workoutStartedAt: row.workoutStartedAt,
+});
+
+const advanceStream = (
+	stream: Stream,
+	rows: ReadonlyArray<WorkoutRecordRow>,
+	ended: boolean,
+	budget: { remaining: number },
 ) => {
-	const maxima = { ...checkpoint.maxima };
-	let lastOccurredAt = checkpoint.lastOccurredAt;
-	const updates: Array<EventStreamStepResult["updates"][number]> = [];
+	const start = stream.checkpoint;
+	const maxima = { ...start.maxima };
+	let after = start.after;
+	let lastOccurredAt = start.lastOccurredAt;
 	for (const row of rows) {
+		const emits = stream.dirtyFrom === null || row.occurredAt >= stream.dirtyFrom;
+		if (emits && (stream.updates.length >= updatesPerStream || budget.remaining <= 0)) {
+			stream.checkpoint = { after, maxima, lastOccurredAt, phase: "records" };
+			stream.done = false;
+			return false;
+		}
 		const measurements = measurementsOf(row);
 		const statistics = calculateWorkoutSetStatistics(row.exerciseKind, measurements);
 		const awarded = awardWorkoutPersonalBests(
@@ -77,87 +106,81 @@ const recordPage = (
 		);
 		maxima[row.exerciseKind] = awarded.maxima;
 		lastOccurredAt = row.occurredAt;
-		if (dirtyFrom !== null && row.occurredAt < dirtyFrom) {
-			continue;
-		}
-		updates.push({
-			eventId: row.id,
-			properties: { ...statistics, personalBests: [...awarded.personalBests] },
-		});
-	}
-	return { maxima, updates, lastOccurredAt };
-};
-
-const makeOutput = (
-	done: boolean,
-	checkpoint: WorkoutRecordCheckpoint,
-	updates: EventStreamStepResult["updates"],
-) =>
-	Effect.gen(function* () {
-		const checkpointJson = yield* Schema.encodeEffect(
-			Schema.fromJsonString(WorkoutRecordCheckpointSchema),
-		)(checkpoint);
-		const checkpointBytes = new TextEncoder().encode(checkpointJson).byteLength;
-		if (checkpointBytes > checkpointLimit) {
-			return yield* new WorkoutRecordStepError({
-				message: "Workout record checkpoint exceeds 16 KiB",
+		after = positionOf(row);
+		if (emits) {
+			stream.updates.push({
+				eventId: row.id,
+				properties: { ...statistics, personalBests: [...awarded.personalBests] },
 			});
+			budget.remaining -= 1;
 		}
-		const checkpointValue = yield* Schema.encodeEffect(
-			Schema.toCodecJson(WorkoutRecordCheckpointSchema),
-		)(checkpoint);
-		return yield* Schema.decodeEffect(EventStreamStepOutput)({
-			done,
-			updates,
-			checkpoint: checkpointValue,
-		});
-	});
+	}
+	stream.done = ended;
+	stream.checkpoint = ended
+		? { lastOccurredAt, phase: "complete", after: start.after, maxima: start.maxima }
+		: { after, maxima, lastOccurredAt, phase: "records" };
+	return !ended;
+};
 
 export default defineScript({
 	manifest,
-	input: EventStreamStepInput,
-	output: EventStreamStepOutput,
+	input: EventStreamBatchInput,
+	output: EventStreamBatchOutput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			let checkpoint =
-				input.checkpoint === null
-					? initialCheckpoint()
-					: yield* Schema.decodeUnknownEffect(WorkoutRecordCheckpointSchema)(input.checkpoint);
-			if (checkpoint.phase === "complete") {
-				const canAppend =
-					checkpoint.after !== null &&
-					input.dirtyFrom !== null &&
-					checkpoint.lastOccurredAt !== null &&
-					input.dirtyFrom > checkpoint.lastOccurredAt;
-				checkpoint = canAppend ? { ...checkpoint, phase: "records" } : initialCheckpoint();
-			}
-
-			const page = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				workoutRecordRowsRecipe({
-					limit: pageLimit,
-					exerciseId: input.entityId,
-					reference: { kind: "self" },
-					after: checkpoint.after ?? undefined,
+			const streams: Array<Stream> = yield* Effect.forEach(input.streams, (stream) =>
+				Effect.gen(function* () {
+					const checkpoint =
+						stream.checkpoint === null
+							? initialCheckpoint()
+							: yield* Schema.decodeUnknownEffect(WorkoutRecordCheckpointSchema)(stream.checkpoint);
+					return {
+						done: false,
+						updates: [],
+						entityId: stream.entityId,
+						dirtyFrom: stream.dirtyFrom,
+						checkpoint: resumeCheckpoint(checkpoint, stream.dirtyFrom),
+					};
 				}),
 			);
-			const pageStart = checkpoint;
-			const processed = recordPage(page.items, checkpoint, input.dirtyFrom);
-			const cursor = yield* continuationCursor(page.pageInfo);
-			const nextCheckpoint: WorkoutRecordCheckpoint =
-				cursor !== undefined
-					? {
-							after: cursor,
-							phase: "records",
-							maxima: processed.maxima,
-							lastOccurredAt: processed.lastOccurredAt,
-						}
-					: {
-							phase: "complete",
-							after: pageStart.after,
-							maxima: pageStart.maxima,
-							lastOccurredAt: processed.lastOccurredAt,
+			let active = streams;
+			const budget = { remaining: EVENT_STREAM_BATCH_LIMITS.updates };
+			for (let round = 0; round < roundsPerBatch && active.length > 0; round += 1) {
+				if (budget.remaining <= 0) {
+					break;
+				}
+				const page = yield* executeRyotqlRecipe(
+					host.executeRyotql,
+					workoutRecordBatchRecipe({
+						reference: { kind: "self" },
+						streams: active.map(({ entityId, checkpoint }) => ({
+							exerciseId: entityId,
+							after: checkpoint.after,
+						})),
+					}),
+				);
+				const partial = page.pageInfo.hasMore ? page.items.at(-1)?.exerciseId : undefined;
+				active = active.filter((stream) => {
+					const own = page.items.filter((row) => row.exerciseId === stream.entityId);
+					if (page.pageInfo.hasMore && own.length === 0) {
+						return true;
+					}
+					return advanceStream(stream, own, partial !== stream.entityId, budget);
+				});
+			}
+			return {
+				streams: yield* Effect.forEach(streams, (stream) =>
+					Effect.gen(function* () {
+						return {
+							done: stream.done,
+							updates: stream.updates,
+							entityId: stream.entityId,
+							checkpoint: yield* Schema.encodeEffect(
+								Schema.toCodecJson(WorkoutRecordCheckpointSchema),
+							)(stream.checkpoint),
 						};
-			return yield* makeOutput(!page.pageInfo.hasMore, nextCheckpoint, processed.updates);
+					}),
+				),
+			};
 		}),
 });

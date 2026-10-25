@@ -27,10 +27,10 @@ import type { ConsumptionPosition } from "../../shared/consumption-projection";
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
 import { CompletionOccurrence } from "../../shared/history-correction";
 
-export const consumptionPageSize = 50;
+export const consumptionRoundSize = 100;
 
-export const consumptionPageRecipe = defineRecipe(
-	(input: { entityId: string; after: null | ConsumptionPosition }) => {
+export const consumptionBatchRecipe = defineRecipe(
+	(input: { streams: ReadonlyArray<{ entityId: string; after: null | ConsumptionPosition }> }) => {
 		const event = table("event", "consumptionSource");
 		const entity = table("entity", "consumptionEntity");
 		const occurrence = table("event", "consumptionBoundary");
@@ -55,42 +55,37 @@ export const consumptionPageRecipe = defineRecipe(
 			column(event, "orderKey"),
 			column(event, "id"),
 		];
-		const after =
-			input.after === null
-				? []
-				: [
-						literal(input.after.group),
-						castDate(literal(input.after.occurredAt)),
-						castDate(literal(input.after.orderCreatedAt)),
-						literal(input.after.orderKey),
-						literal(input.after.id),
-					];
-		const seek = order.flatMap((expr, index) => {
-			const value = after[index];
-			if (value === undefined) {
-				return [];
-			}
-			return [
-				and(
-					...order.slice(0, index).flatMap((earlier, earlierIndex) => {
-						const previous = after[earlierIndex];
-						return previous === undefined ? [] : [eq(earlier, previous)];
-					}),
-					gt(expr, value),
-				),
+		const seek = (after: ConsumptionPosition) => {
+			const keys = [
+				{ expr: group, value: literal(after.group) },
+				{ expr: column(event, "occurredAt"), value: castDate(literal(after.occurredAt)) },
+				{ expr: column(event, "orderCreatedAt"), value: castDate(literal(after.orderCreatedAt)) },
+				{ value: literal(after.orderKey), expr: column(event, "orderKey") },
+				{ value: literal(after.id), expr: column(event, "id") },
 			];
-		});
+			return or(
+				...keys.map(({ expr, value }, index) =>
+					and(...keys.slice(0, index).map((key) => eq(key.expr, key.value)), gt(expr, value)),
+				),
+			);
+		};
 		return {
 			map: ({ rows }) => Result.succeed(rows),
 			queries: {
 				rows: selectedRows(event, {
-					limit: consumptionPageSize,
-					orderBy: order.map(ascending),
+					limit: consumptionRoundSize,
+					orderBy: [column(event, "entityId"), ...order].map(ascending),
 					where: and(
 						own(event),
-						eq(column(event, "entityId"), literal(input.entityId)),
 						inArray(column(event, "eventSchemaSlug"), consumptionEventSlugs.map(literal)),
-						...(seek.length === 0 ? [] : [or(...seek)]),
+						or(
+							...input.streams.map(({ after, entityId }) =>
+								and(
+									eq(column(event, "entityId"), literal(entityId)),
+									...(after === null ? [] : [seek(after)]),
+								),
+							),
+						),
 					),
 					joins: [
 						join("inner", entity, eq(column(entity, "id"), column(event, "entityId"))),
@@ -100,7 +95,7 @@ export const consumptionPageRecipe = defineRecipe(
 							and(
 								own(occurrence),
 								eq(column(occurrence, "eventSchemaSlug"), literal("completion-occurrence")),
-								eq(property(occurrence, "entityId"), literal(input.entityId)),
+								eq(property(occurrence, "entityId"), column(event, "entityId")),
 								eq(property(occurrence, "sourceEventId"), column(event, "id")),
 								eq(property(occurrence, "rule"), literal("progress")),
 							),

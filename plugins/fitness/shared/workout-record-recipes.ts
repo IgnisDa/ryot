@@ -2,9 +2,12 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
+	castDate,
+	coalesce,
 	column,
 	defineRecipe,
 	eq,
+	gt,
 	IsoDateString,
 	join,
 	literal,
@@ -86,48 +89,91 @@ export const workoutSetExerciseIdsRecipe = defineRecipe(
 	},
 );
 
-export const workoutRecordRowsRecipe = defineRecipe(
+export const workoutRecordRoundSize = 100;
+
+const unorderedLast = 2_147_483_647;
+
+export const WorkoutRecordPosition = Schema.Struct({
+	id: Schema.String,
+	setOrder: Schema.Finite,
+	sessionId: Schema.String,
+	occurredAt: IsoDateString,
+	exerciseOrder: Schema.Finite,
+	workoutStartedAt: IsoDateString,
+});
+export type WorkoutRecordPosition = typeof WorkoutRecordPosition.Type;
+
+export const workoutRecordBatchRecipe = defineRecipe(
 	(input: {
-		readonly limit: number;
-		readonly exerciseId: string;
-		readonly after?: string | undefined;
 		readonly reference: PluginIdentityReference;
+		readonly streams: ReadonlyArray<{
+			readonly exerciseId: string;
+			readonly after: null | WorkoutRecordPosition;
+		}>;
 	}) => {
 		const event = table("event", "workoutRecord");
 		const exercise = table("entity", "exercise");
 		const workout = table("entity", "workout");
 		const workoutStartedAt = propertyDate(workout, "startedAt");
+		const exerciseOrder = coalesce(propertyNumber(event, "exerciseOrder"), literal(unorderedLast));
+		const setOrder = coalesce(propertyNumber(event, "setOrder"), literal(unorderedLast));
+		const seek = (after: WorkoutRecordPosition) => {
+			const keys = [
+				{ expr: column(event, "occurredAt"), value: castDate(literal(after.occurredAt)) },
+				{ expr: workoutStartedAt, value: castDate(literal(after.workoutStartedAt)) },
+				{ value: literal(after.sessionId), expr: column(event, "sessionEntityId") },
+				{ expr: exerciseOrder, value: literal(after.exerciseOrder) },
+				{ expr: setOrder, value: literal(after.setOrder) },
+				{ value: literal(after.id), expr: column(event, "id") },
+			];
+			return or(
+				...keys.map(({ expr, value }, index) =>
+					and(...keys.slice(0, index).map((key) => eq(key.expr, key.value)), gt(expr, value)),
+				),
+			);
+		};
 		return {
 			map: ({ records }) => Result.succeed(records),
 			queries: {
 				records: selectedRows(event, {
-					after: input.after,
-					limit: Math.min(input.limit, 100),
+					limit: workoutRecordRoundSize,
 					joins: [
 						join("inner", exercise, eq(column(event, "entityId"), column(exercise, "id"))),
 						join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
 					],
 					orderBy: [
+						ascending(column(event, "entityId")),
 						ascending(column(event, "occurredAt")),
 						ascending(workoutStartedAt),
 						ascending(column(event, "sessionEntityId")),
-						ascending(propertyNumber(event, "exerciseOrder")),
-						ascending(propertyNumber(event, "setOrder")),
+						ascending(exerciseOrder),
+						ascending(setOrder),
 						ascending(column(event, "id")),
 					],
 					where: and(
 						schemaOwnerPredicate(exercise, "entitySchemaPluginId", input.reference),
 						schemaOwnerPredicate(workout, "entitySchemaPluginId", input.reference),
 						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
-						eq(column(event, "entityId"), literal(input.exerciseId)),
 						eq(column(event, "eventSchemaSlug"), literal("workout-set")),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 						eq(column(workout, "entitySchemaSlug"), literal("workout")),
+						or(
+							...input.streams.map(({ after, exerciseId }) =>
+								and(
+									eq(column(event, "entityId"), literal(exerciseId)),
+									...(after === null ? [] : [seek(after)]),
+								),
+							),
+						),
 					),
 					selection: {
 						id: selectedField(column(event, "id"), EventId),
+						setOrder: selectedField(setOrder, Schema.Finite),
+						exerciseOrder: selectedField(exerciseOrder, Schema.Finite),
+						exerciseId: selectedField(column(event, "entityId"), EntityId),
 						workoutStartedAt: selectedField(workoutStartedAt, IsoDateString),
 						occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
+						sessionId: selectedField(column(event, "sessionEntityId"), Schema.String),
 						exerciseKind: selectedField(property(event, "exerciseKind"), exerciseKindSchema),
 						reps: selectedField(propertyNumber(event, "reps"), Schema.NullOr(Schema.Finite)),
 						weight: selectedField(propertyNumber(event, "weight"), Schema.NullOr(Schema.Finite)),
@@ -146,4 +192,4 @@ export const workoutRecordRowsRecipe = defineRecipe(
 	},
 );
 
-export type WorkoutRecordRowsResult = Recipe.Success<typeof workoutRecordRowsRecipe>;
+export type WorkoutRecordBatchResult = Recipe.Success<typeof workoutRecordBatchRecipe>;
