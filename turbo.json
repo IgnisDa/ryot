@@ -34,7 +34,13 @@
 				"native/**",
 				"!native/target/**",
 				"!native/payload/**",
-				"package.json"
+				"package.json",
+				"$TURBO_ROOT$/packages/contract/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-backend-sdk/src/**/*.ts",
+				"$TURBO_ROOT$/packages/plugin-kit/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ryotql/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ryotql-recipes/src/**/*.ts",
+				"$TURBO_ROOT$/packages/ts-utils/src/**/*.ts"
 			]
 		},
 		"@ryot-app/sandbox#check": {
