@@ -494,10 +494,10 @@ describe("Workouts E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const { entityId: workoutOneId } = yield* saveWorkoutMeasurements(client, exerciseId, [
-				{ reps: 10 },
-				{ reps: 8 },
+				{ reps: 10, weight: 60 },
+				{ reps: 8, weight: 60 },
 			]);
-			yield* saveWorkoutMeasurements(client, exerciseId, [{ reps: 6 }]);
+			yield* saveWorkoutMeasurements(client, exerciseId, [{ reps: 6, weight: 60 }]);
 
 			const reference = yield* workoutReference(client);
 			const workoutOneEvents = yield* executeRyotQLRecipe(
@@ -515,10 +515,10 @@ describe("Workouts E2E", () => {
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const { exerciseId } = yield* createExerciseEntityFixture(client);
 			const { entityId: workoutOneId } = yield* saveWorkoutMeasurements(client, exerciseId, [
-				{ reps: 10 },
+				{ reps: 10, weight: 60 },
 			]);
 			const { entityId: workoutTwoId } = yield* saveWorkoutMeasurements(client, exerciseId, [
-				{ reps: 8 },
+				{ reps: 8, weight: 60 },
 			]);
 
 			const exerciseEvents = yield* listEventsForEntity(client, exerciseId, undefined, 100, {
