@@ -99,9 +99,10 @@ planned rest and personal-best awards. Units come from `fitnessMetricDefinitions
 
 Workout trends and hours use workout starts even when imported set timestamps are fallback values.
 Measurement trends use reading times and keep metrics separate. Missing buckets remain absent;
-recorded zero remains zero. A missing previous period returns no points. Grouped trends have a
-1,000-group limit and propagate `hasMore`; consumers must show truncation or select coarser buckets.
-Automatic all-time grouping uses years. Paged results retain the kernel cursor and `hasMore`.
+recorded zero remains zero. A missing previous period returns no points. The client lays sparse
+buckets onto the shared `calendarBuckets` grid; `resolveReportingSelection` keeps every grouping
+within the shared bucket limit, and all-time groups by year. Paged results continue through
+`reportingPageParam`, which pins the first page's resolved period.
 
 Totals, workout cards and exercise aggregates read projection coverage with their values. Pending
 or failed coverage hides volume and personal-best results without hiding entered measurements.

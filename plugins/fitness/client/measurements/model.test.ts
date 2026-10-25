@@ -155,9 +155,7 @@ describe("buildMetricRows", () => {
 			);
 			expect(
 				rows[0]?.trend.filter(({ value }) => value !== null).map(({ value }) => value),
-			).toEqual(
-				analytics.current.buckets.filter(({ value }) => value !== null).map(({ value }) => value),
-			);
+			).toEqual(analytics.current.filter(({ value }) => value !== null).map(({ value }) => value));
 		},
 	);
 });

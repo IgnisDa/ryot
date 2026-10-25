@@ -1,3 +1,4 @@
+import { compareValues, formatExactValue, periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Notice, StatStrip, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import type { ReactNode } from "react";
@@ -7,10 +8,7 @@ import { analyticsSummaryQuery } from "./queries";
 import {
 	type AnalyticsDisplayPreferences,
 	type AnalyticsScope,
-	compareQuantities,
-	formatExactValue,
 	metricDisplay,
-	periodCaption,
 } from "./reporting-model";
 
 type MetricKey = keyof typeof fitnessMetricDefinitions;
@@ -40,7 +38,7 @@ const changeDetail = (
 		metric === null ? current : metricDisplay(metric, current, preferences).value;
 	const previousValue =
 		metric === null ? previous : metricDisplay(metric, previous, preferences).value;
-	const comparison = compareQuantities(currentValue, previousValue);
+	const comparison = compareValues(currentValue, previousValue);
 	const periods = `${currentCaption} vs ${previousCaption}`;
 	if (comparison.kind === "unknown") {
 		return `${periods} · Change unavailable`;

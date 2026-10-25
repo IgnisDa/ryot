@@ -278,7 +278,7 @@ describe("Fitness analytics measurements", () => {
 					waitFor(() => expect(screen.getByLabelText("Metric 100 bucket averages")).toBeDefined()),
 				);
 				fireEvent.click(screen.getByText("View exact values"));
-				expect(screen.getByText("0 stone")).toBeDefined();
+				yield* Effect.promise(() => screen.findByText(/^0 stone/));
 				expect(screen.getAllByText(/Not recorded · No readings/)).toHaveLength(5);
 			} finally {
 				yield* dispose(page, clock);
@@ -328,7 +328,7 @@ describe("Fitness analytics measurements", () => {
 					screen.getByText(/Smoothing uses rolling averages of the grouped bucket averages/),
 				).toBeDefined();
 				fireEvent.click(screen.getByText("View exact values"));
-				expect(screen.getByText(/source average 2 custom-u/)).toBeDefined();
+				yield* Effect.promise(() => screen.findByText(/source average 2 custom-u/));
 				const readingsTable = screen.getByRole("table", { name: /Loaded measurement readings/ });
 				expect(within(readingsTable).getByText("12.75 custom-u")).toBeDefined();
 				expect(within(readingsTable).getByText("entry-plain-text").closest("a")).toBeNull();
@@ -341,7 +341,7 @@ describe("Fitness analytics measurements", () => {
 		}),
 	);
 
-	it.live("shows actual previous dates and unequal extra buckets", () =>
+	it.live("shows actual previous dates and unequal extra buckets in the exact values", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const page = mountMeasurements(clock, comparisonSelection);
@@ -377,18 +377,22 @@ describe("Fitness analytics measurements", () => {
 				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(screen.getByText("Additional previous-period buckets")).toBeDefined(),
+						expect(screen.getByText("Previous · 2026-01-29 – 2026-02-28")).toBeDefined(),
 					),
 				);
-				expect(screen.getByText("2026-02-01 – 2026-02-28")).toBeDefined();
-				expect(screen.getByText("Previous · 2026-01-29 – 2026-02-28")).toBeDefined();
+				fireEvent.click(screen.getByText("View exact values"));
+				const table = yield* Effect.promise(() =>
+					screen.findByRole("table", { name: "Weight bucket averages exact values" }),
+				);
+				expect(within(table).getAllByRole("row")).toHaveLength(4);
+				expect(within(table).getByText(/Feb 1, 2026/)).toBeDefined();
 			} finally {
 				yield* dispose(page, clock);
 			}
 		}),
 	);
 
-	it.live("warns when trends are partial or mix units instead of drawing a misleading axis", () =>
+	it.live("warns when trends mix units instead of drawing a misleading axis", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const page = mountMeasurements(clock);
@@ -411,7 +415,6 @@ describe("Fitness analytics measurements", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByText("Mixed units")).toBeDefined()),
 				);
-				expect(screen.getByText("Partial measurement trend")).toBeDefined();
 				expect(screen.queryByLabelText("Weight bucket averages")).toBeNull();
 			} finally {
 				yield* dispose(page, clock);
@@ -451,14 +454,12 @@ describe("Fitness analytics measurements", () => {
 				);
 				replyRequest(page, "readings", 1, { outcome: "failure", reason: "query-failed" });
 				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("More readings could not be loaded.")).toBeDefined(),
-					),
+					waitFor(() => expect(screen.getByText(/Could not update readings/)).toBeDefined()),
 				);
 				expect(screen.getByText("Loaded readings")).toBeDefined();
 				expect(screen.getByText("1 loaded")).toBeDefined();
 				expect(screen.getByText("entry-one")).toBeDefined();
-				fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+				fireEvent.click(screen.getByRole("button", { name: "Retry readings" }));
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("readings")).toHaveLength(3)),
 				);

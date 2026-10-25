@@ -1,4 +1,9 @@
-import { paginationItems, useRyotInfiniteQuery } from "@ryot-app/plugin-client-sdk/react";
+import { formatExactValue, periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	paginationItems,
+	reportingPageParam,
+	useRyotInfiniteQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -10,9 +15,8 @@ import {
 import { RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import { useMemo, useState } from "react";
 
-import { analyticsPageInput, analyticsRankingQuery, nextAnalyticsPage } from "./queries";
+import { analyticsPageInput, analyticsRankingQuery } from "./queries";
 import type { AnalyticsRankingRow, AnalyticsScope, WorkoutDrillRequest } from "./reporting-model";
-import { formatExactValue, periodCaption } from "./reporting-model";
 
 type RankingKind = "targets" | "exercises" | "equipment";
 
@@ -151,7 +155,7 @@ function RankingKindResults(props: {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	const items = useMemo(

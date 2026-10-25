@@ -27,7 +27,7 @@ export function QueryStatus<Data>({ label, query, onRetry, children }: QueryStat
 		<>
 			{query.isError && (
 				<StatusMessage tone="error" action={retry}>
-					The {label} refresh failed. Showing the last loaded values.
+					Could not update {label}. Showing the last loaded values.
 				</StatusMessage>
 			)}
 			{children?.(query.data)}

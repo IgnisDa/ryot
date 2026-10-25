@@ -1,9 +1,13 @@
 import {
+	formatExactValue,
+	periodCaption,
+	type Reported,
 	type TimeZone,
 	useRyotViewport as usePluginViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	paginationItems,
+	reportingPageParam,
 	useRyotInfiniteQuery,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -14,28 +18,24 @@ import {
 	EmptyState,
 	LoadMoreButton,
 	Notice,
+	QueryStatus,
 	Skeleton,
-	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import { PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
-import { type RefObject, useMemo, useRef, useState } from "react";
+import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 
 import {
 	analyticsMeasurementMetricsQuery,
 	analyticsPageInput,
 	measurementReadingsQuery,
 	measurementTrendQuery,
-	nextAnalyticsPage,
 } from "./queries";
 import {
 	type AnalyticsScope,
-	formatExactValue,
 	type MeasurementMetric,
 	type MeasurementReading,
 	type MeasurementTrend,
 	measurementTrendModel,
-	periodCaption,
-	type Reported,
 } from "./reporting-model";
 
 type SelectedMetric = Pick<MeasurementMetric, "id" | "name" | "unit">;
@@ -44,27 +44,41 @@ export function AnalyticsMeasurements(props: {
 	readonly compact: boolean;
 	readonly scope: AnalyticsScope;
 }) {
+	const { scope, compact } = props;
+	const [metric, setMetric] = useState<null | SelectedMetric>(null);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	const metricButtonRef = useRef<HTMLButtonElement>(null);
 	return (
-		<MeasurementsForOwner
-			scope={props.scope}
-			compact={props.compact}
-			key={props.scope.owner.pluginId}
-		/>
-	);
-}
-
-function RefreshFailure(props: { readonly label: string; readonly onRetry: () => void }) {
-	return (
-		<Notice
-			tone="danger"
-			action={
-				<Button variant="secondary" onClick={props.onRetry}>
-					Retry
+		<div className="flex min-w-0 flex-col gap-5">
+			<section aria-label="Measurement metric" className="flex flex-col gap-2">
+				<h2 className="text-heading font-semibold text-text">Measurement metric</h2>
+				<Button
+					variant="secondary"
+					ref={metricButtonRef}
+					className="max-w-full self-start"
+					onClick={() => setPickerOpen(true)}
+				>
+					<span className="min-w-0 truncate">{metric?.name ?? "Choose a metric"}</span>
 				</Button>
-			}
-		>
-			{props.label}
-		</Notice>
+				{metric === null ? (
+					<p className="text-sm text-text-muted">Choose a metric to view its trend and readings.</p>
+				) : (
+					<SelectedMeasurement scope={scope} metric={metric} compact={compact} />
+				)}
+			</section>
+			{pickerOpen ? (
+				<MetricPicker
+					scope={scope}
+					compact={compact}
+					metricButtonRef={metricButtonRef}
+					onClose={() => setPickerOpen(false)}
+					onSelect={(selected) => {
+						setMetric(selected);
+						setPickerOpen(false);
+					}}
+				/>
+			) : null}
+		</div>
 	);
 }
 
@@ -96,26 +110,9 @@ function useSelectedReadings(scope: AnalyticsScope, metricId: string) {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
-}
-
-function QueryState(props: {
-	readonly label: string;
-	readonly error: boolean;
-	readonly pending: boolean;
-	readonly onRetry: () => void;
-}) {
-	if (props.pending) {
-		return <Skeleton className="h-56 w-full" />;
-	}
-	if (props.error) {
-		return (
-			<RefreshFailure onRetry={props.onRetry} label={`The ${props.label} could not be loaded.`} />
-		);
-	}
-	return <StatusMessage tone="pending">Loading {props.label}…</StatusMessage>;
 }
 
 function SelectedMeasurement(props: {
@@ -164,15 +161,7 @@ function PreviousMeasurementTrend(props: {
 	});
 	return (
 		<div className="flex min-w-0 flex-col gap-3">
-			{previous.data === undefined && previous.isPending ? (
-				<p className="text-sm text-text-muted">Loading previous-period comparison…</p>
-			) : null}
-			{previous.isError ? (
-				<RefreshFailure
-					onRetry={previous.refetch}
-					label="The previous-period comparison could not be loaded."
-				/>
-			) : null}
+			<QueryStatus query={previous} onRetry={previous.refetch} label="previous-period comparison" />
 			<TrendChart
 				metric={props.metric}
 				smooth={props.smooth}
@@ -185,91 +174,49 @@ function PreviousMeasurementTrend(props: {
 	);
 }
 
-function MeasurementsForOwner(props: {
+function TrendChart(props: {
+	readonly smooth: boolean;
 	readonly compact: boolean;
-	readonly scope: AnalyticsScope;
+	readonly timeZone: TimeZone;
+	readonly metric: SelectedMetric;
+	readonly current: Reported<MeasurementTrend>;
+	readonly previous?: undefined | Reported<MeasurementTrend>;
 }) {
-	const { scope, compact } = props;
-	const [metric, setMetric] = useState<null | SelectedMetric>(null);
-	const [pickerOpen, setPickerOpen] = useState(false);
-	const metricButtonRef = useRef<HTMLButtonElement>(null);
-	return (
-		<div className="flex min-w-0 flex-col gap-5">
-			<section aria-label="Measurement metric" className="flex flex-col gap-2">
-				<h2 className="text-heading font-semibold text-text">Measurement metric</h2>
-				<Button
-					variant="secondary"
-					ref={metricButtonRef}
-					className="max-w-full self-start"
-					onClick={() => setPickerOpen(true)}
-				>
-					<span className="min-w-0 truncate">{metric?.name ?? "Choose a metric"}</span>
-				</Button>
-				{metric === null ? (
-					<p className="text-sm text-text-muted">Choose a metric to view its trend and readings.</p>
-				) : (
-					<SelectedMeasurement scope={scope} metric={metric} compact={compact} />
-				)}
-			</section>
-			{pickerOpen ? (
-				<MetricPicker
-					scope={scope}
-					compact={compact}
-					metricButtonRef={metricButtonRef}
-					onClose={() => setPickerOpen(false)}
-					onSelect={(selected) => {
-						setMetric(selected);
-						setPickerOpen(false);
-					}}
-				/>
-			) : null}
-		</div>
+	const { smooth, current, previous, timeZone } = props;
+	const model = useMemo(
+		() => measurementTrendModel(current, previous ?? null, timeZone, smooth),
+		[current, previous, smooth, timeZone],
 	);
-}
-
-function ExtraPreviousTable(props: {
-	readonly metricName: string;
-	readonly buckets: ReturnType<typeof measurementTrendModel>["extraPrevious"];
-}) {
+	const chartPoints = (buckets: NonNullable<typeof model.previous>) =>
+		buckets.map((bucket) => ({ at: bucket.at, value: bucket.value, detail: bucketDetail(bucket) }));
+	const unit = model.unit;
+	const formatValue = useCallback((value: number) => formatExactValue(value, unit), [unit]);
 	return (
-		<section className="flex flex-col gap-2" aria-label="Extra previous-period buckets">
-			<h3 className="text-sm font-semibold text-text">Additional previous-period buckets</h3>
-			<div className="overflow-x-auto rounded-md border border-border">
-				<table className="w-full border-collapse text-left text-sm">
-					<caption className="sr-only">
-						Additional previous-period {props.metricName} averages
-					</caption>
-					<thead>
-						<tr>
-							<th scope="col" className="px-3 py-2 font-medium text-text-muted">
-								Actual period
-							</th>
-							<th scope="col" className="px-3 py-2 text-right font-medium text-text-muted">
-								Average
-							</th>
-							<th scope="col" className="px-3 py-2 text-right font-medium text-text-muted">
-								Readings
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{props.buckets.map((bucket) => (
-							<tr key={bucket.at} className="border-t border-border">
-								<th scope="row" className="px-3 py-2 font-normal text-text">
-									{periodCaption(bucket.period)}
-								</th>
-								<td className="px-3 py-2 text-right tabular-nums">
-									{formatExactValue(bucket.value, bucket.source?.unit ?? null)}
-								</td>
-								<td className="px-3 py-2 text-right tabular-nums">
-									{bucket.source?.readings ?? 0}
-								</td>
-							</tr>
-						))}
-					</tbody>
-				</table>
-			</div>
-		</section>
+		<div className="flex min-w-0 flex-col gap-3">
+			{model.mixedUnits ? (
+				<Notice tone="warning" title="Mixed units">
+					This metric has readings in different units. The chart is hidden because those values
+					cannot share one axis. Exact readings remain available below.
+				</Notice>
+			) : (
+				<PeriodTrendChart
+					compact={props.compact}
+					formatValue={formatValue}
+					timeZone={props.timeZone}
+					current={chartPoints(model.current)}
+					ariaLabel={`${props.metric.name} bucket averages`}
+					label={`${props.metric.name} · Bucket averages · ${periodCaption(props.current.period)}`}
+					previous={
+						props.previous === undefined || model.previous === null
+							? undefined
+							: {
+									points: chartPoints(model.previous),
+									label: `Previous · ${periodCaption(props.previous.period)}`,
+								}
+					}
+				/>
+			)}
+		</div>
 	);
 }
 
@@ -304,101 +251,28 @@ function MeasurementTrendPanel(props: {
 					does not cross missing buckets or unit changes, and leaves exact readings unchanged.
 				</p>
 			) : null}
-			{current.data === undefined ? (
-				<QueryState
-					error={current.isError}
-					label="measurement trend"
-					onRetry={current.refetch}
-					pending={current.isPending}
-				/>
-			) : (
-				<>
-					{current.isError ? (
-						<RefreshFailure
-							onRetry={current.refetch}
-							label="The measurement trend could not be refreshed."
-						/>
-					) : null}
-					{compare ? (
+			<QueryStatus query={current} onRetry={current.refetch} label="measurement trend">
+				{(data) =>
+					compare ? (
 						<PreviousMeasurementTrend
+							current={data}
 							scope={props.scope}
 							metric={props.metric}
 							smooth={props.smooth}
-							current={current.data}
 							compact={props.compact}
 						/>
 					) : (
 						<TrendChart
+							current={data}
 							metric={props.metric}
 							smooth={props.smooth}
-							current={current.data}
 							compact={props.compact}
 							timeZone={props.scope.timeZone}
 						/>
-					)}
-				</>
-			)}
+					)
+				}
+			</QueryStatus>
 		</section>
-	);
-}
-
-function TrendChart(props: {
-	readonly smooth: boolean;
-	readonly compact: boolean;
-	readonly timeZone: TimeZone;
-	readonly metric: SelectedMetric;
-	readonly current: Reported<MeasurementTrend>;
-	readonly previous?: undefined | Reported<MeasurementTrend>;
-}) {
-	const { smooth, current, previous, timeZone } = props;
-	const model = useMemo(
-		() => measurementTrendModel(current, previous ?? null, timeZone, smooth),
-		[current, previous, smooth, timeZone],
-	);
-	const buckets = model.buckets.map((bucket) => ({
-		at: bucket.at,
-		value: bucket.value,
-		detail: bucketDetail(bucket),
-		...(bucket.comparison === undefined
-			? {}
-			: {
-					comparison: {
-						at: bucket.comparison.at,
-						value: bucket.comparison.value,
-						detail: bucketDetail(bucket.comparison),
-					},
-				}),
-	}));
-	const comparisonLabel = props.previous?.period
-		? `Previous · ${periodCaption(props.previous.period)}`
-		: undefined;
-	return (
-		<div className="flex min-w-0 flex-col gap-3">
-			{model.mixedUnits ? (
-				<Notice tone="warning" title="Mixed units">
-					This metric has readings in different units. The chart is hidden because those values
-					cannot share one axis. Exact readings remain available below.
-				</Notice>
-			) : (
-				<PeriodTrendChart
-					compact={props.compact}
-					ariaLabel={`${props.metric.name} bucket averages`}
-					label={`${props.metric.name} · Bucket averages · ${periodCaption(props.current.period)}`}
-					{...(comparisonLabel === undefined ? {} : { comparisonLabel })}
-					buckets={buckets}
-					timeZone={props.timeZone}
-					formatValue={(value) => formatExactValue(value, model.unit)}
-				/>
-			)}
-			{model.current.partial || (model.previous?.partial ?? false) ? (
-				<Notice tone="warning" title="Partial measurement trend">
-					Some grouped buckets are not available. The visible end of the trend may be incomplete.
-				</Notice>
-			) : null}
-			{model.extraPrevious.length > 0 ? (
-				<ExtraPreviousTable buckets={model.extraPrevious} metricName={props.metric.name} />
-			) : null}
-		</div>
 	);
 }
 
@@ -414,17 +288,7 @@ function ReadingsTable(props: {
 				<h2 className="text-heading font-semibold text-text">Loaded readings</h2>
 				<p className="text-sm text-text-muted tabular-nums">{readings.length} loaded</p>
 			</div>
-			{query.isPending && query.pages.length === 0 ? <Skeleton className="h-16 w-full" /> : null}
-			{query.isError ? (
-				<RefreshFailure
-					onRetry={query.retry}
-					label={
-						readings.length === 0
-							? "Readings could not be loaded."
-							: "More readings could not be loaded."
-					}
-				/>
-			) : null}
+			<QueryStatus query={query} label="readings" onRetry={query.retry} />
 			{query.pages.length > 0 ? (
 				<div className="overflow-x-auto rounded-md border border-border">
 					<table className="w-full min-w-120 border-collapse text-left text-sm">
@@ -507,7 +371,7 @@ function MetricPicker(props: {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	const metrics = useMemo(

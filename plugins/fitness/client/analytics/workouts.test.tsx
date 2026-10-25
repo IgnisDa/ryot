@@ -155,19 +155,20 @@ describe("Fitness analytics workout charts", () => {
 						waitFor(() => expect(screen.getByText("Workout starts")).toBeDefined()),
 					);
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(2)),
+						waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
 					);
-					const exactValues = screen.getAllByText("View exact values");
-					fireEvent.click(exactValues[1] ?? document.body);
-					const hourTable = screen.getByRole("table", {
-						name: "Workout starts by reporting hour exact values",
-					});
+					fireEvent.click(screen.getAllByText("View exact values")[1] ?? document.body);
+					const hourTable = yield* Effect.promise(() =>
+						screen.findByRole("table", { name: "Workout starts by reporting hour exact values" }),
+					);
 					expect(within(hourTable).queryByRole("button")).toBeNull();
 					expect(drillRequests).toHaveLength(0);
 
 					fireEvent.click(screen.getAllByText("View exact values")[0] ?? document.body);
 					fireEvent.click(
-						screen.getByRole("button", { name: /View records: 2026-03-01.*0 workouts/ }),
+						yield* Effect.promise(() =>
+							screen.findByRole("button", { name: /View records: 2026-03-01.*0 workouts/ }),
+						),
 					);
 					expect(drillRequests).toEqual([
 						{
@@ -197,12 +198,13 @@ describe("Fitness analytics workout charts", () => {
 							).toBeDefined(),
 						),
 					);
-					expect(
-						screen.getByRole("table", {
+					fireEvent.click(screen.getAllByText("View exact values")[0] ?? document.body);
+					const volumeTable = yield* Effect.promise(() =>
+						screen.findByRole("table", {
 							name: "Weight volume by workout-start period exact values",
 						}),
-					).toBeDefined();
-					expect(screen.getByText(/Not recorded/)).toBeDefined();
+					);
+					expect(within(volumeTable).getByText(/Not recorded/)).toBeDefined();
 					expect(screen.getByText("Workout starts")).toBeDefined();
 				} finally {
 					page.dispose();
@@ -236,17 +238,17 @@ describe("Fitness analytics workout charts", () => {
 								: trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", 2)]),
 					});
 					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByText("Additional previous-period values (1)")).toBeDefined(),
-						),
+						waitFor(() => expect(screen.getByText("2026-01-29 – 2026-02-28")).toBeDefined()),
 					);
-					expect(screen.getByText("2026-01-29 – 2026-02-28")).toBeDefined();
-					fireEvent.click(screen.getByText("Additional previous-period values (1)"));
-					expect(screen.getByText("2026-02-01 – 2026-02-28")).toBeDefined();
-					expect(screen.getByText("4 workouts")).toBeDefined();
-
 					fireEvent.click(screen.getAllByText("View exact values")[0] ?? document.body);
-					const priorBucket = screen.getAllByRole("button", { name: /View records:/ })[1];
+					const trendTable = yield* Effect.promise(() =>
+						screen.findByRole("table", { name: "Workouts by workout-start period exact values" }),
+					);
+					expect(within(trendTable).getAllByRole("row")).toHaveLength(4);
+					expect(within(trendTable).getByText(/^4 workouts/)).toBeDefined();
+					const priorBucket = within(trendTable).getAllByRole("button", {
+						name: /View records: 2026-01-29 – 2026-02-28/,
+					})[0];
 					if (priorBucket === undefined) {
 						throw new Error("Expected the previous-period exact value action");
 					}
@@ -267,43 +269,38 @@ describe("Fitness analytics workout charts", () => {
 			}),
 	);
 
-	it.live(
-		"clips consistency to 26 weeks and hides a partial heatmap instead of filling unknown days",
-		() =>
-			Effect.gen(function* () {
-				const clock = createTestRyotClock();
-				yield* Effect.promise(() => clock.setTime(Date.parse("2026-12-31T18:00:00Z")));
-				const allTime: AnalyticsScope["selection"] = {
-					grouping: "auto",
-					range: { kind: "all-time" },
-					comparison: "previous-period",
-				};
-				const { page } = mountWorkouts(clock, allTime);
-				const answered = new Set<string>();
-				try {
-					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
-					yield* answerInitial(page, answered, {
-						trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)], true),
-					});
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(
-								screen.getByText("Showing the last 26 weeks of the selected period."),
-							).toBeDefined(),
-						),
-					);
-					expect(
-						screen.getByText(
-							"Consistency data is partial. The grid is hidden so unknown days are not shown as zero.",
-						),
-					).toBeDefined();
-					expect(screen.getByText(/Consistency results are partial/)).toBeDefined();
-					expect(page.queryRequests("trend")).toHaveLength(2);
-				} finally {
-					page.dispose();
-					yield* Effect.promise(() => clock.dispose());
-				}
-			}),
+	it.live("clips consistency to the last 26 weeks of the selected period", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			yield* Effect.promise(() => clock.setTime(Date.parse("2026-12-31T18:00:00Z")));
+			const allTime: AnalyticsScope["selection"] = {
+				grouping: "auto",
+				range: { kind: "all-time" },
+				comparison: "previous-period",
+			};
+			const { page } = mountWorkouts(clock, allTime);
+			const answered = new Set<string>();
+			try {
+				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
+				yield* answerInitial(page, answered, {
+					trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)], true),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByText("Showing the last 26 weeks of the selected period."),
+						).toBeDefined(),
+					),
+				);
+				expect(
+					screen.getByRole("img", { name: /^Workout starts · 2026-07-03 – 2026-12-31$/ }),
+				).toBeDefined();
+				expect(page.queryRequests("trend")).toHaveLength(2);
+			} finally {
+				page.dispose();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
 	);
 
 	it.live(
@@ -344,7 +341,7 @@ describe("Fitness analytics workout charts", () => {
 					}
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByText(/hourly workout starts refresh failed/i)).toBeDefined(),
+							expect(screen.getByText(/Could not update hourly workout starts/)).toBeDefined(),
 						),
 					);
 					expect(screen.getAllByText("2 workouts").length).toBeGreaterThan(0);

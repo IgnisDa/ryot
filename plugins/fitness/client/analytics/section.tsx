@@ -64,12 +64,7 @@ export default function FitnessAnalyticsSection(props: AnalyticsSectionProps) {
 					used.
 				</StatusMessage>
 			) : null}
-			<AnalyticsContent
-				scope={props}
-				compact={compact}
-				preferences={preferences}
-				key={props.owner.pluginId}
-			/>
+			<AnalyticsContent scope={props} compact={compact} preferences={preferences} />
 		</div>
 	);
 }
@@ -85,7 +80,6 @@ function AnalyticsContent(props: {
 	const scopeKey = JSON.stringify({
 		timeZone: props.scope.timeZone,
 		selection: props.scope.selection,
-		owner: props.scope.owner.pluginId,
 	});
 	useValueChange(scopeKey, () => setRequest(null));
 	let panel: ReactNode;

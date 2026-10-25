@@ -1,5 +1,14 @@
-import { PluginLink, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { paginationItems, useRyotInfiniteQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	formatExactValue,
+	PluginLink,
+	type TimeZone,
+	useRyotViewport,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	paginationItems,
+	reportingPageParam,
+	useRyotInfiniteQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -11,13 +20,12 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { useMemo } from "react";
 
-import { analyticsPageInput, analyticsWorkoutsQuery, nextAnalyticsPage } from "./queries";
+import { analyticsPageInput, analyticsWorkoutsQuery } from "./queries";
 import type {
 	AnalyticsDisplayPreferences,
 	AnalyticsScope,
 	WorkoutDrillRequest,
 } from "./reporting-model";
-import { formatExactValue } from "./reporting-model";
 
 export function AnalyticsWorkoutDrill(props: {
 	readonly compact: boolean;
@@ -38,7 +46,7 @@ export function AnalyticsWorkoutDrill(props: {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	const items = useMemo(

@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyotInfiniteQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { periodCaption, PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	reportingPageParam,
+	useRyotInfiniteQuery,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -22,9 +26,7 @@ import {
 	analyticsSummaryQuery,
 	analyticsWorkoutsQuery,
 	measurementReadingsQuery,
-	nextAnalyticsPage,
 } from "./queries";
-import { periodCaption, reportingExecution } from "./reporting-model";
 
 afterEach(disposePluginBridges);
 
@@ -227,7 +229,7 @@ function WorkoutsProbe() {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	return (
@@ -241,7 +243,7 @@ function ReadingsProbe() {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	return (
@@ -255,7 +257,7 @@ function RankingProbe() {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	return (
@@ -270,7 +272,7 @@ function MetricsProbe() {
 		{
 			initialPageParam: null,
 			getPageInput: analyticsPageInput,
-			getNextPageParam: nextAnalyticsPage,
+			getNextPageParam: reportingPageParam,
 		},
 	);
 	return (
@@ -315,21 +317,6 @@ const pageResponse = (
 });
 
 describe("fitness analytics cursor adapters", () => {
-	it("rejects repeated cursor continuations, including cycles through earlier pages", () => {
-		const reporting = reportingExecution(pagedInput, 0);
-		const first = { reporting, pageInfo: { limit: 100, hasMore: true, nextCursor: "first" } };
-		const repeated = { reporting, pageInfo: { limit: 100, hasMore: true, nextCursor: "second" } };
-		expect(() =>
-			nextAnalyticsPage(repeated, { after: "second", selection: reporting.selection }),
-		).toThrow();
-		expect(() =>
-			nextAnalyticsPage(first, { after: "second", selection: reporting.selection }, [
-				first,
-				repeated,
-				first,
-			]),
-		).toThrow();
-	});
 	for (const { key, Probe, filtered } of [
 		{ filtered: true, key: "workouts", Probe: WorkoutsProbe },
 		{ key: "ranking", filtered: true, Probe: RankingProbe },
