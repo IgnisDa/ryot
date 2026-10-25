@@ -1,10 +1,10 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { consumptionBasisFor } from "@ryot-app/media-plugin/shared/consumption";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect } from "effect";
 
+import { analyticsFixtureSelection } from "~/fixtures/kernel/analytics-location";
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
@@ -16,12 +16,6 @@ import { mediaReferenceForEntity } from "./activity-log";
 import { waitForMediaConsumptionReport } from "./consumption";
 import { findMediaEntitySchema } from "./entity-schemas";
 import { settledHistoryCorrection } from "./history-correction";
-
-const reportingSelection: ReportingSelection = {
-	grouping: "day",
-	comparison: "previous-period",
-	range: { kind: "custom", endDate: "2026-09-07", startDate: "2026-09-01" },
-};
 
 const createAnalyticsMediaEntity = Effect.fn("createAnalyticsMediaEntity")(function* (
 	client: Client,
@@ -130,7 +124,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		now,
 		timeZone,
 		reference,
-		selection: reportingSelection,
+		selection: analyticsFixtureSelection,
 	});
 	return {
 		now,
@@ -140,7 +134,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		reference,
 		sourceEvents,
 		sourceEventIds,
-		reportingSelection,
 		entities: { book, movie, anime },
+		reportingSelection: analyticsFixtureSelection,
 	};
 });

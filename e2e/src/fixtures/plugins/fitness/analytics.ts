@@ -1,12 +1,10 @@
-import {
-	type ReportingSelection,
-	resolveReportingSelection,
-} from "@ryot-app/contract/modules/analytics/reporting";
+import { resolveReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessAnalyticsTotalsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect } from "effect";
 
+import { analyticsFixtureSelection } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
@@ -23,12 +21,6 @@ import {
 	workoutSet,
 } from "./workout-editor";
 import { createWorkoutOccurrenceTaxonomy } from "./workout-occurrences";
-
-const reportingSelection: ReportingSelection = {
-	grouping: "day",
-	comparison: "previous-period",
-	range: { kind: "custom", endDate: "2026-09-07", startDate: "2026-09-01" },
-};
 
 const measurementValues = [
 	{ value: 0, occurredAt: "2026-09-02T12:00:00.000Z" },
@@ -134,7 +126,7 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 				client,
 				fitnessAnalyticsTotalsRecipe({
 					reference,
-					reporting: resolveReportingSelection(reportingSelection, {
+					reporting: resolveReportingSelection(analyticsFixtureSelection, {
 						now,
 						timeZone: TimeZone.make("UTC"),
 					}),
@@ -147,10 +139,10 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			taxonomy,
 			reference,
 			exerciseId,
-			reportingSelection,
 			expectedSourceValues,
 			measurementMetricName: metricName,
 			measurementMetricId: metric.entityId,
+			reportingSelection: analyticsFixtureSelection,
 			workoutIds: [firstWorkout.entityId, secondWorkout.entityId],
 		};
 	},
