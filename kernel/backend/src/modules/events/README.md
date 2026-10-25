@@ -143,6 +143,13 @@ after the transaction/activity completes. Projection jobs use the stream's entit
 scope, so one entity's streams run one step at a time; the settled job's workflow dispatches the
 continuation.
 
+Before executing a processor, the workflow persists a current-claim check. Superseded jobs settle
+without running their scripts or publishing output, then hand off normally to the next queued job.
+Publication still rechecks the claim because source writes can invalidate it after preparation.
+Admission also retires up to 100 superseded queued jobs for that exact stream in its transaction,
+through the background owner. Current claims and running jobs are retained; older backlog still uses
+the workflow check.
+
 ### Waiting for input repair
 
 A projection can declare `inputRepairScriptSlug`, naming a direct script in the same plugin revision.

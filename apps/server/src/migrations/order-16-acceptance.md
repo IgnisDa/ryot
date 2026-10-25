@@ -5,7 +5,66 @@ Anime/Manga items, parent correction evidence, and Fitness occurrence snapshots 
 Production processor/readiness and writer audits remain in progress with their owners. No real-dump
 migration, archive build, or server assembly has run. The analytics plan and migration runbook were read.
 
-### Current execution checkpoint — 2026-10-29
+### Current execution checkpoint — 2026-10-30
+
+Current affected checks pass 34/34, and backend validation passes 3,023 tests across 352 files
+(40/40 tasks, 35 cached), including early preparation and queued coalescing. The proven discovery
+helper and corrected account-generation fixture are present in
+the current checkout, including newer unrelated commits that this session preserves.
+Domain package validation also passes 47/47 tasks (Media 1,907 tests; Fitness 675 tests). These are
+package results, not replacement-target migration or runtime acceptance.
+
+The latest observed post-coalescing API run remains 3/4: totals/trends and the 102-Anime source
+cursor pass (112.503 seconds); entity ranking still times out before its cursor assertions, with
+50 Book pending. It retained 34 read-only snapshots with no observer errors. HEAD and all six
+observed source hashes stayed unchanged. Evidence is under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-observed-media-api-cni7iope/`.
+
+The prior pre-coalescing isolated API run passed 3/4: totals/trends and the 102-Anime source-cursor case
+passed (119.015 seconds; 100+2 real cursor pages, with exact order, filters, contributions, and
+independent occurrences unchanged). The 101-entity ranking case timed out in 189.134 seconds with
+50 Book pending before its cursor assertion. The current 100-row truncated sample has `hasMore: true`,
+with 50 running and 18 queued user-work rows, 17 running and 15 queued projection rows, 50 scopes,
+and zero errors. The remaining seven queue files did not run; the other E2E runner remains user-paused.
+Prior pre-coalescing evidence is under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-stale-projection-api-diagnosis-20261030-ydki1k0n/`.
+
+The earlier coherent 2/4 API result is historical, not current: totals/trends passed; both cursor
+cases timed out before their respective assertions; the other seven files did not run. Its full
+truncated-snapshot evidence remains under
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-e2e-sequence-20261030-48q9tz1e/`;
+the analytics plan retains its sample details. Latest retained logs show 428 projection-process/331
+publish spans, versus the prior 1,025/118; these counts are spans, not unique jobs. Temporary
+physical-row blocking clears, with no PostgreSQL errors or deadlocks; logical shared-library identity
+remains unproven. Atomic queued coalescing is implemented through the existing background-work
+owner; checks pass 34/34 and backend tests pass 3,023/3,023 after a regression fixture adopted the
+same projection authority. The observed post-coalescing API run remains 3/4, so full acceptance is
+not claimed. Its retained job, repair-phase, and lock-identity snapshots await diagnosis.
+
+The tracked-symlink freeze guard remains at 36/36 synthetic/syntax/import cases and nine
+query-document checks, with zero database connections. Its self-lock SHA-256 remains
+`65a0cd2c707df78cc1b6b868d1a6430f455794bffe8ec9327fe3a1490bbdfae1`. The freeze-manifest builder is
+ready at `/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-runtime/recreated-20261030-01/freeze-manifests.py`;
+compile/help and read-only inventory preflight passed for 5,189 regular files and 2 tracked links,
+with zero manifests written. No coordinated freeze/build, manifest, acceptance-target startup, or
+expectation regeneration has occurred; these remain pending all acceptance fixes. The current guard tool is
+`/private/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode/order16-live-current-freeze-20261030-m7mb7y7d`
+and its recorded 2,500-path provenance remains unchanged historical evidence only.
+
+The former Order16 containers are no longer available in either configured Docker context. Original
+dumps, immutable captures, proof logs, and the file1 asset cache remain. The user explicitly approved
+fresh isolated containers and source/target databases from those originals, preserving prior evidence.
+Fresh infrastructure is running and both legacy target clones match their restored source table
+counts. Both buckets contain 58 cached objects totaling 284,336,460 bytes; all 43 file1 originals
+match retained byte hashes, sizes, and content types. Read-only verification of both restored sources
+matches every retained source fingerprint exactly. Neither replacement target has passed migration,
+normal-readiness, or live-metric acceptance. Earlier file1 results below remain historical. File2's
+missing 107 originals remain unavailable and waived as
+an asset-verification acceptance blocker only; all remaining data and runtime gates still apply.
+No interrupted-migration experiment is authorized. The user authorized an Order16 checkpoint commit
+with the `[v1-v2-port-gap-o16]` prefix while acceptance remains open; no push is requested.
+
+### Prior execution checkpoint — 2026-10-29
 
 Work resumed at the user's request. Overall status is **IN PROGRESS**; no overall acceptance or final
 root validation is claimed. No commit or push was made, and no second review round is planned.

@@ -536,6 +536,26 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 			const get = Effect.fn("EventStreamRepository.get")(function* (id: string) {
 				return yield* readState(id);
 			});
+			const supersededJobs = Effect.fn("EventStreamRepository.supersededJobs")(function* (
+				id: string,
+			) {
+				yield* requireTransaction;
+				return yield* session.run((db) =>
+					db.execute<{ id: string }>(
+						sql`
+						select job.id from background_work job
+						join event_stream_work work on work.id = ${id}
+						join event_stream stream on stream.id = work.id
+						where job.status = 'queued' and job.purpose = 'event-projection'
+							and job.user_id = stream.user_id and job.account_token = work.account_token
+							and job.plugin_id = stream.event_schema_plugin_id and job.scope = stream.entity_id
+							and job.payload->'featureInput'->>'id' = work.id
+							and job.id is distinct from work.current_job_id
+						order by job.id limit 100 for update of job`,
+						"objects",
+					),
+				);
+			});
 
 			const listCandidates = Effect.fn("EventStreamRepository.listCandidates")(function* (
 				limit: number,
@@ -884,6 +904,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				inputRepair,
 				currentClaim,
 				lockForEvents,
+				supersededJobs,
 				listCandidates,
 				claimInputRepair,
 				invalidateEntity,

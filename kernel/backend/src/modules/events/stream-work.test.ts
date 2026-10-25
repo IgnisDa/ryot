@@ -1129,14 +1129,17 @@ const readySummary = (suffix: string) =>
 		return { note, source, workId };
 	});
 
-const runSettlingJob = (job: BackgroundWorkInput, output: unknown) => {
-	const instance = WorkflowInstance.initial(BackgroundWorkWorkflow, job.id);
-	return runBackgroundWorkWorkflow({ id: job.id }).pipe(
-		Effect.provideService(BackgroundWorkExecutor, { execute: () => Effect.succeed(output) }),
+const runBackgroundJob = (id: string, execute: BackgroundWorkExecutor["Service"]["execute"]) => {
+	const instance = WorkflowInstance.initial(BackgroundWorkWorkflow, id);
+	return runBackgroundWorkWorkflow({ id }).pipe(
+		Effect.provideService(BackgroundWorkExecutor, { execute }),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 	);
 };
+
+const runSettlingJob = (job: BackgroundWorkInput, output: unknown) =>
+	runBackgroundJob(job.id, () => Effect.succeed(output));
 
 const admitSilentDescendant = (root: BackgroundWorkInput, suffix: string) =>
 	Effect.gen(function* () {
@@ -2459,6 +2462,157 @@ layer(streamWorkTestLayer)((test) => {
 					yield* controls.setProcessor(id, () => Effect.succeed(output));
 					assertExitFails(yield* Effect.exit(processCurrent(id)), new DbError({ message }));
 				}
+			}),
+	);
+
+	test.effect("coalesces superseded queued claims and skips the outdated running processor", () =>
+		Effect.gen(function* () {
+			const events = yield* EventsService;
+			const streams = yield* EventStreamRepository;
+			const session = yield* DatabaseSession;
+			const controls = yield* StreamWorkControls;
+			const source = yield* seedStream("superseded-queued");
+			const initial = yield* streams.get(source.id);
+			assert(initial?.currentJobId);
+			const jobs = [initial.currentJobId];
+			for (const rating of [2, 3, 4]) {
+				yield* events.edit(
+					{ eventId: source.eventId, patch: { properties: { remove: [], set: { rating } } } },
+					userId,
+					command(`superseded-queued-${rating}`),
+				);
+				const next = yield* streams.get(source.id);
+				assert(next?.currentJobId);
+				jobs.push(next.currentJobId);
+			}
+			expect(new Set(jobs).size).toBe(jobs.length);
+			const latest = jobs.at(-1);
+			assert(latest);
+			expect(yield* backgroundJob(initial.currentJobId)).toEqual({
+				error: null,
+				status: "running",
+			});
+			for (const id of jobs.slice(1, -1)) {
+				expect(yield* backgroundJob(id)).toEqual({ error: null, status: "succeeded" });
+			}
+			expect(yield* backgroundJob(latest)).toEqual({ error: null, status: "queued" });
+			const executed: string[] = [];
+			for (const id of jobs) {
+				yield* runBackgroundJob(id, (job) =>
+					Effect.sync(() => executed.push(job.id)).pipe(
+						Effect.as({ ...page(source.eventId, 4, "current"), done: true }),
+					),
+				);
+				expect(yield* backgroundJob(id)).toEqual({ error: null, status: "succeeded" });
+				if (id !== latest) {
+					expect(executed).toEqual([]);
+					expect(yield* projection(source.eventId)).toBeNull();
+					expect(yield* backgroundJob(latest)).toEqual({ error: null, status: "running" });
+					expect((yield* controls.workflowCalls).at(-1)).toMatchObject({ executionId: latest });
+				}
+			}
+			expect(executed).toEqual(jobs.slice(-1));
+			expect(yield* projection(source.eventId)).toEqual({ properties: { score: 4 } });
+			const completed = yield* streams.get(source.id);
+			assert(completed);
+			expect(completed.completedRevision).toBe(completed.streamRevision);
+			expect(
+				yield* session.run((db) =>
+					db
+						.select({ id: tables.sandboxWorkflowReference.executionId })
+						.from(tables.sandboxWorkflowReference)
+						.where(inArray(tables.sandboxWorkflowReference.executionId, jobs)),
+				),
+			).toEqual([]);
+			const calls = (yield* controls.workflowCalls).length;
+			for (const id of jobs) {
+				yield* runBackgroundJob(id, () =>
+					Effect.die("A settled projection must not execute again"),
+				);
+			}
+			expect((yield* controls.workflowCalls).length).toBe(calls);
+			expect(yield* streams.get(source.id)).toEqual(completed);
+		}),
+	);
+
+	test.effect("preserves another stream's queued claim and reuses the current queued claim", () =>
+		Effect.gen(function* () {
+			const source = yield* seedStream("coalesced-sibling");
+			const service = yield* EventStreamWorkService;
+			const streams = yield* EventStreamRepository;
+			const events = yield* EventsService;
+			const binding = yield* (yield* ProjectionBindings).resolve({
+				userId,
+				scriptSlug: processorScriptSlug,
+				pluginId: source.fixture.pluginId,
+			});
+			assert(binding);
+			const request = {
+				pluginPin: binding.pluginPin,
+				accountGeneration: binding.accountGeneration,
+				processorScriptId: source.fixture.processorScriptId,
+				command: { ...command("coalesced-sibling-request"), writeContext: binding.principal },
+			};
+			const siblingId = yield* service.request({
+				...request,
+				request: { entityId: source.entityId, eventSchemaSlug: summarySchemaSlug },
+			});
+			const sibling = yield* streams.get(siblingId);
+			assert(sibling?.currentJobId);
+			expect(yield* backgroundJob(sibling.currentJobId)).toEqual({ error: null, status: "queued" });
+			for (const rating of [2, 3]) {
+				yield* events.edit(
+					{ eventId: source.eventId, patch: { properties: { remove: [], set: { rating } } } },
+					userId,
+					command(`coalesced-sibling-edit-${rating}`),
+				);
+			}
+			const current = yield* streams.get(source.id);
+			assert(current?.currentJobId);
+			yield* service.request({
+				...request,
+				request: { eventSchemaSlug, entityId: source.entityId },
+			});
+			expect((yield* streams.get(source.id))?.currentJobId).toBe(current.currentJobId);
+			expect(yield* backgroundJob(current.currentJobId)).toEqual({ error: null, status: "queued" });
+			expect((yield* streams.get(siblingId))?.currentJobId).toBe(sibling.currentJobId);
+			expect(yield* backgroundJob(sibling.currentJobId)).toEqual({ error: null, status: "queued" });
+		}),
+	);
+
+	test.effect(
+		"keeps the publication fence when a source changes after projection preparation",
+		() =>
+			Effect.gen(function* () {
+				const events = yield* EventsService;
+				const streams = yield* EventStreamRepository;
+				const source = yield* seedStream("prepared-then-stale");
+				const job = yield* currentJob(source.id);
+				const executed: string[] = [];
+				yield* runBackgroundJob(job.id, (input) =>
+					Effect.gen(function* () {
+						executed.push(input.id);
+						yield* events
+							.edit(
+								{
+									eventId: source.eventId,
+									patch: { properties: { remove: [], set: { rating: 2 } } },
+								},
+								userId,
+								command("prepared-then-stale-edit"),
+							)
+							.pipe(Effect.orDie);
+						return { ...page(source.eventId, 9, "stale"), done: true };
+					}),
+				);
+				expect(executed).toEqual([job.id]);
+				expect(yield* projection(source.eventId)).toBeNull();
+				expect(yield* backgroundJob(job.id)).toEqual({ error: null, status: "succeeded" });
+				const next = yield* streams.get(source.id);
+				assert(next?.currentJobId);
+				expect(next.currentJobId).not.toBe(job.id);
+				expect(next.completedRevision).toBeNull();
+				expect(yield* backgroundJob(next.currentJobId)).toEqual({ error: null, status: "running" });
 			}),
 	);
 

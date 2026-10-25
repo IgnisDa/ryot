@@ -67,6 +67,7 @@ export class BackgroundWorkProjectionFinalizer extends Context.Service<
 	{
 		failed: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
 		settled: (job: BackgroundWorkInput) => Effect.Effect<void, DbError>;
+		prepare: (job: BackgroundWorkInput) => Effect.Effect<boolean, DbError>;
 		publish: (
 			job: BackgroundWorkInput,
 			output: unknown,

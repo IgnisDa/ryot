@@ -28,6 +28,17 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 	}
 	const result = yield* Effect.exit(
 		Effect.gen(function* () {
+			if (
+				job.purpose !== "user-script" &&
+				!(yield* makeActivity({
+					error: DbError,
+					success: Schema.Boolean,
+					name: "prepare-projection",
+					execute: projection.prepare(job),
+				}))
+			) {
+				return;
+			}
 			const output = yield* executor.execute(job);
 			if (job.purpose !== "user-script" || job.featureInput !== null) {
 				yield* projection.publish(job, output);

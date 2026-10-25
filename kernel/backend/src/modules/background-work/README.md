@@ -27,6 +27,10 @@ after settlement dispatches its own scope from the workflow body so the next que
 Plugins do not separately dispatch the generic worker. User work and projections use the same
 owner, while their admission rules and feature state remain with their respective modules.
 
+Projection preparation runs as a persisted activity before script execution. The event feature
+settles superseded claims without executing their scripts; normal settlement recovery and scope
+handoff still run. Publication retains its own claim check for changes after preparation.
+
 `requestUserWork` is the script-host adapter for independent user work. Its identity is keyed by
 account generation, plugin, script, and caller key. Reusing the identity with changed input or scope is
 rejected; a retry or continuation uses a fresh deterministic key.

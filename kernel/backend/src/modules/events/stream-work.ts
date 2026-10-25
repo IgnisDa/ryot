@@ -128,6 +128,11 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					userId: UserId.make(candidate.key.userId),
 				});
 				const work = yield* repository.prepare(id);
+				if (work?.currentJobId === null) {
+					for (const job of yield* repository.supersededJobs(id)) {
+						yield* background.settle(job.id, "succeeded");
+					}
+				}
 				if (
 					!work ||
 					work.completedRevision === work.streamRevision ||
@@ -437,6 +442,28 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					}
 				}
 				return jobIds;
+			});
+
+			const prepare = Effect.fn("EventStreamWorkService.prepare")(function* (
+				job: BackgroundWorkInput,
+			) {
+				const claim = yield* Schema.decodeUnknownEffect(EventStreamClaim)(job.featureInput).pipe(
+					Effect.mapError(() => new DbError({ message: "Invalid persisted projection claim" })),
+				);
+				return yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* background.lockAccount(claim.accountGeneration);
+							yield* entities.lockEntityReferencesByIds([EntityId.make(claim.input.entityId)]);
+							if (yield* repository.currentClaim(claim.id, claim.jobId, claim.revision)) {
+								return true;
+							}
+							yield* background.settle(job.id, "succeeded");
+							yield* arrange(claim.id);
+							return false;
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			});
 
 			const process = Effect.fn("EventStreamWorkService.process")(function* (
@@ -870,6 +897,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			});
 			return {
 				failed,
+				prepare,
 				process,
 				request,
 				reconcile,

@@ -247,6 +247,24 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}.png`,
 						}),
 				);
+				yield* page.use((nativePage) =>
+					nativePage
+						.locator(iframeSelector)
+						.contentFrame()
+						.getByRole("img", { exact: true, name: "Active observations by local hour" })
+						.screenshot({
+							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}-hours.png`,
+						}),
+				);
+				yield* page.use((nativePage) =>
+					nativePage
+						.locator(iframeSelector)
+						.contentFrame()
+						.getByRole("img", { exact: true, name: `Daily active observations · ${currentRange}` })
+						.screenshot({
+							path: `${screenshotDirectory}/media-analytics-${screenshotId}-${visualCase.name}-${colorScheme}-calendar.png`,
+						}),
+				);
 			}
 		}
 

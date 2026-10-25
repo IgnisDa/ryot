@@ -12,6 +12,8 @@ export const ProjectionFinalizerLive = Layer.effect(
 		const relationships = yield* RelationshipProjectionService;
 		return {
 			settled: (job) => relationships.reconcile(job.accountGeneration.userId),
+			prepare: (job) =>
+				job.purpose === "event-projection" ? events.prepare(job) : Effect.succeed(true),
 			failed: (job) =>
 				job.purpose === "relationship-projection" ? relationships.failed(job) : events.failed(job),
 			publish: (job, output) => {
