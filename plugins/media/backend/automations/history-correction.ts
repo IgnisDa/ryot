@@ -29,6 +29,8 @@ import {
 } from "../../shared/lifecycle-expressions";
 import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
 import type { HistoryCorrectionRequest } from "../contracts/history-correction";
+import type {
+	historyProperty} from "../contracts/history-correction-recipes";
 import {
 	consumptionDependenciesPageRecipe,
 	correctionCoverageRecipe,
@@ -38,7 +40,7 @@ import {
 	coverageBasisRecipe,
 	historyCorrectionContextRecipe,
 	type HistoryEvent,
-	historyProperty,
+	historyPropertyIs,
 	historyRecordRecipe,
 	historySourceRecipe,
 	progressCompletionBlockersRecipe,
@@ -410,7 +412,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				...(phase === "prune"
 					? {
 							where: (event: Parameters<typeof historyProperty>[0]) =>
-								eq(historyProperty(event, "rule"), literal("progress")),
+								historyPropertyIs(event, "rule", "progress"),
 						}
 					: {}),
 			});
@@ -450,8 +452,8 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					limit: 1,
 					where: (event) =>
 						and(
-							eq(historyProperty(event, "rule"), literal("progress")),
-							eq(historyProperty(event, "sourceEventId"), literal(source.id)),
+							historyPropertyIs(event, "rule", "progress"),
+							historyPropertyIs(event, "sourceEventId", source.id),
 						),
 				});
 				const row = saved.items[0];
@@ -572,9 +574,9 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					limit: 1,
 					where: (event) =>
 						and(
-							eq(historyProperty(event, "runKey"), literal(state.runKey)),
+							historyPropertyIs(event, "runKey", state.runKey),
 							eq(castNumber(jsonPath(column(event, "properties"), "cycle")), literal(state.cycle)),
-							eq(historyProperty(event, "episodeId"), literal(source.entityId)),
+							historyPropertyIs(event, "episodeId", source.entityId),
 						),
 				});
 				const scratch = saved.items[0];
@@ -674,8 +676,8 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 									limit: 1,
 									where: (event) =>
 										and(
-											eq(historyProperty(event, "rule"), literal("coverage")),
-											eq(historyProperty(event, "sourceEventId"), literal(sourceId)),
+											historyPropertyIs(event, "rule", "coverage"),
+											historyPropertyIs(event, "sourceEventId", sourceId),
 											eq(
 												castBoolean(jsonPath(column(event, "properties"), "frozen")),
 												literal(false),
@@ -728,7 +730,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 			const fingerprint = yield* inventory(config);
 			if (state.phase === "reset-snapshot") {
 				const page = yield* records(CompletionEpisode, "completion-episode", {
-					where: (event) => eq(historyProperty(event, "occurrenceId"), literal(basis.id)),
+					where: (event) => historyPropertyIs(event, "occurrenceId", basis.id),
 				});
 				for (const row of page.items) {
 					write.remove(row);

@@ -2,6 +2,7 @@ import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { expect, it } from "vitest";
 
 import { CompletionEpisode, CompletionOccurrence } from "../../shared/history-correction";
@@ -67,4 +68,20 @@ it("keeps correction reads executable for fresh and retained evidence", () => {
 	for (const recipe of recipes) {
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	}
+});
+
+it("matches correction records by subject through structural property containment", () => {
+	const { records } = correctionRecordsRecipe(CompletionOccurrence, {
+		...input,
+		slug: "completion-occurrence",
+	}).document.queries;
+	expect(records?.where).toMatchObject({
+		predicates: arrayContaining([
+			{
+				type: "contains",
+				right: { type: "literal", value: { subjectEntityId: "subject" } },
+				left: { type: "column", field: "properties", tableAlias: "correctionRecord" },
+			},
+		]),
+	});
 });

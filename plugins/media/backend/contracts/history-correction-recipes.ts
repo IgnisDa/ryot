@@ -9,6 +9,7 @@ import {
 	coalesce,
 	column,
 	conditional,
+	contains,
 	count,
 	countDistinct,
 	defineRecipe,
@@ -58,6 +59,9 @@ export type HistoryEvent = typeof HistoryEvent.Type;
 
 export const historyProperty = (event: TableReference, key: string) =>
 	castText(jsonPath(column(event, "properties"), key));
+/** Structural containment is served by the event properties GIN index. */
+export const historyPropertyIs = (event: TableReference, key: string, value: string) =>
+	contains(column(event, "properties"), literal({ [key]: value }));
 const own = (event: TableReference) =>
 	schemaOwnerPredicate(event, "eventSchemaPluginId", { kind: "self" });
 const selection = (event: TableReference) => ({
@@ -105,7 +109,7 @@ export const correctionRecordsRecipe = <A, I>(
 						own(event),
 						eq(column(event, "entityId"), literal(input.libraryId)),
 						eq(column(event, "eventSchemaSlug"), literal(input.slug)),
-						eq(historyProperty(event, "subjectEntityId"), literal(input.subjectEntityId)),
+						historyPropertyIs(event, "subjectEntityId", input.subjectEntityId),
 						...(input.where ? [input.where(event)] : []),
 					),
 				}),
@@ -179,7 +183,7 @@ export const historyRecordRecipe = defineRecipe(
 							? eq(column(event, "id"), literal(input.id))
 							: and(
 									eq(column(event, "eventSchemaSlug"), literal("complete")),
-									eq(historyProperty(event, "completionKey"), literal(input.occurrenceId ?? "")),
+									historyPropertyIs(event, "completionKey", input.occurrenceId ?? ""),
 								),
 					),
 				}),
@@ -239,10 +243,10 @@ export const progressCompletionBlockersRecipe = defineRecipe(
 									own(occurrence),
 									eq(column(occurrence, "entityId"), literal(input.libraryId)),
 									eq(column(occurrence, "eventSchemaSlug"), literal("completion-occurrence")),
-									eq(historyProperty(occurrence, "entityId"), literal(input.source.entityId)),
-									eq(historyProperty(occurrence, "rule"), literal("progress")),
+									historyPropertyIs(occurrence, "entityId", input.source.entityId),
+									historyPropertyIs(occurrence, "rule", "progress"),
 									sameRun(occurrence, "expectedSourceRun"),
-									eq(historyProperty(occurrence, "runKey"), literal(input.runKey)),
+									historyPropertyIs(occurrence, "runKey", input.runKey),
 									eq(
 										historyProperty(occurrence, "expectedOccurredAt"),
 										literal(input.source.occurredAt),
@@ -286,7 +290,7 @@ export const coverageBasisRecipe = defineRecipe(
 								eq(column(episode, "entityId"), literal(input.libraryId)),
 								eq(column(episode, "eventSchemaSlug"), literal("completion-episode")),
 								eq(historyProperty(episode, "occurrenceId"), column(occurrence, "id")),
-								eq(historyProperty(episode, "sourceEventId"), literal(input.sourceEventId)),
+								historyPropertyIs(episode, "sourceEventId", input.sourceEventId),
 							),
 						),
 					],
@@ -294,8 +298,8 @@ export const coverageBasisRecipe = defineRecipe(
 						own(occurrence),
 						eq(column(occurrence, "entityId"), literal(input.libraryId)),
 						eq(column(occurrence, "eventSchemaSlug"), literal("completion-occurrence")),
-						eq(historyProperty(occurrence, "subjectEntityId"), literal(input.subjectEntityId)),
-						eq(historyProperty(occurrence, "rule"), literal("coverage")),
+						historyPropertyIs(occurrence, "subjectEntityId", input.subjectEntityId),
+						historyPropertyIs(occurrence, "rule", "coverage"),
 						eq(castBoolean(jsonPath(column(occurrence, "properties"), "frozen")), literal(true)),
 						neq(historyProperty(occurrence, "runKey"), literal(input.runKey)),
 					),
@@ -354,7 +358,7 @@ export const historyCorrectionContextRecipe = defineRecipe(
 						own(work),
 						eq(column(work, "entityId"), literal(input.libraryId)),
 						eq(column(work, "eventSchemaSlug"), literal("history-correction")),
-						eq(historyProperty(work, "subjectEntityId"), literal(input.entityId)),
+						historyPropertyIs(work, "subjectEntityId", input.entityId),
 					),
 				}),
 				target: selectedOptionalRow(target, {
@@ -412,7 +416,7 @@ export const historyCorrectionContextRecipe = defineRecipe(
 										where: and(
 											own(evidence),
 											eq(column(evidence, "entityId"), literal(input.libraryId)),
-											eq(historyProperty(evidence, "subjectEntityId"), literal(input.entityId)),
+											historyPropertyIs(evidence, "subjectEntityId", input.entityId),
 											inArray(
 												column(evidence, "eventSchemaSlug"),
 												["completion-occurrence", "history-coverage"].map(literal),
@@ -496,7 +500,7 @@ const requiredEpisodes = (
 				own(evidence),
 				eq(column(evidence, "entityId"), literal(input.libraryId)),
 				eq(column(evidence, "eventSchemaSlug"), literal("completion-episode")),
-				eq(historyProperty(evidence, "occurrenceId"), literal(input.basisId)),
+				historyPropertyIs(evidence, "occurrenceId", input.basisId),
 			),
 		};
 	}
@@ -522,8 +526,8 @@ export const correctionCoverageRecipe = defineRecipe(
 			own(scratch),
 			eq(column(scratch, "entityId"), literal(input.libraryId)),
 			eq(column(scratch, "eventSchemaSlug"), literal("history-coverage")),
-			eq(historyProperty(scratch, "subjectEntityId"), literal(input.subjectEntityId)),
-			eq(historyProperty(scratch, "runKey"), literal(input.runKey)),
+			historyPropertyIs(scratch, "subjectEntityId", input.subjectEntityId),
+			historyPropertyIs(scratch, "runKey", input.runKey),
 			eq(castNumber(jsonPath(column(scratch, "properties"), "cycle")), literal(input.cycle)),
 		);
 		const requiredCovered = exists(scratch, {
@@ -662,8 +666,8 @@ export const correctionInventoryRecipe = defineRecipe(
 								own(scratch),
 								eq(column(scratch, "entityId"), literal(input.libraryId)),
 								eq(column(scratch, "eventSchemaSlug"), literal("history-coverage")),
-								eq(historyProperty(scratch, "subjectEntityId"), literal(input.subjectEntityId)),
-								eq(historyProperty(scratch, "runKey"), literal(input.runKey)),
+								historyPropertyIs(scratch, "subjectEntityId", input.subjectEntityId),
+								historyPropertyIs(scratch, "runKey", input.runKey),
 								eq(
 									castNumber(jsonPath(column(scratch, "properties"), "cycle")),
 									literal(input.cycle),

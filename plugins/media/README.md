@@ -646,6 +646,10 @@ must use the target's unit/property mapping. Automatic completions must supply r
 they cannot recapture current providers. A create carrying `sourceRun` must supply its basis, including
 an explicitly unavailable total. Historical restore/migration supplies these facts directly.
 
+Correction reads match record properties (`subjectEntityId`, `runKey`, `rule`, source and occurrence
+IDs) by structural containment, which the event properties GIN index serves, instead of extracting
+each property per library record.
+
 Correction occurrences retain `expectedConsumptionBasis`, `expectedCalendarDate`,
 `expectedTimeSpent` and `expectedSourceRun` beside existing expected ordering/date/source properties.
 Progress-derived output copies those values; coverage-derived parent output has only the parent
