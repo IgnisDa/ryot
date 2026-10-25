@@ -119,55 +119,56 @@ const makeServiceLayer = (
 	);
 
 layer(makeServiceLayer())((test) => {
-	test.effect(
-		"shares projection freshness and correlated ranking work within one SQL statement",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* RyotQLService;
-				const subject = table("entity", "subject");
-				const source = table("event", "source");
-				const sourceScope = {
-					where: and(
-						eq(column(source, "entityId"), column(subject, "id")),
-						eq(column(source, "projectionStatus"), literal("ready")),
-					),
-				};
-				const total = sum(
-					source,
-					castNumber(jsonPath(column(source, "projection"), "score")),
-					sourceScope,
-				);
-				yield* service.executeForUser("user-1", null, "plugin", {
-					queries: {
-						ranking: rows(subject, {
-							orderBy: [descending(total)],
-							fields: [
-								field("total", total),
-								field("sameTotal", total),
-								field("count", count(source, sourceScope)),
-								field("events", countDistinct(source, column(source, "id"), sourceScope)),
-								field("entities", countDistinct(source, column(source, "entityId"), sourceScope)),
-								field(
-									"sessions",
-									countDistinct(source, column(source, "sessionEntityId"), sourceScope),
-								),
-							],
-						}),
-					},
-				});
-				const statements = yield* (yield* RecordedStatements).statements;
-				const statement = statements.find((value) =>
-					value.includes('"source_projectionStreams" AS MATERIALIZED'),
-				);
-				assert(statement);
-				expect(statement.match(/from event_stream_work w/g)).toHaveLength(1);
-				expect(statement.match(/SUM\(/g)).toHaveLength(1);
-				expect(statement.match(/COUNT\(/g)).toHaveLength(4);
-				expect(statement.match(/SELECT \* FROM "event"/g)).toHaveLength(1);
-				expect(statement.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
-				expect(statement).toMatch(/("aggregate\d+_0"\."v0") AS "f0v", \1 AS "f1v"/);
-				expect(statement).toMatch(/"aggregate\d+_0"\."v0" AS "o0"/);
-			}),
+	test.effect("joins projection freshness per read event and shares correlated ranking work", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const subject = table("entity", "subject");
+			const source = table("event", "source");
+			const sourceScope = {
+				where: and(
+					eq(column(source, "entityId"), column(subject, "id")),
+					eq(column(source, "projectionStatus"), literal("ready")),
+				),
+			};
+			const total = sum(
+				source,
+				castNumber(jsonPath(column(source, "projection"), "score")),
+				sourceScope,
+			);
+			yield* service.executeForUser("user-1", null, "plugin", {
+				queries: {
+					ranking: rows(subject, {
+						orderBy: [descending(total)],
+						fields: [
+							field("total", total),
+							field("sameTotal", total),
+							field("count", count(source, sourceScope)),
+							field("events", countDistinct(source, column(source, "id"), sourceScope)),
+							field("entities", countDistinct(source, column(source, "entityId"), sourceScope)),
+							field(
+								"sessions",
+								countDistinct(source, column(source, "sessionEntityId"), sourceScope),
+							),
+						],
+					}),
+				},
+			});
+			const statements = yield* (yield* RecordedStatements).statements;
+			const statement = statements.find((value) =>
+				value.includes("left join event_stream_work w on w.id = s.id"),
+			);
+			assert(statement);
+			expect(statement).not.toContain("projectionStreams");
+			expect(
+				statement.match(/left join event_stream s on s.entity_id = e.entity_id/g),
+			).toHaveLength(1);
+			expect(statement.match(/SUM\(/g)).toHaveLength(1);
+			expect(statement.match(/COUNT\(/g)).toHaveLength(4);
+			expect(statement.match(/SELECT \* FROM "event"/g)).toHaveLength(1);
+			expect(statement.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
+			expect(statement).toMatch(/("aggregate\d+_0"\."v0") AS "f0v", \1 AS "f1v"/);
+			expect(statement).toMatch(/"aggregate\d+_0"\."v0" AS "o0"/);
+		}),
 	);
 
 	test.effect("compiles timezone-aware hour and year groups in SQL", () =>

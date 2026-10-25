@@ -1,4 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { PluginEventProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	EntityId,
 	type EventId,
@@ -36,6 +37,16 @@ export type StreamKey = typeof StreamKeySchema.Type;
 export type StreamSource = StreamKey & {
 	readonly sessionEntityId?: null | string | undefined;
 	readonly properties?: undefined | Readonly<Record<string, unknown>>;
+};
+
+export type EventStreamBindingDeclaration = {
+	readonly userId: string;
+	readonly accountToken: string;
+	readonly eventSchemaSlug: string;
+	readonly entitySchemaSlug: string;
+	readonly pluginRevisionId: string;
+	readonly eventSchemaPluginId: string;
+	readonly configRevisionId: null | string;
 };
 
 type StreamTouch = StreamSource & { readonly occurredAt: Date };
@@ -193,11 +204,17 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 
 					yield* session.run((db) =>
 						db.execute(sql`
-						insert into event_stream (id, user_id, entity_id, event_schema_slug, event_schema_plugin_id)
-						select source.id, "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId"
-						from jsonb_to_recordset(${JSON.stringify(entries.map(([id, key]) => ({ id, userId: key.userId, entityId: key.entityId, eventSchemaSlug: key.eventSchemaSlug, eventSchemaPluginId: key.eventSchemaPluginId })))}::jsonb)
-							as source(id text, "userId" text, "entityId" text, "eventSchemaSlug" text, "eventSchemaPluginId" text)
-						order by source.id collate "C" on conflict do nothing
+						with created as (
+							insert into event_stream (id, user_id, entity_id, event_schema_slug, event_schema_plugin_id)
+							select source.id, "userId", "entityId", "eventSchemaSlug", "eventSchemaPluginId"
+							from jsonb_to_recordset(${JSON.stringify(entries.map(([id, key]) => ({ id, userId: key.userId, entityId: key.entityId, eventSchemaSlug: key.eventSchemaSlug, eventSchemaPluginId: key.eventSchemaPluginId })))}::jsonb)
+								as source(id text, "userId" text, "entityId" text, "eventSchemaSlug" text, "eventSchemaPluginId" text)
+							order by source.id collate "C" on conflict do nothing
+							returning user_id, event_schema_plugin_id, event_schema_slug
+						)
+						delete from event_stream_binding b using created c
+						where b.user_id = c.user_id and b.event_schema_plugin_id = c.event_schema_plugin_id
+							and b.event_schema_slug = c.event_schema_slug
 					`),
 					);
 
@@ -388,7 +405,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				const workRows = yield* lockWorkRows(streams.map((stream) => stream.id));
 				const workById = new Map(workRows.map((work) => [work.id, work]));
 				const updates: Array<
-					{ dirtyFrom: null | string } & Pick<
+					{ reset: boolean; dirtyFrom: null | string } & Pick<
 						typeof schema.eventStreamWork.$inferSelect,
 						"id" | "checkpoint"
 					>
@@ -417,15 +434,21 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						dirtyFrom = null;
 					}
 
-					updates.push({ checkpoint, id: stream.id, dirtyFrom: dirtyFrom?.toISOString() ?? null });
+					updates.push({
+						checkpoint,
+						id: stream.id,
+						reset: reset.has(stream.id),
+						dirtyFrom: dirtyFrom?.toISOString() ?? null,
+					});
 				}
 				if (updates.length > 0) {
 					yield* session.run((db) =>
 						db.execute(sql`
 						update event_stream_work w set dirty_from = changed."dirtyFrom",
+							completed_revision = case when changed.reset then null else w.completed_revision end,
 							checkpoint = changed.checkpoint, updated_at = ${now}, current_job_id = ${retainedQueuedJob(sql`w.current_job_id`)}
 						from jsonb_to_recordset(${JSON.stringify(updates)}::jsonb)
-							as changed(id text, checkpoint jsonb, "dirtyFrom" timestamptz)
+							as changed(id text, checkpoint jsonb, "dirtyFrom" timestamptz, reset boolean)
 						where w.id = changed.id
 					`),
 					);
@@ -449,7 +472,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				yield* session.run((db) =>
 					db.execute(sql`
 						update event_stream_work w set updated_at = ${now}, dirty_from = null, checkpoint = null,
-							current_job_id = ${retainedQueuedJob(sql`w.current_job_id`)}
+							completed_revision = null, current_job_id = ${retainedQueuedJob(sql`w.current_job_id`)}
 						where w.id in ${streamIds(ids)}
 					`),
 				);
@@ -549,6 +572,10 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								isNull(schema.user.disabledAt),
 								eq(schema.user.accountGeneration, schema.eventStreamWork.accountToken),
 								isNull(schema.eventStreamWork.currentJobId),
+								or(
+									isNull(schema.eventStreamWork.completedRevision),
+									isNotNull(schema.eventStreamWork.dirtyFrom),
+								),
 								after === undefined ? undefined : gt(schema.eventStreamWork.id, after),
 								sql`${schema.eventStreamWork.completedRevision} is distinct from ${schema.eventStream.revision}`,
 							),
@@ -572,13 +599,44 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				);
 			});
 
+			const bindingDeclarations = Effect.fn("EventStreamRepository.bindingDeclarations")(function* (
+				limit: number,
+			) {
+				return yield* session.run((db) =>
+					db.execute<EventStreamBindingDeclaration & { projection: PluginEventProjection }>(
+						sql`select d.user_id as "userId", d.plugin_id as "eventSchemaPluginId",
+								d.entity_schema_slug as "entitySchemaSlug", d.slug as "eventSchemaSlug", d.projection,
+								up.active_revision_id as "pluginRevisionId", up.config_revision_id as "configRevisionId",
+								u.account_generation as "accountToken"
+								from ${schema.userEventSchema} d
+								inner join "user" u on u.id = d.user_id and u.disabled_at is null
+								inner join ${schema.userPlugin} up on up.user_id = d.user_id and up.plugin_id = d.plugin_id
+									and up.is_executable and up.active_revision_id is not null
+								left join ${schema.eventStreamBinding} b on b.user_id = d.user_id
+									and b.event_schema_plugin_id = d.plugin_id and b.entity_schema_slug = d.entity_schema_slug
+									and b.event_schema_slug = d.slug
+								where d.is_effective and d.projection is not null
+								and (b.user_id is null or b.account_token is distinct from u.account_generation
+									or b.plugin_revision_id is distinct from up.active_revision_id
+									or b.config_revision_id is distinct from up.config_revision_id)
+								order by d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
+								limit ${limit}`,
+						"objects",
+					),
+				);
+			});
+
 			const bindingCandidates = Effect.fn("EventStreamRepository.bindingCandidates")(
-				function* (input: { limit: number; after?: string }) {
+				function* (input: {
+					limit: number;
+					after?: string;
+					declaration: EventStreamBindingDeclaration;
+				}) {
+					const { declaration } = input;
 					return yield* session.run((db) =>
 						db
 							.select({
 								id: schema.eventStream.id,
-								projection: schema.userEventSchema.projection,
 								key: {
 									userId: schema.eventStream.userId,
 									entityId: schema.eventStream.entityId,
@@ -587,40 +645,23 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								},
 							})
 							.from(schema.eventStream)
-							.innerJoin(schema.user, eq(schema.user.id, schema.eventStream.userId))
 							.innerJoin(schema.entity, eq(schema.entity.id, schema.eventStream.entityId))
-							.innerJoin(
-								schema.userEventSchema,
-								and(
-									eq(schema.userEventSchema.userId, schema.eventStream.userId),
-									eq(schema.userEventSchema.entitySchemaSlug, schema.entity.entitySchemaSlug),
-									eq(schema.userEventSchema.slug, schema.eventStream.eventSchemaSlug),
-									sql`${schema.userEventSchema.pluginId} is not distinct from ${schema.eventStream.eventSchemaPluginId}`,
-								),
-							)
-							.innerJoin(
-								schema.userPlugin,
-								and(
-									eq(schema.userPlugin.userId, schema.eventStream.userId),
-									eq(schema.userPlugin.pluginId, schema.eventStream.eventSchemaPluginId),
-									eq(schema.userPlugin.isExecutable, true),
-								),
-							)
 							.leftJoin(
 								schema.eventStreamWork,
 								eq(schema.eventStreamWork.id, schema.eventStream.id),
 							)
 							.where(
 								and(
-									isNull(schema.user.disabledAt),
-									eq(schema.userEventSchema.isEffective, true),
-									isNotNull(schema.userEventSchema.projection),
+									eq(schema.eventStream.userId, declaration.userId),
+									eq(schema.eventStream.eventSchemaPluginId, declaration.eventSchemaPluginId),
+									eq(schema.eventStream.eventSchemaSlug, declaration.eventSchemaSlug),
+									eq(schema.entity.entitySchemaSlug, declaration.entitySchemaSlug),
 									input.after === undefined ? undefined : gt(schema.eventStream.id, input.after),
 									or(
 										isNull(schema.eventStreamWork.id),
-										sql`${schema.eventStreamWork.accountToken} is distinct from ${schema.user.accountGeneration}`,
-										sql`${schema.eventStreamWork.pluginRevisionId} is distinct from ${schema.userPlugin.activeRevisionId}`,
-										sql`${schema.eventStreamWork.pluginPin}->>'configRevisionId' is distinct from ${schema.userPlugin.configRevisionId}`,
+										sql`${schema.eventStreamWork.accountToken} is distinct from ${declaration.accountToken}`,
+										sql`${schema.eventStreamWork.pluginRevisionId} is distinct from ${declaration.pluginRevisionId}`,
+										sql`${schema.eventStreamWork.configRevisionId} is distinct from ${declaration.configRevisionId}`,
 									),
 								),
 							)
@@ -629,6 +670,29 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					);
 				},
 			);
+
+			const recordBinding = Effect.fn("EventStreamRepository.recordBinding")(function* (
+				declaration: EventStreamBindingDeclaration,
+			) {
+				yield* session.run((db) =>
+					db
+						.insert(schema.eventStreamBinding)
+						.values(declaration)
+						.onConflictDoUpdate({
+							set: {
+								accountToken: declaration.accountToken,
+								pluginRevisionId: declaration.pluginRevisionId,
+								configRevisionId: declaration.configRevisionId,
+							},
+							target: [
+								schema.eventStreamBinding.userId,
+								schema.eventStreamBinding.eventSchemaPluginId,
+								schema.eventStreamBinding.entitySchemaSlug,
+								schema.eventStreamBinding.eventSchemaSlug,
+							],
+						}),
+				);
+			});
 
 			const prepare = Effect.fn("EventStreamRepository.prepare")(function* (id: string) {
 				yield* requireTransaction;
@@ -724,11 +788,13 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				request,
 				currentClaim,
 				lockForEvents,
+				recordBinding,
 				listCandidates,
 				invalidateEntity,
 				sourceCandidates,
 				bindingCandidates,
 				postponeCandidate,
+				bindingDeclarations,
 				lockSourceReferences,
 				lockSourceReferencesForEvents,
 			};

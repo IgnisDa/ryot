@@ -31,9 +31,7 @@ export const event = snakeCase.table(
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 	},
 	(table) => [
-		index("event_user_id_idx").on(table.userId),
 		index("event_entity_id_idx").on(table.entityId),
-		index("event_event_schema_slug_idx").on(table.eventSchemaSlug),
 		index("event_event_schema_plugin_id_idx").on(table.eventSchemaPluginId),
 		index("event_session_entity_id_idx").on(table.sessionEntityId),
 		index("event_properties_idx").using("gin", table.properties),
@@ -44,6 +42,12 @@ export const event = snakeCase.table(
 			table.occurredAt.desc(),
 			table.createdAt.desc(),
 			table.id.desc(),
+		),
+		index("event_user_schema_occurred_at_idx").on(
+			table.userId,
+			table.eventSchemaPluginId,
+			table.eventSchemaSlug,
+			table.occurredAt,
 		),
 		index("event_user_session_order_idx").on(
 			table.userId,

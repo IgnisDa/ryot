@@ -12,6 +12,7 @@ import {
 	AutomationExecutionId,
 	EntityId,
 	EventSchemaSlug,
+	PluginId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -45,7 +46,7 @@ import * as tables from "#schema/tables/combined";
 
 import { resolveEventCreateItemScopes } from "./event-creation";
 import { EventProjectionRepository } from "./projection-repository";
-import { EventStreamRepository } from "./stream-repository";
+import { type EventStreamBindingDeclaration, EventStreamRepository } from "./stream-repository";
 
 const EventStreamClaim = Schema.Struct({
 	id: Schema.String,
@@ -557,28 +558,30 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 
 			const failed = (job: BackgroundWorkInput) =>
 				publishUpdate(EntityId.make(job.scope), job.accountGeneration.userId);
-			const reconcile = Effect.fn("EventStreamWorkService.reconcile")(function* () {
+			const bindDeclaration = Effect.fn("EventStreamWorkService.bindDeclaration")(function* (
+				declaration: EventStreamBindingDeclaration,
+				scriptSlug: string,
+			) {
+				const binding = yield* bindings.resolve({
+					scriptSlug,
+					userId: UserId.make(declaration.userId),
+					pluginId: PluginId.make(declaration.eventSchemaPluginId),
+				});
+				if (!binding) {
+					return false;
+				}
+				let complete = true;
 				let after: string | undefined;
 				for (;;) {
 					const candidates: Effect.Success<ReturnType<typeof repository.bindingCandidates>> =
 						yield* repository.bindingCandidates({
-							...(after === undefined ? {} : { after }),
 							limit: 100,
+							declaration,
+							...(after === undefined ? {} : { after }),
 						});
 					for (const candidate of candidates) {
+						const { key } = candidate;
 						yield* Effect.gen(function* () {
-							const { key, projection } = candidate;
-							if (!projection || key.eventSchemaPluginId === null) {
-								return undefined;
-							}
-							const binding = yield* bindings.resolve({
-								userId: UserId.make(key.userId),
-								pluginId: key.eventSchemaPluginId,
-								scriptSlug: projection.scriptSlug,
-							});
-							if (!binding) {
-								return undefined;
-							}
 							const occurredAt = DateTime.formatIso(yield* DateTime.now);
 							const command = yield* Schema.decodeEffect(DomainLifecycleCommand)({
 								occurredAt,
@@ -610,25 +613,30 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 									Effect.mapError(() => new DbError({ message: "Invalid projection stream key" })),
 								),
 							});
-							return undefined;
 						}).pipe(
-							Effect.catchTag("DbError", (error) =>
-								Effect.logWarning("Projection binding admission failed", {
+							Effect.catchTag("DbError", (error) => {
+								complete = false;
+								return Effect.logWarning("Projection binding admission failed", {
 									reason: error.message,
 									streamId: candidate.id,
-								}),
-							),
+								});
+							}),
 						);
 					}
-					if (candidates.length < 100) {
-						break;
-					}
-					after = candidates[candidates.length - 1]?.id;
-					if (after === undefined) {
-						break;
+					after = candidates.at(-1)?.id;
+					if (candidates.length < 100 || after === undefined) {
+						return complete;
 					}
 				}
-				after = undefined;
+			});
+
+			const reconcile = Effect.fn("EventStreamWorkService.reconcile")(function* () {
+				for (const { projection, ...declaration } of yield* repository.bindingDeclarations(100)) {
+					if (yield* bindDeclaration(declaration, projection.scriptSlug)) {
+						yield* repository.recordBinding(declaration);
+					}
+				}
+				let after: string | undefined;
 				for (;;) {
 					const candidates: Effect.Success<ReturnType<typeof repository.listCandidates>> =
 						yield* repository.listCandidates(100, after);

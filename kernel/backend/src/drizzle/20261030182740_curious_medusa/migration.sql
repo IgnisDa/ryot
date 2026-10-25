@@ -472,6 +472,17 @@ CREATE TABLE "event_stream" (
 	"entity_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "event_stream_binding" (
+	"event_schema_slug" text,
+	"entity_schema_slug" text,
+	"account_token" text NOT NULL,
+	"plugin_revision_id" text NOT NULL,
+	"config_revision_id" text,
+	"user_id" text,
+	"event_schema_plugin_id" text,
+	CONSTRAINT "event_stream_binding_pkey" PRIMARY KEY("user_id","event_schema_plugin_id","entity_schema_slug","event_schema_slug")
+);
+--> statement-breakpoint
 CREATE TABLE "event_stream_work" (
 	"current_job_id" text,
 	"dirty_from" timestamp(3) with time zone,
@@ -484,6 +495,7 @@ CREATE TABLE "event_stream_work" (
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
 	"checkpoint" jsonb DEFAULT 'null',
+	"config_revision_id" text GENERATED ALWAYS AS (plugin_pin ->> 'configRevisionId') STORED,
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
@@ -1361,16 +1373,18 @@ CREATE INDEX "entity_enrichment_request_pending_idx" ON "entity_enrichment_reque
 CREATE INDEX "entity_enrichment_request_target_idx" ON "entity_enrichment_request" ("provider_id","external_id","scope_user_id","sequence");--> statement-breakpoint
 CREATE UNIQUE INDEX "entity_enrichment_request_retry_unique" ON "entity_enrichment_request" ("retry_of");--> statement-breakpoint
 CREATE INDEX "entity_translation_entity_id_idx" ON "entity_translation" ("entity_id");--> statement-breakpoint
-CREATE INDEX "event_user_id_idx" ON "event" ("user_id");--> statement-breakpoint
 CREATE INDEX "event_entity_id_idx" ON "event" ("entity_id");--> statement-breakpoint
-CREATE INDEX "event_event_schema_slug_idx" ON "event" ("event_schema_slug");--> statement-breakpoint
 CREATE INDEX "event_event_schema_plugin_id_idx" ON "event" ("event_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "event_session_entity_id_idx" ON "event" ("session_entity_id");--> statement-breakpoint
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_id","event_schema_slug","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "event_user_schema_occurred_at_idx" ON "event" ("user_id","event_schema_plugin_id","event_schema_slug","occurred_at");--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id");--> statement-breakpoint
+CREATE INDEX "event_stream_key_idx" ON "event_stream" ("entity_id","user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
+CREATE INDEX "event_stream_user_schema_idx" ON "event_stream" ("user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
 CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
+CREATE INDEX "event_stream_work_dirty_idx" ON "event_stream_work" ("id") WHERE "current_job_id" is null and ("completed_revision" is null or "dirty_from" is not null);--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1524,6 +1538,8 @@ ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_entity_id_entity_id_fkey" 
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_stream_binding" ADD CONSTRAINT "event_stream_binding_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_stream_binding" ADD CONSTRAINT "event_stream_binding_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream_work" ADD CONSTRAINT "event_stream_work_id_event_stream_id_fkey" FOREIGN KEY ("id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_parent_id_import_activity_run_id_id_fkey" FOREIGN KEY ("run_id","parent_id") REFERENCES "import_activity"("run_id","id");--> statement-breakpoint

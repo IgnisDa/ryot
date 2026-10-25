@@ -346,7 +346,7 @@ layer(databaseLayer)((test) => {
 				yield* session.transaction(repository.invalidateEntity(sessionEntityId));
 				const invalidated = yield* repository.get(id);
 				assert(invalidated);
-				expect(invalidated.completedRevision).toBe(prepared.streamRevision);
+				expect(invalidated.completedRevision).toBeNull();
 				expect(invalidated.streamRevision).toBe(prepared.streamRevision + 1);
 				expect(invalidated.dirtyFrom).toBeNull();
 				expect(invalidated.checkpoint).toBeNull();

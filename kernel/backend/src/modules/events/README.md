@@ -167,15 +167,24 @@ is pending, ready, failed, or none when the event schema has no projection.
 
 The same freshness gate protects `event_projection.properties`, which is nullable while stale. It
 also checks the account generation and that the event still belongs to the projection's stream;
-finishing an old stream cannot expose values for an event moved to a new entity. Current binding
-checks are evaluated once per query for the reader's stream set rather than decoding the binding pin
-for each source event.
+finishing an old stream cannot expose values for an event moved to a new entity. The gate joins
+only the streams of the events being read, through the stream key index, and compares the stored
+`config_revision_id` column generated from the binding pin.
 
 Publishing changes only projection rows and stream-work state. It does not write source-event
 properties, source revisions or timestamps, or lifecycle events. Backup restore seeds streams from
 restored events; declaration-driven reconciliation finds streams with missing or stale processor
 bindings and requests work for the current declaration. See [background work](../background-work/README.md)
 for common admission, dispatch, and recovery ownership.
+
+Reconciliation is index-driven so an idle tick reads no streams. `event_stream_binding` records,
+per user and projected declaration, the plugin revision, configuration revision, and account
+generation that every stream was last bound to; only declarations whose current binding differs
+from that record are scanned, and the record is written after all their streams are admitted.
+Creating a stream deletes the record for its declaration. Admission candidates come from a partial
+index on work rows with no current job that are incomplete (`completed_revision` null or
+`dirty_from` set); a reset or entity invalidation clears `completed_revision` to keep that
+invariant.
 
 Restore passes session and property references into stream seeding and takes reference locks before
 inserting historical events. A stream row exists for every user, entity, and event schema with

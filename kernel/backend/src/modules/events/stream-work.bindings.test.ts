@@ -305,6 +305,11 @@ layer(streamWorkTestLayer)((test) => {
 			expect(yield* sourceState(eventId)).toEqual(source);
 			const complete = yield* streams.get(id);
 			expect(complete?.completedRevision).toBe(complete?.streamRevision);
+			expect(
+				(yield* streams.bindingDeclarations(100)).filter(
+					(declaration) => declaration.eventSchemaPluginId === fixture.pluginId,
+				),
+			).toEqual([]);
 		}),
 	);
 
@@ -365,6 +370,7 @@ layer(streamWorkTestLayer)((test) => {
 				yield* session.run((db) =>
 					db.insert(tables.eventStream).values({ ...healthy.key, id: healthy.id }),
 				);
+				yield* session.run((db) => db.delete(tables.eventStreamBinding));
 				const facts = yield* sourceState(eventId);
 				yield* service.reconcile();
 				expect(yield* streams.get(id)).toBeNull();

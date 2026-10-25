@@ -317,22 +317,20 @@ const entity: CatalogTable = {
 	},
 };
 
-const eventProjectionStreams = (userId: null | string) => sql`
-	select s.id, s.user_id, s.entity_id, s.event_schema_plugin_id, s.event_schema_slug,
-		case when w.plugin_revision_id = g.active_revision_id
-			and w.account_token = u.account_generation and u.disabled_at is null
-			and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null
-				then g.environment_config_revision_id else i.active_config_revision_id end
-			and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null
-		then case when w.completed_revision = s.revision then 'ready'
-			when j.status = 'failed' then 'failed' else 'pending' end end as status
-	from event_stream_work w
-	inner join event_stream s on s.id = w.id
+const projectionStreamJoins = sql`
+	left join event_stream_work w on w.id = s.id
 	left join plugin g on g.id = s.event_schema_plugin_id
 	left join plugin_installation i on i.plugin_id = g.id and i.user_id = s.user_id
 	left join "user" u on u.id = s.user_id
-	left join background_work j on j.id = w.current_job_id
-	where ${userId == null ? sql`true` : sql`s.user_id = ${userId}`}`;
+	left join background_work j on j.id = w.current_job_id`;
+
+const projectionStreamStatus = sql`case when w.plugin_revision_id = g.active_revision_id
+	and w.account_token = u.account_generation and u.disabled_at is null
+	and w.config_revision_id = case when g.owner_user_id is null
+		then g.environment_config_revision_id else i.active_config_revision_id end
+	and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null
+then case when w.completed_revision = s.revision then 'ready'
+	when j.status = 'failed' then 'failed' else 'pending' end end`;
 
 const eventSource: CatalogSource = (context) => {
 	const value = context.fields.has("projection");
@@ -340,27 +338,24 @@ const eventSource: CatalogSource = (context) => {
 	if (!value && !status) {
 		return { ctes: {}, from: context.source };
 	}
-	const streams = context.relation("projectionStreams");
 	const declarations = context.relation("projectionDeclarations");
 	return {
-		ctes: {
-			projectionStreams: eventProjectionStreams(context.userId),
-			...(status
-				? {
-						projectionDeclarations: sql`
+		ctes: status
+			? {
+					projectionDeclarations: sql`
 						select distinct d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
 						from user_event_schema d where d.is_effective and d.projection is not null
 						and ${context.userId === null ? sql`true` : sql`d.user_id = ${context.userId}`}`,
-					}
-				: {}),
-		},
+				}
+			: {},
 		from: sql`(select e.*
-			${value ? sql`, p.properties as projection_value` : sql``}
-			${status ? sql`, coalesce(s.status, case when d.slug is not null then 'pending' else 'none' end) as projection_status` : sql``}
+			${value ? sql`, case when ${projectionStreamStatus} = 'ready' then p.properties end as projection_value` : sql``}
+			${status ? sql`, coalesce(${projectionStreamStatus}, case when d.slug is not null then 'pending' else 'none' end) as projection_status` : sql``}
 			from ${context.source} e
-			left join ${streams} s on s.user_id = e.user_id and s.entity_id = e.entity_id
+			left join event_stream s on s.entity_id = e.entity_id and s.user_id = e.user_id
 				and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug
-			${value ? sql`left join event_projection p on p.event_id = e.id and p.stream_id = s.id and s.status = 'ready'` : sql``}
+			${projectionStreamJoins}
+			${value ? sql`left join event_projection p on p.event_id = e.id and p.stream_id = s.id` : sql``}
 			${
 				status
 					? sql`left join entity subject on subject.id = e.entity_id
@@ -446,15 +441,15 @@ const eventProjection: CatalogTable = {
 		if (!context.fields.has("properties")) {
 			return { ctes: noCtes, from: context.source };
 		}
-		const streams = context.relation("projectionStreams");
 		return {
-			ctes: { projectionStreams: eventProjectionStreams(context.userId) },
-			from: sql`(select p.*, case when s.id is not null then p.properties end as projection_value
+			ctes: noCtes,
+			from: sql`(select p.*, case when ${projectionStreamStatus} = 'ready' then p.properties end as projection_value
 				from ${context.source} p
 				inner join event e on e.id = p.event_id
-				left join ${streams} s on s.id = p.stream_id and s.status = 'ready'
+				left join event_stream s on s.id = p.stream_id
 					and s.user_id = e.user_id and s.entity_id = e.entity_id
-					and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug)`,
+					and s.event_schema_plugin_id = e.event_schema_plugin_id and s.event_schema_slug = e.event_schema_slug
+				${projectionStreamJoins})`,
 		};
 	},
 };
