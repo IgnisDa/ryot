@@ -430,27 +430,39 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* () {
 				let after: undefined | RelationshipProjectionKey;
 				for (;;) {
-					const candidates = yield* repository.bindingCandidates({
+					const declarations = yield* repository.bindingDeclarations({
 						limit: 100,
 						...(after === undefined ? {} : { after }),
 					});
-					for (const candidate of candidates) {
-						const binding = yield* currentBinding(candidate);
-						if (!binding) {
-							continue;
+					for (const { hasRelationships, ...declaration } of declarations) {
+						const key = {
+							userId: declaration.userId,
+							relationshipSchemaSlug: declaration.relationshipSchemaSlug,
+							relationshipSchemaPluginId: declaration.relationshipSchemaPluginId,
+						};
+						if (hasRelationships) {
+							const binding = yield* currentBinding(key);
+							if (!binding) {
+								continue;
+							}
+							const admitted = yield* admit(key, binding, null, Effect.void).pipe(
+								Effect.as(true),
+								Effect.catchTag("DbError", (error) =>
+									Effect.logWarning("Relationship projection reconciliation skipped a schema", {
+										userId: key.userId,
+										reason: error.message,
+										relationshipSchemaSlug: key.relationshipSchemaSlug,
+									}).pipe(Effect.as(false)),
+								),
+							);
+							if (!admitted) {
+								continue;
+							}
 						}
-						yield* admit(candidate, binding, null, Effect.void).pipe(
-							Effect.catchTag("DbError", (error) =>
-								Effect.logWarning("Relationship projection reconciliation skipped a schema", {
-									reason: error.message,
-									userId: candidate.userId,
-									relationshipSchemaSlug: candidate.relationshipSchemaSlug,
-								}),
-							),
-						);
+						yield* repository.recordBinding(declaration);
 					}
-					after = candidates[candidates.length - 1];
-					if (candidates.length < 100 || after === undefined) {
+					after = declarations.at(-1);
+					if (declarations.length < 100 || after === undefined) {
 						break;
 					}
 				}

@@ -17,6 +17,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
 import { makeCollectionOrderPersistence } from "./collection-order";
+import { RelationshipProjectionRepository } from "./projections/repository";
 
 type RelationshipRow = RelationshipSnapshotRow & { readonly wasInserted: boolean };
 
@@ -246,6 +247,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const projections = yield* RelationshipProjectionRepository.make;
 			const collectionOrder = makeCollectionOrderPersistence(session);
 			const findRelationship = Effect.fn("RelationshipsRepository.findRelationship")(function* (
 				input: RelationshipIdentityInput,
@@ -346,10 +348,11 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 						.insert(schema.relationship)
 						.values(relationshipValues(prepared))
 						.onConflictDoNothing(relationshipConflictTarget)
-						.returning(relationshipSelection),
+						.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
 				);
 
 				if (inserted) {
+					yield* projections.invalidate([inserted]);
 					return toSavedRelationship(inserted);
 				}
 
@@ -383,6 +386,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 									.returning({ ...relationshipSelection, userId: schema.relationship.userId }),
 							),
 					);
+					yield* projections.invalidate(inserted.flat());
 					const saved = new Map(
 						inserted.flat().map((row) => [storedRelationshipKey(row), toSavedRelationship(row)]),
 					);

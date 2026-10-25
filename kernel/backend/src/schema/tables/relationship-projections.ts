@@ -1,7 +1,7 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sql } from "drizzle-orm";
-import { index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
@@ -50,5 +50,28 @@ export const relationshipProjection = snakeCase.table(
 		index("relationship_projection_dirty_idx")
 			.on(table.workId, table.relationshipId)
 			.where(sql`${table.projectedRevision} is distinct from ${table.revision}`),
+	],
+);
+
+export const relationshipProjectionBinding = snakeCase.table(
+	"relationship_projection_binding",
+	{
+		accountToken: text(),
+		boundRevision: integer(),
+		configRevisionId: text(),
+		pluginRevisionId: text(),
+		relationshipSchemaSlug: text().notNull(),
+		revision: integer().notNull().default(0),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		relationshipSchemaPluginId: text()
+			.notNull()
+			.references(() => plugin.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		primaryKey({
+			columns: [table.userId, table.relationshipSchemaPluginId, table.relationshipSchemaSlug],
+		}),
 	],
 );

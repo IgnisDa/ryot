@@ -250,6 +250,9 @@ const seedLinks = (suffix: string, count: number) =>
 							})),
 						),
 				);
+				yield* (yield* RelationshipProjectionRepository).invalidate([
+					{ userId, relationshipSchemaSlug, relationshipSchemaPluginId: fixture.pluginId },
+				]);
 			}),
 		);
 		return { fixture, sources };
@@ -464,7 +467,7 @@ layer(testLayer)((test) => {
 });
 
 layer(testLayer)((test) => {
-	test.effect("reconciliation fills notes for relationships created without a request", () =>
+	test.effect("reconciliation fills notes for new links and leaves an idle tick empty", () =>
 		Effect.gen(function* () {
 			const { sources, fixture } = yield* seedLinks("reconcile", 3);
 			const workId = relationshipProjectionWorkId({
@@ -472,16 +475,43 @@ layer(testLayer)((test) => {
 				relationshipSchemaSlug,
 				relationshipSchemaPluginId: fixture.pluginId,
 			});
+			const service = yield* RelationshipProjectionService;
+			const repository = yield* RelationshipProjectionRepository;
 
-			yield* (yield* RelationshipProjectionService).reconcile();
+			yield* service.reconcile();
 
-			const filled = yield* notes(workId);
-			expect(filled.length).toBe(sources.length);
-			expect(
-				sources.every((source) =>
-					filled.some(({ relationshipId }) => relationshipId === `${source}-link`),
-				),
-			).toBe(true);
+			expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual(
+				sources.map((source) => `${source}-link`),
+			);
+			expect(yield* repository.bindingDeclarations({ limit: 100 })).toEqual([]);
+
+			const later = yield* seedLinks("reconcile-later", 1);
+			expect(yield* repository.bindingDeclarations({ limit: 100 })).toHaveLength(1);
+			yield* service.reconcile();
+
+			expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual(
+				[...sources, ...later.sources].map((source) => `${source}-link`).sort(),
+			);
+			expect(yield* repository.bindingDeclarations({ limit: 100 })).toEqual([]);
+		}),
+	);
+
+	test.effect("keeps a declaration stale when a link arrives after it was read", () =>
+		Effect.gen(function* () {
+			const { fixture } = yield* seedLinks("late", 1);
+			const repository = yield* RelationshipProjectionRepository;
+			const [declaration] = yield* repository.bindingDeclarations({ limit: 100 });
+			assert(declaration);
+			const { hasRelationships: _, ...read } = declaration;
+
+			yield* repository.invalidate([
+				{ userId, relationshipSchemaSlug, relationshipSchemaPluginId: fixture.pluginId },
+			]);
+			yield* repository.recordBinding(read);
+
+			expect(yield* repository.bindingDeclarations({ limit: 100 })).toMatchObject([
+				{ userId, relationshipSchemaSlug, hasRelationships: true },
+			]);
 		}),
 	);
 });

@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -18,6 +17,19 @@ export type RelationshipProjectionKey = {
 	readonly relationshipSchemaSlug: string;
 	readonly relationshipSchemaPluginId: string;
 };
+
+export type RelationshipProjectionDeclaration = RelationshipProjectionKey & {
+	readonly revision: number;
+	readonly accountToken: string;
+	readonly pluginRevisionId: string;
+	readonly configRevisionId: null | string;
+};
+
+const bindingTarget = [
+	schema.relationshipProjectionBinding.userId,
+	schema.relationshipProjectionBinding.relationshipSchemaPluginId,
+	schema.relationshipProjectionBinding.relationshipSchemaSlug,
+];
 
 export const relationshipProjectionWorkId = (key: RelationshipProjectionKey) =>
 	sha256Hex(
@@ -310,30 +322,30 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				},
 			);
 
-			const bindingCandidates = Effect.fn("RelationshipProjectionRepository.bindingCandidates")(
+			const bindingDeclarations = Effect.fn("RelationshipProjectionRepository.bindingDeclarations")(
 				function* (input: { limit: number; after?: RelationshipProjectionKey }) {
 					const after = input.after;
 					return yield* session.run((db) =>
-						db.execute<RelationshipProjectionKey & { projection: PluginProjection }>(
+						db.execute<{ hasRelationships: boolean } & RelationshipProjectionDeclaration>(
 							sql`select d.user_id as "userId", d.plugin_id as "relationshipSchemaPluginId",
-								d.slug as "relationshipSchemaSlug", d.projection
+								d.slug as "relationshipSchemaSlug", u.account_generation as "accountToken",
+								up.active_revision_id as "pluginRevisionId", up.config_revision_id as "configRevisionId",
+								coalesce(b.revision, 0) as "revision",
+								exists (select 1 from ${schema.relationship} r where r.user_id = d.user_id
+									and r.relationship_schema_plugin_id = d.plugin_id
+									and r.relationship_schema_slug = d.slug) as "hasRelationships"
 								from ${schema.userRelationshipSchema} d
 								inner join "user" u on u.id = d.user_id and u.disabled_at is null
 								inner join ${schema.userPlugin} up on up.user_id = d.user_id and up.plugin_id = d.plugin_id
-									and up.is_executable
-								left join ${schema.relationshipProjectionWork} w on w.user_id = d.user_id
-									and w.relationship_schema_plugin_id = d.plugin_id and w.relationship_schema_slug = d.slug
+									and up.is_executable and up.active_revision_id is not null
+								left join ${schema.relationshipProjectionBinding} b on b.user_id = d.user_id
+									and b.relationship_schema_plugin_id = d.plugin_id and b.relationship_schema_slug = d.slug
 								where d.is_effective and d.projection is not null
 								${after ? sql`and (d.user_id, d.plugin_id, d.slug) > (${after.userId}, ${after.relationshipSchemaPluginId}, ${after.relationshipSchemaSlug})` : sql``}
-								and exists (select 1 from ${schema.relationship} r where r.user_id = d.user_id
-									and r.relationship_schema_plugin_id = d.plugin_id and r.relationship_schema_slug = d.slug)
-								and (w.id is null
-									or w.account_token is distinct from u.account_generation
-									or w.plugin_revision_id is distinct from up.active_revision_id
-									or w.plugin_pin ->> 'configRevisionId' is distinct from up.config_revision_id
-									or exists (select 1 from ${schema.relationship} r where r.user_id = d.user_id
-										and r.relationship_schema_plugin_id = d.plugin_id and r.relationship_schema_slug = d.slug
-										and not exists (select 1 from ${schema.relationshipProjection} p where p.relationship_id = r.id)))
+								and (b.user_id is null or b.bound_revision is distinct from b.revision
+									or b.account_token is distinct from u.account_generation
+									or b.plugin_revision_id is distinct from up.active_revision_id
+									or b.config_revision_id is distinct from up.config_revision_id)
 								order by d.user_id, d.plugin_id, d.slug
 								limit ${input.limit}`,
 							"objects",
@@ -341,6 +353,70 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 					);
 				},
 			);
+
+			const recordBinding = Effect.fn("RelationshipProjectionRepository.recordBinding")(function* (
+				declaration: RelationshipProjectionDeclaration,
+			) {
+				yield* session.run((db) =>
+					db
+						.insert(schema.relationshipProjectionBinding)
+						.values({
+							userId: declaration.userId,
+							boundRevision: declaration.revision,
+							accountToken: declaration.accountToken,
+							pluginRevisionId: declaration.pluginRevisionId,
+							configRevisionId: declaration.configRevisionId,
+							relationshipSchemaSlug: declaration.relationshipSchemaSlug,
+							relationshipSchemaPluginId: declaration.relationshipSchemaPluginId,
+						})
+						.onConflictDoUpdate({
+							target: bindingTarget,
+							setWhere: eq(schema.relationshipProjectionBinding.revision, declaration.revision),
+							set: {
+								boundRevision: declaration.revision,
+								accountToken: declaration.accountToken,
+								pluginRevisionId: declaration.pluginRevisionId,
+								configRevisionId: declaration.configRevisionId,
+							},
+						}),
+				);
+			});
+
+			const invalidate = Effect.fn("RelationshipProjectionRepository.invalidate")(function* (
+				relationships: ReadonlyArray<{
+					readonly userId: null | string;
+					readonly relationshipSchemaSlug: string;
+					readonly relationshipSchemaPluginId: null | string;
+				}>,
+			) {
+				const keys = new Map<string, RelationshipProjectionKey & { readonly revision: number }>();
+				for (const {
+					userId,
+					relationshipSchemaSlug,
+					relationshipSchemaPluginId,
+				} of relationships) {
+					if (userId !== null && relationshipSchemaPluginId !== null) {
+						const key = { userId, relationshipSchemaSlug, relationshipSchemaPluginId };
+						keys.set(relationshipProjectionWorkId(key), { ...key, revision: 1 });
+					}
+				}
+				if (keys.size === 0) {
+					return;
+				}
+				yield* session.run((db) =>
+					db
+						.insert(schema.relationshipProjectionBinding)
+						.values(
+							[...keys.entries()]
+								.sort(([left], [right]) => left.localeCompare(right))
+								.map(([, key]) => key),
+						)
+						.onConflictDoUpdate({
+							target: bindingTarget,
+							set: { revision: sql`${schema.relationshipProjectionBinding.revision} + 1` },
+						}),
+				);
+			});
 
 			const usersWithRelationships = Effect.fn(
 				"RelationshipProjectionRepository.usersWithRelationships",
@@ -374,11 +450,13 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				release,
 				reserve,
 				claimable,
+				invalidate,
 				currentClaim,
+				recordBinding,
 				get: readState,
 				listCandidates,
-				bindingCandidates,
 				postponeCandidate,
+				bindingDeclarations,
 				usersWithRelationships,
 			};
 		}),

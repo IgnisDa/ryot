@@ -98,6 +98,11 @@ export const relationship = snakeCase.table(
 			sql`${table.relationshipSchemaSlug} <> 'member-of' or ${table.relationshipSchemaPluginId} is not null or coalesce((${table.userId} is not null and jsonb_typeof(${table.properties} -> 'rank') = 'number' and (${table.properties} ->> 'rank')::numeric = trunc((${table.properties} ->> 'rank')::numeric) and abs((${table.properties} ->> 'rank')::numeric) < 4503599627370496), false)`,
 		),
 		index("relationship_schema_plugin_id_idx").on(table.relationshipSchemaPluginId),
+		index("relationship_user_schema_idx").on(
+			table.userId,
+			table.relationshipSchemaPluginId,
+			table.relationshipSchemaSlug,
+		),
 		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),

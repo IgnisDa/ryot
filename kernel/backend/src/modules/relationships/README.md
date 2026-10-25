@@ -56,11 +56,19 @@ entity; a failed step emits hints for its claimed sources.
 RyotQL exposes `relationship.projection` only when the note is current, the account generation is current and enabled, and the work's plugin
 revision and configuration pin match an active plugin with a ready installation.
 `projectionStatus` is ready, pending, failed (the current job failed), or none when the schema
-declares no projection. Reconciliation on the frequent cron finds user schemas whose links lack
-notes or whose binding is stale, fills missing notes, rebinds, and requests work; this covers
-imports, backup restore, and plugin upgrades. Schemas whose plugin is not executable for the user are
-not selected, and a schema whose processor binding is unavailable is skipped without logging. Deleting a relationship, user, or plugin cascades to
-its notes and work.
+declares no projection.
+
+Reconciliation on the frequent cron reads no relationships on an idle tick.
+`relationship_projection_binding` holds, per user and plugin relationship schema, a `revision`
+that every relationship insert (mutations, imports, backup restore) increments in the inserting
+transaction, plus the account generation, plugin revision, configuration revision, and
+`bound_revision` last reconciled. Only declarations whose record is missing, whose revision moved,
+or whose binding differs are selected. For each, reconciliation fills missing notes, rebinds, and
+requests work, then records the binding only if the revision still equals the value it read; a
+link inserted meanwhile leaves the declaration stale for the next tick. Declarations without links
+are recorded without creating work. Schemas whose plugin is not executable for the user are not
+selected, and a schema whose processor binding is unavailable is skipped without logging. Deleting
+a relationship, user, or plugin cascades to its notes, work, and binding record.
 
 Processors read only source relationships, endpoints, and events, so preparation needs no input
 fence: a source change dirties the affected notes, and publication's revision check discards stale

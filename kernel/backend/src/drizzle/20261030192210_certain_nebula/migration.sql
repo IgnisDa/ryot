@@ -473,11 +473,11 @@ CREATE TABLE "event_stream" (
 );
 --> statement-breakpoint
 CREATE TABLE "event_stream_binding" (
+	"config_revision_id" text,
+	"account_token" text NOT NULL,
 	"event_schema_slug" text,
 	"entity_schema_slug" text,
-	"account_token" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
-	"config_revision_id" text,
 	"user_id" text,
 	"event_schema_plugin_id" text,
 	CONSTRAINT "event_stream_binding_pkey" PRIMARY KEY("user_id","event_schema_plugin_id","entity_schema_slug","event_schema_slug")
@@ -1071,6 +1071,18 @@ CREATE TABLE "relationship_projection" (
 	"relationship_id" text PRIMARY KEY
 );
 --> statement-breakpoint
+CREATE TABLE "relationship_projection_binding" (
+	"account_token" text,
+	"bound_revision" integer,
+	"config_revision_id" text,
+	"plugin_revision_id" text,
+	"relationship_schema_slug" text,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"user_id" text,
+	"relationship_schema_plugin_id" text,
+	CONSTRAINT "relationship_projection_binding_pkey" PRIMARY KEY("user_id","relationship_schema_plugin_id","relationship_schema_slug")
+);
+--> statement-breakpoint
 CREATE TABLE "relationship_projection_work" (
 	"current_job_id" text,
 	"account_token" text NOT NULL,
@@ -1449,6 +1461,7 @@ CREATE INDEX "provider_import_admission_status_created_at_idx" ON "provider_impo
 CREATE UNIQUE INDEX "provider_import_admission_identity_unique" ON "provider_import_admission" ("user_id","provider_id","entity_schema_slug","external_id");--> statement-breakpoint
 CREATE INDEX "relationship_schema_slug_idx" ON "relationship" ("relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_schema_plugin_id_idx" ON "relationship" ("relationship_schema_plugin_id");--> statement-breakpoint
+CREATE INDEX "relationship_user_schema_idx" ON "relationship" ("user_id","relationship_schema_plugin_id","relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" ("source_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
@@ -1607,6 +1620,8 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_projection" ADD CONSTRAINT "relationship_projection_78lhxH1dX7UF_fkey" FOREIGN KEY ("work_id") REFERENCES "relationship_projection_work"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_projection" ADD CONSTRAINT "relationship_projection_relationship_id_relationship_id_fkey" FOREIGN KEY ("relationship_id") REFERENCES "relationship"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_projection_binding" ADD CONSTRAINT "relationship_projection_binding_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "relationship_projection_binding" ADD CONSTRAINT "relationship_projection_binding_5fd9DG3tCFhl_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_hez9NpadMCpN_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_Rk8B2C4LFptu_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint

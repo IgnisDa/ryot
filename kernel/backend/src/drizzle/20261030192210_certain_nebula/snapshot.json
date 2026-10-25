@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "41157681-53c7-4a8f-84d1-5594ff2ccd17",
+	"id": "2c5a6a57-fcc1-4351-b232-a6e2f4cb6d7d",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -312,6 +312,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "relationship_projection",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "relationship_projection_binding",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -4877,6 +4883,32 @@
 		{
 			"type": "text",
 			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "config_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "account_token",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -4908,33 +4940,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "account_token",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "event_stream_binding"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
 			"name": "plugin_revision_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "event_stream_binding"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "config_revision_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_binding"
@@ -10303,6 +10309,110 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "account_token",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "bound_revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "config_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "0",
+			"generated": null,
+			"identity": null,
+			"name": "revision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "relationship_schema_plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "current_job_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -15606,6 +15716,41 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "relationship_schema_plugin_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "relationship_schema_slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "relationship_user_schema_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "relationship"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "source_entity_id",
 					"isExpression": false,
 					"asc": true,
@@ -18072,6 +18217,32 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
+			"name": "relationship_projection_binding_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["relationship_schema_plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "relationship_projection_binding_5fd9DG3tCFhl_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "relationship_projection_binding"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
 			"name": "relationship_projection_work_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
@@ -18453,6 +18624,14 @@
 			"entityType": "pks",
 			"schema": "public",
 			"table": "managed_asset"
+		},
+		{
+			"columns": ["user_id", "relationship_schema_plugin_id", "relationship_schema_slug"],
+			"nameExplicit": false,
+			"name": "relationship_projection_binding_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "relationship_projection_binding"
 		},
 		{
 			"columns": ["user_id", "plugin_id", "schedule_slug", "occurrence_key"],

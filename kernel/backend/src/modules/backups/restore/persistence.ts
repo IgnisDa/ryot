@@ -25,6 +25,7 @@ import { redactIntegrationForClient } from "#modules/integrations/client-redacti
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { RelationshipProjectionRepository } from "#modules/relationships/projections/repository";
 import { upsertSavedViewOverride } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -101,6 +102,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
 			const streams = yield* EventStreamRepository.make;
+			const projections = yield* RelationshipProjectionRepository.make;
 			const restoreReminder = Effect.fn("BackupRestorePersistence.restoreReminder")(function* (
 				input: typeof schema.reminder.$inferInsert,
 			) {
@@ -123,6 +125,13 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					const [row] = yield* session.run((db) =>
 						db.insert(schema.relationship).values(input).returning({ id: schema.relationship.id }),
 					);
+					yield* projections.invalidate([
+						{
+							userId: input.userId ?? null,
+							relationshipSchemaSlug: input.relationshipSchemaSlug,
+							relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
+						},
+					]);
 					return row
 						? RelationshipId.make(row.id)
 						: yield* new DbError({ message: "Relationship restore returned no row" });
