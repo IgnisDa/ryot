@@ -11,7 +11,6 @@ export const Route = createFileRoute("/instance-admin")({
 			Effect.gen(function* () {
 				const server = yield* Effect.flatMap(ServerService, (service) => service.selected);
 				if (server === null) {
-					// oxlint-disable-next-line typescript/only-throw-error
 					throw redirect({ replace: true, to: "/onboarding", search: { redirect: location.href } });
 				}
 				return { server };

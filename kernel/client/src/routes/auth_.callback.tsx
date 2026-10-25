@@ -85,7 +85,6 @@ export const Route = createFileRoute("/auth_/callback")({
 						window.location.replace("/");
 						return;
 					}
-					// oxlint-disable-next-line typescript/only-throw-error
 					throw redirect({ replace: true, to: result.destination });
 				}),
 			),

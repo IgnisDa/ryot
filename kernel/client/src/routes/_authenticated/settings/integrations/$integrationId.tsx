@@ -57,7 +57,6 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 			Effect.gen(function* () {
 				const trimmed = params.integrationId.trim();
 				if (trimmed.length === 0) {
-					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
 				}
 				const auth = yield* AuthService;
@@ -67,7 +66,6 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 				}
 				const outcome = yield* getIntegration(context.ryot, context.server, trimmed);
 				if (Option.isNone(outcome)) {
-					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
 				}
 				return { integration: outcome.value, access: "standard" as const };

@@ -24,7 +24,6 @@ export const Route = createFileRoute("/auth")({
 			Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)).pipe(
 				Effect.map((result) => {
 					if (result._tag === "MissingServer") {
-						// oxlint-disable-next-line typescript/only-throw-error
 						throw redirect({
 							replace: true,
 							to: "/onboarding",
@@ -32,7 +31,6 @@ export const Route = createFileRoute("/auth")({
 						});
 					}
 					if (result._tag === "Authenticated") {
-						// oxlint-disable-next-line typescript/only-throw-error
 						throw redirect({
 							replace: true,
 							to: result.destination,

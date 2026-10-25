@@ -47,14 +47,12 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 			Effect.gen(function* () {
 				const runId = params.runId.trim();
 				if (runId.length === 0) {
-					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
 				}
 				const detail = yield* Effect.flatMap(ImportsService, (service) =>
 					service.loadRun(context.ryot, { runId }),
 				);
 				if (detail.run === undefined) {
-					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
 				}
 				return { runId };

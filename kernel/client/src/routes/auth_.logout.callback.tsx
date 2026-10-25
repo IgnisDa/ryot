@@ -28,7 +28,6 @@ export const Route = createFileRoute("/auth_/logout/callback")({
 					yield* Effect.sync(() => window.location.replace("/instance-admin/users"));
 					return;
 				}
-				// oxlint-disable-next-line typescript/only-throw-error
 				throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });
 			}),
 		),

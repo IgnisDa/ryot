@@ -49,11 +49,9 @@ export const Route = createFileRoute("/demo")({
 			}).pipe(
 				Effect.map((result) => {
 					if (result._tag === "Native") {
-						// oxlint-disable-next-line typescript/only-throw-error
 						throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });
 					}
 					if (result._tag === "Authenticated") {
-						// oxlint-disable-next-line typescript/only-throw-error
 						throw redirect({ to: "/", replace: true });
 					}
 					if (result._tag === "MissingServer") {

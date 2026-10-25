@@ -50,7 +50,10 @@
 		"typescript/prefer-as-const": "error",
 		"typescript/prefer-includes": "error",
 		"react-hooks/exhaustive-deps": "error",
-		"typescript/only-throw-error": "error",
+		"typescript/only-throw-error": [
+			"error",
+			{ "allow": [{ "from": "package", "package": "@tanstack/router-core", "name": ["Redirect", "NotFoundError"] }] }
+		],
 		"import/newline-after-import": "error",
 		"typescript/no-unsafe-return": "error",
 		"effecttsgo/unstable-api-usage": "off",

@@ -30,7 +30,6 @@ export const Route = createFileRoute("/reset-password")({
 			Effect.flatMap(ServerService, (service) => service.selected),
 		);
 		if (server === null) {
-			// oxlint-disable-next-line typescript/only-throw-error
 			throw redirect({
 				replace: true,
 				to: "/onboarding",

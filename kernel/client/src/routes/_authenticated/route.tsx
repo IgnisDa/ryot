@@ -55,9 +55,7 @@ export const Route = createFileRoute("/_authenticated")({
 								service.setLastWorkspace(context.scope, selected.pluginId),
 							);
 						}
-						return yield* Effect.fail(
-							redirect({ replace: true, href: pluginPath(selected.packageId) }),
-						);
+						throw redirect({ replace: true, href: pluginPath(selected.packageId) });
 					}
 				}
 				return { isPro, catalog, navigation, rememberedPluginId };
