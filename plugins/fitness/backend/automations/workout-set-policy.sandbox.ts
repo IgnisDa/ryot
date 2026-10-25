@@ -9,6 +9,7 @@ import { IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { WorkoutSetMeasurementsSchema } from "../../shared/workout-records";
+import { workoutEventExercise } from "./workout-event-exercise";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -35,16 +36,8 @@ const validate = ({ automation }: AutomationPolicyInput): AutomationPolicyResult
 		return { action: "allow" };
 	}
 	const draft = payload.draft;
-	const workout =
-		draft.sessionEntityId === null ? undefined : automation.references?.[draft.sessionEntityId];
-	const exercise = automation.references?.[draft.entityId];
-	if (
-		exercise?.entitySchemaSlug !== "exercise" ||
-		exercise.entitySchemaPluginId !== draft.eventSchemaPluginId ||
-		workout?.entitySchemaSlug !== "workout" ||
-		workout.entitySchemaPluginId !== draft.eventSchemaPluginId ||
-		Schema.decodeUnknownResult(IsoDateString)(workout.properties["startedAt"])._tag === "Failure"
-	) {
+	const exercise = workoutEventExercise(automation, draft);
+	if (exercise === undefined) {
 		return { action: "reject", reason: "workout_set_context_missing" };
 	}
 	const kind = draft.properties["exerciseKind"] ?? exercise.properties["kind"];

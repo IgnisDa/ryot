@@ -4,11 +4,12 @@ import {
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
 import { WORKOUT_TAXONOMY_LIMIT } from "../../shared/workout-taxonomy";
+import { workoutEventExercise } from "./workout-event-exercise";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -35,19 +36,8 @@ export default defineAutomationPolicy({
 					continue;
 				}
 				const draft = payload.draft;
-				const workout =
-					draft.sessionEntityId === null
-						? undefined
-						: automation.references?.[draft.sessionEntityId];
-				const exercise = automation.references?.[draft.entityId];
-				if (
-					workout?.entitySchemaSlug !== "workout" ||
-					exercise?.entitySchemaSlug !== "exercise" ||
-					workout.entitySchemaPluginId !== draft.eventSchemaPluginId ||
-					exercise.entitySchemaPluginId !== draft.eventSchemaPluginId ||
-					Schema.decodeUnknownResult(IsoDateString)(workout.properties["startedAt"])._tag ===
-						"Failure"
-				) {
+				const exercise = workoutEventExercise(automation, draft);
+				if (exercise === undefined) {
 					results.push({
 						itemIdentity,
 						decision: { action: "reject", reason: "workout_exercise_context_missing" },
