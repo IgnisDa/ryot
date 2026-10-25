@@ -68,9 +68,5 @@ export const workoutDetailsQuery = createRyotQuery<
 			foreground: [input.entityId],
 			visible: data?.exercises.items.map(({ id }) => id) ?? [],
 		}),
-		refreshWhile: ({ data }) =>
-			data?.exercises.items.some((exercise) =>
-				exercise.sets.items.some((set) => set.recordStatus === "pending"),
-			) ?? false,
 	},
 );

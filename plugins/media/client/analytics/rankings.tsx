@@ -59,12 +59,7 @@ export function MediaAnalyticsRankings(props: RankingsRecordsProps) {
 					onChange={(value) => setMediaType(value === "" ? undefined : value)}
 				/>
 			</header>
-			<RankingResults
-				input={props.input}
-				mediaType={mediaType}
-				summary={props.summary}
-				onDrill={props.onDrill}
-			/>
+			<RankingResults input={props.input} mediaType={mediaType} onDrill={props.onDrill} />
 		</section>
 	);
 }
@@ -155,12 +150,10 @@ function RankingTable(props: RankingTableProps) {
 function RankingResults(props: {
 	readonly mediaType: string | undefined;
 	readonly input: RankingsRecordsProps["input"];
-	readonly summary: RankingsRecordsProps["summary"];
 	readonly onDrill: RankingsRecordsProps["onDrill"];
 }) {
 	const result = useReportedPages(mediaAnalyticsRankingQuery, {
 		...props.input,
-		processing: props.summary.processing,
 		...(props.mediaType === undefined ? {} : { mediaType: props.mediaType }),
 	});
 	const rows = useMemo(

@@ -32,16 +32,13 @@ type MeasurementInput = { readonly metricId: string } & Omit<AnalyticsInput, "fi
 export const analyticsSummaryQuery = createComparedQuery<AnalyticsInput, AnalyticsTotals>(
 	({ input, client, reporting }) =>
 		client.data.query(fitnessAnalyticsTotalsRecipe({ ...input, reporting })),
-	{ refreshWhile: ({ data }) => data.current.processing === "pending" },
 );
 
 export const analyticsTrendQuery = createComparedQuery<
 	AnalyticsInput & Pick<Parameters<typeof fitnessAnalyticsTrendRecipe>[0], "metric">,
 	AnalyticsTrend
->(
-	({ input, client, reporting }) =>
-		client.data.query(fitnessAnalyticsTrendRecipe({ ...input, reporting })),
-	{ refreshWhile: ({ data }) => data.current.processing === "pending" },
+>(({ input, client, reporting }) =>
+	client.data.query(fitnessAnalyticsTrendRecipe({ ...input, reporting })),
 );
 
 export const workoutStartsByHourQuery = createReportedQuery<AnalyticsInput, WorkoutHours>(

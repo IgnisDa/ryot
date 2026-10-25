@@ -435,39 +435,6 @@ describe("fitness analytics cursor adapters", () => {
 });
 
 describe("fitness analytics query lifetime", () => {
-	it.live("refreshes pending processing until ready", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountSummary(clock, { ...pagedInput.selection, comparison: "none" });
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-				for (const request of page.queryRequests()) {
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: {
-							data: {
-								...response.data,
-								sets: aggregate({ ...response.data.sets.items[0], pending: 1 }),
-							},
-						},
-					});
-				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("No comparison")).toBeDefined()),
-				);
-				yield* Effect.promise(() => clock.advance(1000));
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
-				for (const request of page.queryRequests().slice(1)) {
-					page.replyQuery(request.requestId, { response, outcome: "success" });
-				}
-				yield* Effect.promise(() => clock.advance(3000));
-				expect(page.queryRequests()).toHaveLength(2);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
 	it.live("cancels in-flight section queries when their consumer unmounts", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();

@@ -20,7 +20,6 @@ import { zeroMeasures } from "../../tests/client/analytics-fixture";
 import type { AnalyticsInput, MediaAnalyticsRecord } from "./model";
 import {
 	mediaAnalyticsConsistencyQuery,
-	mediaAnalyticsHoursQuery,
 	mediaAnalyticsRankingQuery,
 	mediaAnalyticsRecordsQuery,
 	mediaAnalyticsSummaryQuery,
@@ -43,15 +42,15 @@ const aggregate = (items: readonly Record<string, null | number | string>[]) => 
 	type: "aggregate" as const,
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
-const reportResponse = (pending = 0) => ({
+const reportResponse = () => ({
 	data: {
 		currentTypes: aggregate([]),
 		previousTypes: aggregate([]),
 		currentReviews: aggregate([]),
 		previousReviews: aggregate([]),
 		undated: aggregate([{ count: 0 }]),
-		processing: aggregate([{ pending, failed: 0 }]),
 		currentActiveDays: aggregate([{ activeDays: 0 }]),
+		processing: aggregate([{ failed: 0, pending: 0 }]),
 		previousActiveDays: aggregate([{ activeDays: 0 }]),
 	},
 });
@@ -86,16 +85,26 @@ function UnmountProbe() {
 	);
 }
 function ConsistencyProbe() {
-	const query = useRyotQuery(mediaAnalyticsConsistencyQuery, {
-		...input,
-		processing: "ready" as const,
-	});
+	const query = useRyotQuery(mediaAnalyticsConsistencyQuery, input);
 	return (
 		<>
 			<output>
 				{query.data === undefined ? "Loading" : periodCaption(query.data.current.period)}
 			</output>
 			<output aria-label="Clipped">{String(query.data?.clipped ?? "None")}</output>
+		</>
+	);
+}
+function RankingProbe() {
+	const query = useReportedPages(mediaAnalyticsRankingQuery, input);
+	return (
+		<>
+			<button onClick={query.fetchNextPage}>More</button>
+			<button onClick={query.refetch}>Refresh pages</button>
+			<output>{query.pages.length} pages</output>
+			<output aria-label="Page clock">{query.pages.at(-1)?.reporting.now ?? "None"}</output>
+			<output>{query.errorOperation ?? "No error"}</output>
+			<button onClick={query.retry}>Retry</button>
 		</>
 	);
 }
@@ -114,29 +123,11 @@ function ReportProbe() {
 		</>
 	);
 }
-function RankingProbe() {
-	const query = useReportedPages(mediaAnalyticsRankingQuery, {
-		...input,
-		processing: "ready" as const,
-	});
-	return (
-		<>
-			<button onClick={query.fetchNextPage}>More</button>
-			<button onClick={query.refetch}>Refresh pages</button>
-			<output>{query.pages.length} pages</output>
-			<output aria-label="Page clock">{query.pages.at(-1)?.reporting.now ?? "None"}</output>
-			<output>{query.errorOperation ?? "No error"}</output>
-			<button onClick={query.retry}>Retry</button>
-		</>
-	);
-}
 function RecordsProbe() {
 	const [owner, setOwner] = useState("media-owner");
-	const [processing, setProcessing] = useState<"ready" | "pending">("pending");
 	const query = useReportedPages(mediaAnalyticsRecordsQuery, {
 		...input,
 		hour: 1,
-		processing,
 		entityId: "original-title",
 		reference: { kind: "local" as const, pluginId: PluginId.make(owner) },
 	});
@@ -145,7 +136,6 @@ function RecordsProbe() {
 			<button onClick={query.fetchNextPage}>More</button>
 			<button onClick={query.refetch}>Refresh pages</button>
 			<button onClick={() => setOwner("media-other")}>Other owner</button>
-			<button onClick={() => setProcessing("ready")}>Processing ready</button>
 			<output>{query.pages.length} pages</output>
 			<output aria-label="Page clock">{query.pages.at(-1)?.reporting.now ?? "None"}</output>
 			<output aria-label="Source rows">
@@ -157,32 +147,10 @@ function RecordsProbe() {
 	);
 }
 const hourRow = { ...zeroMeasures, hour: 1, titleCompletions: 1, minutesRecorded: 2.125 };
-function CoupledProbe() {
-	const summary = useRyotQuery(mediaAnalyticsSummaryQuery, input);
-	return (
-		<>
-			<output aria-label="Primary clock">{summary.data?.reporting.now ?? "None"}</output>
-			{summary.data === undefined ? null : <ChartProbe processing={summary.data.processing} />}
-		</>
-	);
-}
-function ChartProbe(props: { readonly processing: "ready" | "failed" | "pending" }) {
-	const chartInput = { ...input, processing: props.processing };
-	const hours = useRyotQuery(mediaAnalyticsHoursQuery, chartInput);
-	const trend = useRyotQuery(mediaAnalyticsTrendQuery, chartInput);
-	const daily = useRyotQuery(mediaAnalyticsConsistencyQuery, chartInput);
-	return (
-		<output aria-label="Chart clocks">
-			{[hours.data?.reporting.now, trend.data?.reporting.now, daily.data?.reporting.now]
-				.map((value) => value ?? "None")
-				.join(",")}
-		</output>
-	);
-}
 const monthProbe = (selected: AnalyticsInput): ComponentType =>
 	function MonthProbe() {
 		const summary = useRyotQuery(mediaAnalyticsSummaryQuery, selected);
-		const trend = useRyotQuery(mediaAnalyticsTrendQuery, { ...selected, processing: "ready" });
+		const trend = useRyotQuery(mediaAnalyticsTrendQuery, selected);
 		return (
 			<>
 				<output aria-label="Month current">
@@ -256,69 +224,6 @@ const replyCharts = (page: ReturnType<typeof mount>, requests = chartRequests(pa
 };
 
 describe("Media analytics query adapters", () => {
-	it.live(
-		"keeps chart results through pending summary polls and reloads them once it settles",
-		() =>
-			Effect.gen(function* () {
-				const clock = createTestRyotClock();
-				const started = Date.parse("2026-11-01T18:00:00Z");
-				yield* Effect.promise(() => clock.setTime(started));
-				const page = mount(clock, CoupledProbe);
-				try {
-					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("processing")).toHaveLength(1)),
-					);
-					for (const request of page.queryRequests("processing")) {
-						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
-					}
-					yield* Effect.promise(() => waitFor(() => expect(chartRequests(page)).toHaveLength(3)));
-					replyCharts(page);
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByLabelText("Chart clocks").textContent).toBe(
-								[started, started, started].join(","),
-							),
-						),
-					);
-					yield* Effect.promise(() => clock.advance(1000));
-					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("processing")).toHaveLength(2)),
-					);
-					for (const request of page.queryRequests("processing").slice(1)) {
-						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
-					}
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByLabelText("Primary clock").textContent).toBe(
-								String(started + 1000),
-							),
-						),
-					);
-					expect(chartRequests(page)).toHaveLength(3);
-					yield* Effect.promise(() => clock.advance(1000));
-					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("processing")).toHaveLength(3)),
-					);
-					for (const request of page.queryRequests("processing").slice(2)) {
-						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
-					}
-					yield* Effect.promise(() => waitFor(() => expect(chartRequests(page)).toHaveLength(6)));
-					replyCharts(page, chartRequests(page).slice(3));
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getByLabelText("Chart clocks").textContent).toBe(
-								Array.from({ length: 3 }, () => started + 2000).join(","),
-							),
-						),
-					);
-					yield* Effect.promise(() => clock.advance(3000));
-					expect(page.queryRequests("processing")).toHaveLength(3);
-				} finally {
-					page.dispose();
-					yield* Effect.promise(() => clock.dispose());
-				}
-			}),
-	);
 	for (const sample of [
 		{
 			offset: -1,
@@ -428,32 +333,6 @@ describe("Media analytics query adapters", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
-	);
-	it.live("refreshes pending processing and stops after readiness", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mount(clock, ReportProbe);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-				for (const request of page.queryRequests()) {
-					page.replyQuery(request.requestId, { outcome: "success", response: reportResponse(1) });
-				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("pending")).toBeDefined()),
-				);
-				yield* Effect.promise(() => clock.advance(1000));
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
-				for (const request of page.queryRequests().slice(1)) {
-					page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
-				}
-				yield* Effect.promise(() => waitFor(() => expect(screen.getByText("ready")).toBeDefined()));
-				yield* Effect.promise(() => clock.advance(3000));
-				expect(page.queryRequests()).toHaveLength(2);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
 	);
 	it.live("clips the daily heatmap to the most recent bucket-limit days of all time", () =>
 		Effect.gen(function* () {
@@ -716,46 +595,6 @@ describe("Media analytics query adapters", () => {
 					expect(yield* documentText(request.document)).toContain("media-other");
 					expect(yield* documentText(request.document)).not.toContain("media-owner");
 				}
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
-	it.live("reloads source pages when global consumption processing becomes ready", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mount(clock, RecordsProbe);
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("records")).toHaveLength(1)),
-				);
-				for (const request of page.queryRequests("records")) {
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: cursorResponse("records", "partial-cursor"),
-					});
-				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("1 pages")).toBeDefined()),
-				);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Processing ready" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("records")).toHaveLength(2)),
-				);
-				expect(screen.getByText("0 pages")).toBeDefined();
-				for (const request of page.queryRequests("records").slice(1)) {
-					expect(yield* documentText(request.document)).not.toContain("partial-cursor");
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: cursorResponse("records", null),
-					});
-				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("1 pages")).toBeDefined()),
-				);
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());

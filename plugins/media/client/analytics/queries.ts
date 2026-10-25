@@ -15,26 +15,19 @@ import {
 import type {
 	AnalyticsInput,
 	MediaAnalyticsHours,
-	MediaAnalyticsProcessing,
 	MediaAnalyticsRanking,
 	MediaAnalyticsRecords,
 	MediaAnalyticsSummary,
 	MediaAnalyticsTrend,
 } from "./model";
 
-/** Dependent inputs carry the summary's processing state so they reload when it settles. */
-export type ChartInput = AnalyticsInput & {
-	readonly mediaType?: string;
-	readonly processing: MediaAnalyticsProcessing;
-};
+export type ChartInput = AnalyticsInput & { readonly mediaType?: string };
 
 export const mediaAnalyticsSummaryQuery = createReportedQuery<
 	AnalyticsInput,
 	MediaAnalyticsSummary
->(
-	({ input, client, reporting }) =>
-		client.data.query(mediaAnalyticsSummaryRecipe({ ...input, reporting })),
-	{ refreshWhile: ({ data }) => data.processing === "pending" },
+>(({ input, client, reporting }) =>
+	client.data.query(mediaAnalyticsSummaryRecipe({ ...input, reporting })),
 );
 
 export const mediaAnalyticsTrendQuery = createReportedQuery<ChartInput, MediaAnalyticsTrend>(

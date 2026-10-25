@@ -1,7 +1,6 @@
 import {
 	formatExactValue,
 	PluginLink,
-	type Reported,
 	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
@@ -22,7 +21,6 @@ import { useMemo } from "react";
 import {
 	type AnalyticsInput,
 	type MediaAnalyticsRecord,
-	type MediaAnalyticsSummary,
 	recordModel,
 	type RecordsDrillRequest,
 } from "./model";
@@ -38,14 +36,12 @@ export function MediaAnalyticsRecords(props: {
 	readonly onClose: () => void;
 	readonly input: AnalyticsInput;
 	readonly request: RecordsDrillRequest;
-	readonly summary: Reported<MediaAnalyticsSummary>;
 }) {
 	const viewport = useRyotViewport();
 	const result = useReportedPages(mediaAnalyticsRecordsQuery, {
 		timeZone: props.input.timeZone,
 		reference: props.input.reference,
 		selection: props.request.selection,
-		processing: props.summary.processing,
 		...(props.request.entityId === undefined ? {} : { entityId: props.request.entityId }),
 		...(props.request.mediaType === undefined ? {} : { mediaType: props.request.mediaType }),
 		...(props.request.hour === undefined ? {} : { hour: props.request.hour }),

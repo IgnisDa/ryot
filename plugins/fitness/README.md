@@ -117,8 +117,9 @@ Processing state is one `"ready" | "pending" | "failed"` value from the shared R
 Analytics totals and derived trend buckets count the projection status of the sets they already
 aggregate, so the state describes that period or bucket; workout cards and set rows read it from
 that workout's sets. Values that exist are always shown; pending or failed state adds a note and
-never hides them. Screens show one note from the processing poll, which reads the user's
-`workout-set` event streams, narrowed to one workout or exercise on its screen.
+never hides them. Screens show one note from the processing query, which reads the user's
+`workout-set` event streams, narrowed to one workout or exercise on its screen. Queries refresh on
+the kernel's projection page refresh when processing settles.
 Set queries inner join each set's occurrence by user, plugin, session, exercise, order and recorded
 kind; the kernel's unique anchor positions keep that join one-to-one, and taxonomy filters reuse the
 joined occurrence.
@@ -369,4 +370,4 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   source events or replaying historical hooks. Workout start changes trigger
   `fitness.workout-context-records` repairs. A projection is visible only while it matches the current
   source revision and plugin revision/configuration/installation binding; pending or failed status is
-  noted and pending queries refresh until processing finishes.
+  noted until processing finishes.

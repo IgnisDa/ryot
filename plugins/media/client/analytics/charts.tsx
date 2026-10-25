@@ -107,25 +107,16 @@ export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 	const { compact } = useRyotViewport();
 	const [metric, setMetric] = useState<MediaAnalyticsMetric>("activeObservations");
 	const [selectedType, setSelectedType] = useState("all");
-	const processing = props.summary.processing;
 	const types = props.summary.current.types;
 	const mediaType = types.some((row) => row.mediaType === selectedType) ? selectedType : undefined;
 	useValueChange(JSON.stringify(props.input), () => setSelectedType("all"));
 	const input = useMemo(
-		(): ChartInput => ({
-			...props.input,
-			processing,
-			...(mediaType === undefined ? {} : { mediaType }),
-		}),
-		[mediaType, processing, props.input],
-	);
-	const allTypes = useMemo(
-		(): ChartInput => ({ ...props.input, processing }),
-		[processing, props.input],
+		(): ChartInput => ({ ...props.input, ...(mediaType === undefined ? {} : { mediaType }) }),
+		[mediaType, props.input],
 	);
 	const trendResult = useRyotQuery(mediaAnalyticsTrendQuery, input);
 	const hoursResult = useRyotQuery(mediaAnalyticsHoursQuery, input);
-	const consistencyResult = useRyotQuery(mediaAnalyticsConsistencyQuery, allTypes);
+	const consistencyResult = useRyotQuery(mediaAnalyticsConsistencyQuery, props.input);
 
 	return (
 		<section aria-label="Media analytics charts" className="flex min-w-0 flex-col gap-4 font-ui">

@@ -738,10 +738,8 @@ Analytics reads from them; each recipe takes the client query's `ResolvedReporti
   of period contributions per title, paged with a grouped cursor; records page source rows with
   cursors. Media type labels come from the entity schema name.
 
-The client runs the summary with SDK `refreshWhile` while processing is pending. Chart, ranking and
-record queries carry the summary's processing state in their input, so they reload when it settles;
-projection-updated hints only refresh queries that declare entity interests, which aggregate reads
-cannot. Values are always shown; a pending or failed state adds a processing note.
+Values are always shown; a pending or failed state adds a processing note. Analytics queries refresh
+on the kernel's projection page refresh when consumption processing settles.
 
 Home, flat-detail, and episodic lifetime metrics use canonical contributions. Current episode coverage
 and lifecycle status remain separate. Episodic activity never replaces missing frozen time with current

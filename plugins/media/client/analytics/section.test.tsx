@@ -183,7 +183,7 @@ describe("media analytics section", () => {
 		}),
 	);
 
-	it.live("polls a pending summary until it settles", () =>
+	it.live("refreshes a pending summary on a page refresh without polling", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
@@ -198,7 +198,11 @@ describe("media analytics section", () => {
 						).toBeDefined(),
 					),
 				);
-				yield* Effect.promise(() => clock.advance(1000));
+				yield* Effect.promise(() => clock.advance(5000));
+				expect(reportRequests(page)).toHaveLength(1);
+				page.send({ type: "page-refresh" });
+				yield* Effect.promise(() => clock.advance(0));
+				yield* Effect.promise(() => clock.advance(250));
 				const ready = yield* Effect.promise(() =>
 					waitFor(() => {
 						const request = reportRequests(page)[1];
@@ -224,7 +228,7 @@ describe("media analytics section", () => {
 		}),
 	);
 
-	it.live("retains report content after a failed pending refresh and retries the report", () =>
+	it.live("retains report content after a failed refresh and retries the report", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
@@ -236,7 +240,11 @@ describe("media analytics section", () => {
 					waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
 				);
 
-				yield* Effect.promise(() => clock.advance(1000));
+				yield* Effect.promise(() => clock.advance(5000));
+				expect(reportRequests(page)).toHaveLength(1);
+				page.send({ type: "page-refresh" });
+				yield* Effect.promise(() => clock.advance(0));
+				yield* Effect.promise(() => clock.advance(250));
 				const refresh = yield* Effect.promise(() =>
 					waitFor(() => {
 						const request = reportRequests(page)[1];

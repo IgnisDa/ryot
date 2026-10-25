@@ -168,38 +168,36 @@ describe("Media analytics rankings", () => {
 			}),
 	);
 
-	for (const processing of ["pending", "failed"] as const) {
-		it.live(`shows ranking counts while global processing is ${processing}`, () =>
-			Effect.gen(function* () {
-				const clock = createTestRyotClock();
-				const input = makeInput();
-				const page = mountRankings(clock, input, analyticsSummary(input, { processing }));
-				try {
-					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
-					page.replyQuery(itemAt(rankingRequests(page), 0).requestId, {
-						outcome: "success",
-						response: rankingResponse(null, [
-							rankingRow("book-known", "Source title remains visible", 0, "book", {
-								titleCompletions: 3,
-								episodeCompletions: 2,
-							}),
-						]),
-					});
-					yield* Effect.promise(() =>
-						waitFor(() =>
-							expect(screen.getAllByText("Source title remains visible").length).toBeGreaterThan(0),
-						),
-					);
-					const table = screen.getByRole("table", { name: "Media entity rankings" });
-					expect(within(table).getByText("3 titles")).toBeDefined();
-					expect(within(table).getByText("2 episodes")).toBeDefined();
-				} finally {
-					page.dispose();
-					yield* Effect.promise(() => clock.dispose());
-				}
-			}),
-		);
-	}
+	it.live("shows ranking counts", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			const input = makeInput();
+			const page = mountRankings(clock, input);
+			try {
+				yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
+				page.replyQuery(itemAt(rankingRequests(page), 0).requestId, {
+					outcome: "success",
+					response: rankingResponse(null, [
+						rankingRow("book-known", "Source title remains visible", 0, "book", {
+							titleCompletions: 3,
+							episodeCompletions: 2,
+						}),
+					]),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getAllByText("Source title remains visible").length).toBeGreaterThan(0),
+					),
+				);
+				const table = screen.getByRole("table", { name: "Media entity rankings" });
+				expect(within(table).getByText("3 titles")).toBeDefined();
+				expect(within(table).getByText("2 episodes")).toBeDefined();
+			} finally {
+				page.dispose();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
 
 	it.live(
 		"offers every current report media slug and ignores a late response from the previous type filter",

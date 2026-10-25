@@ -14,13 +14,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { analyticsSummary } from "../../tests/client/analytics-fixture";
-import type {
-	AnalyticsInput,
-	MediaAnalyticsProcessing,
-	MediaAnalyticsRecord,
-	RecordsDrillRequest,
-} from "./model";
+import type { AnalyticsInput, MediaAnalyticsRecord, RecordsDrillRequest } from "./model";
 import { MediaAnalyticsRecords } from "./records";
 
 afterEach(disposePluginBridges);
@@ -48,8 +42,6 @@ const request: RecordsDrillRequest = {
 	entityId: "title/record-source",
 	periodCaption: "2026-09-01 – 2026-09-07",
 };
-const summaryFor = (processing: MediaAnalyticsProcessing = "ready") =>
-	analyticsSummary(input, { processing, now: Date.parse("2026-10-29T12:00:00Z") });
 const contribution = (
 	attribution: MediaAnalyticsRecord["contribution"]["attribution"] = {
 		kind: "instant",
@@ -115,18 +107,9 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 			),
 		},
 	});
-const mountRecords = (
-	clock: ReturnType<typeof createTestRyotClock>,
-	selectedRequest = request,
-	selectedSummary = summaryFor(),
-) =>
+const mountRecords = (clock: ReturnType<typeof createTestRyotClock>, selectedRequest = request) =>
 	mountPage(clock, () => (
-		<MediaAnalyticsRecords
-			input={input}
-			onClose={() => {}}
-			summary={selectedSummary}
-			request={selectedRequest}
-		/>
+		<MediaAnalyticsRecords input={input} onClose={() => {}} request={selectedRequest} />
 	));
 const itemAt = <Item,>(items: readonly Item[], index: number): Item => {
 	const item = items[index];
@@ -161,7 +144,6 @@ function DrillProbe() {
 			{open ? (
 				<MediaAnalyticsRecords
 					input={input}
-					summary={summaryFor()}
 					request={drillRequest}
 					onClose={() => setOpen(false)}
 				/>
@@ -337,38 +319,36 @@ describe("Media analytics records drill", () => {
 			}),
 	);
 
-	it.live(
-		"keeps source facts and canonical contributions visible while processing is pending",
-		() =>
-			Effect.gen(function* () {
-				const clock = createTestRyotClock();
-				const page = mountRecords(clock, request, summaryFor("pending"));
-				try {
-					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
-					page.replyQuery(itemAt(recordsRequests(page), 0).requestId, {
-						outcome: "success",
-						response: recordsResponse(null, [
-							recordRow("pending-item", "Pending source title", {
-								eventType: "item-complete",
-								facts: { timeSpent: 0, consumedItem: { position: 3, unit: "chapters" } },
-							}),
-						]),
-					});
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("Pending source title")).toBeDefined()),
-					);
-					const row = within(
-						screen.getByRole("table", { name: "Media analytics records" }),
-					).getByRole("row", { name: /Pending source title/ });
-					expect(within(row).getByText("item-complete")).toBeDefined();
-					expect(within(row).getByText("chapters position 3")).toBeDefined();
-					expect(within(row).getByText("0 minutes")).toBeDefined();
-					expect(within(row).getByText("Active observation:")).toBeDefined();
-				} finally {
-					page.dispose();
-					yield* Effect.promise(() => clock.dispose());
-				}
-			}),
+	it.live("shows source facts and canonical contributions", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			const page = mountRecords(clock, request);
+			try {
+				yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
+				page.replyQuery(itemAt(recordsRequests(page), 0).requestId, {
+					outcome: "success",
+					response: recordsResponse(null, [
+						recordRow("pending-item", "Pending source title", {
+							eventType: "item-complete",
+							facts: { timeSpent: 0, consumedItem: { position: 3, unit: "chapters" } },
+						}),
+					]),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByText("Pending source title")).toBeDefined()),
+				);
+				const row = within(
+					screen.getByRole("table", { name: "Media analytics records" }),
+				).getByRole("row", { name: /Pending source title/ });
+				expect(within(row).getByText("item-complete")).toBeDefined();
+				expect(within(row).getByText("chapters position 3")).toBeDefined();
+				expect(within(row).getByText("0 minutes")).toBeDefined();
+				expect(within(row).getByText("Active observation:")).toBeDefined();
+			} finally {
+				page.dispose();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
 	);
 
 	it.live(

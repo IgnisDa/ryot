@@ -103,7 +103,6 @@ function MediaAnalyticsContent(props: {
 				<MediaAnalyticsRecords
 					request={request}
 					input={props.input}
-					summary={props.summary}
 					onClose={() => setRequest(null)}
 				/>
 			)}

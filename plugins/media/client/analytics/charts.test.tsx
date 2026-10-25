@@ -12,12 +12,12 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
-import { act, type ComponentType, useState } from "react";
+import { act, type ComponentType } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { analyticsSummary, zeroMeasures } from "../../tests/client/analytics-fixture";
 import { MediaAnalyticsCharts } from "./charts";
-import type { AnalyticsInput, MediaAnalyticsProcessing, SummaryChartsProps } from "./model";
+import type { AnalyticsInput, SummaryChartsProps } from "./model";
 
 afterEach(disposePluginBridges);
 
@@ -42,12 +42,11 @@ const inputFor = (selection: AnalyticsInput["selection"]): AnalyticsInput => ({
 
 const chartProps = (
 	input: AnalyticsInput,
-	processing: MediaAnalyticsProcessing = "ready",
 	requests: Parameters<SummaryChartsProps["onDrill"]>[0][] = [],
 ): SummaryChartsProps => ({
 	input,
+	summary: analyticsSummary(input, { now }),
 	onDrill: (request) => requests.push(request),
-	summary: analyticsSummary(input, { now, processing }),
 });
 
 const mountPage = (clock: ReturnType<typeof createTestRyotClock>, component: ComponentType) =>
@@ -134,19 +133,6 @@ const openExactValues = (index: number) =>
 		}
 	});
 
-function ProcessingProbe(props: {
-	readonly input: AnalyticsInput;
-	readonly requests: Parameters<SummaryChartsProps["onDrill"]>[0][];
-}) {
-	const [processing, setProcessing] = useState<MediaAnalyticsProcessing>("pending");
-	return (
-		<>
-			<button onClick={() => setProcessing("ready")}>Finish repair</button>
-			<MediaAnalyticsCharts {...chartProps(props.input, processing, props.requests)} />
-		</>
-	);
-}
-
 describe("Media analytics charts UI", () => {
 	it.live(
 		"keeps null quantity gaps, selects exact metric/type, and drills into trend, hour, and day scopes",
@@ -160,7 +146,7 @@ describe("Media analytics charts UI", () => {
 					range: { kind: "custom", endDate: "2026-03-03", startDate: "2026-03-02" },
 				});
 				const requests: Parameters<SummaryChartsProps["onDrill"]>[0][] = [];
-				const page = mountCharts(clock, chartProps(input, "ready", requests));
+				const page = mountCharts(clock, chartProps(input, requests));
 				const replied = new Set<string>();
 				try {
 					yield* Effect.promise(() =>
@@ -266,53 +252,6 @@ describe("Media analytics charts UI", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
-	);
-
-	it.live("shows pending values and reloads every chart when processing becomes ready", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(now));
-			const input = inputFor({
-				grouping: "day",
-				comparison: "none",
-				range: { kind: "custom", endDate: "2026-03-03", startDate: "2026-03-02" },
-			});
-			const requests: Parameters<SummaryChartsProps["onDrill"]>[0][] = [];
-			const page = mountPage(clock, () => <ProcessingProbe input={input} requests={requests} />);
-			const replied = new Set<string>();
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests().length).toBeGreaterThanOrEqual(3)),
-				);
-				replyRequests(page, replied, { includeTrendRow: true });
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
-				);
-				yield* Effect.promise(() =>
-					act(() => fireEvent.click(screen.getByRole("button", { name: "Finish repair" }))),
-				);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(requestsNotReplied(page, replied).length).toBeGreaterThanOrEqual(3)),
-				);
-				replyRequests(page, replied, { includeTrendRow: true });
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
-				);
-				yield* openExactValues(0);
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							screen.getByRole("button", {
-								name: /View records: 2026-03-02 – 2026-03-03 .*1 observations/,
-							}),
-						).toBeDefined(),
-					),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
 	);
 
 	it.live(
