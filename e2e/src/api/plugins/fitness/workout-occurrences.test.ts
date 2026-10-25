@@ -98,7 +98,7 @@ const readRankings = (
 it.live("rejects direct orphan sets and empty occurrences without partial writes", () =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
-		const { exercise, exerciseId } = yield* createExerciseEntityFixture(client);
+		const { exerciseId } = yield* createExerciseEntityFixture(client);
 		const { workoutId } = yield* createWorkoutEntityFixture(client);
 		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 		const workoutExerciseEventSchema = yield* findWorkoutExerciseEventSchema(client);
@@ -140,16 +140,7 @@ it.live("rejects direct orphan sets and empty occurrences without partial writes
 			outcomes: [{ index: 0, status: "failed", reason: { code: "mutation-conflict" } }],
 		});
 		expect(yield* listEventsForEntity(client, exerciseId, undefined, 100)).toEqual([]);
-		const exerciseRankings = yield* readRankings(client, reference, "exercises");
-		expect(exerciseRankings).toHaveLength(1);
-		expect(requireRanking(exerciseRankings, exerciseId)).toMatchObject({
-			sets: 0,
-			workouts: 0,
-			id: exerciseId,
-			weightedSets: null,
-			name: exercise.name,
-			exerciseOccurrences: 0,
-		});
+		expect(yield* readRankings(client, reference, "exercises")).toEqual([]);
 	}),
 );
 

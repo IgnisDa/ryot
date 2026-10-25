@@ -280,7 +280,7 @@ describe("RyotQL aggregate outputs", () => {
 			}
 
 			const grouped = requireAggregate(result.data["difficultyGroups"], "difficultyGroups");
-			expect(grouped.pageInfo).toEqual({ limit: 10, hasMore: false });
+			expect(grouped.pageInfo).toEqual({ limit: 10, hasMore: false, nextCursor: null });
 			expect(grouped.items).toHaveLength(3);
 			const advanced = grouped.items.find(
 				(item) => requireRyotQLValue(item, "difficulty") === "advanced",
@@ -296,7 +296,7 @@ describe("RyotQL aggregate outputs", () => {
 				result.data["limitedDifficultyGroups"],
 				"limitedDifficultyGroups",
 			);
-			expect(limited.pageInfo).toEqual({ limit: 1, hasMore: true });
+			expect(limited.pageInfo).toEqual({ limit: 1, hasMore: true, nextCursor: null });
 			expect(limited.items).toHaveLength(1);
 			const limitedItem = limited.items[0];
 			assertPresent(limitedItem, "Expected limited difficulty group");

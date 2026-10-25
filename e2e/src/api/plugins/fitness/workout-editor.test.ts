@@ -42,6 +42,7 @@ import {
 	workoutReference,
 	workoutSet,
 } from "~/fixtures/plugins/fitness";
+import { readWorkoutOccurrences } from "~/fixtures/plugins/fitness/workout-occurrences";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
@@ -615,7 +616,7 @@ describe("Workout editor E2E", () => {
 	);
 
 	it.live(
-		"corrects workout times without moving an unconfirmed set and clears active duration",
+		"corrects workout times, moving occurrences but not an unconfirmed set, and clears active duration",
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient(target);
@@ -643,6 +644,11 @@ describe("Workout editor E2E", () => {
 					startedAt: correctedStartedAt,
 				});
 				expect(correctedBaseline.baseline.sets[0]?.occurredAt).toBe(originalSet.occurredAt);
+				expect(
+					(yield* readWorkoutOccurrences(client, exerciseId, workoutId)).map(
+						({ occurredAt }) => occurredAt,
+					),
+				).toEqual([correctedStartedAt]);
 
 				const zeroDuration = yield* correctWorkoutTimes(client, {
 					entityId: workoutId,
