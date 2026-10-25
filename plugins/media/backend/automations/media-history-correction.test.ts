@@ -17,56 +17,6 @@ const input = {
 	conflictBase: "older-work",
 };
 
-it.live.each(["entity-stale", "event-stale", "event-not-found", "mutation-conflict"])(
-	"yields durable continuation after repeated %s conflicts instead of failing independent work",
-	(code) =>
-		Effect.gen(function* () {
-			let attempts = 0;
-			const requests: unknown[] = [];
-			const host = defineSandboxTestHost(manifest, {
-				requestUserWork: (request, reference) =>
-					Effect.sync(() => {
-						requests.push({ request, reference });
-						return { workId: "continuation" };
-					}),
-				executeRyotql: (document) => {
-					if ("mediaLibrary" in document.queries) {
-						return Effect.succeed({
-							data: {
-								mediaLibrary: {
-									type: "rows",
-									items: [{ entityId: "library" }],
-									pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-								},
-							},
-						});
-					}
-					attempts += 1;
-					return Effect.fail({ message: code, data: { code } });
-				},
-			});
-			expect(yield* runSandboxTestScript(definition, input, host, execution)).toBeNull();
-			expect(attempts).toBe(6);
-			expect(requests).toHaveLength(1);
-			expect(requests).toMatchObject([
-				{
-					reference: { referenceKind: "script", scriptSlug: "media-history-correction" },
-					request: {
-						scope: "subject",
-						key: "older-work:conflict:4",
-						input: {
-							...input,
-							force: false,
-							conflictAttempt: 4,
-							conflictBase: "older-work",
-							workKey: "older-work:conflict:4",
-						},
-					},
-				},
-			]);
-		}),
-);
-
 const libraryReply = {
 	data: {
 		mediaLibrary: {
@@ -77,20 +27,93 @@ const libraryReply = {
 	},
 };
 
+const page = (items: readonly unknown[]) => ({
+	items,
+	type: "rows" as const,
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+});
+
+const contextReply = {
+	data: {
+		work: page([]),
+		scope: page([{ revision: 4 }]),
+		library: page([{ properties: {}, name: "Library", updatedAt: "2026-01-01T00:00:00.000Z" }]),
+		target: page([
+			{
+				properties: {},
+				schemaSlug: "movie",
+				hasCorrectionInputs: true,
+				missingDependencies: false,
+			},
+		]),
+	},
+};
+
+const correctionHost = (
+	commit: () => Effect.Effect<void, string>,
+	requests: Array<{ readonly key: string; readonly input: unknown; readonly reference: unknown }>,
+) =>
+	defineSandboxTestHost(manifest, {
+		executeRyotql: (document) =>
+			Effect.succeed("mediaLibrary" in document.queries ? libraryReply : contextReply),
+		commitUserChanges: () =>
+			commit().pipe(
+				Effect.as({ events: [], entityId: EntityId.make("library") }),
+				Effect.mapError((code) => ({ message: code, data: { code } })),
+			),
+		requestUserWork: (request, reference) =>
+			Effect.sync(() => {
+				requests.push({ reference, key: request.key, input: request.input });
+				return { workId: "continuation" };
+			}),
+	});
+
+it.live.each(["entity-stale", "event-stale", "event-not-found", "mutation-conflict"])(
+	"re-queues durable work after a %s commit conflict without retrying inline",
+	(code) =>
+		Effect.gen(function* () {
+			let commits = 0;
+			const requests: Parameters<typeof correctionHost>[1] = [];
+			const host = correctionHost(
+				() =>
+					Effect.suspend(() => {
+						commits += 1;
+						return Effect.fail(code);
+					}),
+				requests,
+			);
+			expect(yield* runSandboxTestScript(definition, input, host, execution)).toBeNull();
+			expect(commits).toBe(1);
+			expect(requests).toMatchObject([
+				{
+					key: "older-work:conflict:4",
+					reference: { referenceKind: "script", scriptSlug: "media-history-correction" },
+					input: {
+						...input,
+						force: false,
+						conflictAttempt: 4,
+						conflictBase: "older-work",
+						workKey: "older-work:conflict:4",
+					},
+				},
+			]);
+		}),
+);
+
+it.live("fails other commit errors instead of re-queueing them", () =>
+	Effect.gen(function* () {
+		const requests: Parameters<typeof correctionHost>[1] = [];
+		const host = correctionHost(() => Effect.fail("policy-rejected"), requests);
+		const failure = yield* Effect.flip(runSandboxTestScript(definition, input, host, execution));
+		expect(failure).toMatchObject({ message: "policy-rejected" });
+		expect(requests).toEqual([]);
+	}),
+);
+
 it.live("fails after ten consecutive no-progress requeues with unique keys", () =>
 	Effect.gen(function* () {
-		const requests: Array<{ key: string; input: unknown }> = [];
-		const host = defineSandboxTestHost(manifest, {
-			requestUserWork: (request) =>
-				Effect.sync(() => {
-					requests.push({ key: request.key, input: request.input });
-					return { workId: "continuation" };
-				}),
-			executeRyotql: (document) =>
-				"mediaLibrary" in document.queries
-					? Effect.succeed(libraryReply)
-					: Effect.fail({ message: "stale", data: { code: "event-stale" } }),
-		});
+		const requests: Parameters<typeof correctionHost>[1] = [];
+		const host = correctionHost(() => Effect.fail("event-stale"), requests);
 		let current: typeof HistoryCorrectionRequest.Type = {
 			...input,
 			workKey: "start",
@@ -114,52 +137,18 @@ it.live("fails after ten consecutive no-progress requeues with unique keys", () 
 	}),
 );
 
-const page = (items: readonly unknown[]) => ({
-	items,
-	type: "rows" as const,
-	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-});
-
-it.live("never fails while stale bursts alternate with committed steps", () =>
+it.live("resets the conflict budget after each committed step", () =>
 	Effect.gen(function* () {
-		const requests: unknown[] = [];
+		const requests: Parameters<typeof correctionHost>[1] = [];
 		let commits = 0;
-		const host = defineSandboxTestHost(manifest, {
-			requestUserWork: (request) =>
-				Effect.sync(() => {
-					requests.push(request.input);
-					return { workId: "continuation" };
-				}),
-			commitUserChanges: () =>
+		const host = correctionHost(
+			() =>
 				Effect.suspend(() => {
 					commits += 1;
-					return commits % 7 === 1
-						? Effect.succeed({ events: [], entityId: EntityId.make("library") })
-						: Effect.fail({ message: "stale", data: { code: "event-stale" } });
+					return commits % 2 === 1 ? Effect.void : Effect.fail("event-stale");
 				}),
-			executeRyotql: (document) => {
-				if ("mediaLibrary" in document.queries) {
-					return Effect.succeed(libraryReply);
-				}
-				return Effect.succeed({
-					data: {
-						work: page([]),
-						scope: page([{ revision: 4 }]),
-						library: page([
-							{ properties: {}, name: "Library", updatedAt: "2026-01-01T00:00:00.000Z" },
-						]),
-						target: page([
-							{
-								properties: {},
-								schemaSlug: "movie",
-								hasCorrectionInputs: true,
-								missingDependencies: false,
-							},
-						]),
-					},
-				});
-			},
-		});
+			requests,
+		);
 		let current: typeof HistoryCorrectionRequest.Type = {
 			...input,
 			force: false,
@@ -170,9 +159,11 @@ it.live("never fails while stale bursts alternate with committed steps", () =>
 		for (let run = 1; run <= 12; run += 1) {
 			expect(yield* runSandboxTestScript(definition, current, host, execution)).toBeNull();
 			expect(requests).toHaveLength(run);
-			current = yield* Schema.decodeUnknownEffect(HistoryCorrectionRequest)(requests[run - 1]);
+			current = yield* Schema.decodeUnknownEffect(HistoryCorrectionRequest)(
+				requests[run - 1]?.input,
+			);
 			expect(current.conflictAttempt).toBe(1);
 		}
-		expect(commits).toBe(84);
+		expect(commits).toBe(24);
 	}),
 );

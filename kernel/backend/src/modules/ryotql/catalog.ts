@@ -41,6 +41,8 @@ export type CatalogSource = (context: {
 	readonly ctes: Readonly<Record<string, ReturnType<typeof sql>>>;
 };
 
+const noCtes: Readonly<Record<string, ReturnType<typeof sql>>> = {};
+
 export type CatalogTable = {
 	readonly name: string;
 	readonly source?: CatalogSource;
@@ -442,7 +444,7 @@ const eventProjection: CatalogTable = {
 	},
 	source: (context) => {
 		if (!context.fields.has("properties")) {
-			return { ctes: {}, from: context.source };
+			return { ctes: noCtes, from: context.source };
 		}
 		const streams = context.relation("projectionStreams");
 		return {

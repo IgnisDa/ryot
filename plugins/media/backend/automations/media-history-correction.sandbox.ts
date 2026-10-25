@@ -6,7 +6,6 @@ import {
 	historyCorrectionReference,
 	HistoryCorrectionRequest,
 	historyCorrectionWork,
-	isHistoryCorrectionConflict,
 } from "../contracts/history-correction";
 import { MediaSandboxError } from "../lib/failures";
 import { advanceHistoryCorrection } from "./history-correction";
@@ -34,14 +33,7 @@ export default defineScript({
 			let conflictAttempt = input.conflictAttempt;
 			for (let step = 0; step < 8; step += 1) {
 				const result = yield* advanceHistoryCorrection(host, input, libraryId).pipe(
-					Effect.retry({
-						times: 5,
-						while: (error) => isHistoryCorrectionConflict("data" in error ? error : {}),
-					}),
-					Effect.catchIf(
-						(error) => isHistoryCorrectionConflict("data" in error ? error : {}),
-						() => Effect.succeed(null),
-					),
+					Effect.catchTag("HistoryCorrectionConflict", () => Effect.succeed(null)),
 				);
 				if (result === null) {
 					conflictAttempt += 1;

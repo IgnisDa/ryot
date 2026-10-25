@@ -23,6 +23,10 @@ import { consumptionPageRecipe, consumptionPageSize } from "./contracts/consumpt
 import { MediaSandboxError } from "./lib/failures";
 
 const pagesPerStep = 8;
+const advance = (
+	checkpoint: ConsumptionCheckpoint,
+	patch: Partial<ConsumptionCheckpoint>,
+): ConsumptionCheckpoint => ({ ...checkpoint, ...patch });
 const updatesPerStep = 100;
 
 export const manifest = defineManifest({
@@ -76,20 +80,19 @@ export default defineScript({
 							boundary = true;
 							break;
 						}
-						checkpoint = {
-							...checkpoint,
+						checkpoint = advance(checkpoint, {
 							after: position,
 							cursor: run.cursor,
 							runKey: run.runKey,
 							plan: planConsumptionObservation(checkpoint.plan, observation),
-						};
+						});
 					} else {
 						const next = allocateConsumptionObservation(
 							checkpoint.plan,
 							checkpoint.allocation,
 							observation,
 						);
-						checkpoint = { ...checkpoint, after: position, allocation: next.state };
+						checkpoint = advance(checkpoint, { after: position, allocation: next.state });
 						if (row.eventSchemaSlug === input.eventSchemaSlug) {
 							const contribution = yield* Schema.encodeEffect(
 								Schema.toCodecJson(ConsumptionContribution),
@@ -106,7 +109,7 @@ export default defineScript({
 					if (checkpoint.plan.count === 0) {
 						return { updates, done: true, checkpoint: null };
 					}
-					checkpoint = { ...checkpoint, phase: "replay", after: checkpoint.start };
+					checkpoint = advance(checkpoint, { phase: "replay", after: checkpoint.start });
 				} else if (checkpoint.phase === "replay" && boundary) {
 					checkpoint = initialConsumptionCheckpoint(checkpoint.after, checkpoint.cursor);
 				} else if (checkpoint.phase === "replay" && !rows.pageInfo.hasMore) {
