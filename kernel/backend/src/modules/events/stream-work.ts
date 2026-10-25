@@ -62,6 +62,11 @@ const EventStreamClaim = Schema.Struct({
 	}),
 });
 
+const loadPin = (pluginPin: unknown) =>
+	Schema.decodeUnknownEffect(EventStreamClaim.fields.pluginPin)(pluginPin).pipe(
+		Effect.mapError(() => new DbError({ message: "Invalid persisted projection binding" })),
+	);
+
 export class EventStreamWorkService extends Context.Service<EventStreamWorkService>()(
 	"@ryot-app/kernel-backend/modules/events/stream-work/EventStreamWorkService",
 	{
@@ -88,10 +93,6 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						),
 						Effect.asVoid,
 					);
-			const loadPin = (pluginPin: unknown) =>
-				Schema.decodeUnknownEffect(EventStreamClaim.fields.pluginPin)(pluginPin).pipe(
-					Effect.mapError(() => new DbError({ message: "Invalid persisted projection binding" })),
-				);
 			const claimFor = (
 				work: NonNullable<Effect.Success<ReturnType<typeof repository.prepare>>>,
 				jobId: string,

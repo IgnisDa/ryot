@@ -142,6 +142,8 @@ const operands = (node: Node): Operands => {
 			};
 		case "conditional":
 			return { element: [], row: [node.condition, node.whenTrue, node.whenFalse] };
+		default:
+			throw new Error(String(node satisfies never));
 	}
 };
 
