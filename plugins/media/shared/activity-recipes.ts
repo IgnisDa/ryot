@@ -34,6 +34,7 @@ import {
 
 import { consumptionEventSlugs, consumptionProcessingState } from "./consumption-projection";
 import {
+	consumptionActiveWork,
 	consumptionAmount,
 	consumptionNumber,
 	consumptionPeriod,
@@ -158,7 +159,7 @@ export const mediaActivityRecipe = defineRecipe(
 			consumptionDailySelection(source, kind, { period, timeZone: input.timeZone });
 		const typeSchema = table("entitySchema", "activityTypesSchema");
 		return {
-			map: ({ mediaTypes, days: dayRows, dates: dateRows, figures: totals }) => {
+			map: ({ mediaTypes, days: dayRows, dates: dateRows, figures: totals, activeWork }) => {
 				const counts = new Map<string, number>();
 				for (const row of [
 					...dayRows.items.map((bucket) => ({
@@ -172,7 +173,10 @@ export const mediaActivityRecipe = defineRecipe(
 				return Result.succeed({
 					mediaTypes: mediaTypes.items,
 					days: Array.from(counts, ([day, events]) => ({ day, events })),
-					processing: consumptionProcessingState(totals.pending ?? 0, totals.failed ?? 0),
+					processing: consumptionProcessingState(
+						activeWork.items.length + (totals.pending ?? 0),
+						totals.failed ?? 0,
+					),
 					figures: {
 						minutes: totals.minutes ?? 0,
 						reviews: totals.reviews ?? 0,
@@ -182,6 +186,7 @@ export const mediaActivityRecipe = defineRecipe(
 				});
 			},
 			queries: {
+				activeWork: consumptionActiveWork(input.reference),
 				dates: dayQuery(dates, "date"),
 				days: dayQuery(days, "instant"),
 				mediaTypes: selectedAggregate(types.event, {

@@ -73,47 +73,14 @@ const propertiesSchema: AppSchema = {
 	},
 };
 
-const scopeEventSlugs = [
-	"progress",
-	"complete",
-	"backlog",
-	"on_hold",
-	"dropped",
-	"review",
-	"list-state",
-	"item-complete",
-	"add-to-media-library",
-];
-
-export const mediaConsumptionProjection = (eventSlugs: readonly string[]) => ({
+export const mediaConsumptionProjection = (eventSlug: string) => ({
 	propertiesSchema,
 	scriptSlug: "script.media-consumption-step",
-	inputRepairScriptSlug: "script.media-consumption-input-repair",
 	inputs: [
-		...eventSlugs.map((eventSchemaSlug) => ({ eventSchemaSlug, scope: "entity" as const })),
-		...scopeEventSlugs.map((eventSchemaSlug) => ({ eventSchemaSlug, scope: "session" as const })),
-		...scopeEventSlugs.flatMap((eventSchemaSlug) =>
-			(["entity", "session"] as const).map((scope) => ({
-				scope,
-				eventSchemaSlug,
-				through: {
-					targetProperty: "subjectEntityId",
-					eventSchemaSlug: "consumption-dependency",
-					sourceProperty: "correctionSubjectEntityId",
-				},
-			})),
-		),
-		{ eventSchemaSlug: "history-correction", scope: { property: "subjectEntityId" } },
-		{ scope: { property: "entityId" }, eventSchemaSlug: "completion-occurrence" },
-		...["history-correction", "completion-occurrence"].map((eventSchemaSlug) => ({
-			eventSchemaSlug,
-			scope: { property: "subjectEntityId" },
-			through: {
-				targetProperty: "subjectEntityId",
-				eventSchemaSlug: "consumption-dependency",
-				sourceProperty: "correctionSubjectEntityId",
-			},
-		})),
+		{ eventSchemaSlug: "completion-occurrence", scope: { property: "entityId" } },
+		...consumptionEventSlugs
+			.filter((slug) => slug !== eventSlug)
+			.map((eventSchemaSlug) => ({ eventSchemaSlug, scope: "entity" as const })),
 	],
 });
 

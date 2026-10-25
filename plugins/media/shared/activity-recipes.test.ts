@@ -39,6 +39,11 @@ describe("media activity recipe", () => {
 				days: { items: [], type: "aggregate" },
 				dates: { items: [], type: "aggregate" },
 				mediaTypes: { items: [], type: "aggregate" },
+				activeWork: {
+					type: "rows",
+					items: [],
+					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+				},
 				figures: {
 					type: "aggregate",
 					items: [
@@ -66,6 +71,11 @@ describe("media activity recipe", () => {
 			mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
 				data: {
 					mediaTypes: { items: [], type: "aggregate" },
+					activeWork: {
+						type: "rows",
+						items: [],
+						pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+					},
 					dates: { type: "aggregate", items: [{ events: 3, day: "2026-09-25" }] },
 					days: { type: "aggregate", items: [{ events: 2, day: "2026-09-24T18:30:00.000Z" }] },
 					figures: {

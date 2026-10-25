@@ -86,6 +86,11 @@ const report = (pending = 0, failed = 0, hasMore = false) =>
 				previous: aggregate([]),
 				rankings: aggregate([]),
 				current: aggregate([{ ...totals, mediaType: "book" }], hasMore),
+				activeWork: {
+					type: "rows",
+					items: [],
+					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+				},
 				coverage: aggregate([{ failed, pending, unknownDate: 2, mediaType: "book" }]),
 			},
 		}),

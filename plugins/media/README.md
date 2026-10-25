@@ -700,15 +700,15 @@ reporting periods filter contributions after complete run repair.
 
 `backend/consumption-step.sandbox.ts` pages ordered source-run groups and local run boundaries using
 `backend/contracts/consumption-recipes.ts`. Each step retains one plan/replay cursor, reads at most
-eight 50-row pages, and publishes at most 100 updates for its own event schema. Checkpoints are
-validated and limited to 16 KiB UTF-8.
+eight 50-row pages, and publishes at most 100 updates for its own event schema. A finished stream
+returns a null checkpoint, so a later append replans from the start.
 
-Readiness reads correction state and `eventScope.revision` together. Publication requires finished
-correction covering that revision. Correction seeds typed `consumption-dependency` rows in 50-child
-pages. Child streams scan all dependency pages before publishing or parking, including when an early
-parent is stale. The manifest's one-hop `through` inputs wake children after parent input changes and
-evidence moves/deletes. Review, list-state, item, and library-admission writes also schedule correction.
-Child correction excludes sessioned sources whose completion repair belongs to the parent.
+The step computes from the current source rows and treats correction-frozen run boundaries as data;
+it never waits for correction. Correction writes derived completion and dependency events, and the
+manifest's declared inputs, including one-hop `through` inputs, re-dirty the stream when those events,
+parent inputs, or evidence change, so allocation converges after correction. Review, list-state, item,
+and library-admission writes also schedule correction. Child correction excludes sessioned sources
+whose completion repair belongs to the parent.
 
 `shared/consumption-recipes.ts` provides current/previous totals, recorded/estimated/missing coverage,
 date attribution, repair counts, trends, hourly activity, title rankings, and review aggregates.
@@ -719,12 +719,15 @@ page information. Trends retain separate date/instant precision rows on normaliz
 consumers sum both precision rows for one media-type bucket. Hourly activity excludes date-only and
 undated observations. Rankings use active observations, with entity identity as the stable tie-break.
 Reviews use their own recorded review date and expose rated-count coverage beside the average.
-All consumption sections share the report's repair state; ready-only partial amounts must not be
-presented as complete while any source is pending or failed.
+All consumption sections share the report's processing state: pending while any consumption
+projection is pending or any Media background work for the account is queued or running, failed when
+a projection failed. Ready-only partial amounts must not be presented as complete while processing is
+pending or failed. Failed history correction is reported per title by the correction status.
 One full-history coverage query retains repair and undated counts. Current and previous quantity
 queries apply the reporting period before aggregation, rather than repeating the same period condition
 inside each measure. Their decoder joins coverage back by media type, retaining zero quantities for
-types whose dated history falls outside the period. The complete report uses seven named queries.
+types whose dated history falls outside the period. The complete report uses at most eight named queries; the previous-period query is omitted when the
+selection has no previous period.
 
 Home, flat-detail, and episodic lifetime metrics use canonical contributions. Current episode coverage
 and lifecycle status remain separate. Episodic activity never replaces missing frozen time with current

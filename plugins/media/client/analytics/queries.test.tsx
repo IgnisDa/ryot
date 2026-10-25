@@ -61,6 +61,11 @@ const reportResponse = (pending = 0) => ({
 		reviews: aggregate([]),
 		previous: aggregate([]),
 		rankings: aggregate([]),
+		activeWork: {
+			type: "rows" as const,
+			items: [],
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+		},
 		coverage: aggregate(
 			pending === 0 ? [] : [{ pending, failed: 0, unknownDate: 0, mediaType: "book" }],
 		),
@@ -526,7 +531,7 @@ describe("Media analytics query adapters", () => {
 		);
 	}
 	it.live(
-		"executes one atomic seven-query report and labels it from the same captured clock across refresh",
+		"executes one atomic eight-query report and labels it from the same captured clock across refresh",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -535,7 +540,7 @@ describe("Media analytics query adapters", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
-						expect(Object.keys(request.document.queries)).toHaveLength(7);
+						expect(Object.keys(request.document.queries)).toHaveLength(8);
 						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
 						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
 					}

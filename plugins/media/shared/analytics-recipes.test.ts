@@ -126,9 +126,9 @@ describe("supplemental Media analytics recipes", () => {
 	it.live("retains the exact production report and activity documents", () =>
 		Effect.gen(function* () {
 			const hashes = [
-				"fc4ca20d79573acd90a14355242f6646724534f4f0d3e636ca0df80f2ce92441",
-				"3728d1d29962df6456c9bb500d6a484b4300ba90db035dc698fc904f8390e64c",
-				"b8cb63e718d8e9514e120bccb04f7bdfe895f2346057e3936594857cd9ce8996",
+				"a75976b28ad9b291f34d78f0ecb4a6ae80e6559b7f632bc6d0f0d9626dda260f",
+				"35d1fbc58120f7fc738c26553f5d805baa68b0fd571eda7ccc425b2efbcf8e57",
+				"2c099a18566bd74bcc91d4cf3b118727a4dbb817bb0e30fec092320fce38ebbd",
 			];
 			const ranges = [
 				{ kind: "all-time" },
@@ -142,11 +142,12 @@ describe("supplemental Media analytics recipes", () => {
 				});
 				expect(Object.keys(report.document.queries)).toEqual([
 					"current",
-					"previous",
+					...(range.kind === "all-time" ? [] : ["previous"]),
 					"rankings",
 					"hourly",
 					"trends",
 					"coverage",
+					"activeWork",
 					"reviews",
 				]);
 				expect(yield* documentHash(report.document)).toBe(hashes[index]);
@@ -158,7 +159,7 @@ describe("supplemental Media analytics recipes", () => {
 				timeZone: TimeZone.make("Asia/Kolkata"),
 			});
 			expect(yield* documentHash(activity.document)).toBe(
-				"efb78bd59c425b826864ce720697881fceb086f6ce3c5d3e25bb8b7ccc56c7b8",
+				"212403e0a91a0384260c0c1e702e53bfe0193701ff6b2f85e67fbcdd07bcd584",
 			);
 		}),
 	);

@@ -67,6 +67,11 @@ const reportFor = (
 				reviews: aggregate([]),
 				previous: aggregate([]),
 				rankings: aggregate([]),
+				activeWork: {
+					type: "rows",
+					items: [],
+					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+				},
 				coverage: aggregate([
 					{
 						unknownDate: 0,

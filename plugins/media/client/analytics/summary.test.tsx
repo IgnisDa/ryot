@@ -112,6 +112,11 @@ const reportData = (
 				rankings: aggregate([]),
 				previous: aggregate(previous),
 				current: aggregate(current, partial),
+				activeWork: {
+					type: "rows",
+					items: [],
+					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+				},
 				coverage: aggregate([
 					{ failed, pending, unknownDate: 2, mediaType: "book" },
 					{ failed, pending, unknownDate: 1, mediaType: "show" },

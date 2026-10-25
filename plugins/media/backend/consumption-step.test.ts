@@ -49,69 +49,14 @@ const cursorId = (predicate: undefined | Predicate): string | undefined => {
 	}
 	return undefined;
 };
-const harness = (
-	rows: readonly ReturnType<typeof row>[],
-	ready = true,
-	parents: readonly boolean[] = [],
-) => {
-	let reads = 0;
+const harness = (rows: readonly ReturnType<typeof row>[]) => {
 	const indexes = new Map(rows.map((value, index) => [value.id, index]));
 	const host = defineSandboxTestHost(manifest, {
 		executeRyotql: (document) => {
-			reads += 1;
 			const after = cursorId(document.queries["rows"]?.where);
 			const start = after === undefined ? 0 : (indexes.get(after) ?? -1) + 1;
 			const items = rows.slice(start, start + 50);
-			const dependencyQuery = document.queries["dependencies"];
-			assert(dependencyQuery?.output.type === "rows");
-			const dependencyStart = Number(dependencyQuery.output.pagination.after ?? 0);
-			const dependencyItems = parents
-				.slice(dependencyStart, dependencyStart + 50)
-				.map((parentReady) => ({
-					revision: 9,
-					correction: {
-						step: 1,
-						cycle: 0,
-						phase: "done",
-						runKey: "parent",
-						workKey: "parent",
-						liveSourceIds: [],
-						requestKey: "parent",
-						subjectEntityId: "parent",
-						sourceRevision: parentReady ? 9 : 8,
-					},
-				}));
-			const hasMoreDependencies = dependencyStart + 50 < parents.length;
-			return Effect.succeed({
-				data: {
-					scope: responseRows([{ revision: 7 }]),
-					rows: responseRows(items, start + 50 < rows.length),
-					context: responseRows([{ dependenciesMissing: false }]),
-					dependencies: {
-						...responseRows(dependencyItems),
-						pageInfo: {
-							limit: 50,
-							hasMore: hasMoreDependencies,
-							nextCursor: hasMoreDependencies ? String(dependencyStart + 50) : null,
-						},
-					},
-					correction: responseRows([
-						{
-							properties: {
-								step: 1,
-								cycle: 0,
-								phase: "done",
-								runKey: "repair",
-								workKey: "repair",
-								liveSourceIds: [],
-								requestKey: "repair",
-								subjectEntityId: "book",
-								sourceRevision: ready ? 7 : 6,
-							},
-						},
-					]),
-				},
-			});
+			return Effect.succeed({ data: { rows: responseRows(items, start + 50 < rows.length) } });
 		},
 	});
 	const run = (checkpoint: Schema.Json = null, eventSchemaSlug = "progress") =>
@@ -124,7 +69,7 @@ const harness = (
 			});
 			return yield* definition.run(input, host);
 		});
-	return { run, reads: () => reads };
+	return { run };
 };
 
 describe("production consumption stream", () => {
@@ -170,28 +115,7 @@ describe("production consumption stream", () => {
 				expect(amount).toBe(25_000);
 			}),
 	);
-	it.effect.each([0, 450])(
-		"finishes a bounded dependency scan before parking for stale parent %s",
-		(staleIndex) =>
-			Effect.gen(function* () {
-				const test = harness(
-					[row("source", "run")],
-					true,
-					Array.from({ length: 451 }, (_, index) => index !== staleIndex),
-				);
-				const first = yield* test.run();
-				expect(first).toMatchObject({ done: false, updates: [] });
-				expect(first.waitingForInputs).toBeUndefined();
-				const next = yield* test.run(first.checkpoint);
-				expect(next).toEqual({
-					done: false,
-					updates: [],
-					checkpoint: null,
-					waitingForInputs: true,
-				});
-			}),
-	);
-	it("uses a bounded query with readiness and current scope in one document", () => {
+	it("uses one bounded rows query per page", () => {
 		for (const after of [
 			null,
 			{
@@ -210,29 +134,11 @@ describe("production consumption stream", () => {
 					accessClass: "standard",
 				}).error,
 			).toBeNull();
-			expect(Object.keys(recipe.document.queries).sort()).toEqual([
-				"context",
-				"correction",
-				"dependencies",
-				"rows",
-				"scope",
-			]);
+			expect(Object.keys(recipe.document.queries)).toEqual(["rows"]);
 		}
 	});
-	it.effect("parks when completed correction does not cover the current source revision", () =>
-		Effect.gen(function* () {
-			const test = harness([row("a", "run")], false);
-			expect(yield* test.run()).toEqual({
-				done: false,
-				updates: [],
-				checkpoint: null,
-				waitingForInputs: true,
-			});
-			expect(test.reads()).toBe(1);
-		}),
-	);
 	it.effect(
-		"repairs more than one thousand independent runs on one title using bounded resumable checkpoints",
+		"computes more than one thousand independent runs on one title using bounded resumable checkpoints",
 		() =>
 			Effect.gen(function* () {
 				const rows = Array.from({ length: 1100 }, (_, index) => {
@@ -246,7 +152,6 @@ describe("production consumption stream", () => {
 				let finished = false;
 				for (let step = 0; step < 2000; step += 1) {
 					const result = yield* test.run(checkpoint, "complete");
-					expect(result.waitingForInputs).toBeUndefined();
 					expect(result.updates.length).toBeLessThanOrEqual(100);
 					const serialized: string = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(
 						result.checkpoint,
@@ -286,7 +191,6 @@ describe("production consumption stream", () => {
 				const test = harness(rows);
 				const first = yield* test.run();
 				expect(first.done).toBe(false);
-				expect(first.waitingForInputs).toBeUndefined();
 				expect(first.updates).toEqual([]);
 				let checkpoint = first.checkpoint;
 				let amount = 0;

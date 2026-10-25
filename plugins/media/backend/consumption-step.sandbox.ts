@@ -19,12 +19,15 @@ import {
 	consumptionContribution,
 	initialConsumptionCheckpoint,
 } from "../shared/consumption-projection";
-import { consumptionPageRecipe } from "./contracts/consumption-recipes";
+import { consumptionPageRecipe, consumptionPageSize } from "./contracts/consumption-recipes";
 import { MediaSandboxError } from "./lib/failures";
+
+const pagesPerStep = 8;
+const updatesPerStep = 100;
 
 export const manifest = defineManifest({
 	kind: "script",
-	name: "Repair media consumption",
+	name: "Compute media consumption",
 	slug: "script.media-consumption-step",
 });
 
@@ -38,56 +41,18 @@ export default defineScript({
 				input.checkpoint === null
 					? initialConsumptionCheckpoint()
 					: yield* Schema.decodeUnknownEffect(ConsumptionCheckpoint)(input.checkpoint);
-			if (checkpoint.phase === "done") {
-				checkpoint = initialConsumptionCheckpoint();
-			}
 			const updates: (typeof EventStreamStepOutput.Type)["updates"][number][] = [];
-			for (let step = 0; step < 8 && updates.length <= 50; step += 1) {
-				const result = yield* executeRyotqlRecipe(
+			for (
+				let page = 0;
+				page < pagesPerStep && updates.length + consumptionPageSize <= updatesPerStep;
+				page += 1
+			) {
+				const rows = yield* executeRyotqlRecipe(
 					host.executeRyotql,
-					consumptionPageRecipe({
-						after: checkpoint.after,
-						entityId: input.entityId,
-						dependenciesAfter: checkpoint.dependenciesAfter ?? undefined,
-					}),
+					consumptionPageRecipe({ after: checkpoint.after, entityId: input.entityId }),
 				);
-				if (
-					result.context?.dependenciesMissing !== false ||
-					result.correction?.properties.phase !== "done" ||
-					result.correction.properties.sourceRevision !== result.revision
-				) {
-					return { done: false, updates: [], checkpoint: null, waitingForInputs: true };
-				}
-				if (!checkpoint.dependenciesReady) {
-					checkpoint = {
-						...checkpoint,
-						dependenciesBlocked:
-							checkpoint.dependenciesBlocked ||
-							result.dependencies.items.some(
-								(dependency) =>
-									dependency.correction?.phase !== "done" ||
-									dependency.correction.sourceRevision !== dependency.revision,
-							),
-					};
-					if (result.dependencies.pageInfo.hasMore) {
-						if (result.dependencies.pageInfo.nextCursor === null) {
-							return yield* new MediaSandboxError({
-								message: "Consumption dependency page has no cursor",
-							});
-						}
-						checkpoint = {
-							...checkpoint,
-							dependenciesAfter: result.dependencies.pageInfo.nextCursor,
-						};
-						continue;
-					}
-					if (checkpoint.dependenciesBlocked) {
-						return { done: false, updates: [], checkpoint: null, waitingForInputs: true };
-					}
-					checkpoint = { ...checkpoint, dependenciesReady: true };
-				}
 				let boundary = false;
-				for (const row of result.rows.items) {
+				for (const row of rows.items) {
 					const { automatic, ...source } = row;
 					const observation: ConsumptionObservation = {
 						...source,
@@ -137,36 +102,25 @@ export default defineScript({
 						}
 					}
 				}
-				if (checkpoint.phase === "plan" && (boundary || !result.rows.pageInfo.hasMore)) {
+				if (checkpoint.phase === "plan" && (boundary || !rows.pageInfo.hasMore)) {
 					if (checkpoint.plan.count === 0) {
-						checkpoint = { ...checkpoint, phase: "done" };
-						break;
+						return { updates, done: true, checkpoint: null };
 					}
 					checkpoint = { ...checkpoint, phase: "replay", after: checkpoint.start };
 				} else if (checkpoint.phase === "replay" && boundary) {
-					checkpoint = {
-						...initialConsumptionCheckpoint(checkpoint.after, checkpoint.cursor),
-						dependenciesReady: true,
-					};
-				} else if (checkpoint.phase === "replay" && !result.rows.pageInfo.hasMore) {
+					checkpoint = initialConsumptionCheckpoint(checkpoint.after, checkpoint.cursor);
+				} else if (checkpoint.phase === "replay" && !rows.pageInfo.hasMore) {
 					return yield* new MediaSandboxError({
 						message: "Consumption replay ended before its planned run",
 					});
 				}
 			}
-			const encoded = yield* Schema.encodeEffect(Schema.toCodecJson(ConsumptionCheckpoint))(
-				checkpoint,
-			);
-			const serialized = yield* Schema.encodeEffect(Schema.fromJsonString(ConsumptionCheckpoint))(
-				checkpoint,
-			);
-			if (new TextEncoder().encode(serialized).byteLength > 16384) {
-				return yield* new MediaSandboxError({ message: "Consumption checkpoint exceeds 16 KiB" });
-			}
-			return yield* Schema.decodeEffect(EventStreamStepOutput)({
+			return {
 				updates,
-				checkpoint: encoded,
-				done: checkpoint.phase === "done",
-			});
+				done: false,
+				checkpoint: yield* Schema.encodeEffect(Schema.toCodecJson(ConsumptionCheckpoint))(
+					checkpoint,
+				),
+			};
 		}),
 });

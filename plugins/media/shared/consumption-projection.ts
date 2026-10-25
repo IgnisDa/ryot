@@ -63,14 +63,11 @@ export type ConsumptionPosition = typeof ConsumptionPosition.Type;
 export const ConsumptionCheckpoint = Schema.Struct({
 	plan: ConsumptionRunPlan,
 	cursor: ConsumptionRunCursor,
-	dependenciesReady: Schema.Boolean,
-	dependenciesBlocked: Schema.Boolean,
 	runKey: Schema.NullOr(Schema.String),
 	allocation: ConsumptionAllocationState,
 	after: Schema.NullOr(ConsumptionPosition),
 	start: Schema.NullOr(ConsumptionPosition),
-	dependenciesAfter: Schema.NullOr(Schema.String),
-	phase: Schema.Literals(["plan", "replay", "done"]),
+	phase: Schema.Literals(["plan", "replay"]),
 });
 export type ConsumptionCheckpoint = typeof ConsumptionCheckpoint.Type;
 
@@ -83,9 +80,6 @@ export const initialConsumptionCheckpoint = (
 	start: after,
 	runKey: null,
 	phase: "plan",
-	dependenciesAfter: null,
-	dependenciesReady: false,
-	dependenciesBlocked: false,
 	plan: emptyConsumptionRunPlan(),
 	allocation: emptyConsumptionAllocationState(),
 });

@@ -84,6 +84,11 @@ const reportFor = (input: AnalyticsInput, processing: "ready" | "failed" | "pend
 					{ ...totals, mediaType: "book" },
 					{ ...totals, mediaType: "show-episode" },
 				]),
+				activeWork: {
+					type: "rows",
+					items: [],
+					pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+				},
 				coverage: aggregate([
 					{ failed, pending, unknownDate: 0, mediaType: "book" },
 					{ failed, pending, unknownDate: 0, mediaType: "show-episode" },

@@ -47,6 +47,11 @@ const activityResponse = (input: {
 	data: {
 		days: aggregate(),
 		mediaTypes: aggregate(),
+		activeWork: {
+			type: "rows" as const,
+			items: [],
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+		},
 		dates: aggregate(input.activeDay === undefined ? [] : [{ events: 1, day: input.activeDay }]),
 		figures: aggregate([
 			{
@@ -96,9 +101,7 @@ const mountActivity = (clock: ReturnType<typeof createTestRyotClock>) =>
 	});
 
 const reportingPreferenceRequests = (page: ActivityPage) =>
-	page
-		.clientMessages()
-		.filter((message) => message.type === "reporting-preferences-request");
+	page.clientMessages().filter((message) => message.type === "reporting-preferences-request");
 
 const activityRequests = (page: ActivityPage) =>
 	page

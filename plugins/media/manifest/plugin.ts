@@ -66,11 +66,7 @@ const entitySchemas = mediaEntitySchemas().map(
 			? Object.assign({}, definition, {
 					eventSchemas: definition.eventSchemas.map((event) =>
 						hasConsumptionProjection(event.slug)
-							? Object.assign({}, event, {
-									projection: mediaConsumptionProjection(
-										definition.eventSchemas.map((value) => value.slug),
-									),
-								})
+							? Object.assign({}, event, { projection: mediaConsumptionProjection(event.slug) })
 							: event,
 					),
 				})

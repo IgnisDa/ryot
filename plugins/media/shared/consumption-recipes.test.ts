@@ -1,7 +1,6 @@
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { arrayContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
 import { mediaConsumptionBenchmarkCases } from "../benchmarks/consumption";
@@ -27,6 +26,7 @@ const emptyReport = () => ({
 	current: aggregate([]),
 	reviews: aggregate([]),
 	previous: aggregate([]),
+	activeWork: { type: "rows", items: [], pageInfo: { hasMore: false, limit: 1, nextCursor: null } },
 	coverage: aggregate([]),
 	rankings: aggregate([]),
 	trends: aggregate([], 1000),
@@ -53,7 +53,7 @@ describe("canonical consumption reads", () => {
 			range: { days: 30, kind: "rolling" } as const,
 		},
 	])(
-		"disables the previous source scan only when comparison is absent: %s",
+		"omits the previous source scan only when comparison is absent: %s",
 		({ range, disabled, comparison }) => {
 			const recipe = mediaConsumptionReportRecipe({
 				reference: { kind: "self" },
@@ -61,24 +61,7 @@ describe("canonical consumption reads", () => {
 				now: Date.parse("2026-10-29T12:00:00Z"),
 				selection: { range, comparison, grouping: "auto" },
 			});
-			const previous = recipe.document.queries["previous"];
-			const guard = {
-				operator: "eq",
-				type: "comparison",
-				left: { value: false, type: "literal" },
-				right: { value: true, type: "literal" },
-			};
-			if (disabled) {
-				expect(previous?.where).toMatchObject({
-					type: "and",
-					predicates: arrayContaining([guard]),
-				});
-			} else {
-				expect(previous?.where).not.toMatchObject({
-					type: "and",
-					predicates: arrayContaining([guard]),
-				});
-			}
+			expect(Object.hasOwn(recipe.document.queries, "previous")).toBe(!disabled);
 		},
 	);
 	it.each([
@@ -101,6 +84,11 @@ describe("canonical consumption reads", () => {
 				recipe.decode({
 					data: {
 						...emptyReport(),
+						activeWork: {
+							type: "rows",
+							items: [],
+							pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+						},
 						coverage: aggregate([{ failed, pending: 2, unknownDate: 3, mediaType: "book" }]),
 					},
 				}),
@@ -136,6 +124,11 @@ describe("canonical consumption reads", () => {
 			recipe.decode({
 				data: {
 					...emptyReport(),
+					activeWork: {
+						type: "rows",
+						items: [],
+						pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+					},
 					coverage: aggregate(
 						[
 							{ failed: 0, pending: 0, unknownDate: 4, mediaType: "book" },

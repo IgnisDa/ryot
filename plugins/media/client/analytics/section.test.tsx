@@ -102,6 +102,11 @@ const reportResponse = (pending = 0) => ({
 		reviews: aggregate([]),
 		previous: aggregate([]),
 		rankings: aggregate([]),
+		activeWork: {
+			type: "rows" as const,
+			items: [],
+			pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+		},
 		coverage: aggregate(
 			pending === 0 ? [] : [{ pending, failed: 0, unknownDate: 0, mediaType: "book" }],
 		),

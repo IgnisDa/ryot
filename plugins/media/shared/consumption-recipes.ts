@@ -31,8 +31,10 @@ import {
 	selectedAggregate,
 	selectedField,
 	selectedMeasure,
+	selectedRows,
 	sum,
 	table,
+	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
 	localDateOf,
@@ -67,6 +69,17 @@ export const consumptionAmount = (event: Table, unit: ConsumptionMeasureUnit) =>
 		coalesce(consumptionNumber(event, unit, "estimated"), literal(0)),
 	);
 
+export const consumptionActiveWork = (reference: PluginIdentityReference) => {
+	const work = table("backgroundWork", "consumptionActiveWork");
+	return selectedRows(work, {
+		limit: 1,
+		selection: { id: selectedField(column(work, "id"), Schema.String) },
+		where: and(
+			schemaOwnerPredicate(work, "pluginId", reference),
+			inArray(column(work, "status"), [literal("queued"), literal("running")]),
+		),
+	});
+};
 export const consumptionPeriod = (event: Table, period: null | ReportingPeriod) => {
 	if (period === null) {
 		return consumptionReady(event);
@@ -79,18 +92,10 @@ export const consumptionPeriod = (event: Table, period: null | ReportingPeriod) 
 		eq(coalesce(propertyBoolean(event, "dateUnknown"), literal(false)), literal(false)),
 		or(
 			and(gte(calendarDate, literal(period.startDate)), lte(calendarDate, literal(period.endDate))),
-			and(
-				isNull(calendarDate),
-				gte(column(event, "occurredAt"), castDate(literal(period.startAt))),
-				lt(column(event, "occurredAt"), castDate(literal(period.endAt))),
-			),
+			and(isNull(calendarDate), withinPeriod(column(event, "occurredAt"), period)),
 		),
 		or(
-			and(
-				eq(kind, literal("instant")),
-				gte(castDate(date), castDate(literal(period.startAt))),
-				lt(castDate(date), castDate(literal(period.endAt))),
-			),
+			and(eq(kind, literal("instant")), withinPeriod(castDate(date), period)),
 			and(
 				eq(kind, literal("date")),
 				gte(date, literal(period.startDate)),
@@ -365,19 +370,19 @@ export const mediaConsumptionReportRecipe = defineRecipe(
 				),
 			),
 		};
-		const totals = (alias: string, period: null | ReportingPeriod, enabled = true) => {
+		const totals = (alias: string, period: null | ReportingPeriod) => {
 			const { event, joins, where, entity } = consumptionDetail(input, alias, period);
 			return selectedAggregate(event, {
 				joins,
 				limit: 100,
 				orderBy: [groupAscending("mediaType")],
 				measures: consumptionMeasures(event, true),
-				where: and(where, ...(enabled ? [] : [eq(literal(false), literal(true))])),
+				where,
 				groupBy: { mediaType: selectedField(column(entity, "entitySchemaSlug"), Schema.String) },
 			});
 		};
 		return {
-			map: ({ trends, hourly, current, reviews, previous, rankings, coverage }) => {
+			map: ({ trends, hourly, current, reviews, previous, rankings, coverage, activeWork }) => {
 				const withCoverage = (quantities: typeof current) => ({
 					...quantities,
 					pageInfo: {
@@ -397,7 +402,7 @@ export const mediaConsumptionReportRecipe = defineRecipe(
 					resolved,
 					rankings,
 					current: withCoverage(current),
-					previous: resolved.previous === null ? null : withCoverage(previous),
+					previous: previous === undefined ? null : withCoverage(previous),
 					trends: {
 						...trends,
 						items: trends.items.map((row) => ({
@@ -406,7 +411,8 @@ export const mediaConsumptionReportRecipe = defineRecipe(
 						})),
 					},
 					processing: consumptionProcessingState(
-						coverage.items.reduce((total, row) => total + (row.pending ?? 0), 0),
+						activeWork.items.length +
+							coverage.items.reduce((total, row) => total + (row.pending ?? 0), 0),
 						coverage.items.reduce((total, row) => total + (row.failed ?? 0), 0),
 					),
 				});
@@ -414,7 +420,8 @@ export const mediaConsumptionReportRecipe = defineRecipe(
 			queries: {
 				current: totals("currentConsumption", resolved.current),
 
-				previous: totals("previousConsumption", resolved.previous, resolved.previous !== null),
+				previous:
+					resolved.previous === null ? undefined : totals("previousConsumption", resolved.previous),
 
 				rankings: selectedAggregate(rank.event, {
 					limit: 100,
@@ -491,6 +498,8 @@ export const mediaConsumptionReportRecipe = defineRecipe(
 						),
 					},
 				}),
+
+				activeWork: consumptionActiveWork(input.reference),
 
 				reviews: selectedAggregate(review.review, {
 					limit: 100,

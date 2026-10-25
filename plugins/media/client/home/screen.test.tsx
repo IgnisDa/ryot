@@ -227,6 +227,11 @@ describe("home gate", () => {
 							days: { items: [], type: "aggregate" },
 							dates: { items: [], type: "aggregate" },
 							mediaTypes: { items: [], type: "aggregate" },
+							activeWork: {
+								type: "rows",
+								items: [],
+								pageInfo: { hasMore: false, limit: 1, nextCursor: null },
+							},
 							"trending.trending": rows([
 								{
 									...mediaIdentity("arrival", "Arrival", "movie"),
