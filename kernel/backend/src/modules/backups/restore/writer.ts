@@ -1550,12 +1550,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				return undefined;
 			});
 
-			return {
-				preflight,
-				restoreRecords,
-				assertRequiredPlugins,
-				fenceEventStreamInputs: persistence.fenceEventStreamInputs,
-			};
+			return { preflight, restoreRecords, assertRequiredPlugins };
 		}),
 	},
 ) {

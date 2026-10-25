@@ -61,7 +61,13 @@ const seed = (suffix: string) =>
 		return { userId, pluginId, entityId, sessionEntityId, key: streamKey(userId, entityId) };
 	});
 
-const reserveJob = (id: string, userId: UserId, pluginId: PluginId, jobId: string) =>
+const reserveJob = (
+	id: string,
+	userId: UserId,
+	pluginId: PluginId,
+	jobId: string,
+	status: "queued" | "running" = "running",
+) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const repository = yield* EventStreamRepository;
@@ -76,8 +82,8 @@ const reserveJob = (id: string, userId: UserId, pluginId: PluginId, jobId: strin
 							id: jobId,
 							scope: id,
 							key: jobId,
+							status,
 							payload: {},
-							status: "running",
 							purpose: "event-projection",
 							inputHash: "test-input-hash",
 							accountToken: "stream-account-token",
@@ -130,42 +136,43 @@ layer(
 });
 
 layer(databaseLayer)((test) => {
-	test.effect(
-		"restarts parked work when its account generation and processor declaration change",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const repository = yield* EventStreamRepository;
-				const { key, userId, pluginId } = yield* seed("parked-rebind");
-				const request = requestInput(key);
-				const id = yield* session.transaction(repository.request(request));
-				const jobId = `${id}-parked`;
-				const prepared = yield* reserveJob(id, userId, pluginId, jobId);
-				expect(
-					yield* session.transaction(
-						repository.finish(id, jobId, prepared.streamRevision, null, false, true),
-					),
-				).toBe(true);
-				expect((yield* repository.get(id))?.currentJobId).toBe(jobId);
-				yield* session.transaction(
+	test.effect("retains only a queued current job when the processor binding changes", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EventStreamRepository;
+			const { key, userId, pluginId } = yield* seed("rebind");
+			const request = requestInput(key);
+			const rebind = (accountToken: string) =>
+				session.transaction(
 					repository.request({
 						...request,
-						accountToken: "restored-generation",
-						pluginRevisionId: "replacement-revision",
-						processorScriptId: "replacement-processor",
-						pluginPin: { revisionId: "replacement-revision" },
+						accountToken,
+						pluginRevisionId: `${accountToken}-revision`,
+						processorScriptId: `${accountToken}-processor`,
+						pluginPin: { revisionId: `${accountToken}-revision` },
 					}),
 				);
-				const rebound = yield* repository.get(id);
-				expect(rebound?.checkpoint).toBeNull();
-				expect(rebound?.currentJobId).toBeNull();
-				expect(rebound?.completedRevision).toBeNull();
-				expect(rebound?.processorScriptId).toBe("replacement-processor");
-				expect(rebound?.accountToken).toBe("restored-generation");
-				expect(
-					yield* session.transaction(repository.currentClaim(id, jobId, prepared.streamRevision)),
-				).toBe(false);
-			}),
+			const id = yield* session.transaction(repository.request(request));
+			const queuedJobId = `${id}-queued`;
+			yield* reserveJob(id, userId, pluginId, queuedJobId, "queued");
+			yield* rebind("restored-generation");
+			const rebound = yield* repository.get(id);
+			expect(rebound?.checkpoint).toBeNull();
+			expect(rebound?.completedRevision).toBeNull();
+			expect(rebound?.currentJobId).toBe(queuedJobId);
+			expect(rebound?.processorScriptId).toBe("restored-generation-processor");
+			expect(rebound?.accountToken).toBe("restored-generation");
+
+			const runningJobId = `${id}-running`;
+			const prepared = yield* reserveJob(id, userId, pluginId, runningJobId);
+			yield* rebind("replacement-generation");
+			expect((yield* repository.get(id))?.currentJobId).toBeNull();
+			expect(
+				yield* session.transaction(
+					repository.currentClaim(id, runningJobId, prepared.streamRevision),
+				),
+			).toBe(false);
+		}),
 	);
 
 	test.effect("rebuilds completed projections when only their configuration pin changes", () =>

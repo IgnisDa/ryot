@@ -11,10 +11,7 @@ import {
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import {
-	POLICY_SAFE_SANDBOX_CAPABILITIES,
-	type SandboxHostCapability,
-} from "@ryot-app/contract/modules/scripts/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
@@ -33,22 +30,6 @@ export class PluginValidationError extends Schema.TaggedError<
 >()("PluginValidationError", { issues: Schema.Array(Schema.String) }) {}
 
 const reservedPluginPublisher = "ryot";
-const inputRepairCapabilities = new Set<SandboxHostCapability>([
-	"log",
-	"span",
-	"createEvents",
-	"updateEvents",
-	"deleteEvents",
-	"executeRyotql",
-	"getPluginConfig",
-	"getUserSettings",
-	"requestUserWork",
-	"getEntitySchemas",
-	"listEventSchemas",
-	"commitUserChanges",
-	"getUserPreferences",
-	"verifyManagedAssets",
-]);
 const fail = (issue: string) => new PluginValidationError({ issues: [issue] });
 
 const assertSlug = (kind: string, slug: string) =>
@@ -339,54 +320,12 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 			}
 			return undefined;
 		});
-		const assertInputRepair = Effect.fnUntraced(function* (scriptSlug: string) {
-			const visited = new Set<string>();
-			const pending = [scriptSlug];
-			while (pending.length > 0) {
-				const slug = pending.pop();
-				if (slug === undefined || visited.has(slug)) {
-					continue;
-				}
-				visited.add(slug);
-				yield* assertReference("Event projection input repair", slug, scriptSlugs);
-				const script = manifest.scripts.find((candidate) => candidate.slug === slug);
-				if (script?.kind !== "script") {
-					return yield* fail("Event projection input repair must use direct scripts only");
-				}
-				if (
-					manifest.userBootstrap.some((entry) => entry.scriptSlug === slug) ||
-					script.capabilities.some((capability) => !inputRepairCapabilities.has(capability)) ||
-					script.executableDependencies.some((dependency) => dependency.kind !== "script")
-				) {
-					return yield* fail(
-						"Event projection input repair must use only user-work, user-data writes, and read capabilities",
-					);
-				}
-				pending.push(...script.executableDependencies.map((dependency) => dependency.slug));
-			}
-			return undefined;
-		});
 		for (const entity of manifest.entitySchemas) {
 			for (const event of entity.eventSchemas) {
 				if (event.projection) {
 					yield* assertProjection("Event projection", event.projection, event.propertiesSchema);
-					if (event.projection.inputRepairScriptSlug !== undefined) {
-						yield* assertInputRepair(event.projection.inputRepairScriptSlug);
-					}
-					if (
-						!event.projection.inputs.some(
-							(input) =>
-								input.eventSchemaSlug === event.slug &&
-								input.scope === "entity" &&
-								input.through === undefined,
-						)
-					) {
-						return yield* fail(
-							"Event projection inputs must include its source schema in entity scope",
-						);
-					}
 					const paths = new Set<string>();
-					for (const input of event.projection.inputs) {
+					for (const input of event.projection.inputs ?? []) {
 						const path = identityTupleKey(
 							input.eventSchemaSlug,
 							typeof input.scope === "string"
@@ -566,20 +505,6 @@ export const validatePluginExecutableScripts = (plugin: {
 	}>;
 }) =>
 	Effect.gen(function* () {
-		for (const entity of plugin.manifest.entitySchemas) {
-			for (const event of entity.eventSchemas) {
-				const slug = event.projection?.inputRepairScriptSlug;
-				if (slug === undefined) {
-					continue;
-				}
-				const script = plugin.scripts.find((candidate) => candidate.slug === slug);
-				if (script?.metadata.kind !== "script") {
-					return yield* fail(
-						`Event projection input repair references missing compiled direct script: ${slug}`,
-					);
-				}
-			}
-		}
 		for (const entry of plugin.manifest.userBootstrap) {
 			const script = plugin.scripts.find(({ slug }) => slug === entry.scriptSlug);
 			if (!script) {

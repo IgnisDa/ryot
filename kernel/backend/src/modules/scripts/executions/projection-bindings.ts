@@ -1,8 +1,11 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { PluginId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer, Schema } from "effect";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, Effect, Layer, Schema } from "effect";
 
-import { ProjectionBindings } from "#modules/background-work/model";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	findRevisionScriptForSession,
@@ -11,8 +14,44 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 
-import { ScriptExecutionPrincipal } from "../authorization/principal";
+import { ScriptExecutionPrincipal, type ScriptPluginRevision } from "../authorization/principal";
 import { SandboxRepository } from "../registry/repository";
+
+export class ProjectionBindings extends Context.Service<
+	ProjectionBindings,
+	{
+		resolve: (input: {
+			userId: UserId;
+			pluginId: string;
+			scriptSlug: string;
+		}) => Effect.Effect<
+			null | {
+				pluginPin: ScriptPluginRevision;
+				principal: ScriptExecutionPrincipal;
+				accountGeneration: AccountGeneration;
+			},
+			DbError
+		>;
+	}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/projection-bindings/ProjectionBindings") {}
+
+export type ProjectionBindingRecord = {
+	readonly accountToken: string;
+	readonly pluginPin: JsonValue;
+	readonly outputSchema: AppSchema;
+	readonly pluginRevisionId: string;
+	readonly processorScriptId: string;
+};
+
+export const sameProjectionBinding = (
+	left: ProjectionBindingRecord,
+	right: ProjectionBindingRecord,
+) =>
+	left.accountToken === right.accountToken &&
+	left.processorScriptId === right.processorScriptId &&
+	left.pluginRevisionId === right.pluginRevisionId &&
+	stableStringify(left.pluginPin) === stableStringify(right.pluginPin) &&
+	stableStringify(left.outputSchema) === stableStringify(right.outputSchema);
 
 export const ProjectionBindingsLive = Layer.effect(
 	ProjectionBindings,

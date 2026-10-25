@@ -852,7 +852,7 @@ export class EventsService extends Context.Service<EventsService>()(
 									]),
 								)
 							: yield* lifecycleTrigger(command, userId, request);
-						const plan = yield* planner.plan({ trigger, writeContext: command.writeContext });
+						const plan = yield* planner.plan({ trigger });
 						return {
 							plan,
 							input,
@@ -1126,7 +1126,6 @@ export class EventsService extends Context.Service<EventsService>()(
 								])
 							: undefined;
 						const plan = yield* planner.plan({
-							writeContext: command.writeContext,
 							trigger:
 								discriminator === undefined
 									? yield* lifecycleTrigger(command, input.userId, request)
@@ -1549,7 +1548,6 @@ export class EventsService extends Context.Service<EventsService>()(
 					yield* groups.validate(groupState);
 				}
 				const plan = yield* planner.plan({
-					writeContext: prepared.command.writeContext,
 					trigger: yield* lifecycleTrigger(
 						{
 							...prepared.command,

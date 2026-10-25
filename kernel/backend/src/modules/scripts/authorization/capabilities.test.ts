@@ -37,45 +37,6 @@ const pluginRevision = (isUserBootstrap = false) => ({
 });
 
 describe("requireSandboxCapabilityInput", () => {
-	it("keeps user writes but denies external and bootstrap capabilities when after hooks are skipped", () => {
-		const userId = UserId.make("user_1");
-		const subject = {
-			userId,
-			type: "user" as const,
-			accountGeneration: { userId, token: "test-account-generation" },
-		};
-		const normal = makeSubjectRunInput(subject, null, {}, { pluginRevision: pluginRevision(true) });
-		const skipped = makeSubjectRunInput(
-			{ ...subject, afterHooks: "skip" },
-			null,
-			{},
-			{ pluginRevision: pluginRevision(true) },
-		);
-		for (const capability of [
-			"httpCall",
-			"getOAuthAccessToken",
-			"invalidateOAuthAccessToken",
-			"ensureUserEntities",
-			"requestRelationshipProjectionsForAllUsers",
-		] as const) {
-			expect(isSandboxCapabilityAllowed(normal, capability)).toBe(true);
-			expect(isSandboxCapabilityAllowed(skipped, capability)).toBe(false);
-		}
-		for (const capability of [
-			"createEvents",
-			"updateEvents",
-			"deleteEvents",
-			"commitUserChanges",
-			"changeUserRelationships",
-			"requestUserWork",
-			"executeRyotql",
-		] as const) {
-			expect(isSandboxCapabilityAllowed(skipped, capability)).toBe(true);
-		}
-		const forged = { ...normal, context: { afterHooks: "skip" } };
-		expect(isSandboxCapabilityAllowed(forged, "httpCall")).toBe(true);
-	});
-
 	it("limits projection processors to declared read-only capabilities", () => {
 		const userId = UserId.make("user_1");
 		const subject = {

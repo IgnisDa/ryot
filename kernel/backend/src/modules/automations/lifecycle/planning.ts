@@ -17,25 +17,6 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, type Effect, Schema, Struct } from "effect";
 
-import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-
-export const hasLifecycleSourceChange = (trigger: AutomationTrigger) => {
-	const change = trigger.payload;
-	if (
-		change?.category !== "change" ||
-		change.operation === "batch" ||
-		change.resource === "provider-entity-import"
-	) {
-		return false;
-	}
-	if (change.operation !== "update") {
-		return true;
-	}
-	const { updatedAt: _beforeUpdatedAt, ...before } = change.before;
-	const { updatedAt: _afterUpdatedAt, ...after } = change.after;
-	return stableStringify(before) !== stableStringify(after);
-};
-
 export const lifecycleTriggerId = (input: {
 	itemIdentity: string;
 	discriminator: string;
@@ -155,9 +136,7 @@ export type LifecycleBatchInput = {
 	readonly commandInput?: unknown;
 	readonly identity: ReadonlyArray<string>;
 	readonly resource: LifecycleBatchResource;
-	readonly command: LifecycleCommand & {
-		readonly writeContext?: null | Pick<ScriptExecutionPrincipal, "subject">;
-	};
+	readonly command: LifecycleCommand;
 };
 
 export class LifecyclePersistenceError extends Schema.TaggedError<
@@ -171,13 +150,7 @@ export class LifecycleWork extends Context.Service<
 	LifecycleWork,
 	{
 		dispatch: (jobIds: ReadonlyArray<string>) => Effect.Effect<void, DbError>;
-		admit: (
-			trigger: AutomationTrigger,
-			context: {
-				fresh: boolean;
-				writeContext: null | undefined | Pick<ScriptExecutionPrincipal, "subject">;
-			},
-		) => Effect.Effect<ReadonlyArray<string>, DbError>;
+		admit: (trigger: AutomationTrigger) => Effect.Effect<ReadonlyArray<string>, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecycleWork") {}
 
@@ -193,7 +166,6 @@ export class LifecyclePlanner extends Context.Service<
 		plan: (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
-			writeContext?: null | Pick<ScriptExecutionPrincipal, "subject">;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
 	}

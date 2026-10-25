@@ -33,10 +33,6 @@ import {
 	mutationReceiptOwner,
 	MutationReceipts,
 } from "#modules/mutations/receipts";
-import {
-	type ScriptExecutionPrincipal,
-	skipsAfterHooks,
-} from "#modules/scripts/authorization/principal";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -143,7 +139,6 @@ export const LifecyclePlannerLive = Layer.effect(
 		const replayExisting = Effect.fn("LifecyclePlanner.replayExisting")(function* (
 			trigger: AutomationTrigger,
 			stored: AutomationTrigger,
-			writeContext: null | undefined | Pick<ScriptExecutionPrincipal, "subject">,
 		) {
 			const persistedTrigger = yield* triggers.insert({
 				...trigger,
@@ -156,17 +151,14 @@ export const LifecyclePlannerLive = Layer.effect(
 			return {
 				wasCreated: false,
 				trigger: persistedTrigger,
-				backgroundJobIds: yield* work.admit(trigger, { fresh: false, writeContext }),
-				...(yield* orderedRuns(
-					existing.filter((run) => run.stage === "before" || !skipsAfterHooks(writeContext)),
-				)),
+				backgroundJobIds: yield* work.admit(trigger),
+				...(yield* orderedRuns(existing)),
 			};
 		});
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
-			writeContext?: null | Pick<ScriptExecutionPrincipal, "subject">;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
@@ -235,7 +227,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			// Catalog locks remain held while matching hooks and writing the selected runs.
 			const stored = yield* triggers.findById(trigger.id);
 			if (stored) {
-				return yield* replayExisting(trigger, stored, input.writeContext);
+				return yield* replayExisting(trigger, stored);
 			}
 			if (signal && recipients.length) {
 				const enabled = yield* session.run((db) =>
@@ -276,7 +268,6 @@ export const LifecyclePlannerLive = Layer.effect(
 					: (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId))).flat()
 			).filter(
 				({ hook, plugin }) =>
-					(hook.stage === "before" || !skipsAfterHooks(input.writeContext)) &&
 					!(
 						eventRequest &&
 						hook.stage === "before" &&
@@ -330,10 +321,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const ordered = yield* orderedRuns(planned);
 			if (ordered.runs.length === 0 && trigger.payload.resource !== "signal") {
-				const backgroundJobIds = yield* work.admit(trigger, {
-					fresh: true,
-					writeContext: input.writeContext,
-				});
+				const backgroundJobIds = yield* work.admit(trigger);
 				return backgroundJobIds.length > 0
 					? { trigger, runs: [], policies: [], backgroundJobIds, wasCreated: false }
 					: {
@@ -352,7 +340,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const raced = yield* triggers.findById(trigger.id);
 			if (raced) {
-				return yield* replayExisting(trigger, raced, input.writeContext);
+				return yield* replayExisting(trigger, raced);
 			}
 			const [accepted] = yield* session.run((db) =>
 				db
@@ -392,10 +380,7 @@ export const LifecyclePlannerLive = Layer.effect(
 					: null,
 			});
 			yield* triggers.insertRecipients(trigger.id, recipients);
-			const backgroundJobIds = yield* work.admit(trigger, {
-				fresh: true,
-				writeContext: input.writeContext,
-			});
+			const backgroundJobIds = yield* work.admit(trigger);
 			if (blocked) {
 				return {
 					runs: [],
@@ -427,15 +412,13 @@ export const LifecyclePlannerLive = Layer.effect(
 			}
 			const scopes = [...new Set(input.scopes)].sort((a, b) => (a ?? "").localeCompare(b ?? ""));
 			yield* resolver.lockCatalog(scopes);
-			const candidates = skipsAfterHooks(input.command.writeContext)
-				? []
-				: (yield* Effect.forEach(scopes, (userId) =>
-						resolver.resolveBatchCandidates({
-							userId,
-							resource: input.resource,
-							source: input.command.causation.source,
-						}),
-					)).flat();
+			const candidates = (yield* Effect.forEach(scopes, (userId) =>
+				resolver.resolveBatchCandidates({
+					userId,
+					resource: input.resource,
+					source: input.command.causation.source,
+				}),
+			)).flat();
 			const decision = yield* receipts
 				.beginBatch({
 					identity,
@@ -491,14 +474,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			}, contents.maxItems);
 			const planned = yield* Effect.forEach(
 				yield* lifecycleBatchTriggers(input, maxItems, changes),
-				(trigger) =>
-					plan({
-						trigger,
-						pinnedBatchCandidates: candidates,
-						...(input.command.writeContext === undefined
-							? {}
-							: { writeContext: input.command.writeContext }),
-					}),
+				(trigger) => plan({ trigger, pinnedBatchCandidates: candidates }),
 			);
 			const dispatch = planned.flatMap((item) =>
 				item.trigger === null ? [] : [toLifecycleDispatchPlan(item)],

@@ -711,7 +711,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						}
 					}
 					const plan = yield* planner.plan({
-						writeContext: command.writeContext,
 						trigger: yield* lifecycleTrigger(command, input.userId, change),
 					});
 					const planned = plan.trigger ? [toLifecycleDispatchPlan(plan)] : [];

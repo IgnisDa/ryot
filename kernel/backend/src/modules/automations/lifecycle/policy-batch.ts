@@ -95,7 +95,6 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 						return { runs: [], policies: [], trigger: null };
 					}
 					const planned = yield* planner.plan({
-						writeContext: input.command.writeContext,
 						trigger: yield* lifecycleTrigger(input.command, input.userId, {
 							operation: "batch",
 							category: "request",

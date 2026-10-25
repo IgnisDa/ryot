@@ -416,7 +416,6 @@ const currentRelationshipProjectionWork = sql`array(select w.id from relationshi
 	inner join plugin g on g.id = w.relationship_schema_plugin_id
 	inner join plugin_installation i on i.plugin_id = g.id and i.user_id = w.user_id
 	where w.plugin_revision_id = g.active_revision_id
-	and w.input_repair_revision = w.prepared_input_repair_revision
 	and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null
 		then g.environment_config_revision_id else i.active_config_revision_id end
 	and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null)`;

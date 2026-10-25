@@ -153,7 +153,6 @@ export const SandboxExecutionSubject = Schema.Union([
 		importRunId: Schema.optional(ImportRunId),
 		integrationId: Schema.optional(IntegrationId),
 		integrationRunId: Schema.optional(ImportRunId),
-		afterHooks: Schema.optional(Schema.Literal("skip")),
 	}),
 	strictStruct({
 		...automationRunSubjectFields,

@@ -1,19 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import type {
-	PluginEventProjection,
-	PluginManifest,
-	PluginScript,
-} from "@ryot-app/contract/modules/plugins/manifest";
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
+import type { PluginEventProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
-import {
-	PluginValidationError,
-	validatePluginExecutableScripts,
-	validatePluginManifestReferences,
-} from "./validation";
+import { PluginValidationError, validatePluginManifestReferences } from "./validation";
 
 const manifestWithRelationshipProjection = (
 	capabilities: ReadonlyArray<"createEvents" | "executeRyotql">,
@@ -56,141 +47,6 @@ const issuesOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(failure instanceof PluginValidationError);
 	return failure.issues;
 };
-
-const manifestWithInputRepair = (
-	capabilities: ReadonlyArray<SandboxHostCapability>,
-	dependencies: PluginScript["executableDependencies"] = [],
-): PluginManifest => {
-	const fixture = manifestWithRelationshipProjection(["executeRyotql"], {
-		score: { label: "Score", type: "number", description: "Score" },
-	});
-	const processor = fixture.scripts.at(-1);
-	const entity = fixture.entitySchemas[0];
-	const projection = fixture.relationshipSchemas[0]?.projection;
-	assert(entity);
-	assert(processor);
-	assert(processor.kind === "script");
-	assert(projection);
-	return {
-		...fixture,
-		scripts: [
-			...fixture.scripts,
-			{ ...processor, capabilities, slug: "fixture.repair", executableDependencies: dependencies },
-		],
-		entitySchemas: [
-			{
-				...entity,
-				eventSchemas: [
-					{
-						name: "Projected",
-						slug: "projected",
-						propertiesSchema: { fields: {} },
-						projection: {
-							...projection,
-							inputRepairScriptSlug: "fixture.repair",
-							inputs: [{ scope: "entity", eventSchemaSlug: "projected" }],
-						},
-					},
-				],
-			},
-		],
-	};
-};
-
-it.effect("validates direct input repair scripts and their complete dependency closure", () =>
-	Effect.gen(function* () {
-		const fixture = manifestWithInputRepair([
-			"executeRyotql",
-			"commitUserChanges",
-			"requestUserWork",
-		]);
-		yield* validatePluginManifestReferences(fixture);
-		const repair = fixture.scripts.at(-1);
-		assert(repair);
-		assert(repair.kind === "script");
-		const withChild = (capabilities: ReadonlyArray<SandboxHostCapability>) => ({
-			...fixture,
-			scripts: [
-				...fixture.scripts.slice(0, -1),
-				{ ...repair, executableDependencies: [{ slug: "fixture.child", kind: "script" as const }] },
-				{
-					...repair,
-					capabilities,
-					slug: "fixture.child",
-					executableDependencies: [{ slug: repair.slug, kind: "script" as const }],
-				},
-			],
-		});
-		yield* validatePluginManifestReferences(
-			withChild(["createEvents", "updateEvents", "deleteEvents"]),
-		);
-		for (const capability of [
-			"httpCall",
-			"emitSignal",
-			"sendNotification",
-			"upsertGlobalEntities",
-			"upsertGlobalRelationships",
-			"listIntegrations",
-			"getOAuthAccessToken",
-			"scratch",
-			"artifact-read",
-			"setCachedValue",
-			"claimPersistentValue",
-		] as const) {
-			expect(
-				issuesOf(yield* Effect.exit(validatePluginManifestReferences(withChild([capability])))),
-			).toEqual([
-				"Event projection input repair must use only user-work, user-data writes, and read capabilities",
-			]);
-		}
-		expect(
-			issuesOf(
-				yield* Effect.exit(
-					validatePluginManifestReferences({
-						...fixture,
-						scripts: fixture.scripts.filter(({ slug }) => slug !== repair.slug),
-					}),
-				),
-			),
-		).toEqual(["Event projection input repair references missing definition: fixture.repair"]);
-		expect(
-			issuesOf(
-				yield* Effect.exit(
-					validatePluginManifestReferences(
-						manifestWithInputRepair([], [{ kind: "script", slug: "missing" }]),
-					),
-				),
-			),
-		).toEqual(["Event projection input repair references missing definition: missing"]);
-		expect(
-			issuesOf(
-				yield* Effect.exit(
-					validatePluginManifestReferences({
-						...fixture,
-						userBootstrap: [
-							{
-								scriptSlug: repair.slug,
-								slug: "repair-bootstrap",
-								description: "Fixture bootstrap",
-							},
-						],
-					}),
-				),
-			),
-		).toEqual([
-			"Event projection input repair must use only user-work, user-data writes, and read capabilities",
-		]);
-		for (const scripts of [[], [{ slug: repair.slug, metadata: { kind: "workflow" as const } }]]) {
-			expect(
-				issuesOf(
-					yield* Effect.exit(validatePluginExecutableScripts({ scripts, manifest: fixture })),
-				),
-			).toEqual([
-				"Event projection input repair references missing compiled direct script: fixture.repair",
-			]);
-		}
-	}),
-);
 
 it.effect("validates relationship projection processors and output schemas", () =>
 	Effect.gen(function* () {
@@ -375,14 +231,5 @@ it.effect(
 					),
 				),
 			).toEqual(["Event projection input schema missing is not declared"]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([{ scope: "session", eventSchemaSlug: "evidence" }]),
-						),
-					),
-				),
-			).toEqual(["Event projection inputs must include its source schema in entity scope"]);
 		}),
 );

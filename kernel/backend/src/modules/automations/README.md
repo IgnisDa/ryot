@@ -12,18 +12,6 @@ Each run pins the exact sandbox script, its input projection, plugin revision, a
 
 The automations feature Layer constructs the planner with its resolver, run repository, and trigger repository. The planner implementation keeps those collaborators as constructor requirements; transaction-scoped catalog reads use the same resolver instance throughout a plan.
 
-Trusted user executions may carry `subject.afterHooks: "skip"`. Item owners pass the command's
-`writeContext` to `LifecyclePlanner.plan`; batch owners retain it on `LifecycleBatchInput.command`.
-Only that trusted context suppresses after-stage runs and batch-hook candidates. Before policies,
-source evidence, causation, and unconditional `LifecycleWork.admit` are unchanged. Replayed plans
-retain projection job admission and do not return after runs for a suppressed execution. Public
-payloads and plugin input do not select this mode.
-
-The internal work boundary also receives trusted fresh/replay context. Fresh non-batch source changes
-from silent user executions advance the account-wide relationship input fence in the source
-transaction. Request planning, replayed plans and mutation receipts, unchanged writes, ordinary
-executions, and rollback do not advance it. No script argument can select this context.
-
 Batch owners pass identities already processed for the current entity as `excludedOncePerSubjectPolicies`, keyed by the run's stable `pluginId`/`hookSlug` and the batch's deterministic subject key. Before-event `once-per-subject` hooks are excluded before budget counting and insertion; participating request triggers retain the normalized exclusions.
 
 Before its first write, a logical batch records its applicable batch-hook candidates (including an empty decision) and pins their revisions and scripts. Only batches with candidates retain committed item change evidence in receipts. Sealing creates matching immutable batch triggers and runs, then removes temporary evidence and candidate pins atomically. A batch hook receives changed items belonging to its exact definition owner in its scope/resource chunk, even when only some match its local targets. Its pinned projection selects properties. Item hooks (`frequency` omitted or `"item"`) match only non-batch triggers and batch hooks match only batch triggers. `executionScope` is compared against the run's `executionUserId`, not the trigger's scope user.

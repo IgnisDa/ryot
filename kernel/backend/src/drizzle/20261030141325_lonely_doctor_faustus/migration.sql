@@ -467,7 +467,6 @@ CREATE TABLE "event_stream" (
 	"event_schema_slug" text NOT NULL,
 	"revision" integer DEFAULT 0 NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"repair_epoch" text DEFAULT 'initial' NOT NULL,
 	"event_schema_plugin_id" text,
 	"user_id" text NOT NULL,
 	"entity_id" text NOT NULL
@@ -475,7 +474,6 @@ CREATE TABLE "event_stream" (
 --> statement-breakpoint
 CREATE TABLE "event_stream_work" (
 	"current_job_id" text,
-	"input_repair_job_id" text,
 	"dirty_from" timestamp(3) with time zone,
 	"completed_revision" integer,
 	"account_token" text NOT NULL,
@@ -1072,8 +1070,6 @@ CREATE TABLE "relationship_projection_work" (
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"output_schema" jsonb NOT NULL,
-	"input_repair_revision" integer DEFAULT 0 NOT NULL,
-	"prepared_input_repair_revision" integer DEFAULT 0 NOT NULL,
 	"user_id" text NOT NULL,
 	"relationship_schema_plugin_id" text NOT NULL
 );
@@ -1229,18 +1225,15 @@ CREATE TABLE "user" (
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"account_generation" text DEFAULT gen_random_uuid() NOT NULL,
-	"preferences" jsonb DEFAULT '{"language":null,"reportingTimeZone":null,"disableIntegrations":false}' NOT NULL,
+	"preferences" jsonb DEFAULT '{"language":null,"reportingTimeZone":"UTC","disableIntegrations":false}' NOT NULL,
 	CONSTRAINT "user_preferences_check" CHECK (
 		jsonb_typeof("preferences") = 'object'
 		and "preferences" ?& array['disableIntegrations', 'language', 'reportingTimeZone']
 		and "preferences" - 'disableIntegrations' - 'language' - 'reportingTimeZone' = '{}'::jsonb
 		and jsonb_typeof("preferences"->'disableIntegrations') = 'boolean'
-		and (
-			jsonb_typeof("preferences"->'reportingTimeZone') = 'null'
-			or (jsonb_typeof("preferences"->'reportingTimeZone') = 'string'
-				and "preferences"->>'reportingTimeZone' <> ''
-				and btrim("preferences"->>'reportingTimeZone') = "preferences"->>'reportingTimeZone')
-		)
+		and jsonb_typeof("preferences"->'reportingTimeZone') = 'string'
+		and "preferences"->>'reportingTimeZone' <> ''
+		and btrim("preferences"->>'reportingTimeZone') = "preferences"->>'reportingTimeZone'
 		and (
 			jsonb_typeof("preferences"->'language') = 'null'
 			or (jsonb_typeof("preferences"->'language') = 'string'
@@ -1378,7 +1371,6 @@ CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id");--> statement-breakpoint
 CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
-CREATE INDEX "event_stream_work_input_repair_job_idx" ON "event_stream_work" ("input_repair_job_id");--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint

@@ -28,8 +28,8 @@ Plugins do not separately dispatch the generic worker. User work and projections
 owner, while their admission rules and feature state remain with their respective modules.
 
 Projection preparation runs as a persisted activity before script execution. The event feature
-settles superseded claims without executing their scripts; normal settlement recovery and scope
-handoff still run. Publication retains its own claim check for changes after preparation.
+settles a job whose claim no longer matches its stream without executing the script; normal
+settlement recovery and scope handoff still run. Publication retains its own claim check for changes after preparation.
 
 `requestUserWork` is the script-host adapter for independent user work. Its identity is keyed by
 account generation, plugin, script, and caller key. Reusing the identity with changed input or scope is
@@ -53,21 +53,9 @@ cannot change a terminal result; settling also releases retained execution refer
 
 The frequent cron deletes succeeded and failed rows 168 hours after settlement in bounded batches.
 It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
-`event_stream_work` or `relationship_projection_work` record still names as its current job. An event
-stream's claimed input-repair root is protected by the same retention rule, including after success.
+`event_stream_work` or `relationship_projection_work` record still names as its current job.
 
-Input-repair roots use the existing user-script purpose and a kernel-owned feature claim. Ordinary
-`requestUserWork` admission continues to store `featureInput: null`. The existing feature finalizer
-requires the repair root's `null` result, settles it, and releases dependent projection admission from
-the workflow body after settlement commits. Root success does not publish projection values.
-
-After settlement commits, the workflow body calls account-scoped relationship recovery for repair
-roots, trusted silent user-script descendants (including `featureInput: null`), and event-projection
-steps. This callback runs outside activities and does not revive failed repair. Startup and post-restore
-recovery close a missed-callback gap by running event reconciliation, common background recovery,
-then relationship reconciliation after workflow registration. Ordinary user work does not call it.
-
-Projection-specific freshness and discovery remain event-owned: reconciliation finds missing or stale
-bindings and dirty streams, and projection values are visible only while their source revision,
+Projection-specific freshness remains event-owned: reconciliation finds stale bindings and dirty
+streams, and projection values are visible only while their source revision,
 plugin revision/configuration/installation, and processor binding remain current. See [events and
 projections](../events/README.md#stream-work-and-freshness).

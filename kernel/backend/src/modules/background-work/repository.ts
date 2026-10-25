@@ -227,8 +227,7 @@ export class BackgroundWorkRepository extends Context.Service<BackgroundWorkRepo
 										and (newer.created_at, newer.id) > (work.created_at, work.id)
 								)
 								and not exists (
-								select 1 from ${eventStreamWork} stream
-								where stream.current_job_id = work.id or stream.input_repair_job_id = work.id
+									select 1 from ${eventStreamWork} stream where stream.current_job_id = work.id
 								)
 								and not exists (
 									select 1 from ${relationshipProjectionWork} projection

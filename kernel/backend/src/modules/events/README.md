@@ -111,8 +111,8 @@ sessions without loading their histories into application memory.
 
 Retained anchor IDs keep their session and declared immutable properties. Retained dependent IDs keep
 the same anchor event ID. Atomic commands can reorder anchors and dependents together; intermediate
-key collisions are permitted. Standalone dependent writes remain valid when a matching anchor and its
-minimum dependent count remain. Deleting a last dependent requires deleting its anchor in the same
+key collisions are permitted. Standalone dependent writes remain valid when a matching anchor and at
+least one dependent of each declared schema remain. Deleting a last dependent requires deleting its anchor in the same
 atomic command. Entity cascades and merges finalize after the whole source change, not per event.
 Violations fail as a generic `EventBadRequest` mutation conflict and roll back source writes and receipts.
 
@@ -143,80 +143,17 @@ after the transaction/activity completes. Projection jobs use the stream's entit
 scope, so one entity's streams run one step at a time; the settled job's workflow dispatches the
 continuation.
 
-Before executing a processor, the workflow persists a current-claim check. Superseded jobs settle
-without running their scripts or publishing output, then hand off normally to the next queued job.
-Publication still rechecks the claim because source writes can invalidate it after preparation.
-Admission also retires up to 100 superseded queued jobs for that exact stream in its transaction,
-through the background owner. Current claims and running jobs are retained; older backlog still uses
-the workflow check.
+Each stream has at most one queued job. Invalidation keeps the stream's current job while it is
+still queued; that job reads the current claim, revision, checkpoint, and binding when it starts. A
+new job is admitted only when the stream has no queued current job. Before executing a processor, the
+workflow persists that current-claim check; a job whose claim no longer matches the stream settles
+without running its script or publishing output. Publication still rechecks the claim because source
+writes can invalidate it after preparation.
 
-### Waiting for input repair
-
-A projection can declare `inputRepairScriptSlug`, naming a direct script in the same plugin revision.
-Ingestion validates its complete direct-script dependency closure. It permits user-work admission,
-user-data event/command writes, and the required read capabilities, but not bootstrap scripts,
-workflows, HTTP, signals, notifications, integrations, global writes, or escaping capabilities. The
-projection processor itself remains read-only.
-
-Before admitting the first processor step, the kernel admits one ordinary background user-script
-root with `EventStreamInputRepairInput`: `{ entityId, requestKey }`. The request key is stable for the
-account generation, exact installation and revision/configuration binding, entity, repair script, and
-repair epoch. Streams using that repair binding share this root. New ordinary schemas join the
-current epoch and reuse its succeeded root; ordinary source writes do not advance the epoch.
-
-The repair script must perform its initial reset/correction step before returning `null`. Returning
-`null` means that invocation succeeded, not that all repair descendants or projections are ready. It
-may admit existing user-work descendants for later pages. Its trusted user subject carries
-`afterHooks: "skip"`, inherited by durable descendants: before policies, validation, receipts, source
-revision changes, and projection admission still run, but item and batch after hooks do not.
-
-`event_stream.repair_epoch` and `event_stream_work.input_repair_job_id` retain this runtime admission
-state; neither is archived. Restore fences streams with its deterministic run identity inside the
-atomic data transaction, including reused bootstrap entities. A previous succeeded root therefore
-cannot admit projection work for restored history, even when retained readiness values happen to
-equal the destination's initial source revision. Failed or unavailable repair stays pending.
-
-Root success releases projection admission in keyset pages of at most 100. Claims commit before
-workflow dispatch. Startup and post-restore workflow bodies drain discovery, admission, and common
-background recovery, so crashes before dispatch or between root success and release do not wait for
-the frequent cron. The referenced root remains protected from background-work pruning.
-
-The first durable admission of each shared root also advances the account-wide relationship input
-fence in the same transaction. Reusing the root across streams does not advance it again. Event-owned
-`projection-readiness.ts` supplies one declaration-driven required-target relation for discovery and
-relationship readiness. It includes retained input and mapping-only targets even before their streams
-exist; a missing/unbound stream cannot count as complete. Readiness requires exact current account,
-installation, processor and repair pins/epoch, successful roots, completed current stream revisions,
-and no active trusted silent user-script roots or descendants. It takes no stream locks. Readiness
-first checks the account's existing projection streams and derives the full relation from history
-only when they are all ready.
-
-A processor that depends on asynchronous source repair must verify retained readiness evidence before
-returning `done: true`. Read that evidence and its current source-scope revision in one RyotQL
-document. A completed marker alone is insufficient: the marker must cover the current source revision.
-Declare the source inputs, repair evidence, and readiness marker as inputs. The plugin owns the
-meaning of readiness; the stream revision fences the complete declared input set.
-
-When evidence is missing, unfinished, or belongs to an older source revision, return exactly:
-
-```ts
-{ done: false, waitingForInputs: true, checkpoint: null, updates: [] }
-```
-
-This settles the current background job without admitting a continuation. The stream keeps that job
-as its current job and has no completed revision, so readers continue to see `pending`. This parked
-state survives restart and does not poll or consume worker steps. A declared input write clears the
-current job and resets the checkpoint. Source-change lifecycle planning admits a fresh step in the same
-transaction, even when no automation hook matches, and retains its job ID in the mutation receipt.
-The existing after-commit owner dispatches that job; reconciliation recovers missed dispatches. Binding
-changes also restart the stream. If an input changes between the processor's read and the waiting
-commit, the revision fence rejects the old result and arranges fresh work, preventing a lost wakeup.
-Failed or absent repair remains pending until its owner supplies valid input; it is never ready zero.
-
-Waiting is for a verified input condition, not an incomplete page scan or a transient read failure.
-Continue a bounded scan with ordinary `done: false` and its checkpoint. Let a failed read fail the
-step so the existing retry path can run it again. A processor must finish locating its readiness
-evidence before it parks; a truncated page does not prove that evidence is missing.
+Processors compute from their current declared inputs and never wait for them. A write to any
+declared input re-dirties the target stream, so outputs converge when an asynchronous source owner
+later writes the events a processor reads. A projection's own event schema is always an input;
+`inputs` declares only additional schemas.
 
 RyotQL exposes `event.projection` only for completed work whose claimed revision matches the stream,
 whose plugin revision and configuration pin are current, and whose plugin and installation are
@@ -236,15 +173,12 @@ bindings and requests work for the current declaration. See [background work](..
 for common admission, dispatch, and recovery ownership.
 
 Restore passes session and property references into stream seeding and takes reference locks before
-inserting historical events. Reconciliation also discovers missing target streams from current
-declarations and retained inputs. It derives each enabled account's missing targets once, then seeds
-them in pages of 100, skipping entities deleted since that read. Mapping evidence alone can seed a target stream;
-an output event need not exist yet. Discovery inserts missing stream identities without advancing
-existing revisions, then ordinary binding reconciliation admits the current processor. Invalidation
-updates all affected revisions atomically; the 100-update processor page bound does not truncate
-dependency fanout. Reconciliation binds and admits existing streams before discovery and between
-discovery pages. Dependency resolution joins selected inputs and mapping edges as sets; mapping
-evidence also supplies its own target without requiring an observation.
+inserting historical events. A stream row exists for every user, entity, and event schema with
+events; a stream without its own events has no outputs. Plugin upgrades that add or change a
+declaration are handled by binding reconciliation over existing stream rows. Invalidation updates
+all affected revisions atomically; the 100-update processor page bound does not truncate dependency
+fanout. Dependency resolution joins selected inputs and mapping edges as sets; mapping evidence also
+supplies its own target without requiring an observation.
 
 Admission locks the account before stream state, matching account reset. Dirty-stream admission
 failures are isolated per stream and move that candidate to the end of the bounded selection, so an

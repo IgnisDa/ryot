@@ -55,19 +55,11 @@ Event archives contain source rows and their schema-backed evidence, not derived
 checkpoints. Restore remaps typed evidence references and marks affected streams for normal
 reconciliation instead of trusting archived calculations.
 
-The restore transaction also sets a deterministic repair epoch on event streams and clears their
-runtime projection and input-repair claims, including streams on reused bootstrap entities. Data,
-this durable repair intent, and run completion commit together; completed restore does not mean
-completed analytics. After the activity commits, the workflow body drains normal stream
-reconciliation and background recovery. Startup performs the same recovery for missed dispatch or
-release. Unavailable plugins, configuration, artifacts, and disabled account generations do not gain
-authority or become ready through restore. Repair epochs and jobs are not part of the archive.
-
-The same historical transaction advances relationship work's account-wide input-repair revision under
-the normal coordination lock. Old ready notes become hidden at commit without per-note updates.
-After event reconciliation and background recovery, automatic relationship reconciliation waits for
-the complete input-repair wave, invalidates notes once, and admits normal work. Settlement callbacks
-continue this recovery without cron or replaying integrations, notifications, or ordinary after hooks.
+Restore seeds and touches the restored streams in the data transaction, so their runtime claims are
+cleared and their revisions advance; completed restore does not mean completed analytics. The
+frequent reconciler admits processor work for those streams and for relationship schemas whose links
+lack notes. Unavailable plugins, configuration, artifacts, and disabled account generations do not
+gain authority or become ready through restore.
 
 After the complete event stream is inserted, restore checks declared event-group consistency with
 set-based SQL. It does not load account history into memory or recapture immutable recording evidence

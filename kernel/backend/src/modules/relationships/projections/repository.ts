@@ -1,17 +1,15 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manifest";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, gt, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import {
-	projectionInputCoordinationKey,
-	ProjectionInputFence,
-} from "#modules/background-work/model";
+	type ProjectionBindingRecord,
+	sameProjectionBinding,
+} from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -19,14 +17,6 @@ export type RelationshipProjectionKey = {
 	readonly userId: string;
 	readonly relationshipSchemaSlug: string;
 	readonly relationshipSchemaPluginId: string;
-};
-
-export type RelationshipProjectionBinding = {
-	readonly accountToken: string;
-	readonly pluginPin: JsonValue;
-	readonly outputSchema: AppSchema;
-	readonly pluginRevisionId: string;
-	readonly processorScriptId: string;
 };
 
 export const relationshipProjectionWorkId = (key: RelationshipProjectionKey) =>
@@ -54,10 +44,8 @@ const currentSelection = {
 	outputSchema: schema.relationshipProjectionWork.outputSchema,
 	pluginRevisionId: schema.relationshipProjectionWork.pluginRevisionId,
 	processorScriptId: schema.relationshipProjectionWork.processorScriptId,
-	inputRepairRevision: schema.relationshipProjectionWork.inputRepairRevision,
 	relationshipSchemaSlug: schema.relationshipProjectionWork.relationshipSchemaSlug,
 	relationshipSchemaPluginId: schema.relationshipProjectionWork.relationshipSchemaPluginId,
-	preparedInputRepairRevision: schema.relationshipProjectionWork.preparedInputRepairRevision,
 };
 
 export class RelationshipProjectionRepository extends Context.Service<RelationshipProjectionRepository>()(
@@ -89,45 +77,11 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 					)
 					.pipe(Effect.map((rows) => rows[0] ?? null));
 
-			const lockInputs = Effect.fn("RelationshipProjectionRepository.lockInputs")(function* (
-				userId: string,
-			) {
-				yield* requireTransaction;
-				yield* session.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock(hashtextextended(${projectionInputCoordinationKey(userId)}, 0))`,
-					),
-				);
-			});
-			const advanceInputs = Effect.fn("RelationshipProjectionRepository.advanceInputs")(function* (
-				account: AccountGeneration,
-			) {
-				yield* lockInputs(account.userId);
-				yield* session.run((db) =>
-					db
-						.update(schema.relationshipProjectionWork)
-						.set({
-							inputRepairRevision: sql`${schema.relationshipProjectionWork.inputRepairRevision} + 1`,
-						})
-						.where(
-							and(
-								eq(schema.relationshipProjectionWork.userId, account.userId),
-								eq(schema.relationshipProjectionWork.accountToken, account.token),
-							),
-						),
-				);
-			});
-
 			const lockWork = (id: string) =>
 				session
 					.run((db) =>
 						db
-							.select({
-								currentJobId: schema.relationshipProjectionWork.currentJobId,
-								inputRepairRevision: schema.relationshipProjectionWork.inputRepairRevision,
-								preparedInputRepairRevision:
-									schema.relationshipProjectionWork.preparedInputRepairRevision,
-							})
+							.select({ currentJobId: schema.relationshipProjectionWork.currentJobId })
 							.from(schema.relationshipProjectionWork)
 							.where(eq(schema.relationshipProjectionWork.id, id))
 							.for("update"),
@@ -136,10 +90,9 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 
 			const bind = Effect.fn("RelationshipProjectionRepository.bind")(function* (
 				key: RelationshipProjectionKey,
-				binding: RelationshipProjectionBinding,
+				binding: ProjectionBindingRecord,
 			) {
 				yield* requireTransaction;
-				yield* lockInputs(key.userId);
 				const id = relationshipProjectionWorkId(key);
 				yield* session.run((db) =>
 					db
@@ -155,19 +108,14 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 					});
 				}
 				const now = yield* DateTime.nowAsDate;
-				const changed =
-					work.accountToken !== binding.accountToken ||
-					work.processorScriptId !== binding.processorScriptId ||
-					work.pluginRevisionId !== binding.pluginRevisionId ||
-					stableStringify(work.pluginPin) !== stableStringify(binding.pluginPin) ||
-					stableStringify(work.outputSchema) !== stableStringify(binding.outputSchema);
+				const changed = !sameProjectionBinding(work, binding);
 				yield* session.run((db) =>
 					db
 						.update(schema.relationshipProjectionWork)
 						.set({ ...binding, updatedAt: now, ...(changed ? { currentJobId: null } : {}) })
 						.where(eq(schema.relationshipProjectionWork.id, id)),
 				);
-				if (changed && work.inputRepairRevision === work.preparedInputRepairRevision) {
+				if (changed) {
 					yield* session.run((db) =>
 						db
 							.update(schema.relationshipProjection)
@@ -200,7 +148,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				return rows.length;
 			});
 
-			const fillMissing = Effect.fn("RelationshipProjectionRepository.fillMissing")(function* (
+			const fill = Effect.fn("RelationshipProjectionRepository.fill")(function* (
 				key: RelationshipProjectionKey,
 			) {
 				yield* requireTransaction;
@@ -220,28 +168,6 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 					return null;
 				}
 				return yield* readState(id);
-			});
-
-			const prepareInputs = Effect.fn("RelationshipProjectionRepository.prepareInputs")(function* (
-				id: string,
-			) {
-				yield* requireTransaction;
-				const work = yield* lockWork(id);
-				if (!work || work.inputRepairRevision === work.preparedInputRepairRevision) {
-					return;
-				}
-				yield* session.run((db) =>
-					db
-						.update(schema.relationshipProjection)
-						.set({ revision: sql`${schema.relationshipProjection.revision} + 1` })
-						.where(eq(schema.relationshipProjection.workId, id)),
-				);
-				yield* session.run((db) =>
-					db
-						.update(schema.relationshipProjectionWork)
-						.set({ currentJobId: null, preparedInputRepairRevision: work.inputRepairRevision })
-						.where(eq(schema.relationshipProjectionWork.id, id)),
-				);
 			});
 
 			const claimable = Effect.fn("RelationshipProjectionRepository.claimable")(function* (
@@ -283,7 +209,6 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 			const currentClaim = Effect.fn("RelationshipProjectionRepository.currentClaim")(function* (
 				id: string,
 				jobId: string,
-				inputRepairRevision: number,
 			) {
 				yield* requireTransaction;
 				const work = yield* lockWork(id);
@@ -294,12 +219,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 						.where(eq(schema.backgroundWork.id, jobId))
 						.for("update"),
 				);
-				return (
-					work?.currentJobId === jobId &&
-					job?.status === "running" &&
-					work.inputRepairRevision === inputRepairRevision &&
-					work.preparedInputRepairRevision === inputRepairRevision
-				);
+				return work?.currentJobId === jobId && job?.status === "running";
 			});
 
 			const publish = Effect.fn("RelationshipProjectionRepository.publish")(function* (
@@ -355,7 +275,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 			});
 
 			const listCandidates = Effect.fn("RelationshipProjectionRepository.listCandidates")(
-				function* (limit: number, after?: string, userId?: string) {
+				function* (limit: number, after?: string) {
 					return yield* session.run((db) =>
 						db
 							.select({ id: schema.relationshipProjectionWork.id })
@@ -363,16 +283,8 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 							.where(
 								and(
 									after === undefined ? undefined : gt(schema.relationshipProjectionWork.id, after),
-									userId === undefined
-										? undefined
-										: eq(schema.relationshipProjectionWork.userId, userId),
-									or(
-										sql`${schema.relationshipProjectionWork.inputRepairRevision} <> ${schema.relationshipProjectionWork.preparedInputRepairRevision}`,
-										and(
-											isNull(schema.relationshipProjectionWork.currentJobId),
-											sql`exists (select 1 from ${schema.relationshipProjection} where ${schema.relationshipProjection.workId} = ${schema.relationshipProjectionWork.id} and ${dirty})`,
-										),
-									),
+									isNull(schema.relationshipProjectionWork.currentJobId),
+									sql`exists (select 1 from ${schema.relationshipProjection} where ${schema.relationshipProjection.workId} = ${schema.relationshipProjectionWork.id} and ${dirty})`,
 								),
 							)
 							.orderBy(asc(schema.relationshipProjectionWork.id))
@@ -399,7 +311,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 			);
 
 			const bindingCandidates = Effect.fn("RelationshipProjectionRepository.bindingCandidates")(
-				function* (input: { limit: number; userId?: string; after?: RelationshipProjectionKey }) {
+				function* (input: { limit: number; after?: RelationshipProjectionKey }) {
 					const after = input.after;
 					return yield* session.run((db) =>
 						db.execute<RelationshipProjectionKey & { projection: PluginProjection }>(
@@ -407,19 +319,18 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 								d.slug as "relationshipSchemaSlug", d.projection
 								from ${schema.userRelationshipSchema} d
 								inner join "user" u on u.id = d.user_id and u.disabled_at is null
-								inner join ${schema.plugin} g on g.id = d.plugin_id
-								left join ${schema.pluginInstallation} i on i.plugin_id = g.id and i.user_id = d.user_id
+								inner join ${schema.userPlugin} up on up.user_id = d.user_id and up.plugin_id = d.plugin_id
+									and up.is_executable
 								left join ${schema.relationshipProjectionWork} w on w.user_id = d.user_id
 									and w.relationship_schema_plugin_id = d.plugin_id and w.relationship_schema_slug = d.slug
 								where d.is_effective and d.projection is not null
-								${input.userId === undefined ? sql`` : sql`and d.user_id = ${input.userId}`}
 								${after ? sql`and (d.user_id, d.plugin_id, d.slug) > (${after.userId}, ${after.relationshipSchemaPluginId}, ${after.relationshipSchemaSlug})` : sql``}
 								and exists (select 1 from ${schema.relationship} r where r.user_id = d.user_id
 									and r.relationship_schema_plugin_id = d.plugin_id and r.relationship_schema_slug = d.slug)
 								and (w.id is null
 									or w.account_token is distinct from u.account_generation
-									or w.plugin_revision_id is distinct from g.active_revision_id
-									or w.plugin_pin ->> 'configRevisionId' is distinct from (case when g.owner_user_id is null then g.environment_config_revision_id else i.active_config_revision_id end)
+									or w.plugin_revision_id is distinct from up.active_revision_id
+									or w.plugin_pin ->> 'configRevisionId' is distinct from up.config_revision_id
 									or exists (select 1 from ${schema.relationship} r where r.user_id = d.user_id
 										and r.relationship_schema_plugin_id = d.plugin_id and r.relationship_schema_slug = d.slug
 										and not exists (select 1 from ${schema.relationshipProjection} p where p.relationship_id = r.id)))
@@ -462,11 +373,8 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				release,
 				reserve,
 				claimable,
-				lockInputs,
-				fillMissing,
+				fill,
 				currentClaim,
-				advanceInputs,
-				prepareInputs,
 				get: readState,
 				listCandidates,
 				bindingCandidates,
@@ -478,15 +386,3 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
-
-export const RelationshipProjectionInputFenceLive = Layer.effect(
-	ProjectionInputFence,
-	Effect.gen(function* () {
-		const repository = yield* RelationshipProjectionRepository;
-		return {
-			advance: repository.advanceInputs,
-			lock: (account: Parameters<ProjectionInputFence["Service"]["lock"]>[0]) =>
-				repository.lockInputs(account.userId),
-		};
-	}),
-).pipe(Layer.provide(RelationshipProjectionRepository.layer));

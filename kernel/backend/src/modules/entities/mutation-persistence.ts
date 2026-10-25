@@ -370,7 +370,6 @@ export const makePersistMutation = <E, R, Result>({
 				: undefined;
 			const plan = evidence
 				? yield* planner.plan({
-						writeContext: input.lifecycle.writeContext,
 						trigger: yield* lifecycleTrigger(
 							{
 								...input.lifecycle,

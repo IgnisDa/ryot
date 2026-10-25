@@ -670,7 +670,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}
 				}
 				const planned = yield* planner.plan({
-					writeContext: lifecycle.writeContext,
 					trigger: yield* lifecycleTrigger(lifecycle, input.scopeUserId, request),
 				});
 				if (planned.trigger?.blockedReason) {

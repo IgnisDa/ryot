@@ -17,30 +17,31 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 	const service = yield* BackgroundWorkService;
 	const executor = yield* BackgroundWorkExecutor;
 	const projection = yield* BackgroundWorkProjectionFinalizer;
-	const job = yield* makeActivity({
+	const started = yield* makeActivity({
 		name: "start",
 		error: DbError,
 		execute: service.start(id),
 		success: Schema.NullOr(BackgroundWorkInput),
 	});
-	if (!job) {
+	if (!started) {
 		return undefined;
 	}
+	const projected = started.purpose !== "user-script";
 	const result = yield* Effect.exit(
 		Effect.gen(function* () {
-			if (
-				job.purpose !== "user-script" &&
-				!(yield* makeActivity({
-					error: DbError,
-					success: Schema.Boolean,
-					name: "prepare-projection",
-					execute: projection.prepare(job),
-				}))
-			) {
+			const job = projected
+				? yield* makeActivity({
+						error: DbError,
+						name: "prepare-projection",
+						execute: projection.prepare(started),
+						success: Schema.NullOr(BackgroundWorkInput),
+					})
+				: started;
+			if (!job) {
 				return;
 			}
 			const output = yield* executor.execute(job);
-			if (job.purpose !== "user-script" || job.featureInput !== null) {
+			if (projected) {
 				yield* projection.publish(job, output);
 			}
 		}),
@@ -63,22 +64,8 @@ export const runBackgroundWorkWorkflow = Effect.fn("BackgroundWorkWorkflow")(fun
 			)
 			.pipe(Effect.asVoid),
 	});
-	if (result._tag === "Failure" && (job.purpose !== "user-script" || job.featureInput !== null)) {
-		yield* projection.failed(job);
-	}
-	if (
-		job.purpose === "event-projection" ||
-		(job.purpose === "user-script" &&
-			job.execution.subject.type === "user" &&
-			job.execution.subject.afterHooks === "skip")
-	) {
-		yield* projection
-			.settled(job)
-			.pipe(
-				Effect.catchTag("DbError", (error) =>
-					Effect.logWarning("Projection settlement recovery failed", error.message),
-				),
-			);
+	if (result._tag === "Failure" && projected) {
+		yield* projection.failed(started);
 	}
 	yield* service
 		.dispatch(id)

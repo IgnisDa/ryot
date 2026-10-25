@@ -8,7 +8,7 @@ import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxHostFailure, type SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
-import { type ScriptExecutionPrincipal, skipsAfterHooks } from "./principal";
+import type { ScriptExecutionPrincipal } from "./principal";
 
 type SandboxCapabilitySystemKind = "script" | "automation";
 type SandboxCapabilitySubject = "user" | "system" | "projection" | "automation-run";
@@ -210,22 +210,6 @@ const sandboxCapabilityError = (
 ) => {
 	const requirement = sandboxCapabilityRequirement(capability);
 	const subject = input.principal.subject;
-	if (
-		skipsAfterHooks(input.principal) &&
-		[
-			"httpCall",
-			"emitSignal",
-			"sendNotification",
-			"ensureUserEntities",
-			"getOAuthAccessToken",
-			"upsertGlobalEntities",
-			"upsertGlobalRelationships",
-			"invalidateOAuthAccessToken",
-			"requestRelationshipProjectionsForAllUsers",
-		].includes(capability)
-	) {
-		return `${capability} is not available when after hooks are skipped`;
-	}
 	if (
 		subject.type === "projection" &&
 		!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)

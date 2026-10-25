@@ -284,22 +284,23 @@ export type PluginProjection = Schema.Schema.Type<typeof PluginProjection>;
 
 export const PluginEventProjection = strictStruct({
 	...PluginProjection.fields,
-	inputRepairScriptSlug: Schema.optional(pluginManifestSlug),
-	inputs: Schema.NonEmptyArray(
-		strictStruct({
-			eventSchemaSlug: pluginManifestSlug,
-			scope: Schema.Union([
-				Schema.Literals(["entity", "session"]),
-				strictStruct({ property: Schema.NonEmptyString }),
-			]),
-			through: Schema.optional(
-				strictStruct({
-					eventSchemaSlug: pluginManifestSlug,
-					sourceProperty: Schema.NonEmptyString,
-					targetProperty: Schema.NonEmptyString,
-				}),
-			),
-		}),
+	inputs: Schema.optional(
+		Schema.NonEmptyArray(
+			strictStruct({
+				eventSchemaSlug: pluginManifestSlug,
+				scope: Schema.Union([
+					Schema.Literals(["entity", "session"]),
+					strictStruct({ property: Schema.NonEmptyString }),
+				]),
+				through: Schema.optional(
+					strictStruct({
+						eventSchemaSlug: pluginManifestSlug,
+						sourceProperty: Schema.NonEmptyString,
+						targetProperty: Schema.NonEmptyString,
+					}),
+				),
+			}),
+		),
 	),
 });
 

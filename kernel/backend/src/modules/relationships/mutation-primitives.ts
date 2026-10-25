@@ -584,7 +584,6 @@ export const makeRelationshipMutationPrimitives = ({
 			...(input.population === undefined ? {} : { population: input.population }),
 		};
 		const plan = yield* planner.plan({
-			writeContext: command.writeContext,
 			trigger: yield* lifecycleTrigger(
 				{
 					...command,

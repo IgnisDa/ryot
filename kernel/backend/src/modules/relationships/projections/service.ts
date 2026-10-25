@@ -21,17 +21,14 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
-import {
-	type BackgroundWorkInput,
-	ProjectionBindings,
-	ProjectionInputReadiness,
-} from "#modules/background-work/model";
+import type { BackgroundWorkInput } from "#modules/background-work/model";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { sameRevisionPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
+import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
 import { DatabaseSession } from "#platform/db/session";
 import { redisKeys, RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
@@ -43,7 +40,6 @@ const RelationshipProjectionClaim = Schema.Struct({
 	id: Schema.String,
 	jobId: Schema.String,
 	outputSchema: AppSchema,
-	inputRepairRevision: Schema.Int,
 	pluginPin: ScriptPluginRevision,
 	processorScriptId: SandboxScriptId,
 	accountGeneration: AccountGeneration,
@@ -61,7 +57,6 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const relationshipSchemas = yield* RelationshipSchemaReader;
 			const background = yield* BackgroundWorkService;
 			const bindings = yield* ProjectionBindings;
-			const inputs = yield* ProjectionInputReadiness;
 			const redis = yield* RedisService;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 
@@ -121,7 +116,6 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 			const arrange = Effect.fn("RelationshipProjectionService.arrange")(function* (
 				id: string,
 				retry?: boolean,
-				fillMissing?: boolean,
 			) {
 				const candidate = yield* repository.get(id);
 				if (!candidate) {
@@ -129,43 +123,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				}
 				const account = { token: candidate.accountToken, userId: UserId.make(candidate.userId) };
 				yield* background.lockAccount(account);
-				yield* repository.lockInputs(account.userId);
-				let work = yield* repository.prepare(id);
-				if (!work) {
-					return null;
-				}
-				const key = {
-					userId: work.userId,
-					relationshipSchemaSlug: work.relationshipSchemaSlug,
-					relationshipSchemaPluginId: work.relationshipSchemaPluginId,
-				};
-				const binding = yield* currentBinding(key);
-				if (
-					!binding ||
-					binding.accountGeneration.token !== account.token ||
-					!(yield* inputs.ready(account))
-				) {
-					return null;
-				}
-				if (
-					work.processorScriptId !== binding.persisted.processorScriptId ||
-					stableStringify(work.pluginPin) !== stableStringify(binding.persisted.pluginPin) ||
-					stableStringify(work.outputSchema) !== stableStringify(binding.persisted.outputSchema)
-				) {
-					yield* repository.bind(key, binding.persisted);
-					work = yield* repository.get(id);
-					if (!work) {
-						return null;
-					}
-				}
-				const openInputs = work.inputRepairRevision !== work.preparedInputRepairRevision;
-				if (openInputs) {
-					yield* repository.prepareInputs(id);
-					work = yield* repository.get(id);
-				}
-				if (work && (fillMissing || openInputs)) {
-					yield* repository.fillMissing(key);
-				}
+				const work = yield* repository.prepare(id);
 				if (
 					!work ||
 					(work.currentJobId !== null &&
@@ -191,7 +149,6 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 					accountGeneration: account,
 					outputSchema: work.outputSchema,
 					processorScriptId: work.processorScriptId,
-					inputRepairRevision: work.inputRepairRevision,
 					revisions: Object.fromEntries(
 						claimed.map((item) => [item.relationshipId, item.revision]),
 					),
@@ -236,6 +193,33 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				return jobId;
 			});
 
+			const admit = Effect.fnUntraced(function* (
+				key: RelationshipProjectionKey,
+				binding: NonNullable<Effect.Success<ReturnType<typeof currentBinding>>>,
+				sourceEntityIds: null | ReadonlyArray<string>,
+				authorize: Effect.Effect<void, DbError>,
+			) {
+				const admitted = yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* background.lockAccount(binding.accountGeneration);
+							yield* authorize;
+							const id = yield* repository.bind(key, binding.persisted);
+							if (sourceEntityIds === null) {
+								yield* repository.fill(key);
+							} else {
+								yield* repository.mark(key, sourceEntityIds);
+							}
+							return { id, jobId: yield* arrange(id, true) };
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+				if (admitted.jobId) {
+					yield* background.dispatch(admitted.jobId);
+				}
+				return admitted.id;
+			});
+
 			const enqueue = Effect.fn("RelationshipProjectionService.enqueue")(function* (
 				key: RelationshipProjectionKey,
 				sourceEntityIds: null | ReadonlyArray<string>,
@@ -245,24 +229,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				if (!binding) {
 					return yield* new DbError({ message: "Relationship projection binding is unavailable" });
 				}
-				const admitted = yield* session
-					.transaction(
-						Effect.gen(function* () {
-							yield* background.lockAccount(binding.accountGeneration);
-							yield* authorize;
-							yield* repository.lockInputs(key.userId);
-							const id = yield* repository.bind(key, binding.persisted);
-							if (sourceEntityIds !== null) {
-								yield* repository.mark(key, sourceEntityIds);
-							}
-							return { id, jobId: yield* arrange(id, true, sourceEntityIds === null) };
-						}),
-					)
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				if (admitted.jobId) {
-					yield* background.dispatch(admitted.jobId);
-				}
-				return admitted.id;
+				return yield* admit(key, binding, sourceEntityIds, authorize);
 			});
 
 			const request = Effect.fn("RelationshipProjectionService.request")(function* (input: {
@@ -398,15 +365,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 						.transaction(
 							Effect.gen(function* () {
 								yield* background.lockAccount(claim.accountGeneration);
-								yield* repository.lockInputs(claim.accountGeneration.userId);
-								if (
-									!(yield* repository.currentClaim(
-										claim.id,
-										claim.jobId,
-										claim.inputRepairRevision,
-									)) ||
-									!(yield* inputs.ready(claim.accountGeneration))
-								) {
+								if (!(yield* repository.currentClaim(claim.id, claim.jobId))) {
 									yield* repository.release(claim.id, claim.jobId);
 									yield* background.settle(job.id, "succeeded");
 									yield* arrange(claim.id);
@@ -468,18 +427,19 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				);
 			});
 
-			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* (
-				userId?: string,
-			) {
+			const reconcile = Effect.fn("RelationshipProjectionService.reconcile")(function* () {
 				let after: undefined | RelationshipProjectionKey;
 				for (;;) {
 					const candidates = yield* repository.bindingCandidates({
 						limit: 100,
-						...(userId === undefined ? {} : { userId }),
 						...(after === undefined ? {} : { after }),
 					});
 					for (const candidate of candidates) {
-						yield* enqueue(candidate, null, Effect.void).pipe(
+						const binding = yield* currentBinding(candidate);
+						if (!binding) {
+							continue;
+						}
+						yield* admit(candidate, binding, null, Effect.void).pipe(
 							Effect.catchTag("DbError", (error) =>
 								Effect.logWarning("Relationship projection reconciliation skipped a schema", {
 									reason: error.message,
@@ -496,7 +456,7 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				}
 				let afterWork: string | undefined;
 				for (;;) {
-					const candidates = yield* repository.listCandidates(100, afterWork, userId);
+					const candidates = yield* repository.listCandidates(100, afterWork);
 					for (const work of candidates) {
 						const jobId = yield* session
 							.transaction(arrange(work.id))

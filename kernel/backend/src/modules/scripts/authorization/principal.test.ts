@@ -2,7 +2,6 @@ import { expect, it } from "@effect/vitest";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
-import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";
 import { isUserBootstrapPrincipal, ScriptExecutionPrincipal } from "./principal";
 
 const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
@@ -54,41 +53,6 @@ const principal = {
 		},
 	},
 };
-
-it.effect("retains trusted after-hook suppression with the exact pins and user generation", () =>
-	Effect.gen(function* () {
-		const user = {
-			...principal,
-			metadata: { kind: "script", runtimeImports: [] },
-			subject: {
-				type: "user",
-				userId: "user-1",
-				afterHooks: "skip",
-				accountGeneration: principal.subject.accountGeneration,
-			},
-		};
-		const decoded = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(user);
-		expect(
-			yield* Schema.decodeEffect(Schema.fromJsonString(ScriptExecutionPrincipal))(
-				yield* encodeJson(user),
-			),
-		).toEqual(decoded);
-		const payload = {
-			lane: "background",
-			resolutionMode: "exact",
-			subject: decoded.subject,
-			scriptId: decoded.scriptId,
-			executionId: "repair-script",
-			input: { afterHooks: "normal" },
-			pluginRevision: decoded.pluginRevision,
-		};
-		expect(
-			yield* Schema.decodeEffect(Schema.fromJsonString(ScriptExecutionWorkflowPayload))(
-				yield* encodeJson(payload),
-			),
-		).toEqual(payload);
-	}),
-);
 
 it.effect(
 	"retains exact revision/config pins in durable principals and rejects conflicting ownership",
@@ -167,20 +131,5 @@ it.effect("recognizes only a declared user bootstrap script as a bootstrap princ
 		expect(yield* bootstrap({ kind: "script" }, ["script"])).toBe(true);
 		expect(yield* bootstrap({ kind: "script" }, ["other"])).toBe(false);
 		expect(yield* bootstrap({ kind: "automation" }, ["script"])).toBe(false);
-		expect(
-			isUserBootstrapPrincipal(
-				yield* decode({
-					...principal,
-					metadata: { kind: "script", runtimeImports: [] },
-					pluginRevision: { ...principal.pluginRevision, userBootstrapScriptSlugs: ["script"] },
-					subject: {
-						type: "user",
-						userId: "user-1",
-						afterHooks: "skip",
-						accountGeneration: principal.subject.accountGeneration,
-					},
-				}),
-			),
-		).toBe(false);
 	}),
 );

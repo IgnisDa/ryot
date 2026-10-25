@@ -16,7 +16,6 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { ActivityBody } from "#platform/workflow/scope";
 import {
 	databaseLayer,
 	makeAppConfigLayer,
@@ -29,7 +28,6 @@ import { archivePluginDefinitionContract } from "../archive/schemas";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
-	BackupRestoreAfterCommit,
 	BackupWorkflowError,
 	RestoreBackupWorkflow,
 	RestoreBackupWorkflowOperations,
@@ -120,11 +118,7 @@ const makeLayer = (
 								stagedObjects: Ref.get(objects),
 							}),
 							mockRepository(input.repository ?? {}),
-							mockWriter({
-								preflight: preflightProvenance,
-								fenceEventStreamInputs: () => Ref.update(calls, (all) => [...all, "fence"]),
-								...input.writer,
-							}),
+							mockWriter({ preflight: preflightProvenance, ...input.writer }),
 							mockCleanliness(input.cleanliness ?? {}),
 							mockUploadIntents(input.uploadIntents ?? {}),
 							mockManagedAssets(input.managedAssets ?? {}),
@@ -418,11 +412,7 @@ layer(
 	test.effect("retries a deadlocked restore transaction", () =>
 		Effect.gen(function* () {
 			yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
-				"restore",
-				"restore",
-				"fence",
-			]);
+			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
 		}),
 	);
 });
@@ -650,12 +640,6 @@ const recordingOperationsLayer = Layer.mergeAll(
 			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
 			return Layer.mergeAll(
 				Layer.succeed(FakeRestoreOperations, { calls: Ref.get(calls) }),
-				Layer.succeed(BackupRestoreAfterCommit, {
-					run: Effect.gen(function* () {
-						expect(yield* ActivityBody).toBe(false);
-						yield* record("reconcile");
-					}),
-				}),
 				Layer.mock(RestoreBackupWorkflowOperations, {
 					fail: () => record("fail"),
 					restore: () => record("restore"),
@@ -677,7 +661,6 @@ layer(recordingOperationsLayer)((test) => {
 				"begin",
 				"claim",
 				"restore",
-				"reconcile",
 				"cleanup",
 			]);
 		}),

@@ -12,7 +12,6 @@ export const eventStream = snakeCase.table("event_stream", {
 	eventSchemaSlug: text().notNull(),
 	revision: integer().notNull().default(0),
 	updatedAt: timestamptz().defaultNow().notNull(),
-	repairEpoch: text().notNull().default("initial"),
 	eventSchemaPluginId: text().references(() => plugin.id, { onDelete: "cascade" }),
 	userId: text()
 		.notNull()
@@ -26,7 +25,6 @@ export const eventStreamWork = snakeCase.table(
 	"event_stream_work",
 	{
 		currentJobId: text(),
-		inputRepairJobId: text(),
 		dirtyFrom: timestamptz(),
 		completedRevision: integer(),
 		accountToken: text().notNull(),
@@ -42,8 +40,5 @@ export const eventStreamWork = snakeCase.table(
 			.primaryKey()
 			.references(() => eventStream.id, { onDelete: "cascade" }),
 	},
-	(table) => [
-		index("event_stream_work_current_job_idx").on(table.currentJobId),
-		index("event_stream_work_input_repair_job_idx").on(table.inputRepairJobId),
-	],
+	(table) => [index("event_stream_work_current_job_idx").on(table.currentJobId)],
 );

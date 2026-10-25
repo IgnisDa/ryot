@@ -21,8 +21,6 @@ export const relationshipProjectionWork = snakeCase.table(
 		pluginPin: jsonb().$type<JsonValue>().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
 		outputSchema: jsonb().$type<AppSchema>().notNull(),
-		inputRepairRevision: integer().notNull().default(0),
-		preparedInputRepairRevision: integer().notNull().default(0),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
