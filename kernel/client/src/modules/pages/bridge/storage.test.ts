@@ -4,13 +4,13 @@ import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { PLUGIN_STORAGE_VALUE_MAX_BYTES } from "@ryot-app/plugin-client-contract";
 import { Effect, Layer } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
 import { clientStorageLayer, pluginStorageKey } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const fixture = PluginId.make("plugin-1");
 const other = PluginId.make("plugin-2");
 

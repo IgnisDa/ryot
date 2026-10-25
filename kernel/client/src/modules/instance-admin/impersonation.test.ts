@@ -3,7 +3,7 @@ import type { StoredTokenSet } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import {
 	OAuthLauncher,
 	OAuthLauncherError,
@@ -17,7 +17,7 @@ import {
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 const pending = makePendingAuthorization(origin, {
 	state: "state-1",
 	nonce: "nonce-1",

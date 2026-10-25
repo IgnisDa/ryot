@@ -20,12 +20,12 @@ import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makePluginsApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 type InvokeResult = Effect.Effect<ContractSuccess<"plugins", "invoke">, AuthenticatedApiError>;
 

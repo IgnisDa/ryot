@@ -2,7 +2,7 @@ import { Browser } from "@capacitor/browser";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { browserServerOrigin } from "#/api/origin";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ServerService } from "#/modules/server/service";
@@ -17,7 +17,7 @@ export const Route = createFileRoute("/auth_/logout/callback")({
 				const runtimeClient = yield* RuntimeOAuthClientService;
 				const selected = runtimeClient.isNative
 					? yield* Effect.flatMap(ServerService, (service) => service.selected)
-					: decodeServerOrigin(window.location.origin);
+					: yield* browserServerOrigin;
 				if (runtimeClient.isNative) {
 					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
 				}

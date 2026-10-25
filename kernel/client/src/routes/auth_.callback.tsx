@@ -3,12 +3,12 @@ import {
 	OAUTH_IMPERSONATION_CLIENT_IDS,
 	OAUTH_NATIVE_CLIENT_IDS,
 	OAUTH_WEB_CLIENT_IDS,
-	OAuthCallbackQuery,
+	type OAuthCallbackQuery,
 } from "@ryot-app/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { browserServerOrigin } from "#/api/origin";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { AuthStatus } from "#/modules/auth/status";
@@ -28,20 +28,19 @@ export const Route = createFileRoute("/auth_/callback")({
 	component: CompletingSignIn,
 	errorComponent: CouldNotCompleteSignIn,
 	pendingComponent: () => <AuthStatus {...completingSignIn} />,
-	validateSearch: (search) =>
-		Schema.decodeSync(OAuthCallbackQuery)({
-			code: searchValue(search.code),
-			error: searchValue(search.error),
-			state: searchValue(search.state),
-			error_description: searchValue(search.error_description),
-		}),
+	validateSearch: (search): OAuthCallbackQuery => ({
+		code: searchValue(search.code),
+		error: searchValue(search.error),
+		state: searchValue(search.state),
+		error_description: searchValue(search.error_description),
+	}),
 	beforeLoad: ({ search, context }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
 				const runtimeClient = yield* RuntimeOAuthClientService;
 				const selected = runtimeClient.isNative
 					? yield* Effect.flatMap(ServerService, (service) => service.selected)
-					: decodeServerOrigin(window.location.origin);
+					: yield* browserServerOrigin;
 				if (selected === null) {
 					return yield* new OAuthTokenError({ reason: "missing-authorization" });
 				}

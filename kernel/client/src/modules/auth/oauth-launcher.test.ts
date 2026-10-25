@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
@@ -21,7 +21,7 @@ import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/aut
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { ServerService } from "#/modules/server/service";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 const systemConfig = {
 	analytics: {},
 	version: "v1.0.0",

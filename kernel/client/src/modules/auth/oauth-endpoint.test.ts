@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import {
 	OAuthEndpointError,
 	OAuthTransportError,
@@ -9,7 +9,7 @@ import {
 	postOAuthFormRequest,
 } from "#/modules/auth/oauth-endpoint";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 const body = new URLSearchParams({ grant_type: "refresh_token" });
 
 const respondWith =

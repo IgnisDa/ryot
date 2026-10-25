@@ -8,11 +8,11 @@ import {
 	isDemoOperationProtectedError,
 	makeAuthenticatedApi,
 } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const unusedHttp = HttpClient.make(() => Effect.die("not used"));
 const bearerToken = (sub: string) =>
 	`header.${btoa(JSON.stringify({ sub })).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_")}.signature`;

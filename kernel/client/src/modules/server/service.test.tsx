@@ -1,12 +1,12 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { PublicApi, PublicApiError } from "#/api/public";
 import { ServerService } from "#/modules/server/service";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
-const origin = decodeServerOrigin("https://example.com");
+const origin = ServerOrigin.make("https://example.com");
 
 class FakeServerDependencies extends Context.Service<
 	FakeServerDependencies,

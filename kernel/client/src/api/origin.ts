@@ -1,4 +1,4 @@
-import { Schema, SchemaTransformation } from "effect";
+import { Effect, Result, Schema, SchemaTransformation } from "effect";
 
 export type ServerMode = "cloud" | "self-hosted";
 
@@ -36,8 +36,11 @@ export const ServerOrigin = ServerOriginString.pipe(
 
 export type ServerOrigin = typeof ServerOrigin.Type;
 
-export const decodeServerOrigin = Schema.decodeUnknownSync(ServerOrigin);
-export const CLOUD_ORIGIN = decodeServerOrigin("https://app.ryot.io");
+export const decodeServerOrigin = Schema.decodeUnknownEffect(ServerOrigin);
+export const browserServerOrigin = Effect.suspend(() =>
+	decodeServerOrigin(window.location.origin),
+).pipe(Effect.orDie);
+export const CLOUD_ORIGIN = ServerOrigin.make("https://app.ryot.io");
 
 export type ServerOriginResult =
 	| { readonly ok: true; readonly origin: ServerOrigin }
@@ -50,13 +53,11 @@ export const serverApiUrl = (origin: ServerOrigin) => `${origin}/api`;
 export const resolveApiUrl = (origin: ServerOrigin, value: string) =>
 	new URL(value.replace(/^\/+/, ""), `${serverApiUrl(origin)}/`).toString();
 
-export function parseServerOrigin(value: string): ServerOriginResult {
-	try {
-		return { ok: true, origin: decodeServerOrigin(value) };
-	} catch {
-		return { ok: false, reason: "invalid-server-origin" };
-	}
-}
+export const parseServerOrigin = (value: string): ServerOriginResult =>
+	Result.match(Schema.decodeResult(ServerOrigin)(value), {
+		onSuccess: (origin) => ({ origin, ok: true }),
+		onFailure: () => ({ ok: false, reason: "invalid-server-origin" }),
+	});
 
 export const suggestedServerOrigin = (origin: string | undefined) => {
 	if (origin === undefined) {

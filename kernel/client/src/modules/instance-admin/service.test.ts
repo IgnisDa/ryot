@@ -6,7 +6,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Context, Effect, Fiber, Layer, Ref, Result } from "effect";
 import { TestClock } from "effect/testing";
 
-import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeInstanceAdminApi } from "#/api/ports.test-layer";
 import {
 	InstanceAdminService,
@@ -18,8 +18,8 @@ import {
 } from "#/modules/instance-admin/session";
 import type { InstanceAdminUserLifecycleOperation } from "#/modules/instance-admin/user-lifecycle";
 
-const origin = decodeServerOrigin("https://ryot.example");
-const otherOrigin = decodeServerOrigin("https://other.example");
+const origin = ServerOrigin.make("https://ryot.example");
+const otherOrigin = ServerOrigin.make("https://other.example");
 
 const operation = (
 	kind: InstanceAdminUserLifecycleOperation["kind"],

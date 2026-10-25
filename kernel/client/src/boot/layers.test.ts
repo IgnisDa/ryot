@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, ManagedRuntime } from "effect";
 
 import { InstanceAdminApi } from "#/api/instance-admin";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { ClientLive } from "#/boot/layers";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
@@ -12,7 +12,7 @@ import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
 import { OAuthReturnCapture } from "#/modules/integrations/oauth-return";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 
 describe("Client layers", () => {
 	it("builds the graph synchronously so the boot runSync cannot fail", () => {

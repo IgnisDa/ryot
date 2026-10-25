@@ -1,5 +1,5 @@
 import { StoredTokenSet } from "@ryot-app/contract/oauth";
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 
 import { decodeOAuthTokenClaims } from "./token-claims";
 
@@ -8,13 +8,8 @@ const OAuthTokenIdentity = Schema.Struct({
 	sid: Schema.optional(Schema.String),
 });
 
-export const decodeOAuthTokenIdentity = (token: string): null | typeof OAuthTokenIdentity.Type => {
-	try {
-		return decodeOAuthTokenClaims(token, OAuthTokenIdentity);
-	} catch {
-		return null;
-	}
-};
+export const decodeOAuthTokenIdentity = (token: string): null | typeof OAuthTokenIdentity.Type =>
+	Option.getOrNull(decodeOAuthTokenClaims(token, OAuthTokenIdentity));
 
 /** Who the tokens sign in as: rotating tokens for the same user and session keeps the key. */
 export const oauthTokenSessionKey = (tokens: null | StoredTokenSet) => {
@@ -27,13 +22,9 @@ export const oauthTokenSessionKey = (tokens: null | StoredTokenSet) => {
 		: JSON.stringify([identity.sub, identity.sid ?? null]);
 };
 
-const accessTokenFromStorage = (value: string) => {
-	try {
-		return Schema.decodeSync(Schema.fromJsonString(StoredTokenSet))(value).accessToken;
-	} catch {
-		return undefined;
-	}
-};
+const accessTokenFromStorage = (value: string) =>
+	Option.getOrUndefined(Schema.decodeOption(Schema.fromJsonString(StoredTokenSet))(value))
+		?.accessToken;
 
 export const oauthSessionBoundaryChanged = (previous: null | string, next: null | string) => {
 	if (previous === null || next === null) {

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientError } from "#/modules/auth/runtime-client";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 
 describe("runtime OAuth client", () => {
 	it.live("describes the web client from the server origin", () =>

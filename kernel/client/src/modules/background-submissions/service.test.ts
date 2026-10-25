@@ -10,7 +10,7 @@ import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Deferred, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { makeStoredTokenSet } from "#/modules/auth/oauth-storage.test-support";
@@ -29,7 +29,7 @@ import {
 import { backgroundSubmissionTrayEntry } from "#/modules/background-submissions/tray";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 const media: BackgroundSubmissionTarget = {
 	pluginName: "Media",

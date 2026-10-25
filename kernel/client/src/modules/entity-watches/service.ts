@@ -139,8 +139,13 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 					retry = io.schedule(Math.min(30_000, 1000 * 2 ** Math.min(failures++, 5)), connect);
 				};
 				const send = (message: EntityWatchClientMessage) => {
+					const frame = encodeEntityWatchClientMessage(message);
+					if (Result.isFailure(frame)) {
+						failed();
+						return;
+					}
 					try {
-						socket?.send(encodeEntityWatchClientMessage(message));
+						socket?.send(frame.success);
 					} catch {
 						failed();
 					}

@@ -1,6 +1,6 @@
 import { Context, Effect, Layer } from "effect";
 
-import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { browserServerOrigin, type ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { ClientStorage } from "#/persistence/storage";
@@ -14,9 +14,7 @@ export class ServerService extends Context.Service<ServerService>()("ServerServi
 			yield* storage.setServerSelection(origin);
 		});
 
-		const selected = isNativePlatform()
-			? storage.getServerSelection
-			: Effect.sync(() => decodeServerOrigin(window.location.origin));
+		const selected = isNativePlatform() ? storage.getServerSelection : browserServerOrigin;
 
 		return { connect, selected };
 	}),

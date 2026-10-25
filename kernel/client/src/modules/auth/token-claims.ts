@@ -1,13 +1,22 @@
-import { Schema } from "effect";
+import { Option, Schema } from "effect";
 
-export const decodeOAuthTokenClaims = <A>(token: string, schema: Schema.Codec<A>) => {
+export const decodeOAuthTokenClaims = <A>(
+	token: string,
+	schema: Schema.Codec<A>,
+): Option.Option<A> => {
 	const payload = token.split(".")[1];
 	if (!payload) {
-		throw new Error("OAuth token payload is missing");
+		return Option.none();
 	}
 	const base64 = payload
 		.replaceAll("-", "+")
 		.replaceAll("_", "/")
 		.padEnd(Math.ceil(payload.length / 4) * 4, "=");
-	return Schema.decodeSync(Schema.fromJsonString(schema))(atob(base64));
+	let json: string;
+	try {
+		json = atob(base64);
+	} catch {
+		return Option.none();
+	}
+	return Schema.decodeOption(Schema.fromJsonString(schema))(json);
 };

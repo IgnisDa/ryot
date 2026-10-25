@@ -7,14 +7,14 @@ import type {
 } from "@ryot-app/plugin-client-contract";
 import { Deferred, Effect, Fiber } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import {
 	IosLiveActivitiesService,
 	IosLiveActivityPlatform,
 	IosLiveActivityPlatformError,
 } from "#/modules/ios-live-activities/service";
 
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://one.test") };
 const pluginId = PluginId.make("other");
 const installation = { pluginId, installationId: "installation-1" };
 const contributors: PreparedClientPage["identity"]["contributors"] = [
@@ -112,7 +112,7 @@ describe("iOS Live Activity authority", () => {
 				});
 				expect(state.calls[0]?.owner).toMatch(/^[a-f0-9]{64}$/);
 				expect(state.retained[0]).toEqual([state.calls[0]?.owner]);
-				yield* service.setScope({ ...scope, serverUrl: decodeServerOrigin("https://two.test") }, [
+				yield* service.setScope({ ...scope, serverUrl: ServerOrigin.make("https://two.test") }, [
 					installation,
 				]);
 				expect(state.retained.at(-1)).not.toEqual(state.retained[0]);

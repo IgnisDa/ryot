@@ -7,7 +7,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { StrictMode, useEffect } from "react";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { createKernelRyotClientStore } from "#/api/ryot-client";
 import { KernelRyotProvider } from "#/api/ryot-client-provider";
@@ -141,7 +141,7 @@ describe("committed kernel SDK runtime", () => {
 
 	it.live.each([
 		{ ...scope, userId: "user-2" },
-		{ ...scope, serverUrl: decodeServerOrigin("https://other.example") },
+		{ ...scope, serverUrl: ServerOrigin.make("https://other.example") },
 	])("closes departing scheduled work on replacement with %j and layout removal", (replacement) => {
 		const runtime = makeRuntime();
 		return Effect.gen(function* () {

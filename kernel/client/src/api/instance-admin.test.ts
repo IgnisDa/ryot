@@ -6,9 +6,9 @@ import { HttpClient, type HttpClientRequest, HttpClientResponse } from "effect/h
 
 import { AdminApi, makeAdminApi } from "#/api/admin";
 import { InstanceAdminApi } from "#/api/instance-admin";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 
 const authorization: ImpersonationAuthorization = {
 	nonce: "nonce-1",

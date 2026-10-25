@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
-import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginPackageId,
+	RelationshipId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort takes a transfer list, not an origin
 import {
 	CLIENT_API_VERSION,
@@ -43,12 +49,12 @@ import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { waitFor } from "@testing-library/dom";
-import { Deferred, Effect, Fiber, Schema } from "effect";
+import { Deferred, Effect, Fiber, Option, Schema } from "effect";
 
 import { openPluginBridge, type PluginBridgeSession } from "#/modules/pages/bridge/session";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 
-const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
+const decodeInit = Schema.decodeUnknownOption(PluginBridgeInit);
 
 const compositionHash = "composition-hash";
 const home: PluginRouteLocation = { path: "/", search: "", kind: "route" };
@@ -73,16 +79,16 @@ const at = (location: PluginLogicalLocation = home, index = 0) => ({
 });
 const lightTheme: PluginThemeSnapshot = { resolvedMode: "light" };
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
-const membership = Schema.decodeSync(MembershipResponse)({
+const membership = MembershipResponse.make({
 	warnings: [],
 	memberOf: {
 		properties: {},
-		id: "relationship-1",
-		sourceEntityId: "entity-1",
-		targetEntityId: "collection-1",
 		relationshipSchemaPluginId: null,
-		relationshipSchemaSlug: "member-of",
 		createdAt: "2026-09-07T00:00:00.000Z",
+		id: RelationshipId.make("relationship-1"),
+		sourceEntityId: EntityId.make("entity-1"),
+		targetEntityId: EntityId.make("collection-1"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
 	},
 });
 const document = {
@@ -277,7 +283,7 @@ const connect = (
 					throw new Error("The bridge did not transfer a MessagePort.");
 				}
 				origins.push(targetOrigin);
-				init = decodeInit(message);
+				init = Option.getOrUndefined(decodeInit(message));
 				transferred.addEventListener("message", (event) => {
 					messages.push(event.data);
 					received.push(event.data);

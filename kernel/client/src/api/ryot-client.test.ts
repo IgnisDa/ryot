@@ -14,12 +14,18 @@ import {
 	ReorderMembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	RelationshipId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
+import { Effect, Layer, ManagedRuntime, Result } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import {
 	makeCollectionsApi,
 	makeEntityWatchService,
@@ -31,7 +37,7 @@ import { ExternalLinkPlatform, ExternalLinks } from "#/modules/external-links/se
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const document = { output: {}, queries: {} } as PreparedRecipe<unknown>["document"];
 const recipe = { document, decode: Result.succeed };
 const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
@@ -79,33 +85,33 @@ const intent: UploadIntentResponse = {
 };
 
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
-const collection = Schema.decodeSync(CollectionResponse)({
+const collection = CollectionResponse.make({
 	warnings: [],
 	properties: {},
 	providerId: null,
 	externalId: null,
 	name: "Favorites",
-	id: "collection-1",
 	entitySchemaPluginId: null,
-	entitySchemaSlug: "collection",
+	id: EntityId.make("collection-1"),
 	createdAt: "2026-09-07T00:00:00.000Z",
 	updatedAt: "2026-09-07T00:00:00.000Z",
+	entitySchemaSlug: EntitySchemaSlug.make("collection"),
 });
-const membership = Schema.decodeSync(MembershipResponse)({
+const membership = MembershipResponse.make({
 	warnings: [],
 	memberOf: {
 		properties: {},
-		id: "relationship-1",
-		sourceEntityId: "entity-1",
-		targetEntityId: "collection-1",
 		relationshipSchemaPluginId: null,
-		relationshipSchemaSlug: "member-of",
 		createdAt: "2026-09-07T00:00:00.000Z",
+		id: RelationshipId.make("relationship-1"),
+		sourceEntityId: EntityId.make("entity-1"),
+		targetEntityId: EntityId.make("collection-1"),
+		relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
 	},
 });
-const reorderResponse = Schema.decodeSync(ReorderMembershipResponse)({
+const reorderResponse = ReorderMembershipResponse.make({
 	orderRevision: 4,
-	collectionId: "collection-1",
+	collectionId: EntityId.make("collection-1"),
 });
 const reorderInput = {
 	expectedRevision: 3,

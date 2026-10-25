@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/contract";
 import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
@@ -14,7 +14,7 @@ import {
 	PluginCatalogEventsService,
 } from "#/modules/plugins/catalog/events";
 
-const serverOrigin = decodeServerOrigin("https://ryot.example");
+const serverOrigin = ServerOrigin.make("https://ryot.example");
 const scope: ApiScope = { userId: "user-1", serverUrl: serverOrigin };
 
 const encoder = new TextEncoder();

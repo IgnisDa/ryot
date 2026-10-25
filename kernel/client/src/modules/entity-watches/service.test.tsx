@@ -4,7 +4,7 @@ import { act, render } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { createElement, StrictMode, useEffect } from "react";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeEntityWatchApi } from "#/api/ports.test-layer";
 
 import { EntityWatchService } from "./service";
@@ -13,7 +13,7 @@ import { EntityWatchTransport, type InterestSocket } from "./transport";
 const updates: EntityUpdate[] = [];
 const empty = { visible: [], foreground: [] };
 const cleanups: Array<() => Promise<void>> = [];
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 afterEach(() => {

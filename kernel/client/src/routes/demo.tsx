@@ -8,7 +8,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef } from "react";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { browserServerOrigin } from "#/api/origin";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/demo")({
 				if (runtimeClient.isNative) {
 					return { _tag: "Native" } as const;
 				}
-				const serverOrigin = decodeServerOrigin(window.location.origin);
+				const serverOrigin = yield* browserServerOrigin;
 				const auth = yield* AuthService;
 				const session = yield* auth.settledSession(serverOrigin);
 				if (session.status === "authenticated") {

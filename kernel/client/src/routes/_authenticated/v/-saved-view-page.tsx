@@ -35,9 +35,9 @@ const entityBrowserRendererNames = new Set(["Entity browser", "Collection browse
 const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	const { renderer, settings } = prepared.context;
 	if (renderer.kind !== "kernel" || !entityBrowserRendererNames.has(renderer.name)) {
-		return null;
+		return Effect.succeed(null);
 	}
-	return Schema.decodeUnknownSync(EntityBrowserSavedViewSettings)(settings);
+	return Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(settings);
 };
 
 type SavedViewSearch = ReturnType<typeof validateSavedViewSearch>;
@@ -82,7 +82,7 @@ export const loadSavedView = Effect.fn("loadSavedView")(function* (
 	let prepared = yield* Effect.flatMap(PagesApi, (api) =>
 		api.prepare(scope, { payload: { target: { reference, kind: "saved-view" } } }),
 	);
-	const settings = entityBrowserSettings(prepared);
+	const settings = yield* entityBrowserSettings(prepared);
 	if (settings !== null) {
 		const storedLayout = yield* Effect.flatMap(ClientStorage, (storage) =>
 			storage.getSavedViewLayout(scope, viewPath),
@@ -94,7 +94,7 @@ export const loadSavedView = Effect.fn("loadSavedView")(function* (
 			};
 		}
 	}
-	return { prepared, viewPath };
+	return { prepared, viewPath, entityBrowser: settings };
 });
 
 export function SavedViewPage({
@@ -111,7 +111,7 @@ export function SavedViewPage({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
 	const pushedAdd = useRef(false);
-	const addAction = entityBrowserSettings(loaded.prepared)?.addAction;
+	const addAction = loaded.entityBrowser?.addAction;
 	const providerAddAction = addAction?.type === "provider-search" ? addAction : null;
 	const addOpen = add === true && providerAddAction !== null;
 
@@ -151,7 +151,7 @@ export function SavedViewPage({
 		if (layout === undefined) {
 			return;
 		}
-		const settings = entityBrowserSettings(loaded.prepared);
+		const settings = loaded.entityBrowser;
 		const decodedLayout = Schema.decodeUnknownResult(EntityBrowserLayout)(layout);
 		if (
 			settings === null ||
@@ -165,7 +165,7 @@ export function SavedViewPage({
 				storage.setSavedViewLayout(scope, loaded.viewPath, decodedLayout.success),
 			),
 		);
-	}, [layout, loaded.prepared, loaded.viewPath, runtime, scope]);
+	}, [layout, loaded.entityBrowser, loaded.viewPath, runtime, scope]);
 	const collections = useCollectionScreens();
 	const reminders = useReminderScreen();
 	useClientPageDocument({

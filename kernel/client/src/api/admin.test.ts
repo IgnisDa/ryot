@@ -4,10 +4,10 @@ import { Effect } from "effect";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 
 import { makeAdminApi } from "#/api/admin";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { FileDownloadError, type FileDownloadRequest } from "#/modules/downloads/file";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 
 describe("admin API", () => {
 	it.live("starts a download from its short-lived URL", () =>

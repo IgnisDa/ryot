@@ -5,12 +5,12 @@ import { HttpClient, type HttpClientRequest, HttpClientResponse } from "effect/h
 
 import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { type FileDownloadRequest, FileDownloads } from "#/modules/downloads/file";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const runId = BackupRunId.make("backup_1");
 const accessToken = "test.eyJzdWIiOiJ1c2VyLTEifQ.signature";
 

@@ -13,11 +13,11 @@ import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { EntitiesApi } from "#/api/entities";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const contributor = PluginId.make("plugin-1");
 const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{

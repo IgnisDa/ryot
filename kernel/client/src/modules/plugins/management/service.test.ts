@@ -1,12 +1,11 @@
 import { expect, layer } from "@effect/vitest";
-import { TemporaryUploadToken } from "@ryot-app/contract/modules/assets/schemas";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { Uploads } from "#/modules/assets/uploads";
 import { PluginManagementService } from "#/modules/plugins/management/service";
@@ -45,10 +44,7 @@ const dependencies = Layer.effectContext(
 					Ref.update(calls, (all) => [...all, { request, method: "upload" }]).pipe(
 						Effect.as({
 							action: "temporary" as const,
-							token: Schema.decodeSync(TemporaryUploadToken)({
-								token: "archive-token",
-								expiresAt: "2026-10-13T00:00:00.000Z",
-							}),
+							token: { token: "archive-token", expiresAt: "2026-10-13T00:00:00.000Z" },
 						}),
 					),
 			}),
@@ -83,7 +79,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			Effect.gen(function* () {
 				const installation = managedInstallation();
 				const service = yield* PluginManagementService;
-				const scope = { userId: "user", serverUrl: decodeServerOrigin("https://ryot.example") };
+				const scope = { userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") };
 				expect(
 					yield* service.execute(scope, { installation, kind: "state", isHidden: false }),
 				).toEqual({ id: installation.installationId, pluginId: installation.pluginId });
@@ -103,7 +99,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			const service = yield* PluginManagementService;
 			const error = yield* Effect.flip(
 				service.execute(
-					{ userId: "user", serverUrl: decodeServerOrigin("https://ryot.example") },
+					{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
 					{ kind: "uninstall", installation: managedInstallation() },
 				),
 			);
@@ -116,7 +112,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			const service = yield* PluginManagementService;
 			const file = new File(["archive bytes"], "whiskey.zip", { type: "application/zip" });
 			yield* service.execute(
-				{ userId: "user", serverUrl: decodeServerOrigin("https://ryot.example") },
+				{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
 				{ file, installation, kind: "package" },
 			);
 			expect((yield* (yield* Commands).calls).slice(-2)).toEqual([

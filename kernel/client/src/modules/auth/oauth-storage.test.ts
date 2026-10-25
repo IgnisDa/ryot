@@ -2,7 +2,7 @@ import { describe, expect, layer } from "@effect/vitest";
 import { Clock, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { decodeServerOrigin, ServerOrigin } from "#/api/origin";
 import {
 	oauthPendingKey,
 	OAuthStorage,
@@ -16,8 +16,7 @@ import {
 	makeStoredTokenSet,
 } from "#/modules/auth/oauth-storage.test-support";
 
-const origin = decodeServerOrigin("https://ryot.example");
-const equivalentOrigin = decodeServerOrigin("https://ryot.example/");
+const origin = ServerOrigin.make("https://ryot.example");
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -31,6 +30,7 @@ describe("OAuth storage", () => {
 					createdAt: yield* Clock.currentTimeMillis,
 				});
 				const tokens = makeStoredTokenSet();
+				const equivalentOrigin = yield* decodeServerOrigin("https://ryot.example/");
 				yield* service.setPending(pending);
 				yield* service.setTokenSet(equivalentOrigin, tokens);
 

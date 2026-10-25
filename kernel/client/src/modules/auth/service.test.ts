@@ -1,7 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { decodeServerOrigin, ServerOrigin } from "#/api/origin";
 import { makeAuthorizationState } from "#/modules/auth/authorization";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
@@ -9,8 +9,7 @@ import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
-const origin = decodeServerOrigin("https://example.com");
-const equivalentOrigin = decodeServerOrigin("https://example.com/");
+const origin = ServerOrigin.make("https://example.com");
 
 const userInfoResponse = {
 	sub: "user-1",
@@ -131,11 +130,9 @@ describe("authentication service", () => {
 				const session = auth.session(origin);
 				expect(session.getSnapshot()).toEqual({ status: "pending" });
 
-				expect(yield* auth.settledSession(equivalentOrigin)).toEqual({
-					accessClass: "standard",
-					user: authenticatedUser,
-					status: "authenticated",
-				});
+				expect(
+					yield* auth.settledSession(yield* decodeServerOrigin("https://example.com/")),
+				).toEqual({ accessClass: "standard", user: authenticatedUser, status: "authenticated" });
 				expect(session.getSnapshot().status).toBe("authenticated");
 			}),
 		);

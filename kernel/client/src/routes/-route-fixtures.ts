@@ -22,7 +22,7 @@ import type { UserSettingsResult } from "@ryot-app/ryotql-recipes/user-settings"
 import { Effect, Layer } from "effect";
 
 import type { AccountApi } from "#/api/account";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { PagesApi } from "#/api/pages";
 import { makeAccountApi, makeInstanceAdminApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
@@ -60,7 +60,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
 import { makeClientStorage, makeClientStorageStub } from "#/persistence/storage.test-layer";
 
-export const server = decodeServerOrigin("https://ryot.example");
+export const server = ServerOrigin.make("https://ryot.example");
 
 export const theme: ThemeStore = {
 	destroy: () => undefined,

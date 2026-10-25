@@ -11,7 +11,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime, Schedule } from "effect";
 import type { ReactNode } from "react";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makeOAuthTokenServiceStub } from "#/modules/auth/token-service.test-layer";
@@ -20,7 +20,7 @@ import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/even
 import { PluginCatalogProvider, usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const catalog: PluginClientCatalog = [
 	{
 		sortOrder: 0,

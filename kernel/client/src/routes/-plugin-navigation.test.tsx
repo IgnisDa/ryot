@@ -35,7 +35,7 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import { anyOf, anything, objectContaining } from "@ryot-app/testing/matchers";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
@@ -340,7 +340,7 @@ function connectFrame(frame: HTMLIFrameElement) {
 		configurable: true,
 		value: {
 			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
-				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
+				init = Option.getOrUndefined(Schema.decodeUnknownOption(PluginBridgeInit)(message));
 				const transferred = transfer[0];
 				if (!(transferred instanceof MessagePort)) {
 					throw new Error("Missing plugin port");

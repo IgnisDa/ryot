@@ -6,11 +6,11 @@ import { pluginInstallationUserSettingsRecipe } from "@ryot-app/ryotql-recipes/p
 import { Effect } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { pluginUserSettingsOutcome } from "#/modules/pages/bridge/user-settings";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const otherScope: ApiScope = { ...scope, userId: "user-2" };
 const pluginA = PluginId.make("plugin-a");
 const pluginB = PluginId.make("plugin-b");

@@ -2,7 +2,7 @@ import { Browser } from "@capacitor/browser";
 import { buildOAuthAuthorizationUrl, type PendingAuthorization } from "@ryot-app/contract/oauth";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
 
-import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
+import { browserServerOrigin, type ServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { authDestination } from "#/modules/auth/flow";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
@@ -97,7 +97,7 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 			} else if (runtimeClient.isNative) {
 				selected = yield* serverService.selected;
 			} else {
-				selected = decodeServerOrigin(window.location.origin);
+				selected = yield* browserServerOrigin;
 			}
 			if (selected === null) {
 				return { _tag: "MissingServer" } as const;

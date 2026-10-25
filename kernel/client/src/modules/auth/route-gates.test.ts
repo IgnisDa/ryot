@@ -1,10 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { decodeServerOrigin, ServerOrigin } from "#/api/origin";
 import { decideAuthRoute, decideProtectedRoute } from "#/modules/auth/route-gates";
 
-const origin = decodeServerOrigin("https://one.test");
-const equivalentOrigin = decodeServerOrigin(" https://one.test/ ");
+const origin = ServerOrigin.make("https://one.test");
 
 describe("authentication route gates", () => {
 	it("waits while a session is being restored", () => {
@@ -27,15 +27,17 @@ describe("authentication route gates", () => {
 		});
 	});
 
-	it("allows a restored session with a canonical scope", () => {
-		expect(
-			decideProtectedRoute(
-				equivalentOrigin,
-				{ userId: "user-1", status: "authenticated" },
-				"/library",
-			),
-		).toEqual({ action: "allow", scope: { userId: "user-1", serverUrl: "https://one.test" } });
-	});
+	it.effect("allows a restored session with a canonical scope", () =>
+		Effect.gen(function* () {
+			expect(
+				decideProtectedRoute(
+					yield* decodeServerOrigin(" https://one.test/ "),
+					{ userId: "user-1", status: "authenticated" },
+					"/library",
+				),
+			).toEqual({ action: "allow", scope: { userId: "user-1", serverUrl: "https://one.test" } });
+		}),
+	);
 
 	it("returns an authenticated auth visit to a safe destination or root", () => {
 		expect(

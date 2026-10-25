@@ -12,7 +12,7 @@ import { ClientStorage } from "#/persistence/storage";
 
 import { hasPluginContributor, invalidRequest } from "./plugin-contributor";
 
-const encodeValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
+const encodeValue = Schema.encodeEffect(Schema.fromJsonString(JsonValue));
 
 export class PluginStorage extends Context.Service<PluginStorage>()("PluginStorage", {
 	make: Effect.gen(function* () {
@@ -46,10 +46,8 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 							}),
 						);
 				}
-				if (
-					new TextEncoder().encode(encodeValue(request.value)).byteLength >
-					PLUGIN_STORAGE_VALUE_MAX_BYTES
-				) {
+				const encoded = yield* encodeValue(request.value).pipe(Effect.orDie);
+				if (new TextEncoder().encode(encoded).byteLength > PLUGIN_STORAGE_VALUE_MAX_BYTES) {
 					return invalidRequest;
 				}
 				return yield* storage

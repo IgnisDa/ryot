@@ -3,12 +3,12 @@ import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { Effect, Fiber, ManagedRuntime } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeUploadsApi } from "#/api/ports.test-layer";
 import type { UploadsApi } from "#/api/uploads";
 import { classifyUploadFailure, Uploads } from "#/modules/assets/uploads";
 
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const token = { token: "upload-token", expiresAt: "2026-09-04T12:15:00.000Z" };
 const request = {
 	fileName: "items.csv",

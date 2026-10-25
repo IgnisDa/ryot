@@ -1,7 +1,7 @@
 import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import { expect, it } from "vitest";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 
 const asset = (file: string) => `/api/page-bundles/${"a".repeat(64)}/public/${file}`;
@@ -33,7 +33,7 @@ const document: ClientCompositionDocument = {
 	},
 };
 
-const server = decodeServerOrigin("http://192.168.1.5:3000");
+const server = ServerOrigin.make("http://192.168.1.5:3000");
 
 it("puts the server base and referrer policy before every resource", () => {
 	const html = renderClientDocument(document, server);

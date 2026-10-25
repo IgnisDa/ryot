@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import {
 	oauthPendingKey,
 	OAuthStorage,
@@ -18,7 +18,7 @@ import {
 import { FakeOAuthStorage, fakeOAuthStorageLayer } from "#/modules/auth/oauth-storage.test-support";
 import { OAuthTokenService, oauthTokenServiceLayer } from "#/modules/auth/token-service";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 const now = 1_800_000_000_000;
 
 const encodeJwtPart = (value: unknown) =>

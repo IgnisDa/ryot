@@ -20,11 +20,11 @@ import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 import type { ReactNode } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/pages/bridge/operations";
@@ -41,7 +41,7 @@ const theme: ThemeStore = {
 	subscribe: () => () => undefined,
 	getSnapshot: () => ({ resolvedMode: "light" }),
 };
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const ryot = createTestRyotClock();
 const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
 const srcDoc = '<!doctype html><html><body><div id="app"></div></body></html>';
@@ -282,7 +282,7 @@ function connect(frame: HTMLIFrameElement) {
 		configurable: true,
 		value: {
 			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
-				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
+				init = Option.getOrUndefined(Schema.decodeUnknownOption(PluginBridgeInit)(message));
 				const transferred = transfer[0];
 				if (!(transferred instanceof MessagePort)) {
 					throw new Error("Missing plugin port");

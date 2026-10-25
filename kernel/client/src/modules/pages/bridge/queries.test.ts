@@ -5,12 +5,12 @@ import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/module
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeRyotQLApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const document = {
 	queries: {
 		items: {

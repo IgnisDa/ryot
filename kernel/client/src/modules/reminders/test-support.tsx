@@ -17,7 +17,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import type { ReactNode } from "react";
 
 import type { AutomationsApi } from "#/api/automations";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeAutomationsApi, makeRemindersApi } from "#/api/ports.test-layer";
 import type { RemindersApi } from "#/api/reminders";
 
@@ -131,7 +131,7 @@ export const mountReminderTestScreen = (
 			runtime={clock.runtime}
 			hostServices={{
 				runtime,
-				scope: { userId: "user-1", serverUrl: decodeServerOrigin("https://example.test") },
+				scope: { userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
 			}}
 		>
 			<RouterProvider router={router} />

@@ -13,12 +13,12 @@ import {
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeCalendarSourcesApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { PluginCalendarSources } from "#/modules/pages/bridge/calendar-sources";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 const request = {
 	isHidden: true,
 	pluginId: PluginId.make("plugin-1"),

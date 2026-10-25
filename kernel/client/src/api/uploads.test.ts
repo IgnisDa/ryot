@@ -8,11 +8,11 @@ import {
 } from "effect/http";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { type UploadByteTransfer, UploadsApi } from "#/api/uploads";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 const transfer: UploadByteTransfer = {
 	contentType: "text/csv",

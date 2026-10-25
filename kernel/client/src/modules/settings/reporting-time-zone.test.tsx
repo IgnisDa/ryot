@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, ManagedRuntime } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeAccountApi } from "#/api/ports.test-layer";
 
 import { preferencesQuery } from "./preferences-service";
@@ -64,7 +64,7 @@ it.live("uses initialization mode only once after enabled, loaded, and unset", (
 				runtime={clock.runtime}
 				hostServices={{
 					runtime,
-					scope: { userId: "user-1", serverUrl: decodeServerOrigin("https://example.test") },
+					scope: { userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
 				}}
 			>
 				<ReportingTimeZoneInitialization disabled={disabled} />

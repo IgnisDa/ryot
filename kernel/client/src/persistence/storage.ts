@@ -61,7 +61,7 @@ const browserStorage = () => {
 const decodeRecentDestinations = Schema.decodeUnknownOption(
 	Schema.fromJsonString(RecentDestinations),
 );
-const encodeRecentDestinations = Schema.encodeSync(Schema.fromJsonString(RecentDestinations));
+const encodeRecentDestinations = Schema.encodeEffect(Schema.fromJsonString(RecentDestinations));
 const bestEffort = <A>(fallback: A, evaluate: () => A) =>
 	Effect.sync(() => {
 		try {
@@ -79,10 +79,11 @@ const parseExpanded = (value: null | string | undefined) => {
 const isPluginId = Schema.is(PluginId);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
-const decodeDeviceState = Schema.decodeUnknownSync(Schema.fromJsonString(DeviceState));
-const encodeDeviceState = Schema.encodeSync(Schema.fromJsonString(DeviceState));
+const decodeDeviceState = Schema.decodeUnknownEffect(Schema.fromJsonString(DeviceState));
+const encodeDeviceState = Schema.encodeEffect(Schema.fromJsonString(DeviceState));
 const decodePluginValue = Schema.decodeUnknownOption(Schema.fromJsonString(JsonValue));
-const encodePluginValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
+const encodePluginValue = Schema.encodeEffect(Schema.fromJsonString(JsonValue));
+const deviceStateAccessError = (cause: unknown) => new DeviceStateAccessError({ cause });
 const unavailablePluginStorageError = () =>
 	new PluginStorageAccessError({ cause: new Error("Browser storage is unavailable") });
 const attemptPluginStorageAccess = <A>(evaluate: () => A) =>
@@ -115,19 +116,10 @@ const makeStorage = (storage: undefined | BrowserStorage): ClientStorage["Servic
 			const value = storage?.getItem(lastWorkspaceKey(scope));
 			return isPluginId(value) ? value : null;
 		}),
-	setRecentDestinations: (scope, destinations) =>
-		bestEffort(undefined, () =>
-			storage?.setItem(recentDestinationsKey(scope), encodeRecentDestinations(destinations)),
-		),
 	getSidebarSectionExpanded: (scope, workspace, section) =>
 		bestEffort(null, () =>
 			parseExpanded(storage?.getItem(sidebarSectionExpandedKey(scope, workspace, section))),
 		),
-	setDeviceState: (state) =>
-		Effect.try({
-			catch: (cause) => new DeviceStateAccessError({ cause }),
-			try: () => storage?.setItem(DEVICE_STATE_KEY, encodeDeviceState(state)),
-		}),
 	getSavedViewLayout: (scope, slug) =>
 		Effect.sync(() => {
 			const value = storage?.getItem(savedViewLayoutKey(scope, slug));
@@ -158,13 +150,23 @@ const makeStorage = (storage: undefined | BrowserStorage): ClientStorage["Servic
 		const result = parseServerOrigin(value);
 		return result.ok ? result.origin : null;
 	}),
-	getDeviceState: Effect.try({
-		catch: (cause) => new DeviceStateAccessError({ cause }),
-		try: () => {
-			const value = storage?.getItem(DEVICE_STATE_KEY);
-			return value === null || value === undefined ? emptyDeviceState : decodeDeviceState(value);
-		},
-	}),
+	setDeviceState: (state) =>
+		encodeDeviceState(state).pipe(
+			Effect.mapError(deviceStateAccessError),
+			Effect.flatMap((encoded) =>
+				Effect.try({
+					catch: deviceStateAccessError,
+					try: () => storage?.setItem(DEVICE_STATE_KEY, encoded),
+				}),
+			),
+		),
+	setRecentDestinations: (scope, destinations) =>
+		encodeRecentDestinations(destinations).pipe(
+			Effect.flatMap((encoded) =>
+				bestEffort(undefined, () => storage?.setItem(recentDestinationsKey(scope), encoded)),
+			),
+			Effect.orElseSucceed(() => undefined),
+		),
 	getRecentDestinations: (scope) =>
 		bestEffort([], () => {
 			const value = storage?.getItem(recentDestinationsKey(scope));
@@ -173,18 +175,16 @@ const makeStorage = (storage: undefined | BrowserStorage): ClientStorage["Servic
 			}
 			return Option.getOrElse(decodeRecentDestinations(value), () => []);
 		}),
-	setPluginValue: (scope, pluginId, key, value) => {
-		if (!storage) {
-			return Effect.fail(unavailablePluginStorageError());
-		}
-		return Effect.try({
-			try: () => storage.setItem(pluginStorageKey(scope, pluginId, key), encodePluginValue(value)),
-			catch: (cause) =>
-				isQuotaExceededError(cause)
-					? new PluginStorageQuotaError()
-					: new PluginStorageAccessError({ cause }),
-		});
-	},
+	getDeviceState: Effect.try({
+		catch: deviceStateAccessError,
+		try: () => storage?.getItem(DEVICE_STATE_KEY),
+	}).pipe(
+		Effect.flatMap((value) =>
+			value === null || value === undefined
+				? Effect.succeed(emptyDeviceState)
+				: decodeDeviceState(value).pipe(Effect.mapError(deviceStateAccessError)),
+		),
+	),
 	getPluginValue: (scope, pluginId, key) => {
 		if (!storage) {
 			return Effect.fail(unavailablePluginStorageError());
@@ -200,6 +200,23 @@ const makeStorage = (storage: undefined | BrowserStorage): ClientStorage["Servic
 			}
 			return decoded.value;
 		});
+	},
+	setPluginValue: (scope, pluginId, key, value) => {
+		if (!storage) {
+			return Effect.fail(unavailablePluginStorageError());
+		}
+		return encodePluginValue(value).pipe(
+			Effect.mapError((cause) => new PluginStorageAccessError({ cause })),
+			Effect.flatMap((encoded) =>
+				Effect.try({
+					try: () => storage.setItem(pluginStorageKey(scope, pluginId, key), encoded),
+					catch: (cause) =>
+						isQuotaExceededError(cause)
+							? new PluginStorageQuotaError()
+							: new PluginStorageAccessError({ cause }),
+				}),
+			),
+		);
 	},
 });
 

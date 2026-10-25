@@ -1,10 +1,10 @@
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeInstanceAdminSessionService } from "#/modules/instance-admin/session";
 
-const origin = decodeServerOrigin("https://ryot.example");
+const origin = ServerOrigin.make("https://ryot.example");
 
 describe("Instance Admin sessions", () => {
 	it("stores a token behind an unrelated generated session id until cleared", () => {

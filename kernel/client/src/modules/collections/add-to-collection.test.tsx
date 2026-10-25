@@ -8,7 +8,7 @@ import { Effect, Schema } from "effect";
 
 import { AddToCollection } from "./add-to-collection";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const rows = (items: readonly unknown[]) => ({
 	items,
@@ -53,12 +53,14 @@ const mountManager = (
 				});
 			}),
 		query: (document) =>
-			Effect.sync(() => {
+			Effect.gen(function* () {
 				if ("target" in document.queries) {
 					return { data: { target: rows([{ name: "Example item" }]) } };
 				}
 				if ("collections" in document.queries) {
-					const searching = encodeJson(document).includes('"value":"Missing"');
+					const searching = (yield* encodeJson(document).pipe(Effect.orDie)).includes(
+						'"value":"Missing"',
+					);
 					return {
 						data: {
 							collections: rows(

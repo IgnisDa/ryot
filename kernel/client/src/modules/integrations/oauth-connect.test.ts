@@ -7,7 +7,7 @@ import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeOAuthConnectionsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import {
@@ -20,7 +20,7 @@ import { DeepLinkClaims, makeDeepLinkClaims } from "#/modules/navigation/deep-li
 const RETURN_PATH = "/settings/oauth-return";
 const AUTHORIZE_URL = "https://accounts.example/authorize?state=state-1";
 const connectionId = OAuthConnectionId.make("connection-1");
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 type StatusReply = "not-found" | OAuthConnectionStatus;
 

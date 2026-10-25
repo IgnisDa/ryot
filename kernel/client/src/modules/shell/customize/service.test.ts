@@ -8,13 +8,13 @@ import { PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makePluginInstallationsApi, makeSavedViewsApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import type { CustomizePlan } from "#/modules/shell/customize/customize-plan";
 import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 type Call =
 	| { readonly kind: "update"; readonly payload: ContractPayload<"savedViews", "update"> }

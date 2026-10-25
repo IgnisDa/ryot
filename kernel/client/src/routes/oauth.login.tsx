@@ -3,7 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { browserServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { deriveAuthMethods } from "#/modules/auth/config";
 import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
@@ -17,7 +17,8 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 export const Route = createFileRoute("/oauth/login")({
 	component: OAuthLogin,
 	errorComponent: OAuthLoginUnavailable,
-	beforeLoad: () => ({ server: decodeServerOrigin(window.location.origin) }),
+	beforeLoad: ({ context }) =>
+		context.runtime.runPromise(Effect.map(browserServerOrigin, (server) => ({ server }))),
 	pendingComponent: () => (
 		<AuthStatus title="Loading sign-in options" message="Reading this server's settings..." />
 	),

@@ -15,7 +15,7 @@ import {
 	type PendingAuthorization,
 	type StoredTokenSet,
 } from "@ryot-app/contract/oauth";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { type Authorization, makeAuthorizationState } from "#/modules/auth/authorization";
@@ -309,10 +309,10 @@ const makeTokenService = (
 			catch: requestFailed,
 			try: () => storedTokenSet(response, pending.clientId),
 		}).pipe(Effect.catch(terminalFailure));
-		const nonce = yield* Effect.try({
-			try: () => decodeOAuthTokenClaims(tokens.idToken, IdTokenClaims).nonce,
-			catch: (cause) => new OAuthTokenError({ cause, reason: "invalid-nonce" }),
-		}).pipe(Effect.catch(terminalFailure));
+		const nonce = yield* Option.match(decodeOAuthTokenClaims(tokens.idToken, IdTokenClaims), {
+			onSome: (claims) => Effect.succeed(claims.nonce),
+			onNone: () => terminalFailure(new OAuthTokenError({ reason: "invalid-nonce" })),
+		});
 		if (nonce !== pending.nonce) {
 			return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-nonce" }));
 		}

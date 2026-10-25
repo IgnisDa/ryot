@@ -21,7 +21,7 @@ import { StrictMode } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeCollectionsApi } from "#/api/ports.test-layer";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
 
@@ -128,7 +128,7 @@ const mountEditor = (
 				runtime={clock.runtime}
 				hostServices={{
 					runtime,
-					scope: { userId: "user-1", serverUrl: decodeServerOrigin("https://example.test") },
+					scope: { userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
 				}}
 			>
 				<RouterProvider router={router} />

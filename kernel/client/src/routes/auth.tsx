@@ -105,7 +105,7 @@ function OAuthLaunch() {
 	function changeServer() {
 		return runtime.runPromise(
 			Effect.gen(function* () {
-				yield* auth.changeServer(decodeServerOrigin(plan.pending.serverOrigin));
+				yield* auth.changeServer(yield* decodeServerOrigin(plan.pending.serverOrigin));
 				yield* Effect.promise(() =>
 					navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } }),
 				);

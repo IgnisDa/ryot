@@ -2,7 +2,7 @@ import { describe, expect, layer } from "@effect/vitest";
 import { PluginId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
 	clientStorageLayer,
@@ -21,8 +21,8 @@ const unavailable = () => {
 	throw new Error("storage unavailable");
 };
 
-const oneOrigin = decodeServerOrigin("https://one.example.com");
-const twoOrigin = decodeServerOrigin("https://two.example.com/");
+const oneOrigin = ServerOrigin.make("https://one.example.com");
+const twoOrigin = ServerOrigin.make("https://two.example.com");
 
 describe("browser persistence", () => {
 	layer(

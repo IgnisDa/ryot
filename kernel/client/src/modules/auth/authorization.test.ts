@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { Context, Deferred, Effect, Fiber, Layer, Queue } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import {
 	fakeOAuthStorageLayer,
@@ -18,7 +18,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService, oauthTokenServiceLayer } from "#/modules/auth/token-service";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
-const origin = decodeServerOrigin("https://authorization.test");
+const origin = ServerOrigin.make("https://authorization.test");
 const now = 1_800_000_000_000;
 const idToken = `header.${btoa(JSON.stringify({ nonce: "nonce" }))}.signature`;
 const tokens = (accessToken: string, accessTokenExpiresAt = now + 900_000) =>
@@ -124,7 +124,7 @@ layer(authorizationLayer)((test) => {
 			const service = yield* OAuthTokenService;
 			const auth = yield* AuthService;
 			const endpoint = yield* Endpoint;
-			const other = decodeServerOrigin("https://other-authorization.test");
+			const other = ServerOrigin.make("https://other-authorization.test");
 			yield* storage.setTokenSet(origin, tokens("profile-owner"));
 			yield* storage.setTokenSet(other, tokens("other-owner"));
 			for (const server of [origin, other]) {

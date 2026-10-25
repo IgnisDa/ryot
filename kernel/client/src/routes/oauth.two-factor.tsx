@@ -3,7 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { type ReactNode, useState } from "react";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { browserServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { deriveAuthMethods } from "#/modules/auth/config";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
@@ -18,10 +18,11 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 export const Route = createFileRoute("/oauth/two-factor")({
 	component: OAuthTwoFactor,
 	errorComponent: OAuthTwoFactorUnavailable,
-	beforeLoad: () => ({ server: decodeServerOrigin(window.location.origin) }),
 	validateSearch: (search) => ({
 		from: search.from === "settings" ? ("settings" as const) : undefined,
 	}),
+	beforeLoad: ({ context }) =>
+		context.runtime.runPromise(Effect.map(browserServerOrigin, (server) => ({ server }))),
 	pendingComponent: () => (
 		<AuthStatus title="Loading sign-in options" message="Reading this server's settings..." />
 	),

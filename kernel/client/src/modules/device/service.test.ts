@@ -8,14 +8,14 @@ import type {
 } from "@ryot-app/plugin-client-contract";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { type DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { DeviceStateAccessError } from "#/persistence/storage";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
-const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
+const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://one.test") };
 const otherScope = { ...scope, userId: "user-2" };
 const pluginId = PluginId.make("other");
 const target: PluginNavigationTarget = {

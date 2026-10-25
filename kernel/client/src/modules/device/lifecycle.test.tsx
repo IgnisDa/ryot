@@ -5,7 +5,7 @@ import { cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
@@ -41,7 +41,7 @@ it.live("does not cancel alerts when navigation replaces an equivalent scope obj
 				),
 			),
 		);
-		const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
+		const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://one.test") };
 		const pluginId = PluginId.make("other");
 		const packageId = PluginPackageId.make("ryot/other");
 		const contributors = [
@@ -103,7 +103,7 @@ it.live(
 						),
 					),
 				);
-			const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
+			const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://one.test") };
 			const pluginId = PluginId.make("other");
 			const packageId = PluginPackageId.make("ryot/other");
 			const contributors = [

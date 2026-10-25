@@ -18,7 +18,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { EntitiesApi } from "#/api/entities";
 import type { EntityProvidersApi } from "#/api/entity-providers";
-import { decodeServerOrigin } from "#/api/origin";
+import { ServerOrigin } from "#/api/origin";
 import { makeEntityProvidersApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
@@ -29,7 +29,7 @@ const entitySchemaSlug = EntitySchemaSlug.make("unit");
 const providerId = SandboxProviderId.make("provider-1");
 const relationshipSlug = "in-fixture-library";
 const librarySchemaSlug = "fixture-library";
-const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null } as const;
 const rowsResult = (items: readonly unknown[]) => ({ items, pageInfo, type: "rows" });

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
-import { decodeServerOrigin, resolveApiUrl } from "#/api/origin";
+import { resolveApiUrl, ServerOrigin } from "#/api/origin";
 import { makeUploadsApi } from "#/api/ports.test-layer";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 
 describe("managed assets", () => {
-	const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+	const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
 	const assets = [
 		{ type: "local", key: "permanent/local.png" },
 		{ type: "s3", key: "permanent/remote.png" },
@@ -14,7 +14,7 @@ describe("managed assets", () => {
 	const expiresAt = "2026-09-04T12:15:00.000Z";
 
 	it("resolves API-relative managed download paths", () => {
-		const origin = decodeServerOrigin("https://ryot.example");
+		const origin = ServerOrigin.make("https://ryot.example");
 		expect(resolveApiUrl(origin, "/uploads/local/download?key=cover")).toBe(
 			"https://ryot.example/api/uploads/local/download?key=cover",
 		);

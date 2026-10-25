@@ -6,7 +6,7 @@ import sharp from "sharp";
 const BRAND = "#fd7e14";
 const DEBUG = "#4dabf7";
 const ICON = "AppIcon-512@2x.png";
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
@@ -60,7 +60,7 @@ const program = Effect.gen(function* () {
 	);
 	yield* fs.writeFileString(
 		path.join(activityLogo, "Contents.json"),
-		encodeJson({
+		yield* encodeJson({
 			info: { version: 1, author: "xcode" },
 			properties: { "template-rendering-intent": "template" },
 			images: [1, 2, 3].map((scale) => ({
@@ -80,7 +80,7 @@ const program = Effect.gen(function* () {
 	yield* fs.rename(path.join(catalog, "AppIcon.appiconset", ICON), path.join(debugIcon, ICON));
 	yield* fs.writeFileString(
 		path.join(debugIcon, "Contents.json"),
-		encodeJson({
+		yield* encodeJson({
 			info: { version: 1, author: "xcode" },
 			images: [{ filename: ICON, platform: "ios", size: "1024x1024", idiom: "universal" }],
 		}),
