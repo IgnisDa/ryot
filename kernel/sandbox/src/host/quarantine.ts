@@ -7,7 +7,7 @@ import type { SandboxTrust } from "./authority";
 import { SandboxCrashStore } from "./crash-store";
 import type { SandboxPrincipal } from "./principal";
 
-const encodeHashes = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
+const encodeHashes = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 const hashPattern = /^[0-9a-f]{64}$/;
 const unavailable = () =>
 	new SandboxRunError({
@@ -41,7 +41,7 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 	) {
 		return yield* unavailable();
 	}
-	const content = sha256Hex(encodeHashes(hashes));
+	const content = sha256Hex(yield* encodeHashes(hashes).pipe(Effect.mapError(unavailable)));
 	return [`user:owner:${revision.ownerId}`, `user:content:${content}`];
 });
 

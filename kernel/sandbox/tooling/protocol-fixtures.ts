@@ -40,19 +40,21 @@ const run = {
 	module: { sha256, source: "export default (input) => input;" },
 } satisfies SidecarInboundFrame;
 
-const inbound = (name: string, frame: SidecarInboundFrame): Fixture => ({
-	name,
-	expect: "valid",
-	direction: "inbound",
-	bytes: sidecarInboundFrames.encode(frame),
-});
+const inbound = (name: string, frame: SidecarInboundFrame): Effect.Effect<Fixture> =>
+	Effect.map(sidecarInboundFrames.encode(frame), (bytes) => ({
+		name,
+		bytes,
+		expect: "valid",
+		direction: "inbound",
+	}));
 
-const outbound = (name: string, frame: SidecarOutboundFrame): Fixture => ({
-	name,
-	expect: "valid",
-	direction: "outbound",
-	bytes: sidecarOutboundFrames.encode(frame),
-});
+const outbound = (name: string, frame: SidecarOutboundFrame): Effect.Effect<Fixture> =>
+	Effect.map(sidecarOutboundFrames.encode(frame), (bytes) => ({
+		name,
+		bytes,
+		expect: "valid",
+		direction: "outbound",
+	}));
 
 const framed = (payload: Uint8Array, declaredLength = payload.byteLength) => {
 	const bytes = new Uint8Array(4 + payload.byteLength);
@@ -66,12 +68,12 @@ const invalid = (
 	direction: Direction,
 	expect: Exclude<Expectation, "valid">,
 	bytes: Uint8Array,
-): Fixture => ({ name, bytes, expect, direction });
+): Effect.Effect<Fixture> => Effect.succeed({ name, bytes, expect, direction });
 
 const invalidPayload = (name: string, direction: Direction, value: unknown) =>
 	invalid(name, direction, "payload", framed(new TextEncoder().encode(JSON.stringify(value))));
 
-const fixtures: ReadonlyArray<Fixture> = [
+const fixtureSources: ReadonlyArray<Effect.Effect<Fixture>> = [
 	inbound("run", run),
 	inbound("run-full-background", { ...run, input: null, tier: "full", lane: "background" }),
 	inbound("host-result-success", {
@@ -278,12 +280,6 @@ const verifyExpectation = Effect.fnUntraced(function* (fixture: Fixture) {
 	return yield* Effect.void;
 });
 
-const index = `${JSON.stringify(
-	fixtures.map(({ name, expect, direction }) => ({ name, expect, direction })),
-	null,
-	"\t",
-)}\n`;
-
 const limitsJson = `${JSON.stringify(
 	{
 		hostCalls: SANDBOX_LIMITS.hostCalls.total,
@@ -303,15 +299,23 @@ const limitsJson = `${JSON.stringify(
 	"\t",
 )}\n`;
 
+const fixtureIndex = (fixtures: ReadonlyArray<Fixture>) =>
+	`${JSON.stringify(
+		fixtures.map(({ name, expect, direction }) => ({ name, expect, direction })),
+		null,
+		"\t",
+	)}\n`;
+
 const program = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const directory = path.resolve(path.dirname(scriptPath), "../protocol-fixtures");
+	const fixtures = yield* Effect.all(fixtureSources);
 	yield* Effect.forEach(fixtures, verifyExpectation, { discard: true });
 	const expected = new Map<string, Uint8Array>([
-		["index.json", new TextEncoder().encode(index)],
 		["limits.json", new TextEncoder().encode(limitsJson)],
+		["index.json", new TextEncoder().encode(fixtureIndex(fixtures))],
 		...fixtures.map(({ name, bytes }) => [`${name}.frame`, bytes] as const),
 	]);
 	if (!process.argv.includes("--check")) {

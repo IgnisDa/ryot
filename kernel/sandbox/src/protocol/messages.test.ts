@@ -21,11 +21,11 @@ const decodeIndex = Schema.decodeUnknownEffect(
 
 const roundTrip = <Frame>(
 	codec: {
-		readonly encode: (frame: Frame) => Uint8Array;
+		readonly encode: (frame: Frame) => Effect.Effect<Uint8Array>;
 		readonly decode: (bytes: Uint8Array) => Effect.Effect<Frame, SidecarProtocolError>;
 	},
 	bytes: Uint8Array,
-) => codec.decode(bytes).pipe(Effect.map(codec.encode));
+) => codec.decode(bytes).pipe(Effect.flatMap(codec.encode));
 
 layer(BunFileSystem.layer)((test) => {
 	test.effect("measures host call name length in UTF-16 units on both sides", () =>

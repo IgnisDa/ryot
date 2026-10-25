@@ -1,9 +1,9 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Effect, Option, Result, Schema } from "effect";
 import { Base64 } from "effect/encoding";
-import { describe, expect, it } from "vitest";
 
-import { hostCallArgs } from "../host/host-call-args.test-support";
+import { hostCallFrame } from "../host/host-call-args.test-support";
 import { sandboxMemoryPlan } from "../host/memory-plan";
 import { sandboxTransientPermitBytes } from "../host/transient-memory";
 import { sidecarInboundFrames, sidecarOutboundFrames } from "./frame-codec.test-support";
@@ -17,6 +17,8 @@ import {
 	type SidecarOutboundFrame as OutboundFrame,
 	SidecarProtocolError,
 } from "./messages";
+
+const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -49,15 +51,8 @@ const hostResultFrame = (handle: string, seq: number, text: string) =>
 		result: { value: { text }, status: "success" },
 	}) satisfies SidecarInboundLogicalMessage;
 
-const hostCallFrame = (handle: string, seq: number, text: string) =>
-	({
-		seq,
-		handle,
-		generation: 7,
-		name: "lookup",
-		type: "hostCall",
-		args: hostCallArgs({ text }),
-	}) satisfies OutboundFrame;
+const lookupFrame = (handle: string, seq: number, text: string) =>
+	hostCallFrame({ seq, handle, generation: 7, name: "lookup", args: { text } });
 
 const runFrame = (handle: string, seq: number, text: string) =>
 	({
@@ -99,7 +94,9 @@ const outboundParts = (
 };
 
 const firstPart = (handle: string, seq: number) =>
-	outboundParts(hostCallFrame(handle, seq, "🛎️".repeat(18_000))).slice(0, 1);
+	Effect.map(lookupFrame(handle, seq, "🛎️".repeat(18_000)), (frame) =>
+		outboundParts(frame).slice(0, 1),
+	);
 
 const concatBytes = (chunks: readonly Uint8Array[]) => {
 	const bytes = new Uint8Array(chunks.reduce((total, chunk) => total + chunk.byteLength, 0));
@@ -118,10 +115,13 @@ const framedPayload = (payload: Uint8Array) => {
 	return framed;
 };
 
+const outboundBytes = (frames: OutboundFrame[]) =>
+	Effect.forEach(frames, sidecarOutboundFrames.encode).pipe(Effect.map(concatBytes));
+
 const feedOutboundFrames = (
 	reader: ReturnType<typeof makeSidecarFrameReader>,
 	frames: OutboundFrame[],
-) => reader.feed(concatBytes(frames.map((frame) => sidecarOutboundFrames.encode(frame))));
+) => Effect.map(outboundBytes(frames), (bytes) => reader.feed(bytes));
 
 const decodeInboundBytes = (bytes: Uint8Array) => {
 	const frames: InboundFrame[] = [];
@@ -137,24 +137,28 @@ const decodeInboundBytes = (bytes: Uint8Array) => {
 };
 
 describe("sidecar framing", () => {
-	it("bounds pending reader messages per execution", () => {
-		const invalid: Array<{ readonly handle: string; readonly message: string }> = [];
-		const reader = makeSidecarFrameReader({
-			generation: 7,
-			isActive: () => true,
-			maximumAssemblies: 16,
-			onFrame: () => undefined,
-			maximumBufferedBytes: 4 * 1024 * 1024,
-			onInvalid: (handle, message) => invalid.push({ handle, message }),
-		});
-		for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.outstandingHostCalls; seq++) {
-			feedOutboundFrames(reader, firstPart("bounded", seq));
-		}
-		feedOutboundFrames(reader, firstPart("neighbour", 1));
-		expect(invalid).toEqual([]);
-		feedOutboundFrames(reader, firstPart("bounded", 6));
-		expect(invalid).toEqual([{ handle: "bounded", message: "too many pending hostCall messages" }]);
-	});
+	it.effect("bounds pending reader messages per execution", () =>
+		Effect.gen(function* () {
+			const invalid: Array<{ readonly handle: string; readonly message: string }> = [];
+			const reader = makeSidecarFrameReader({
+				generation: 7,
+				isActive: () => true,
+				maximumAssemblies: 16,
+				onFrame: () => undefined,
+				maximumBufferedBytes: 4 * 1024 * 1024,
+				onInvalid: (handle, message) => invalid.push({ handle, message }),
+			});
+			for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.outstandingHostCalls; seq++) {
+				yield* feedOutboundFrames(reader, yield* firstPart("bounded", seq));
+			}
+			yield* feedOutboundFrames(reader, yield* firstPart("neighbour", 1));
+			expect(invalid).toEqual([]);
+			yield* feedOutboundFrames(reader, yield* firstPart("bounded", 6));
+			expect(invalid).toEqual([
+				{ handle: "bounded", message: "too many pending hostCall messages" },
+			]);
+		}),
+	);
 
 	it("purges unstarted results when the writer retires a handle", () => {
 		const output: Uint8Array[] = [];
@@ -188,27 +192,29 @@ describe("sidecar framing", () => {
 		]);
 	});
 
-	it("decodes frames fed in chunks that straddle headers and bodies", () => {
-		const received: OutboundFrame[] = [];
-		const reader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 8,
-			isActive: () => true,
-			onInvalid: () => undefined,
-			maximumBufferedBytes: 2 * 1024 * 1024,
-			onFrame: (frame) => received.push(frame),
-		});
-		const frames: OutboundFrame[] = [
-			{ generation: 7, type: "ready", heapHeadroomBytes: 0 },
-			{ generation: 7, type: "draining", reason: "memory" },
-			hostCallFrame("straddle", 1, "x".repeat(1_000)),
-		];
-		const stream = concatBytes(frames.map((frame) => sidecarOutboundFrames.encode(frame)));
-		for (let offset = 0; offset < stream.byteLength; offset += 3) {
-			reader.feed(stream.subarray(offset, offset + 3));
-		}
-		expect(received).toEqual(frames);
-	});
+	it.effect("decodes frames fed in chunks that straddle headers and bodies", () =>
+		Effect.gen(function* () {
+			const received: OutboundFrame[] = [];
+			const reader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 8,
+				isActive: () => true,
+				onInvalid: () => undefined,
+				maximumBufferedBytes: 2 * 1024 * 1024,
+				onFrame: (frame) => received.push(frame),
+			});
+			const frames: OutboundFrame[] = [
+				{ generation: 7, type: "ready", heapHeadroomBytes: 0 },
+				{ generation: 7, type: "draining", reason: "memory" },
+				yield* lookupFrame("straddle", 1, "x".repeat(1_000)),
+			];
+			const stream = yield* outboundBytes(frames);
+			for (let offset = 0; offset < stream.byteLength; offset += 3) {
+				reader.feed(stream.subarray(offset, offset + 3));
+			}
+			expect(received).toEqual(frames);
+		}),
+	);
 
 	it("alternates logical result lanes and releases only after cancellation or final writes", () => {
 		const output: Uint8Array[] = [];
@@ -270,354 +276,359 @@ describe("sidecar framing", () => {
 		expect(released).toEqual(["cancel", "retired", "background", "interactive"]);
 	});
 
-	it("handles partial writes, chunk interleaving, and desync in the client", () => {
-		const received: OutboundFrame[] = [];
-		const invalid: { readonly handle: string; readonly message: string }[] = [];
-		const reader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 8,
-			maximumBufferedBytes: 2 * 1024 * 1024,
-			onFrame: (frame) => received.push(frame),
-			isActive: (handle) => activeHandles.has(handle),
-			onInvalid: (handle, message) => invalid.push({ handle, message }),
-		});
-		const first = outboundParts(doneFrame("first", 10, "🛰️".repeat(40_000)));
-		const second = outboundParts(doneFrame("second", 11, "🧩".repeat(38_000)));
-		const interleaved: OutboundFrame[] = [
-			{ generation: 7, type: "ready", heapHeadroomBytes: 0 },
-			{ generation: 7, type: "draining", reason: "memory" },
-			{ generation: 7, type: "fatal", handle: "first", reason: "termination-ignored" },
-		];
-		for (let index = 0; index < Math.max(first.length, second.length); index += 1) {
-			const left = first[index];
-			const right = second[index];
-			if (left !== undefined) {
-				interleaved.push(left);
+	it.effect("handles partial writes, chunk interleaving, and desync in the client", () =>
+		Effect.gen(function* () {
+			const received: OutboundFrame[] = [];
+			const invalid: { readonly handle: string; readonly message: string }[] = [];
+			const reader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 8,
+				maximumBufferedBytes: 2 * 1024 * 1024,
+				onFrame: (frame) => received.push(frame),
+				isActive: (handle) => activeHandles.has(handle),
+				onInvalid: (handle, message) => invalid.push({ handle, message }),
+			});
+			const first = outboundParts(doneFrame("first", 10, "🛰️".repeat(40_000)));
+			const second = outboundParts(doneFrame("second", 11, "🧩".repeat(38_000)));
+			const interleaved: OutboundFrame[] = [
+				{ generation: 7, type: "ready", heapHeadroomBytes: 0 },
+				{ generation: 7, type: "draining", reason: "memory" },
+				{ generation: 7, type: "fatal", handle: "first", reason: "termination-ignored" },
+			];
+			for (let index = 0; index < Math.max(first.length, second.length); index += 1) {
+				const left = first[index];
+				const right = second[index];
+				if (left !== undefined) {
+					interleaved.push(left);
+				}
+				if (right !== undefined) {
+					interleaved.push(right);
+				}
 			}
-			if (right !== undefined) {
-				interleaved.push(right);
+			const stream = yield* outboundBytes(interleaved);
+			for (const byte of stream) {
+				reader.feed(Uint8Array.of(byte));
 			}
-		}
-		const stream = concatBytes(interleaved.map((frame) => sidecarOutboundFrames.encode(frame)));
-		for (const byte of stream) {
-			reader.feed(Uint8Array.of(byte));
-		}
-		expect(received.slice(0, 3).map(({ type }) => type)).toEqual(["ready", "draining", "fatal"]);
-		expect(
-			received.filter((frame) => frame.type === "done").map(({ seq, handle }) => ({ seq, handle })),
-		).toEqual([
-			{ seq: 11, handle: "second" },
-			{ seq: 10, handle: "first" },
-		]);
-		expect(received.filter((frame) => frame.type === "done").map(({ outcome }) => outcome)).toEqual(
-			[
+			expect(received.slice(0, 3).map(({ type }) => type)).toEqual(["ready", "draining", "fatal"]);
+			expect(
+				received
+					.filter((frame) => frame.type === "done")
+					.map(({ seq, handle }) => ({ seq, handle })),
+			).toEqual([
+				{ seq: 11, handle: "second" },
+				{ seq: 10, handle: "first" },
+			]);
+			expect(
+				received.filter((frame) => frame.type === "done").map(({ outcome }) => outcome),
+			).toEqual([
 				{ status: "completed", value: { text: "🧩".repeat(38_000) } },
 				{ status: "completed", value: { text: "🛰️".repeat(40_000) } },
-			],
-		);
-		expect(invalid).toEqual([]);
-		const hostCall = hostCallFrame("second", 40, "🛎️".repeat(18_000));
-		feedOutboundFrames(reader, outboundParts(hostCall));
-		expect(received.filter((frame) => frame.type === "hostCall")).toEqual([hostCall]);
+			]);
+			expect(invalid).toEqual([]);
+			const hostCall = yield* lookupFrame("second", 40, "🛎️".repeat(18_000));
+			yield* feedOutboundFrames(reader, outboundParts(hostCall));
+			expect(received.filter((frame) => frame.type === "hostCall")).toEqual([hostCall]);
 
-		const duplicateReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 8,
-			maximumBufferedBytes: 2 * 1024 * 1024,
-			onFrame: (frame) => received.push(frame),
-			isActive: (handle) => activeHandles.has(handle),
-			onInvalid: (handle, message) => invalid.push({ handle, message }),
-		});
-		const duplicateParts = outboundParts(doneFrame("duplicate", 12, "d".repeat(150_000)));
-		const goodParts = outboundParts(doneFrame("first", 13, "valid🧪".repeat(30_000)));
-		const mismatchedParts = outboundParts(
-			doneFrame("envelope", 14, "wrong-envelope".repeat(12_000)),
-			15,
-		);
-		const unsupportedRunPart = {
-			...required(outboundParts(doneFrame("second", 16, "n".repeat(80_000)))[0]),
-			frameType: "run",
-		} satisfies OutboundFrame;
-		const unsupportedHostResultPart = {
-			...required(outboundParts(doneFrame("second", 18, "h".repeat(80_000)))[0]),
-			frameType: "hostResult",
-		} satisfies OutboundFrame;
-		const isolateParts = [
-			duplicateParts[0],
-			goodParts[0],
-			duplicateParts[0],
-			...goodParts.slice(1),
-			...mismatchedParts,
-			unsupportedRunPart,
-			unsupportedHostResultPart,
-		].filter((frame) => frame !== undefined);
-		feedOutboundFrames(duplicateReader, isolateParts);
-		const excessFrame = { ...doneFrame("second", 17, "excess"), unexpected: true };
-		duplicateReader.feed(framedPayload(encoder.encode(JSON.stringify(excessFrame))));
-		expect(invalid.map(({ handle }) => handle)).toEqual([
-			"duplicate",
-			"envelope",
-			"second",
-			"second",
-			"second",
-		]);
-		expect(
-			received.some(
-				(frame) => frame.type === "done" && frame.handle === "first" && frame.seq === 13,
-			),
-		).toBe(true);
-		expect(
-			invalid.every(({ handle }) => ["second", "envelope", "duplicate"].includes(handle)),
-		).toBe(true);
+			const duplicateReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 8,
+				maximumBufferedBytes: 2 * 1024 * 1024,
+				onFrame: (frame) => received.push(frame),
+				isActive: (handle) => activeHandles.has(handle),
+				onInvalid: (handle, message) => invalid.push({ handle, message }),
+			});
+			const duplicateParts = outboundParts(doneFrame("duplicate", 12, "d".repeat(150_000)));
+			const goodParts = outboundParts(doneFrame("first", 13, "valid🧪".repeat(30_000)));
+			const mismatchedParts = outboundParts(
+				doneFrame("envelope", 14, "wrong-envelope".repeat(12_000)),
+				15,
+			);
+			const unsupportedRunPart = {
+				...required(outboundParts(doneFrame("second", 16, "n".repeat(80_000)))[0]),
+				frameType: "run",
+			} satisfies OutboundFrame;
+			const unsupportedHostResultPart = {
+				...required(outboundParts(doneFrame("second", 18, "h".repeat(80_000)))[0]),
+				frameType: "hostResult",
+			} satisfies OutboundFrame;
+			const isolateParts = [
+				duplicateParts[0],
+				goodParts[0],
+				duplicateParts[0],
+				...goodParts.slice(1),
+				...mismatchedParts,
+				unsupportedRunPart,
+				unsupportedHostResultPart,
+			].filter((frame) => frame !== undefined);
+			yield* feedOutboundFrames(duplicateReader, isolateParts);
+			const excessFrame = { ...doneFrame("second", 17, "excess"), unexpected: true };
+			duplicateReader.feed(framedPayload(encoder.encode(yield* encodeJson(excessFrame))));
+			expect(invalid.map(({ handle }) => handle)).toEqual([
+				"duplicate",
+				"envelope",
+				"second",
+				"second",
+				"second",
+			]);
+			expect(
+				received.some(
+					(frame) => frame.type === "done" && frame.handle === "first" && frame.seq === 13,
+				),
+			).toBe(true);
+			expect(
+				invalid.every(({ handle }) => ["second", "envelope", "duplicate"].includes(handle)),
+			).toBe(true);
 
-		const dropReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 1,
-			maximumBufferedBytes: 512 * 1024,
-			onFrame: (frame) => received.push(frame),
-			isActive: (handle) => activeHandles.has(handle),
-			onInvalid: (handle, message) => invalid.push({ handle, message }),
-		});
-		activeHandles.delete("unknown-test");
-		dropReader.retire("unknown-test");
-		const unknownParts = outboundParts(doneFrame("not-active", 20, "u".repeat(150_000)));
-		const retiredParts = outboundParts(doneFrame("unknown-test", 21, "r".repeat(150_000)));
-		const foreignParts = outboundParts(doneFrame("first", 22, "g".repeat(150_000), 8));
-		feedOutboundFrames(dropReader, [...unknownParts, ...retiredParts, ...foreignParts]);
-		const beforeForeignReady = received.length;
-		feedOutboundFrames(dropReader, [{ generation: 8, type: "ready", heapHeadroomBytes: 0 }]);
-		expect(received).toHaveLength(beforeForeignReady);
-		expect(received.filter((frame) => frame.type === "done")).toHaveLength(3);
-		expect(invalid).toHaveLength(5);
+			const dropReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 1,
+				maximumBufferedBytes: 512 * 1024,
+				onFrame: (frame) => received.push(frame),
+				isActive: (handle) => activeHandles.has(handle),
+				onInvalid: (handle, message) => invalid.push({ handle, message }),
+			});
+			activeHandles.delete("unknown-test");
+			dropReader.retire("unknown-test");
+			const unknownParts = outboundParts(doneFrame("not-active", 20, "u".repeat(150_000)));
+			const retiredParts = outboundParts(doneFrame("unknown-test", 21, "r".repeat(150_000)));
+			const foreignParts = outboundParts(doneFrame("first", 22, "g".repeat(150_000), 8));
+			yield* feedOutboundFrames(dropReader, [...unknownParts, ...retiredParts, ...foreignParts]);
+			const beforeForeignReady = received.length;
+			yield* feedOutboundFrames(dropReader, [
+				{ generation: 8, type: "ready", heapHeadroomBytes: 0 },
+			]);
+			expect(received).toHaveLength(beforeForeignReady);
+			expect(received.filter((frame) => frame.type === "done")).toHaveLength(3);
+			expect(invalid).toHaveLength(5);
 
-		const cleanupFrames: OutboundFrame[] = [];
-		const cleanupReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 1,
-			maximumBufferedBytes: 512 * 1024,
-			onFrame: (frame) => cleanupFrames.push(frame),
-			isActive: (handle) => activeHandles.has(handle),
-			onInvalid: (handle, message) => invalid.push({ handle, message }),
-		});
-		const retiringParts = outboundParts(doneFrame("second", 23, "a".repeat(150_000)));
-		const survivorParts = outboundParts(doneFrame("first", 24, "b".repeat(150_000)));
-		feedOutboundFrames(cleanupReader, [required(retiringParts[0])]);
-		activeHandles.delete("second");
-		cleanupReader.retire("second");
-		feedOutboundFrames(cleanupReader, retiringParts.slice(1));
-		feedOutboundFrames(cleanupReader, survivorParts);
-		expect(cleanupFrames).toEqual([doneFrame("first", 24, "b".repeat(150_000))]);
+			const cleanupFrames: OutboundFrame[] = [];
+			const cleanupReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 1,
+				maximumBufferedBytes: 512 * 1024,
+				onFrame: (frame) => cleanupFrames.push(frame),
+				isActive: (handle) => activeHandles.has(handle),
+				onInvalid: (handle, message) => invalid.push({ handle, message }),
+			});
+			const retiringParts = outboundParts(doneFrame("second", 23, "a".repeat(150_000)));
+			const survivorParts = outboundParts(doneFrame("first", 24, "b".repeat(150_000)));
+			yield* feedOutboundFrames(cleanupReader, [required(retiringParts[0])]);
+			activeHandles.delete("second");
+			cleanupReader.retire("second");
+			yield* feedOutboundFrames(cleanupReader, retiringParts.slice(1));
+			yield* feedOutboundFrames(cleanupReader, survivorParts);
+			expect(cleanupFrames).toEqual([doneFrame("first", 24, "b".repeat(150_000))]);
 
-		const tooLongReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 1,
-			isActive: () => true,
-			onFrame: () => undefined,
-			onInvalid: () => undefined,
-			maximumBufferedBytes: 512 * 1024,
-		});
-		expect(() => tooLongReader.feed(new Uint8Array([0, 4, 0, 1]))).toThrow(SidecarProtocolError);
-		const boundedReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 1,
-			isActive: () => true,
-			onFrame: () => undefined,
-			onInvalid: () => undefined,
-			maximumBufferedBytes: 150_000,
-		});
-		const boundedParts = outboundParts(doneFrame("first", 25, "z".repeat(150_000)));
-		expect(() => feedOutboundFrames(boundedReader, [required(boundedParts[0])])).toThrow(
-			SidecarProtocolError,
-		);
-		const assemblyLimitReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 1,
-			isActive: () => true,
-			onFrame: () => undefined,
-			onInvalid: () => undefined,
-			maximumBufferedBytes: 512 * 1024,
-		});
-		const assemblyFirst = outboundParts(doneFrame("first", 26, "a".repeat(150_000)));
-		const assemblySecond = outboundParts(doneFrame("second", 27, "b".repeat(150_000)));
-		feedOutboundFrames(assemblyLimitReader, [required(assemblyFirst[0])]);
-		expect(() => feedOutboundFrames(assemblyLimitReader, [required(assemblySecond[0])])).toThrow(
-			SidecarProtocolError,
-		);
-		const exhaustedHeader = new Uint8Array(4);
-		new DataView(exhaustedHeader.buffer).setUint32(0, 100_001);
-		const exhaustedReader = makeSidecarFrameReader({
-			generation: 7,
-			maximumAssemblies: 1,
-			isActive: () => true,
-			onFrame: () => undefined,
-			onInvalid: () => undefined,
-			maximumBufferedBytes: 100_000,
-		});
-		expect(() => exhaustedReader.feed(exhaustedHeader)).toThrow(SidecarProtocolError);
+			const tooLongReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 1,
+				isActive: () => true,
+				onFrame: () => undefined,
+				onInvalid: () => undefined,
+				maximumBufferedBytes: 512 * 1024,
+			});
+			expect(() => tooLongReader.feed(new Uint8Array([0, 4, 0, 1]))).toThrow(SidecarProtocolError);
+			const boundedReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 1,
+				isActive: () => true,
+				onFrame: () => undefined,
+				onInvalid: () => undefined,
+				maximumBufferedBytes: 150_000,
+			});
+			const boundedParts = outboundParts(doneFrame("first", 25, "z".repeat(150_000)));
+			const boundedBytes = yield* outboundBytes([required(boundedParts[0])]);
+			expect(() => boundedReader.feed(boundedBytes)).toThrow(SidecarProtocolError);
+			const assemblyLimitReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 1,
+				isActive: () => true,
+				onFrame: () => undefined,
+				onInvalid: () => undefined,
+				maximumBufferedBytes: 512 * 1024,
+			});
+			const assemblyFirst = outboundParts(doneFrame("first", 26, "a".repeat(150_000)));
+			const assemblySecond = outboundParts(doneFrame("second", 27, "b".repeat(150_000)));
+			yield* feedOutboundFrames(assemblyLimitReader, [required(assemblyFirst[0])]);
+			const assemblySecondBytes = yield* outboundBytes([required(assemblySecond[0])]);
+			expect(() => assemblyLimitReader.feed(assemblySecondBytes)).toThrow(SidecarProtocolError);
+			const exhaustedHeader = new Uint8Array(4);
+			new DataView(exhaustedHeader.buffer).setUint32(0, 100_001);
+			const exhaustedReader = makeSidecarFrameReader({
+				generation: 7,
+				maximumAssemblies: 1,
+				isActive: () => true,
+				onFrame: () => undefined,
+				onInvalid: () => undefined,
+				maximumBufferedBytes: 100_000,
+			});
+			expect(() => exhaustedReader.feed(exhaustedHeader)).toThrow(SidecarProtocolError);
 
-		const largeRun = runFrame("first", 30, "🧪".repeat(80_000));
-		const smallRun = runFrame("second", 31, "small");
-		const controlResult = hostResultFrame("first", 32, "settled");
-		const writerOutput: Uint8Array[] = [];
-		let firstWrite = true;
-		const writer = makeSidecarFrameWriter({
-			maximumRunMessages: 2,
-			lane: () => "interactive",
-			maximumControlMessages: 2,
-			maximumQueuedBytes: 2 * 1024 * 1024,
-			write: (bytes) => {
-				const written = firstWrite ? Math.min(3, bytes.byteLength) : bytes.byteLength;
-				writerOutput.push(bytes.slice(0, written));
-				const blocked = firstWrite;
-				firstWrite = false;
-				return { written, blocked };
-			},
-		});
-		writer.enqueue(largeRun);
-		writer.enqueue(smallRun);
-		writer.flush();
-		writer.enqueue(controlResult);
-		writer.enqueue({ seq: 31, generation: 7, type: "cancel", handle: "second" });
-		writer.flush();
-		const writtenFrames = decodeInboundBytes(concatBytes(writerOutput));
-		expect(writtenFrames[0]).toMatchObject({
-			index: 0,
-			type: "part",
-			handle: "first",
-			frameType: "run",
-		});
-		expect(writtenFrames[1]).toMatchObject({ type: "cancel", handle: "second" });
-		expect(writtenFrames[2]).toMatchObject({ handle: "first", type: "hostResult" });
-		expect(writtenFrames[3]).toMatchObject({ type: "run", handle: "second" });
-		expect(writtenFrames[4]).toMatchObject({
-			index: 1,
-			type: "part",
-			handle: "first",
-			frameType: "run",
-		});
-		const runParts = writtenFrames.filter(
-			(frame): frame is Extract<InboundFrame, { type: "part" }> =>
-				frame.type === "part" && frame.handle === "first" && frame.frameType === "run",
-		);
-		const runPayload = concatBytes(
-			runParts.map(({ data }) => Result.getOrThrow(Base64.decode(data))),
-		);
-		const decodedRun = Schema.decodeSync(Schema.fromJsonString(SidecarInboundFrame), {
-			onExcessProperty: "error",
-		})(decoder.decode(runPayload));
-		expect(decodedRun).toEqual(largeRun);
+			const largeRun = runFrame("first", 30, "🧪".repeat(80_000));
+			const smallRun = runFrame("second", 31, "small");
+			const controlResult = hostResultFrame("first", 32, "settled");
+			const writerOutput: Uint8Array[] = [];
+			let firstWrite = true;
+			const writer = makeSidecarFrameWriter({
+				maximumRunMessages: 2,
+				lane: () => "interactive",
+				maximumControlMessages: 2,
+				maximumQueuedBytes: 2 * 1024 * 1024,
+				write: (bytes) => {
+					const written = firstWrite ? Math.min(3, bytes.byteLength) : bytes.byteLength;
+					writerOutput.push(bytes.slice(0, written));
+					const blocked = firstWrite;
+					firstWrite = false;
+					return { written, blocked };
+				},
+			});
+			writer.enqueue(largeRun);
+			writer.enqueue(smallRun);
+			writer.flush();
+			writer.enqueue(controlResult);
+			writer.enqueue({ seq: 31, generation: 7, type: "cancel", handle: "second" });
+			writer.flush();
+			const writtenFrames = decodeInboundBytes(concatBytes(writerOutput));
+			expect(writtenFrames[0]).toMatchObject({
+				index: 0,
+				type: "part",
+				handle: "first",
+				frameType: "run",
+			});
+			expect(writtenFrames[1]).toMatchObject({ type: "cancel", handle: "second" });
+			expect(writtenFrames[2]).toMatchObject({ handle: "first", type: "hostResult" });
+			expect(writtenFrames[3]).toMatchObject({ type: "run", handle: "second" });
+			expect(writtenFrames[4]).toMatchObject({
+				index: 1,
+				type: "part",
+				handle: "first",
+				frameType: "run",
+			});
+			const runParts = writtenFrames.filter(
+				(frame): frame is Extract<InboundFrame, { type: "part" }> =>
+					frame.type === "part" && frame.handle === "first" && frame.frameType === "run",
+			);
+			const runPayload = concatBytes(
+				runParts.map(({ data }) => Result.getOrThrow(Base64.decode(data))),
+			);
+			const decodedRun = yield* Schema.decodeEffect(Schema.fromJsonString(SidecarInboundFrame), {
+				onExcessProperty: "error",
+			})(decoder.decode(runPayload));
+			expect(decodedRun).toEqual(largeRun);
 
-		const hostResultOutput: Uint8Array[] = [];
-		const hostResultWriter = makeSidecarFrameWriter({
-			maximumRunMessages: 1,
-			lane: () => "interactive",
-			maximumControlMessages: 1,
-			maximumQueuedBytes: 1024 * 1024,
-			write: (bytes) => {
-				hostResultOutput.push(bytes.slice());
-				return { blocked: false, written: bytes.byteLength };
-			},
-		});
-		const largeHostResult = hostResultFrame("second", 34, "🪐".repeat(70_000));
-		hostResultWriter.enqueue(largeHostResult);
-		hostResultWriter.flush();
-		const hostResultFrames = decodeInboundBytes(concatBytes(hostResultOutput));
-		const hostResultParts = hostResultFrames.filter(
-			(frame): frame is Extract<InboundFrame, { type: "part" }> =>
-				frame.type === "part" && frame.frameType === "hostResult",
-		);
-		expect(hostResultParts.length).toBeGreaterThan(1);
-		const hostResultPayload = concatBytes(
-			hostResultParts.map(({ data }) => Result.getOrThrow(Base64.decode(data))),
-		);
-		const decodedHostResult = Schema.decodeSync(Schema.fromJsonString(SidecarInboundFrame), {
-			onExcessProperty: "error",
-		})(decoder.decode(hostResultPayload));
-		expect(decodedHostResult).toEqual(largeHostResult);
+			const hostResultOutput: Uint8Array[] = [];
+			const hostResultWriter = makeSidecarFrameWriter({
+				maximumRunMessages: 1,
+				lane: () => "interactive",
+				maximumControlMessages: 1,
+				maximumQueuedBytes: 1024 * 1024,
+				write: (bytes) => {
+					hostResultOutput.push(bytes.slice());
+					return { blocked: false, written: bytes.byteLength };
+				},
+			});
+			const largeHostResult = hostResultFrame("second", 34, "🪐".repeat(70_000));
+			hostResultWriter.enqueue(largeHostResult);
+			hostResultWriter.flush();
+			const hostResultFrames = decodeInboundBytes(concatBytes(hostResultOutput));
+			const hostResultParts = hostResultFrames.filter(
+				(frame): frame is Extract<InboundFrame, { type: "part" }> =>
+					frame.type === "part" && frame.frameType === "hostResult",
+			);
+			expect(hostResultParts.length).toBeGreaterThan(1);
+			const hostResultPayload = concatBytes(
+				hostResultParts.map(({ data }) => Result.getOrThrow(Base64.decode(data))),
+			);
+			const decodedHostResult = yield* Schema.decodeEffect(
+				Schema.fromJsonString(SidecarInboundFrame),
+				{ onExcessProperty: "error" },
+			)(decoder.decode(hostResultPayload));
+			expect(decodedHostResult).toEqual(largeHostResult);
 
-		const retirementOutput: Uint8Array[] = [];
-		let retireWrite = true;
-		const retirementWriter = makeSidecarFrameWriter({
-			maximumRunMessages: 1,
-			lane: () => "interactive",
-			maximumControlMessages: 1,
-			maximumQueuedBytes: 1024 * 1024,
-			write: (bytes) => {
-				const written = retireWrite ? Math.min(2, bytes.byteLength) : bytes.byteLength;
-				retirementOutput.push(bytes.slice(0, written));
-				const blocked = retireWrite;
-				retireWrite = false;
-				return { written, blocked };
-			},
-		});
-		retirementWriter.enqueue(largeRun);
-		retirementWriter.flush();
-		retirementWriter.retire("first");
-		retirementWriter.flush();
-		retirementWriter.enqueue(runFrame("second", 33, "after retirement"));
-		retirementWriter.flush();
-		const retiredOutput = decodeInboundBytes(concatBytes(retirementOutput));
-		expect(retiredOutput).toMatchObject([
-			{ index: 0, type: "part", handle: "first" },
-			{ type: "run", handle: "second", input: { text: "after retirement" } },
-		]);
+			const retirementOutput: Uint8Array[] = [];
+			let retireWrite = true;
+			const retirementWriter = makeSidecarFrameWriter({
+				maximumRunMessages: 1,
+				lane: () => "interactive",
+				maximumControlMessages: 1,
+				maximumQueuedBytes: 1024 * 1024,
+				write: (bytes) => {
+					const written = retireWrite ? Math.min(2, bytes.byteLength) : bytes.byteLength;
+					retirementOutput.push(bytes.slice(0, written));
+					const blocked = retireWrite;
+					retireWrite = false;
+					return { written, blocked };
+				},
+			});
+			retirementWriter.enqueue(largeRun);
+			retirementWriter.flush();
+			retirementWriter.retire("first");
+			retirementWriter.flush();
+			retirementWriter.enqueue(runFrame("second", 33, "after retirement"));
+			retirementWriter.flush();
+			const retiredOutput = decodeInboundBytes(concatBytes(retirementOutput));
+			expect(retiredOutput).toMatchObject([
+				{ index: 0, type: "part", handle: "first" },
+				{ type: "run", handle: "second", input: { text: "after retirement" } },
+			]);
 
-		const overflowWriter = makeSidecarFrameWriter({
-			maximumRunMessages: 1,
-			maximumQueuedBytes: 10,
-			lane: () => "interactive",
-			maximumControlMessages: 1,
-			write: (bytes) => ({ blocked: false, written: bytes.byteLength }),
-		});
-		expect(() =>
-			overflowWriter.enqueue({ seq: 1, generation: 7, type: "cancel", handle: "first" }),
-		).toThrow(SidecarProtocolError);
-		expect(() =>
-			overflowWriter.enqueue({ seq: 1, generation: 7, type: "cancel", handle: "first" }),
-		).toThrow("writer is closed");
-		const invalidWriteWriter = makeSidecarFrameWriter({
-			maximumRunMessages: 1,
-			maximumQueuedBytes: 1024,
-			lane: () => "interactive",
-			maximumControlMessages: 1,
-			write: (bytes) => ({ blocked: false, written: bytes.byteLength + 1 }),
-		});
-		invalidWriteWriter.enqueue({ seq: 1, generation: 7, type: "cancel", handle: "first" });
-		expect(() => invalidWriteWriter.flush()).toThrow(SidecarProtocolError);
-		expect(() => invalidWriteWriter.flush()).toThrow("writer is closed");
-		const capsWriter = makeSidecarFrameWriter({
-			maximumRunMessages: 1,
-			maximumQueuedBytes: 1024,
-			lane: () => "interactive",
-			maximumControlMessages: 1,
-			write: (bytes) => ({ blocked: false, written: bytes.byteLength }),
-		});
-		expect(() =>
-			capsWriter.enqueue(
-				runFrame("first", 35, "r".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.run)),
-			),
-		).toThrow(SidecarProtocolError);
-		expect(() =>
-			capsWriter.enqueue(
-				hostResultFrame("first", 36, "h".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult)),
-			),
-		).toThrow(SidecarProtocolError);
+			const overflowWriter = makeSidecarFrameWriter({
+				maximumRunMessages: 1,
+				maximumQueuedBytes: 10,
+				lane: () => "interactive",
+				maximumControlMessages: 1,
+				write: (bytes) => ({ blocked: false, written: bytes.byteLength }),
+			});
+			expect(() =>
+				overflowWriter.enqueue({ seq: 1, generation: 7, type: "cancel", handle: "first" }),
+			).toThrow(SidecarProtocolError);
+			expect(() =>
+				overflowWriter.enqueue({ seq: 1, generation: 7, type: "cancel", handle: "first" }),
+			).toThrow("writer is closed");
+			const invalidWriteWriter = makeSidecarFrameWriter({
+				maximumRunMessages: 1,
+				maximumQueuedBytes: 1024,
+				lane: () => "interactive",
+				maximumControlMessages: 1,
+				write: (bytes) => ({ blocked: false, written: bytes.byteLength + 1 }),
+			});
+			invalidWriteWriter.enqueue({ seq: 1, generation: 7, type: "cancel", handle: "first" });
+			expect(() => invalidWriteWriter.flush()).toThrow(SidecarProtocolError);
+			expect(() => invalidWriteWriter.flush()).toThrow("writer is closed");
+			const capsWriter = makeSidecarFrameWriter({
+				maximumRunMessages: 1,
+				maximumQueuedBytes: 1024,
+				lane: () => "interactive",
+				maximumControlMessages: 1,
+				write: (bytes) => ({ blocked: false, written: bytes.byteLength }),
+			});
+			expect(() =>
+				capsWriter.enqueue(
+					runFrame("first", 35, "r".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.run)),
+				),
+			).toThrow(SidecarProtocolError);
+			expect(() =>
+				capsWriter.enqueue(
+					hostResultFrame("first", 36, "h".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult)),
+				),
+			).toThrow(SidecarProtocolError);
 
-		reader.close();
-		duplicateReader.close();
-		dropReader.close();
-		cleanupReader.close();
-		tooLongReader.close();
-		boundedReader.close();
-		assemblyLimitReader.close();
-		exhaustedReader.close();
-		writer.close();
-		hostResultWriter.close();
-		retirementWriter.close();
-		overflowWriter.close();
-		invalidWriteWriter.close();
-		capsWriter.close();
-	});
+			reader.close();
+			duplicateReader.close();
+			dropReader.close();
+			cleanupReader.close();
+			tooLongReader.close();
+			boundedReader.close();
+			assemblyLimitReader.close();
+			exhaustedReader.close();
+			writer.close();
+			hostResultWriter.close();
+			retirementWriter.close();
+			overflowWriter.close();
+			invalidWriteWriter.close();
+			capsWriter.close();
+		}),
+	);
 });
 
 it("keeps Rust assemblies within the connection bound through lane pools", () => {

@@ -1,11 +1,28 @@
-import { Result, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 
-export const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-export const decodeJson = Schema.decodeSync(Schema.fromJsonString(Schema.Json));
+import { SidecarHostCallFrame } from "../protocol/messages";
+
+export const encodeJson = (value: unknown) =>
+	Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(Effect.orDie);
 
 export const hostCallArgs = (value: unknown) =>
-	Base64.encode(new TextEncoder().encode(encodeJson(value)));
+	Effect.map(encodeJson(value), (text) => Base64.encode(new TextEncoder().encode(text)));
 
 export const decodedHostCallArgs = (encoded: string) =>
-	decodeJson(new TextDecoder().decode(Result.getOrThrow(Base64.decode(encoded))));
+	Effect.fromResult(Base64.decode(encoded)).pipe(
+		Effect.flatMap((bytes) =>
+			Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(new TextDecoder().decode(bytes)),
+		),
+		Effect.orDie,
+	);
+
+export const hostCallFrame = (
+	frame: { readonly args: unknown } & Omit<typeof SidecarHostCallFrame.Encoded, "args" | "type">,
+) =>
+	hostCallArgs(frame.args).pipe(
+		Effect.flatMap((args) =>
+			Schema.decodeEffect(SidecarHostCallFrame)({ ...frame, args, type: "hostCall" }),
+		),
+		Effect.orDie,
+	);

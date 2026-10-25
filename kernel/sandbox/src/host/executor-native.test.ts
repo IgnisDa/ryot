@@ -23,7 +23,7 @@ import {
 	unusedSandboxHostFunctions,
 } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
-import { memoryPinnedJournal } from "./pinned-journal.test-support";
+import { emptyPinnedJournal } from "./pinned-journal.test-support";
 import type { SandboxPrincipal } from "./principal";
 import { sandboxRedisKeys } from "./redis";
 import { makeUserSubject } from "./run-input.test-support";
@@ -203,7 +203,7 @@ export default defineScript({
 });
 `;
 
-const encodeContext = Schema.encodeSync(
+const encodeContext = Schema.encodeEffect(
 	Schema.fromJsonString(
 		Schema.Struct({
 			pad: Schema.String,
@@ -245,7 +245,7 @@ export default defineOperation({
 });
 `;
 
-const ambientAuthorityModule = (manifest: unknown) => `
+const ambientAuthorityModule = (manifestJson: string) => `
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 const reachable = [];
 for (const name of ["Deno", "Bun", "process", "require", "fetch", "Request", "Response", "Blob", "File", "MessageChannel", "MessagePort", "BroadcastChannel", "SharedArrayBuffer", "Atomics", "WebAssembly", "Worker", "SharedWorker", "importScripts"]) {
@@ -263,7 +263,7 @@ for (const symbol of Object.getOwnPropertySymbols(globalThis)) reachable.push("s
 const forbidden = ["ext:core/ops", "data:text/javascript,export default 1", "file:///etc/passwd", "https://example.com/module.js", "node:fs", "npm:zod"];
 export default {
   definitionType: "ryot:sandbox-script",
-  manifest: ${encodeJson(manifest)},
+  manifest: ${manifestJson},
   input: Schema.Struct({}),
   output: Schema.Array(Schema.String),
   run: () => Effect.promise(async () => {
@@ -521,13 +521,13 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					service.run(makeRunInput(compiled, nextExecutionId(), context, ownerId));
 
 				for (const unit of ["a", "🙂", '"']) {
-					const unitBytes = encodedBytes(encodeJson(unit)) - 2;
+					const unitBytes = encodedBytes(yield* encodeJson(unit)) - 2;
 					const count = Math.floor((resultBytes - 2) / unitBytes);
 					const tail = resultBytes - 2 - count * unitBytes;
 					const exact = yield* run({ unit, tail, count, pad: "" });
 					expect(exact.success).toBe(true);
 					expect(exact.value).toBe(unit.repeat(count) + "a".repeat(tail));
-					expect(encodedBytes(encodeJson(exact.value))).toBe(resultBytes);
+					expect(encodedBytes(yield* encodeJson(exact.value))).toBe(resultBytes);
 					expect(yield* run({ unit, count, pad: "", tail: tail + 1 })).toMatchObject({
 						value: null,
 						success: false,
@@ -535,10 +535,10 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					});
 
 					const base = { tail: 0, pad: "", count: 0, unit: "a" };
-					const padBytes = contextBytes - encodedBytes(encodeContext(base));
+					const padBytes = contextBytes - encodedBytes(yield* encodeContext(base));
 					const padCount = Math.floor(padBytes / unitBytes);
 					const pad = unit.repeat(padCount) + "a".repeat(padBytes - padCount * unitBytes);
-					expect(encodedBytes(encodeContext({ ...base, pad }))).toBe(contextBytes);
+					expect(encodedBytes(yield* encodeContext({ ...base, pad }))).toBe(contextBytes);
 					expect(yield* run({ ...base, pad })).toMatchObject({ value: "", success: true });
 					const oversized = yield* Effect.flip(run({ ...base, pad: `${pad}a` }));
 					expect(oversized).toMatchObject({ kind: "invalid-input" });
@@ -600,7 +600,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					service.run({
 						...makeRunInput(compiled, executionId, { named }, ownerId, { artifactPath }),
 						lane: "background",
-						replayJournal: memoryPinnedJournal([]),
+						replayJournal: emptyPinnedJournal,
 						workflowExecutionId: `${executionId}-workflow`,
 						inlineDurableHost: {
 							cancel: () => Effect.void,
@@ -653,7 +653,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.gen(function* () {
 				const compiled = yield* compileTestScript(neighbourDefinitionSource);
 				const { kind, name, slug } = compiled.manifest;
-				const javascript = ambientAuthorityModule({ kind, name, slug });
+				const javascript = ambientAuthorityModule(yield* encodeJson({ kind, name, slug }));
 				const result = yield* (yield* SandboxExecutor).run(
 					makeRunInput(
 						{ ...compiled, javascript, manifest: { ...compiled.manifest, runtimeImports: [] } },

@@ -12,6 +12,7 @@ import { SandboxSidecarClient } from "./client";
 import { compileTestScript } from "./compile.test-support";
 import { decodedHostCallArgs, encodeJson } from "./host-call-args.test-support";
 import type { SandboxInlineDurableHost } from "./invocation";
+import { emptyPinnedJournal, memoryPinnedJournal } from "./pinned-journal.test-support";
 import {
 	defineNativeScript,
 	runNative,
@@ -103,9 +104,9 @@ export default defineWorkflow({
 				};
 				const options = { workflowExecutionId: "sdk-root-parent" };
 				const run = (journal: ReadonlyArray<WorkflowReplayJournalEntry>, count = 7) =>
-					runNative(compiled, { count }, { ...options, replayJournal: journal }).pipe(
-						Effect.provideService(SandboxSidecarClient, withoutSelectedFunctions),
-					);
+					Effect.flatMap(memoryPinnedJournal(journal), (replayJournal) =>
+						runNative(compiled, { count }, { ...options, replayJournal }),
+					).pipe(Effect.provideService(SandboxSidecarClient, withoutSelectedFunctions));
 				const activityRequest = {
 					index: 0,
 					name: "load-count",
@@ -432,12 +433,14 @@ export default defineWorkflow({
 					{
 						filesystem: { artifact: true },
 						reply: (frame) =>
-							frame.name === "artifactReadRange"
-								? {
-										status: "success",
-										value: { size: 8, offset: 0, data: Base64.encode(new Uint8Array(bytes)) },
-									}
-								: undefined,
+							Effect.succeed(
+								frame.name === "artifactReadRange"
+									? {
+											status: "success",
+											value: { size: 8, offset: 0, data: Base64.encode(new Uint8Array(bytes)) },
+										}
+									: undefined,
+							),
 					},
 				);
 				if (bytes === 4) {
@@ -457,9 +460,9 @@ export default defineWorkflow({
 			);
 			const recorded = {
 				workflowExecutionId: "oversized-journal-range",
-				replayJournal: [
+				replayJournal: yield* memoryPinnedJournal([
 					{ request: cachedRequest(0, "recorded"), value: { value: "ok", state: "success" } },
-				],
+				]),
 			} as const;
 			expect((yield* runNative(journal, {}, recorded)).response).toMatchObject({
 				success: true,
@@ -470,22 +473,23 @@ export default defineWorkflow({
 				{},
 				{
 					...recorded,
-					reply: (frame) => {
-						if (frame.name !== "journalRead") {
-							return undefined;
-						}
-						const args = Schema.decodeUnknownSync(
-							Schema.Struct({ length: Schema.Finite, offset: Schema.Finite }),
-						)(decodedHostCallArgs(frame.args));
-						return {
-							status: "success",
-							value: {
-								offset: args.offset,
-								totalBytes: args.offset + args.length,
-								data: Base64.encode(new Uint8Array(args.length + 1)),
-							},
-						};
-					},
+					reply: (frame) =>
+						Effect.gen(function* () {
+							if (frame.name !== "journalRead") {
+								return undefined;
+							}
+							const args = yield* Schema.decodeUnknownEffect(
+								Schema.Struct({ length: Schema.Finite, offset: Schema.Finite }),
+							)(yield* decodedHostCallArgs(frame.args)).pipe(Effect.orDie);
+							return {
+								status: "success",
+								value: {
+									offset: args.offset,
+									totalBytes: args.offset + args.length,
+									data: Base64.encode(new Uint8Array(args.length + 1)),
+								},
+							} as const;
+						}),
 				},
 			);
 			expect(response).toMatchObject({ success: true, value: { state: "failed" } });
@@ -556,12 +560,14 @@ export default defineWorkflow({
 				compiled,
 				{},
 				{
-					replayJournal: [],
+					replayJournal: emptyPinnedJournal,
 					workflowExecutionId: "inline-mismatch",
 					reply: (frame) =>
-						frame.name === "inlineBatch"
-							? { status: "success", value: { results: [] } }
-							: undefined,
+						Effect.succeed(
+							frame.name === "inlineBatch"
+								? { status: "success", value: { results: [] } }
+								: undefined,
+						),
 				},
 			);
 			expect(controls).toEqual(["inlineBatch"]);
@@ -618,7 +624,7 @@ export default defineWorkflow({
 						context,
 						kind === "workflow" ? { workflowExecutionId: "definition-kind" } : {},
 					);
-					expect(response, encodeJson(response)).toMatchObject({
+					expect(response, yield* encodeJson(response)).toMatchObject({
 						success: true,
 						value: kind === "workflow" ? { output: 42, state: "completed" } : 42,
 					});
@@ -779,14 +785,14 @@ export default defineScript({
 				message: "[redacted] [redacted] [internal] [external URL] script.ts",
 			});
 			expect(response.error.column).toBeGreaterThan(0);
-			expect(encodeJson(response.error)).not.toContain("native-runner-execution");
-			expect(encodeJson(response.error)).not.toContain("native-runner-script");
-			expect(encodeJson(response.error)).not.toContain("secret.invalid");
-			expect(encodeJson(response.error)).not.toContain("file://");
-			expect(encodeJson(response.error)).not.toContain("ryot-module:");
-			expect(encodeJson(response.error)).not.toContain("ryot-runtime:");
-			expect(encodeJson(response.error)).not.toContain("data:text/javascript");
-			expect(encodeJson(response.error)).not.toMatch(/[a-f0-9]{64}/);
+			expect(yield* encodeJson(response.error)).not.toContain("native-runner-execution");
+			expect(yield* encodeJson(response.error)).not.toContain("native-runner-script");
+			expect(yield* encodeJson(response.error)).not.toContain("secret.invalid");
+			expect(yield* encodeJson(response.error)).not.toContain("file://");
+			expect(yield* encodeJson(response.error)).not.toContain("ryot-module:");
+			expect(yield* encodeJson(response.error)).not.toContain("ryot-runtime:");
+			expect(yield* encodeJson(response.error)).not.toContain("data:text/javascript");
+			expect(yield* encodeJson(response.error)).not.toMatch(/[a-f0-9]{64}/);
 		}),
 	);
 
@@ -820,7 +826,7 @@ export default defineScript({
 						),
 					);
 					const { outcome } = yield* runNativeOutcome(compiled, {});
-					const evidence = encodeJson(outcome);
+					const evidence = yield* encodeJson(outcome);
 					expect(evidence).not.toContain("native-runner-execution");
 					expect(evidence).not.toContain("sandbox/private");
 					if (outcome.status === "completed") {
@@ -882,7 +888,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					const { inline, response } = yield* runNative(
 						compiled,
 						{ mode },
-						{ replayJournal: [], workflowExecutionId: "durable-parent" },
+						{ replayJournal: emptyPinnedJournal, workflowExecutionId: "durable-parent" },
 					);
 					expect(response).toMatchObject({
 						success: true,
@@ -918,8 +924,8 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					compiled,
 					{ mode: "replay" },
 					{
-						replayJournal: journal,
 						workflowExecutionId: "durable-parent",
+						replayJournal: yield* memoryPinnedJournal(journal),
 						functions: {
 							getCachedValue: () =>
 								Effect.sync(() => {
@@ -964,7 +970,9 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 						{},
 						{
 							workflowExecutionId: "durable-parent",
-							replayJournal: [{ request, value: { value: null, state: "success" } }],
+							replayJournal: yield* memoryPinnedJournal([
+								{ request, value: { value: null, state: "success" } },
+							]),
 						},
 					);
 					expect(response).toMatchObject({
@@ -1028,7 +1036,9 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 						{ count: 7 },
 						{
 							workflowExecutionId: "child-parent",
-							replayJournal: [{ request, value: { value, state: "success" } }],
+							replayJournal: yield* memoryPinnedJournal([
+								{ request, value: { value, state: "success" } },
+							]),
 						},
 					);
 					expect(replay.response).toMatchObject({
@@ -1098,18 +1108,20 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					{ mode: "http" },
 					{
 						workflowExecutionId: "durable-limit",
-						replayJournal: Array.from({ length: SANDBOX_LIMITS.hostCalls.http }, (_, index) => ({
-							value: { value: null, state: "success" as const },
-							request: {
-								index,
-								name: "httpCall",
-								kind: "host" as const,
-								args: {
-									capability: "httpCall" as const,
-									args: ["GET", "https://example.com/budget"],
+						replayJournal: yield* memoryPinnedJournal(
+							Array.from({ length: SANDBOX_LIMITS.hostCalls.http }, (_, index) => ({
+								value: { value: null, state: "success" as const },
+								request: {
+									index,
+									name: "httpCall",
+									kind: "host" as const,
+									args: {
+										capability: "httpCall" as const,
+										args: ["GET", "https://example.com/budget"],
+									},
 								},
-							},
-						})),
+							})),
+						),
 					},
 				);
 
@@ -1124,7 +1136,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				const plain = yield* runNative(
 					compiled,
 					{ mode: "plain" },
-					{ replayJournal: [], workflowExecutionId: "durable-plain" },
+					{ replayJournal: emptyPinnedJournal, workflowExecutionId: "durable-plain" },
 				);
 				expect(plain.response).toMatchObject({
 					success: true,
@@ -1160,7 +1172,11 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			const pending = yield* runNative(
 				compiled,
 				{},
-				{ functions, replayJournal: [], workflowExecutionId: "durable-catch-pending" },
+				{
+					functions,
+					replayJournal: emptyPinnedJournal,
+					workflowExecutionId: "durable-catch-pending",
+				},
 			);
 			expect(caughtCalls).toEqual([]);
 			expect(pending.response).toMatchObject({
@@ -1178,9 +1194,9 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				{
 					functions,
 					workflowExecutionId: "durable-catch-pending",
-					replayJournal: [
+					replayJournal: yield* memoryPinnedJournal([
 						{ request: cachedRequest(0, "first"), value: { error, state: "failure" } },
-					],
+					]),
 				},
 			);
 			expect(caughtCalls).toEqual([]);
@@ -1227,7 +1243,11 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				const replay = yield* runNative(
 					compiled,
 					{},
-					{ inlineDurableHost, replayJournal: live.inline, workflowExecutionId: "repeated-inline" },
+					{
+						inlineDurableHost,
+						workflowExecutionId: "repeated-inline",
+						replayJournal: yield* memoryPinnedJournal(live.inline),
+					},
 				);
 				expect(replay.response).toMatchObject({
 					success: true,
@@ -1281,8 +1301,8 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				{
 					inlineDurableHost,
 					lane: "background",
-					replayJournal: live.inline,
 					workflowExecutionId: "durable-parent",
+					replayJournal: yield* memoryPinnedJournal(live.inline),
 				},
 			);
 			expect(replay.response).toMatchObject({
@@ -1377,7 +1397,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				),
 			);
 			const value = '日\\"本語'.repeat(900_000);
-			expect(new TextEncoder().encode(encodeJson(value)).byteLength).toBeGreaterThan(
+			expect(new TextEncoder().encode(yield* encodeJson(value)).byteLength).toBeGreaterThan(
 				10 * 1024 * 1024,
 			);
 			const { response, controls } = yield* runNative(
@@ -1385,9 +1405,9 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				{},
 				{
 					workflowExecutionId: "large-journal",
-					replayJournal: [
+					replayJournal: yield* memoryPinnedJournal([
 						{ request: cachedRequest(0, "large"), value: { value, state: "success" } },
-					],
+					]),
 				},
 			);
 			expect(response).toMatchObject({

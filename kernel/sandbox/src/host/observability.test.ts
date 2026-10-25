@@ -206,7 +206,7 @@ describe("sandbox observability host functions", () => {
 											generation: 1,
 											type: "hostCall",
 											handle: "telemetry",
-											args: hostCallArgs([]),
+											args: yield* hostCallArgs([]),
 										});
 										expect(result.result).toMatchObject({
 											status: "success",

@@ -26,7 +26,7 @@ import {
 	type SandboxHostImplementationMap,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { hostFailure, hostSuccess, type SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import { Effect, Schema, SchemaIssue } from "effect";
+import { Effect, Result, Schema, SchemaIssue } from "effect";
 
 import type { BoundHostFunction, SandboxRunInput } from "./invocation";
 
@@ -107,14 +107,9 @@ type BindOptions = {
 
 const preserveFailure = <Reason>(schema: Schema.Codec<Reason, JsonValue>) => {
 	const decode = Schema.decodeUnknownResult(schema);
-	const encode = Schema.encodeSync(schema);
-	return (error: SandboxHostError) => {
-		const decoded = decode(error.data);
-		return hostFailure(
-			error.message,
-			decoded._tag === "Success" ? encode(decoded.success) : undefined,
-		);
-	};
+	const encode = Schema.encodeResult(schema);
+	return (error: SandboxHostError) =>
+		hostFailure(error.message, Result.getOrUndefined(Result.flatMap(decode(error.data), encode)));
 };
 
 const preserveSandboxBoundaryFailure = preserveFailure(SandboxBoundaryReason);

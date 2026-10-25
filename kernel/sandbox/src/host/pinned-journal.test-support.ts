@@ -11,15 +11,23 @@ import {
 	type SandboxPinnedJournal,
 } from "./pinned-journal";
 
-const decodeEntry = Schema.decodeUnknownSync(
-	Schema.fromJsonString(workflowReplayJournalEntrySchema),
-);
+const decodeEntry = (text: string) =>
+	Schema.decodeEffect(Schema.fromJsonString(workflowReplayJournalEntrySchema))(text).pipe(
+		Effect.orDie,
+	);
 
-export const memoryPinnedJournal = (
+export const emptyPinnedJournal: SandboxPinnedJournal = {
+	bytes: 2,
+	entries: [],
+	fault: () => undefined,
+	readChunk: () => Effect.succeed(null),
+};
+
+export const memoryPinnedJournal = Effect.fnUntraced(function* (
 	entries: ReadonlyArray<WorkflowReplayJournalEntry>,
-): SandboxPinnedJournal => {
-	const encoded = entries.map(({ value, request }) =>
-		chunkSandboxJournalEntry(encodeJson({ value, request })),
+): Effect.fn.Return<SandboxPinnedJournal> {
+	const encoded = yield* Effect.forEach(entries, ({ value, request }) =>
+		Effect.map(encodeJson({ value, request }), chunkSandboxJournalEntry),
 	);
 	return {
 		fault: () => undefined,
@@ -27,7 +35,7 @@ export const memoryPinnedJournal = (
 		bytes: encoded.reduce((sum, { pin }, index) => sum + pin[0] + (index === 0 ? 0 : 1), 2),
 		readChunk: (index, chunk) => Effect.sync(() => encoded[index]?.chunks[chunk]?.slice() ?? null),
 	};
-};
+});
 
 export const readPinnedJournal = Effect.fnUntraced(function* (journal: SandboxPinnedJournal) {
 	const entries: WorkflowReplayJournalEntry[] = [];
@@ -40,7 +48,7 @@ export const readPinnedJournal = Effect.fnUntraced(function* (journal: SandboxPi
 			}
 			text.set(data, chunk * SANDBOX_JOURNAL_CHUNK_BYTES);
 		}
-		entries.push(decodeEntry(new TextDecoder().decode(text)));
+		entries.push(yield* decodeEntry(new TextDecoder().decode(text)));
 	}
 	return entries;
 });

@@ -38,7 +38,7 @@ import { SandboxHostConfig } from "./config";
 import { CRASH_WINDOW_MS } from "./crash-store";
 import { makeUserPluginRevision } from "./executor.test-support";
 import { idleBytes } from "./gate.test-support";
-import { hostCallArgs } from "./host-call-args.test-support";
+import { hostCallArgs, hostCallFrame } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
@@ -525,9 +525,9 @@ const makePrepare =
 			let closed = false;
 			const gate: SandboxHostCallGateRegistration = {
 				journal: undefined,
-				inlineEntries: () => [],
-				pendingEntries: () => [],
 				handoff: () => undefined,
+				inlineEntries: Effect.succeed([]),
+				pendingEntries: Effect.succeed([]),
 				extend: (milliseconds) =>
 					Effect.sync(() => {
 						settledMs += milliseconds;
@@ -580,14 +580,13 @@ const makePrepare =
 			};
 		});
 
-const committedHostCall = (run: RunFrame, seq: number): HostCallFrame =>
-	Schema.decodeSync(SidecarHostCallFrame)({
+const committedHostCall = (run: RunFrame, seq: number): Effect.Effect<HostCallFrame> =>
+	hostCallFrame({
 		seq,
-		type: "hostCall",
 		handle: run.handle,
+		args: { args: [] },
 		name: "committedAction",
 		generation: run.generation,
-		args: hostCallArgs({ args: [] }),
 	});
 
 const startRun = (
@@ -1196,7 +1195,7 @@ supervisorTest("preserves retry budgets and committed work in collateral recover
 					return { run, fiber, principal };
 				});
 			let culprit = yield* startCulprit(connection, 1);
-			yield* harness.emit(connection.generation, committedHostCall(victimRun, 1));
+			yield* harness.emit(connection.generation, yield* committedHostCall(victimRun, 1));
 			const committedReply = yield* Queue.take(connection.nextHostResult);
 			expect(committedReply).toMatchObject({
 				type: "hostResult",
@@ -1452,13 +1451,12 @@ supervisorTest("bounds all tiers, grants, and recovery with global admission", (
 );
 
 const inlineBatch = (run: RunFrame, seq: number, index: number) =>
-	Schema.decodeSync(SidecarHostCallFrame)({
+	hostCallFrame({
 		seq,
-		type: "hostCall",
 		handle: run.handle,
 		name: "inlineBatch",
 		generation: run.generation,
-		args: hostCallArgs({
+		args: {
 			requests: [
 				{
 					index,
@@ -1467,7 +1465,7 @@ const inlineBatch = (run: RunFrame, seq: number, index: number) =>
 					args: { args: ["key"], capability: "getCachedValue" },
 				},
 			],
-		}),
+		},
 	});
 
 supervisorTest(
@@ -1487,7 +1485,7 @@ supervisorTest(
 					compiledCode: moduleSource,
 					executionId: "inline-budget",
 					startedAt: "2026-01-01T00:00:00.000Z",
-					replayJournal: memoryPinnedJournal([]),
+					replayJournal: yield* memoryPinnedJournal([]),
 					workflowExecutionId: "inline-budget-workflow",
 					principal: {
 						...makePrincipal([], "inline-budget"),
@@ -1549,7 +1547,7 @@ supervisorTest(
 					handle: run.handle,
 					name: "getCachedValue",
 					generation: run.generation,
-					args: hostCallArgs({ args: ["key"] }),
+					args: yield* hostCallArgs({ args: ["key"] }),
 				});
 				yield* harness.emit(run.generation, ordinaryCall);
 				yield* TestClock.adjust("4 seconds");
@@ -1557,7 +1555,7 @@ supervisorTest(
 				yield* Deferred.succeed(releaseOrdinary, undefined);
 				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 1 });
 
-				yield* harness.emit(run.generation, inlineBatch(run, 2, 0));
+				yield* harness.emit(run.generation, yield* inlineBatch(run, 2, 0));
 				const firstSettlement = yield* Queue.take(settlements);
 				yield* TestClock.adjust("5 seconds");
 				expect(yield* registration.scriptBudget).toEqual({ settledMs: 0, remainingMs: 26_000 });
@@ -1568,7 +1566,7 @@ supervisorTest(
 				});
 				expect(yield* registration.scriptBudget).toEqual({ settledMs: 5_000, remainingMs: 26_000 });
 
-				yield* harness.emit(run.generation, inlineBatch(run, 3, 1));
+				yield* harness.emit(run.generation, yield* inlineBatch(run, 3, 1));
 				yield* Queue.take(settlements);
 				yield* TestClock.adjust("30 seconds");
 				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({
@@ -1581,7 +1579,7 @@ supervisorTest(
 				});
 
 				for (let index = 0; index < 8; index++) {
-					yield* harness.emit(run.generation, inlineBatch(run, 4 + index, 1 + index));
+					yield* harness.emit(run.generation, yield* inlineBatch(run, 4 + index, 1 + index));
 					const settlement = yield* Queue.take(settlements);
 					yield* TestClock.adjust("29 seconds");
 					yield* Deferred.succeed(settlement, undefined);
@@ -1591,7 +1589,7 @@ supervisorTest(
 					settledMs: 267_000,
 					remainingMs: 26_000,
 				});
-				yield* harness.emit(run.generation, inlineBatch(run, 12, 9));
+				yield* harness.emit(run.generation, yield* inlineBatch(run, 12, 9));
 				const lastSettlement = yield* Queue.take(settlements);
 				yield* TestClock.adjust("28 seconds");
 				yield* Deferred.succeed(lastSettlement, undefined);
@@ -1631,7 +1629,7 @@ supervisorTest("admits honest maximum concurrency under per-handle bounds", () =
 				compiledCode: moduleSource,
 				executionId: "pending-bound",
 				startedAt: "2026-01-01T00:00:00.000Z",
-				replayJournal: memoryPinnedJournal([]),
+				replayJournal: yield* memoryPinnedJournal([]),
 				workflowExecutionId: "pending-bound-workflow",
 				principal: {
 					...makePrincipal([], "pending-bound"),
@@ -1678,18 +1676,17 @@ supervisorTest("admits honest maximum concurrency under per-handle bounds", () =
 			const connection = getConnection(harness, "user/core");
 			const run = yield* Queue.take(connection.nextRun);
 			const call = (seq: number) =>
-				Schema.decodeEffect(SidecarHostCallFrame)({
+				hostCallFrame({
 					seq,
-					type: "hostCall",
+					args: ["key"],
 					handle: run.handle,
 					name: "getCachedValue",
 					generation: run.generation,
-					args: hostCallArgs(["key"]),
 				});
 			for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.concurrentHostCalls; seq++) {
 				yield* harness.emit(run.generation, yield* call(seq));
 			}
-			yield* harness.emit(run.generation, inlineBatch(run, 5, 0));
+			yield* harness.emit(run.generation, yield* inlineBatch(run, 5, 0));
 			yield* TestClock.adjust("1 second");
 			expect(connection.sent.filter((frame) => frame.type === "cancel")).toEqual([]);
 
@@ -1916,18 +1913,16 @@ supervisorTest("prevents admission deadlock through memory lock order", () =>
 			const permitHolders = yield* Effect.forEach(
 				[0, 1, 2],
 				(seq) =>
-					registration
-						.dispatch(
-							Schema.decodeSync(SidecarHostCallFrame)({
-								seq,
-								generation: 1,
-								type: "hostCall",
-								name: "httpCall",
-								handle: "permits",
-								args: hostCallArgs(["GET", `https://example.com/${"k".repeat(900_000)}`]),
-							}),
-						)
-						.pipe(Effect.forkScoped({ startImmediately: true })),
+					hostCallFrame({
+						seq,
+						generation: 1,
+						name: "httpCall",
+						handle: "permits",
+						args: ["GET", `https://example.com/${"k".repeat(900_000)}`],
+					}).pipe(
+						Effect.flatMap((frame) => registration.dispatch(frame)),
+						Effect.forkScoped({ startImmediately: true }),
+					),
 				{ concurrency: "unbounded" },
 			);
 			yield* Effect.yieldNow;
@@ -2014,7 +2009,7 @@ supervisorTest("reuses the disposed isolate reservation on done decode", () =>
 			const run = yield* Queue.take(core.nextRun);
 			const running = admission.snapshot();
 			expect(running.runs).toBe(1);
-			yield* harness.emit(core.generation, committedHostCall(run, 1));
+			yield* harness.emit(core.generation, yield* committedHostCall(run, 1));
 			yield* harness.complete(core, run);
 			yield* Fiber.join(fiber);
 			expect(finished).toEqual([running]);

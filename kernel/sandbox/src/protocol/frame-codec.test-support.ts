@@ -14,10 +14,14 @@ const encoder = new TextEncoder();
 
 const sidecarFrameCodec = <Frame>(schema: Schema.Codec<Frame, Frame>) => {
 	const json = Schema.fromJsonString(schema);
-	const encodeJson = Schema.encodeSync(json, parseOptions);
+	const encodeJson = Schema.encodeEffect(json, parseOptions);
 	const decodeJson = Schema.decodeEffect(json, parseOptions);
 	return {
-		encode: (frame: Frame) => framePayload(encoder.encode(encodeJson(frame))),
+		encode: (frame: Frame) =>
+			encodeJson(frame).pipe(
+				Effect.orDie,
+				Effect.map((text) => framePayload(encoder.encode(text))),
+			),
 		decode: Effect.fnUntraced(function* (bytes: Uint8Array) {
 			if (bytes.byteLength < 4) {
 				return yield* new SidecarProtocolError({ reason: "framing", message: "missing length" });

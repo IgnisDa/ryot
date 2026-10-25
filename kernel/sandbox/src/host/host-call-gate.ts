@@ -45,27 +45,18 @@ const initialExpiryMs = SANDBOX_LIMITS.execution.timeoutMs + SANDBOX_LIMITS.side
 const maximumSequenceCount = SANDBOX_LIMITS.hostCalls.total + SANDBOX_LIMITS.journalReads.count + 4;
 const dispatchQueueFull = Symbol("dispatchQueueFull");
 const strictOptions = { onExcessProperty: "error" } as const;
-const encodeUnknownJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-const encodeJournalEntryJson = Schema.encodeSync(
-	Schema.fromJsonString(workflowReplayJournalEntrySchema),
-	strictOptions,
-);
-const decodeJournalEntryJson = Schema.decodeSync(
-	Schema.fromJsonString(workflowReplayJournalEntrySchema),
-	strictOptions,
-);
+const encodeUnknownJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+const journalEntryJson = Schema.fromJsonString(workflowReplayJournalEntrySchema);
+const encodeJournalEntryJson = Schema.encodeEffect(journalEntryJson, strictOptions);
+const decodeJournalEntryJson = Schema.decodeEffect(journalEntryJson, strictOptions);
 const progressJson = Schema.fromJsonString(SandboxInlineProgress);
-const encodeProgressJson = Schema.encodeSync(progressJson, strictOptions);
-const decodeProgressJson = Schema.decodeSync(progressJson, strictOptions);
-const encodeHostRequestJson = Schema.encodeSync(
-	Schema.fromJsonString(workflowInlineRequestSchema),
-	strictOptions,
-);
-const decodeHostRequestJson = Schema.decodeSync(
-	Schema.fromJsonString(workflowInlineRequestSchema),
-	strictOptions,
-);
-const decodeJournalEntry = Schema.decodeUnknownSync(
+const encodeProgressJson = Schema.encodeEffect(progressJson, strictOptions);
+const decodeProgressJson = Schema.decodeEffect(progressJson, strictOptions);
+const hostRequestJson = Schema.fromJsonString(workflowInlineRequestSchema);
+const encodeHostRequestJson = (request: WorkflowInlineRequest) =>
+	Schema.encodeEffect(hostRequestJson, strictOptions)(request).pipe(Effect.orDie);
+const decodeHostRequestJson = Schema.decodeEffect(hostRequestJson, strictOptions);
+const decodeJournalEntry = Schema.decodeUnknownEffect(
 	workflowReplayJournalEntrySchema,
 	strictOptions,
 );
@@ -190,9 +181,9 @@ export type SandboxHostCallGateRegistration = {
 	readonly close: Effect.Effect<void>;
 	readonly journal: SandboxInvocationJournal;
 	readonly extend: (ms: number) => Effect.Effect<void, GateError>;
-	readonly pendingEntries: () => ReadonlyArray<SandboxInlineProgress>;
 	readonly scriptBudget: Effect.Effect<typeof scriptBudgetSchema.Type>;
-	readonly inlineEntries: () => ReadonlyArray<WorkflowReplayJournalEntry>;
+	readonly pendingEntries: Effect.Effect<ReadonlyArray<SandboxInlineProgress>>;
+	readonly inlineEntries: Effect.Effect<ReadonlyArray<WorkflowReplayJournalEntry>>;
 	readonly dispatch: (
 		frame: SidecarHostCallFrameType,
 		deliver?: SandboxHostResultDelivery,
@@ -282,7 +273,7 @@ const frameFailure = (
 	hostResultFrame(frame, isJsonValue(data) ? hostFailure(message, data) : hostFailure(message));
 
 const ownerKey = (options: SandboxHostCallGateOptions) =>
-	encodeUnknownJson([options.instance, options.generation, options.handle]);
+	encodeUnknownJson([options.instance, options.generation, options.handle]).pipe(Effect.orDie);
 
 type GateAction = (
 	state: RunState,
@@ -460,7 +451,9 @@ const boundedHostCall = (
 		Effect.withParentSpan(options.parentSpan),
 	);
 
-const inlineProgressBoundBytes = (requests: ReadonlyArray<WorkflowInlineRequest>) => {
+const inlineProgressBoundBytes = Effect.fnUntraced(function* (
+	requests: ReadonlyArray<WorkflowInlineRequest>,
+) {
 	let valueBytes = 0;
 	let progressBoundBytes = 0;
 	for (const request of requests) {
@@ -477,11 +470,11 @@ const inlineProgressBoundBytes = (requests: ReadonlyArray<WorkflowInlineRequest>
 		}
 		progressBoundBytes +=
 			Math.min(wireBytes, SANDBOX_LIMITS.bridge.responseBytes) +
-			2 * encoder.encode(encodeHostRequestJson(request)).byteLength +
+			2 * encoder.encode(yield* encodeHostRequestJson(request)).byteLength +
 			8 * KiB;
 	}
 	return { valueBytes, progressBoundBytes };
-};
+});
 
 const journalRead: GateAction = (state, options, frame, frameArgs) =>
 	Effect.gen(function* () {
@@ -560,7 +553,7 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 		if (invalidRequest) {
 			return hostResultFrame(frame, { defer: true });
 		}
-		const requestBytes = requests.map((request) => encodeHostRequestJson(request));
+		const requestBytes = yield* Effect.forEach(requests, encodeHostRequestJson);
 
 		let budgetExceeded = false;
 		for (const request of requests) {
@@ -576,7 +569,7 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 		if (budgetExceeded) {
 			return hostResultFrame(frame, { defer: true });
 		}
-		const bounds = inlineProgressBoundBytes(requests);
+		const bounds = yield* inlineProgressBoundBytes(requests);
 		if (bounds === undefined) {
 			return hostResultFrame(frame, { defer: true });
 		}
@@ -589,26 +582,30 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 			return hostResultFrame(frame, { defer: true });
 		}
 		const checkpoint = (progress: SandboxInlineProgress) =>
-			Effect.sync(() => {
-				const index = progress.request.index - firstIndex;
-				if (
-					state.isClosed ||
-					requestBytes[index] !== encodeHostRequestJson(progress.request) ||
-					(progress._tag === "Http" && progress.request.args.capability !== "httpCall")
-				) {
-					throw gateError("Sandbox inline progress does not match its batch");
-				}
-				const bytes = encoder.encode(encodeProgressJson(progress));
-				state.pendingEncodedEntries.get(progress.request.index)?.fill(0);
-				state.pendingEncodedEntries.set(progress.request.index, bytes);
-				const held = [...state.pendingEncodedEntries.values()].reduce(
-					(sum, entry) => sum + entry.byteLength,
-					0,
-				);
-				if (held > progressBoundBytes) {
-					throw gateError("Sandbox inline progress exceeds its reserved evidence");
-				}
-				retain(SANDBOX_TRANSIENT_MEMORY.evidenceCopies * held);
+			Effect.gen(function* () {
+				const requestJson = yield* encodeHostRequestJson(progress.request);
+				const encodedProgress = yield* encodeProgressJson(progress).pipe(Effect.orDie);
+				return yield* Effect.sync(() => {
+					const index = progress.request.index - firstIndex;
+					if (
+						state.isClosed ||
+						requestBytes[index] !== requestJson ||
+						(progress._tag === "Http" && progress.request.args.capability !== "httpCall")
+					) {
+						throw gateError("Sandbox inline progress does not match its batch");
+					}
+					const bytes = encoder.encode(encodedProgress);
+					state.pendingEncodedEntries.get(progress.request.index)?.fill(0);
+					state.pendingEncodedEntries.set(progress.request.index, bytes);
+					const held = [...state.pendingEncodedEntries.values()].reduce(
+						(sum, entry) => sum + entry.byteLength,
+						0,
+					);
+					if (held > progressBoundBytes) {
+						throw gateError("Sandbox inline progress exceeds its reserved evidence");
+					}
+					retain(SANDBOX_TRANSIENT_MEMORY.evidenceCopies * held);
+				});
 			});
 
 		const settledAtStart = yield* Clock.currentTimeMillis;
@@ -667,11 +664,11 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 			if (requestJson === undefined) {
 				return deferAndClear();
 			}
-			const journalEntry = decodeJournalEntry({
+			const journalEntry = yield* decodeJournalEntry({
 				value: result,
-				request: decodeHostRequestJson(requestJson),
-			});
-			const bytes = encoder.encode(encodeJournalEntryJson(journalEntry));
+				request: yield* decodeHostRequestJson(requestJson).pipe(Effect.orDie),
+			}).pipe(Effect.orDie);
+			const bytes = encoder.encode(yield* encodeJournalEntryJson(journalEntry).pipe(Effect.orDie));
 			const separatorBytes =
 				state.pinnedCount + state.inlineEncodedEntries.length + encodedEntries.length === 0 ? 0 : 1;
 			nextJournalJsonBytes += bytes.byteLength + separatorBytes;
@@ -783,19 +780,20 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				const state = yield* makeRunState(options, journal);
 				const generation = options.generation;
 				const handle = options.handle;
-				const key = ownerKey(options);
+				const key = yield* ownerKey(options);
 
-				const pendingEntries = () =>
-					[...state.pendingEncodedEntries.values()].map((bytes) =>
+				const pendingEntries = Effect.suspend(() =>
+					Effect.forEach([...state.pendingEncodedEntries.values()], (bytes) =>
 						decodeProgressJson(decoder.decode(bytes)),
-					);
+					),
+				).pipe(Effect.orDie);
 				const close: Effect.Effect<void> = Effect.gen(function* () {
 					if (!state.isClosed) {
 						state.isClosed = true;
 						Deferred.doneUnsafe(state.closed, Effect.void);
 						const cancel = state.gateInput?.inlineDurableHost?.cancel;
 						if (!state.handedOff && cancel) {
-							yield* cancel(pendingEntries());
+							yield* cancel(yield* pendingEntries);
 						}
 						clearBuffers(state);
 						if (state.outstanding === 0) {
@@ -961,8 +959,11 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						),
 					);
 
-				const inlineEntries = () =>
-					state.inlineEncodedEntries.map((bytes) => decodeJournalEntryJson(decoder.decode(bytes)));
+				const inlineEntries = Effect.suspend(() =>
+					Effect.forEach(state.inlineEncodedEntries, (bytes) =>
+						decodeJournalEntryJson(decoder.decode(bytes)),
+					),
+				).pipe(Effect.orDie);
 
 				const extend: SandboxHostCallGateRegistration["extend"] = (ms) =>
 					Effect.gen(function* () {

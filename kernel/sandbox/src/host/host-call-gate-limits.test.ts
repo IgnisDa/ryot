@@ -55,23 +55,25 @@ layer(sandboxGateLayer())((test) => {
 					const width = new TextEncoder().encode(character).byteLength;
 					const requestBytes =
 						SANDBOX_LIMITS.bridge.requestBytes -
-						new TextEncoder().encode(encodeJson({ args: [""] })).byteLength;
+						new TextEncoder().encode(yield* encodeJson({ args: [""] })).byteLength;
 					const request =
 						character.repeat(Math.floor(requestBytes / width)) + "a".repeat(requestBytes % width);
 					const responseBytes =
 						SANDBOX_LIMITS.bridge.responseBytes -
-						new TextEncoder().encode(encodeJson(hostSuccess(""))).byteLength;
+						new TextEncoder().encode(yield* encodeJson(hostSuccess(""))).byteLength;
 					response =
 						character.repeat(Math.floor(responseBytes / width)) + "a".repeat(responseBytes % width);
 					const dispatch = (value: string) =>
-						registration.dispatch({
-							seq: seq++,
-							generation: 1,
-							type: "hostCall",
-							handle: "boundary",
-							name: "getCachedValue",
-							args: hostCallArgs([value]),
-						});
+						Effect.flatMap(hostCallArgs([value]), (args) =>
+							registration.dispatch({
+								args,
+								seq: seq++,
+								generation: 1,
+								type: "hostCall",
+								handle: "boundary",
+								name: "getCachedValue",
+							}),
+						);
 					expect((yield* dispatch(request)).result).toEqual({
 						status: "success",
 						value: hostSuccess(response),

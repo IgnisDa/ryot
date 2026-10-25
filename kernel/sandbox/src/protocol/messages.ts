@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { workflowInlineRequestSchema } from "@ryot-app/plugin-backend-sdk/workflow";
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 
 import { isBoolean, regExpExec, uncurry } from "../guest/primordials";
 import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
@@ -379,13 +379,18 @@ export class SidecarProtocolError extends Schema.TaggedError<
 const parseOptions = { onExcessProperty: "error" } as const;
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const sidecarInboundJson = Schema.fromJsonString(SidecarInboundFrame);
-const encodeInboundJson = Schema.encodeSync(sidecarInboundJson, parseOptions);
-const decodeOutboundValue = Schema.decodeUnknownSync(SidecarOutboundFrame, parseOptions);
+const encodeInboundJson = Schema.encodeResult(sidecarInboundJson, parseOptions);
+const decodeOutboundValue = Schema.decodeUnknownResult(SidecarOutboundFrame, parseOptions);
 
 const payloadError = (message: string) => new SidecarProtocolError({ message, reason: "payload" });
 
-export const encodeSidecarInboundLogicalMessage = (frame: SidecarInboundFrame) =>
-	encodeInboundJson(frame);
+export const encodeSidecarInboundLogicalMessage = (frame: SidecarInboundFrame) => {
+	const encoded = encodeInboundJson(frame);
+	if (Result.isFailure(encoded)) {
+		throw payloadError(encoded.failure.message);
+	}
+	return encoded.success;
+};
 
 export const parseSidecarOutboundJson = (bytes: Uint8Array): unknown => {
 	if (bytes.byteLength > SIDECAR_PROTOCOL_LIMITS.messageBytes.done) {
@@ -401,12 +406,11 @@ export const parseSidecarOutboundJson = (bytes: Uint8Array): unknown => {
 };
 
 export const decodeSidecarOutboundFrame = (value: unknown, byteLength: number) => {
-	let frame: SidecarOutboundFrame;
-	try {
-		frame = decodeOutboundValue(value);
-	} catch (error) {
-		throw payloadError(error instanceof Error ? error.message : "invalid logical message");
+	const decoded = decodeOutboundValue(value);
+	if (Result.isFailure(decoded)) {
+		throw payloadError(decoded.failure.message);
 	}
+	const frame = decoded.success;
 	let maximumBytes = SIDECAR_PROTOCOL_LIMITS.frameBytes;
 	if (frame.type === "hostCall") {
 		maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes.hostCall;

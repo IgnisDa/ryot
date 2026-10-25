@@ -31,7 +31,7 @@ import { base64DecodedLength, SidecarHostCallFrame } from "../protocol/messages"
 import { SandboxSidecarAdmission } from "./admission";
 import type { SandboxFileAccess } from "./file-access";
 import { makeFiles, makeSandboxAdmission, sandboxGateLayer } from "./gate.test-support";
-import { encodeJson, hostCallArgs } from "./host-call-args.test-support";
+import { encodeJson, hostCallFrame } from "./host-call-args.test-support";
 import {
 	SandboxHostCallGate,
 	type SandboxHostCallGateOptions,
@@ -40,14 +40,14 @@ import {
 import type { BoundHostFunction, SandboxRunInput } from "./invocation";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import type { SandboxPinnedJournal } from "./pinned-journal";
-import { memoryPinnedJournal } from "./pinned-journal.test-support";
+import { emptyPinnedJournal, memoryPinnedJournal } from "./pinned-journal.test-support";
 import { makeUserRunInput, makeUserSubject } from "./run-input.test-support";
 import { SANDBOX_TRANSIENT_MEMORY } from "./transient-memory";
 
 type HostCallFrame = typeof SidecarHostCallFrame.Type;
 type HostResultFrame = typeof SidecarHostResultFrame.Type;
-const decodeUnknownJson = Schema.decodeSync(Schema.fromJsonString(Schema.Unknown));
-const decodeJournalEntryJson = Schema.decodeSync(
+const decodeUnknownJson = Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown));
+const decodeJournalEntryJson = Schema.decodeEffect(
 	Schema.fromJsonString(workflowReplayJournalEntrySchema),
 );
 
@@ -78,12 +78,11 @@ const makeFrame = (
 	name: string,
 	args: unknown,
 	options: { readonly handle?: string; readonly generation?: number } = {},
-): HostCallFrame =>
-	Schema.decodeSync(SidecarHostCallFrame)({
+): Effect.Effect<HostCallFrame> =>
+	hostCallFrame({
 		seq,
 		name,
-		type: "hostCall",
-		args: hostCallArgs(args),
+		args,
 		generation: options.generation ?? 1,
 		handle: options.handle ?? "gate-handle",
 	});
@@ -119,12 +118,12 @@ const makeOptions = (
 });
 
 const cachedValueRequest = (index: number) =>
-	Schema.decodeSync(workflowHostRequestSchema)({
+	Schema.decodeEffect(workflowHostRequestSchema)({
 		index,
 		kind: "host",
 		name: "getCachedValue",
 		args: { args: [], capability: "getCachedValue" },
-	});
+	}).pipe(Effect.orDie);
 
 const gateLayer = Layer.mergeAll(sandboxGateLayer(), TestClock.layer());
 
@@ -146,7 +145,7 @@ const inlineInput = (
 	settled: { count: number },
 ) =>
 	makeInput([...capabilities], {
-		replayJournal: memoryPinnedJournal([]),
+		replayJournal: emptyPinnedJournal,
 		workflowExecutionId: "memory-workflow",
 		inlineDurableHost: {
 			cancel: () => Effect.void,
@@ -184,8 +183,8 @@ layer(gateLayer)((test) => {
 				const releaseSettlement = yield* Deferred.make<void>();
 				const result: WorkflowDurableResult = { value: null, state: "success" };
 				const input = makeInput(["getCachedValue"], {
-					replayJournal: memoryPinnedJournal([]),
 					workflowExecutionId: "budget-workflow",
+					replayJournal: yield* memoryPinnedJournal([]),
 					inlineDurableHost: {
 						cancel: () => Effect.void,
 						capabilities: ["getCachedValue"],
@@ -206,7 +205,7 @@ layer(gateLayer)((test) => {
 					}),
 				);
 				const ordinary = yield* registration
-					.dispatch(makeFrame(0, "getCachedValue", []))
+					.dispatch(yield* makeFrame(0, "getCachedValue", []))
 					.pipe(Effect.forkScoped);
 				yield* Deferred.await(ordinaryStarted);
 				yield* TestClock.adjust("4 seconds");
@@ -220,7 +219,7 @@ layer(gateLayer)((test) => {
 					args: { args: ["key"], capability: "getCachedValue" },
 				});
 				const inline = yield* registration
-					.dispatch(makeFrame(1, "inlineBatch", { requests: [request] }))
+					.dispatch(yield* makeFrame(1, "inlineBatch", { requests: [request] }))
 					.pipe(Effect.forkScoped);
 				yield* Deferred.await(settlementStarted);
 				yield* TestClock.adjust("5 seconds");
@@ -254,10 +253,11 @@ layer(gateLayer)((test) => {
 			const responses = yield* Effect.forEach(
 				Array.from({ length: SANDBOX_LIMITS.hostCalls.userSettingsWrites + 1 }, (_, seq) => seq),
 				(seq) =>
-					registration.dispatch(
+					Effect.flatMap(
 						makeFrame(seq, "updateUserSettings", [{ enabled: true }], {
 							handle: "settings-writes",
 						}),
+						(frame) => registration.dispatch(frame),
 					),
 			);
 			const [rejected] = responses.slice(-1);
@@ -320,21 +320,27 @@ layer(gateLayer)((test) => {
 			);
 
 			const foreign = yield* registration.dispatch(
-				makeFrame(0, "getCachedValue", ["foreign"], { handle: "foreign-handle" }),
+				yield* makeFrame(0, "getCachedValue", ["foreign"], { handle: "foreign-handle" }),
 			);
 			const wrongGeneration = yield* registration.dispatch(
-				makeFrame(0, "getCachedValue", ["foreign"], { generation: 2 }),
+				yield* makeFrame(0, "getCachedValue", ["foreign"], { generation: 2 }),
 			);
 			expect(frameValue(foreign)).toMatchObject({ success: false });
 			expect(frameValue(wrongGeneration)).toMatchObject({ success: false });
 			expect(calls).toBe(0);
 
-			const first = yield* registration.dispatch(makeFrame(0, "getCachedValue", ["accepted"]));
-			const duplicate = yield* registration.dispatch(makeFrame(0, "getCachedValue", ["duplicate"]));
-			const next = yield* registration.dispatch(makeFrame(2, "getCachedValue", ["next"]));
-			const reordered = yield* registration.dispatch(makeFrame(1, "getCachedValue", ["reordered"]));
+			const first = yield* registration.dispatch(
+				yield* makeFrame(0, "getCachedValue", ["accepted"]),
+			);
+			const duplicate = yield* registration.dispatch(
+				yield* makeFrame(0, "getCachedValue", ["duplicate"]),
+			);
+			const next = yield* registration.dispatch(yield* makeFrame(2, "getCachedValue", ["next"]));
+			const reordered = yield* registration.dispatch(
+				yield* makeFrame(1, "getCachedValue", ["reordered"]),
+			);
 			const reorderedDuplicate = yield* registration.dispatch(
-				makeFrame(1, "getCachedValue", ["reordered-duplicate"]),
+				yield* makeFrame(1, "getCachedValue", ["reordered-duplicate"]),
 			);
 			expect(frameValue(first)).toMatchObject({ success: true, data: "accepted" });
 			expect(frameValue(next)).toMatchObject({ data: "next", success: true });
@@ -344,16 +350,16 @@ layer(gateLayer)((test) => {
 			expect(calls).toBe(3);
 
 			const notPinned = yield* registration.dispatch(
-				makeFrame(3, "setCachedValue", ["key", "value", 60]),
+				yield* makeFrame(3, "setCachedValue", ["key", "value", 60]),
 			);
 			const fileControl = yield* registration.dispatch(
-				makeFrame(4, "artifactReadRange", { length: 1, offset: 0 }),
+				yield* makeFrame(4, "artifactReadRange", { length: 1, offset: 0 }),
 			);
 			const oversizedRequest = yield* registration.dispatch(
-				makeFrame(5, "getCachedValue", ["x".repeat(SANDBOX_LIMITS.bridge.requestBytes)]),
+				yield* makeFrame(5, "getCachedValue", ["x".repeat(SANDBOX_LIMITS.bridge.requestBytes)]),
 			);
 			const oversizedResponse = yield* registration.dispatch(
-				makeFrame(6, "getCachedValue", ["large-response"]),
+				yield* makeFrame(6, "getCachedValue", ["large-response"]),
 			);
 			expect(frameValue(notPinned)).toMatchObject({ success: false });
 			expect(frameValue(fileControl)).toMatchObject({ size: 0, data: "", offset: 0 });
@@ -366,7 +372,10 @@ layer(gateLayer)((test) => {
 			const httpResponses = yield* Effect.forEach(
 				Array.from({ length: SANDBOX_LIMITS.hostCalls.http + 1 }, (_, index) => index),
 				(index) =>
-					registration.dispatch(makeFrame(7 + index, "httpCall", ["GET", "https://example.test"])),
+					Effect.flatMap(
+						makeFrame(7 + index, "httpCall", ["GET", "https://example.test"]),
+						(frame) => registration.dispatch(frame),
+					),
 			);
 			expect(httpCalls).toBe(SANDBOX_LIMITS.hostCalls.http);
 			expect(frameValue(httpResponses[httpResponses.length - 1] ?? first)).toMatchObject({
@@ -405,12 +414,13 @@ layer(gateLayer)((test) => {
 			yield* Effect.forEach(
 				Array.from({ length: SANDBOX_LIMITS.hostCalls.total - 1 }, (_, index) => index),
 				(index) =>
-					budgetRegistration.dispatch(
+					Effect.flatMap(
 						makeFrame(index, "getCachedValue", [], { handle: "budget-handle" }),
+						(frame) => budgetRegistration.dispatch(frame),
 					),
 			);
 			const chargedFileRead = yield* budgetRegistration.dispatch(
-				makeFrame(
+				yield* makeFrame(
 					SANDBOX_LIMITS.hostCalls.total - 1,
 					"artifactReadRange",
 					{ length: 1, offset: 0 },
@@ -418,7 +428,7 @@ layer(gateLayer)((test) => {
 				),
 			);
 			const overBudgetFileWrite = yield* budgetRegistration.dispatch(
-				makeFrame(
+				yield* makeFrame(
 					SANDBOX_LIMITS.hostCalls.total,
 					"scratchWrite",
 					{ data: "", offset: 0, final: true, name: "file" },
@@ -444,7 +454,7 @@ layer(gateLayer)((test) => {
 				makeOptions(
 					makeInput(["getCachedValue"], {
 						workflowExecutionId: "journal-workflow",
-						replayJournal: memoryPinnedJournal([{ value: null, request: journalRequest }]),
+						replayJournal: yield* memoryPinnedJournal([{ value: null, request: journalRequest }]),
 					}),
 					{ getCachedValue: successHostFunction() },
 					makeFiles(),
@@ -454,17 +464,18 @@ layer(gateLayer)((test) => {
 			const journalReads = yield* Effect.forEach(
 				Array.from({ length: 2_048 }, (_, index) => index),
 				(index) =>
-					journalRegistration.dispatch(
+					Effect.flatMap(
 						makeFrame(
 							index,
 							"journalRead",
 							{ length: 1, offset: 0 },
 							{ handle: "journal-budget-handle" },
 						),
+						(frame) => journalRegistration.dispatch(frame),
 					),
 			);
 			const journalReadLimit = yield* journalRegistration.dispatch(
-				makeFrame(
+				yield* makeFrame(
 					2_048,
 					"journalRead",
 					{ length: 1, offset: 0 },
@@ -472,7 +483,7 @@ layer(gateLayer)((test) => {
 				),
 			);
 			const afterJournalLimit = yield* journalRegistration.dispatch(
-				makeFrame(2_049, "getCachedValue", [], { handle: "journal-budget-handle" }),
+				yield* makeFrame(2_049, "getCachedValue", [], { handle: "journal-budget-handle" }),
 			);
 			expect(journalReads).toHaveLength(2_048);
 			expect(frameValue(journalReads[0] ?? first)).toMatchObject({
@@ -511,8 +522,9 @@ layer(gateLayer)((test) => {
 				Array.from({ length: 9 }, (_, index) => index),
 				(index) =>
 					Effect.forkChild(
-						concurrentRegistration.dispatch(
+						Effect.flatMap(
 							makeFrame(index, "getCachedValue", [], { handle: "concurrency-handle" }),
+							(frame) => concurrentRegistration.dispatch(frame),
 						),
 					),
 			);
@@ -563,7 +575,7 @@ layer(gateLayer)((test) => {
 			);
 			const interruptedFiber = yield* Effect.forkChild(
 				interruptRegistration.dispatch(
-					makeFrame(0, "getCachedValue", [], { handle: "interrupt-handle" }),
+					yield* makeFrame(0, "getCachedValue", [], { handle: "interrupt-handle" }),
 				),
 			);
 			yield* Deferred.await(interruptedStarted);
@@ -585,14 +597,14 @@ layer(gateLayer)((test) => {
 			);
 			yield* TestClock.adjust(Duration.millis(32_001));
 			const expired = yield* expiryRegistration.dispatch(
-				makeFrame(0, "getCachedValue", [], { handle: "expiry-handle" }),
+				yield* makeFrame(0, "getCachedValue", [], { handle: "expiry-handle" }),
 			);
 			expect(frameValue(expired)).toMatchObject({ success: false });
 			expect(calls).toBe(4);
 
 			yield* registration.close;
 			const afterClose = yield* registration.dispatch(
-				makeFrame(7 + SANDBOX_LIMITS.hostCalls.http + 1, "getCachedValue", ["late"]),
+				yield* makeFrame(7 + SANDBOX_LIMITS.hostCalls.http + 1, "getCachedValue", ["late"]),
 			);
 			expect(frameValue(afterClose)).toMatchObject({ success: false });
 
@@ -618,7 +630,7 @@ layer(gateLayer)((test) => {
 				.pipe(Effect.provideService(Scope.Scope, oldScope));
 			const retiredCall = yield* Effect.forkChild(
 				replacementOld.dispatch(
-					makeFrame(0, "getCachedValue", [], { handle: "replacement-handle" }),
+					yield* makeFrame(0, "getCachedValue", [], { handle: "replacement-handle" }),
 				),
 			);
 			yield* Deferred.await(replacementStarted);
@@ -636,7 +648,7 @@ layer(gateLayer)((test) => {
 			expect(replacementInterrupted).toBe(1);
 			yield* Scope.close(oldScope, Exit.void);
 			const successor = yield* replacementNew.dispatch(
-				makeFrame(0, "getCachedValue", ["successor"], { handle: "replacement-handle" }),
+				yield* makeFrame(0, "getCachedValue", ["successor"], { handle: "replacement-handle" }),
 			);
 			expect(frameValue(successor)).toMatchObject({ success: true, data: "successor" });
 			yield* replacementOld.close;
@@ -661,7 +673,7 @@ layer(gateLayer)((test) => {
 			const settlementStarted = yield* Deferred.make<void>();
 			const input = makeInput(["getCachedValue"], {
 				workflowExecutionId: "gate-workflow",
-				replayJournal: memoryPinnedJournal([]),
+				replayJournal: yield* memoryPinnedJournal([]),
 				inlineDurableHost: {
 					cancel: () => Effect.void,
 					capabilities: ["getCachedValue"],
@@ -681,7 +693,7 @@ layer(gateLayer)((test) => {
 			yield* TestClock.adjust("31.9 seconds");
 
 			const malformed = yield* registration.dispatch(
-				makeFrame(
+				yield* makeFrame(
 					0,
 					"inlineBatch",
 					{
@@ -692,10 +704,10 @@ layer(gateLayer)((test) => {
 				),
 			);
 			expect(frameValue(malformed)).toMatchObject({ success: false });
-			expect(registration.inlineEntries()).toEqual([]);
+			expect(yield* registration.inlineEntries).toEqual([]);
 
 			const deferred = yield* registration.dispatch(
-				makeFrame(
+				yield* makeFrame(
 					1,
 					"inlineBatch",
 					{ requests: [{ ...request, index: 9 }] },
@@ -707,7 +719,7 @@ layer(gateLayer)((test) => {
 
 			const settling = yield* Effect.forkChild(
 				registration.dispatch(
-					makeFrame(2, "inlineBatch", { requests: [request] }, { handle: "inline-handle" }),
+					yield* makeFrame(2, "inlineBatch", { requests: [request] }, { handle: "inline-handle" }),
 				),
 			);
 			yield* Deferred.await(settlementStarted);
@@ -718,25 +730,25 @@ layer(gateLayer)((test) => {
 			const rejectedExtension = yield* Effect.exit(registration.extend(251));
 			expect(rejectedExtension).toMatchObject({ _tag: "Failure" });
 			yield* registration.extend(250);
-			const inlineEntries = registration.inlineEntries();
+			const inlineEntries = yield* registration.inlineEntries;
 			expect(inlineEntries).toEqual([{ request, value: durableResult }]);
 
-			const externalCopy = decodeUnknownJson(encodeJson(inlineEntries[0]));
+			const externalCopy = yield* decodeUnknownJson(yield* encodeJson(inlineEntries[0]));
 			if (typeof externalCopy !== "object" || externalCopy === null) {
 				throw new Error("expected a copied inline journal entry");
 			}
 			Reflect.set(externalCopy, "value", { forged: true });
-			expect(registration.inlineEntries()).toEqual([{ request, value: durableResult }]);
+			expect(yield* registration.inlineEntries).toEqual([{ request, value: durableResult }]);
 
 			yield* TestClock.adjust("101 millis");
 			const expiredAfterExtension = yield* registration.dispatch(
-				makeFrame(3, "getCachedValue", [], { handle: "inline-handle" }),
+				yield* makeFrame(3, "getCachedValue", [], { handle: "inline-handle" }),
 			);
 			expect(frameValue(expiredAfterExtension)).toMatchObject({ success: false });
 
 			const committedInput = makeInput(["getCachedValue"], {
 				workflowExecutionId: "gate-workflow",
-				replayJournal: memoryPinnedJournal(inlineEntries),
+				replayJournal: yield* memoryPinnedJournal(inlineEntries),
 			});
 			const replay = yield* gate.register(
 				makeOptions(committedInput, {}, makeFiles(), "replay-handle"),
@@ -751,7 +763,7 @@ layer(gateLayer)((test) => {
 				offsets: [0, replayJournal.totalBytes],
 			});
 			const read = yield* replay.dispatch(
-				makeFrame(0, "journalRead", { offset: 0, length: MiB }, { handle: "replay-handle" }),
+				yield* makeFrame(0, "journalRead", { offset: 0, length: MiB }, { handle: "replay-handle" }),
 			);
 			const readValue = frameValue(read);
 			if (typeof readValue !== "object" || readValue === null || Array.isArray(readValue)) {
@@ -762,7 +774,7 @@ layer(gateLayer)((test) => {
 				throw new Error("expected base64 journal data");
 			}
 			const binary = atob(encoded);
-			const journalEntry = decodeJournalEntryJson(
+			const journalEntry = yield* decodeJournalEntryJson(
 				new TextDecoder().decode(Uint8Array.from(binary, (character) => character.charCodeAt(0))),
 			);
 			expect(journalEntry).toEqual({ request, value: durableResult });
@@ -774,8 +786,8 @@ layer(gateLayer)((test) => {
 			const gate = yield* SandboxHostCallGate;
 			let settlements = 0;
 			const input = makeInput(["httpCall"], {
-				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "gate-budget-workflow",
+				replayJournal: yield* memoryPinnedJournal([]),
 				inlineDurableHost: {
 					cancel: () => Effect.void,
 					capabilities: ["httpCall"],
@@ -796,14 +808,14 @@ layer(gateLayer)((test) => {
 				args: { capability: "httpCall", args: ["GET", "https://example.com/budget"] },
 			}));
 			const deferred = yield* registration.dispatch(
-				makeFrame(0, "inlineBatch", { requests }, { handle: "budget" }),
+				yield* makeFrame(0, "inlineBatch", { requests }, { handle: "budget" }),
 			);
 			expect(frameValue(deferred)).toEqual({ defer: true });
 			expect(settlements).toBe(0);
-			expect(registration.inlineEntries()).toEqual([]);
+			expect(yield* registration.inlineEntries).toEqual([]);
 
 			const charged = yield* registration.dispatch(
-				makeFrame(1, "httpCall", ["GET", "https://example.com/after"], { handle: "budget" }),
+				yield* makeFrame(1, "httpCall", ["GET", "https://example.com/after"], { handle: "budget" }),
 			);
 			expect(frameValue(charged)).toMatchObject({
 				success: false,
@@ -828,9 +840,9 @@ layer(gateLayer)((test) => {
 					),
 				);
 				const replies = holdReplies();
-				const ordinary = permitBytes(permitFrame(0), SANDBOX_TRANSIENT_MEMORY.ordinaryBytes);
+				const ordinary = permitBytes(yield* permitFrame(0), SANDBOX_TRANSIENT_MEMORY.ordinaryBytes);
 				for (const seq of [0, 1, 2, 3]) {
-					yield* registration.dispatch(permitFrame(seq), replies.deliver);
+					yield* registration.dispatch(yield* permitFrame(seq), replies.deliver);
 				}
 				expect(gate.transientMemory("background")).toMatchObject({
 					waiting: 0,
@@ -838,7 +850,7 @@ layer(gateLayer)((test) => {
 				});
 
 				const blocked = yield* registration
-					.dispatch(permitFrame(4), replies.deliver)
+					.dispatch(yield* permitFrame(4), replies.deliver)
 					.pipe(Effect.forkScoped);
 				yield* Effect.yieldNow;
 				expect(gate.transientMemory("background")).toMatchObject({
@@ -873,7 +885,7 @@ layer(gateLayer)((test) => {
 				);
 				const replies = holdReplies();
 				for (const seq of [0, 1, 2, 3]) {
-					yield* registration.dispatch(permitFrame(seq), replies.deliver);
+					yield* registration.dispatch(yield* permitFrame(seq), replies.deliver);
 				}
 				const undecodable = yield* Schema.decodeEffect(SidecarHostCallFrame)({
 					seq: 4,
@@ -912,7 +924,7 @@ layer(gateLayer)((test) => {
 					const replies = holdReplies();
 					const call = yield* registration
 						.dispatch(
-							makeFrame(0, "getCachedValue", ["key"], { handle: "interrupted" }),
+							yield* makeFrame(0, "getCachedValue", ["key"], { handle: "interrupted" }),
 							replies.deliver,
 						)
 						.pipe(
@@ -956,7 +968,7 @@ layer(gateLayer)((test) => {
 					),
 				)
 				.pipe(Scope.provide(scope));
-			const frame = makeFrame(0, "getCachedValue", ["key"], { handle: "cancelled" });
+			const frame = yield* makeFrame(0, "getCachedValue", ["key"], { handle: "cancelled" });
 			const call = yield* registration.dispatch(frame).pipe(Effect.forkChild);
 			yield* Deferred.await(started);
 			const closing = yield* Scope.close(scope, Exit.void).pipe(Effect.forkChild);
@@ -995,13 +1007,13 @@ layer(gateLayer)((test) => {
 					const replies = holdReplies();
 					for (const seq of [0, 1]) {
 						yield* registration.dispatch(
-							makeFrame(seq, "httpCall", ["GET", "https://example.com/held"], {
+							yield* makeFrame(seq, "httpCall", ["GET", "https://example.com/held"], {
 								handle: "reserve",
 							}),
 							replies.deliver,
 						);
 					}
-					expect(frameValue(yield* registration.dispatch(reserveBatch(2)))).toEqual({
+					expect(frameValue(yield* registration.dispatch(yield* reserveBatch(2)))).toEqual({
 						defer: true,
 					});
 					expect(settled.count).toBe(0);
@@ -1009,7 +1021,7 @@ layer(gateLayer)((test) => {
 					for (const released of replies.written.splice(0)) {
 						released();
 					}
-					expect(frameValue(yield* registration.dispatch(reserveBatch(3)))).toEqual({
+					expect(frameValue(yield* registration.dispatch(yield* reserveBatch(3)))).toEqual({
 						results: [{ value: null, state: "success" }],
 					});
 					expect(settled.count).toBe(1);
@@ -1035,7 +1047,10 @@ layer(gateLayer)((test) => {
 					),
 				);
 				const batch = (seq: number, requests: ReadonlyArray<unknown>) =>
-					registration.dispatch(makeFrame(seq, "inlineBatch", { requests }, { handle: "bounded" }));
+					Effect.flatMap(
+						makeFrame(seq, "inlineBatch", { requests }, { handle: "bounded" }),
+						(frame) => registration.dispatch(frame),
+					);
 				const allowance =
 					SANDBOX_TRANSIENT_MEMORY.inlineValueBytes / (2 * SANDBOX_LIMITS.http.responseBytes);
 
@@ -1084,20 +1099,21 @@ layer(gateLayer)((test) => {
 				)
 				.pipe(Scope.provide(scope));
 			const batch = (index: number) =>
-				registration.dispatch(
+				Effect.flatMap(
 					makeFrame(
 						index,
 						"inlineBatch",
 						{ requests: httpRequests(1, index) },
 						{ handle: "evidence" },
 					),
+					(frame) => registration.dispatch(frame),
 				);
 			for (const index of [0, 1, 2, 3]) {
 				expect(frameValue(yield* batch(index))).toMatchObject({ results: [{ value }] });
 			}
-			const evidence = registration
-				.inlineEntries()
-				.reduce((sum, entry) => sum + new TextEncoder().encode(encodeJson(entry)).byteLength, 0);
+			const evidence = (yield* Effect.forEach(yield* registration.inlineEntries, (entry) =>
+				encodeJson(entry),
+			)).reduce((sum, text) => sum + new TextEncoder().encode(text).byteLength, 0);
 			expect(gate.transientMemory("background")).toMatchObject({
 				waiting: 0,
 				used: SANDBOX_TRANSIENT_MEMORY.evidenceCopies * evidence,
@@ -1112,9 +1128,9 @@ layer(gateLayer)((test) => {
 	test.effect("charges fetched chunks on lazy journal reads and fails closed", () =>
 		Effect.gen(function* () {
 			const gate = yield* SandboxHostCallGate;
-			const journal = memoryPinnedJournal([
-				{ value: "small", request: cachedValueRequest(0) },
-				{ value: "日本語".repeat(300_000), request: cachedValueRequest(1) },
+			const journal = yield* memoryPinnedJournal([
+				{ value: "small", request: yield* cachedValueRequest(0) },
+				{ value: "日本語".repeat(300_000), request: yield* cachedValueRequest(1) },
 			]);
 			const [small, large] = journal.entries;
 			assert(small !== undefined && large !== undefined);
@@ -1137,9 +1153,9 @@ layer(gateLayer)((test) => {
 				offset: number,
 				length: number,
 			) =>
-				registration
-					.dispatch(makeFrame(seq, "journalRead", { offset, length }, { handle }))
-					.pipe(Effect.map(frameValue));
+				Effect.flatMap(makeFrame(seq, "journalRead", { offset, length }, { handle }), (frame) =>
+					registration.dispatch(frame),
+				).pipe(Effect.map(frameValue));
 
 			const tail = yield* register("tail-handle");
 			const chunkEnd = smallBytes + MiB;
@@ -1202,7 +1218,7 @@ const maximumJournal: SandboxPinnedJournal = {
 	entries: Array.from({ length: 8 }, (_, index) => [12 * MiB, 12, String(index)] as const),
 };
 
-const decodeFrameHandle = Schema.decodeUnknownSync(
+const decodeFrameHandle = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(Schema.Struct({ handle: Schema.String })),
 );
 
@@ -1226,11 +1242,13 @@ it.effect("keeps existing execution limits under interactive memory headroom", (
 			);
 			const replies = holdReplies();
 			yield* background.dispatch(
-				makeFrame(0, "httpCall", ["GET", "https://example.com/maximum"], { handle: "background" }),
+				yield* makeFrame(0, "httpCall", ["GET", "https://example.com/maximum"], {
+					handle: "background",
+				}),
 				replies.deliver,
 			);
 			yield* background.dispatch(
-				makeFrame(1, "journalRead", { offset: 0, length: MiB }, { handle: "background" }),
+				yield* makeFrame(1, "journalRead", { offset: 0, length: MiB }, { handle: "background" }),
 				replies.deliver,
 			);
 			expect(replies.written).toHaveLength(2);
@@ -1254,7 +1272,7 @@ it.effect("keeps existing execution limits under interactive memory headroom", (
 				),
 			);
 			const reply = yield* interactive.dispatch(
-				makeFrame(0, "httpCall", ["GET", "https://example.com/interactive"], {
+				yield* makeFrame(0, "httpCall", ["GET", "https://example.com/interactive"], {
 					handle: "interactive",
 				}),
 			);
@@ -1286,8 +1304,8 @@ it.effect("settles an interactive inline batch at the lane edge", () =>
 				makeOptions(
 					makeInput(["httpCall"], {
 						lane: "interactive",
-						replayJournal: memoryPinnedJournal([]),
 						workflowExecutionId: "interactive-inline",
+						replayJournal: yield* memoryPinnedJournal([]),
 						inlineDurableHost: {
 							cancel: () => Effect.void,
 							capabilities: ["httpCall"],
@@ -1309,7 +1327,7 @@ it.effect("settles an interactive inline batch at the lane edge", () =>
 			expect(
 				frameValue(
 					yield* registration.dispatch(
-						makeFrame(
+						yield* makeFrame(
 							0,
 							"inlineBatch",
 							{ requests: httpRequests(1) },
@@ -1336,6 +1354,9 @@ it.effect(
 					["interactive", "interactive"],
 				]);
 				const written: string[] = [];
+				const writtenHandles = Effect.forEach(written, (frame) =>
+					Effect.map(decodeFrameHandle(frame), ({ handle }) => handle),
+				);
 				let writable = Number.POSITIVE_INFINITY;
 				const writer = makeSidecarFrameWriter({
 					maximumRunMessages: 2,
@@ -1343,7 +1364,7 @@ it.effect(
 					maximumQueuedBytes: 64 * MiB,
 					lane: (handle) => lanes.get(handle),
 					write: (bytes) => {
-						written.push(decodeFrameHandle(new TextDecoder().decode(bytes.subarray(4))).handle);
+						written.push(new TextDecoder().decode(bytes.subarray(4)));
 						writable -= 1;
 						return { blocked: writable <= 0, written: bytes.byteLength };
 					},
@@ -1356,8 +1377,8 @@ it.effect(
 					makeOptions(
 						makeInput(["httpCall"], {
 							lane: "background",
-							replayJournal: memoryPinnedJournal([]),
 							workflowExecutionId: "exhausted-inline",
+							replayJournal: yield* memoryPinnedJournal([]),
 							inlineDurableHost: {
 								cancel: () => Effect.void,
 								capabilities: ["httpCall"],
@@ -1380,7 +1401,7 @@ it.effect(
 				);
 				const settling = yield* inline
 					.dispatch(
-						makeFrame(0, "inlineBatch", { requests: httpRequests(1) }, { handle: "inline" }),
+						yield* makeFrame(0, "inlineBatch", { requests: httpRequests(1) }, { handle: "inline" }),
 					)
 					.pipe(Effect.forkScoped);
 				yield* Deferred.await(settlementStarted);
@@ -1394,12 +1415,16 @@ it.effect(
 					),
 				);
 				yield* results.dispatch(
-					makeFrame(0, "httpCall", ["GET", "https://example.com/first"], { handle: "results" }),
+					yield* makeFrame(0, "httpCall", ["GET", "https://example.com/first"], {
+						handle: "results",
+					}),
 					deliver,
 				);
 				const blocked = yield* results
 					.dispatch(
-						makeFrame(1, "httpCall", ["GET", "https://example.com/second"], { handle: "results" }),
+						yield* makeFrame(1, "httpCall", ["GET", "https://example.com/second"], {
+							handle: "results",
+						}),
 						deliver,
 					)
 					.pipe(Effect.forkScoped);
@@ -1407,15 +1432,15 @@ it.effect(
 				expect(gate.transientMemory("background")).toMatchObject({ waiting: 1 });
 				writable = 1;
 				writer.flush();
-				expect(written).toEqual(["results"]);
+				expect(yield* writtenHandles).toEqual(["results"]);
 
 				const interactive = yield* gate.register(
 					makeOptions(
 						makeInput(["httpCall"], {
 							lane: "interactive",
 							workflowExecutionId: "exhausted-interactive",
-							replayJournal: memoryPinnedJournal([
-								{ value: "x".repeat(2 * MiB), request: cachedValueRequest(0) },
+							replayJournal: yield* memoryPinnedJournal([
+								{ value: "x".repeat(2 * MiB), request: yield* cachedValueRequest(0) },
 							]),
 						}),
 						{ httpCall: successHostFunction() },
@@ -1424,23 +1449,24 @@ it.effect(
 					),
 				);
 				yield* interactive.dispatch(
-					makeFrame(0, "httpCall", ["GET", "https://example.com/interactive"], {
+					yield* makeFrame(0, "httpCall", ["GET", "https://example.com/interactive"], {
 						handle: "interactive",
 					}),
 					deliver,
 				);
 				yield* interactive.dispatch(
-					makeFrame(1, "journalRead", { offset: 0, length: MiB }, { handle: "interactive" }),
+					yield* makeFrame(1, "journalRead", { offset: 0, length: MiB }, { handle: "interactive" }),
 					deliver,
 				);
 				expect(gate.transientMemory("interactive").used).toBeGreaterThan(0);
 				expect(gate.transientMemory("background")).toMatchObject({ waiting: 1 });
 				writable = Number.POSITIVE_INFINITY;
 				writer.flush();
-				const first = written.indexOf("interactive");
-				const last = written.lastIndexOf("interactive");
+				const handles = yield* writtenHandles;
+				const first = handles.indexOf("interactive");
+				const last = handles.lastIndexOf("interactive");
 				expect(first).toBe(1);
-				expect(written.slice(first, last + 1).join(",")).not.toContain("results,results");
+				expect(handles.slice(first, last + 1).join(",")).not.toContain("results,results");
 				expect(gate.transientMemory("interactive")).toMatchObject({ used: 0, waiting: 0 });
 
 				yield* Deferred.succeed(releaseSettlement, undefined);
@@ -1476,9 +1502,11 @@ it.effect("keeps escaped host results within their transient permits", () =>
 				{ accepted: true, text: "\u0001".repeat(Math.floor(limit / 6) - 16) },
 			].entries()) {
 				body = text;
-				const frame = permitFrame(seq);
+				const frame = yield* permitFrame(seq);
 				const reply = yield* registration.dispatch(
-					makeFrame(seq, "httpCall", ["GET", "https://example.com/permit"], { handle: "escaped" }),
+					yield* makeFrame(seq, "httpCall", ["GET", "https://example.com/permit"], {
+						handle: "escaped",
+					}),
 					replies.deliver,
 				);
 				expect(frameValue(reply)).toEqual(accepted ? hostSuccess(text) : oversized);
@@ -1515,7 +1543,7 @@ it.effect("sizes transient pools from the admission memory plan", () =>
 				);
 				const replies = holdReplies();
 				yield* registration.dispatch(
-					makeFrame(0, "httpCall", ["GET", "https://example.com/permit"], {
+					yield* makeFrame(0, "httpCall", ["GET", "https://example.com/permit"], {
 						handle: `wiring-${budget}`,
 					}),
 					replies.deliver,
@@ -1541,8 +1569,8 @@ const recordingCancel = () => {
 
 const closeableInput = (cancel: NonNullable<SandboxRunInput["inlineDurableHost"]>["cancel"]) =>
 	makeInput(["getCachedValue"], {
+		replayJournal: emptyPinnedJournal,
 		workflowExecutionId: "close-workflow",
-		replayJournal: memoryPinnedJournal([]),
 		inlineDurableHost: {
 			cancel,
 			capabilities: ["getCachedValue"],
@@ -1554,7 +1582,9 @@ const closeableInput = (cancel: NonNullable<SandboxRunInput["inlineDurableHost"]
 	});
 
 const singleInlineBatch = (seq: number) =>
-	makeFrame(seq, "inlineBatch", { requests: [cachedValueRequest(0)] });
+	Effect.flatMap(cachedValueRequest(0), (request) =>
+		makeFrame(seq, "inlineBatch", { requests: [request] }),
+	);
 
 const closeLifecycle = (handoff: boolean) =>
 	Effect.gen(function* () {
@@ -1576,12 +1606,17 @@ const closeLifecycle = (handoff: boolean) =>
 			),
 		);
 		const batch = yield* registration.dispatch(
-			makeFrame(0, "inlineBatch", { requests: [cachedValueRequest(0)] }, { handle: "closing" }),
+			yield* makeFrame(
+				0,
+				"inlineBatch",
+				{ requests: [yield* cachedValueRequest(0)] },
+				{ handle: "closing" },
+			),
 		);
 		expect(frameValue(batch)).toEqual({ results: [{ value: null, state: "success" }] });
-		expect(registration.inlineEntries()).toHaveLength(1);
+		expect(yield* registration.inlineEntries).toHaveLength(1);
 		const inFlight = yield* registration
-			.dispatch(makeFrame(1, "getCachedValue", [], { handle: "closing" }))
+			.dispatch(yield* makeFrame(1, "getCachedValue", [], { handle: "closing" }))
 			.pipe(Effect.forkChild);
 		yield* Deferred.await(started);
 		if (handoff) {
@@ -1590,7 +1625,7 @@ const closeLifecycle = (handoff: boolean) =>
 		yield* registration.close;
 		yield* registration.close;
 		const afterClose = yield* registration.dispatch(
-			makeFrame(2, "getCachedValue", [], { handle: "closing" }),
+			yield* makeFrame(2, "getCachedValue", [], { handle: "closing" }),
 		);
 		return { gate, recorded, afterClose, registration, inFlight: yield* Fiber.join(inFlight) };
 	});
@@ -1609,8 +1644,8 @@ layer(gateLayer)((test) => {
 					success: false,
 					error: "Sandbox execution is no longer active",
 				});
-				expect(registration.inlineEntries()).toEqual([]);
-				expect(registration.pendingEntries()).toEqual([]);
+				expect(yield* registration.inlineEntries).toEqual([]);
+				expect(yield* registration.pendingEntries).toEqual([]);
 				expect(yield* registration.scriptBudget).toMatchObject({ remainingMs: 0 });
 				expect(gate.transientMemory("background").used).toBeGreaterThan(0);
 				return gate;
@@ -1634,7 +1669,7 @@ layer(gateLayer)((test) => {
 					error: "Sandbox execution is no longer active",
 				});
 				expect(frameValue(afterClose)).toMatchObject({ success: false });
-				expect(registration.inlineEntries()).toEqual([]);
+				expect(yield* registration.inlineEntries).toEqual([]);
 				expect(gate.transientMemory("background").used).toBeGreaterThan(0);
 				return gate;
 			}),
@@ -1678,17 +1713,23 @@ layer(gateLayer)((test) => {
 				yield* TestClock.adjust(
 					Duration.millis(SANDBOX_LIMITS.execution.timeoutMs + SANDBOX_LIMITS.sidecar.disposalMs),
 				);
-				const atEdge = yield* registration.dispatch(makeFrame(0, "getCachedValue", ["edge"]));
+				const atEdge = yield* registration.dispatch(
+					yield* makeFrame(0, "getCachedValue", ["edge"]),
+				);
 				expect(frameValue(atEdge)).toMatchObject({ data: "edge", success: true });
 				expect(recorded.cancelled).toEqual([]);
 				yield* TestClock.adjust("1 millis");
-				const expired = yield* registration.dispatch(makeFrame(1, "getCachedValue", ["late"]));
+				const expired = yield* registration.dispatch(
+					yield* makeFrame(1, "getCachedValue", ["late"]),
+				);
 				expect(frameValue(expired)).toMatchObject({
 					success: false,
 					error: "Sandbox execution expired",
 				});
 				expect(recorded.cancelled).toEqual([0]);
-				const closed = yield* registration.dispatch(makeFrame(2, "getCachedValue", ["after"]));
+				const closed = yield* registration.dispatch(
+					yield* makeFrame(2, "getCachedValue", ["after"]),
+				);
 				expect(frameValue(closed)).toMatchObject({
 					success: false,
 					error: "Sandbox execution is no longer active",
@@ -1722,23 +1763,25 @@ layer(gateLayer)((test) => {
 					),
 				);
 				const read = yield* registration.dispatch(
-					makeFrame(0, "artifactReadRange", { length: 2, offset: 3, key: "named" }),
+					yield* makeFrame(0, "artifactReadRange", { length: 2, offset: 3, key: "named" }),
 				);
 				expect(frameValue(read)).toEqual({ size: 7, data: "", offset: 3 });
 				expect(reads).toEqual([{ length: 2, offset: 3, key: "named" }]);
 				const write = yield* registration.dispatch(
-					makeFrame(1, "scratchWrite", { data: "", offset: 0, final: true, name: "out" }),
+					yield* makeFrame(1, "scratchWrite", { data: "", offset: 0, final: true, name: "out" }),
 				);
 				expect(frameValue(write)).toBeNull();
 				expect(writes).toEqual([{ data: "", offset: 0, final: true, name: "out" }]);
 				const badRead = yield* registration.dispatch(
-					makeFrame(2, "artifactReadRange", { offset: 0, length: "x" }),
+					yield* makeFrame(2, "artifactReadRange", { offset: 0, length: "x" }),
 				);
 				expect(frameValue(badRead)).toMatchObject({
 					success: false,
 					error: "Sandbox artifact range arguments are invalid",
 				});
-				const badWrite = yield* registration.dispatch(makeFrame(3, "scratchWrite", { offset: 0 }));
+				const badWrite = yield* registration.dispatch(
+					yield* makeFrame(3, "scratchWrite", { offset: 0 }),
+				);
 				expect(frameValue(badWrite)).toMatchObject({
 					success: false,
 					error: "Sandbox scratch write arguments are invalid",
@@ -1792,7 +1835,9 @@ layer(gateLayer)((test) => {
 					{ ...write, name: 7 },
 				];
 				for (const [index, args] of rejectedReads.entries()) {
-					const reply = yield* registration.dispatch(makeFrame(index, "artifactReadRange", args));
+					const reply = yield* registration.dispatch(
+						yield* makeFrame(index, "artifactReadRange", args),
+					);
 					expect(frameValue(reply)).toMatchObject({
 						success: false,
 						error: "Sandbox artifact range arguments are invalid",
@@ -1800,7 +1845,7 @@ layer(gateLayer)((test) => {
 				}
 				for (const [index, args] of rejectedWrites.entries()) {
 					const reply = yield* registration.dispatch(
-						makeFrame(rejectedReads.length + index, "scratchWrite", args),
+						yield* makeFrame(rejectedReads.length + index, "scratchWrite", args),
 					);
 					expect(frameValue(reply)).toMatchObject({
 						success: false,
@@ -1830,7 +1875,7 @@ layer(gateLayer)((test) => {
 					}),
 				);
 				const call = yield* registration
-					.dispatch(makeFrame(0, "getCachedValue", []))
+					.dispatch(yield* makeFrame(0, "getCachedValue", []))
 					.pipe(Effect.forkChild);
 				yield* Deferred.await(started);
 				expect(gate.transientMemory("background").used).toBeGreaterThan(0);
@@ -1839,7 +1884,7 @@ layer(gateLayer)((test) => {
 				expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
 				expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 				hung = false;
-				const next = yield* registration.dispatch(makeFrame(1, "getCachedValue", []));
+				const next = yield* registration.dispatch(yield* makeFrame(1, "getCachedValue", []));
 				expect(frameValue(next)).toMatchObject({ success: true, data: "after" });
 			}),
 		),
@@ -1858,13 +1903,13 @@ layer(gateLayer)((test) => {
 						},
 					}),
 				);
-				const died = yield* registration.dispatch(makeFrame(0, "getCachedValue", []));
+				const died = yield* registration.dispatch(yield* makeFrame(0, "getCachedValue", []));
 				expect(frameValue(died)).toEqual({ success: false, error: "Sandbox host call failed" });
-				const thrown = yield* registration.dispatch(makeFrame(1, "listIntegrations", []));
+				const thrown = yield* registration.dispatch(yield* makeFrame(1, "listIntegrations", []));
 				expect(frameValue(thrown)).toMatchObject({ success: false });
-				expect(encodeJson(frameValue(thrown))).not.toContain("secret");
+				expect(yield* encodeJson(frameValue(thrown))).not.toContain("secret");
 				const interrupted = yield* Effect.exit(
-					registration.dispatch(makeFrame(2, "httpCall", ["GET", "https://example.com/x"])),
+					registration.dispatch(yield* makeFrame(2, "httpCall", ["GET", "https://example.com/x"])),
 				);
 				expect(Exit.isFailure(interrupted) && Cause.hasInterrupts(interrupted.cause)).toBe(true);
 				expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
@@ -1879,7 +1924,7 @@ layer(gateLayer)((test) => {
 				let mode: "die" | "interrupt" = "die";
 				const input = makeInput(["getCachedValue"], {
 					workflowExecutionId: "settle-workflow",
-					replayJournal: memoryPinnedJournal([]),
+					replayJournal: yield* memoryPinnedJournal([]),
 					inlineDurableHost: {
 						cancel: () => Effect.void,
 						capabilities: ["getCachedValue"],
@@ -1887,12 +1932,16 @@ layer(gateLayer)((test) => {
 					},
 				});
 				const registration = yield* gate.register(makeOptions(input));
-				const deferred = yield* registration.dispatch(singleInlineBatch(0));
+				const deferred = yield* Effect.flatMap(singleInlineBatch(0), (frame) =>
+					registration.dispatch(frame),
+				);
 				expect(frameValue(deferred)).toEqual({ defer: true });
 				mode = "interrupt";
-				const interrupted = yield* Effect.exit(registration.dispatch(singleInlineBatch(1)));
+				const interrupted = yield* Effect.exit(
+					Effect.flatMap(singleInlineBatch(1), (frame) => registration.dispatch(frame)),
+				);
 				expect(Exit.isFailure(interrupted) && Cause.hasInterrupts(interrupted.cause)).toBe(true);
-				expect(registration.inlineEntries()).toEqual([]);
+				expect(yield* registration.inlineEntries).toEqual([]);
 				expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 			}),
 		),
@@ -1903,7 +1952,7 @@ layer(gateLayer)((test) => {
 			Effect.gen(function* () {
 				const gate = yield* SandboxHostCallGate;
 				const journal: SandboxPinnedJournal = {
-					...memoryPinnedJournal([]),
+					...(yield* memoryPinnedJournal([])),
 					entries: Array.from(
 						{ length: SANDBOX_LIMITS.hostCalls.total + 1 },
 						(_, index) => [0, 0, String(index)] as const,
@@ -1922,7 +1971,7 @@ layer(gateLayer)((test) => {
 			Effect.gen(function* () {
 				const gate = yield* SandboxHostCallGate;
 				const journal: SandboxPinnedJournal = {
-					...memoryPinnedJournal([]),
+					...(yield* memoryPinnedJournal([])),
 					bytes: SANDBOX_LIMITS.journalBytes + 1,
 				};
 				const error = yield* gate
@@ -1980,8 +2029,9 @@ layer(gateLayer)((test) => {
 					const registration = yield* Deferred.await(registered);
 					const work = yield* Effect.forEach([0, 1, 2, 3, 4], (seq) =>
 						Effect.forkChild(
-							registration.dispatch(
+							Effect.flatMap(
 								makeFrame(seq, "getCachedValue", ["key"], { handle: "blocked" }),
+								(frame) => registration.dispatch(frame),
 							),
 						),
 					);
@@ -1991,7 +2041,10 @@ layer(gateLayer)((test) => {
 						makeOptions(makeInput(), { getCachedValue: unblocked }, makeFiles(), "neighbour"),
 					);
 					const dispatchNeighbour = (seq: number) =>
-						neighbour.dispatch(makeFrame(seq, "getCachedValue", ["key"], { handle: "neighbour" }));
+						Effect.flatMap(
+							makeFrame(seq, "getCachedValue", ["key"], { handle: "neighbour" }),
+							(frame) => neighbour.dispatch(frame),
+						);
 					expect(frameValue(yield* dispatchNeighbour(0))).toEqual(hostSuccess("unblocked"));
 
 					yield* Fiber.interrupt(owner);
@@ -2031,8 +2084,9 @@ layer(gateLayer)((test) => {
 					makeOptions(makeInput(), { getCachedValue: host }, makeFiles(), "exit-permits"),
 				);
 				const dispatch = (seq: number, mode: string) =>
-					registration.dispatch(
+					Effect.flatMap(
 						makeFrame(seq, "getCachedValue", [mode], { handle: "exit-permits" }),
+						(frame) => registration.dispatch(frame),
 					);
 				for (let seq = 0; seq < 4; seq++) {
 					expect(

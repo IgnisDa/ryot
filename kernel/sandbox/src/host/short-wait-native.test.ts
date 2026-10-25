@@ -5,6 +5,7 @@ import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/wo
 import { Effect, Schema } from "effect";
 
 import type { SandboxInlineDurableHost } from "./invocation";
+import { memoryPinnedJournal } from "./pinned-journal.test-support";
 import { runNative, runnerNativeLayer } from "./runner-native.test-support";
 
 const compileFixture = Effect.fnUntraced(function* (source: string) {
@@ -70,7 +71,11 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 			const replay = yield* runNative(
 				compiled,
 				{},
-				{ inlineDurableHost, replayJournal: journal, workflowExecutionId: "short-sleep-parent" },
+				{
+					inlineDurableHost,
+					workflowExecutionId: "short-sleep-parent",
+					replayJournal: yield* memoryPinnedJournal(journal),
+				},
 			);
 			expect(replay.response).toMatchObject({
 				success: true,

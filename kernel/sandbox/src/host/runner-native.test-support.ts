@@ -2,7 +2,6 @@ import { BunServices } from "@effect/platform-bun";
 import { assert } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 
@@ -22,7 +21,8 @@ import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { makeSandboxHostConfigLayer } from "./host.test-support";
 import type { BoundHostFunction, SandboxRunInput } from "./invocation";
-import { memoryPinnedJournal } from "./pinned-journal.test-support";
+import type { SandboxPinnedJournal } from "./pinned-journal";
+import { emptyPinnedJournal } from "./pinned-journal.test-support";
 import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
 import { selectSnapshotTier } from "./snapshot-tier";
 
@@ -30,25 +30,25 @@ export type RunnerCompiled = Effect.Success<ReturnType<typeof compileTestScript>
 export type SidecarRecorder = {
 	readonly retired?: (handle: string) => void;
 	readonly connected?: (settings: SidecarSettings, connection: SidecarConnection) => void;
-	readonly received?: (
-		frame: Effect.Success<SidecarConnection["next"]>,
-		settings: SidecarSettings,
-	) => void;
 	readonly sent?: (
 		frame: SidecarInboundLogicalMessage,
 		settings: SidecarSettings,
 	) => SidecarInboundLogicalMessage;
+	readonly received?: (
+		frame: Effect.Success<SidecarConnection["next"]>,
+		settings: SidecarSettings,
+	) => Effect.Effect<void>;
 };
 
 export type RunnerOptions = Partial<
 	Pick<SandboxRunInput, "lane" | "executionId" | "inlineDurableHost" | "workflowExecutionId">
 > & {
+	readonly replayJournal?: SandboxPinnedJournal;
 	readonly filesystem?: { readonly artifact: boolean };
 	readonly functions?: Readonly<Record<string, BoundHostFunction>>;
-	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly reply?: (
 		frame: typeof SidecarHostCallFrame.Type,
-	) => undefined | (typeof SidecarHostResultFrame.Type)["result"];
+	) => Effect.Effect<undefined | (typeof SidecarHostResultFrame.Type)["result"]>;
 };
 type SidecarSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
 type SidecarConnection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
@@ -114,7 +114,7 @@ export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRec
 					return {
 						...connection,
 						next: connection.next.pipe(
-							Effect.tap((frame) => Effect.sync(() => recorder.received?.(frame, settings))),
+							Effect.tap((frame) => recorder.received?.(frame, settings) ?? Effect.void),
 						),
 						send: (frame: SidecarInboundLogicalMessage, released?: () => void) =>
 							connection.send(recorder.sent?.(frame, settings) ?? frame, released),
@@ -162,7 +162,7 @@ export const makeRunnerInput = (
 			: { workflowExecutionId: options.workflowExecutionId }),
 		...(options.workflowExecutionId === undefined && options.replayJournal === undefined
 			? {}
-			: { replayJournal: memoryPinnedJournal(options.replayJournal ?? []) }),
+			: { replayJournal: options.replayJournal ?? emptyPinnedJournal }),
 		...(options.inlineDurableHost === undefined
 			? {}
 			: { inlineDurableHost: options.inlineDurableHost }),
@@ -249,7 +249,7 @@ export const runNativeOutcome = Effect.fnUntraced(function* (
 				const event = yield* connection.next;
 				if (event.type === "hostCall") {
 					controls.push(event.name);
-					const result = options.reply?.(event);
+					const result = options.reply === undefined ? undefined : yield* options.reply(event);
 					yield* connection.send(
 						result === undefined
 							? yield* registration.dispatch(event)
@@ -263,12 +263,12 @@ export const runNativeOutcome = Effect.fnUntraced(function* (
 					);
 					continue;
 				}
-				assert(event.type === "done", encodeJson(event));
+				assert(event.type === "done", yield* encodeJson(event));
 				return {
 					controls,
 					outcome: event.outcome,
-					inline: registration.inlineEntries(),
-					pendingInline: registration.pendingEntries(),
+					inline: yield* registration.inlineEntries,
+					pendingInline: yield* registration.pendingEntries,
 				};
 			}
 		}).pipe(Effect.withSpan("sandbox.native-runner-test")),
@@ -281,7 +281,7 @@ export const runNative = Effect.fnUntraced(function* (
 	options: RunnerOptions = {},
 ) {
 	const { outcome, ...run } = yield* runNativeOutcome(compiled, context, options);
-	assert(outcome.status === "completed", encodeJson(outcome));
+	assert(outcome.status === "completed", yield* encodeJson(outcome));
 	const response = yield* Schema.decodeUnknownEffect(SandboxInvocationResponseSchema)(
 		outcome.value,
 	);

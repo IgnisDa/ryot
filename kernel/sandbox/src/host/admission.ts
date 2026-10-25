@@ -20,7 +20,8 @@ const laneSchema = Schema.Struct({
 	generation: Schema.Int,
 	instance: Schema.String,
 });
-const encodeLane = Schema.encodeSync(Schema.fromJsonString(laneSchema));
+const encodeLane = (lane: typeof laneSchema.Type) =>
+	Schema.encodeEffect(Schema.fromJsonString(laneSchema))(lane).pipe(Effect.orDie);
 
 type LeaseState = {
 	bytes: number;
@@ -179,7 +180,9 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					lane: isResidentInstance(instance) ? undefined : lease?.lane,
 				};
 				const startup =
-					lease === undefined ? undefined : encodeLane({ instance, generation, lane: lease.lane });
+					lease === undefined
+						? undefined
+						: yield* encodeLane({ instance, generation, lane: lease.lane });
 				instances.set(instance, current);
 				if (lease !== undefined) {
 					lease.entering = true;
@@ -288,7 +291,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					}),
 				);
 				const enter = Effect.fnUntraced(function* (target: typeof laneSchema.Type) {
-					const key = encodeLane(target);
+					const key = yield* encodeLane(target);
 					const instance = instances.get(target.instance);
 					if (
 						lease.closed ||

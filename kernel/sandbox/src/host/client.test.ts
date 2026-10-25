@@ -85,7 +85,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					const call = yield* connection.next;
 					expect(call.type).toBe("hostCall");
 					assert(call.type === "hostCall");
-					expect(decodedHostCallArgs(call.args)).toBe(value);
+					expect(yield* decodedHostCallArgs(call.args)).toBe(value);
 					yield* connection.send({
 						generation: 7,
 						seq: call.seq,

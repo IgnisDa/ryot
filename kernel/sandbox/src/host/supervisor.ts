@@ -437,8 +437,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						yield* generation.connection.retire(frame.handle);
 						yield* Deferred.succeed(run.result, {
 							done: frame,
-							inline: run.gate.inlineEntries(),
-							pendingInline: run.gate.pendingEntries(),
+							inline: yield* run.gate.inlineEntries,
+							pendingInline: yield* run.gate.pendingEntries,
 						});
 						continue;
 					}

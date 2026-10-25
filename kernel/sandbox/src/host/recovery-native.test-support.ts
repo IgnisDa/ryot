@@ -109,11 +109,12 @@ const recordingClient = recordingSidecarClient(
 				instance: `${settings.trust}/${settings.tier}`,
 			});
 		},
-		received: (frame, settings) => {
-			const record = { frame, instance: `${settings.trust}/${settings.tier}` };
-			evidence.received.push(record);
-			evidence.timeline.push({ ...record, direction: "received" });
-		},
+		received: (frame, settings) =>
+			Effect.sync(() => {
+				const record = { frame, instance: `${settings.trust}/${settings.tier}` };
+				evidence.received.push(record);
+				evidence.timeline.push({ ...record, direction: "received" });
+			}),
 		sent: (frame, settings) => {
 			const record = { frame, instance: `${settings.trust}/${settings.tier}` };
 			evidence.sent.push(record);
@@ -202,7 +203,7 @@ export const trackNativeKeys = Effect.gen(function* () {
 	]);
 	return Effect.fnUntraced(function* (input: SandboxRunInput, trust: "user" | "system" = "user") {
 		executionIds.add(input.executionId);
-		const key = encodeJson([trust, input.principal]);
+		const key = yield* encodeJson([trust, input.principal]);
 		const existing = tracked.get(key);
 		if (existing !== undefined) {
 			return existing;

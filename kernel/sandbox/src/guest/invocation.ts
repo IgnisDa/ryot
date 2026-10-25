@@ -165,7 +165,7 @@ const decodeArtifactReadRangeResult = Schema.decodeUnknownEffect(
 	strictOptions,
 );
 const decodeScratchWriteArgs = Schema.decodeEffect(scratchWriteArgsSchema, strictOptions);
-const decodeInvocationResponse = Schema.decodeUnknownSync(
+const decodeInvocationResponse = Schema.decodeUnknownEffect(
 	SandboxInvocationResponseSchema,
 	strictOptions,
 );
@@ -1219,13 +1219,15 @@ const executeDefinition = Effect.fnUntraced(function* (
 	);
 });
 
-const serializeResponse = (response: SandboxInvocationResponse) => {
-	const serialized = jsonStringify(decodeInvocationResponse(response));
+const serializeResponse = Effect.fnUntraced(function* (response: SandboxInvocationResponse) {
+	const serialized = jsonStringify(yield* decodeInvocationResponse(response));
 	if (typeof serialized !== "string") {
-		throw new nativeError("Sandbox invocation response is not JSON-serializable");
+		return yield* Effect.die(
+			new nativeError("Sandbox invocation response is not JSON-serializable"),
+		);
 	}
 	return serialized;
-};
+});
 
 type ConsoleMethods = Record<(typeof consoleMethods)[number], (...args: unknown[]) => void>;
 
@@ -1275,20 +1277,20 @@ const failureResponse = (error: unknown, state: InvocationState, specifier: stri
 		specifier,
 		phaseFailure?.kind ?? phaseFailureKinds[phase],
 	);
-	try {
-		return serializeResponse({
-			success: false,
-			error: runnerError,
-			logs: state.logs.logs,
-			timing: { executionMs: performanceNow() - state.startedAt },
-		});
-	} catch {
-		return (
-			'{"success":false,"logs":[],"error":' +
-			jsonStringify(runnerError) +
-			',"timing":{"executionMs":0}}'
-		);
-	}
+	return serializeResponse({
+		success: false,
+		error: runnerError,
+		logs: state.logs.logs,
+		timing: { executionMs: performanceNow() - state.startedAt },
+	}).pipe(
+		Effect.catchCause(() =>
+			Effect.succeed(
+				'{"success":false,"logs":[],"error":' +
+					jsonStringify(runnerError) +
+					',"timing":{"executionMs":0}}',
+			),
+		),
+	);
 };
 
 const runInvocation = Effect.fnUntraced(function* (
@@ -1353,7 +1355,7 @@ const runInvocation = Effect.fnUntraced(function* (
 				" UTF-8 bytes",
 		} satisfies RunnerPhaseFailure);
 	}
-	return serializeResponse({
+	return yield* serializeResponse({
 		success: true,
 		value: jsonValue,
 		logs: state.logs.logs,
@@ -1385,11 +1387,11 @@ const executeSandboxInvocation = async (
 	try {
 		return await Effect.runPromise(
 			runInvocation(state, specifier, input, bridge).pipe(
-				Effect.catch((error) => Effect.succeed(failureResponse(error, state, specifier))),
+				Effect.catch((error) => failureResponse(error, state, specifier)),
 			),
 		);
 	} catch (error) {
-		return failureResponse(error, state, specifier);
+		return await Effect.runPromise(failureResponse(error, state, specifier));
 	} finally {
 		filesystemBinding = undefined;
 		state.restoreWorkflowGlobals?.();

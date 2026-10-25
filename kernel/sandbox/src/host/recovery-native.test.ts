@@ -14,6 +14,7 @@ import { QUARANTINE_MS, SandboxCrashStore, SandboxCrashStoreError } from "./cras
 import { makeUserPluginRevision } from "./executor.test-support";
 import { testExecutionId } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
+import { memoryPinnedJournal } from "./pinned-journal.test-support";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import {
 	awaitSent,
@@ -31,7 +32,10 @@ import { defineNativeScript } from "./runner-native.test-support";
 import { SandboxSidecarSupervisor, SidecarRecoverySuspended } from "./supervisor";
 
 const executionId = (frame: typeof SidecarRunFrame.Type) =>
-	Schema.decodeUnknownSync(SandboxInvocationSchema)(frame.input).executionId;
+	Schema.decodeUnknownEffect(SandboxInvocationSchema)(frame.input).pipe(
+		Effect.orDie,
+		Effect.map((invocation) => invocation.executionId),
+	);
 
 const definition = (slug: string, run: string, kind: "script" | "operation" = "script") =>
 	defineNativeScript(run, {
@@ -476,8 +480,8 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							{ mode: "park" },
 							{
 								lane: "background",
-								replayJournal: prefix,
 								workflowExecutionId: "native-recovery-workflow",
+								replayJournal: yield* memoryPinnedJournal(prefix),
 								inlineDurableHost: {
 									cancel: () => Effect.void,
 									capabilities: ["getCachedValue"],
@@ -656,11 +660,15 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 					const freshFiber = yield* runSupervisedNative(supervisor, fresh).pipe(Effect.forkScoped);
 					const completed = yield* Effect.forEach(fibers, Fiber.join, { concurrency: "unbounded" });
 					expect(yield* Fiber.join(freshFiber)).toMatchObject({ success: true, value: "healthy" });
-					const expectedOrder = [...initial]
-						.sort((a, b) => a.handle.localeCompare(b.handle))
-						.map(executionId);
+					const expectedOrder = yield* Effect.forEach(
+						[...initial].sort((a, b) => a.handle.localeCompare(b.handle)),
+						executionId,
+					);
 					const recovered = runs().slice(2);
-					expect(recovered.map(executionId)).toEqual([...expectedOrder, fresh.executionId]);
+					expect(yield* Effect.forEach(recovered, executionId)).toEqual([
+						...expectedOrder,
+						fresh.executionId,
+					]);
 					for (const [index, frame] of recovered.entries()) {
 						expect(frame.generation).toBeGreaterThan(first.generation);
 						expect(initial.some((old) => old.handle === frame.handle)).toBe(false);

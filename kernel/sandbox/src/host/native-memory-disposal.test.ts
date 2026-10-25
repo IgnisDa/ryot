@@ -4,38 +4,29 @@ import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/wo
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import {
-	Cause,
-	Deferred,
-	Effect,
-	Exit,
-	Fiber,
-	FileSystem,
-	Option,
-	Path,
-	Queue,
-	Schema,
-} from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, FileSystem, Option, Path, Queue } from "effect";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
-import { SidecarHostCallFrame } from "../protocol/messages";
 import { SandboxSidecarAdmission } from "./admission";
 import { compileTestScript } from "./compile.test-support";
 import { SandboxExecutor } from "./executor";
-import { encodeJson, hostCallArgs } from "./host-call-args.test-support";
+import { encodeJson, hostCallFrame } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { testExecutionId } from "./host.test-support";
 import { NativeMemoryEvidence, nativeMemoryLayer } from "./native-memory-disposal.test-support";
+import { emptyPinnedJournal, memoryPinnedJournal } from "./pinned-journal.test-support";
 import { trackNativeKeys } from "./recovery-native.test-support";
 import { defineNativeScript, makeRunnerInput } from "./runner-native.test-support";
 import { SandboxSidecarSupervisor } from "./supervisor";
 
 const token = '"\\\n漢🙂';
-const encodedTokenBytes = new TextEncoder().encode(encodeJson(token)).byteLength - 2;
 const externalBytes = SANDBOX_LIMITS.isolate.externalBytes;
 const journalEntries = 22;
 const replayedEntries = 4;
-const tokenRepetitions = Math.floor((4.5 * MiB) / encodedTokenBytes);
+const encodedToken = Effect.map(encodeJson(token), (literal) => ({
+	literal,
+	repetitions: Math.floor((4.5 * MiB) / (new TextEncoder().encode(literal).byteLength - 2)),
+}));
 const unusedSettlement = () => Effect.die("Committed journal replay must not settle inline");
 const definition = (run: string, imports = "") =>
 	defineNativeScript(run, {
@@ -45,12 +36,13 @@ const definition = (run: string, imports = "") =>
 		input: "Schema.Struct({ mode: Schema.String })",
 	});
 
-const journalSource = definition(`(_input, host) => Effect.gen(function* () {
+const journalSource = ({ literal, repetitions }: Effect.Success<typeof encodedToken>) =>
+	definition(`(_input, host) => Effect.gen(function* () {
   Reflect.set(globalThis, "nativeMemoryState", "journal");
-  const token = ${encodeJson(token)};
+  const token = ${literal};
   const repeat = String.prototype.repeat;
   const slice = String.prototype.slice;
-  const repeated = repeat.call(token, ${tokenRepetitions});
+  const repeated = repeat.call(token, ${repetitions});
   const repeatedLength = repeated.length;
   const summarize = (value: unknown) => {
     if (typeof value !== "string") throw new Error("Expected a recorded string");
@@ -135,13 +127,12 @@ const artifactBytes = (size: number) => {
 };
 
 const lateHostCall = (handle: string, generation: number) =>
-	Schema.decodeSync(SidecarHostCallFrame)({
+	hostCallFrame({
 		handle,
 		seq: 2000,
 		generation,
-		type: "hostCall",
 		name: "journalRead",
-		args: hostCallArgs({ offset: 0, length: 1 }),
+		args: { offset: 0, length: 1 },
 	});
 
 const assertDisposed = Effect.fnUntraced(function* (executionId: string) {
@@ -158,8 +149,8 @@ const assertDisposed = Effect.fnUntraced(function* (executionId: string) {
 	const gate = evidence.registrations.get(run.handle);
 	assert(gate !== undefined);
 	expect(yield* gate.scriptBudget).toMatchObject({ remainingMs: 0 });
-	expect(gate.inlineEntries()).toEqual([]);
-	const late = yield* gate.dispatch(lateHostCall(run.handle, run.generation));
+	expect(yield* gate.inlineEntries).toEqual([]);
+	const late = yield* gate.dispatch(yield* lateHostCall(run.handle, run.generation));
 	expect(late.result).toMatchObject({
 		status: "success",
 		value: { success: false, error: "Sandbox execution is no longer active" },
@@ -226,8 +217,9 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				const service = yield* SandboxExecutor;
 				const evidence = yield* NativeMemoryEvidence;
 				const track = yield* trackNativeKeys;
-				const compiled = yield* compileTestScript(journalSource);
-				const value = token.repeat(tokenRepetitions);
+				const tokenEncoding = yield* encodedToken;
+				const compiled = yield* compileTestScript(journalSource(tokenEncoding));
+				const value = token.repeat(tokenEncoding.repetitions);
 				const journal: WorkflowReplayJournalEntry[] = Array.from(
 					{ length: journalEntries },
 					(_, index) => ({ request: request(index), value: { value, state: "success" } }),
@@ -235,7 +227,8 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				const last = journal[replayedEntries - 1];
 				assert(last !== undefined);
 				const remaining =
-					SANDBOX_LIMITS.journalBytes - new TextEncoder().encode(encodeJson(journal)).byteLength;
+					SANDBOX_LIMITS.journalBytes -
+					new TextEncoder().encode(yield* encodeJson(journal)).byteLength;
 				journal[replayedEntries - 1] = {
 					...last,
 					value: { state: "success", value: value + "x".repeat(remaining) },
@@ -256,12 +249,13 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 						length: value.length + remaining,
 					},
 				];
+				const replayJournal = yield* memoryPinnedJournal(journal);
 				const inputs = [0, 1].map((index) =>
 					makeRunnerInput(
 						compiled,
 						{ mode: "journal" },
 						{
-							replayJournal: journal,
+							replayJournal,
 							workflowExecutionId: `native-memory-parent-${index}`,
 							executionId: testExecutionId(`native-memory-journal-${index}`),
 							inlineDurableHost: {
@@ -344,7 +338,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 							compiled,
 							{ mode: label },
 							{
-								replayJournal: journal,
+								replayJournal: yield* memoryPinnedJournal(journal),
 								workflowExecutionId: `native-memory-parent-${label}`,
 								executionId: testExecutionId(`native-memory-journal-${label}`),
 								inlineDurableHost: {
@@ -551,7 +545,10 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 							mode === "pending" ||
 							mode === "failure" ||
 							mode === "cancel-inline"
-								? { replayJournal: [], workflowExecutionId: `native-disposal-parent-${mode}` }
+								? {
+										replayJournal: emptyPinnedJournal,
+										workflowExecutionId: `native-disposal-parent-${mode}`,
+									}
 								: {}),
 						},
 					);

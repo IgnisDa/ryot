@@ -112,9 +112,9 @@ const recordingClient = recordingSidecarClient(
 			retired: (handle: string) => {
 				evidence.retired.add(handle);
 			},
-			received: (frame) => {
+			received: Effect.fnUntraced(function* (frame) {
 				if (frame.type === "hostCall") {
-					const decoded = decodedHostCallArgs(frame.args);
+					const decoded = yield* decodedHostCallArgs(frame.args);
 					const args =
 						frame.name === "scratchWrite" && isObjectRecord(decoded)
 							? { final: decoded["final"] ?? null, offset: decoded["offset"] ?? null }
@@ -126,7 +126,7 @@ const recordingClient = recordingSidecarClient(
 				if (frame.type === "done") {
 					evidence.done.set(frame.handle, frame.outcome);
 				}
-			},
+			}),
 			sent: (frame) => {
 				if (frame.type === "run" && isObjectRecord(frame.input)) {
 					const executionId = frame.input["executionId"];
