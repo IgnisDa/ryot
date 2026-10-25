@@ -104,10 +104,9 @@ const fitnessSetFilter = (
 
 const analyticsSources = (input: Input, range: null | ReportingPeriod, alias: string) => {
 	const source = workoutRangeSources(input.reference, range, alias);
-	const setWhere = and(source.setWhere, fitnessSetFilter(source.set, input));
 	return {
 		...source,
-		setWhere,
+		setWhere: and(source.setWhere, fitnessSetFilter(source.set, input, source.occurrence)),
 		workoutWhere:
 			input.filter === undefined
 				? source.workoutWhere
@@ -115,7 +114,8 @@ const analyticsSources = (input: Input, range: null | ReportingPeriod, alias: st
 						source.workoutWhere,
 						exists(source.set, {
 							where: and(
-								setWhere,
+								source.setWhere,
+								fitnessSetFilter(source.set, input),
 								eq(column(source.set, "sessionEntityId"), column(source.workout, "id")),
 							),
 						}),
@@ -126,7 +126,6 @@ const analyticsSources = (input: Input, range: null | ReportingPeriod, alias: st
 export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 	const range = resolveReportingSelection(input.selection, input).current;
 	const source = analyticsSources(input, range, "analytics");
-	const occurrence = table("event", "analyticsOccurrence");
 	const entry = table("entity", "analyticsEntry");
 	const reading = table("event", "analyticsReading");
 	const metric = table("entity", "analyticsMetric");
@@ -143,7 +142,6 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 				measurementReadings: readings.readings,
 				legacyTaxonomySets: sets.legacyTaxonomySets ?? 0,
 				personalBests: ready ? (sets.personalBests ?? 0) : null,
-				missingTaxonomySets: sets.sets - (sets.taxonomySets ?? 0),
 				personalBestSets: ready ? (sets.personalBestSets ?? 0) : null,
 				missingDurationWorkouts: workouts.workouts - (workouts.timedWorkouts ?? 0),
 				missingCalorieWorkouts: workouts.workouts - (workouts.calorieWorkouts ?? 0),
@@ -193,17 +191,7 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 			}),
 			sets: selectedAggregate(source.set, {
 				where: source.setWhere,
-				joins: [
-					...source.setJoins,
-					join(
-						"left",
-						occurrence,
-						and(
-							eq(column(occurrence, "eventSchemaSlug"), literal("workout-exercise")),
-							occurrenceSets(source.set, occurrence),
-						),
-					),
-				],
+				joins: source.setJoins,
 				measures: {
 					...setMeasures(source.set),
 					sets: countMeasure,
@@ -211,15 +199,12 @@ export const fitnessAnalyticsTotalsRecipe = defineRecipe((input: Input) => {
 					distance: sumMeasure(workoutSetMetric(source.set, "distance")),
 					plannedRest: sumMeasure(propertyNumber(source.set, "restTime")),
 					setDuration: sumMeasure(workoutSetMetric(source.set, "duration")),
-					taxonomySets: sumMeasure(
-						conditional(isNotNull(column(occurrence, "id")), literal(1), literal(0)),
-					),
 					personalBestSets: sumMeasure(
 						conditional(gt(personalBestAwardCount(source.set), literal(0)), literal(1), literal(0)),
 					),
 					legacyTaxonomySets: sumMeasure(
 						conditional(
-							eq(property(occurrence, "provenance"), literal("legacy")),
+							eq(property(source.occurrence, "provenance"), literal("legacy")),
 							literal(1),
 							literal(0),
 						),
@@ -269,7 +254,6 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 		const range = resolveReportingSelection(input.selection, input).current;
 		const occurrence = table("event", "rankOccurrence");
 		const set = table("event", "rankSet");
-		const workout = table("entity", "rankWorkout");
 		const taxonomy = rankingTaxonomy(occurrence, input.kind);
 		return {
 			map: ({ ranking }) => Result.succeed(ranking),
@@ -278,31 +262,20 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 					limit: 100,
 					after: input.after,
 					orderBy: [measureDescending("weightedSets"), groupAscending("id")],
+					joins: [join("inner", set, occurrenceSets(set, occurrence)), ...taxonomy.joins],
 					groupBy: {
 						id: selectedField(column(taxonomy.target, "id"), Schema.String),
 						name: selectedField(column(taxonomy.target, "name"), Schema.String),
 					},
-					joins: [
-						join(
-							"inner",
-							workout,
-							and(
-								eq(column(occurrence, "sessionEntityId"), column(workout, "id")),
-								entitySchemaPredicate(workout, "workout", input.reference),
-							),
-						),
-						join("inner", set, occurrenceSets(set, occurrence)),
-						...taxonomy.joins,
-					],
 					measures: {
 						sets: countMeasure,
 						weightedSets: sumMeasure(taxonomy.weight),
-						workouts: selectedMeasure(
-							{ function: "countDistinct", expr: column(workout, "id") },
-							Schema.Finite,
-						),
 						exerciseOccurrences: selectedMeasure(
 							{ function: "countDistinct", expr: column(occurrence, "id") },
+							Schema.Finite,
+						),
+						workouts: selectedMeasure(
+							{ function: "countDistinct", expr: column(occurrence, "sessionEntityId") },
 							Schema.Finite,
 						),
 					},
@@ -318,7 +291,7 @@ export const historicalFitnessRankingRecipe = defineRecipe(
 							}[input.kind],
 							input.reference,
 						),
-						withinPeriod(startedAt(workout), range),
+						withinPeriod(column(occurrence, "occurredAt"), range),
 						fitnessSetFilter(set, input, occurrence),
 					),
 				}),
@@ -358,34 +331,31 @@ export const fitnessAnalyticsTrendRecipe = defineRecipe(
 			value: sumMeasure(values[metric]),
 			knownValues: sumMeasure(conditional(isNotNull(values[metric]), literal(1), literal(0))),
 		};
-		const groupBy = {
+		const groupBy = (at: Parameters<typeof dateBucket>[0]) => ({
 			at: selectedField(
-				dateBucket(startedAt(source.workout), {
-					timeZone: input.timeZone,
-					bucket: resolved.grouping,
-				}),
+				dateBucket(at, { timeZone: input.timeZone, bucket: resolved.grouping }),
 				Schema.String,
 			),
-		};
+		});
 		return {
 			queries: {
 				workoutTrend: workoutMetric
 					? selectedAggregate(source.workout, {
-							groupBy,
 							measures,
 							where: source.workoutWhere,
 							limit: REPORTING_BUCKET_LIMIT,
 							orderBy: [groupAscending("at")],
+							groupBy: groupBy(startedAt(source.workout)),
 						})
 					: undefined,
 				setTrend: workoutMetric
 					? undefined
 					: selectedAggregate(source.set, {
-							groupBy,
 							joins: source.setJoins,
 							where: source.setWhere,
 							limit: REPORTING_BUCKET_LIMIT,
 							orderBy: [groupAscending("at")],
+							groupBy: groupBy(source.setStartedAt),
 							measures: { ...measures, ...projectionCoverageMeasures(source.set) },
 						}),
 			},

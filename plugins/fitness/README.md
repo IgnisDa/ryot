@@ -56,7 +56,8 @@ deletion. There is no per-set copy of the taxonomy.
 V1 conversion writes this schema directly, once per performed exercise position, with
 `provenance: "legacy"`. Legacy assignments describe the exercise at export time, not proven
 assignments at workout time. Runtime capture uses `"recorded"`, including capture during imports.
-Use workout start for the occurrence's ordering timestamp; this is not timed-set evidence.
+An occurrence's `occurredAt` is always its workout's start, so period queries can bound
+occurrences and their sets through the event time index; this is not timed-set evidence.
 
 `fitness-metrics.ts`, `workout-list-recipes.ts` and `analytics-recipes.ts` define shared metrics.
 Metric definitions carry either a fixed unit or a converted measure; `displayMeasure` in
@@ -69,9 +70,10 @@ Historical rankings and performed-work muscle displays read retained occurrence 
 current exercise links. Target weights are primary/untyped 1, secondary 0.5 and stabilizer 0.
 Rankings expose sets, exercise occurrences and distinct workouts separately. Each is one grouped
 aggregate over the period's occurrences, unnesting recorded targets or equipment, ordered by weighted
-sets with a grouped cursor; taxonomy without performed sets in the period is not listed. Period
-attribution uses workout start; all-time totals omit range bounds. Coverage
-reports sets without occurrence evidence and sets whose taxonomy came from a legacy export.
+sets with a grouped cursor; taxonomy without performed sets in the period is not listed. Set and
+occurrence periods and buckets read the occurrence `occurredAt`; workout counts, durations, hours
+and drill-downs read the workout `startedAt` property. All-time totals omit range bounds. Coverage
+reports sets whose taxonomy came from a legacy export.
 
 Analytics recipe inputs are `{ reference, selection, now, timeZone }`; historical rankings add
 `kind` (`targets`, `equipment`, or `exercises`) and optional `after`. Reporting boundaries resolve
@@ -114,9 +116,9 @@ within the shared bucket limit, and all-time groups by year. Paged results conti
 Totals, workout cards and exercise aggregates read projection coverage with their values. Pending
 or failed coverage hides volume and personal-best results without hiding entered measurements.
 The separate processing poll supplies status text, but cannot make an incomplete aggregate ready.
-Totals left join each set's occurrence by user, plugin, session, exercise, order and recorded kind
-for taxonomy coverage; the kernel's unique anchor positions keep that join one-to-one. Rankings reuse
-their joined occurrence for taxonomy filters.
+Set queries inner join each set's occurrence by user, plugin, session, exercise, order and recorded
+kind; the kernel's unique anchor positions keep that join one-to-one, and taxonomy filters reuse the
+joined occurrence.
 
 The editor fences evidence reads with the workout event-scope revision and rejects evidence that
 disagrees with the original set owner/kind. The manifest's
@@ -270,7 +272,7 @@ measurement plus import sources. Otherwise independently loaded/retryable panels
 - Muscle activity over seven days: primary targets count 1, secondary ½, legacy untyped links 1,
   stabilizers excluded. Last-session age considers all roles; never-trained targets remain visible.
   Targets are listed once and merged with one grouped aggregate over occurrences unnested by
-  recorded target.
+  recorded target, timed by occurrence start without a workout join.
 - The five newest personal-best sets and the count of awarded sets performed in the last 30 days.
 
 ## Imports
@@ -309,8 +311,9 @@ execution events. Results distinguish completion, conflicts, validation,
 and Pro gates. A known business rejection from the atomic command unlocks edits; uncertain transport
 results retain the immutable retry.
 
-Historical edits preserve timestamps. `workout-time-correction` separately changes start/end and
-only sets/clears active duration explicitly, retaining unchanged precision. Free historical edits
+Historical edits preserve timestamps. `workout-time-correction` separately changes start/end in
+one atomic command that also moves every occurrence of the workout to the new start, and only
+sets/clears active duration explicitly, retaining unchanged precision. Free historical edits
 preserve protected notes/media and may remove them; adding/changing requires Pro. Template changes
 and replacement remain Pro-gated.
 

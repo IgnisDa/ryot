@@ -27,6 +27,7 @@ describe("muscleActivityRecipe", () => {
 		expect(Object.keys(queries)).toEqual(["targets", "activity"]);
 		expect(queries["activity"]?.from.alias).toBe("muscleOccurrence");
 		expect(JSON.stringify(queries["activity"]?.joins)).toContain("jsonElements");
+		expect(JSON.stringify(queries["activity"])).not.toContain("startedAt");
 		expect(JSON.stringify(queries["activity"])).not.toContain('muscleTarget"');
 	});
 

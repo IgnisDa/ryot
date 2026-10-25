@@ -268,11 +268,10 @@ export function AnalyticsSummary({
 					previousCaption={previousCaption}
 				/>
 			</div>
-			{current.missingTaxonomySets + current.legacyTaxonomySets === 0 ? null : (
+			{current.legacyTaxonomySets === 0 ? null : (
 				<p className="text-[12.5px] text-text-muted">
-					Muscles and equipment: {current.missingTaxonomySets} sets have none recorded;{" "}
-					{current.legacyTaxonomySets} migrated sets use the exercise's muscles and equipment at
-					migration time.
+					Muscles and equipment: {current.legacyTaxonomySets} migrated sets use the exercise's
+					muscles and equipment at migration time.
 				</p>
 			)}
 		</section>

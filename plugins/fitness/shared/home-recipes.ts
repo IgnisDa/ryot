@@ -57,8 +57,7 @@ export const muscleActivityRecipe = defineRecipe(
 		const link = table("event", "muscleOccurrence");
 		const element = jsonElementsJoin("inner", "muscleTargetElement", propertyJson(link, "targets"));
 		const set = table("event", "muscleSet");
-		const workout = table("entity", "muscleWorkout");
-		const startedAt = propertyDate(workout, "startedAt");
+		const startedAt = column(link, "occurredAt");
 		return {
 			map: ({ targets, activity }) => {
 				const trained = new Map(activity.items.map((item) => [item.id, item]));
@@ -96,6 +95,7 @@ export const muscleActivityRecipe = defineRecipe(
 				activity: selectedAggregate(link, {
 					limit: 1000,
 					orderBy: [groupAscending("id")],
+					joins: [element, join("inner", set, occurrenceSets(set, link))],
 					groupBy: {
 						id: selectedField(
 							castText(jsonPath(column(element, "value"), "entityId")),
@@ -106,18 +106,6 @@ export const muscleActivityRecipe = defineRecipe(
 						schemaOwnerPredicate(link, "eventSchemaPluginId", input.reference),
 						eq(column(link, "eventSchemaSlug"), literal("workout-exercise")),
 					),
-					joins: [
-						element,
-						join(
-							"inner",
-							workout,
-							and(
-								eq(column(workout, "id"), column(link, "sessionEntityId")),
-								entitySchemaPredicate(workout, "workout", input.reference),
-							),
-						),
-						join("inner", set, occurrenceSets(set, link)),
-					],
 					measures: {
 						lastTrainedAt: selectedMeasure(
 							{ expr: startedAt, function: "maximum" },

@@ -42,7 +42,6 @@ const decode = (pendingSets: number, failedSets = 0) =>
 					volume: 200,
 					pendingSets,
 					distance: null,
-					taxonomySets: 3,
 					repetitions: 40,
 					plannedRest: 120,
 					personalBests: 4,
@@ -85,6 +84,7 @@ describe("fitness rankings", () => {
 				],
 			});
 			expect(JSON.stringify(query?.joins).includes("jsonElements")).toBe(kind !== "exercises");
+			expect(JSON.stringify(query)).not.toContain("startedAt");
 			const item = {
 				id: "a",
 				sets: 2,
@@ -118,7 +118,6 @@ describe("fitness analytics totals", () => {
 		expect(totals.setDuration).toBeNull();
 		expect(totals.plannedRest).toBe(120);
 		expect(totals.missingCalorieWorkouts).toBe(2);
-		expect(totals.missingTaxonomySets).toBe(1);
 		expect(totals.legacyTaxonomySets).toBe(2);
 	});
 	it("reports awards versus awarded sets and entries versus individual readings", () => {

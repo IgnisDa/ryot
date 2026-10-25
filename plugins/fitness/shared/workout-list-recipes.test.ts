@@ -14,8 +14,8 @@ import {
 
 const aggregate = (items: readonly Record<string, unknown>[]) => ({
 	type: "aggregate",
-	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+	items: items.map((item) => Object.assign({ failedSets: 0, pendingSets: 0 }, item)),
 });
 const range = { endAt: "2026-10-18T00:00:00.000Z", startAt: "2026-09-18T00:00:00.000Z" };
 const workoutTotals = (workouts: number, activeDuration: null | number, timedWorkouts: number) => ({
@@ -102,6 +102,14 @@ describe("workoutSummaryRecipe", () => {
 
 	it("stays within the document query limit", () => {
 		expect(Object.keys(recipe.document.queries).length).toBeLessThanOrEqual(10);
+	});
+
+	it("bounds set totals by occurrence time instead of the workout start property", () => {
+		const { queries } = recipe.document;
+		for (const name of ["currentSets", "daySets", "latestRecord"]) {
+			expect(JSON.stringify(queries[name])).toContain("occurredAt");
+			expect(JSON.stringify(queries[name])).not.toContain("startedAt");
+		}
 	});
 
 	it("treats a period without sets or records as zero volume and no latest record", () => {

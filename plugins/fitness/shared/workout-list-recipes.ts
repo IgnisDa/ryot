@@ -59,6 +59,7 @@ import {
 import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
 import { PersonalBestSchema } from "./workout-records";
+import { occurrenceSets } from "./workout-taxonomy-recipes";
 
 export type WorkoutFilterPredicate = ReturnType<typeof and>;
 type Table = ReturnType<typeof table>;
@@ -369,20 +370,34 @@ export const workoutRangeSources = (
 ) => {
 	const workout = table("entity", rangeWorkoutAlias(alias));
 	const set = table("event", `${alias}Set`);
-	const workouts = and(
-		workoutWhere(workout, reference, search, filter),
-		withinPeriod(startedAt(workout), range),
-	);
+	const occurrence = table("event", `${alias}Occurrence`);
+	const workouts = workoutWhere(workout, reference, search, filter);
 	return {
 		set,
 		workout,
-		workoutWhere: workouts,
-		setJoins: [join("inner", workout, eq(column(set, "sessionEntityId"), column(workout, "id")))],
+		occurrence,
+		setStartedAt: column(occurrence, "occurredAt"),
+		workoutWhere: and(workouts, withinPeriod(startedAt(workout), range)),
 		setWhere: and(
 			schemaOwnerPredicate(set, "eventSchemaPluginId", reference),
 			eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-			workouts,
 		),
+		setJoins: [
+			join(
+				"inner",
+				occurrence,
+				and(
+					eq(column(occurrence, "eventSchemaSlug"), literal("workout-exercise")),
+					occurrenceSets(set, occurrence),
+					withinPeriod(column(occurrence, "occurredAt"), range),
+				),
+			),
+			join(
+				"inner",
+				workout,
+				and(eq(column(set, "sessionEntityId"), column(workout, "id")), workouts),
+			),
+		],
 	};
 };
 
@@ -412,9 +427,9 @@ const rangeBuckets = (
 	alias: string,
 ) => {
 	const sources = workoutRangeSources(reference, range, alias, range.search, range.filter);
-	const groupBy = (workout: Table) => ({
+	const groupBy = (at: Parameters<typeof dateBucket>[0]) => ({
 		at: selectedField(
-			dateBucket(startedAt(workout), { bucket: range.bucket, timeZone: range.timeZone }),
+			dateBucket(at, { bucket: range.bucket, timeZone: range.timeZone }),
 			IsoDateString,
 		),
 	});
@@ -423,16 +438,16 @@ const rangeBuckets = (
 			limit: 400,
 			where: sources.workoutWhere,
 			orderBy: [groupAscending("at")],
-			groupBy: groupBy(sources.workout),
 			measures: workoutMeasures(sources.workout),
+			groupBy: groupBy(startedAt(sources.workout)),
 		}),
 		selectedAggregate(sources.set, {
 			limit: 400,
 			joins: sources.setJoins,
 			where: sources.setWhere,
 			orderBy: [groupAscending("at")],
-			groupBy: groupBy(sources.workout),
 			measures: setMeasures(sources.set),
+			groupBy: groupBy(sources.setStartedAt),
 		}),
 	] as const;
 };

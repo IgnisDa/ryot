@@ -1,13 +1,19 @@
+import { userCommandInputSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 
 import { applyWorkoutTimes } from "../../shared/workout-editor-properties";
 import {
 	decodeWorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
 } from "../../shared/workout-editor-recipes";
+import {
+	workoutEventScopeRevisionRecipe,
+	workoutOccurrencesRecipe,
+} from "../../shared/workout-taxonomy-recipes";
 import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
@@ -18,6 +24,10 @@ export const manifest = defineManifest({
 	name: "Correct workout times",
 	slug: "operation.workout-time-correction",
 });
+
+type Occurrence = Recipe.Success<typeof workoutOccurrencesRecipe>["items"][number];
+
+const conflictCodes = new Set(["event-stale", "entity-stale", "mutation-conflict"]);
 
 export default defineOperation({
 	manifest,
@@ -44,13 +54,36 @@ export default defineOperation({
 			if (!current) {
 				return { kind: "conflict" } as const;
 			}
+			const revision = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				workoutEventScopeRevisionRecipe(input.entityId),
+			);
+			const occurrences: Occurrence[] = [];
+			let after: string | undefined;
+			do {
+				const page = yield* executeRyotqlRecipe(
+					host.executeRyotql,
+					workoutOccurrencesRecipe({
+						after,
+						workoutId: input.entityId,
+						reference: { kind: "self" },
+					}),
+				);
+				occurrences.push(...page.items);
+				if (page.pageInfo.hasMore && page.pageInfo.nextCursor === after) {
+					return { kind: "conflict" } as const;
+				}
+				after = page.pageInfo.nextCursor ?? undefined;
+			} while (after !== undefined);
 			const { entity } = decoded.success;
-			const properties = applyWorkoutTimes(entity.properties, input);
-			const saved = yield* host
-				.updateUserEntity(
-					{
-						properties,
-						name: entity.name,
+			const command = yield* Schema.decodeUnknownEffect(userCommandInputSchema)({
+				relationships: [],
+				entity: {
+					name: entity.name,
+					entitySchemaSlug: "workout",
+					properties: applyWorkoutTimes(entity.properties, input),
+					target: {
+						kind: "update",
 						entityId: input.entityId,
 						expected: {
 							name: entity.name,
@@ -58,16 +91,42 @@ export default defineOperation({
 							properties: entity.properties,
 						},
 					},
-					{ submittedAt: input.submittedAt, idempotencyKey: input.submissionId },
-				)
+				},
+				events: {
+					creates: [],
+					baselines: [{ revision, entityId: input.entityId }],
+					changes: occurrences
+						.filter(({ occurredAt }) => Date.parse(occurredAt) !== Date.parse(input.startedAt))
+						.map((occurrence) => ({
+							kind: "update",
+							itemIdentity: `occurrence-update:${occurrence.id}`,
+							item: {
+								eventId: occurrence.id,
+								patch: { occurredAt: input.startedAt },
+								expected: {
+									kind: "fields",
+									absentProperties: [],
+									entityId: occurrence.entityId,
+									occurredAt: occurrence.occurredAt,
+									properties: occurrence.properties,
+									sessionEntityId: occurrence.sessionEntityId,
+								},
+							},
+						})),
+				},
+			}).pipe(Effect.orDie);
+			const saved = yield* host
+				.commitUserChanges(command, {
+					submittedAt: input.submittedAt,
+					idempotencyKey: input.submissionId,
+				})
 				.pipe(
 					Effect.as(true),
 					Effect.catch((error) => {
 						const reason = Schema.decodeUnknownResult(Schema.Struct({ code: Schema.String }))(
 							error.data,
 						);
-						return reason._tag === "Success" &&
-							["entity-stale", "mutation-conflict"].includes(reason.success.code)
+						return reason._tag === "Success" && conflictCodes.has(reason.success.code)
 							? Effect.succeed(false)
 							: Effect.fail(error);
 					}),

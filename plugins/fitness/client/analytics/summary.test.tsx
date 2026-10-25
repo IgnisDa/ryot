@@ -35,7 +35,6 @@ type Totals = {
 	readonly setDuration: null | number;
 	readonly legacyTaxonomySets: number;
 	readonly measurementReadings: number;
-	readonly missingTaxonomySets: number;
 	readonly personalBests: null | number;
 	readonly activeDuration: null | number;
 	readonly personalBestSets: null | number;
@@ -69,7 +68,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 		legacyTaxonomySets: 0,
 		personalBestSets: null,
 		measurementReadings: 0,
-		missingTaxonomySets: 0,
 		...overrides,
 	};
 	return {
@@ -96,7 +94,6 @@ const totals = (overrides: Partial<Totals> = {}) => {
 				personalBests: value.personalBests,
 				personalBestSets: value.personalBestSets,
 				legacyTaxonomySets: value.legacyTaxonomySets,
-				taxonomySets: value.sets - value.missingTaxonomySets,
 			}),
 		},
 	};
@@ -177,7 +174,6 @@ describe("Fitness analytics summary UI", () => {
 						measurementEntries: 2,
 						legacyTaxonomySets: 1,
 						measurementReadings: 5,
-						missingTaxonomySets: 3,
 					}),
 				});
 				yield* Effect.promise(() =>
@@ -195,7 +191,7 @@ describe("Fitness analytics summary UI", () => {
 				).toBeDefined();
 				expect(
 					screen.getByText(
-						"Muscles and equipment: 3 sets have none recorded; 1 migrated sets use the exercise's muscles and equipment at migration time.",
+						"Muscles and equipment: 1 migrated sets use the exercise's muscles and equipment at migration time.",
 					),
 				).toBeDefined();
 				expect(screen.getAllByText(/1 pending sets · 1 failed sets/).length).toBeGreaterThan(0);

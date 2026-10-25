@@ -53,7 +53,6 @@ const response = {
 			failedSets: 0,
 			pendingSets: 0,
 			distance: null,
-			taxonomySets: 0,
 			personalBests: 0,
 			repetitions: null,
 			plannedRest: null,
