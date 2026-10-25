@@ -6,6 +6,7 @@ import {
 } from "./episode-resolution-sql";
 import {
 	buildSeenConsumptionFactsSql,
+	consumptionBasisSql,
 	seenConsumptionPropertiesSql,
 } from "./seen-consumption-mapping";
 import {
@@ -155,7 +156,9 @@ BEGIN
 			CASE WHEN r.entity_schema_slug IN ('show', 'podcast') THEN r.metadata_id END,
 			CASE WHEN r.entity_schema_slug IN ('show', 'podcast') THEN
 				jsonb_strip_nulls(jsonb_build_object(
-					'consumptionBasis', jsonb_build_object('unit', 'episodes'),
+					'consumptionBasis', jsonb_build_object(
+						'unit', ${consumptionBasisSql("r.entity_schema_slug", (rule) => rule.unit)}
+					),
 					'dateUnknown', true, 'sourceRun', 'seen:' || r.seen_id,
 					'consumedOn', r.consumed_on,
 					'timeSpent', CASE WHEN r.episode_entity_id IS NULL THEN r.manual_time_spent / 60.0 END,

@@ -108,7 +108,8 @@ timestamp at midnight. No calendar day or hourly observation is inferred from ti
 parent status does not repeat its child manual time.
 
 `seen-consumption-mapping.ts` captures the frozen basis from legacy metadata, even when the migrated
-parent is a skeleton. Episode runtimes use the already resolved legacy child entities. Music seconds
+parent is a skeleton. Basis units, properties, and divisors are generated from the Media plugin's
+consumption basis rules for the recorded entity's schema. Episode runtimes use the already resolved legacy child entities. Music seconds
 convert to minutes; games have no estimated total. Missing totals remain absent and zero remains
 known. V1 percentages are retained without interpolation or rounding; no exact pages are inferred
 from a percent. Ambiguous partial Anime/Manga position/percent pairs remain raw `sourceProgress`.

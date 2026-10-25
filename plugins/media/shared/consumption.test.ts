@@ -23,6 +23,11 @@ describe("retained consumption basis", () => {
 			unit: "minutes",
 		});
 		expect(consumptionBasisFor("show", { runtime: 40 })).toEqual({ unit: "episodes" });
+		expect(consumptionBasisFor("podcast-episode", { runtime: 40 })).toEqual({
+			total: 40,
+			unit: "minutes",
+			property: "runtime",
+		});
 	});
 	it("preserves unknown and zero separately and freezes primitive metadata", () => {
 		const metadata = { runtime: 0 };

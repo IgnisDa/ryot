@@ -34,38 +34,44 @@ export const SourceProgress = Schema.Struct({
 	percent: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
 });
 
+type ConsumptionBasisRule = {
+	readonly divisor?: number;
+	readonly unit: ConsumptionUnit;
+	readonly property?: typeof ConsumptionBasisProperty.Type;
+};
+
+export const defaultConsumptionBasisRule: ConsumptionBasisRule = {
+	unit: "minutes",
+	property: "runtime",
+};
+
+export const consumptionBasisRules: ReadonlyMap<string, ConsumptionBasisRule> = new Map([
+	["show", { unit: "episodes" }],
+	["podcast", { unit: "episodes" }],
+	["video-game", { unit: "minutes" }],
+	["book", { unit: "pages", property: "pages" }],
+	["comic-book", { unit: "pages", property: "pages" }],
+	["anime", { unit: "episodes", property: "episodes" }],
+	["manga", { unit: "chapters", property: "chapters" }],
+	["visual-novel", { unit: "minutes", property: "lengthMinutes" }],
+	["music", { divisor: 60, unit: "minutes", property: "duration" }],
+]);
+
 export const consumptionBasisFor = (
 	slug: string,
 	properties: Readonly<Record<string, unknown>>,
 ): ConsumptionBasis => {
-	const basis = (unit: ConsumptionUnit, property: ConsumptionBasis["property"], divisor = 1) => {
-		const value = property === undefined ? undefined : properties[property];
-		return {
-			unit,
-			...(property === undefined ? {} : { property }),
-			...(typeof value === "number" && Number.isFinite(value) && value >= 0
-				? { total: value / divisor }
-				: {}),
-		};
+	const {
+		unit,
+		property,
+		divisor = 1,
+	} = consumptionBasisRules.get(slug) ?? defaultConsumptionBasisRule;
+	const value = property === undefined ? undefined : properties[property];
+	return {
+		unit,
+		...(property === undefined ? {} : { property }),
+		...(typeof value === "number" && Number.isFinite(value) && value >= 0
+			? { total: value / divisor }
+			: {}),
 	};
-	switch (slug) {
-		case "book":
-		case "comic-book":
-			return basis("pages", "pages");
-		case "show":
-		case "podcast":
-			return basis("episodes", undefined);
-		case "anime":
-			return basis("episodes", "episodes");
-		case "manga":
-			return basis("chapters", "chapters");
-		case "music":
-			return basis("minutes", "duration", 60);
-		case "video-game":
-			return basis("minutes", undefined);
-		case "visual-novel":
-			return basis("minutes", "lengthMinutes");
-		default:
-			return basis("minutes", "runtime");
-	}
 };

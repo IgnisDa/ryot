@@ -1,4 +1,32 @@
+import {
+	consumptionBasisRules,
+	defaultConsumptionBasisRule,
+} from "@ryot-app/media-plugin/shared/consumption";
+
 import { buildAbortOnRowsSql, quoteSqlString } from "./shared";
+
+type ConsumptionBasisRule = typeof defaultConsumptionBasisRule;
+
+export const consumptionBasisSql = (
+	slug: string,
+	value: (rule: ConsumptionBasisRule) => string | number | undefined,
+) => {
+	const sql = (rule: ConsumptionBasisRule) => {
+		const result = value(rule);
+		if (result === undefined) {
+			return "NULL";
+		}
+		return typeof result === "number" ? String(result) : quoteSqlString(result);
+	};
+	const cases = Array.from(
+		consumptionBasisRules,
+		([ruleSlug, rule]) => `WHEN ${quoteSqlString(ruleSlug)} THEN ${sql(rule)}`,
+	);
+	return `CASE ${slug} ${cases.join(" ")} ELSE ${sql(defaultConsumptionBasisRule)} END`;
+};
+
+const recordedSlug = `CASE WHEN e.entity_schema_slug IN ('show', 'podcast')
+	THEN e.entity_schema_slug || '-episode' ELSE e.entity_schema_slug END`;
 
 export const buildSeenConsumptionFactsSql = (mediaPluginId: string) => `
 	${buildAbortOnRowsSql({
@@ -47,23 +75,9 @@ export const buildSeenConsumptionFactsSql = (mediaPluginId: string) => `
 				AND (s.show_extra_information ->> 'season')::numeric > 0 THEN s.metadata_id
 			WHEN e.entity_schema_slug = 'podcast' THEN s.metadata_id
 		END AS episode_session_id,
-		CASE e.entity_schema_slug
-			WHEN 'book' THEN 'pages'
-			WHEN 'comic-book' THEN 'pages'
-			WHEN 'anime' THEN 'episodes'
-			WHEN 'manga' THEN 'chapters'
-			ELSE 'minutes'
-		END AS basis_unit,
-		CASE e.entity_schema_slug
-			WHEN 'book' THEN 'pages'
-			WHEN 'comic-book' THEN 'pages'
-			WHEN 'anime' THEN 'episodes'
-			WHEN 'manga' THEN 'chapters'
-			WHEN 'music' THEN 'duration'
-			WHEN 'visual-novel' THEN 'lengthMinutes'
-			WHEN 'video-game' THEN NULL
-			ELSE 'runtime'
-		END AS basis_property,
+		${consumptionBasisSql(recordedSlug, (rule) => rule.unit)} AS basis_unit,
+		${consumptionBasisSql(recordedSlug, (rule) => rule.property)} AS basis_property,
+		${consumptionBasisSql(recordedSlug, (rule) => rule.divisor ?? 1)} AS basis_divisor,
 		CASE e.entity_schema_slug
 			WHEN 'audiobook' THEN m.audio_book_specifics ->> 'runtime'
 			WHEN 'movie' THEN m.movie_specifics ->> 'runtime'
@@ -165,7 +179,7 @@ export const seenConsumptionPropertiesSql = (
 	'consumptionBasis', jsonb_strip_nulls(jsonb_build_object(
 		'unit', ${alias}.basis_unit,
 		'property', ${alias}.basis_property,
-		'total', ${alias}.basis_total::numeric / CASE WHEN ${alias}.entity_schema_slug = 'music' THEN 60 ELSE 1 END
+		'total', ${alias}.basis_total::numeric / ${alias}.basis_divisor
 	)),
 	'dateUnknown', true,
 	'sourceRun', 'seen:' || ${alias}.seen_id,
