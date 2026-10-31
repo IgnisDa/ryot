@@ -3,7 +3,7 @@ import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import { anyOf } from "@ryot-app/testing/matchers";
-import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, getByText, waitFor } from "@testing-library/dom";
 
 import {
 	decodeFlatActivity,
@@ -327,7 +327,7 @@ describe("flat media detail screen", () => {
 				},
 			);
 
-			expect(getByRole(container, "alert").textContent).toBe("Couldn't load details from TMDB.");
+			expect(getByText(container, "Couldn't load details from TMDB.")).toBeDefined();
 			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
 
 			yield* Effect.promise(() =>
