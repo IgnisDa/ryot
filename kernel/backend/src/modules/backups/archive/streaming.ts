@@ -1,8 +1,10 @@
 import { Result, Schema } from "effect";
 
-import { archiveError, BackupArchiveError } from "./error";
+import { archiveEntryTooLarge, archiveError, BackupArchiveError } from "./error";
 
 const encoder = new TextEncoder();
+
+export const ARCHIVE_MAX_RECORD_BYTES = 4 * 1024 * 1024;
 
 export class IncrementalSha256 {
 	get bytes() {
@@ -24,55 +26,87 @@ export class IncrementalSha256 {
 
 export class NdjsonDecoder<A, I> {
 	#line = 0;
-	#buffered = "";
+	#recordBytes = 0;
 	readonly #path: string;
+	#buffered = new Uint8Array(0);
+	readonly #maxRecordBytes: number;
 	readonly #codec: Schema.Codec<A, I>;
 	readonly #decoder = new TextDecoder("utf-8", { fatal: true });
 
-	constructor(codec: Schema.Codec<A, I>, path: string) {
+	constructor(codec: Schema.Codec<A, I>, path: string, maxRecordBytes = ARCHIVE_MAX_RECORD_BYTES) {
 		this.#path = path;
 		this.#codec = codec;
+		this.#maxRecordBytes = maxRecordBytes;
 	}
 
 	end() {
+		if (this.#recordBytes === 0) {
+			return;
+		}
+		const buffered = this.#takeBuffered();
 		try {
-			this.#buffered += this.#decoder.decode();
+			this.#decoder.decode(buffered);
 		} catch {
 			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
 		}
-		if (this.#buffered.length > 0) {
-			throw archiveError("truncated_ndjson", "NDJSON must end with a newline", this.#path);
-		}
+		throw archiveError("truncated_ndjson", "NDJSON must end with a newline", this.#path);
 	}
 
 	*push(chunk: Uint8Array): Generator<A, void, undefined> {
-		try {
-			this.#buffered += this.#decoder.decode(chunk, { stream: true });
-			let newline = this.#buffered.indexOf("\n");
-			while (newline >= 0) {
-				const text = this.#buffered.slice(0, newline);
-				this.#buffered = this.#buffered.slice(newline + 1);
-				this.#line += 1;
-				if (text.length === 0) {
-					throw archiveError("invalid_entry", `Empty NDJSON line ${this.#line}`, this.#path);
-				}
+		let start = 0;
+		for (let index = 0; index <= chunk.byteLength; index += 1) {
+			if (index < chunk.byteLength && chunk[index] !== 0x0a) {
+				continue;
+			}
+			this.#appendRecordBytes(chunk.subarray(start, index));
+			if (index === chunk.byteLength) {
+				break;
+			}
+
+			this.#line += 1;
+			const line = this.#takeBuffered();
+			if (line.byteLength === 0) {
+				throw archiveError("invalid_entry", `Empty NDJSON line ${this.#line}`, this.#path);
+			}
+			try {
+				const text = this.#decoder.decode(line);
 				const decoded = Schema.decodeUnknownResult(this.#codec)(JSON.parse(text));
 				if (Result.isFailure(decoded)) {
-					throw archiveError(
-						"invalid_entry",
-						`Invalid NDJSON at line ${this.#line + 1}`,
-						this.#path,
-					);
+					throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line}`, this.#path);
 				}
 				yield decoded.success;
-				newline = this.#buffered.indexOf("\n");
+			} catch (error) {
+				if (error instanceof BackupArchiveError) {
+					throw error;
+				}
+				throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line}`, this.#path);
 			}
-		} catch (error) {
-			if (error instanceof BackupArchiveError) {
-				throw error;
-			}
-			throw archiveError("invalid_entry", `Invalid NDJSON at line ${this.#line + 1}`, this.#path);
+			start = index + 1;
 		}
+	}
+
+	#takeBuffered() {
+		const byteLength = this.#recordBytes;
+		this.#recordBytes = 0;
+		return this.#buffered.subarray(0, byteLength);
+	}
+
+	#appendRecordBytes(bytes: Uint8Array) {
+		const actualBytes = this.#recordBytes + bytes.byteLength;
+		if (actualBytes > this.#maxRecordBytes) {
+			throw archiveEntryTooLarge(this.#path, actualBytes, this.#maxRecordBytes);
+		}
+		if (actualBytes > this.#buffered.byteLength) {
+			const capacity = Math.min(
+				this.#maxRecordBytes,
+				Math.max(actualBytes, this.#buffered.byteLength * 2, 1_024),
+			);
+			const buffer = new Uint8Array(capacity);
+			buffer.set(this.#buffered.subarray(0, this.#recordBytes));
+			this.#buffered = buffer;
+		}
+		this.#buffered.set(bytes, this.#recordBytes);
+		this.#recordBytes = actualBytes;
 	}
 }
 
@@ -93,7 +127,16 @@ export const encodeArchiveJsonLine = <A, I>(codec: Schema.Codec<A, I>, value: A,
 	if (Result.isFailure(encoded)) {
 		throw archiveError("invalid_entry", `Invalid ${path}`, path);
 	}
-	return encoder.encode(`${JSON.stringify(encoded.success)}\n`);
+	const line = encoder.encode(`${JSON.stringify(encoded.success)}\n`);
+	const recordBytes = line.byteLength - 1;
+	if (
+		path !== "manifest.json" &&
+		path !== "profile.json" &&
+		recordBytes > ARCHIVE_MAX_RECORD_BYTES
+	) {
+		throw archiveEntryTooLarge(path, recordBytes, ARCHIVE_MAX_RECORD_BYTES);
+	}
+	return line;
 };
 
 export function* encodeNdjson<A, I>(

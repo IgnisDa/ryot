@@ -109,11 +109,22 @@ export const backupRunFailureNotice = (failure: null | BackupRunFailure): Backup
 					detail:
 						"The file you uploaded was no longer on the server when this restore ran, so nothing was changed. Upload the backup again.",
 				})),
-				Match.when({ code: "archive-invalid" }, () => ({
-					label: "Archive damaged",
-					detail:
-						"This archive was damaged or incomplete, so nothing was changed. Download the backup again and retry.",
-				})),
+				Match.when({ code: "archive-invalid" }, ({ issue, maxCount }) =>
+					issue === "entry-too-large" ||
+					maxCount !== undefined ||
+					issue === "total-size-exceeded" ||
+					issue === "entry-count-exceeded"
+						? {
+								label: "Backup limit reached",
+								detail:
+									"This backup exceeds a supported size or entry limit. No account data was changed.",
+							}
+						: {
+								label: "Archive damaged",
+								detail:
+									"This archive was damaged or incomplete, so nothing was changed. Download the backup again and retry.",
+							},
+				),
 				Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
 				Match.exhaustive,
 			);

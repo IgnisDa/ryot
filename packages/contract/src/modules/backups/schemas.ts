@@ -28,6 +28,11 @@ export const BackupRunFailure = Schema.Union([
 	Schema.Struct({ category: BackupAccountDataCategory, code: Schema.Literal("account-not-clean") }),
 	Schema.Struct({
 		code: Schema.Literal("archive-invalid"),
+		path: Schema.optionalKey(Schema.String),
+		maxBytes: Schema.optionalKey(Schema.Finite),
+		maxCount: Schema.optionalKey(Schema.Finite),
+		actualBytes: Schema.optionalKey(Schema.Finite),
+		actualCount: Schema.optionalKey(Schema.Finite),
 		issue: Schema.Literals([
 			"invalid-entry",
 			"invalid-path",
