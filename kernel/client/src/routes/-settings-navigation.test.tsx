@@ -288,8 +288,8 @@ describe("settings navigation", () => {
 
 			expect(labels("You")).toEqual([
 				"Preferences",
-				"Plugins",
 				"Plugin preferences",
+				"Plugins",
 				"Account",
 				"Reminders",
 			]);
