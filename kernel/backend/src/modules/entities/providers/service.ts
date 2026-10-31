@@ -10,6 +10,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	PluginId,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
@@ -20,6 +21,7 @@ import { Context, DateTime, Effect, Layer, Option, Redacted } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { AppConfig } from "#platform/config/service";
@@ -45,6 +47,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			const config = yield* AppConfig;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
+			const eventSchemas = yield* EventSchemaReader;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const admission = yield* ProviderImportAdmission;
 			const notifications = yield* WorkflowExecutionNotifications;
@@ -87,6 +90,24 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 					});
 				}
 
+				const entryEventSchemaSlug =
+					payload.entryEventSchemaSlug === undefined
+						? undefined
+						: EventSchemaSlug.make(payload.entryEventSchemaSlug);
+				if (
+					entryEventSchemaSlug !== undefined &&
+					(yield* eventSchemas.getScopeForUser({
+						userId: user.id,
+						entitySchemaSlug,
+						eventSchemaSlug: entryEventSchemaSlug,
+						entitySchemaPluginId: provider.pluginId,
+					})) === null
+				) {
+					return yield* new ProviderEntityBadRequest({
+						reason: { code: "invalid-import-input", field: "entryEventSchemaSlug" },
+					});
+				}
+
 				const executionId = generateId();
 				const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
 				const workflowPayload = {
@@ -94,6 +115,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 					externalId,
 					executionId,
 					entitySchemaSlug,
+					...(entryEventSchemaSlug === undefined ? {} : { entryEventSchemaSlug }),
 					pluginId: PluginId.make(provider.pluginId),
 					entityScope: {
 						userId: user.id,

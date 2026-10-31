@@ -1,15 +1,18 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, Effect, Fiber, Metric } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -111,7 +114,103 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 	);
 };
 
+const importWithEntryEvent = (
+	executionId: string,
+	createEventsResult: Pick<CreateEventsResponse, "failure">,
+) => {
+	const calls: Array<{ name: string; options: Record<string, unknown> }> = [];
+	const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+	const userId = UserId.make("user-1");
+	const entity = {
+		properties: {},
+		name: "Fixture",
+		externalId: "external-1",
+		id: EntityId.make("fixture-1"),
+		entitySchemaPluginId: pluginId,
+		createdAt: "2026-01-01T00:00:00.000Z",
+		updatedAt: "2026-01-01T00:00:00.000Z",
+		populatedAt: "2026-01-01T00:00:00.000Z",
+		providerId: SandboxProviderId.make("provider-1"),
+		entitySchemaSlug: EntitySchemaSlug.make("record"),
+	};
+	const run = runEntityImportWorkflow(
+		{
+			pluginId,
+			executionId,
+			externalId: "external-1",
+			entityScope: { userId, type: "global" },
+			command: importCommand(executionId, userId),
+			providerId: SandboxProviderId.make("provider-1"),
+			entitySchemaSlug: EntitySchemaSlug.make("record"),
+			entryEventSchemaSlug: EventSchemaSlug.make("planned"),
+		},
+		executionId,
+	).pipe(
+		Effect.provideService(
+			WorkflowEngine,
+			makeWorkflowActivityEngine(instance, {
+				execute: (workflow, options) =>
+					Effect.sync(() => {
+						calls.push({ options, name: workflow._tag });
+						return workflow._tag === "EventCreateWorkflow"
+							? { count: 1, outcomes: [], warnings: [], ...createEventsResult }
+							: entity;
+					}),
+			}),
+		),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(EntityImportWorkflowOperations, {
+			processSandbox: () => Effect.die("unused"),
+			processRelatedPage: () => Effect.die("unused"),
+			requireRelatedScript: () => Effect.die("unused"),
+			processProviderResolve: () => Effect.die("unused"),
+			preRegisterProviderImport: () => Effect.die("unused"),
+			completeProviderEntityImport: () =>
+				Effect.sync(() => {
+					calls.push({ options: {}, name: "provider-import-completion" });
+				}),
+		}),
+	);
+	return { run, calls, entity, userId };
+};
+
 layer(mutationAdmissionTestLayer)((it) => {
+	it.effect("records the requested entry event once the import completes", () => {
+		const executionId = "entry-event-import";
+		const { run, calls, entity, userId } = importWithEntryEvent(executionId, { failure: null });
+		return Effect.gen(function* () {
+			expect(yield* run).toEqual(entity);
+			expect(calls.map(({ name }) => name)).toEqual([
+				"ProviderEntityPopulationWorkflow",
+				"provider-import-completion",
+				"EventCreateWorkflow",
+			]);
+			expect(calls[2]?.options).toMatchObject({
+				payload: {
+					userId,
+					payload: [{ properties: {}, entityId: entity.id, eventSchemaSlug: "planned" }],
+					command: {
+						writeContext: null,
+						causation: { executionId },
+						itemIdentity: stableStringify([`provider-import:${executionId}`, "entry-event"]),
+					},
+				},
+			});
+		});
+	});
+
+	it.effect("fails the import at the entry-event stage when the event is refused", () => {
+		const { run } = importWithEntryEvent("refused-entry-event", {
+			failure: { index: 0, reason: { code: "invalid-properties" } },
+		});
+		return Effect.gen(function* () {
+			expect(yield* Effect.flip(run)).toMatchObject({
+				stage: "entry-event",
+				message: "invalid-properties",
+			});
+		});
+	});
+
 	it.effect("runs provider-import completion after provider population", () =>
 		importWithoutMembership("unrelated-fixture"),
 	);

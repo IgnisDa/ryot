@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import { LifecycleServicesLive } from "#modules/automations/layer";
+import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsServiceLive } from "#modules/entities/localization/layer";
@@ -27,7 +28,9 @@ export const ProviderEntitySearchServiceLive = ProviderEntitySearchService.layer
 );
 
 export const EntityImportServiceLive = EntityImportService.layer.pipe(
-	Layer.provide(Layer.merge(EntitiesRepositoryLive, PluginRuntimeResolverLive)),
+	Layer.provide(
+		Layer.mergeAll(EntitiesRepositoryLive, PluginRuntimeResolverLive, EventSchemaReaderLive),
+	),
 	Layer.provide(
 		ProviderImportAdmission.liveLayer.pipe(
 			Layer.provide(

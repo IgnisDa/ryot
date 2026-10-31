@@ -1,9 +1,12 @@
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import type { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Effect, type Exit, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
+import { childLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { enqueueEventCreate } from "#modules/events/event-create-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
@@ -24,7 +27,7 @@ export class EntityImportError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("EntityImportError", {
 	message: Schema.String,
-	stage: Schema.Literals(["population", "provider-import-automation"]),
+	stage: Schema.Literals(["population", "provider-import-automation", "entry-event"]),
 }) {}
 
 export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
@@ -56,6 +59,28 @@ const measureImportPhase = <A, R>(
 					outcome: attemptOutcome(exit),
 				}),
 			),
+		),
+	);
+
+const recordEntryEvent = (
+	payload: ProviderEntityImportWorkflowPayload,
+	entityId: ListedEntity["id"],
+	eventSchemaSlug: EventSchemaSlug,
+) =>
+	enqueueEventCreate({
+		userId: payload.entityScope.userId,
+		payload: [{ entityId, properties: {}, eventSchemaSlug }],
+		command: { ...childLifecycleCommand(payload.command, "entry-event"), writeContext: null },
+	}).pipe(
+		Effect.mapError(
+			(error) => new EntityImportError({ stage: "entry-event", message: error.message }),
+		),
+		Effect.flatMap((result) =>
+			result.failure === null
+				? Effect.void
+				: Effect.fail(
+						new EntityImportError({ stage: "entry-event", message: result.failure.reason.code }),
+					),
 		),
 	);
 
@@ -113,6 +138,12 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 				),
 			),
 	);
+	if (payload.entryEventSchemaSlug !== undefined) {
+		yield* measureImportPhase(
+			"entry-event",
+			recordEntryEvent(payload, importedEntity.id, payload.entryEventSchemaSlug),
+		);
+	}
 	return importedEntity;
 });
 

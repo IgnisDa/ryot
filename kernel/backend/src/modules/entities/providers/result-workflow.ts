@@ -4,7 +4,7 @@ import { Cause, Exit, Option } from "effect";
 import type { Workflow } from "effect/workflow";
 
 export const toEntityImportRunResult = <
-	E extends { readonly stage: "population" | "provider-import-automation" },
+	E extends { readonly stage: "population" | "entry-event" | "provider-import-automation" },
 >(
 	result: undefined | Workflow.Result<ListedEntity, E>,
 ): ImportEntityRunResult => {

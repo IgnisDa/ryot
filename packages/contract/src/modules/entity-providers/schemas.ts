@@ -29,6 +29,7 @@ export type ProviderLibraryMembership = typeof ProviderLibraryMembership.Type;
 export const ImportEntityBody = strictStruct({
 	externalId: Schema.String,
 	providerId: SandboxProviderId,
+	entryEventSchemaSlug: Schema.optional(ProviderLibraryEntryEvent.fields.eventSchemaSlug),
 });
 export type ImportEntityBody = typeof ImportEntityBody.Type;
 
@@ -55,7 +56,12 @@ export const ImportEntityRunResult = Schema.Union([
 		status: Schema.Literal("failed"),
 		reason: Schema.Struct({
 			code: Schema.Literal("import-failed"),
-			stage: Schema.Literals(["population", "provider-import-automation", "unexpected"]),
+			stage: Schema.Literals([
+				"population",
+				"provider-import-automation",
+				"entry-event",
+				"unexpected",
+			]),
 		}),
 	}).pipe(
 		Schema.annotate({
@@ -133,7 +139,7 @@ const ProviderEntityBadRequestReason = Schema.Union([
 	strictStruct({ providerId: SandboxProviderId, code: Schema.Literal("search-unsupported") }),
 	strictStruct({
 		code: Schema.Literal("invalid-import-input"),
-		field: Schema.Literals(["providerId", "externalId"]),
+		field: Schema.Literals(["providerId", "externalId", "entryEventSchemaSlug"]),
 	}),
 	strictStruct({
 		providerId: SandboxProviderId,

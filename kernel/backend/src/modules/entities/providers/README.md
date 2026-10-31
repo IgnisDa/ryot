@@ -27,6 +27,9 @@ deadlock once every slot holds a parent.
 - Each loop pass settles rows whose workflow has finished, restarts `running` rows whose workflow
   never started (a restart between admission and start), and admits into free slots. Every step is
   idempotent, so replicas and restarts need no coordination.
+- An optional `entryEventSchemaSlug` must name an event schema of the provider's root entity schema,
+  otherwise the request fails with `invalid-import-input`. It travels in the workflow payload, so a
+  repeated request joins the existing job with that job's entry event.
 - `DELETE /entity-providers/imports/:jobId` removes a queued row, or interrupts the workflow of a
   running one; the result then reads `cancelled`.
 - The result endpoint reads `queued` from the ledger and `running`, `completed`, `failed`, or
@@ -64,7 +67,11 @@ Refresh preserves the base timestamp during its initial upsert and writes its ne
 after its child sets succeed. Child sets keep their initial
 (non-refresh) semantics during an upgrade.
 
-`EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. Entity interest requests
+`EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. After population and the
+`provider-entity-import` completion hooks, an import with an entry event creates that event for the
+importing user through `EventCreateWorkflow`, keyed by a child item identity of the import command so
+replays create it once. A failed or refused event fails the import at the `entry-event` stage; the
+imported entity stays. Entity interest requests
 `base` for visible and `full` for foreground interest (see the entity-interest README). The kernel
 provider-population reference and explicit enrichment commands request `full`; the monitoring sweep refreshes.
 Relationship lifecycle hooks of an imported entity (such as plugin monitoring association

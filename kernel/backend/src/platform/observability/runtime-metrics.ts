@@ -29,12 +29,12 @@ const observe = <Input>(
 
 export type ProviderImportOutcome = "success" | "failure";
 
-export type ProviderImportPhase = "population" | "provider-import-automation";
-
 /** A body attempt interrupted by workflow suspension is neither a success nor a failure. */
 export type ProviderImportAttemptOutcome = "interrupted" | ProviderImportOutcome;
 
 export type SandboxReplayOutcome = "failed" | "missing" | "pending" | "completed";
+
+export type ProviderImportPhase = "population" | "entry-event" | "provider-import-automation";
 
 const sandboxWorkflowReplays = Metric.counter("ryot.sandbox.workflow_replays", {
 	incremental: true,

@@ -8,6 +8,7 @@ import {
 import {
 	EntityId,
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -17,6 +18,7 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -88,6 +90,7 @@ const makeServiceLayer = (
 		readonly status?: Admission["status"];
 		readonly engine?: WorkflowEngine["Service"];
 		readonly activeProvider?: null | typeof provider;
+		readonly entryEventSchemaSlugs?: ReadonlyArray<string>;
 		readonly entitiesRepo?: Layer.Layer<EntitiesRepository>;
 		readonly submit?: (input: SubmitInput) => Effect.Success<ReturnType<Admission["submit"]>>;
 	} = {},
@@ -101,6 +104,23 @@ const makeServiceLayer = (
 				makeAppConfigLayer(),
 				Layer.succeed(WorkflowEngine, options.engine ?? makeWorkflowEngine()),
 				options.entitiesRepo ?? makeEntitiesRepository(),
+				Layer.mock(EventSchemaReader)({
+					getScopeForUser: (input) =>
+						Effect.succeed(
+							options.entryEventSchemaSlugs?.includes(input.eventSchemaSlug) &&
+								input.entitySchemaSlug === entitySchemaSlug &&
+								input.entitySchemaPluginId === provider.pluginId
+								? {
+										name: "Planned",
+										id: input.eventSchemaSlug,
+										slug: input.eventSchemaSlug,
+										pluginId: provider.pluginId,
+										propertiesSchema: { fields: {} },
+										entitySchemaSlug: input.entitySchemaSlug,
+									}
+								: null,
+						),
+				}),
 				Layer.mock(PluginRuntimeResolver)({
 					findProviderAvailableToUser: () =>
 						Effect.succeed(
@@ -242,6 +262,46 @@ layer(makeServiceLayer({ submit: queued, entitiesRepo: withSchema }))((test) => 
 			});
 		});
 	});
+});
+
+layer(
+	makeServiceLayer({
+		submit: queued,
+		entitiesRepo: withSchema,
+		entryEventSchemaSlugs: ["planned"],
+	}),
+)((test) => {
+	test.effect("submits an entry event the root entity schema declares", () =>
+		Effect.gen(function* () {
+			const service = yield* EntityImportService;
+			yield* service.import(user, { providerId, externalId, entryEventSchemaSlug: "planned" });
+			const submitted = yield* (yield* FakeAdmission).submitted;
+			expect(submitted[0]?.payload.entryEventSchemaSlug).toBe(EventSchemaSlug.make("planned"));
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		submit: queued,
+		entitiesRepo: withSchema,
+		entryEventSchemaSlugs: ["planned"],
+	}),
+)((test) => {
+	test.effect("rejects an entry event the root entity schema does not declare", () =>
+		Effect.gen(function* () {
+			const service = yield* EntityImportService;
+			const result = yield* Effect.exit(
+				service.import(user, { providerId, externalId, entryEventSchemaSlug: "unknown" }),
+			);
+			expect(getFailure(result)).toEqual(
+				new ProviderEntityBadRequest({
+					reason: { code: "invalid-import-input", field: "entryEventSchemaSlug" },
+				}),
+			);
+			expect(yield* (yield* FakeAdmission).submitted).toEqual([]);
+		}),
+	);
 });
 
 layer(

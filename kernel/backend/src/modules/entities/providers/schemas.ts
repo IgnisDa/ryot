@@ -1,5 +1,6 @@
 import {
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	PluginId,
 	SandboxProviderId,
 	UserId,
@@ -37,6 +38,7 @@ export type EntityImportPayload = typeof EntityImportPayload.Type;
 
 export const ProviderEntityImportWorkflowPayload = Schema.Struct({
 	...entityImportPayloadFields,
+	entryEventSchemaSlug: Schema.optional(EventSchemaSlug),
 	entityScope: Schema.Union([
 		Schema.Struct({ userId: UserId, type: Schema.Literal("global") }),
 		Schema.Struct({ userId: UserId, type: Schema.Literal("user") }),

@@ -13,9 +13,11 @@ import {
 	getEntity,
 	getVisibleEntityByProvenance,
 	installTestProviders,
+	listEventSlugs,
 	pollProviderEntityImportResult,
 	populateRelatedThroughForegroundInterest,
 	searchProviderEntities,
+	testPluginEntitySchema,
 	testProviderEntitySchema,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
@@ -51,6 +53,14 @@ beforeAll(() =>
 				company: companyProvider,
 			} = yield* installTestProviders({
 				client,
+				entitySchemas: [
+					{
+						...testPluginEntitySchema({ slug: "book" }),
+						eventSchemas: [{ name: "Planned", slug: "planned", propertiesSchema: { fields: {} } }],
+					},
+					testPluginEntitySchema({ slug: "anime" }),
+					testPluginEntitySchema({ slug: "company" }),
+				],
 				relationshipSchemas: [
 					{
 						slug: COMPANY_TO_ANIME,
@@ -310,6 +320,36 @@ describe("GET /entity-providers/imports/{jobId}", () => {
 				expect(relationship.targetEntityId).toBe(result.data.id);
 				expect(relationship.properties).toMatchObject({ roles: ["E2E Animation Studio"] });
 			}),
+	);
+
+	it.live("records the requested entry event on the imported entity", () =>
+		Effect.gen(function* () {
+			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
+				externalId: "e2e-book-planned",
+				entryEventSchemaSlug: "planned",
+				providerId: bookProvider.providerId,
+			});
+
+			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
+
+			assertCompleted(result, "import job");
+			expect(yield* listEventSlugs(providerClient, result.data.id)).toEqual(["planned"]);
+		}),
+	);
+
+	it.live("rejects an entry event the root entity schema does not declare", () =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				enqueueProviderEntityImport(providerClient, {
+					entryEventSchemaSlug: "planned",
+					externalId: "e2e-book-unplanned",
+					providerId: animeProvider.providerId,
+				}),
+			);
+
+			assertTaggedError(error, "ProviderEntityBadRequest");
+			expect(error.reason).toEqual({ code: "invalid-import-input", field: "entryEventSchemaSlug" });
+		}),
 	);
 
 	it.live("sets populatedAt as a UTC ISO timestamp column on the imported entity", () =>
