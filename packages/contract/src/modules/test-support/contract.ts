@@ -3,12 +3,22 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 
 import { AdminMiddleware } from "../../auth-middleware";
 import { EntityId, ImportRunId, PluginId, SandboxProviderId, UserId } from "../../schema/brands";
+import {
+	AutomationRun,
+	AutomationRunAttempt,
+	AutomationTrigger,
+	AutomationTriggerRecipient,
+} from "../automations/lifecycle";
 import { ListedEntity } from "../entities/schemas";
 import { EntitySchemaReference, RelationshipSchemaReference } from "../plugins/references";
 import { PluginConflictError, PluginNotFoundError, PluginRequestError } from "../plugins/schemas";
 import { RelationshipScope } from "../relationships/schemas";
 import { SandboxRunResult } from "../scripts/schemas";
 import {
+	TestSupportAutomationAttemptFilter,
+	TestSupportAutomationRecipientFilter,
+	TestSupportAutomationRunFilter,
+	TestSupportAutomationTriggerFilter,
 	TestSupportBadRequest,
 	TestSupportConflict,
 	TestSupportEnqueueSandboxBody,
@@ -215,6 +225,34 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			error: testSupportErrors,
 			payload: Schema.Struct({}),
 		}).annotate(OpenApi.Description, "Reconciles queued automation runs"),
+	)
+	.add(
+		HttpApiEndpoint.post("listAutomationTriggers", "/test-support/automations/triggers", {
+			error: testSupportErrors,
+			success: Schema.Array(AutomationTrigger),
+			payload: TestSupportAutomationTriggerFilter,
+		}).annotate(OpenApi.Description, "Inspects retained automation triggers for execution tests"),
+	)
+	.add(
+		HttpApiEndpoint.post("listAutomationRuns", "/test-support/automations/runs", {
+			error: testSupportErrors,
+			success: Schema.Array(AutomationRun),
+			payload: TestSupportAutomationRunFilter,
+		}).annotate(OpenApi.Description, "Inspects retained automation run pins for execution tests"),
+	)
+	.add(
+		HttpApiEndpoint.post("listAutomationAttempts", "/test-support/automations/attempts", {
+			error: testSupportErrors,
+			payload: TestSupportAutomationAttemptFilter,
+			success: Schema.Array(AutomationRunAttempt),
+		}).annotate(OpenApi.Description, "Inspects retained automation attempts for execution tests"),
+	)
+	.add(
+		HttpApiEndpoint.post("listAutomationRecipients", "/test-support/automations/recipients", {
+			error: testSupportErrors,
+			payload: TestSupportAutomationRecipientFilter,
+			success: Schema.Array(AutomationTriggerRecipient),
+		}).annotate(OpenApi.Description, "Inspects automation trigger recipients for execution tests"),
 	)
 	.add(
 		HttpApiEndpoint.post("installSystemPlugin", "/test-support/system-plugins", {

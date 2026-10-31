@@ -1,18 +1,29 @@
 import { Schema } from "effect";
 
 import {
+	AutomationHookSlug,
+	AutomationRunId,
+	AutomationTriggerId,
+	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	ImportRunId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
+	RelationshipId,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import { ExecutionLane } from "../automations/lifecycle";
+import {
+	AutomationRunAttempt,
+	AutomationRunStatus,
+	AutomationTriggerPayload,
+	ExecutionLane,
+} from "../automations/lifecycle";
 import { PluginManifest } from "../plugins/manifest";
 import { EnqueueSandboxBody } from "../scripts/schemas";
 
@@ -82,6 +93,45 @@ export type TestSupportEnqueueSandboxBody = typeof TestSupportEnqueueSandboxBody
 export const TestSupportEnqueueSandboxResponse = Schema.Struct({
 	jobId: Schema.String,
 	executionId: Schema.String,
+});
+
+const automationInspectionOffset = Schema.optional(
+	Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+);
+
+export const TestSupportAutomationTriggerFilter = strictStruct({
+	offset: automationInspectionOffset,
+	triggerId: Schema.optional(AutomationTriggerId),
+	rootExecutionId: Schema.optional(Schema.String),
+	payload: Schema.optional(AutomationTriggerPayload),
+	actorUserId: Schema.optional(Schema.NullOr(UserId)),
+	sourceRecord: Schema.optional(
+		Schema.Union([
+			strictStruct({ id: EventId, resource: Schema.Literal("event") }),
+			strictStruct({ id: EntityId, resource: Schema.Literal("entity") }),
+			strictStruct({ id: RelationshipId, resource: Schema.Literal("relationship") }),
+			strictStruct({ id: EntityId, resource: Schema.Literal("provider-entity-import") }),
+		]),
+	),
+});
+
+export const TestSupportAutomationRunFilter = strictStruct({
+	...TestSupportAutomationTriggerFilter.fields,
+	status: Schema.optional(AutomationRunStatus),
+	hookSlug: Schema.optional(AutomationHookSlug),
+	executionUserId: Schema.optional(Schema.NullOr(UserId)),
+});
+
+export const TestSupportAutomationAttemptFilter = strictStruct({
+	runId: AutomationRunId,
+	offset: automationInspectionOffset,
+	status: Schema.optional(AutomationRunAttempt.fields.status),
+});
+
+export const TestSupportAutomationRecipientFilter = strictStruct({
+	triggerId: AutomationTriggerId,
+	userId: Schema.optional(UserId),
+	offset: automationInspectionOffset,
 });
 
 export const TestSupportSandboxReplayProjectionBody = Schema.Struct({ executionId: Schema.String });

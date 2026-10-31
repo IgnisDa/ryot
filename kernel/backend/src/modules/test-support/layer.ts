@@ -16,6 +16,7 @@ import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { PluginCronServiceLive } from "#modules/scheduler/layer";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
+import { AutomationInspectionRepository } from "./automation-inspection-repository";
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
 import { ReminderTestSupport } from "./reminders";
@@ -28,6 +29,7 @@ export const TestSupportServicesLive = Layer.mergeAll(
 	TestSupportService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
+				AutomationInspectionRepository.layer,
 				AuthServiceLive,
 				EntitiesServiceRuntimeLive,
 				EntitiesRepositoryLive,

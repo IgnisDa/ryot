@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SignalSchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
@@ -20,35 +20,46 @@ import { Effect, Result, Schema } from "effect";
 
 import type { HarnessTarget } from "~/support/harness-target";
 
-import {
-	adminAutomationAttemptsRecipe,
-	adminAutomationRecipientsRecipe,
-	adminAutomationRunsRecipe,
-	adminAutomationTriggersRecipe,
-	type AutomationRunAttemptFilter,
-	type AutomationRunFilter,
-	type AutomationTriggerFilter,
-	type AutomationTriggerRecipientFilter,
-} from "./admin-automations";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
-import {
-	collectAdminRyotQLRecipeItems,
-	collectRyotQLRecipeItems,
-	executeAdminRyotQLRecipe,
-	executeRyotQLRecipe,
-} from "./ryotql";
+import { collectRyotQLRecipeItems, executeAdminRyotQLRecipe, executeRyotQLRecipe } from "./ryotql";
 
 export type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
-export type {
-	AutomationRun,
-	AutomationRunFilter,
-	AutomationRunAttempt,
-	AutomationTriggerFilter,
-	AutomationRunAttemptFilter,
-	AutomationTriggerRecipientFilter,
-} from "./admin-automations";
+
+export type AutomationRun = ContractSuccess<"testSupport", "listAutomationRuns">[number];
+export type AutomationRunAttempt = ContractSuccess<"testSupport", "listAutomationAttempts">[number];
+export type AutomationRunFilter = Omit<
+	ContractPayload<"testSupport", "listAutomationRuns">,
+	"offset"
+>;
+export type AutomationTriggerFilter = Omit<
+	ContractPayload<"testSupport", "listAutomationTriggers">,
+	"offset"
+>;
+
+export type AutomationRunAttemptFilter = Omit<
+	ContractPayload<"testSupport", "listAutomationAttempts">,
+	"offset"
+>;
+export type AutomationTriggerRecipientFilter = Omit<
+	ContractPayload<"testSupport", "listAutomationRecipients">,
+	"offset"
+>;
+
+const collectAutomationRecords = <Item, Error, Requirements>(
+	fetch: (offset: number) => Effect.Effect<ReadonlyArray<Item>, Error, Requirements>,
+) =>
+	Effect.gen(function* () {
+		const records: Item[] = [];
+		let hasFullPage = true;
+		while (hasFullPage) {
+			const page = yield* fetch(records.length);
+			records.push(...page);
+			hasFullPage = page.length === 100;
+		}
+		return records;
+	});
 
 export const listAutomationCatalog = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => activeSignalSchemasRecipe({ after, limit: 100 }));
@@ -90,9 +101,10 @@ const automationFilterLabel = (filter: AutomationRunFilter | AutomationTriggerFi
 		: "matching filters");
 
 export const listAutomationTriggers = (payload: AutomationTriggerFilter, target?: HarnessTarget) =>
-	collectAdminRyotQLRecipeItems(
-		(after) => adminAutomationTriggersRecipe({ ...payload, after }),
-		target,
+	collectAutomationRecords((offset) =>
+		getApiClient(target).adminCall((c) =>
+			c.testSupport.listAutomationTriggers({ payload: { ...payload, offset } }),
+		),
 	);
 
 export const pollAutomationTriggers = (
@@ -152,9 +164,10 @@ export const listAutomationTriggerRecipients = (
 	payload: AutomationTriggerRecipientFilter,
 	target?: HarnessTarget,
 ) =>
-	collectAdminRyotQLRecipeItems(
-		(after) => adminAutomationRecipientsRecipe({ ...payload, after }),
-		target,
+	collectAutomationRecords((offset) =>
+		getApiClient(target).adminCall((c) =>
+			c.testSupport.listAutomationRecipients({ payload: { ...payload, offset } }),
+		),
 	);
 
 export const pollAutomationTriggerRecipients = (
@@ -201,9 +214,10 @@ export const pollSignalTriggerWithRecipientCount = (
 	);
 
 export const listAutomationRuns = (payload: AutomationRunFilter, target?: HarnessTarget) =>
-	collectAdminRyotQLRecipeItems(
-		(after) => adminAutomationRunsRecipe({ ...payload, after }),
-		target,
+	collectAutomationRecords((offset) =>
+		getApiClient(target).adminCall((c) =>
+			c.testSupport.listAutomationRuns({ payload: { ...payload, offset } }),
+		),
 	);
 
 export const reconcileAutomations = Effect.suspend(() =>
@@ -239,9 +253,10 @@ export const listAutomationRunAttempts = (
 	payload: AutomationRunAttemptFilter,
 	target?: HarnessTarget,
 ) =>
-	collectAdminRyotQLRecipeItems(
-		(after) => adminAutomationAttemptsRecipe({ ...payload, after }),
-		target,
+	collectAutomationRecords((offset) =>
+		getApiClient(target).adminCall((c) =>
+			c.testSupport.listAutomationAttempts({ payload: { ...payload, offset } }),
+		),
 	);
 
 export const pollAutomationRunAttempts = (

@@ -157,6 +157,26 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				yield* reconciliation.reconcile();
 			}).pipe(mapTestSupportFailure),
 		)
+		.handle("listAutomationTriggers", ({ payload }) =>
+			Effect.flatMap(TestSupportService, (service) => service.listAutomationTriggers(payload)).pipe(
+				mapTestSupportFailure,
+			),
+		)
+		.handle("listAutomationRuns", ({ payload }) =>
+			Effect.flatMap(TestSupportService, (service) => service.listAutomationRuns(payload)).pipe(
+				mapTestSupportFailure,
+			),
+		)
+		.handle("listAutomationAttempts", ({ payload }) =>
+			Effect.flatMap(TestSupportService, (service) => service.listAutomationAttempts(payload)).pipe(
+				mapTestSupportFailure,
+			),
+		)
+		.handle("listAutomationRecipients", ({ payload }) =>
+			Effect.flatMap(TestSupportService, (service) =>
+				service.listAutomationRecipients(payload),
+			).pipe(mapTestSupportFailure),
+		)
 		.handle("installSystemPlugin", ({ payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;

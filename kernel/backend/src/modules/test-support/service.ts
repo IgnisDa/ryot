@@ -44,6 +44,8 @@ import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
 import { redisKeys, RedisService } from "#platform/redis";
 
+import { AutomationInspectionRepository } from "./automation-inspection-repository";
+
 type CreateGlobalEntityInput = {
 	readonly name: string;
 	readonly externalId?: string | undefined;
@@ -118,6 +120,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 	"@ryot-app/kernel-backend/modules/test-support/service/TestSupportService",
 	{
 		make: Effect.gen(function* () {
+			const automationInspection = yield* AutomationInspectionRepository;
 			const auth = yield* AuthService;
 			const redis = yield* RedisService;
 			const entities = yield* EntitiesService;
@@ -356,7 +359,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				upsertGlobalRelationship,
 				reconcilePluginInstallations,
 				getSandboxResult: sandbox.getResult,
+				listAutomationRuns: automationInspection.listRuns,
+				listAutomationTriggers: automationInspection.listTriggers,
+				listAutomationAttempts: automationInspection.listAttempts,
 				setEntityWatchMembership: interest.setEntityWatchMembership,
+				listAutomationRecipients: automationInspection.listRecipients,
 				uninstallSystemPlugin: (pluginId: PluginId, activationId: string) =>
 					pluginIngestion.uninstallPlugin(pluginId, activationId),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {

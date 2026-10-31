@@ -36,6 +36,7 @@ import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { RedisService } from "#platform/redis";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#testing/effect";
 
+import { AutomationInspectionRepository } from "./automation-inspection-repository";
 import { TestSupportService } from "./service";
 
 const entityId = EntityId.make("entity-id");
@@ -75,6 +76,7 @@ const makeServiceLayer = (
 	} = {},
 ) => {
 	return TestSupportService.layer.pipe(
+		Layer.provide(AutomationInspectionRepository.layer),
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
