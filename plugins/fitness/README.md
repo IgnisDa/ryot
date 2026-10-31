@@ -47,7 +47,8 @@ The strict properties are:
 Each array has at most 100 items. `policy.workout-exercise` captures applicable effective
 taxonomy links on creation and rejects overflow rather than truncating; it allows updates, whose
 immutability the kernel event group enforces. Replacing an occurrence's exercise deletes its anchor
-and creates a new one so the replacement's taxonomy is captured; position-only moves update it. All target/equipment IDs are declared `entity-id` references, so ordinary backup
+and creates a new one so the replacement's taxonomy is captured, recreating its kept sets with their
+original times; position-only moves update it. All target/equipment IDs are declared `entity-id` references, so ordinary backup
 dependency discovery, restore remapping, user-data rewriting and provider retention see them.
 The event owner participates in exercise merge; the session reference participates in workout
 deletion. There is no per-set copy of the taxonomy.

@@ -270,12 +270,13 @@ describe("Workout editor with a valid Pro key", () => {
 			const replacementData = (
 				exerciseId: EntityId,
 				loaded: Parameters<typeof editTarget>[0],
+				kept: Parameters<typeof keepSet>[0],
 			): WorkoutData =>
 				workoutData({
 					target: editTarget(loaded),
 					name: baseline.baseline.entity.name,
 					occurrences: [
-						workoutOccurrence(exerciseId, [keepSet(originalSet)], {
+						workoutOccurrence(exerciseId, [keepSet(kept)], {
 							sourceExerciseOrder: 0,
 							images: [{ type: "remote", url: "https://example.com/replacement.jpg" }],
 							videos: [{ type: "remote", url: "https://example.com/replacement.mp4" }],
@@ -285,17 +286,19 @@ describe("Workout editor with a valid Pro key", () => {
 
 			const replaced = yield* saveWorkoutEditor(
 				client,
-				operationInput(replacementData(replacementExerciseId, baseline)),
+				operationInput(replacementData(replacementExerciseId, baseline, originalSet)),
 			);
 			assertCondition(replaced.kind === "saved", "Expected compatible Pro replacement to save");
-			expect(replaced.sets.map(({ eventId }) => eventId)).toEqual([originalSet.id]);
+			const replacementSet = requirePresent(replaced.sets[0], "Expected the recreated set");
+			expect(replaced.sets).toHaveLength(1);
+			expect(replacementSet.eventId).not.toBe(originalSet.id);
 			const replacedBaseline = yield* loadWorkoutBaseline(client, created.entityId);
 			const replacedSet = requirePresent(
 				replacedBaseline.baseline.sets[0],
 				"Expected the set after compatible replacement",
 			);
 			expect(replacedSet).toMatchObject({
-				id: originalSet.id,
+				id: replacementSet.eventId,
 				entityId: replacementExerciseId,
 				occurredAt: originalSet.occurredAt,
 			});
@@ -310,7 +313,7 @@ describe("Workout editor with a valid Pro key", () => {
 
 			const incompatible = yield* saveWorkoutEditor(
 				client,
-				operationInput(replacementData(incompatibleExerciseId, replacedBaseline)),
+				operationInput(replacementData(incompatibleExerciseId, replacedBaseline, replacedSet)),
 			);
 			expect(incompatible).toEqual({ kind: "invalid", code: "invalid-exercise-kind" });
 			const unchanged = yield* loadWorkoutBaseline(client, created.entityId);

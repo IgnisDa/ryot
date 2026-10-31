@@ -704,7 +704,7 @@ describe("workout editor save", () => {
 				expect(calls.map(({ method }) => method)).toEqual(["commit"]);
 			}),
 		));
-	it("recaptures occurrence taxonomy and retains historical set identity when replacing with a same-kind exercise", () =>
+	it("recaptures occurrence taxonomy and recreates kept sets at their original time when replacing with a same-kind exercise", () =>
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const source = yield* input(true);
@@ -734,7 +734,7 @@ describe("workout editor save", () => {
 				const allowed = harness({ baseline, exercises, pro: true });
 				expect(yield* definition.run(submitted, allowed.host)).toMatchObject({
 					kind: "saved",
-					sets: [{ eventId: "set-1", clientId: "client-set-1" }],
+					sets: [{ eventId: "new-set-1", clientId: "client-set-1" }],
 				});
 				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
 					events: {
@@ -744,10 +744,7 @@ describe("workout editor save", () => {
 								eventId: "occurrence-0",
 								itemIdentity: "occurrence-delete:occurrence-0",
 							},
-							{
-								kind: "update",
-								item: { eventId: "set-1", patch: { occurredAt: setTime, entityId: replacementId } },
-							},
+							{ kind: "delete", eventId: "set-1", itemIdentity: "delete:set-1" },
 						],
 						creates: [
 							{
@@ -760,6 +757,12 @@ describe("workout editor save", () => {
 									exerciseOrder: 0,
 									exerciseKind: "reps_and_weight",
 								},
+							},
+							{
+								occurredAt: setTime,
+								eventSchemaSlug: "workout-set",
+								itemIdentity: "set:client-set-1",
+								entity: { kind: "existing", entityId: replacementId },
 							},
 						],
 					},

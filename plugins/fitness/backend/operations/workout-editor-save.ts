@@ -772,25 +772,21 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 				exerciseOrder,
 			});
 			const original = baseline?.sets.find(({ id }) => id === set.eventId);
-			if (original === undefined) {
+			if (original === undefined || original.entityId !== occurrence.exerciseId) {
 				creates.push({
 					properties: setProperties,
 					session: { kind: "root" },
-					occurredAt: set.occurredAt,
 					eventSchemaSlug: "workout-set",
 					itemIdentity: `set:${set.clientId}`,
+					occurredAt: original?.occurredAt ?? set.occurredAt,
 					entity: { kind: "existing", entityId: EntityId.make(occurrence.exerciseId) },
 				});
 			} else {
-				if (
-					original.entityId !== occurrence.exerciseId ||
-					!jsonValueEquals(workoutEditableSetProperties(original.properties), setProperties)
-				) {
+				if (!jsonValueEquals(workoutEditableSetProperties(original.properties), setProperties)) {
 					updates.push({
 						eventId: original.id,
 						expected: eventExpected(original),
 						patch: {
-							entityId: occurrence.exerciseId,
 							occurredAt: original.occurredAt,
 							properties: {
 								set: setProperties,
