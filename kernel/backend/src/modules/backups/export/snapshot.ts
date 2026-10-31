@@ -317,7 +317,6 @@ const dependencyIdentity = Effect.fn(function* (
 	return { kind: "unmanaged" } satisfies ArchiveEntityDependency["identity"];
 });
 
-// Transient user-state evidence is rebuildable progress, so restored accounts start without it.
 const transientEvidenceSchemas = (context: {
 	readonly definitionSnapshots: ReadonlyArray<DefinitionSnapshot>;
 }): ReadonlyArray<BackupExcludedEventSchema> => {
