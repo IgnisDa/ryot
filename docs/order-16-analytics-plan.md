@@ -139,8 +139,8 @@ design locations, not existing APIs. Keep generic range and chart contracts in s
   where present. Do not invent chapter-to-volume or page-to-time conversions.
 - Shows/podcasts: consumed episode occurrences and minutes, plus separate parent title completions.
 - Reviews including rating-only records, with target categories identified. Include the supported
-  title, child, creator/group and kernel collection review capabilities without counting them twice
-  across sections. Collection review metrics remain kernel-owned, not Media-specific kernel logic.
+  title, child and creator/group capabilities without counting them twice across sections. Analytics
+  has no kernel collection review section.
 - Active days, daily activity and hourly breakdowns. Distinguish actual consumption observations
   from status/list changes and derived completions; raw event row count is not a consumption metric.
 - Known amounts, estimated amounts, missing quantity/date coverage, and processing state.
