@@ -117,9 +117,12 @@ describe("RyotQL wildcard projections", () => {
 					"eventSchemaSlug",
 					"id",
 					"occurredAt",
+					"orderCreatedAt",
+					"orderKey",
 					"projection",
 					"projectionStatus",
 					"properties",
+					"revision",
 					"sessionEntityId",
 					"updatedAt",
 					"userId",
@@ -167,6 +170,7 @@ describe("RyotQL wildcard projections", () => {
 			assertPresent(entityItem, "Expected wildcard entity");
 			expect(Object.keys(entityItem).sort()).toEqual(
 				[
+					"collectionOrderRevision",
 					"createdAt",
 					"entitySchemaPluginId",
 					"entitySchemaSlug",
@@ -177,6 +181,7 @@ describe("RyotQL wildcard projections", () => {
 					"populatedAt",
 					"populationStatus",
 					"properties",
+					"providerCheckedAt",
 					"providerId",
 					"relatedPopulationStatus",
 					"translationStatus",
@@ -186,7 +191,10 @@ describe("RyotQL wildcard projections", () => {
 			);
 			expect(requireRyotQLValue(entityItem, "name")).toBe("RyotQLWildcardInclude Entity");
 			expect(requireRyotQLValue(entityItem, "properties")).toEqual({});
-			expect(requireRyotQLValue(entityItem, "relatedPopulationStatus")).toBe("none");
+			expect(requireRyotQLValue(entityItem, "relatedPopulationStatus")).toEqual({
+				state: "idle",
+				availability: "none",
+			});
 
 			const includedEvents = requireInclude(entityItem, "events");
 			expect(includedEvents.pageInfo).toEqual({ limit: 10, hasMore: false });
@@ -200,9 +208,12 @@ describe("RyotQL wildcard projections", () => {
 					"eventSchemaSlug",
 					"id",
 					"occurredAt",
+					"orderCreatedAt",
+					"orderKey",
 					"projection",
 					"projectionStatus",
 					"properties",
+					"revision",
 					"sessionEntityId",
 					"updatedAt",
 					"userId",
