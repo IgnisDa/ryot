@@ -657,6 +657,21 @@ layer(BunFileSystem.layer)((test) => {
 		}),
 	);
 
+	test.effect("reports the path and byte limit for an oversized export entry", () =>
+		Effect.gen(function* () {
+			const { asset } = assetInput();
+			const error = yield* Stream.runCollect(
+				createArchiveStream(input({ assets: [asset] }), { maxEntryBytes: 1 }),
+			).pipe(Effect.flip);
+
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error.path).toBe(asset.metadata.path);
+			expect(error.message).toBe(
+				`ZIP entry '${asset.metadata.path}' is too large: ${asset.metadata.size} bytes exceeds the 1-byte limit`,
+			);
+		}),
+	);
+
 	test.effect("rejects section digest and count mismatches including streamed events", () =>
 		Effect.gen(function* () {
 			const populated = input({

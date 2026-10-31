@@ -55,6 +55,13 @@ export type CreateArchiveInput = {
 
 type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
 
+const entryTooLarge = (path: string, actualBytes: number, maxBytes: number) =>
+	archiveError(
+		"entry_too_large",
+		`ZIP entry '${path}' is too large: ${actualBytes} bytes exceeds the ${maxBytes}-byte limit`,
+		path,
+	);
+
 type ArchiveAssetInput = {
 	readonly metadata: ArchiveAssetManifest;
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
@@ -166,7 +173,7 @@ const bufferSection = (
 	for (const chunk of chunks) {
 		hash.update(chunk);
 		if (hash.bytes > limit) {
-			throw archiveError("entry_too_large", "ZIP entry is too large", path);
+			throw entryTooLarge(path, hash.bytes, limit);
 		}
 		buffered.push(chunk);
 	}
@@ -384,7 +391,7 @@ const buildManifest = (
 		}
 	}
 	if (input.events.bytes > limits.maxEntryBytes) {
-		throw archiveError("entry_too_large", "ZIP entry is too large", "events.ndjson");
+		throw entryTooLarge("events.ndjson", input.events.bytes, limits.maxEntryBytes);
 	}
 	const eventsSection: ArchiveSection = {
 		bytes: input.events.bytes,
@@ -432,7 +439,7 @@ const buildManifest = (
 			throw archiveError("duplicate_path", "Duplicate asset path", asset.metadata.path);
 		}
 		if (asset.metadata.size > limits.maxEntryBytes) {
-			throw archiveError("entry_too_large", "ZIP entry is too large", asset.metadata.path);
+			throw entryTooLarge(asset.metadata.path, asset.metadata.size, limits.maxEntryBytes);
 		}
 		declaredAssets.add(asset.metadata.path);
 	}
@@ -454,7 +461,7 @@ const buildManifest = (
 	});
 	const manifestPayload = encodeArchiveJsonLine(ArchiveManifest, manifest, "manifest.json");
 	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
-		throw archiveError("entry_too_large", "ZIP entry is too large", "manifest.json");
+		throw entryTooLarge("manifest.json", manifestPayload.byteLength, limits.maxMetadataEntryBytes);
 	}
 	const totalBytes =
 		manifestPayload.byteLength +
@@ -606,9 +613,7 @@ class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
 						if (!next.done) {
 							this.#hash.update(next.value);
 							if (this.#hash.bytes > this.#limit) {
-								return Effect.fail(
-									archiveError("entry_too_large", "ZIP entry is too large", this.#entry.path),
-								);
+								return Effect.fail(entryTooLarge(this.#entry.path, this.#hash.bytes, this.#limit));
 							}
 							return Effect.succeed(next);
 						}
@@ -1292,7 +1297,7 @@ const extractArchive = Effect.fn(function* <E>(
 		const isSpooled = isAsset || path === "events.ndjson";
 		const entryLimit = isSpooled ? limits.maxEntryBytes : limits.maxMetadataEntryBytes;
 		if (file.originalSize !== undefined && file.originalSize > entryLimit) {
-			failure = archiveError("entry_too_large", "ZIP entry is too large", path);
+			failure = entryTooLarge(path, file.originalSize, entryLimit);
 			return;
 		}
 		const hash = new IncrementalSha256();
@@ -1318,7 +1323,7 @@ const extractArchive = Effect.fn(function* <E>(
 			}
 			hash.update(data);
 			if (hash.bytes > entryLimit) {
-				failure = archiveError("entry_too_large", "ZIP entry is too large", path);
+				failure = entryTooLarge(path, hash.bytes, entryLimit);
 				file.terminate();
 				return;
 			}
