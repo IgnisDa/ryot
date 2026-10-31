@@ -123,9 +123,9 @@ export function MultiSelect<Value extends string>({
 							type="button"
 							onClick={() => onChange([])}
 							aria-label={`Clear ${label}`}
-							className="min-h-6 rounded-md px-1.5 py-1 text-xs font-medium text-text-muted"
+							className="flex size-8 shrink-0 items-center justify-center rounded-sm text-text-subtle transition-colors duration-100 hover:bg-hover hover:text-text motion-reduce:transition-none pointer-coarse:size-10"
 						>
-							Clear
+							{closeIcon}
 						</button>
 					)}
 				</div>
