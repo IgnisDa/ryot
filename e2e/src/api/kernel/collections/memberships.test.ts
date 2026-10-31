@@ -306,7 +306,7 @@ describe("POST /collections/memberships", () => {
 				);
 			}
 
-			expect(ranks).toEqual([0, -1, -2]);
+			expect(ranks).toEqual([0, -(2 ** 32), -(2 ** 33)]);
 		}),
 	);
 
