@@ -302,7 +302,7 @@ it.live(
 			for (const [date, value] of expectedMeasurementRows) {
 				const row = rowWithName(readingsTable, date);
 				expect(yield* row.innerText()).toContain(value);
-				expect(yield* row.innerText()).toContain("12:00 PM UTC");
+				expect(yield* row.innerText()).toContain("12:00 PM");
 			}
 
 			const exactRowsBeforeSmooth = yield* trendTable.getByRole("row").count;

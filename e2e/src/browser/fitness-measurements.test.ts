@@ -44,7 +44,7 @@ it.live(
 			yield* metrics.getByRole("cell", { exact: true, name: "80.5 cm" }).waitFor();
 			yield* frame
 				.getByRole("region", { exact: true, name: "Metric chart" })
-				.getByText(/dots are readings/)
+				.getByText(/show grouped averages/)
 				.waitFor();
 			yield* frame
 				.getByRole("region", { name: "Log", exact: true })
