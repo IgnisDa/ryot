@@ -116,7 +116,6 @@ describe("user settings", () => {
 				{ language: ["fr"] },
 				{ language: { value: "fr" } },
 				{ disableIntegrations: "true" },
-				{ reportingTimeZone: null },
 				{ unknownField: true },
 			]) {
 				const response = yield* webRequest(`${apiUrl}/account/preferences`, {
@@ -126,6 +125,16 @@ describe("user settings", () => {
 				});
 				expect(response.status).toBe(400);
 			}
+
+			const nullZone = yield* webRequest(`${apiUrl}/account/preferences`, {
+				method: "PATCH",
+				headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					reportingTimeZone: null,
+				}),
+			});
+			expect(nullZone.status).toBe(204);
+			expect((yield* getUserSettings(client)).preferences.reportingTimeZone).toBe("UTC");
 
 			const rawAuth = yield* webRequest(`${apiUrl}/auth/update-user`, {
 				method: "POST",
