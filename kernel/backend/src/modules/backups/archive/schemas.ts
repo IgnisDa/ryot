@@ -220,20 +220,42 @@ const dependencyIdentity = Schema.Union([
 	}),
 ]);
 
-export const ArchiveEntityDependency = strictStruct({
+const dependencyFields = {
 	id: Schema.String,
 	name: entityDataFields.name,
 	provider: providerProvenance,
 	identity: dependencyIdentity,
+	entitySchemaSlug: Schema.String,
+	externalId: Schema.NullOr(Schema.String),
+	entitySchemaPluginKey: Schema.NullOr(Schema.String),
+};
+
+export const ArchiveEntitySnapshot = strictStruct({
+	...dependencyFields,
 	createdAt: DataRecordTimestamp,
 	updatedAt: DataRecordTimestamp,
-	entitySchemaSlug: Schema.String,
+	kind: Schema.Literal("snapshot"),
 	properties: entityDataFields.properties,
-	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(DataRecordTimestamp),
-	entitySchemaPluginKey: Schema.NullOr(Schema.String),
 	translations: Schema.Array(ArchiveEntityTranslation),
 });
+export type ArchiveEntitySnapshot = typeof ArchiveEntitySnapshot.Type;
+
+export const ArchiveEntityDependency = Schema.Union([
+	ArchiveEntitySnapshot,
+	strictStruct({
+		...dependencyFields,
+		externalId: Schema.String,
+		identity: dependencyIdentity.members[1],
+		kind: Schema.Literal("provider-reference"),
+	}),
+	strictStruct({
+		...dependencyFields,
+		externalId: Schema.String,
+		identity: dependencyIdentity.members[2],
+		kind: Schema.Literal("bootstrap-reference"),
+	}),
+]);
 export type ArchiveEntityDependency = typeof ArchiveEntityDependency.Type;
 
 export const ArchiveRelationship = strictStruct({

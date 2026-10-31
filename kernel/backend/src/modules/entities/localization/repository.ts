@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -53,34 +53,6 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				});
 				return row ?? null;
 			});
-			const listForBackup = Effect.fn("TranslationsRepository.listForBackup")(function* (
-				entityIds: ReadonlyArray<EntityId>,
-			) {
-				if (entityIds.length === 0) {
-					return [];
-				}
-				return yield* session.run((db) =>
-					db
-						.select(getTableColumns(schema.entityTranslation))
-						.from(schema.entityTranslation)
-						.innerJoin(
-							schema.entity,
-							and(
-								eq(schema.entity.id, schema.entityTranslation.entityId),
-								eq(
-									schema.entity.contentGeneration,
-									schema.entityTranslation.sourceContentGeneration,
-								),
-							),
-						)
-						.where(inArray(schema.entityTranslation.entityId, [...entityIds]))
-						.orderBy(
-							asc(schema.entityTranslation.entityId),
-							asc(schema.entityTranslation.language),
-						),
-				);
-			});
-
 			const upsertOverlay = Effect.fn("TranslationsRepository.upsertOverlay")(function* (
 				input: TranslationOverlayInput,
 			) {
@@ -122,7 +94,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return (yield* auth.getUserPreferences(userId))?.language ?? null;
 			});
 
-			return { upsertOverlay, listForBackup, findEntityById, findUserLanguage, findEntityForUser };
+			return { upsertOverlay, findEntityById, findUserLanguage, findEntityForUser };
 		}),
 	},
 ) {

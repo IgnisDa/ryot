@@ -7,7 +7,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
@@ -306,14 +306,20 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			});
 			const listUserRelationshipsForBackup = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForBackup",
-			)(function* (userId: UserId) {
-				return yield* session.run((db) =>
-					db
+			)(function* (userId: UserId, page?: { limit: number; afterId?: string | undefined }) {
+				return yield* session.run((db) => {
+					const query = db
 						.select(relationshipSnapshotWithProvenanceSelection)
 						.from(schema.relationship)
-						.where(eq(schema.relationship.userId, userId))
-						.orderBy(asc(schema.relationship.id)),
-				);
+						.where(
+							and(
+								eq(schema.relationship.userId, userId),
+								page?.afterId === undefined ? undefined : gt(schema.relationship.id, page.afterId),
+							),
+						)
+						.orderBy(asc(schema.relationship.id));
+					return page === undefined ? query : query.limit(page.limit);
+				});
 			});
 
 			const findRelationshipProperties = Effect.fn(

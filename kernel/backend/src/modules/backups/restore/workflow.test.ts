@@ -24,9 +24,11 @@ import {
 } from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
+import { archiveFixtureInput } from "../archive/archive.test-support";
 import { archivePluginDefinitionContract } from "../archive/schemas";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
+import { memoryStagingLayer } from "./staging.test-support";
 import {
 	BackupWorkflowError,
 	RestoreBackupWorkflow,
@@ -97,6 +99,7 @@ const makeLayer = (
 				fileSystem,
 				makeAppConfigLayer({ fileStorage: { localTempDir } }),
 				databaseLayer,
+				memoryStagingLayer,
 				Layer.unwrap(
 					Effect.gen(function* () {
 						const calls = yield* Ref.make<ReadonlyArray<string>>([]);
@@ -118,7 +121,13 @@ const makeLayer = (
 								stagedObjects: Ref.get(objects),
 							}),
 							mockRepository(input.repository ?? {}),
-							mockWriter({ preflight: preflightProvenance, ...input.writer }),
+							mockWriter({
+								preflight: preflightProvenance,
+								stageArchive: () => Effect.void,
+								restoreArchive: () => Effect.void,
+								preflightArchive: () => Effect.void,
+								...input.writer,
+							}),
 							mockCleanliness(input.cleanliness ?? {}),
 							mockUploadIntents(input.uploadIntents ?? {}),
 							mockManagedAssets(input.managedAssets ?? {}),
@@ -166,26 +175,28 @@ const emptyRecords = {
 
 const archiveWithAsset = (asset: Uint8Array) => {
 	const sha256 = new CryptoHasher("sha256").update(asset).digest("hex");
-	return createArchiveStream({
-		redactions: [],
-		requiredPlugins: [],
-		records: emptyRecords,
-		archiveId: "archive-id",
-		appVersion: "backend-v1",
-		createdAt: "2026-08-23T12:00:00.000Z",
-		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-		assets: [
-			{
-				chunks: [asset],
-				metadata: {
-					sha256,
-					size: asset.byteLength,
-					path: `assets/${sha256}`,
-					contentType: "application/octet-stream",
+	return createArchiveStream(
+		archiveFixtureInput({
+			redactions: [],
+			requiredPlugins: [],
+			records: emptyRecords,
+			archiveId: "archive-id",
+			appVersion: "backend-v1",
+			createdAt: "2026-08-23T12:00:00.000Z",
+			events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+			assets: [
+				{
+					chunks: [asset],
+					metadata: {
+						sha256,
+						size: asset.byteLength,
+						path: `assets/${sha256}`,
+						contentType: "application/octet-stream",
+					},
 				},
-			},
-		],
-	});
+			],
+		}),
+	);
 };
 
 const openArchive = (archive: ReturnType<typeof createArchiveStream>) => () =>
@@ -201,29 +212,31 @@ layer(
 			assertAccountIsClean: () => record("replace-account").pipe(Effect.as(undefined)),
 		},
 		writer: {
-			restoreRecords: () => record("restore").pipe(Effect.as(undefined)),
+			restoreArchive: () => record("restore").pipe(Effect.asVoid),
 			assertRequiredPlugins: (required) => resolveRequiredPluginIds(required, []),
 		},
 		objectStorage: {
 			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(
-				createArchiveStream({
-					assets: [],
-					redactions: [],
-					appVersion: "test",
-					records: emptyRecords,
-					archiveId: "required-system",
-					createdAt: "2026-10-01T00:00:00.000Z",
-					events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-					requiredPlugins: [
-						{
-							version: "1.0.0",
-							contentHash: "a".repeat(64),
-							packageId: fixtureManifest().metadata.packageId,
-							definitionContract: archivePluginDefinitionContract(fixtureManifest()),
-						},
-					],
-				}),
+				createArchiveStream(
+					archiveFixtureInput({
+						assets: [],
+						redactions: [],
+						appVersion: "test",
+						records: emptyRecords,
+						archiveId: "required-system",
+						createdAt: "2026-10-01T00:00:00.000Z",
+						events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+						requiredPlugins: [
+							{
+								version: "1.0.0",
+								contentHash: "a".repeat(64),
+								packageId: fixtureManifest().metadata.packageId,
+								definitionContract: archivePluginDefinitionContract(fixtureManifest()),
+							},
+						],
+					}),
+				),
 			),
 		},
 	})),
@@ -289,7 +302,7 @@ layer(
 
 layer(
 	makeLayer(() => ({
-		writer: { restoreRecords: () => Effect.die("completed replay must not restore rows") },
+		writer: { restoreArchive: () => Effect.die("completed replay must not restore rows") },
 		objectStorage: { openObject: () => Effect.die("completed replay must not read the archive") },
 		repository: {
 			getRunById: () => Effect.succeed({ ...runningRun, status: "completed" as const }),
@@ -337,8 +350,8 @@ layer(
 		() => ({
 			cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 			writer: {
+				restoreArchive: () => Effect.void,
 				assertRequiredPlugins: () => Effect.succeed(new Map()),
-				restoreRecords: () => Effect.void.pipe(Effect.as(undefined)),
 			},
 			repository: {
 				getRunById: () => Effect.succeed(runningRun),
@@ -347,16 +360,18 @@ layer(
 			objectStorage: {
 				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: openArchive(
-					createArchiveStream({
-						assets: [],
-						redactions: [],
-						requiredPlugins: [],
-						records: emptyRecords,
-						archiveId: "archive-id",
-						appVersion: "backend-v1",
-						createdAt: "2026-08-23T12:00:00.000Z",
-						events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-					}),
+					createArchiveStream(
+						archiveFixtureInput({
+							assets: [],
+							redactions: [],
+							requiredPlugins: [],
+							records: emptyRecords,
+							archiveId: "archive-id",
+							appVersion: "backend-v1",
+							createdAt: "2026-08-23T12:00:00.000Z",
+							events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+						}),
+					),
 				),
 			},
 		}),
@@ -382,28 +397,30 @@ layer(
 			},
 			writer: {
 				assertRequiredPlugins: () => Effect.succeed(new Map()),
-				restoreRecords: () =>
+				restoreArchive: () =>
 					Effect.gen(function* () {
 						yield* record("restore");
 						if (++attempts === 1) {
 							return yield* new DbError({ code: "40P01", message: "deadlock detected" });
 						}
-						return undefined;
+						return yield* Effect.void;
 					}),
 			},
 			objectStorage: {
 				permanentStorageProvider: Effect.succeed("local" as const),
 				openObject: openArchive(
-					createArchiveStream({
-						assets: [],
-						redactions: [],
-						requiredPlugins: [],
-						records: emptyRecords,
-						archiveId: "archive-id",
-						appVersion: "backend-v1",
-						createdAt: "2026-08-23T12:00:00.000Z",
-						events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-					}),
+					createArchiveStream(
+						archiveFixtureInput({
+							assets: [],
+							redactions: [],
+							requiredPlugins: [],
+							records: emptyRecords,
+							archiveId: "archive-id",
+							appVersion: "backend-v1",
+							createdAt: "2026-08-23T12:00:00.000Z",
+							events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+						}),
+					),
 				),
 			},
 		};
@@ -423,22 +440,24 @@ layer(
 		cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 		writer: {
 			assertRequiredPlugins: () => Effect.succeed(new Map()),
-			restoreRecords: () =>
+			restoreArchive: () =>
 				Effect.fail(new BackupBadRequest({ reason: { code: "asset-forbidden" } })),
 		},
 		objectStorage: {
 			permanentStorageProvider: Effect.succeed("local" as const),
 			openObject: openArchive(
-				createArchiveStream({
-					assets: [],
-					redactions: [],
-					requiredPlugins: [],
-					records: emptyRecords,
-					archiveId: "archive-id",
-					appVersion: "backend-v1",
-					createdAt: "2026-08-23T12:00:00.000Z",
-					events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
-				}),
+				createArchiveStream(
+					archiveFixtureInput({
+						assets: [],
+						redactions: [],
+						requiredPlugins: [],
+						records: emptyRecords,
+						archiveId: "archive-id",
+						appVersion: "backend-v1",
+						createdAt: "2026-08-23T12:00:00.000Z",
+						events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+					}),
+				),
 			),
 		},
 	})),
@@ -540,7 +559,7 @@ layer(
 		},
 		writer: {
 			assertRequiredPlugins: () => Effect.succeed(new Map()),
-			restoreRecords: () =>
+			restoreArchive: () =>
 				session.run((db) =>
 					Effect.gen(function* () {
 						yield* db

@@ -1,7 +1,13 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
-import { AutomationTriggerId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationTriggerId,
+	BackupRunId,
+	EntityId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, FileSystem, Layer, Stream } from "effect";
 
@@ -23,11 +29,15 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
+import { collectExportFixtureRecords, collectFixtureRecords } from "./archive/archive.test-support";
 import { BackupExportSnapshot } from "./export/snapshot";
 import { BackupRestorePersistence } from "./restore/persistence";
+import { restoreFixtureRecords } from "./restore/staging.test-support";
 import { BackupRestoreWriter } from "./restore/writer";
+import { BackupStaging } from "./staging";
 
 const dependencies = Layer.mergeAll(
+	BackupStaging.layer,
 	AuthRepository.layer,
 	AutomationsRepository.layer,
 	EntitiesRepository.layer,
@@ -127,15 +137,33 @@ layer(services)((test) => {
 				);
 				const fs = yield* FileSystem.FileSystem;
 				const directory = yield* fs.makeTempDirectoryScoped();
+				const exportRunId = BackupRunId.make(yield* randomUuid);
+				const staging = yield* BackupStaging;
+				yield* session.run((db) =>
+					db
+						.insert(tables.backupRun)
+						.values({ kind: "export", id: exportRunId, userId: user.id, status: "running" }),
+				);
+				yield* Effect.addFinalizer(() =>
+					Effect.ensuring(
+						staging.cleanup(exportRunId).pipe(Effect.orDie),
+						session
+							.run((db) => db.delete(tables.backupRun).where(eq(tables.backupRun.id, exportRunId)))
+							.pipe(Effect.asVoid, Effect.orDie),
+					),
+				);
+				yield* staging.begin(exportRunId);
 				const exported = yield* (yield* BackupExportSnapshot).prepareExportSnapshot(
 					user.id,
 					`${directory}/events`,
+					exportRunId,
 				);
-				expect(exported.records.reminders).toHaveLength(5);
-				expect(exported.records.reminders).toContainEqual(
+				const exportedRecords = yield* collectExportFixtureRecords(exported, fs);
+				expect(exportedRecords.reminders).toHaveLength(5);
+				expect(exportedRecords.reminders).toContainEqual(
 					objectContaining({ id: "source-cancelled", replacementId: "source-scheduled" }),
 				);
-				expect(exported.records.entityDependencies).toEqual([
+				expect(exportedRecords.entityDependencies).toEqual([
 					objectContaining({
 						name: "Global parent",
 						id: globalParentEntityId,
@@ -151,29 +179,30 @@ layer(services)((test) => {
 						redactions: exported.redactions,
 						archiveId: "reminder-round-trip",
 						requiredPlugins: exported.requiredPlugins,
-						events: {
-							...exported.events,
-							chunks: Stream.toAsyncIterable(fs.stream(exported.events.path)),
-						},
+						sections: exported.sections.map((section) => ({
+							path: section.path,
+							count: section.count,
+							bytes: section.bytes,
+							sha256: section.sha256,
+							chunks: Stream.toAsyncIterable(fs.stream(section.filePath)),
+						})),
 					}),
 					{ directory },
 				);
-				expect(archive.records.reminders).toEqual(exported.records.reminders);
-				expect(archive.records.entityDependencies).toEqual(exported.records.entityDependencies);
+				const archiveRecords = yield* collectFixtureRecords(archive);
+				expect(archiveRecords.reminders).toEqual(exportedRecords.reminders);
+				expect(archiveRecords.entityDependencies).toEqual(exportedRecords.entityDependencies);
 				const destination = UserId.make("recipient");
 				const definitions = yield* (yield* DefinitionRepository).getUserSnapshot(destination, {
 					listed: true,
 				});
-				const writer = yield* BackupRestoreWriter;
-				yield* session.transaction(
-					writer.restoreRecords(
-						destination,
-						archive.records,
-						new Map(),
-						archive.events,
-						new Map(),
-						definitions,
-					),
+				yield* restoreFixtureRecords(
+					destination,
+					archiveRecords,
+					new Map(),
+					archive.sections["events.ndjson"],
+					new Map(),
+					definitions,
 				);
 				const restored = yield* session.run((db) =>
 					db.select().from(tables.reminder).where(eq(tables.reminder.userId, destination)),
@@ -200,9 +229,20 @@ layer(services)((test) => {
 				for (const row of restored.filter(({ message }) => message !== "Exact message\nsettled")) {
 					expect(row.parentEntityId).toBe(parent.id);
 				}
-				expect(
-					restored.find((row) => row.message === "Exact message\nsettled")?.parentEntityId,
-				).toBe(globalParentEntityId);
+				const restoredGlobalParentId = restored.find(
+					(row) => row.message === "Exact message\nsettled",
+				)?.parentEntityId;
+				assert(restoredGlobalParentId);
+				expect(restoredGlobalParentId).not.toBe(globalParentEntityId);
+				const [restoredGlobalParent] = yield* session.run((db) =>
+					db.select().from(tables.entity).where(eq(tables.entity.id, restoredGlobalParentId)),
+				);
+				expect(restoredGlobalParent).toMatchObject({
+					userId: null,
+					properties: {},
+					name: "Global parent",
+					entitySchemaSlug: "collection",
+				});
 				const processing = restored.find((row) => row.message === "Exact message\nprocessing");
 				expect(processing).toMatchObject({
 					dueAt: null,

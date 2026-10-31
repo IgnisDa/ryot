@@ -9,7 +9,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, gt, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -70,14 +70,28 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const session = yield* DatabaseSession;
 			const listNotificationSubscriptionsForBackup = Effect.fn(
 				"AutomationsRepository.listNotificationSubscriptionsForBackup",
-			)(function* (userId: UserId) {
-				const rows = yield* session.run((db) =>
-					db
+			)(function* (
+				userId: UserId,
+				page?: { readonly limit: number; readonly afterId?: string | undefined },
+			) {
+				const rows = yield* session.run((db) => {
+					const query = db
 						.select()
 						.from(schema.notificationSubscription)
-						.where(eq(schema.notificationSubscription.userId, userId))
-						.orderBy(asc(schema.notificationSubscription.id)),
-				);
+						.where(
+							and(
+								eq(schema.notificationSubscription.userId, userId),
+								page?.afterId === undefined
+									? undefined
+									: gt(
+											schema.notificationSubscription.id,
+											NotificationSubscriptionId.make(page.afterId),
+										),
+							),
+						)
+						.orderBy(asc(schema.notificationSubscription.id));
+					return page === undefined ? query : query.limit(page.limit);
+				});
 				return yield* Effect.forEach(rows, toStoredNotificationSubscription);
 			});
 

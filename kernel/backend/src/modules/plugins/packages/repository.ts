@@ -259,14 +259,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 			const activeSystem = and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId));
 
 			const listActiveSystemPlugins = Effect.fn("PluginRepository.listActiveSystemPlugins")(
-				function* () {
-					const rows = yield* database.run((db) =>
-						db
+				function* (limit?: number) {
+					const rows = yield* database.run((db) => {
+						const query = db
 							.select(pluginPointerFields)
 							.from(schema.plugin)
 							.where(activeSystem)
-							.orderBy(asc(schema.plugin.packageId)),
-					);
+							.orderBy(asc(schema.plugin.packageId));
+						return limit === undefined ? query : query.limit(limit);
+					});
 					return yield* toStoredPlugins(rows);
 				},
 			);
@@ -374,9 +375,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 
 			const listPrivateForUser = Effect.fn("PluginRepository.listPrivateForUser")(function* (
 				userId: string,
+				limit?: number,
 			) {
-				const rows = yield* database.run((db) =>
-					db
+				const rows = yield* database.run((db) => {
+					const query = db
 						.select(pluginPointerFields)
 						.from(schema.plugin)
 						.where(
@@ -385,8 +387,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 								isNotNull(schema.plugin.ownerId),
 								eq(schema.plugin.ownerId, userId),
 							),
-						),
-				);
+						);
+					return limit === undefined ? query : query.limit(limit);
+				});
 				return yield* toStoredPlugins(rows);
 			});
 

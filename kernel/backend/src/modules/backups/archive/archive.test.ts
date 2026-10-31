@@ -17,7 +17,17 @@ import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
-import { type CreateArchiveInput, createArchiveStream, validateArchive } from "./archive";
+import {
+	type CreateArchiveInput,
+	createArchiveStream,
+	validateArchive,
+	zipChunks,
+} from "./archive";
+import {
+	type ArchiveFixtureInput,
+	archiveFixtureInput,
+	collectFixtureRecords,
+} from "./archive.test-support";
 import { BackupArchiveError } from "./error";
 import {
 	ArchiveEvent,
@@ -97,9 +107,9 @@ const records: ArchiveRecords = {
 	],
 };
 
-const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput => {
+const input = (overrides: Partial<ArchiveFixtureInput> = {}): CreateArchiveInput => {
 	const events = new IncrementalSha256().digest();
-	return {
+	return archiveFixtureInput({
 		records,
 		assets: [],
 		redactions: [],
@@ -116,7 +126,7 @@ const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput 
 			},
 		],
 		...overrides,
-	};
+	});
 };
 
 const bytes = (chunks: Iterable<Uint8Array>) => {
@@ -189,7 +199,15 @@ const validationError = Effect.fn(function* (
 	value: Uint8Array,
 	options: Parameters<typeof validateArchive>[1] = {},
 ) {
-	return yield* validateArchive(asChunks(value), options).pipe(Effect.scoped, Effect.flip);
+	return yield* validateArchive(asChunks(value), options).pipe(
+		Effect.tap((validated) =>
+			collectFixtureRecords(validated).pipe(
+				Effect.andThen(Stream.runDrain(validated.sections["events.ndjson"].read())),
+			),
+		),
+		Effect.scoped,
+		Effect.flip,
+	);
 });
 
 const event = (id = "event-1"): ArchiveEvent => ({
@@ -295,6 +313,25 @@ const excludedAccountArchiveSections = [
 ] as const;
 
 layer(BunFileSystem.layer)((test) => {
+	test.effect("closes the active ZIP input when the archive consumer stops early", () =>
+		Effect.gen(function* () {
+			let closed = false;
+			function* chunks() {
+				try {
+					yield new Uint8Array([1]);
+					yield new Uint8Array([2]);
+				} finally {
+					closed = true;
+				}
+			}
+			const archive = zipChunks([{ path: "fixture", chunks: chunks(), compression: "store" }]);
+			yield* Effect.promise(() => archive.next());
+			yield* Effect.promise(() => archive.next());
+			yield* Effect.promise(() => archive.return());
+			expect(closed).toBe(true);
+		}),
+	);
+
 	test.effect("round-trips source-free compiled packages and binary client assets", () =>
 		Effect.gen(function* () {
 			const manifest = {
@@ -368,7 +405,7 @@ layer(BunFileSystem.layer)((test) => {
 			expect(first).toEqual(second);
 			const validated = yield* validateArchive(asChunks(first));
 			expect(validated.manifest.version).toBe(1);
-			expect(validated.records).toEqual(records);
+			expect(yield* collectFixtureRecords(validated)).toEqual(records);
 		}).pipe(Effect.scoped),
 	);
 
@@ -425,39 +462,27 @@ layer(BunFileSystem.layer)((test) => {
 					systemKey,
 					privateKey,
 				]);
-				expect(validated.records.savedViews).toEqual(
-					archiveRecords.savedViews.slice().sort((a, b) => a.id.localeCompare(b.id)),
-				);
-				expect(validated.records.integrations).toEqual(archiveRecords.integrations);
+				const collected = yield* collectFixtureRecords(validated);
+				expect(collected.savedViews).toEqual(archiveRecords.savedViews);
+				expect(collected.integrations).toEqual(archiveRecords.integrations);
 				for (const state of validated.records.installations) {
 					expect(state).not.toHaveProperty("id");
 				}
-				for (const record of [...validated.records.savedViews, ...validated.records.integrations]) {
+				for (const record of [...collected.savedViews, ...collected.integrations]) {
 					expect(record).not.toHaveProperty("installationId");
 				}
 			}).pipe(Effect.scoped),
 	);
 
-	test.effect("rejects duplicate installation keys and missing workspace or integration keys", () =>
+	test.effect("rejects duplicate installation keys and missing installation plugin keys", () =>
 		Effect.gen(function* () {
 			const installation = records.installations[0];
-			const view = records.savedViews[0];
-			assert(installation && view?.kind === "custom");
+			assert(installation);
 			for (const { path, values, reason } of [
 				{
 					path: "installations.ndjson",
 					reason: "duplicate_record_id",
 					values: [installation, installation],
-				},
-				{
-					path: "saved-views.ndjson",
-					reason: "missing_reference_mapping",
-					values: [{ ...view, pluginKey: pluginPackageKey({ packageId, scope: "user" }) }],
-				},
-				{
-					path: "integrations.ndjson",
-					reason: "missing_reference_mapping",
-					values: [integration(pluginPackageKey({ packageId, scope: "user" }))],
 				},
 				{
 					path: "installations.ndjson",
@@ -474,13 +499,6 @@ layer(BunFileSystem.layer)((test) => {
 					);
 				});
 				expect((yield* validationError(archive)).reason).toBe(reason);
-			}
-			for (const associated of [
-				{ ...records, installations: [], savedViews: [{ ...view, pluginKey: systemKey }] },
-				{ ...records, installations: [], integrations: [integration(systemKey)] },
-			]) {
-				const error = yield* archiveBytes(input({ records: associated })).pipe(Effect.flip);
-				expect(error.reason).toBe("missing_reference_mapping");
 			}
 		}),
 	);
@@ -575,6 +593,7 @@ layer(BunFileSystem.layer)((test) => {
 		Effect.gen(function* () {
 			const dependency = {
 				...entity(),
+				kind: "snapshot" as const,
 				identity: { kind: "unmanaged" as const },
 				translations: [
 					{
@@ -592,7 +611,7 @@ layer(BunFileSystem.layer)((test) => {
 					yield* archiveBytes(input({ records: { ...records, entityDependencies: [dependency] } })),
 				),
 			);
-			expect(validated.records.entityDependencies).toEqual([dependency]);
+			expect((yield* collectFixtureRecords(validated)).entityDependencies).toEqual([dependency]);
 		}).pipe(Effect.scoped),
 	);
 
@@ -661,14 +680,22 @@ layer(BunFileSystem.layer)((test) => {
 		Effect.gen(function* () {
 			const { asset } = assetInput();
 			const error = yield* Stream.runCollect(
-				createArchiveStream(input({ assets: [asset] }), { maxEntryBytes: 1 }),
+				createArchiveStream(
+					input({
+						assets: [asset],
+						records: { ...records, savedViews: [], calendarSourceOverrides: [] },
+					}),
+					{ maxEntryBytes: 1 },
+				),
 			).pipe(Effect.flip);
 
 			expect(error).toBeInstanceOf(BackupArchiveError);
-			expect(error.path).toBe(asset.metadata.path);
-			expect(error.message).toBe(
-				`ZIP entry '${asset.metadata.path}' is too large: ${asset.metadata.size} bytes exceeds the 1-byte limit`,
-			);
+			expect(error).toMatchObject({
+				maxBytes: 1,
+				path: asset.metadata.path,
+				reason: "entry_too_large",
+				actualBytes: asset.metadata.size,
+			});
 		}),
 	);
 
@@ -712,7 +739,9 @@ layer(BunFileSystem.layer)((test) => {
 			});
 			yield* Effect.gen(function* () {
 				const validated = yield* validateArchive(asChunks(eventCount));
-				const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+				const error = yield* Stream.runDrain(validated.sections["events.ndjson"].read()).pipe(
+					Effect.flip,
+				);
 				expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
 			}).pipe(Effect.scoped);
 		}),
@@ -760,7 +789,9 @@ layer(BunFileSystem.layer)((test) => {
 				});
 				yield* Effect.gen(function* () {
 					const validated = yield* validateArchive(asChunks(streamed));
-					const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+					const error = yield* Stream.runDrain(validated.sections["events.ndjson"].read()).pipe(
+						Effect.flip,
+					);
 					expect(error).toMatchObject({ reason, path: "events.ndjson" });
 				}).pipe(Effect.scoped);
 			}
@@ -822,7 +853,7 @@ layer(BunFileSystem.layer)((test) => {
 			});
 			yield* Effect.gen(function* () {
 				const validated = yield* validateArchive(asChunks(truncated), { directory: root });
-				return yield* Stream.runDrain(validated.events.read());
+				return yield* Stream.runDrain(validated.sections["events.ndjson"].read());
 			}).pipe(Effect.scoped, Effect.flip);
 			expect(yield* spoolEntries()).toBe(0);
 
@@ -842,25 +873,6 @@ layer(BunFileSystem.layer)((test) => {
 			expect(yield* spoolEntries()).toBe(0);
 
 			yield* fs.remove(root, { force: true, recursive: true });
-		}),
-	);
-
-	test.effect("rejects duplicate and undeclared calendar source overrides", () =>
-		Effect.gen(function* () {
-			const override = { slug: "dates", isHidden: true, pluginKey: systemKey };
-			for (const [values, reason] of [
-				[[override, override], "duplicate_record_id"],
-				[[{ ...override, pluginKey: "undeclared" }], "missing_reference_mapping"],
-			] as const) {
-				const archive = yield* mutateArchive(input(), (files) => {
-					const path = "calendar-source-overrides.ndjson";
-					const payload = encoder.encode(
-						values.map((value) => `${JSON.stringify(value)}\n`).join(""),
-					);
-					return replaceSection(files, path, payload, values.length);
-				});
-				expect((yield* validationError(archive)).reason).toBe(reason);
-			}
 		}),
 	);
 

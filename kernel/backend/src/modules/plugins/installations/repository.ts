@@ -304,9 +304,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			});
 			const listForUser = Effect.fn("PluginInstallationRepository.listForUser")(function* (
 				userId: UserId,
+				limit?: number,
 			) {
-				const rows = yield* database.run((db) =>
-					db
+				const rows = yield* database.run((db) => {
+					const query = db
 						.select(installationState)
 						.from(schema.pluginInstallation)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
@@ -316,14 +317,15 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 								isNull(schema.pluginInstallation.uninstalledAt),
 							),
 						)
-						.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.packageId)),
-				);
+						.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.packageId));
+					return limit === undefined ? query : query.limit(limit);
+				});
 				return rows;
 			});
 
 			const listHydratedForUser = Effect.fn("PluginInstallationRepository.listHydratedForUser")(
-				function* (userId: UserId) {
-					return yield* Effect.forEach(yield* listForUser(userId), hydrate);
+				function* (userId: UserId, limit?: number) {
+					return yield* Effect.forEach(yield* listForUser(userId, limit), hydrate);
 				},
 			);
 

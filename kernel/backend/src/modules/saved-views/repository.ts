@@ -4,7 +4,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
@@ -153,14 +153,23 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 
 			const listForBackup = Effect.fn("SavedViewsRepository.listForBackup")(function* (
 				userId: UserId,
+				page?: { readonly limit: number; readonly afterId?: string | undefined },
 			) {
-				const rows = yield* session.run((db) =>
-					db
+				const rows = yield* session.run((db) => {
+					const query = db
 						.select()
 						.from(schema.userSavedViewEffective)
-						.where(eq(schema.userSavedViewEffective.userId, userId))
-						.orderBy(asc(schema.userSavedViewEffective.id)),
-				);
+						.where(
+							and(
+								eq(schema.userSavedViewEffective.userId, userId),
+								page?.afterId === undefined
+									? undefined
+									: gt(schema.userSavedViewEffective.id, page.afterId),
+							),
+						)
+						.orderBy(asc(schema.userSavedViewEffective.id));
+					return page === undefined ? query : query.limit(page.limit);
+				});
 				return rows.map((row) =>
 					Object.assign(toListedSavedView(row), { pluginInstallationId: row.pluginInstallationId }),
 				);

@@ -12,6 +12,7 @@ import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#testing/
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { BackupsRepository } from "./runs/repository";
 import { BackupsService } from "./service";
+import { BackupStaging } from "./staging";
 
 const user: CurrentUserValue = {
 	image: null,
@@ -72,6 +73,7 @@ const makeLayer = (input: {
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
+				Layer.mock(BackupStaging, { recoverAbandoned: () => Effect.void }),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.mock(BackupAccountCleanliness, {
 					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),

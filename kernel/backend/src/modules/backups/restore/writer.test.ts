@@ -10,6 +10,7 @@ import {
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
+	BackupRunId,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
@@ -69,12 +70,19 @@ import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "../archive/archive";
 import {
+	collectExportFixtureRecords,
+	collectFixtureRecords,
+} from "../archive/archive.test-support";
+import {
+	type ArchiveEntitySnapshot,
 	ArchiveEvent,
 	archivePluginDefinitionContract,
 	type ArchiveRecords,
 } from "../archive/schemas";
 import { BackupExportSnapshot } from "../export/snapshot";
+import { BackupStaging } from "../staging";
 import { BackupRestorePersistence } from "./persistence";
+import { memoryStagingLayer, restoreFixtureRecords } from "./staging.test-support";
 import {
 	assertDependencySchemaOwnership,
 	BackupRestoreWriter,
@@ -390,6 +398,7 @@ it.effect("rejects a crafted provider dependency whose schema belongs to another
 			id: "global-id",
 			name: "Crafted",
 			translations: [],
+			kind: "snapshot",
 			populatedAt: null,
 			externalId: "external-id",
 			entitySchemaSlug: "foreign-schema",
@@ -482,6 +491,7 @@ const provenanceRecords = (
 			provider: null,
 			translations: [],
 			externalId: null,
+			kind: "snapshot",
 			populatedAt: null,
 			id: "global-entity",
 			name: "Global entity",
@@ -934,60 +944,55 @@ const restoreArchivedEvents = (
 	propertiesSchema: AppSchema = eventSchema.propertiesSchema,
 ) =>
 	Effect.gen(function* () {
-		const writer = yield* BackupRestoreWriter;
-		const database = yield* DatabaseSession;
-		return yield* database
-			.transaction(
-				writer.restoreRecords(
-					UserId.make("user-id"),
-					{
-						reminders: [],
-						savedViews: [],
-						integrations: [],
-						installations: [],
-						relationships: [],
-						privatePlugins: [],
-						entityDependencies: [],
-						calendarSourceOverrides: [],
-						notificationSubscriptions: [],
-						profile: {
-							image: null,
-							name: "User",
-							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-						},
-						entities: [
-							{
-								properties: {},
-								provider: null,
-								externalId: null,
-								populatedAt: null,
-								id: "archived-bootstrap",
-								name: "Bootstrap entity",
-								entitySchemaPluginKey: null,
-								entitySchemaSlug: "bootstrap-entity",
-								createdAt: "2026-08-23T12:00:00.000Z",
-								updatedAt: "2026-08-23T12:00:00.000Z",
-							},
-						],
+		const records: ArchiveRecords = {
+			reminders: [],
+			savedViews: [],
+			integrations: [],
+			installations: [],
+			relationships: [],
+			privatePlugins: [],
+			entityDependencies: [],
+			calendarSourceOverrides: [],
+			notificationSubscriptions: [],
+			profile: {
+				image: null,
+				name: "User",
+				preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+			},
+			entities: [
+				{
+					properties: {},
+					provider: null,
+					externalId: null,
+					populatedAt: null,
+					id: "archived-bootstrap",
+					name: "Bootstrap entity",
+					entitySchemaPluginKey: null,
+					entitySchemaSlug: "bootstrap-entity",
+					createdAt: "2026-08-23T12:00:00.000Z",
+					updatedAt: "2026-08-23T12:00:00.000Z",
+				},
+			],
+		};
+		return yield* restoreFixtureRecords(
+			UserId.make("user-id"),
+			records,
+			new Map(),
+			{ sha256: "", count: events.length, read: () => Stream.fromIterable(events) },
+			new Map(),
+			{
+				savedViews: {},
+				signalSchemas: {},
+				calendarSources: {},
+				relationshipSchemas: {},
+				entitySchemas: {
+					[definitionKey("entity", definitionOwner(null), "bootstrap-entity")]: {
+						...bootstrapEntitySchema,
+						eventSchemas: { review: { ...eventSchema, propertiesSchema } },
 					},
-					new Map(),
-					{ sha256: "", count: events.length, read: () => Stream.fromIterable(events) },
-					new Map(),
-					{
-						savedViews: {},
-						signalSchemas: {},
-						calendarSources: {},
-						relationshipSchemas: {},
-						entitySchemas: {
-							[definitionKey("entity", definitionOwner(null), "bootstrap-entity")]: {
-								...bootstrapEntitySchema,
-								eventSchemas: { review: { ...eventSchema, propertiesSchema } },
-							},
-						},
-					},
-				),
-			)
-			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+				},
+			},
+		).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 	});
 
 const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {}) =>
@@ -996,6 +1001,7 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 			Layer.provideMerge(
 				Layer.mergeAll(
 					fakeDatabaseSession({}),
+					memoryStagingLayer,
 					Layer.mock(PluginRepository, {
 						listPrivateForUser: () => Effect.succeed([]),
 						listActiveSystemPlugins: () => Effect.succeed([]),
@@ -1013,7 +1019,11 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 									restoredEntities: Ref.get(restoredEntities),
 								}),
 								Layer.mock(BackupRestorePersistence, {
+									populateDependencySnapshot: () => Effect.void,
 									restorePortableProfile: () => Effect.succeed(true),
+									assertBootstrapArchiveUnambiguous: () => Effect.void,
+									reserveDependency: (input) =>
+										Effect.succeed({ inserted: true, id: EntityId.make(input.id ?? "fixture") }),
 									restoreEntity: (input) =>
 										Ref.update(restoredEntities, (all) => [...all, input]).pipe(
 											Effect.as(EntityId.make(input.id ?? "restored")),
@@ -1028,7 +1038,9 @@ const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {
 							);
 						}),
 					),
-					Layer.mock(EntitiesRepository, { listUserEntitiesForBackup: () => Effect.succeed([]) }),
+					Layer.mock(EntitiesRepository, {
+						findUserEntitiesWithoutProvenance: () => Effect.succeed(new Map()),
+					}),
 					Layer.mock(SavedViewsRepository, {}),
 					Layer.mock(AutomationsRepository, {}),
 					Layer.mock(PluginInstallationRepository, {}),
@@ -1263,10 +1275,9 @@ layer(restoreWriterLayer())((test) => {
 				archivedEvent(`event-${index.toString().padStart(5, "0")}`),
 			);
 			yield* restoreArchivedEvents(events);
-			expect(yield* (yield* FakeRestorePersistence).eventBatchSizes).toEqual([
-				RESTORE_EVENT_BATCH_SIZE,
-				3,
-			]);
+			const batchSizes = yield* (yield* FakeRestorePersistence).eventBatchSizes;
+			expect(batchSizes.reduce((total, size) => total + size, 0)).toBe(events.length);
+			expect(batchSizes.every((size) => size <= RESTORE_EVENT_BATCH_SIZE)).toBe(true);
 		}),
 	);
 });
@@ -1355,6 +1366,7 @@ describe("account backup restore in PostgreSQL", () => {
 		TranslationsRepository.layer,
 		RelationshipsRepository.layer,
 		PluginInstallationRepository.layer,
+		BackupStaging.layer,
 	).pipe(Layer.provide(makeAppConfigLayer()));
 	layer(
 		Layer.merge(BackupRestoreWriter.layer, BackupRestorePersistence.layer).pipe(
@@ -1537,16 +1549,13 @@ describe("account backup restore in PostgreSQL", () => {
 								orderCreatedAt: "2026-09-17T00:00:00.000Z",
 							}),
 					};
-					const writer = yield* BackupRestoreWriter;
-					yield* session.transaction(
-						writer.restoreRecords(
-							UserId.make("recipient"),
-							records,
-							new Map(),
-							archivedEvents,
-							new Map([[pluginKey, installedPluginId]]),
-							snapshot,
-						),
+					yield* restoreFixtureRecords(
+						UserId.make("recipient"),
+						records,
+						new Map(),
+						archivedEvents,
+						new Map([[pluginKey, installedPluginId]]),
+						snapshot,
 					);
 					const restoredInstallation = yield* installations.findByUserAndPlugin(
 						UserId.make("recipient"),
@@ -1662,6 +1671,7 @@ describe("account backup restore in PostgreSQL", () => {
 					entityDependencies: [
 						{
 							translations: [],
+							kind: "snapshot",
 							populatedAt: null,
 							id: "archived-shared",
 							entitySchemaSlug: "bottle",
@@ -1700,15 +1710,13 @@ describe("account backup restore in PostgreSQL", () => {
 				const mapped = yield* writer.assertRequiredPlugins(required);
 				const events = { count: 0, sha256: "", read: () => Stream.empty };
 				yield* writer.preflight(records, events, mapped, definitions, required);
-				yield* session.transaction(
-					writer.restoreRecords(
-						UserId.make("recipient"),
-						records,
-						new Map(),
-						events,
-						mapped,
-						definitions,
-					),
+				yield* restoreFixtureRecords(
+					UserId.make("recipient"),
+					records,
+					new Map(),
+					events,
+					mapped,
+					definitions,
 				);
 				expect(yield* entities.listGlobalEntitiesByIdsForBackup([globalId])).toEqual(before);
 			}),
@@ -1995,12 +2003,32 @@ describe("account backup restore in PostgreSQL", () => {
 						}
 						const fs = yield* FileSystem.FileSystem;
 						const directory = yield* fs.makeTempDirectoryScoped();
+						const exportRunId = BackupRunId.make(yield* randomUuid);
+						const staging = yield* BackupStaging;
+						yield* session.run((db) =>
+							db
+								.insert(tables.backupRun)
+								.values({ kind: "export", id: exportRunId, status: "running", userId: sourceUser }),
+						);
+						yield* Effect.addFinalizer(() =>
+							Effect.ensuring(
+								staging.cleanup(exportRunId).pipe(Effect.orDie),
+								session
+									.run((db) =>
+										db.delete(tables.backupRun).where(eq(tables.backupRun.id, exportRunId)),
+									)
+									.pipe(Effect.asVoid, Effect.orDie),
+							),
+						);
+						yield* staging.begin(exportRunId);
 						const exported = yield* session.transaction(
 							(yield* BackupExportSnapshot).prepareExportSnapshot(
 								sourceUser,
 								`${directory}/events.ndjson`,
+								exportRunId,
 							),
 						);
+						const exportedRecords = yield* collectExportFixtureRecords(exported, fs);
 						expect(exported.records.privatePlugins).toHaveLength(2);
 						expect(
 							exported.records.installations.find(({ sortOrder }) => sortOrder === 1)
@@ -2013,10 +2041,14 @@ describe("account backup restore in PostgreSQL", () => {
 							scope: "user",
 							packageId: firstSource.packageValue.manifest.metadata.packageId,
 						});
-						expect(exported.records.calendarSourceOverrides).toEqual([
+						expect(exportedRecords.calendarSourceOverrides).toEqual([
 							{ isHidden: true, pluginKey: firstKey, slug: "bottle-dates" },
 						]);
-						const originalEventLines = (yield* fs.readFileString(exported.events.path))
+						const exportedEventSection = exported.sections.find(
+							({ path }) => path === "events.ndjson",
+						);
+						assert(exportedEventSection);
+						const originalEventLines = (yield* fs.readFileString(exportedEventSection.filePath))
 							.trim()
 							.split("\n");
 						const originalEvents: ArchiveEvent[] = [];
@@ -2034,13 +2066,14 @@ describe("account backup restore in PostgreSQL", () => {
 								redactions: exported.redactions,
 								createdAt: "2026-10-01T00:00:00.000Z",
 								requiredPlugins: exported.requiredPlugins,
-								events: {
-									...exported.events,
-									chunks: Stream.toAsyncIterable(fs.stream(exported.events.path)),
-								},
+								sections: exported.sections.map(({ filePath, ...section }) => ({
+									...section,
+									chunks: Stream.toAsyncIterable(fs.stream(filePath)),
+								})),
 							}),
 							{ directory },
 						);
+						const validatedRecords = yield* collectFixtureRecords(validated);
 						const first = sources[0];
 						assert(first);
 						let systemId: null | string = null;
@@ -2060,27 +2093,27 @@ describe("account backup restore in PostgreSQL", () => {
 						const pluginRestore = yield* PluginBackupRestore;
 						const writer = yield* BackupRestoreWriter;
 						const prepared = yield* pluginRestore.prepare(validated.records.privatePlugins);
-						const ids = yield* session.transaction(
+						const { ids, definitions: restoredDefinitions } = yield* session.transaction(
 							Effect.gen(function* () {
 								const persistedIds = yield* pluginRestore.persist(destinationUser, prepared);
 								const definitions = yield* pluginRestore.buildDefinitions(prepared, persistedIds);
 								yield* writer.preflight(
-									validated.records,
-									validated.events,
+									validatedRecords,
+									validated.sections["events.ndjson"],
 									persistedIds,
 									definitions,
 									[],
 								);
-								yield* writer.restoreRecords(
-									destinationUser,
-									validated.records,
-									new Map(),
-									validated.events,
-									persistedIds,
-									definitions,
-								);
-								return persistedIds;
+								return { definitions, ids: persistedIds };
 							}),
+						);
+						yield* restoreFixtureRecords(
+							destinationUser,
+							validatedRecords,
+							new Map(),
+							validated.sections["events.ndjson"],
+							ids,
+							restoredDefinitions,
 						);
 						for (const [index, source] of sources.entries()) {
 							const key = pluginPackageKey({
@@ -2161,12 +2194,36 @@ describe("account backup restore in PostgreSQL", () => {
 								}
 							}
 						}
+						const reexportRunId = BackupRunId.make(yield* randomUuid);
+						yield* session.run((db) =>
+							db
+								.insert(tables.backupRun)
+								.values({
+									kind: "export",
+									id: reexportRunId,
+									status: "running",
+									userId: destinationUser,
+								}),
+						);
+						yield* Effect.addFinalizer(() =>
+							Effect.ensuring(
+								staging.cleanup(reexportRunId).pipe(Effect.orDie),
+								session
+									.run((db) =>
+										db.delete(tables.backupRun).where(eq(tables.backupRun.id, reexportRunId)),
+									)
+									.pipe(Effect.asVoid, Effect.orDie),
+							),
+						);
+						yield* staging.begin(reexportRunId);
 						const reexported = yield* session.transaction(
 							(yield* BackupExportSnapshot).prepareExportSnapshot(
 								destinationUser,
 								`${directory}/restored-events.ndjson`,
+								reexportRunId,
 							),
 						);
+						const reexportedRecords = yield* collectExportFixtureRecords(reexported, fs);
 						expect(reexported.records.privatePlugins).toHaveLength(2);
 						expect(manifestsByKey(exported.records.privatePlugins)).toEqual(
 							Object.fromEntries(
@@ -2183,9 +2240,9 @@ describe("account backup restore in PostgreSQL", () => {
 							manifestsByKey(exported.records.privatePlugins),
 						);
 						expect(
-							reexported.records.savedViews.filter((view) => view.kind === "builtin-override"),
+							reexportedRecords.savedViews.filter((view) => view.kind === "builtin-override"),
 						).toHaveLength(2);
-						for (const view of reexported.records.savedViews) {
+						for (const view of reexportedRecords.savedViews) {
 							if (view.kind === "builtin-override") {
 								const source = sources[view.sortOrder === 4 ? 0 : 1];
 								assert(source);
@@ -2211,11 +2268,11 @@ describe("account backup restore in PostgreSQL", () => {
 								);
 							}
 						}
-						expect(reexported.records.calendarSourceOverrides).toEqual(
-							exported.records.calendarSourceOverrides,
+						expect(reexportedRecords.calendarSourceOverrides).toEqual(
+							exportedRecords.calendarSourceOverrides,
 						);
-						expect(reexported.records.integrations).toHaveLength(6);
-						for (const integration of reexported.records.integrations) {
+						expect(reexportedRecords.integrations).toHaveLength(6);
+						for (const integration of reexportedRecords.integrations) {
 							if (integration.packageKey === null) {
 								expect(integration.provider).toBe(dataJsonSource);
 								expect(integration.providerSpecifics).toEqual({});
@@ -2231,23 +2288,27 @@ describe("account backup restore in PostgreSQL", () => {
 								}),
 							);
 						}
-						expect(reexported.records.notificationSubscriptions).toHaveLength(2);
+						expect(reexportedRecords.notificationSubscriptions).toHaveLength(2);
 						expect(
 							new Set(
-								reexported.records.notificationSubscriptions.map(
+								reexportedRecords.notificationSubscriptions.map(
 									({ signalSchemaPluginKey }) => signalSchemaPluginKey,
 								),
 							).size,
 						).toBe(2);
-						expect(reexported.records.relationships).toHaveLength(2);
-						for (const relationship of reexported.records.relationships) {
-							const entity = reexported.records.entities.find(
+						expect(reexportedRecords.relationships).toHaveLength(2);
+						for (const relationship of reexportedRecords.relationships) {
+							const entity = reexportedRecords.entities.find(
 								({ id }) => id === relationship.sourceEntityId,
 							);
 							expect(entity?.entitySchemaPluginKey).toBe(relationship.relationshipSchemaPluginKey);
 							expect(relationship.targetEntityId).toBe(relationship.sourceEntityId);
 						}
-						const eventLines = (yield* fs.readFileString(reexported.events.path))
+						const reexportedEventSection = reexported.sections.find(
+							({ path }) => path === "events.ndjson",
+						);
+						assert(reexportedEventSection);
+						const eventLines = (yield* fs.readFileString(reexportedEventSection.filePath))
 							.trim()
 							.split("\n");
 						expect(eventLines).toHaveLength(2);
@@ -2255,7 +2316,7 @@ describe("account backup restore in PostgreSQL", () => {
 						for (const line of eventLines) {
 							const event = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveEvent))(line);
 							restoredEvents.push(event);
-							const entity = reexported.records.entities.find(({ id }) => id === event.entityId);
+							const entity = reexportedRecords.entities.find(({ id }) => id === event.entityId);
 							expect(entity?.entitySchemaPluginKey).toBe(event.eventSchemaPluginKey);
 							expect(event.sessionEntityId).toBe(event.entityId);
 						}
@@ -2365,20 +2426,24 @@ const assetRestoreLayer = (assetOwnerUserId: string) =>
 							}),
 						}),
 					}),
+					memoryStagingLayer,
 					Layer.mock(PluginRepository, {
 						listPrivateForUser: () => Effect.succeed([]),
 						listActiveSystemPlugins: () => Effect.succeed([assetSystemPlugin]),
 					}),
 					Layer.mock(BackupRestorePersistence, {
 						restoreEvents: () => Effect.void,
+						populateDependencySnapshot: () => Effect.void,
 						restorePortableProfile: () => Effect.succeed(true),
+						assertBootstrapArchiveUnambiguous: () => Effect.void,
 						restoreEntity: (input) => Effect.succeed(EntityId.make(input.id ?? "restored")),
 						restoreCustomView: () => Effect.die("A rejected saved view must not be restored"),
 						restoreTranslation: () => Effect.die("A rejected translation must not be restored"),
+						reserveDependency: (input) =>
+							Effect.succeed({ inserted: true, id: EntityId.make(input.id ?? "fixture") }),
 					}),
 					Layer.mock(EntitiesRepository, {
-						listUserEntitiesForBackup: () => Effect.succeed([]),
-						findGlobalEntityForRestore: () => Effect.succeed(null),
+						findUserEntitiesWithoutProvenance: () => Effect.succeed(new Map()),
 					}),
 					Layer.mock(SavedViewsRepository, {}),
 					Layer.mock(AutomationsRepository, {}),
@@ -2407,12 +2472,13 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	...overrides,
 });
 const assetDependency = (
-	properties: ArchiveRecords["entityDependencies"][number]["properties"],
-	translations: ArchiveRecords["entityDependencies"][number]["translations"] = [],
-): ArchiveRecords["entityDependencies"][number] => ({
+	properties: ArchiveEntitySnapshot["properties"],
+	translations: ArchiveEntitySnapshot["translations"] = [],
+): ArchiveEntitySnapshot => ({
 	properties,
 	translations,
 	provider: null,
+	kind: "snapshot",
 	populatedAt: null,
 	name: "Dependency",
 	id: "asset-dependency",
@@ -2429,22 +2495,14 @@ const assetDependency = (
 	},
 });
 const restoreAssetRecords = (records: ArchiveRecords) =>
-	Effect.gen(function* () {
-		const session = yield* DatabaseSession;
-		const writer = yield* BackupRestoreWriter;
-		return yield* session
-			.transaction(
-				writer.restoreRecords(
-					UserId.make("user-id"),
-					records,
-					new Map([[`${archivedAsset.type}:${archivedAsset.key}`, restoredAsset]]),
-					{ count: 0, sha256: "", read: () => Stream.empty },
-					new Map([[assetPluginKey, assetPluginId]]),
-					assetDefinitions,
-				),
-			)
-			.pipe(Effect.exit);
-	});
+	restoreFixtureRecords(
+		UserId.make("user-id"),
+		records,
+		new Map([[`${archivedAsset.type}:${archivedAsset.key}`, restoredAsset]]),
+		{ count: 0, sha256: "", read: () => Stream.empty },
+		new Map([[assetPluginKey, assetPluginId]]),
+		assetDefinitions,
+	).pipe(Effect.exit);
 const assetForbidden = new BackupBadRequest({ reason: { code: "asset-forbidden" } });
 
 layer(assetRestoreLayer("user-id"))((test) => {
@@ -2536,7 +2594,7 @@ layer(assetRestoreLayer("foreign-owner"))((test) => {
 								dataSources: null,
 								slug: "asset-view",
 								name: "Asset view",
-								settings: { image: restoredAsset },
+								settings: { image: archivedAsset },
 								createdAt: "2026-08-23T12:00:00.000Z",
 								updatedAt: "2026-08-23T12:00:00.000Z",
 								renderer: { kind: "plugin", exportName: "summary", pluginKey: assetPluginKey },

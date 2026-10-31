@@ -9,7 +9,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { arrayContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { eq, inArray } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
@@ -526,52 +526,6 @@ layer(repositoryWithDatabase({ select: () => ({ from: () => portableQuery }) }))
 				},
 			]);
 		}),
-	);
-});
-
-layer(
-	recordingLayer(repositoryWithDatabase, (record) => {
-		const builder = {
-			leftJoin: () => builder,
-			where: (condition: { getSQL: () => Statement }) => ({
-				limit: () =>
-					record(dialect.sqlToQuery(condition.getSQL()).params).pipe(
-						Effect.as([
-							{
-								id: "existing-global",
-								entitySchemaSlug: "record",
-								entitySchemaPluginId: "example",
-							},
-						]),
-					),
-			}),
-		};
-		return { select: () => ({ from: () => builder }) };
-	}),
-)((test) => {
-	test.effect(
-		"resolves restore globals by portable schema, plugin, provider, and external IDs",
-		() =>
-			Effect.gen(function* () {
-				const repository = yield* EntitiesRepository;
-				expect(
-					yield* repository.findGlobalEntityForRestore({
-						externalId: "external-id",
-						entitySchemaPluginId: "example",
-						entitySchemaSlug: EntitySchemaSlug.make("record"),
-						provider: { slug: "open-library", owner: definitionOwner("example") },
-					}),
-				).toEqual({
-					id: "existing-global",
-					entitySchemaSlug: "record",
-					entitySchemaPluginId: "example",
-				});
-				const [params] = yield* recordedEntries;
-				expect(params).toEqual(
-					arrayContaining(["external-id", "record", "example", "open-library"]),
-				);
-				expect(params).not.toContain("archived-provider-db-id");
-			}),
 	);
 });
 

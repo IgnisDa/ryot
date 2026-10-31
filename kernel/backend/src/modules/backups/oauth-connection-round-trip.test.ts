@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
+	BackupRunId,
 	IntegrationId,
 	PluginId,
 	pluginPackageSegments,
@@ -11,6 +12,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { randomUuid } from "@ryot-app/testing/random";
 import { and, eq } from "drizzle-orm";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
@@ -49,9 +51,12 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
+import { collectFixtureRecords } from "./archive/archive.test-support";
 import { BackupExportSnapshot } from "./export/snapshot";
 import { BackupExportSnapshotLive, BackupRestoreWriterLive } from "./layer";
+import { restoreFixtureRecords } from "./restore/staging.test-support";
 import { BackupRestoreWriter } from "./restore/writer";
+import { BackupStaging } from "./staging";
 
 const owner = UserId.make("owner");
 const localTempDir = `/tmp/ryot-backup-oauth-round-trip-${crypto.randomUUID()}`;
@@ -123,6 +128,7 @@ const roundTripLayer = Layer.mergeAll(
 	OAuthConnectionsServiceLive.pipe(Layer.provide(mockProKey(true))),
 ).pipe(
 	Layer.provide(tokenEndpointLayer),
+	Layer.provideMerge(BackupStaging.layer),
 	Layer.provideMerge(infrastructure),
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provide(
@@ -192,8 +198,24 @@ layer(roundTripLayer)((test) => {
 				yield* fs.makeDirectory(localTempDir, { recursive: true });
 				const directory = yield* fs.makeTempDirectoryScoped({ directory: localTempDir });
 				const eventsPath = `${directory}/events.ndjson`;
+				const exportRunId = BackupRunId.make(yield* randomUuid);
+				const staging = yield* BackupStaging;
+				yield* session.run((db) =>
+					db
+						.insert(tables.backupRun)
+						.values({ userId: owner, kind: "export", id: exportRunId, status: "running" }),
+				);
+				yield* Effect.addFinalizer(() =>
+					Effect.ensuring(
+						staging.cleanup(exportRunId).pipe(Effect.orDie),
+						session
+							.run((db) => db.delete(tables.backupRun).where(eq(tables.backupRun.id, exportRunId)))
+							.pipe(Effect.asVoid, Effect.orDie),
+					),
+				);
+				yield* staging.begin(exportRunId);
 				const snapshot = yield* session.transaction(
-					(yield* BackupExportSnapshot).prepareExportSnapshot(owner, eventsPath),
+					(yield* BackupExportSnapshot).prepareExportSnapshot(owner, eventsPath, exportRunId),
 				);
 				const archive = yield* Stream.runCollect(
 					createArchiveStream({
@@ -204,19 +226,21 @@ layer(roundTripLayer)((test) => {
 						redactions: snapshot.redactions,
 						createdAt: "2026-10-01T00:00:00.000Z",
 						requiredPlugins: snapshot.requiredPlugins,
-						events: {
-							count: snapshot.events.count,
-							bytes: snapshot.events.bytes,
-							sha256: snapshot.events.sha256,
-							chunks: Stream.toAsyncIterable(fs.stream(snapshot.events.path)),
-						},
+						sections: snapshot.sections.map((section) => ({
+							path: section.path,
+							count: section.count,
+							bytes: section.bytes,
+							sha256: section.sha256,
+							chunks: Stream.toAsyncIterable(fs.stream(section.filePath)),
+						})),
 					}),
 				);
 				const validated = yield* validateArchiveStream(Stream.fromIterable(archive), {
 					directory: localTempDir,
 				});
-				const [exportedIntegration] = validated.records.integrations;
-				expect(validated.records.integrations).toHaveLength(1);
+				const validatedRecords = yield* collectFixtureRecords(validated);
+				const [exportedIntegration] = validatedRecords.integrations;
+				expect(validatedRecords.integrations).toHaveLength(1);
 				expect(exportedIntegration).toMatchObject({
 					id: integrationId,
 					isDisabled: false,
@@ -228,7 +252,7 @@ layer(roundTripLayer)((test) => {
 					`/integrations/${integrationId}/providerSpecifics/account`,
 				);
 				expect(
-					yield* archiveText({ records: validated.records, manifest: validated.manifest }),
+					yield* archiveText({ records: validatedRecords, manifest: validated.manifest }),
 				).not.toMatch(
 					new RegExp(
 						`${connectionId}|${secret}|backup-access-token|backup-refresh-token|backup-auth-code|client-secret-1`,
@@ -257,21 +281,18 @@ layer(roundTripLayer)((test) => {
 					isHidden: false,
 					homeSavedView: null,
 				});
-				const writer = yield* BackupRestoreWriter;
 				const pluginRestore = yield* PluginBackupRestore;
-				const pluginIdByKey = yield* writer.assertRequiredPlugins(
+				const pluginIdByKey = yield* (yield* BackupRestoreWriter).assertRequiredPlugins(
 					validated.manifest.requiredPlugins,
 				);
 				const definitions = yield* pluginRestore.buildDefinitions([], pluginIdByKey);
-				yield* session.transaction(
-					writer.restoreRecords(
-						owner,
-						validated.records,
-						new Map(),
-						validated.events,
-						pluginIdByKey,
-						definitions,
-					),
+				yield* restoreFixtureRecords(
+					owner,
+					validatedRecords,
+					new Map(),
+					validated.sections["events.ndjson"],
+					pluginIdByKey,
+					definitions,
 				);
 
 				const [restoredInstallation] = yield* session.run((db) =>

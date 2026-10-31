@@ -1,22 +1,27 @@
-import { identityTupleKey, pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { Cause, Effect, FileSystem, type PlatformError, type Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
-import { archiveError, BackupArchiveError } from "./error";
+import { archiveEntryTooLarge, archiveError, BackupArchiveError } from "./error";
 import { collectReferencedPluginKeys } from "./references";
 import {
 	ARCHIVE_CODECS,
 	ARCHIVE_SECTION_PATHS,
 	type ArchiveAssetManifest,
-	type ArchiveEntityDependency,
-	type ArchiveEvent,
 	ArchiveManifest,
 	ArchiveProfile,
-	type ArchiveRecords,
 	type ArchiveRequiredPlugin,
 	type ArchiveSectionManifest,
 	type ArchiveSectionPath,
 } from "./schemas";
+import {
+	type ArchiveMetadata,
+	type ArchiveSectionInput,
+	type ArchiveSectionReader,
+	type ArchiveSections,
+	STREAMED_SECTION_PATHS,
+	type StreamedSectionPath,
+} from "./sections";
 import {
 	decodeArchiveJson,
 	decodeNdjson,
@@ -35,6 +40,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 
 export const ARCHIVE_LIMITS = {
 	maxEntryCount: 4_096,
+	maxPluginRecords: 256,
 	maxRecordsPerSection: 250_000,
 	maxEntryBytes: 256 * 1024 * 1024,
 	maxMetadataEntryBytes: 32 * 1024 * 1024,
@@ -45,22 +51,15 @@ export type CreateArchiveInput = {
 	readonly archiveId: string;
 	readonly createdAt: string;
 	readonly appVersion: string;
-	readonly records: ArchiveRecords;
-	readonly events: ArchiveEventsInput;
+	readonly records: ArchiveMetadata;
 	readonly redactions: ReadonlyArray<string>;
 	readonly compression?: "store" | "deflate";
 	readonly assets: ReadonlyArray<ArchiveAssetInput>;
+	readonly sections: ReadonlyArray<ArchiveSectionInput>;
 	readonly requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin>;
 };
 
 type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
-
-const entryTooLarge = (path: string, actualBytes: number, maxBytes: number) =>
-	archiveError(
-		"entry_too_large",
-		`ZIP entry '${path}' is too large: ${actualBytes} bytes exceeds the ${maxBytes}-byte limit`,
-		path,
-	);
 
 type ArchiveAssetInput = {
 	readonly metadata: ArchiveAssetManifest;
@@ -73,29 +72,6 @@ type ZipEntryInput = {
 	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
 };
 
-type ArchiveEventsInput = {
-	readonly count: number;
-	readonly bytes: number;
-	readonly sha256: string;
-	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
-};
-
-const recordCollections = (records: ArchiveRecords) => ({
-	"entities.ndjson": records.entities,
-	"reminders.ndjson": records.reminders,
-	"saved-views.ndjson": records.savedViews,
-	"integrations.ndjson": records.integrations,
-	"installations.ndjson": records.installations,
-	"relationships.ndjson": records.relationships,
-	"private-plugins.ndjson": records.privatePlugins,
-	"entity-dependencies.ndjson": records.entityDependencies,
-	"calendar-source-overrides.ndjson": records.calendarSourceOverrides,
-	"notification-subscriptions.ndjson": records.notificationSubscriptions,
-});
-
-const compareId = (left: { readonly id: string }, right: { readonly id: string }) =>
-	left.id.localeCompare(right.id);
-
 const sortedIfNeeded = <A>(values: ReadonlyArray<A>, compare: (left: A, right: A) => number) => {
 	for (let index = 1; index < values.length; index += 1) {
 		const previous = values[index - 1];
@@ -107,51 +83,17 @@ const sortedIfNeeded = <A>(values: ReadonlyArray<A>, compare: (left: A, right: A
 	return values;
 };
 
-const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
-	let updated: undefined | ArchiveEntityDependency[];
-	for (const [index, entity] of values.entries()) {
-		const translations = sortedIfNeeded(entity.translations, (left, right) =>
-			left.language.localeCompare(right.language),
-		);
-		if (translations !== entity.translations) {
-			updated ??= [...values];
-			updated[index] = { ...entity, translations };
-		}
-	}
-	return sortedIfNeeded(updated ?? values, compareId);
-};
-
-const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
+const sortArchiveMetadata = (records: ArchiveMetadata): ArchiveMetadata => ({
 	profile: records.profile,
-	entities: sortedIfNeeded(records.entities, compareId),
-	reminders: sortedIfNeeded(records.reminders, compareId),
-	savedViews: sortedIfNeeded(records.savedViews, compareId),
-	integrations: sortedIfNeeded(records.integrations, compareId),
-	relationships: sortedIfNeeded(records.relationships, compareId),
-	entityDependencies: sortDependencies(records.entityDependencies),
 	privatePlugins: sortedIfNeeded(records.privatePlugins, (left, right) =>
 		left.key.localeCompare(right.key),
 	),
 	installations: sortedIfNeeded(records.installations, (left, right) =>
 		left.packageKey.localeCompare(right.packageKey),
 	),
-	notificationSubscriptions: sortedIfNeeded(records.notificationSubscriptions, (left, right) =>
-		left.signalSchemaSlug.localeCompare(right.signalSchemaSlug),
-	),
-	calendarSourceOverrides: sortedIfNeeded(
-		records.calendarSourceOverrides,
-		(left, right) =>
-			left.pluginKey.localeCompare(right.pluginKey) || left.slug.localeCompare(right.slug),
-	),
 });
 
-type BoundedSectionPath = Exclude<ArchiveSectionPath, "profile.json" | "events.ndjson">;
-
-function* sectionChunks(path: BoundedSectionPath, records: ArchiveRecords) {
-	const values = recordCollections(records)[path];
-	const codec = ARCHIVE_CODECS[path] as Schema.Codec<(typeof values)[number], unknown>;
-	yield* encodeNdjson(values, codec, path);
-}
+type BoundedSectionPath = "installations.ndjson" | "private-plugins.ndjson";
 
 const profileChunk = (profile: ArchiveProfile) =>
 	encodeArchiveJsonLine(ArchiveProfile, profile, "profile.json");
@@ -173,7 +115,7 @@ const bufferSection = (
 	for (const chunk of chunks) {
 		hash.update(chunk);
 		if (hash.bytes > limit) {
-			throw entryTooLarge(path, hash.bytes, limit);
+			throw archiveEntryTooLarge(path, hash.bytes, limit);
 		}
 		buffered.push(chunk);
 	}
@@ -183,85 +125,20 @@ const bufferSection = (
 
 const boundedSection = (
 	path: BoundedSectionPath,
-	records: ArchiveRecords,
+	records: ArchiveMetadata,
 	count: number,
 	limits: ArchiveLimits,
-) => bufferSection(path, sectionChunks(path, records), count, limits.maxMetadataEntryBytes);
+) =>
+	bufferSection(
+		path,
+		path === "private-plugins.ndjson"
+			? encodeNdjson(records.privatePlugins, ARCHIVE_CODECS["private-plugins.ndjson"], path)
+			: encodeNdjson(records.installations, ARCHIVE_CODECS["installations.ndjson"], path),
+		count,
+		limits.maxMetadataEntryBytes,
+	);
 
-const requireUniqueIds = (path: string, records: ReadonlyArray<{ readonly id: string }>) => {
-	const ids = new Set<string>();
-	for (const record of records) {
-		if (ids.has(record.id)) {
-			throw archiveError("duplicate_record_id", `Duplicate record id '${record.id}'`, path);
-		}
-		ids.add(record.id);
-	}
-};
-
-const validateRecordKeys = (records: ArchiveRecords) => {
-	requireUniqueIds("reminders.ndjson", records.reminders);
-	requireUniqueIds("entities.ndjson", records.entities);
-	requireUniqueIds("saved-views.ndjson", records.savedViews);
-	requireUniqueIds("integrations.ndjson", records.integrations);
-	requireUniqueIds("relationships.ndjson", records.relationships);
-	requireUniqueIds("entity-dependencies.ndjson", records.entityDependencies);
-	const entityIds = new Set(records.entities.map(({ id }) => id));
-	for (const dependency of records.entityDependencies) {
-		if (entityIds.has(dependency.id)) {
-			throw archiveError(
-				"duplicate_record_id",
-				`Entity id '${dependency.id}' is duplicated across entity sections`,
-				"entity-dependencies.ndjson",
-			);
-		}
-		const languages = new Set<string>();
-		for (const translation of dependency.translations) {
-			if (languages.has(translation.language)) {
-				throw archiveError(
-					"duplicate_record_id",
-					`Duplicate translation language '${translation.language}' for entity '${dependency.id}'`,
-					"entity-dependencies.ndjson",
-				);
-			}
-			languages.add(translation.language);
-		}
-	}
-	const viewSlugs = new Set<string>();
-	for (const view of records.savedViews) {
-		const key = identityTupleKey(
-			view.kind,
-			view.kind === "builtin-override" ? view.pluginKey : null,
-			view.slug,
-		);
-		if (viewSlugs.has(key)) {
-			throw archiveError(
-				"duplicate_record_id",
-				`Duplicate saved view slug '${view.slug}'`,
-				"saved-views.ndjson",
-			);
-		}
-		viewSlugs.add(key);
-	}
-	const customViews = records.savedViews.filter((view) => view.kind === "custom");
-	const reminderIds = new Set(records.reminders.map(({ id }) => id));
-	const reminderTargets = new Set([
-		...entityIds,
-		...records.entityDependencies.map(({ id }) => id),
-	]);
-	for (const row of records.reminders) {
-		if (
-			(row.entityId !== null && !reminderTargets.has(row.entityId)) ||
-			(row.parentEntityId !== null && !reminderTargets.has(row.parentEntityId)) ||
-			(row.replacementId !== null && !reminderIds.has(row.replacementId))
-		) {
-			throw archiveError(
-				"missing_reference_mapping",
-				"Backup reminder reference is missing",
-				"reminders.ndjson",
-			);
-		}
-	}
-	const customViewIds = new Set(customViews.map(({ id }) => id));
+const validateArchiveMetadata = (records: ArchiveMetadata) => {
 	const installationKeys = new Set<string>();
 	for (const installation of records.installations) {
 		if (installationKeys.has(installation.packageKey)) {
@@ -272,26 +149,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 			);
 		}
 		installationKeys.add(installation.packageKey);
-	}
-	for (const integration of records.integrations) {
-		if (integration.packageKey !== null && !installationKeys.has(integration.packageKey)) {
-			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
-		}
-	}
-	for (const view of customViews) {
-		if (view.pluginKey !== null && !installationKeys.has(view.pluginKey)) {
-			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
-		}
-	}
-	for (const installation of records.installations) {
-		const home = installation.homeSavedView;
-		if (home?.kind === "custom" && !customViewIds.has(home.savedViewId)) {
-			throw archiveError(
-				"missing_reference_mapping",
-				`Installation references unknown home saved view '${home.savedViewId}'`,
-				"installations.ndjson",
-			);
-		}
 		if (
 			installation.incompatibilityReason !== null &&
 			installation.lifecycleIntent !== "incompatible"
@@ -301,30 +158,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 				"Backup installation quarantine reason requires incompatible health",
 			);
 		}
-	}
-	const calendarSourceKeys = new Set<string>();
-	for (const override of records.calendarSourceOverrides) {
-		const key = identityTupleKey(override.pluginKey, override.slug);
-		if (calendarSourceKeys.has(key)) {
-			throw archiveError(
-				"duplicate_record_id",
-				`Duplicate calendar source slug '${override.slug}'`,
-				"calendar-source-overrides.ndjson",
-			);
-		}
-		calendarSourceKeys.add(key);
-	}
-	const signalSlugs = new Set<string>();
-	for (const subscription of records.notificationSubscriptions) {
-		const key = identityTupleKey(subscription.signalSchemaPluginKey, subscription.signalSchemaSlug);
-		if (signalSlugs.has(key)) {
-			throw archiveError(
-				"duplicate_record_id",
-				`Duplicate signal schema slug '${subscription.signalSchemaSlug}'`,
-				"notification-subscriptions.ndjson",
-			);
-		}
-		signalSlugs.add(key);
 	}
 	const privateKeys = new Set<string>();
 	for (const plugin of records.privatePlugins) {
@@ -339,7 +172,18 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	}
 };
 
-const validateRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
+const validateRequiredPlugins = (
+	plugins: ReadonlyArray<ArchiveRequiredPlugin>,
+	limit: number = ARCHIVE_LIMITS.maxPluginRecords,
+) => {
+	if (plugins.length > limit) {
+		throw archiveError(
+			"count_mismatch",
+			"Required plugin metadata record limit exceeded",
+			"manifest.json",
+			{ maxCount: limit, actualCount: plugins.length },
+		);
+	}
 	const packageIds = new Set<string>();
 	for (const plugin of plugins) {
 		if (packageIds.has(plugin.packageId)) {
@@ -354,14 +198,24 @@ const validateRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) 
 };
 
 const validatePluginKeys = (
-	records: ArchiveRecords,
+	records: ArchiveMetadata,
 	required: ReadonlyArray<ArchiveRequiredPlugin>,
 ) => {
 	const declared = new Set([
 		...records.privatePlugins.map(({ key }) => key),
 		...required.map((plugin) => pluginPackageKey({ scope: "system", packageId: plugin.packageId })),
 	]);
-	const referenced = collectReferencedPluginKeys(records);
+	const referenced = collectReferencedPluginKeys({
+		...records,
+		entities: [],
+		reminders: [],
+		savedViews: [],
+		integrations: [],
+		relationships: [],
+		entityDependencies: [],
+		calendarSourceOverrides: [],
+		notificationSubscriptions: [],
+	});
 	for (const key of referenced) {
 		if (!declared.has(key)) {
 			throw archiveError(
@@ -373,59 +227,79 @@ const validatePluginKeys = (
 };
 
 const sortedRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
-	validateRequiredPlugins(plugins);
 	return [...plugins].sort((left, right) => left.packageId.localeCompare(right.packageId));
 };
 
 const buildManifest = (
 	input: CreateArchiveInput,
-	records: ArchiveRecords,
+	records: ArchiveMetadata,
 	limits: ArchiveLimits,
 ) => {
-	validateRecordKeys(records);
-	validateRequiredPlugins(input.requiredPlugins);
+	validateArchiveMetadata(records);
+	validateRequiredPlugins(input.requiredPlugins, limits.maxPluginRecords);
 	validatePluginKeys(records, input.requiredPlugins);
-	for (const [path, values] of Object.entries(recordCollections(records))) {
-		if (values.length > limits.maxRecordsPerSection) {
-			throw archiveError("count_mismatch", "Section record limit exceeded", path);
+	const boundedCounts: ReadonlyArray<{
+		readonly count: number;
+		readonly path: BoundedSectionPath;
+	}> = [
+		{ path: "private-plugins.ndjson", count: records.privatePlugins.length },
+		{ path: "installations.ndjson", count: records.installations.length },
+	];
+	for (const { path, count } of boundedCounts) {
+		if (count > Math.min(limits.maxRecordsPerSection, limits.maxPluginRecords)) {
+			throw archiveError("count_mismatch", "Section record limit exceeded", path, {
+				actualCount: count,
+				maxCount: Math.min(limits.maxRecordsPerSection, limits.maxPluginRecords),
+			});
 		}
 	}
-	if (input.events.bytes > limits.maxEntryBytes) {
-		throw entryTooLarge("events.ndjson", input.events.bytes, limits.maxEntryBytes);
+	const streamedPaths = new Set<string>(STREAMED_SECTION_PATHS);
+	const sectionsByPath = new Map<string, ArchiveSection>();
+	for (const section of input.sections) {
+		if (!streamedPaths.has(section.path)) {
+			throw archiveError("unexpected_path", "Unexpected streamed section", section.path);
+		}
+		if (sectionsByPath.has(section.path)) {
+			throw archiveError("duplicate_path", "Duplicate streamed section summary", section.path);
+		}
+		if (!Number.isFinite(section.count) || !Number.isInteger(section.count) || section.count < 0) {
+			throw archiveError("count_mismatch", "Invalid section record count", section.path);
+		}
+		if (!Number.isFinite(section.bytes) || !Number.isInteger(section.bytes) || section.bytes < 0) {
+			throw archiveError("invalid_entry", "Invalid section byte count", section.path);
+		}
+		if (section.bytes > limits.maxEntryBytes) {
+			throw archiveEntryTooLarge(section.path, section.bytes, limits.maxEntryBytes);
+		}
+		sectionsByPath.set(section.path, {
+			bytes: section.bytes,
+			manifest: { path: section.path, count: section.count, sha256: section.sha256 },
+		});
 	}
-	const eventsSection: ArchiveSection = {
-		bytes: input.events.bytes,
-		manifest: { path: "events.ndjson", count: input.events.count, sha256: input.events.sha256 },
-	};
-	const sections: ReadonlyArray<ArchiveSection> = [
+	for (const path of STREAMED_SECTION_PATHS) {
+		if (!sectionsByPath.has(path)) {
+			throw archiveError("missing_entry", "Streamed section summary is missing", path);
+		}
+	}
+	sectionsByPath.set(
+		"profile.json",
 		bufferSection("profile.json", [profileChunk(records.profile)], 1, limits.maxMetadataEntryBytes),
+	);
+	sectionsByPath.set(
+		"private-plugins.ndjson",
 		boundedSection("private-plugins.ndjson", records, records.privatePlugins.length, limits),
+	);
+	sectionsByPath.set(
+		"installations.ndjson",
 		boundedSection("installations.ndjson", records, records.installations.length, limits),
-		boundedSection("entities.ndjson", records, records.entities.length, limits),
-		boundedSection(
-			"entity-dependencies.ndjson",
-			records,
-			records.entityDependencies.length,
-			limits,
-		),
-		boundedSection("relationships.ndjson", records, records.relationships.length, limits),
-		eventsSection,
-		boundedSection("saved-views.ndjson", records, records.savedViews.length, limits),
-		boundedSection(
-			"calendar-source-overrides.ndjson",
-			records,
-			records.calendarSourceOverrides.length,
-			limits,
-		),
-		boundedSection("integrations.ndjson", records, records.integrations.length, limits),
-		boundedSection(
-			"notification-subscriptions.ndjson",
-			records,
-			records.notificationSubscriptions.length,
-			limits,
-		),
-		boundedSection("reminders.ndjson", records, records.reminders.length, limits),
-	];
+	);
+	const sections = ARCHIVE_SECTION_PATHS.map((path) => {
+		const section = sectionsByPath.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Archive section summary is missing", path);
+		}
+		return section;
+	});
 	const declaredAssets = new Set<string>();
 	for (const asset of input.assets) {
 		if (asset.metadata.path !== `assets/${asset.metadata.sha256}`) {
@@ -439,12 +313,15 @@ const buildManifest = (
 			throw archiveError("duplicate_path", "Duplicate asset path", asset.metadata.path);
 		}
 		if (asset.metadata.size > limits.maxEntryBytes) {
-			throw entryTooLarge(asset.metadata.path, asset.metadata.size, limits.maxEntryBytes);
+			throw archiveEntryTooLarge(asset.metadata.path, asset.metadata.size, limits.maxEntryBytes);
 		}
 		declaredAssets.add(asset.metadata.path);
 	}
 	if (sections.length + input.assets.length + 1 > limits.maxEntryCount) {
-		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded");
+		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded", undefined, {
+			maxCount: limits.maxEntryCount,
+			actualCount: sections.length + input.assets.length + 1,
+		});
 	}
 	const manifest = ArchiveManifest.make({
 		version: 1,
@@ -461,14 +338,21 @@ const buildManifest = (
 	});
 	const manifestPayload = encodeArchiveJsonLine(ArchiveManifest, manifest, "manifest.json");
 	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
-		throw entryTooLarge("manifest.json", manifestPayload.byteLength, limits.maxMetadataEntryBytes);
+		throw archiveEntryTooLarge(
+			"manifest.json",
+			manifestPayload.byteLength,
+			limits.maxMetadataEntryBytes,
+		);
 	}
 	const totalBytes =
 		manifestPayload.byteLength +
 		sections.reduce((total, section) => total + section.bytes, 0) +
 		input.assets.reduce((total, asset) => total + asset.metadata.size, 0);
 	if (totalBytes > limits.maxTotalUncompressedBytes) {
-		throw archiveError("total_size_exceeded", "ZIP total size limit exceeded");
+		throw archiveError("total_size_exceeded", "ZIP total size limit exceeded", undefined, {
+			actualBytes: totalBytes,
+			maxBytes: limits.maxTotalUncompressedBytes,
+		});
 	}
 	return { sections, manifestPayload };
 };
@@ -478,7 +362,10 @@ const asyncIterator = <A>(values: Iterable<A> | AsyncIterable<A>): AsyncIterator
 		return values[Symbol.asyncIterator]();
 	}
 	const iterator = values[Symbol.iterator]();
-	return { next: () => Promise.resolve(iterator.next()) };
+	return {
+		next: () => Promise.resolve(iterator.next()),
+		return: () => Promise.resolve(iterator.return?.() ?? { done: true, value: undefined }),
+	};
 };
 
 class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
@@ -512,7 +399,25 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 	return(): Promise<IteratorResult<Uint8Array, void>> {
 		this.#zip.terminate();
 		this.#ended = true;
-		return Promise.resolve({ done: true, value: undefined });
+		this.#output.length = 0;
+		this.#file = null;
+		const closeChunks = this.#chunks?.return?.bind(this.#chunks);
+		const closeEntries = this.#entries.return?.bind(this.#entries);
+		this.#chunks = null;
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				for (const close of [closeChunks, closeEntries]) {
+					if (close !== undefined) {
+						yield* Effect.promise((): Promise<unknown> => close()).pipe(
+							Effect.catchCause((cause) =>
+								Effect.logWarning("backup ZIP input cleanup failed", cause),
+							),
+						);
+					}
+				}
+				return { done: true, value: undefined };
+			}),
+		);
 	}
 
 	#next(): Effect.Effect<IteratorResult<Uint8Array, void>, BackupArchiveError> {
@@ -534,8 +439,7 @@ class ZipChunkIterator implements AsyncIterableIterator<Uint8Array> {
 						error instanceof BackupArchiveError
 							? error
 							: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`);
-					this.#zip.terminate();
-					return Effect.fail(failure);
+					return Effect.promise(() => this.return()).pipe(Effect.andThen(Effect.fail(failure)));
 				}),
 			);
 		});
@@ -605,6 +509,20 @@ class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
 		return this;
 	}
 
+	return(): Promise<IteratorResult<Uint8Array, void>> {
+		const close = this.#chunks.return?.bind(this.#chunks);
+		return close === undefined
+			? Promise.resolve({ done: true, value: undefined })
+			: Effect.runPromise(
+					Effect.promise(() => close()).pipe(
+						Effect.catchCause((cause) =>
+							Effect.logWarning("backup verified entry cleanup failed", cause),
+						),
+						Effect.as({ done: true, value: undefined }),
+					),
+				);
+	}
+
 	next(): Promise<IteratorResult<Uint8Array, void>> {
 		return Effect.runPromise(
 			Effect.promise(() => this.#chunks.next()).pipe(
@@ -613,7 +531,9 @@ class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
 						if (!next.done) {
 							this.#hash.update(next.value);
 							if (this.#hash.bytes > this.#limit) {
-								return Effect.fail(entryTooLarge(this.#entry.path, this.#hash.bytes, this.#limit));
+								return Effect.fail(
+									archiveEntryTooLarge(this.#entry.path, this.#hash.bytes, this.#limit),
+								);
 							}
 							return Effect.succeed(next);
 						}
@@ -633,29 +553,45 @@ class VerifiedEntryChunks implements AsyncIterableIterator<Uint8Array> {
 
 const createArchive = (input: CreateArchiveInput, overrides: Partial<ArchiveLimits> = {}) => {
 	const limits = { ...ARCHIVE_LIMITS, ...overrides };
-	const records = sortArchiveRecords(input.records);
+	const records = sortArchiveMetadata(input.records);
 	const { sections, manifestPayload } = buildManifest(input, records, limits);
 	const compression = input.compression ?? "deflate";
 	const assets = [...input.assets].sort((left, right) =>
 		left.metadata.path.localeCompare(right.metadata.path),
 	);
-	const eventChunks = new VerifiedEntryChunks(
-		{
-			path: "events.ndjson",
-			size: input.events.bytes,
-			chunks: input.events.chunks,
-			sha256: input.events.sha256,
-			mismatch: "Event stream does not match its manifest metadata",
-		},
-		limits.maxEntryBytes,
-	);
+	const streamedSections = new Map<string, ArchiveSectionInput>();
+	for (const section of input.sections) {
+		streamedSections.set(section.path, section);
+	}
 	const entries: ZipEntryInput[] = [
 		{ compression, path: "manifest.json", chunks: [manifestPayload] },
-		...sections.map((section) => ({
-			compression,
-			path: section.manifest.path,
-			chunks: section.payload === undefined ? eventChunks : [section.payload],
-		})),
+		...sections.map((section) => {
+			if (section.payload !== undefined) {
+				return { compression, chunks: [section.payload], path: section.manifest.path };
+			}
+			const streamed = streamedSections.get(section.manifest.path);
+			if (streamed === undefined) {
+				throw archiveError(
+					"missing_entry",
+					"Streamed section input is missing",
+					section.manifest.path,
+				);
+			}
+			return {
+				compression,
+				path: section.manifest.path,
+				chunks: new VerifiedEntryChunks(
+					{
+						size: streamed.bytes,
+						chunks: streamed.chunks,
+						sha256: streamed.sha256,
+						path: section.manifest.path,
+						mismatch: "Section stream does not match its manifest metadata",
+					},
+					limits.maxEntryBytes,
+				),
+			};
+		}),
 		...assets.map((asset) => ({
 			path: asset.metadata.path,
 			compression: "store" as const,
@@ -671,7 +607,7 @@ const createArchive = (input: CreateArchiveInput, overrides: Partial<ArchiveLimi
 			),
 		})),
 	];
-	return zipChunks(entries);
+	return { sections, chunks: zipChunks(entries) };
 };
 
 export const createArchiveStream = (
@@ -680,28 +616,46 @@ export const createArchiveStream = (
 ) =>
 	Stream.unwrap(
 		Effect.try({
+			try: () => createArchive(input, overrides),
 			catch: (error) =>
 				error instanceof BackupArchiveError
 					? error
 					: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
-			try: () =>
-				Stream.fromAsyncIterable(createArchive(input, overrides), (error) =>
+		}).pipe(
+			Effect.tap(({ sections }) =>
+				Effect.forEach(
+					sections,
+					(section) =>
+						Effect.logInfo("backup archive section prepared").pipe(
+							Effect.annotateLogs({
+								bytes: section.bytes,
+								count: section.manifest.count,
+								section: section.manifest.path,
+							}),
+						),
+					{ discard: true },
+				),
+			),
+			Effect.map(({ chunks }) =>
+				Stream.fromAsyncIterable(chunks, (error) =>
 					error instanceof BackupArchiveError
 						? error
 						: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
 				),
-		}),
+			),
+		),
 	);
-
-export type ValidatedArchiveEvents = {
-	readonly count: number;
-	readonly sha256: string;
-	readonly read: () => Stream.Stream<ArchiveEvent, BackupArchiveError>;
-};
 
 type ValidatedArchiveAsset = ArchiveAssetManifest & {
 	readonly filePath: string;
 	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
+};
+
+type ValidatedArchive = {
+	readonly records: ArchiveMetadata;
+	readonly sections: ArchiveSections;
+	readonly manifest: ArchiveManifest;
+	readonly assets: ReadonlyArray<ValidatedArchiveAsset>;
 };
 
 type ExtractedEntry = {
@@ -713,13 +667,6 @@ type ExtractedEntry = {
 	chunks?: undefined | Uint8Array[];
 };
 
-type ValidatedArchive = {
-	readonly records: ArchiveRecords;
-	readonly manifest: ArchiveManifest;
-	readonly events: ValidatedArchiveEvents;
-	readonly assets: ReadonlyArray<ValidatedArchiveAsset>;
-};
-
 const validPath = (path: string) => {
 	if (path.startsWith("/") || path.startsWith("\\") || /^[A-Za-z]:/.test(path)) {
 		return false;
@@ -728,6 +675,7 @@ const validPath = (path: string) => {
 };
 
 const SECTION_PATHS = new Set<string>(ARCHIVE_SECTION_PATHS);
+const SPOOLED_SECTION_PATHS = new Set<string>(STREAMED_SECTION_PATHS);
 
 const allowedPath = (path: string) =>
 	path === "manifest.json" || SECTION_PATHS.has(path) || /^assets\/[a-f0-9]{64}$/.test(path);
@@ -772,7 +720,10 @@ const decodeRecords = <A, I>(codec: Schema.Codec<A, I>, entry: ExtractedEntry, l
 	for (const record of decodeNdjson(takeChunks(entry), codec, entry.path)) {
 		records.push(record);
 		if (records.length > limit) {
-			throw archiveError("count_mismatch", "Section record limit exceeded", entry.path);
+			throw archiveError("count_mismatch", "Section record limit exceeded", entry.path, {
+				maxCount: limit,
+				actualCount: records.length,
+			});
 		}
 	}
 	return records;
@@ -853,6 +804,22 @@ class SpooledRecords<A, I> implements AsyncIterableIterator<A> {
 		return Effect.runPromise(this.#next());
 	}
 
+	return(): Promise<IteratorResult<A, void>> {
+		this.#ended = true;
+		this.#pending = [];
+		const close = this.#chunks.return?.bind(this.#chunks);
+		return Effect.runPromise(
+			(close === undefined
+				? Effect.void
+				: Effect.promise(() => close()).pipe(
+						Effect.catchCause((cause) =>
+							Effect.logWarning("backup record input cleanup failed", cause),
+						),
+					)
+			).pipe(Effect.as({ done: true, value: undefined })),
+		);
+	}
+
 	#next(): Effect.Effect<IteratorResult<A, void>, BackupArchiveError> {
 		return Effect.suspend(() => {
 			const value = this.#pending[this.#offset];
@@ -885,19 +852,25 @@ class SpooledRecords<A, I> implements AsyncIterableIterator<A> {
 	}
 }
 
-const streamSpooledEvents = (fs: FileSystem.FileSystem, filePath: string, declared: number) =>
-	Stream.fromAsyncIterable(
-		new SpooledRecords(
-			Stream.toAsyncIterable(fs.stream(filePath)),
-			ARCHIVE_CODECS["events.ndjson"],
-			"events.ndjson",
-			declared,
+const spooledSectionReader = <A, I>(
+	fs: FileSystem.FileSystem,
+	filePath: string,
+	path: StreamedSectionPath,
+	count: number,
+	sha256: string,
+	codec: Schema.Codec<A, I>,
+): ArchiveSectionReader<A> => ({
+	count,
+	sha256,
+	read: () =>
+		Stream.fromAsyncIterable(
+			new SpooledRecords(Stream.toAsyncIterable(fs.stream(filePath)), codec, path, count),
+			(error) =>
+				error instanceof BackupArchiveError
+					? error
+					: archiveError("invalid_entry", `Could not read ${path}`, path),
 		),
-		(error) =>
-			error instanceof BackupArchiveError
-				? error
-				: archiveError("invalid_entry", "Could not read events.ndjson", "events.ndjson"),
-	);
+});
 
 const validateExtracted = (
 	entries: ReadonlyMap<string, ExtractedEntry>,
@@ -916,98 +889,93 @@ const validateExtracted = (
 			? archiveError("unsupported_format", "Unsupported backup format or version", "manifest.json")
 			: error;
 	}
-	validateRequiredPlugins(manifest.requiredPlugins);
+	validateRequiredPlugins(manifest.requiredPlugins, limits.maxPluginRecords);
 	const sections = manifestSections(manifest.sections);
 	for (const path of ARCHIVE_SECTION_PATHS) {
-		if (!entries.has(path)) {
-			throw archiveError("missing_entry", `Archive is missing ${path}`, path);
-		}
-	}
-	const profileEntry = requireEntry(entries, "profile.json");
-	const profileSection = sections.get("profile.json");
-	if (profileSection === undefined) {
-		throw archiveError("missing_entry", "Manifest section is missing", "profile.json");
-	}
-	validateSectionIntegrity("profile.json", profileEntry, profileSection);
-	const profile = decodeJson(ArchiveProfile, profileEntry);
-	validateSectionCount("profile.json", profileSection, 1);
-
-	const readSection = <A, I>(
-		path: Exclude<ArchiveSectionPath, "profile.json">,
-		codec: Schema.Codec<A, I>,
-	) => {
 		const entry = requireEntry(entries, path);
 		const section = sections.get(path);
 		if (section === undefined) {
 			throw archiveError("missing_entry", "Manifest section is missing", path);
 		}
 		validateSectionIntegrity(path, entry, section);
-		const records = decodeRecords(codec, entry, limits.maxRecordsPerSection);
+	}
+	const profileEntry = requireEntry(entries, "profile.json");
+	const profileSection = sections.get("profile.json");
+	if (profileSection === undefined) {
+		throw archiveError("missing_entry", "Manifest section is missing", "profile.json");
+	}
+	const profile = decodeJson(ArchiveProfile, profileEntry);
+	validateSectionCount("profile.json", profileSection, 1);
+
+	const readMetadataSection = <A, I>(path: BoundedSectionPath, codec: Schema.Codec<A, I>) => {
+		const entry = requireEntry(entries, path);
+		const section = sections.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Manifest section is missing", path);
+		}
+		const records = decodeRecords(
+			codec,
+			entry,
+			Math.min(limits.maxRecordsPerSection, limits.maxPluginRecords),
+		);
 		validateSectionCount(path, section, records.length);
 		return records;
 	};
-	const entities = readSection("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]);
-	const savedViews = readSection("saved-views.ndjson", ARCHIVE_CODECS["saved-views.ndjson"]);
-	const calendarSourceOverrides = readSection(
-		"calendar-source-overrides.ndjson",
-		ARCHIVE_CODECS["calendar-source-overrides.ndjson"],
-	);
-	const integrations = readSection("integrations.ndjson", ARCHIVE_CODECS["integrations.ndjson"]);
-	const privatePlugins = readSection(
+	const privatePlugins = readMetadataSection(
 		"private-plugins.ndjson",
 		ARCHIVE_CODECS["private-plugins.ndjson"],
 	);
-	const installations = readSection("installations.ndjson", ARCHIVE_CODECS["installations.ndjson"]);
-	const relationships = readSection("relationships.ndjson", ARCHIVE_CODECS["relationships.ndjson"]);
-	const dependencies = readSection(
-		"entity-dependencies.ndjson",
-		ARCHIVE_CODECS["entity-dependencies.ndjson"],
+	const installations = readMetadataSection(
+		"installations.ndjson",
+		ARCHIVE_CODECS["installations.ndjson"],
 	);
-	const notificationSubscriptions = readSection(
-		"notification-subscriptions.ndjson",
-		ARCHIVE_CODECS["notification-subscriptions.ndjson"],
-	);
-	const reminders = readSection("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]);
-	validateRecordKeys({
-		profile,
-		entities,
-		reminders,
-		savedViews,
-		integrations,
-		installations,
-		relationships,
-		privatePlugins,
-		calendarSourceOverrides,
-		notificationSubscriptions,
-		entityDependencies: dependencies,
-	});
-	validatePluginKeys(
-		{
-			profile,
-			entities,
-			reminders,
-			savedViews,
-			integrations,
-			installations,
-			relationships,
-			privatePlugins,
-			calendarSourceOverrides,
-			notificationSubscriptions,
-			entityDependencies: dependencies,
-		},
-		manifest.requiredPlugins,
-	);
-
-	const eventsEntry = requireEntry(entries, "events.ndjson");
-	const eventsSection = sections.get("events.ndjson");
-	if (eventsSection === undefined) {
-		throw archiveError("missing_entry", "Manifest section is missing", "events.ndjson");
-	}
-	validateSectionIntegrity("events.ndjson", eventsEntry, eventsSection);
-	const eventsPath = eventsEntry.filePath;
-	if (eventsPath === undefined) {
-		throw archiveError("invalid_entry", "Events section was not spooled", "events.ndjson");
-	}
+	const records: ArchiveMetadata = { profile, installations, privatePlugins };
+	validateArchiveMetadata(records);
+	validatePluginKeys(records, manifest.requiredPlugins);
+	const createSectionReader = <A, I>(
+		path: StreamedSectionPath,
+		codec: Schema.Codec<A, I>,
+	): ArchiveSectionReader<A> => {
+		const entry = requireEntry(entries, path);
+		const section = sections.get(path);
+		if (section === undefined) {
+			throw archiveError("missing_entry", "Manifest section is missing", path);
+		}
+		const filePath = entry.filePath;
+		if (filePath === undefined) {
+			throw archiveError("invalid_entry", "Streamed section was not spooled", path);
+		}
+		return spooledSectionReader(fs, filePath, path, section.count, section.sha256, codec);
+	};
+	const streamedSections: ArchiveSections = {
+		"events.ndjson": createSectionReader("events.ndjson", ARCHIVE_CODECS["events.ndjson"]),
+		"entities.ndjson": createSectionReader("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
+		"reminders.ndjson": createSectionReader("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
+		"saved-views.ndjson": createSectionReader(
+			"saved-views.ndjson",
+			ARCHIVE_CODECS["saved-views.ndjson"],
+		),
+		"integrations.ndjson": createSectionReader(
+			"integrations.ndjson",
+			ARCHIVE_CODECS["integrations.ndjson"],
+		),
+		"relationships.ndjson": createSectionReader(
+			"relationships.ndjson",
+			ARCHIVE_CODECS["relationships.ndjson"],
+		),
+		"entity-dependencies.ndjson": createSectionReader(
+			"entity-dependencies.ndjson",
+			ARCHIVE_CODECS["entity-dependencies.ndjson"],
+		),
+		"calendar-source-overrides.ndjson": createSectionReader(
+			"calendar-source-overrides.ndjson",
+			ARCHIVE_CODECS["calendar-source-overrides.ndjson"],
+		),
+		"notification-subscriptions.ndjson": createSectionReader(
+			"notification-subscriptions.ndjson",
+			ARCHIVE_CODECS["notification-subscriptions.ndjson"],
+		),
+	};
 
 	const declaredAssets = new Map<string, ArchiveAssetManifest>();
 	for (const asset of manifest.assets) {
@@ -1040,28 +1008,7 @@ const validateExtracted = (
 		}
 		return Object.assign({}, asset, { filePath, stream: fs.stream(filePath) });
 	});
-	return {
-		assets,
-		manifest,
-		events: {
-			count: eventsSection.count,
-			sha256: eventsSection.sha256,
-			read: () => streamSpooledEvents(fs, eventsPath, eventsSection.count),
-		},
-		records: {
-			profile,
-			entities,
-			reminders,
-			savedViews,
-			integrations,
-			installations,
-			relationships,
-			privatePlugins,
-			calendarSourceOverrides,
-			notificationSubscriptions,
-			entityDependencies: dependencies,
-		},
-	};
+	return { assets, records, manifest, sections: streamedSections };
 };
 
 class BoundedTail {
@@ -1140,7 +1087,10 @@ const validateZipStructure = (
 		throw archiveError("unsupported_format", "Zip64 archives are not supported");
 	}
 	if (entryCount > limits.maxEntryCount) {
-		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded");
+		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded", undefined, {
+			actualCount: entryCount,
+			maxCount: limits.maxEntryCount,
+		});
 	}
 	if (centralBytes > entryCount * (ZIP_CENTRAL_HEADER_BYTES + MAX_ZIP_PATH_BYTES)) {
 		throw archiveError("invalid_archive", "ZIP central directory is too large");
@@ -1270,7 +1220,10 @@ const extractArchive = Effect.fn(function* <E>(
 		entryCount += 1;
 		const path = file.name;
 		if (entryCount > limits.maxEntryCount) {
-			failure = archiveError("entry_count_exceeded", "ZIP entry limit exceeded", path);
+			failure = archiveError("entry_count_exceeded", "ZIP entry limit exceeded", path, {
+				actualCount: entryCount,
+				maxCount: limits.maxEntryCount,
+			});
 			return;
 		}
 		if (!validPath(path)) {
@@ -1294,10 +1247,10 @@ const extractArchive = Effect.fn(function* <E>(
 			return;
 		}
 		const isAsset = path.startsWith("assets/");
-		const isSpooled = isAsset || path === "events.ndjson";
+		const isSpooled = isAsset || SPOOLED_SECTION_PATHS.has(path);
 		const entryLimit = isSpooled ? limits.maxEntryBytes : limits.maxMetadataEntryBytes;
 		if (file.originalSize !== undefined && file.originalSize > entryLimit) {
-			failure = entryTooLarge(path, file.originalSize, entryLimit);
+			failure = archiveEntryTooLarge(path, file.originalSize, entryLimit);
 			return;
 		}
 		const hash = new IncrementalSha256();
@@ -1323,13 +1276,16 @@ const extractArchive = Effect.fn(function* <E>(
 			}
 			hash.update(data);
 			if (hash.bytes > entryLimit) {
-				failure = entryTooLarge(path, hash.bytes, entryLimit);
+				failure = archiveEntryTooLarge(path, hash.bytes, entryLimit);
 				file.terminate();
 				return;
 			}
 			totalBytes += data.byteLength;
 			if (totalBytes > limits.maxTotalUncompressedBytes) {
-				failure = archiveError("total_size_exceeded", "ZIP total size limit exceeded", path);
+				failure = archiveError("total_size_exceeded", "ZIP total size limit exceeded", path, {
+					actualBytes: totalBytes,
+					maxBytes: limits.maxTotalUncompressedBytes,
+				});
 				file.terminate();
 				return;
 			}
@@ -1408,13 +1364,23 @@ const extractArchive = Effect.fn(function* <E>(
 				? error
 				: archiveError("invalid_archive", "ZIP structure validation failed"),
 	});
-	return yield* Effect.try({
+	const validated = yield* Effect.try({
 		try: () => validateExtracted(entries, fs, limits),
 		catch: (error) =>
 			error instanceof BackupArchiveError
 				? error
 				: archiveError("invalid_archive", "Backup archive validation failed"),
 	});
+	for (const section of validated.manifest.sections) {
+		yield* Effect.logInfo("backup archive section validated").pipe(
+			Effect.annotateLogs({
+				count: section.count,
+				section: section.path,
+				bytes: entries.get(section.path)?.bytes,
+			}),
+		);
+	}
+	return validated;
 });
 
 type ValidateArchiveOptions = {
@@ -1422,8 +1388,8 @@ type ValidateArchiveOptions = {
 	readonly limits?: undefined | Partial<ArchiveLimits>;
 };
 
-// The spool directory backs the event and asset streams the caller consumes, so it is owned by the
-// caller's scope: it survives every read and is removed on success, failure, and interruption
+// The spool directory backs the streamed sections and assets the caller consumes, so it is owned
+// by the caller's scope: it survives every read and is removed on success, failure, and interruption
 // alike. Removal never fails the caller, so a committed restore stays committed.
 export const validateArchiveStream = Effect.fn(function* <E>(
 	stream: Stream.Stream<Uint8Array, E>,

@@ -16,7 +16,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, gt, inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
@@ -198,11 +198,16 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				},
 			);
 			const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
-				function* (input: { userId: UserId; afterId?: EventId | undefined }) {
+				function* (input: { userId: UserId; limit?: number; afterId?: EventId | undefined }) {
 					return yield* session.run((db) =>
 						db
-							.select(createdEventSelection)
+							.select({
+								...getTableColumns(schema.event),
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+							})
 							.from(schema.event)
+							.innerJoin(schema.entity, eq(schema.entity.id, schema.event.entityId))
 							.where(
 								and(
 									eq(schema.event.userId, input.userId),
@@ -210,7 +215,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 								),
 							)
 							.orderBy(asc(schema.event.id))
-							.limit(BACKUP_EVENT_PAGE_SIZE),
+							.limit(input.limit ?? BACKUP_EVENT_PAGE_SIZE),
 					);
 				},
 			);

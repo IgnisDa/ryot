@@ -22,7 +22,9 @@ import { reminder } from "#schema/tables/reminders";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
+import { archiveFixtureInput } from "../archive/archive.test-support";
 import { BackupsRepository } from "../runs/repository";
+import { BackupStaging } from "../staging";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import { BackupRestorePersistence } from "./persistence";
 import {
@@ -30,7 +32,7 @@ import {
 	RestoreBackupWorkflowOperations,
 	RestoreBackupWorkflowOperationsLive,
 } from "./workflow";
-import { BackupRestoreWriter, preflightProvenance } from "./writer";
+import { BackupRestoreWriter } from "./writer";
 
 type Scenario =
 	| "success"
@@ -116,8 +118,8 @@ const dependencies = Layer.unwrap(
 					),
 				);
 		return Layer.mergeAll(
-			Layer.succeed(DatabaseSession, { ...database, transaction }),
 			Layer.succeed(BackupsRepository, repository),
+			BackupStaging.layer,
 			Layer.succeed(RestoreDatabaseHarness, {
 				calls: Ref.get(calls),
 				committed: Deferred.await(committed),
@@ -140,12 +142,13 @@ const dependencies = Layer.unwrap(
 					}),
 			}),
 			Layer.mock(BackupRestoreWriter)({
-				preflight: preflightProvenance,
+				stageArchive: () => Effect.void,
+				preflightArchive: () => Effect.void,
 				assertRequiredPlugins: () => Effect.succeed(new Map()),
-				restoreRecords: (userId, records) =>
+				restoreArchive: (userId, _runId, metadata) =>
 					Effect.gen(function* () {
 						yield* record("restore");
-						yield* persistence.restorePortableProfile(userId, records.profile);
+						yield* persistence.restorePortableProfile(userId, metadata.profile);
 						yield* persistence.restoreReminder({
 							userId,
 							entityId: null,
@@ -172,7 +175,7 @@ const dependencies = Layer.unwrap(
 							yield* Ref.set(scenario, "success");
 							return yield* new DbError({ code: "40P01", message: "deadlock detected" });
 						}
-						return undefined;
+						return yield* Effect.void;
 					}),
 			}),
 			Layer.mock(ManagedAssetsService)({}),
@@ -187,37 +190,39 @@ const dependencies = Layer.unwrap(
 				openObject: () =>
 					record("open").pipe(
 						Effect.as(
-							createArchiveStream({
-								assets: [],
-								redactions: [],
-								appVersion: "test",
-								requiredPlugins: [],
-								archiveId: "atomic-restore",
-								createdAt: "2026-10-01T00:00:00.000Z",
-								events: {
-									count: 0,
-									bytes: 0,
-									chunks: [],
-									sha256: new CryptoHasher("sha256").digest("hex"),
-								},
-								records: {
-									profile,
-									entities: [],
-									reminders: [],
-									savedViews: [],
-									integrations: [],
-									installations: [],
-									relationships: [],
-									privatePlugins: [],
-									entityDependencies: [],
-									calendarSourceOverrides: [],
-									notificationSubscriptions: [],
-								},
-							}).pipe(Stream.mapError(() => new BadRequest({ message: "archive stream failed" }))),
+							createArchiveStream(
+								archiveFixtureInput({
+									assets: [],
+									redactions: [],
+									appVersion: "test",
+									requiredPlugins: [],
+									archiveId: "atomic-restore",
+									createdAt: "2026-10-01T00:00:00.000Z",
+									events: {
+										count: 0,
+										bytes: 0,
+										chunks: [],
+										sha256: new CryptoHasher("sha256").digest("hex"),
+									},
+									records: {
+										profile,
+										entities: [],
+										reminders: [],
+										savedViews: [],
+										integrations: [],
+										installations: [],
+										relationships: [],
+										privatePlugins: [],
+										entityDependencies: [],
+										calendarSourceOverrides: [],
+										notificationSubscriptions: [],
+									},
+								}),
+							).pipe(Stream.mapError(() => new BadRequest({ message: "archive stream failed" }))),
 						),
 					),
 			}),
-		);
+		).pipe(Layer.provideMerge(Layer.succeed(DatabaseSession, { ...database, transaction })));
 	}),
 ).pipe(Layer.provide(makeRevisionDatabaseLayer()));
 

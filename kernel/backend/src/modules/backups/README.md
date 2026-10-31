@@ -14,42 +14,86 @@ The manifest contains `format: "ryot-backup"`, version 1, archive/application id
 
 `profile.json` contains complete canonical user preferences. Export decodes the stored value; archive validation and historical restore reject malformed or incomplete preferences instead of filling missing fields.
 
+Shared dependencies use explicit `provider-reference`, `bootstrap-reference`, and `snapshot` records.
+References contain archive-local IDs, exact package/schema ownership, stable provider or bootstrap
+identity, and a fallback name. Provider references are limited to provider roots. A provider child's
+external ID alone does not establish a safe reconstruction route, so such children retain portable
+snapshots. Non-reconstructible unmanaged dependencies also retain snapshots. Source database IDs
+never select destination rows. Generated translation overlays and properties/assets belonging only
+to compact references are omitted.
+
 The timezone preference is restored like any other preference. The zone chosen at account creation
 does not make a restore target unclean; the archived preference replaces it. Other non-default
 account preferences still make the target unclean.
 
 ## Streaming
 
-`events.ndjson` is the only usage-sized section and is a leaf: manifest construction, plugin resolution, and ID-remapping maps never depend on reading all events. Therefore:
+Every usage-sized NDJSON section is disk-backed: entities, dependencies, relationships, events,
+saved views, calendar overrides, integrations, subscriptions, and reminders. Export uses stable
+keyset pages and incrementally counts and hashes each spool. ZIP entry streams open on demand and
+advance under storage backpressure. Profile, private packages, installations, and the manifest retain
+strict metadata limits.
 
-- Export discovers global dependencies referenced by schema-declared event entity-ID properties, including nested object and array paths, with a set-based database query. Absent optional fields do not stop discovery. Account, entity-schema owner and event-schema owner bind exactly; ordinary string fields are not references. It does not read all events into application memory.
-- Export pages events into a temp file while incrementally counting and hashing; restore spools and inserts them in `RESTORE_EVENT_BATCH_SIZE` batches.
-- No export or restore structure may be O(n) in event count. Duplicate event IDs are rejected by the database and mapped to `duplicate_record_id`, not tracked in memory.
-- All bounded sections are encoded once in memory and reused for the ZIP entry.
-- Assets and events are disk-backed; their limits bound disk and abuse. Metadata limits bound memory.
+Dependency discovery uses set-based, owner-bound queries and schema-declared reference paths,
+including nested object/array fields. Decrypted installation configuration and preferences are
+bounded metadata inputs. Snapshot dependencies are discovered through an indexed pending set until
+the dependency closure is complete; ordinary string fields are never treated as references.
 
-| Limit                       |   Value | Applies to                          |
-| --------------------------- | ------: | ----------------------------------- |
-| `maxEntryCount`             |   4,096 | ZIP central-directory work          |
-| `maxRecordsPerSection`      | 250,000 | Bounded sections; events are exempt |
-| `maxMetadataEntryBytes`     |  32 MiB | Manifest, profile, bounded sections |
-| `maxEntryBytes`             | 256 MiB | Each asset or `events.ndjson`       |
-| `maxTotalUncompressedBytes` |   1 GiB | Whole archive                       |
+Run-scoped PostgreSQL staging tables own growing ID sets, duplicate detection, reference edges,
+and destination mappings. Restore validates all streamed sections before account writes, allocates
+mappings before rewriting forward references or cycles, and retains only the current page and its
+referenced identities in application memory. Staged record pages are bounded by both count and
+uncompressed JSON bytes; PostgreSQL compression cannot bypass the byte bound. Scope finalizers clean
+staging on success, failure, and interruption. Retried runs replace their staging, and recovery
+removes expired or terminal-run staging.
+
+- Every NDJSON record is limited to 4 MiB of UTF-8 JSON, excluding its newline. The decoder checks
+  bytes before buffering, including incomplete lines, and reuses a bounded buffer across records.
+  Manifest and profile entries retain their separate metadata limit.
+
+| Limit                       |   Value | Applies to                                         |
+| --------------------------- | ------: | -------------------------------------------------- |
+| `maxEntryCount`             |   4,096 | ZIP central-directory work                         |
+| `maxPluginRecords`          |     256 | Private packages, installations, required packages |
+| `maxRecordsPerSection`      | 250,000 | Bounded metadata sections                          |
+| `maxMetadataEntryBytes`     |  32 MiB | Manifest, profile, bounded sections                |
+| `ARCHIVE_MAX_RECORD_BYTES`  |   4 MiB | Each NDJSON record                                 |
+| `maxEntryBytes`             | 256 MiB | Each asset or streamed section                     |
+| `maxTotalUncompressedBytes` |   1 GiB | Whole archive                                      |
 
 Export upload additionally allows 64 MiB for ZIP overhead.
 
+Section preparation and validation log record counts and byte sizes. Size-limit errors carry the
+entry path, measured bytes, and permitted bytes. Export preserves these archive failures even when
+the storage writer replaces its input-stream error with an upload failure. Asset objects open only
+when the ZIP writer reaches their entry, not when the asset list is assembled.
+
 ## Export And Restore
 
-The [kernel transaction invariant](../../../AGENTS.md) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
+The [kernel transaction invariant](../../../AGENTS.md) forbids transactions across network I/O.
+Export creates scoped temporary files and run-scoped staging, reads one repeatable-read snapshot,
+spills record pages, commits, and only then streams the ZIP and assets to object storage. The snapshot
+transaction writes only backup staging, not account data.
 
-Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, declared ownership, typed references, required system packages, and private packages before account writes. Package keys encode scope and `publisher/name` package ID; names and slugs are metadata. Private packages include a manifest, compiled scripts, and the package-bound compiled-client artifact with its fingerprint; they include no authoring source. Assets are staged before the transaction so network work is outside it.
+Restore validation spools all record sections and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, declared ownership, typed references, required system packages, and private packages before account writes. Package keys encode scope and `publisher/name` package ID; names and slugs are metadata. Private packages include a manifest, compiled scripts, and the package-bound compiled-client artifact with its fingerprint; they include no authoring source. Assets are staged before the transaction so network work is outside it.
 
 System requirements contain a definition contract derived from the manifest schemas. Restore binds only a matching destination system package. A compatible revision can satisfy the requirement after contract and restored-value validation. Missing or incompatible packages fail preflight. Account restore never installs system code or changes a system revision, environment configuration, or shared global entity that already exists. Private records cannot request global scope.
 
 User-owned entity records may carry provider provenance only from a private plugin. System-provider
 entities belong in global entity dependencies; preflight rejects them in the user-owned section.
 
-Historical writes and run completion occur in the same database transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Replay uses completed status, not display progress. A transaction failure rereads that status before retrying or reporting failure, so a lost commit acknowledgement does not repeat committed writes. Temporary upload deletion is best effort after completion; deletion failure is logged and swallowed.
+Historical writes and run completion occur in the same database transaction: restore is atomic.
+Validated staged pages are inserted inside it. Replay uses completed status, not display progress.
+A transaction failure rereads that status before retrying or reporting failure, so a lost commit
+acknowledgement does not repeat committed writes. Temporary upload deletion is best effort after
+completion; deletion failure is logged and swallowed.
+
+Restore never calls providers. Missing reference targets are reserved with destination-local IDs,
+the verified schema/provider identity, a fallback name, empty properties, and `populatedAt: null`.
+This is an unpopulated entity, not schema-complete metadata. Natural-identity conflicts reuse the
+destination row without overwriting its metadata. Normal foreground enrichment supplies later
+population with the existing admission, concurrency, and retry controls; restore creates no refresh
+fan-out. Snapshot metadata is applied only to rows allocated by this restore.
 
 Event archives contain source rows and their schema-backed properties, not derived events or projection
 checkpoints. Restore remaps typed references and marks affected streams for normal reconciliation
@@ -78,7 +122,12 @@ Installation records require `isInitialized`, the persisted completion marker fr
 
 Each installation is identified only by its scoped package key, and installation records sort by that key. Custom view workspace associations and integration owners reference this key directly; null means an unassociated view or a kernel integration. Renderer ownership is independent of workspace association. Duplicate installation keys and references to missing installations are rejected. Installation configuration redaction paths use the JSON Pointer-escaped package key. One map binds these keys to destination installation IDs, reusing existing system installations without replacing environment configuration.
 
-Explicit maps also bind package keys to plugins, entity IDs, relationship IDs, and custom saved-view IDs. Events retain duplicate detection through deterministic destination-user-scoped IDs without an event-count-sized map. Providers, sessions, integrations, subscriptions, renderer owners, workspace associations, home references, and built-in overrides keep their exact ownership. Only typed query plugin references and the known renderer schema-reference codec remap plugin ownership. Ordinary query literals and opaque plugin JSON remain unchanged.
+Bounded metadata maps bind package keys to destination plugins and installations. Indexed staging
+binds record IDs, including custom saved views and reminder replacements. Events use deterministic
+destination-user-scoped IDs with indexed duplicate detection. Providers, sessions, integrations,
+subscriptions, renderer owners, workspace associations, home references, and built-in overrides keep
+their exact ownership. Only typed query plugin references and the known renderer schema-reference
+codec remap plugin ownership. Ordinary query literals and opaque plugin JSON remain unchanged.
 
 Installation records include per-user plugin preferences as JSON. Plugin manifest settings schemas forbid secret fields, so these preferences are included as non-secret data and validated against the active manifest during restore. The archive format version remains 1.
 
@@ -88,11 +137,20 @@ Client page compositions are derived from restored compiled artifacts and curren
 
 Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 
-Account restore retains canonical entity data, relationships, and translation overlays, but enrichment request and workflow state is runtime state and is not included. Restored translation overlays bind their `sourceContentGeneration` to the destination entity's current canonical content generation, so restore does not carry a source generation from another database. Restored dependencies have no related-completion stamp; foreground interest rechecks them lazily. The archive version and layout are unchanged.
+Account restore retains user-owned canonical data, relationships, event facts, and required snapshot
+dependencies. Enrichment requests, generated translations, and workflow state are not exported.
+Snapshot translation overlays supplied by an archive bind their source generation to the destination
+entity's current canonical generation. Dependencies have no related-completion stamp; foreground
+interest rechecks them lazily. The archive version and entry layout remain unchanged.
 
 A restore target is clean only when every existing entity looks bootstrap-created: no provider, no external ID, and at most one such entity per entity schema, which is what a user-bootstrap ensure produces. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
 
-Reminder records are required metadata in the current archive. Export includes reminder-only global
+Restore-target inspection uses existence and grouped queries for growing collections; it does not
+load their properties. Reminder removal fences also make a target unclean. Saved-view and
+subscription comparisons read at most their definition count plus one. Installation inspection
+reads at most 4,097 rows and rejects a target with more than 4,096 installations.
+
+Reminder records are a required streamed section in the current archive. Export includes reminder-only global
 targets and parent scopes as dependencies. Restore remaps targets, parents and replacement links.
 Unfinished records become `needs-scheduling`, with no active instant, formatter, trigger, dispatch or
 delivery claim. Original date/time values remain, including whether a Processing source may have

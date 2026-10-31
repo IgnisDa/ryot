@@ -41,7 +41,7 @@ const collectPropertyReferenceIds = (
 	definition: AppPropertyDefinition,
 	value: unknown,
 	ids: Set<string>,
-	kind: "entity-id" | "relationship-id",
+	kind: "event-id" | "entity-id" | "relationship-id",
 ) => {
 	if (
 		definition.type === "string" &&
@@ -69,7 +69,7 @@ export const collectEmbeddedReferenceIds = (
 		readonly propertiesSchema: AppSchema;
 		readonly properties: Readonly<Record<string, unknown>>;
 	}>,
-	kind: "entity-id" | "relationship-id",
+	kind: "event-id" | "entity-id" | "relationship-id",
 ) => {
 	const ids = new Set<string>();
 	for (const { properties, propertiesSchema } of records) {

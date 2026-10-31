@@ -1,7 +1,6 @@
 import { layer } from "@effect/vitest";
 import {
 	CalendarSourceSlug,
-	EntitySchemaSlug,
 	NotificationSubscriptionId,
 	PluginId,
 	SavedViewId,
@@ -12,11 +11,11 @@ import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
-import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import { CalendarSourcesService } from "#modules/calendar-sources/service";
@@ -26,10 +25,6 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import type { SavedViewDefinition } from "#modules/definitions/snapshot";
 import { materializeSavedView } from "#modules/definitions/source";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
-import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
-import { IntegrationsRepository } from "#modules/integrations/repository";
-import { NotificationsRepository } from "#modules/notifications/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
@@ -37,28 +32,17 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
+import { BackupExportRepository } from "../export/repository";
 import {
 	type AccountCleanlinessState,
 	BackupAccountCleanliness,
 	classifyAccountCleanliness,
 } from "./account-cleanliness";
-
-const entity = (id = "entity-id") => ({
-	id,
-	provider: null,
-	properties: {},
-	name: "Entity",
-	externalId: null,
-	populatedAt: null,
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
-	entitySchemaPluginId: null,
-	entitySchemaSlug: EntitySchemaSlug.make("entity"),
-});
 
 const systemInstallation = (
 	overrides: Partial<AccountCleanlinessState["pluginState"][number]> = {},
@@ -86,19 +70,18 @@ const systemInstallation = (
 	}) as const;
 
 const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCleanlinessState => ({
-	entities: [],
 	savedViews: [],
 	pluginState: [],
 	hasEvents: false,
-	relationships: [],
 	hasReminders: false,
 	expectedSavedViews: [],
 	hasIntegrations: false,
+	hasRelationships: false,
 	hasManagedAssets: false,
 	notificationSubscriptions: [],
+	hasNonBootstrapEntities: false,
 	hasNotificationChannels: false,
 	hasCalendarSourceOverrides: false,
-	expectedBootstrapRelationships: [],
 	expectedNotificationSubscriptions: [],
 	defaultPreferences: { ...defaultUserPreferences },
 	profile: { image: null, name: "User", preferences: { ...defaultUserPreferences } },
@@ -254,19 +237,6 @@ describe("classifyAccountCleanliness", () => {
 		expect(classifyAccountCleanliness(cleanState())).toBeNull();
 	});
 
-	it("accepts one bootstrap-shaped entity per entity schema", () => {
-		expect(
-			classifyAccountCleanliness(
-				cleanState({
-					entities: [
-						entity(),
-						{ ...entity("library-id"), entitySchemaSlug: EntitySchemaSlug.make("media-library") },
-					],
-				}),
-			),
-		).toBeNull();
-	});
-
 	it("accepts an account holding only default system installations", () => {
 		expect(
 			classifyAccountCleanliness(
@@ -275,19 +245,6 @@ describe("classifyAccountCleanliness", () => {
 						systemInstallation(),
 						systemInstallation({ pluginId: "sample-plugin-id" }),
 						systemInstallation({ health: "installing", pluginId: "shipped-plugin-id" }),
-					],
-				}),
-			),
-		).toBeNull();
-	});
-
-	it("accepts separate bootstrap identities with the same local schema slug", () => {
-		expect(
-			classifyAccountCleanliness(
-				cleanState({
-					entities: [
-						{ ...entity("first"), entitySchemaPluginId: "first-owner" },
-						{ ...entity("second"), entitySchemaPluginId: "second-owner" },
 					],
 				}),
 			),
@@ -395,29 +352,6 @@ describe("classifyAccountCleanliness", () => {
 		).toBe("saved-views");
 	});
 
-	it("compares structural relationships with their exact schema owner", () => {
-		const kernel = {
-			properties: {},
-			sourceEntityId: "source",
-			targetEntityId: "target",
-			relationshipSchemaPluginId: null,
-			relationshipSchemaSlug: "member-of",
-		};
-		expect(
-			classifyAccountCleanliness(
-				cleanState({ relationships: [kernel], expectedBootstrapRelationships: [kernel] }),
-			),
-		).toBeNull();
-		expect(
-			classifyAccountCleanliness(
-				cleanState({
-					expectedBootstrapRelationships: [kernel],
-					relationships: [{ ...kernel, relationshipSchemaPluginId: "foreign-owner" }],
-				}),
-			),
-		).toBe("relationships");
-	});
-
 	it("accepts owner-qualified same-named default subscriptions", () => {
 		expect(
 			classifyAccountCleanliness(
@@ -470,30 +404,8 @@ describe("classifyAccountCleanliness", () => {
 		["events", { hasEvents: true }],
 		["reminders", { hasReminders: true }],
 		["managed-assets", { hasManagedAssets: true }],
-		[
-			"relationships",
-			{
-				relationships: [
-					{
-						properties: {},
-						sourceEntityId: "source",
-						targetEntityId: "target",
-						relationshipSchemaPluginId: null,
-						relationshipSchemaSlug: "member-of",
-					},
-				],
-			},
-		],
-		["entities", { entities: [entity(), entity("duplicate-schema-id")] }],
-		["entities", { entities: [{ ...entity(), externalId: "external" }] }],
-		[
-			"entities",
-			{
-				entities: [
-					{ ...entity(), provider: { pluginId: "plugin", providerSlug: "item.provider" } },
-				],
-			},
-		],
+		["relationships", { hasRelationships: true }],
+		["entities", { hasNonBootstrapEntities: true }],
 		[
 			"saved-views",
 			{
@@ -559,23 +471,79 @@ describe("classifyAccountCleanliness", () => {
 layer(
 	BackupAccountCleanliness.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(
-				AuthRepository.layer,
-				EventsRepository.layer,
-				EntitiesRepositoryLive,
-				SavedViewsRepository.layer,
-				AutomationsRepository.layer,
-				IntegrationsRepository.layer,
-				RelationshipsRepository.layer,
-				NotificationsRepository.layer,
-				Layer.mock(ManagedAssetsService, { listManagedAssetsForOwner: () => Effect.succeed([]) }),
-			),
+			Layer.mergeAll(AuthRepository.layer, SavedViewsRepository.layer, AutomationsRepository.layer),
 		),
 		Layer.provideMerge(CalendarSourcesServiceLive),
 		Layer.provideMerge(revisionDatabaseLayer),
 		Layer.provide(makeAppConfigLayer()),
 	),
 )((test) => {
+	test.effect("checks bootstrap identity and retained reminder fences without loading rows", () =>
+		Effect.gen(function* () {
+			const database = yield* DatabaseSession;
+			const reads = yield* BackupExportRepository.make;
+			const userId = UserId.make(yield* randomUuid);
+			const reminderId = yield* randomUuid;
+			yield* database.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: userId, name: "Restore target", email: `${userId}@example.com` }),
+			);
+			const packageValue = revisionPackage("bootstrap-identity");
+			const installed = yield* installRevisionPackage({
+				...packageValue,
+				manifest: { ...packageValue.manifest, hooks: [], signalSchemas: [] },
+			});
+			yield* database.run((db) =>
+				db.insert(tables.entity).values([
+					{ userId, name: "Kernel", entitySchemaSlug: "record" },
+					{
+						userId,
+						name: "Plugin",
+						entitySchemaSlug: "record",
+						entitySchemaPluginId: installed.pluginId,
+					},
+				]),
+			);
+			expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(false);
+			yield* database.run((db) =>
+				db.insert(tables.entity).values({ userId, name: "Duplicate", entitySchemaSlug: "record" }),
+			);
+			expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
+			yield* database.run((db) =>
+				db
+					.insert(tables.reminder)
+					.values({
+						userId,
+						id: reminderId,
+						state: "cancelled",
+						removedAt: new Date(0),
+						accountGeneration: "generation",
+					}),
+			);
+			expect((yield* reads.inspectRestoreTarget(userId))?.hasReminders).toBe(true);
+		}),
+	);
+
+	test.effect("rejects externally identified entities through the aggregate inspection", () =>
+		Effect.gen(function* () {
+			const database = yield* DatabaseSession;
+			const reads = yield* BackupExportRepository.make;
+			const userId = UserId.make(yield* randomUuid);
+			yield* database.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: userId, name: "External target", email: `${userId}@example.com` }),
+			);
+			yield* database.run((db) =>
+				db
+					.insert(tables.entity)
+					.values({ userId, name: "External", externalId: "external", entitySchemaSlug: "record" }),
+			);
+			expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
+		}),
+	);
+
 	test.effect("rejects restores onto an account with a calendar source override", () =>
 		Effect.gen(function* () {
 			const cleanliness = yield* BackupAccountCleanliness;

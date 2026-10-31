@@ -19,6 +19,7 @@ import { ExportBackupWorkflow } from "./export/workflow";
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { RestoreBackupWorkflow } from "./restore/workflow";
 import { BackupsRepository } from "./runs/repository";
+import { BackupStaging } from "./staging";
 
 const mapDbToInternal = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(
@@ -55,6 +56,7 @@ export class BackupsService extends Context.Service<BackupsService>()(
 			const engine = yield* WorkflowEngine;
 			const uploads = yield* ObjectStorageService;
 			const repository = yield* BackupsRepository;
+			const staging = yield* BackupStaging;
 			const cleanliness = yield* BackupAccountCleanliness;
 			const downloadTickets = yield* DownloadTickets;
 
@@ -229,6 +231,7 @@ export class BackupsService extends Context.Service<BackupsService>()(
 
 			const cleanupExpiredArtifacts = Effect.fn("BackupsService.cleanupExpiredArtifacts")(
 				function* (limit: number) {
+					yield* staging.recoverAbandoned();
 					const artifacts = yield* repository.listExpiredArtifacts({ limit });
 					yield* Effect.forEach(
 						artifacts,

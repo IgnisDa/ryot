@@ -23,8 +23,9 @@ import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { validateArchiveStream } from "../archive/archive";
-import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive/error";
+import { archiveFailure, BackupArchiveError } from "../archive/error";
 import { BackupsRepository } from "../runs/repository";
+import { BackupStaging } from "../staging";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import { BackupRestoreWriter, RequiredBackupPluginUnavailable } from "./writer";
 
@@ -49,39 +50,6 @@ export const RestoreBackupWorkflow = Workflow.make("RestoreBackupWorkflow", {
 	error: BackupWorkflowError satisfies DurableSchema,
 	payload: RestoreBackupWorkflowPayload satisfies DurableSchema,
 });
-
-type InvalidArchiveIssue = Extract<BackupRunFailureValue, { code: "archive-invalid" }>["issue"];
-
-const invalidArchiveIssues = {
-	invalid_path: "invalid-path",
-	invalid_entry: "invalid-entry",
-	missing_entry: "missing-entry",
-	count_mismatch: "count-mismatch",
-	duplicate_path: "duplicate-path",
-	entry_too_large: "entry-too-large",
-	invalid_archive: "invalid-archive",
-	unexpected_path: "unexpected-path",
-	truncated_ndjson: "truncated-ndjson",
-	undeclared_asset: "undeclared-asset",
-	checksum_mismatch: "checksum-mismatch",
-	duplicate_record_id: "duplicate-record-id",
-	total_size_exceeded: "total-size-exceeded",
-	entry_count_exceeded: "entry-count-exceeded",
-	missing_reference_mapping: "missing-reference-mapping",
-} as const satisfies Record<
-	Exclude<BackupArchiveErrorReason, "unsupported_format" | "unsupported_compression">,
-	InvalidArchiveIssue
->;
-
-const archiveFailure = (error: BackupArchiveError): BackupRunFailureValue => {
-	if (error.reason === "unsupported_compression") {
-		return { feature: "compression", code: "archive-unsupported" };
-	}
-	if (error.reason === "unsupported_format") {
-		return { feature: "format", code: "archive-unsupported" };
-	}
-	return { code: "archive-invalid", issue: invalidArchiveIssues[error.reason] };
-};
 
 const restoreFailure = (error: unknown): BackupRunFailureValue => {
 	if (error instanceof BackupArchiveError) {
@@ -153,6 +121,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 		const database = yield* DatabaseSession;
 		const fs = yield* FileSystem.FileSystem;
 		const writer = yield* BackupRestoreWriter;
+		const staging = yield* BackupStaging;
 		const repository = yield* BackupsRepository;
 		const pluginRestore = yield* PluginBackupRestore;
 		const uploadIntents = yield* UploadIntentsService;
@@ -201,6 +170,19 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					if (run.status === "completed") {
 						return yield* Effect.void;
 					}
+					yield* staging.recoverAbandoned();
+					yield* staging.begin(payload.runId);
+					yield* Effect.addFinalizer(() =>
+						staging
+							.cleanup(payload.runId)
+							.pipe(
+								Effect.catchCause((cause) =>
+									Effect.logWarning("backup restore staging cleanup failed", cause).pipe(
+										Effect.annotateLogs({ runId: payload.runId }),
+									),
+								),
+							),
+					);
 					const source = yield* objectStorage.openObject({ type: "local", key: archive.key });
 					const validated = yield* validateArchiveStream(source, {
 						directory: config.fileStorage.localTempDir,
@@ -219,9 +201,16 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							preparedPlugins,
 							preflightPluginIds,
 						);
-						yield* writer.preflight(
+						yield* writer.stageArchive(
+							payload.runId,
 							validated.records,
-							validated.events,
+							validated.sections,
+							preflightPluginIds,
+							preflightDefinitions,
+						);
+						yield* writer.preflightArchive(
+							payload.runId,
+							validated.records,
 							preflightPluginIds,
 							preflightDefinitions,
 							validated.manifest.requiredPlugins,
@@ -268,9 +257,9 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 								preparedPlugins,
 								pluginIdByKey,
 							);
-							yield* writer.preflight(
+							yield* writer.preflightArchive(
+								payload.runId,
 								validated.records,
-								validated.events,
 								pluginIdByKey,
 								definitions,
 								validated.manifest.requiredPlugins,
@@ -278,13 +267,13 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							for (const staged of stagedBySha.values()) {
 								yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
 							}
-							yield* writer.restoreRecords(
+							yield* writer.restoreArchive(
 								payload.userId,
+								payload.runId,
 								validated.records,
-								assetLocators,
-								validated.events,
 								pluginIdByKey,
 								definitions,
+								assetLocators,
 							);
 							if (!(yield* repository.completeRun(payload))) {
 								return yield* internalError("Backup restore could not be completed");

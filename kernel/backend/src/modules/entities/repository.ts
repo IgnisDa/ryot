@@ -1,6 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	type DeclarationReference,
 	definitionKey,
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -16,7 +15,7 @@ import {
 	asc,
 	count,
 	eq,
-	exists,
+	gt,
 	inArray,
 	isNotNull,
 	isNull,
@@ -153,6 +152,15 @@ const portableEntitySelection = {
 	providerSlug: schema.sandboxProvider.slug,
 	entitySchemaSlug: schema.entity.entitySchemaSlug,
 	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+};
+
+const portableDependencySelection = {
+	...portableEntitySelection,
+	properties: sql<Record<string, unknown>>`case
+		when ${schema.entity.externalId} is not null and (
+			(${schema.entity.providerId} is null and ${schema.entity.entitySchemaPluginId} is not null)
+			or ${schema.sandboxProvider.rootEntitySchemaSlug} = ${schema.entity.entitySchemaSlug}
+		) then '{}'::jsonb else ${schema.entity.properties} end`,
 };
 
 const toPortableEntity = (
@@ -420,9 +428,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				},
 			);
 			const listUserEntitiesForBackup = Effect.fn("EntitiesRepository.listUserEntitiesForBackup")(
-				function* (userId: UserId) {
-					const rows = yield* session.run((db) =>
-						db
+				function* (userId: UserId, page?: { limit: number; afterId?: string | undefined }) {
+					const rows = yield* session.run((db) => {
+						const query = db
 							.select(portableEntitySelection)
 							.from(schema.entity)
 							.leftJoin(
@@ -430,79 +438,18 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								eq(schema.entity.providerId, schema.sandboxProvider.id),
 							)
 							.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
-							.where(eq(schema.entity.userId, userId))
-							.orderBy(asc(schema.entity.id)),
-					);
+							.where(
+								and(
+									eq(schema.entity.userId, userId),
+									page?.afterId === undefined ? undefined : gt(schema.entity.id, page.afterId),
+								),
+							)
+							.orderBy(asc(schema.entity.id));
+						return page === undefined ? query : query.limit(page.limit);
+					});
 					return rows.map(toPortableEntity);
 				},
 			);
-
-			const listReferencedGlobalEntitiesForBackup = Effect.fn(
-				"EntitiesRepository.listReferencedGlobalEntitiesForBackup",
-			)(function* (userId: UserId) {
-				const rows = yield* session.run((db) =>
-					db
-						.select(portableEntitySelection)
-						.from(schema.entity)
-						.leftJoin(
-							schema.sandboxProvider,
-							eq(schema.entity.providerId, schema.sandboxProvider.id),
-						)
-						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
-						.where(
-							and(
-								isNull(schema.entity.userId),
-								or(
-									exists(
-										db
-											.select({ id: schema.reminder.id })
-											.from(schema.reminder)
-											.where(
-												and(
-													eq(schema.reminder.userId, userId),
-													isNull(schema.reminder.removedAt),
-													or(
-														eq(schema.reminder.entityId, schema.entity.id),
-														eq(schema.reminder.parentEntityId, schema.entity.id),
-													),
-												),
-											),
-									),
-									exists(
-										db
-											.select({ id: schema.relationship.id })
-											.from(schema.relationship)
-											.where(
-												and(
-													eq(schema.relationship.userId, userId),
-													or(
-														eq(schema.relationship.sourceEntityId, schema.entity.id),
-														eq(schema.relationship.targetEntityId, schema.entity.id),
-													),
-												),
-											),
-									),
-									exists(
-										db
-											.select({ id: schema.event.id })
-											.from(schema.event)
-											.where(
-												and(
-													eq(schema.event.userId, userId),
-													or(
-														eq(schema.event.entityId, schema.entity.id),
-														eq(schema.event.sessionEntityId, schema.entity.id),
-													),
-												),
-											),
-									),
-								),
-							),
-						)
-						.orderBy(asc(schema.entity.id)),
-				);
-				return rows.map(toPortableEntity);
-			});
 
 			const listGlobalEntitiesByIdsForBackup = Effect.fn(
 				"EntitiesRepository.listGlobalEntitiesByIdsForBackup",
@@ -512,7 +459,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				}
 				const rows = yield* session.run((db) =>
 					db
-						.select(portableEntitySelection)
+						.select(portableDependencySelection)
 						.from(schema.entity)
 						.leftJoin(
 							schema.sandboxProvider,
@@ -805,55 +752,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						}
 					: null;
 			});
-
-			const findGlobalEntityForRestore = Effect.fn("EntitiesRepository.findGlobalEntityForRestore")(
-				function* (input: {
-					externalId: string;
-					entitySchemaSlug: EntitySchemaSlug;
-					entitySchemaPluginId: null | string;
-					provider: null | DeclarationReference;
-				}) {
-					const [row] = yield* session.run((db) =>
-						db
-							.select({
-								id: schema.entity.id,
-								entitySchemaSlug: schema.entity.entitySchemaSlug,
-								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
-							})
-							.from(schema.entity)
-							.leftJoin(
-								schema.sandboxProvider,
-								eq(schema.entity.providerId, schema.sandboxProvider.id),
-							)
-							.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxProvider.pluginId))
-							.where(
-								and(
-									isNull(schema.entity.userId),
-									eq(schema.entity.externalId, input.externalId),
-									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-									entitySchemaPluginWhere(input.entitySchemaPluginId),
-									input.provider === null
-										? isNull(schema.entity.providerId)
-										: and(
-												input.provider.owner.kind === "plugin"
-													? eq(schema.plugin.id, input.provider.owner.pluginId)
-													: sql`false`,
-												isNull(schema.plugin.ownerId),
-												eq(schema.sandboxProvider.slug, input.provider.slug),
-											),
-								),
-							)
-							.limit(1),
-					);
-					return row
-						? {
-								id: EntityId.make(row.id),
-								entitySchemaPluginId: row.entitySchemaPluginId,
-								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
-							}
-						: null;
-				},
-			);
 
 			const lockGlobalEntityProvenanceScopes = Effect.fn(
 				"EntitiesRepository.lockGlobalEntityProvenanceScopes",
@@ -1180,7 +1078,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				stampChildRelatedPopulated,
-				findGlobalEntityForRestore,
 				lockProviderEntityMutations,
 				findUserEntityWithoutProvenance,
 				holdsRelatedPopulationGeneration,
@@ -1189,7 +1086,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				findUserEntitiesWithoutProvenance,
 				findSystemEntitySchemaByReference,
 				countGlobalEntitiesByProvenanceScopes,
-				listReferencedGlobalEntitiesForBackup,
 			};
 		}),
 	},

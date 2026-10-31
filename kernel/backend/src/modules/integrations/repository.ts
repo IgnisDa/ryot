@@ -12,7 +12,7 @@ import {
 	IntegrationWebhookToken,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -412,14 +412,21 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const listForBackup = Effect.fn("IntegrationsRepository.listForBackup")(function* (
 				userId: UserId,
+				page?: { limit: number; afterId?: string | undefined },
 			) {
-				return yield* database.run((db) =>
-					db
+				return yield* database.run((db) => {
+					const query = db
 						.select(integrationBackupSelection)
 						.from(schema.integration)
-						.where(eq(schema.integration.userId, userId))
-						.orderBy(asc(schema.integration.id)),
-				);
+						.where(
+							and(
+								eq(schema.integration.userId, userId),
+								page?.afterId === undefined ? undefined : gt(schema.integration.id, page.afterId),
+							),
+						)
+						.orderBy(asc(schema.integration.id));
+					return page === undefined ? query : query.limit(page.limit);
+				});
 			});
 
 			const updateForUser = Effect.fn("IntegrationsRepository.updateForUser")(function* (input: {
