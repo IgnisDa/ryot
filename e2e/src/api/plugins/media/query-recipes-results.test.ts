@@ -1139,7 +1139,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			expect(activity.watchDays[0]).toMatchObject({
 				runtime: 32,
-				minutes: null,
+				minutes: 32,
 				seasonNumber: 1,
 				consumedOn: null,
 				episodeNumber: 2,
@@ -1181,7 +1181,7 @@ describe("Media RyotQL query recipe results", () => {
 			expect(activity.watchDays[0]).toMatchObject({
 				seasonNumber: 0,
 				episodeNumber: 1,
-				day: "2024-06-01T00:00:00.000Z",
+				day: "2024-06-01",
 			});
 		}),
 	);
