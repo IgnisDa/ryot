@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import {
 	type KeyboardEvent,
+	type ReactNode,
 	type RefObject,
 	useEffect,
 	useLayoutEffect,
@@ -19,6 +20,8 @@ const VIEWPORT_PADDING = 8;
 export type MenuItem = {
 	readonly key: string;
 	readonly label: string;
+	/** Makes the item a radio choice; the checked one shows `checkIcon`. */
+	readonly checked?: boolean;
 	readonly disabled?: boolean;
 	readonly onSelect: () => void;
 	readonly destructive?: boolean;
@@ -30,6 +33,7 @@ type MenuProps = {
 	readonly label: string;
 	readonly className?: string;
 	readonly activeIndex: number;
+	readonly checkIcon?: ReactNode;
 	readonly items: ReadonlyArray<MenuItem>;
 	readonly onInterceptBack?: () => boolean;
 	readonly onClose: (restoreFocus: boolean) => void;
@@ -46,6 +50,7 @@ export function Menu({
 	label,
 	items,
 	onClose,
+	checkIcon,
 	className,
 	triggerRef,
 	activeIndex,
@@ -161,21 +166,27 @@ export function Menu({
 					<button
 						type="button"
 						key={item.key}
-						role="menuitem"
 						onClick={item.onSelect}
 						disabled={item.disabled}
+						aria-checked={item.checked}
 						tabIndex={index === activeIndex ? 0 : -1}
 						onFocus={() => onActiveIndexChange(index)}
+						role={item.checked === undefined ? "menuitem" : "menuitemradio"}
 						ref={(element) => {
 							menuItems.current[index] = element;
 						}}
 						className={clsx(
-							"flex min-h-8 w-full items-center rounded-sm px-2.5 py-1.5 text-left text-sm hover:bg-hover focus-visible:bg-hover focus-visible:outline-none pointer-coarse:min-h-11",
+							"flex min-h-8 w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-sm hover:bg-hover focus-visible:bg-hover focus-visible:outline-none pointer-coarse:min-h-11",
 							item.destructive === true ? "text-danger" : "text-text",
 							"disabled:text-text-subtle disabled:hover:bg-transparent",
 						)}
 					>
-						{item.label}
+						<span className="min-w-0 flex-1 truncate">{item.label}</span>
+						{item.checked === true ? (
+							<span aria-hidden="true" className="shrink-0 text-accent-text">
+								{checkIcon}
+							</span>
+						) : null}
 					</button>
 				))}
 				{note !== undefined && (

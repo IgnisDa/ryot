@@ -11,11 +11,13 @@ export type { MenuItem } from "./menu";
 export type { TabOption } from "./tabs";
 export { StatStrip } from "./stat-strip";
 export type { Stat } from "./stat-strip";
+export { MenuSelect } from "./menu-select";
 export { ActionForm } from "./action-form";
 export { MenuButton } from "./menu-button";
 export { Chip, ChipButton } from "./chips";
 export { ActionDock } from "./action-dock";
 export { RadioGroup } from "./radio-group";
+export type { Metric } from "./metric-tile";
 export { ProgressBar } from "./progress-bar";
 export { MultiSelect } from "./multi-select";
 export type { SelectChoice } from "./select";
@@ -41,7 +43,9 @@ export { resultsLayoutClasses } from "./results-layout";
 export type { MultiSelectChoice } from "./multi-select";
 export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
+export type { MetricUnit, MetricDelta } from "./metric-format";
 export { groupColors, groupColorVariable } from "./group-colors";
+export { ChartCard, DeltaBadge, MetricGrid } from "./metric-tile";
 export { QueryStatus, type QueryStatusProps } from "./query-status";
 export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
 export { DestructiveConfirmation } from "./destructive-confirmation";
@@ -65,3 +69,12 @@ export {
 	MotionScrollRoot,
 	usePrefersReducedMotion,
 } from "./motion";
+export {
+	countUnit,
+	measureUnit,
+	metricDelta,
+	percentUnit,
+	formatMetric,
+	formatNumber,
+	durationUnit,
+} from "./metric-format";
