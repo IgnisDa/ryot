@@ -116,6 +116,26 @@ const moveColumns = [
 	{ label: "Generation", ...text("generation") },
 ] satisfies NonEmptyColumns;
 
+const allFieldControlsColumns = [
+	nameColumn,
+	{ label: "Text", ...text("text") },
+	{ label: "Website", ...text("website") },
+	{ label: "Email", ...text("email") },
+	{ label: "Timezone", ...text("timezone") },
+	{ label: "Decimal", ...number("decimal") },
+	{ label: "Integer", ...number("integer") },
+	{ label: "Enabled", field: "enabled", displayKind: "boolean", expression: property("enabled") },
+	{ label: "Date", field: "date", displayKind: "date", expression: property("date") },
+	{ label: "Date and time", ...text("datetime") },
+	{ label: "Choice", ...text("choice") },
+	{ label: "Choices", ...json("choices") },
+	{ label: "Tags", ...json("tags") },
+	{ label: "Details", ...json("details") },
+	{ label: "Entries", ...json("entries") },
+	{ label: "Chip choice", ...text("chipChoice") },
+	{ label: "Assets", ...json("assets") },
+] satisfies NonEmptyColumns;
+
 export const fixtureSavedViews = [
 	{
 		sortOrder: 0,
@@ -143,6 +163,20 @@ export const fixtureSavedViews = [
 			moveColumns,
 			movePresentationSource().fields,
 			{ field: "type", displayKind: "text" },
+		),
+	},
+	{
+		icon: "list",
+		sortOrder: 2,
+		name: "All Field Controls",
+		slug: "all-field-controls",
+		...buildDefinition(
+			"all-field-controls",
+			ascending(name),
+			castJson(property("asset")),
+			allFieldControlsColumns,
+			[],
+			{ field: "text", displayKind: "text" },
 		),
 	},
 ] as const;
