@@ -98,7 +98,9 @@ export const readBackupSection = (
 			Schema.decodeEffect(Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)))(line),
 	);
 
-export const installBackupReferencePlugin = Effect.fn(function* () {
+export const installBackupReferencePlugin = Effect.fn(function* (
+	options: { readonly providerUnavailable?: boolean } = {},
+) {
 	const suffix = yield* randomUuid;
 	const entitySchemaSlug = EntitySchemaSlug.make(`backup-record-${suffix}`);
 	const eventSchemaSlug = EventSchemaSlug.make(`backup-captured-${suffix}`);
@@ -134,6 +136,9 @@ export const installBackupReferencePlugin = Effect.fn(function* () {
 					slug: detailsSlug,
 					operation: "details",
 					name: "Backup reference details",
+					...(options.providerUnavailable
+						? { executionFailure: "Fixture provider is unavailable" }
+						: {}),
 					result: fakeProviderDetailsResult({
 						name: "Shared reference",
 						properties: { quantity: 99 },

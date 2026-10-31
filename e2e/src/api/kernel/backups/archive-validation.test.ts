@@ -54,6 +54,57 @@ const refreshedClient = Effect.fn(function* (email: string) {
 });
 
 describe("V1 backup archive validation", () => {
+	it.live(
+		"rejects oversized NDJSON records, including unterminated lines, without account writes",
+		() =>
+			Effect.gen(function* () {
+				const source = yield* createAuthenticatedClient();
+				const target = yield* createAuthenticatedClient();
+				const before = yield* inspectAccount(target.client);
+				const entries = unzipSync((yield* exportAndDownloadBackup(source.client)).bytes);
+				const manifest = yield* Schema.decodeEffect(
+					Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+				)(new TextDecoder().decode(requirePresent(entries["manifest.json"], "Expected manifest")));
+				const sections = yield* Schema.decodeUnknownEffect(
+					Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+				)(manifest["sections"]);
+				const line = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					id: "oversized",
+					message: "x".repeat(5 * 1024 * 1024),
+				});
+				for (const newline of ["\n", ""]) {
+					const records = new TextEncoder().encode(`${line}${newline}`);
+					const sha256 = new Bun.CryptoHasher("sha256").update(records).digest("hex");
+					const changedManifest = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+						{
+							...manifest,
+							sections: sections.map((section) =>
+								section["path"] === "reminders.ndjson"
+									? Object.assign({}, section, { sha256, count: 1 })
+									: section,
+							),
+						},
+					);
+					const failed = yield* restoreBackup(
+						target.client,
+						zipSync({
+							...entries,
+							"reminders.ndjson": records,
+							"manifest.json": new TextEncoder().encode(changedManifest),
+						}),
+					);
+					expect(failed.run.status).toBe("failed");
+					expect(failed.run.failure).toMatchObject({
+						code: "archive-invalid",
+						issue: "entry-too-large",
+						path: "reminders.ndjson",
+						maxBytes: 4 * 1024 * 1024,
+					});
+					expect(yield* inspectAccount(target.client)).toEqual(before);
+				}
+			}),
+	);
+
 	it.live("rejects a plugin provider claiming kernel ownership without mutating the target", () =>
 		Effect.gen(function* () {
 			const source = yield* createAuthenticatedClient();

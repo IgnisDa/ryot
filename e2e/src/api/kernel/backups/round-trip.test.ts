@@ -14,7 +14,8 @@ import {
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
+import { unzipSync, zipSync } from "fflate";
 
 import {
 	type Client,
@@ -94,6 +95,123 @@ const requireSettingsForField = (
 	);
 
 describe("backup export and restore round trip", () => {
+	it.live(
+		"restores a missing compact provider reference without provider access or historical recapture",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* installBackupReferencePlugin({ providerUnavailable: true });
+				const source = yield* createAuthenticatedClient();
+				const target = yield* createAuthenticatedClient();
+				const schema = yield* getEntitySchema(source.client, fixture.entitySchema);
+				const providerId = requirePresent(
+					schema.providers.find(({ providerSlug }) => providerSlug === fixture.providerSlug)
+						?.providerId,
+					"Expected reference provider",
+				);
+				const originalExternalId = `original-${yield* randomUuid}`;
+				const restoredExternalId = `missing-${yield* randomUuid}`;
+				const shared = yield* seedEntity({
+					providerId,
+					target: source.client.target,
+					properties: { quantity: 999 },
+					externalId: originalExternalId,
+					entitySchema: fixture.entitySchema,
+					name: "Unavailable shared reference",
+				});
+				const owned = yield* createEntity(source.client, {
+					properties: { quantity: 80 },
+					entitySchema: fixture.entitySchema,
+					name: "Retained historical subject",
+				});
+				const properties = {
+					snapshot: {
+						count: 1,
+						quantity: 12.5,
+						groups: [{ quantity: 12.5, entityIds: [shared.id] }],
+					},
+				};
+				const created = yield* waitForCreateEvents(
+					source.client,
+					yield* source.client.call((c) =>
+						c.events.create({
+							payload: [
+								{
+									properties,
+									entityId: owned.id,
+									occurredAt: "2026-02-03T04:05:06.000Z",
+									eventSchemaSlug: fixture.eventSchemaSlug,
+								},
+							],
+						}),
+					),
+				);
+				expect(created.failure).toBeNull();
+				const backup = yield* exportAndDownloadBackup(source.client);
+				const dependencies = yield* readBackupSection(backup.bytes, "entity-dependencies.ndjson");
+				const reference = requirePresent(
+					dependencies.find((row) => row["id"] === shared.id),
+					"Expected compact reference",
+				);
+				expect(reference["kind"]).toBe("provider-reference");
+				expect(reference["properties"]).toBeUndefined();
+				expect(reference["translations"]).toBeUndefined();
+				const entries = unzipSync(backup.bytes);
+				const encodedDependencies = yield* Effect.forEach(dependencies, (row) =>
+					Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+						row === reference ? Object.assign({}, row, { externalId: restoredExternalId }) : row,
+					),
+				);
+				const changedDependencies = new TextEncoder().encode(`${encodedDependencies.join("\n")}\n`);
+				const manifest = yield* Schema.decodeEffect(
+					Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+				)(new TextDecoder().decode(requirePresent(entries["manifest.json"], "Expected manifest")));
+				const sections = yield* Schema.decodeUnknownEffect(
+					Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+				)(manifest["sections"]);
+				const sha256 = new Bun.CryptoHasher("sha256").update(changedDependencies).digest("hex");
+				const changedManifest = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					...manifest,
+					sections: sections.map((section) =>
+						section["path"] === "entity-dependencies.ndjson"
+							? Object.assign({}, section, { sha256 })
+							: section,
+					),
+				});
+				const restored = yield* restoreBackup(
+					target.client,
+					zipSync({
+						...entries,
+						"entity-dependencies.ndjson": changedDependencies,
+						"manifest.json": new TextEncoder().encode(changedManifest),
+					}),
+				);
+				assertCompleted(restored.run, "offline compact reference restore");
+				const dependency = yield* getGlobalEntityByProvenance(target.client, {
+					providerId,
+					externalId: restoredExternalId,
+					entitySchemaSlug: fixture.entitySchema.slug,
+				});
+				expect(dependency.id).not.toBe(shared.id);
+				const placeholder = yield* getEntity(target.client, dependency.id);
+				expect(placeholder.name).toBe(shared.name);
+				expect(placeholder.properties).toEqual({});
+				expect(placeholder.populatedAt).toBeNull();
+				const subjectId = yield* findEntityIdByName(target.client, {
+					name: owned.name,
+					entitySchema: fixture.entitySchema,
+				});
+				const events = yield* listEventsForEntity(target.client, subjectId, undefined, 100);
+				expect(events).toHaveLength(1);
+				expect(events[0]?.properties).toEqual({
+					snapshot: {
+						count: 1,
+						quantity: 12.5,
+						groups: [{ quantity: 12.5, entityIds: [dependency.id] }],
+					},
+				});
+			}),
+	);
+
 	for (const includeGlobalDependency of [false, true]) {
 		it.live(
 			includeGlobalDependency
