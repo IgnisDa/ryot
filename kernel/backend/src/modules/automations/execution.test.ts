@@ -15,6 +15,7 @@ import {
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
 } from "#modules/automations/lifecycle/planning";
+import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -338,6 +339,30 @@ layer(executionLayer)((test) => {
 		}),
 	);
 
+	test.effect("reports a hook claimed in another workflow tree as pending without joining it", () =>
+		Effect.gen(function* () {
+			yield* behave({ "foreign-claim": { foreignClaim: true } });
+			yield* Effect.flatMap(WorkflowEngine, (engine) =>
+				engine.execute(AutomationRunWorkflow, {
+					executionId: executionIdOf("foreign-claim"),
+					payload: {
+						attemptNumber: 1,
+						acceptedPatches: [],
+						runId: AutomationRunId.make("foreign-claim"),
+					},
+				}),
+			);
+			yield* startParent("foreign-tree", ["foreign-claim"]);
+			expect(yield* parentResult("foreign-tree")).toEqual(
+				Exit.succeed([pendingWarning("foreign-claim")]),
+			);
+			expect(yield* submissions("foreign-claim")).toBe(0);
+			expect(yield* Ref.get((yield* RunControl).ownershipChecks)).toContain(
+				`${ParentWorkflow._tag}/foreign-tree`,
+			);
+		}),
+	);
+
 	test.effect("gives each wait in one workflow its own deadline", () =>
 		Effect.gen(function* () {
 			yield* behave({ "held-two-waits": { hold: true } });
@@ -458,7 +483,9 @@ layer(
 					),
 			}),
 		),
-		Layer.provide(AutomationAttemptRepository.layer),
+		Layer.provide(
+			Layer.merge(AutomationAttemptRepository.layer, WorkflowGarbageCollectionRepository.layer),
+		),
 		Layer.provideMerge(databaseLayer),
 		Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 	),

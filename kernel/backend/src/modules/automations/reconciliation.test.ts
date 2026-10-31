@@ -4,6 +4,7 @@ import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Duration, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
+import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { databaseLayer } from "#testing/effect";
 
 import { automationAttemptIdentity, AutomationAttemptRepository } from "./attempt-repository";
@@ -96,7 +97,9 @@ const liveSubmissionLayer = Layer.unwrap(
 						]),
 				}),
 			),
-			Layer.provide(AutomationAttemptRepository.layer),
+			Layer.provide(
+				Layer.merge(AutomationAttemptRepository.layer, WorkflowGarbageCollectionRepository.layer),
+			),
 			Layer.provideMerge(databaseLayer),
 			Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 		),

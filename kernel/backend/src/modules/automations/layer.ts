@@ -4,6 +4,7 @@ import { WorkflowEngineLive } from "#boot/workflow-engine";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
+import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { PluginRepositoryLive } from "#modules/plugins/packages/repository-layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -23,7 +24,13 @@ import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
-	Layer.provide(Layer.merge(AutomationRunRepository.layer, AutomationAttemptRepository.layer)),
+	Layer.provide(
+		Layer.mergeAll(
+			AutomationRunRepository.layer,
+			AutomationAttemptRepository.layer,
+			WorkflowGarbageCollectionRepository.layer,
+		),
+	),
 );
 
 const plannerResolver = AutomationPlannerResolver.layer.pipe(

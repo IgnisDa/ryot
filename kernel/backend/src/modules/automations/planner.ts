@@ -15,7 +15,7 @@ import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
-import { Effect, Layer, Schema } from "effect";
+import { DateTime, Effect, Layer, Schema } from "effect";
 
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -280,6 +280,7 @@ export const LifecyclePlannerLive = Layer.effect(
 						)
 					),
 			);
+			const queuedAt = DateTime.formatIso(yield* DateTime.now);
 			const planned = yield* Effect.forEach(
 				matches,
 				({ hook, plugin, script, executionUserId }) => {
@@ -292,6 +293,7 @@ export const LifecyclePlannerLive = Layer.effect(
 					return decodeStoredSchema(
 						{
 							...identity,
+							queuedAt,
 							attemptCount: 0,
 							startedAt: null,
 							status: "queued",
@@ -302,7 +304,6 @@ export const LifecyclePlannerLive = Layer.effect(
 							nextAttemptAt: null,
 							scriptSlug: script.slug,
 							sandboxScriptId: script.id,
-							queuedAt: trigger.createdAt,
 							id: lifecycleRunId(identity),
 							scriptContentHash: script.contentHash,
 							pluginRevisionId: plugin?.pluginRevisionId ?? null,

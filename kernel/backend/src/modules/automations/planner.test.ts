@@ -323,7 +323,7 @@ const eventPolicyTrigger = (pluginId: null | string, id = "event-policy") =>
 describe("LifecyclePlanner PostgreSQL", () => {
 	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
 		test.effect(
-			"materializes shared recipient hooks once and preserves ordered identities, pins and redaction",
+			"materializes shared recipient hooks once, queued at planning time, with ordered identities, pins and redaction",
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
@@ -384,6 +384,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						payload: { ...base.payload, properties: { visible: "kept", secret: "hidden" } },
 					};
 					const spans: Tracer.Span[] = [];
+					const plannedAt = DateTime.formatIso(yield* DateTime.now);
 					const planned = yield* nested(
 						planner.plan({ trigger, recipients: [recipient, owner, recipient] }),
 					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
@@ -432,6 +433,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					);
 					expect(planned.runs).toHaveLength(expected.length);
 					expect(planned.runs).toMatchObject(expected);
+					expect(plannedAt).not.toBe(trigger.createdAt);
+					expect(new Set(planned.runs.map(({ queuedAt }) => queuedAt))).toEqual(
+						new Set([plannedAt]),
+					);
 					const rows = yield* session.run((db) =>
 						db
 							.select()

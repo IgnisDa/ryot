@@ -577,38 +577,46 @@ layer(
 		}),
 	);
 
-	test.effect("rejects reuse of a child execution by another workflow tree", () =>
-		Effect.gen(function* () {
-			yield* TestClock.setTime(Date.parse("2027-06-01T00:00:00Z"));
-			const first = { executionId: "first-root", workflowName: "RootWorkflow" };
-			const second = { executionId: "second-root", workflowName: "RootWorkflow" };
-			const child = { executionId: "shared-child", workflowName: "ChildWorkflow" };
-			const firstMessage = yield* saveRun(first);
-			yield* completeRun(yield* saveRun(child, first));
-			yield* completeRun(firstMessage);
-			const secondMessage = yield* saveRun(second);
-			assert(Exit.isFailure(yield* Effect.exit(saveRun(child, second))));
-			const session = yield* DatabaseSession;
-			const [owner] = yield* session.run((db) =>
-				db
-					.select()
-					.from(workflowExecution)
-					.where(
-						and(
-							eq(workflowExecution.workflowName, child.workflowName),
-							eq(workflowExecution.executionId, child.executionId),
+	test.effect(
+		"rejects reuse of a child execution by another workflow tree and reports its tree",
+		() =>
+			Effect.gen(function* () {
+				yield* TestClock.setTime(Date.parse("2027-06-01T00:00:00Z"));
+				const first = { executionId: "first-root", workflowName: "RootWorkflow" };
+				const second = { executionId: "second-root", workflowName: "RootWorkflow" };
+				const child = { executionId: "shared-child", workflowName: "ChildWorkflow" };
+				const firstMessage = yield* saveRun(first);
+				yield* completeRun(yield* saveRun(child, first));
+				yield* completeRun(firstMessage);
+				const secondMessage = yield* saveRun(second);
+				assert(Exit.isFailure(yield* Effect.exit(saveRun(child, second))));
+				const session = yield* DatabaseSession;
+				const [owner] = yield* session.run((db) =>
+					db
+						.select()
+						.from(workflowExecution)
+						.where(
+							and(
+								eq(workflowExecution.workflowName, child.workflowName),
+								eq(workflowExecution.executionId, child.executionId),
+							),
 						),
-					),
-			);
-			expect(owner?.rootExecutionId).toBe(first.executionId);
-			yield* completeRun(secondMessage, Exit.fail("invalid child identity"));
-			yield* TestClock.adjust("7 days");
-			expect(yield* (yield* WorkflowGarbageCollector).runBatch()).toEqual({
-				expiredTrees: 2,
-				clearedExecutions: 3,
-			});
-			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
-		}),
+				);
+				expect(owner?.rootExecutionId).toBe(first.executionId);
+				const repository = yield* WorkflowGarbageCollectionRepository;
+				expect(yield* repository.sharesTree(child, first)).toBe(true);
+				expect(yield* repository.sharesTree(child, second)).toBe(false);
+				expect(
+					yield* repository.sharesTree({ ...child, executionId: "unadmitted-child" }, first),
+				).toBe(false);
+				yield* completeRun(secondMessage, Exit.fail("invalid child identity"));
+				yield* TestClock.adjust("7 days");
+				expect(yield* (yield* WorkflowGarbageCollector).runBatch()).toEqual({
+					expiredTrees: 2,
+					clearedExecutions: 3,
+				});
+				expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
+			}),
 	);
 
 	test.effect("rejects a run request whose parent execution is missing", () =>

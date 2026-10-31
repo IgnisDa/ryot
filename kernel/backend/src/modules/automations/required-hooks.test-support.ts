@@ -27,6 +27,7 @@ export interface RunBehavior {
 	readonly closed?: true;
 	readonly policy?: true;
 	readonly lateExit?: true;
+	readonly foreignClaim?: true;
 	readonly rejectSubmission?: true;
 }
 
@@ -73,6 +74,7 @@ export class RunControl extends Context.Service<
 		readonly started: Ref.Ref<ReadonlySet<string>>;
 		readonly skipped: Ref.Ref<ReadonlyArray<string>>;
 		readonly submitted: Ref.Ref<ReadonlyArray<string>>;
+		readonly ownershipChecks: Ref.Ref<ReadonlyArray<string>>;
 		readonly parentStarts: Ref.Ref<ReadonlyMap<string, number>>;
 		readonly behaviors: Ref.Ref<ReadonlyMap<string, RunBehavior>>;
 		readonly finished: Ref.Ref<
@@ -127,6 +129,14 @@ export const operationsLive = Layer.effect(
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: ({ triggerId }) =>
 				Ref.update(control.skipped, (all) => [...all, triggerId]),
+			claimedInTree: (payload, member) =>
+				Ref.update(control.ownershipChecks, (all) => [
+					...all,
+					`${member.workflowName}/${member.executionId}`,
+				]).pipe(
+					Effect.andThen(behaviorOf(control, payload.runId)),
+					Effect.map((behavior) => !behavior?.foreignClaim),
+				),
 			submit: (payload) =>
 				Effect.gen(function* () {
 					yield* Ref.update(control.submitted, (all) => [...all, payload.runId]);
@@ -186,6 +196,7 @@ export const runControlLayer = (lateExitMs: number) =>
 			skipped: Ref.make<ReadonlyArray<string>>([]),
 			submitted: Ref.make<ReadonlyArray<string>>([]),
 			started: Ref.make<ReadonlySet<string>>(new Set()),
+			ownershipChecks: Ref.make<ReadonlyArray<string>>([]),
 			parentStarts: Ref.make<ReadonlyMap<string, number>>(new Map()),
 			behaviors: Ref.make<ReadonlyMap<string, RunBehavior>>(new Map()),
 			finished: Ref.make<

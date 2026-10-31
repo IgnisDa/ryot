@@ -147,6 +147,19 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 				}
 				return locked.rootExpiredAt === null ? yield* Effect.void : yield* expired;
 			});
+			const sharesTree = Effect.fn("WorkflowGarbageCollectionRepository.sharesTree")(function* (
+				execution: WorkflowIdentity,
+				member: WorkflowIdentity,
+			) {
+				const executionRow = yield* find(execution);
+				const memberRow = yield* find(member);
+				return (
+					executionRow !== undefined &&
+					memberRow !== undefined &&
+					executionRow.rootWorkflowName === memberRow.rootWorkflowName &&
+					executionRow.rootExecutionId === memberRow.rootExecutionId
+				);
+			});
 			const requestIdentity = Effect.fn("WorkflowGarbageCollectionRepository.requestIdentity")(
 				function* (requestId: string) {
 					const [request] = yield* session.run((db) =>
@@ -290,7 +303,15 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 					db.update(table).set({ shardId: null, clearedAt: now }).where(identityFilter(identity)),
 				);
 			});
-			return { admit, complete, expireTrees, markCleared, prepareReply, listPendingCleanup };
+			return {
+				admit,
+				complete,
+				sharesTree,
+				expireTrees,
+				markCleared,
+				prepareReply,
+				listPendingCleanup,
+			};
 		}),
 	},
 ) {

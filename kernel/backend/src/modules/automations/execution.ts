@@ -11,6 +11,7 @@ import {
 	LifecycleExecution,
 } from "#modules/automations/lifecycle/execution";
 import { LifecyclePersistenceError, LifecycleWork } from "#modules/automations/lifecycle/planning";
+import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
@@ -19,6 +20,7 @@ import {
 	awaitWorkflowSettled,
 	WorkflowExecutionNotifications,
 } from "#platform/workflow/execution-notifications";
+import type { WorkflowIdentity } from "#platform/workflow/identity";
 import { ActivityBody, makeActivity } from "#platform/workflow/scope";
 
 import { automationAttemptIdentity, AutomationAttemptRepository } from "./attempt-repository";
@@ -58,6 +60,10 @@ export class AutomationExecutionOperations extends Context.Service<
 	{
 		skipQueuedPolicies: LifecycleExecution["Service"]["skipQueuedPolicies"];
 		submit: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
+		claimedInTree: (
+			payload: AutomationRunWorkflowPayload,
+			member: WorkflowIdentity,
+		) => Effect.Effect<boolean, DbError>;
 		settle: (
 			payload: AutomationRunWorkflowPayload,
 			deadline: number,
@@ -74,10 +80,20 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const runs = yield* AutomationRunRepository;
 		const attempts = yield* AutomationAttemptRepository;
+		const workflows = yield* WorkflowGarbageCollectionRepository;
 		const session = yield* DatabaseSession;
 		const receipts = yield* MutationReceipts.make;
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
+			claimedInTree: (payload, member) =>
+				workflows.sharesTree(
+					{
+						workflowName: AutomationRunWorkflow._tag,
+						executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
+							.workflowExecutionId,
+					},
+					member,
+				),
 			dispatchStates: (runIds) =>
 				runs.listDispatchStates(runIds).pipe(
 					Effect.map((rows) => {
@@ -187,8 +203,47 @@ export const LifecycleExecutionLive = Layer.effect(
 					)
 				: (yield* Clock.currentTimeMillis) + AUTOMATION_IMMEDIATE_TIMEOUT_MS;
 		});
-		// Only an admitted submission starts a run, so a run is awaited only when it was claimed or its
-		// submission succeeded here. Parent replays read run states instead of submitting again.
+		// Only an admitted submission starts a run, so a run is awaited only when its submission succeeded
+		// here or it was claimed in this workflow's tree. Parent replays read run states instead of
+		// submitting again; a run claimed by another tree, such as the reconciler's, cannot wake this one.
+		const awaitsClaimed = (payload: AutomationRunWorkflowPayload) =>
+			Effect.flatMap(Effect.serviceOption(WorkflowInstance), (instance) =>
+				Option.isNone(instance)
+					? Effect.succeed(true)
+					: operations
+							.claimedInTree(payload, {
+								executionId: instance.value.executionId,
+								workflowName: instance.value.workflow._tag,
+							})
+							.pipe(
+								Effect.catchCauseIf(
+									(cause) => !Cause.hasInterruptsOnly(cause),
+									(cause) =>
+										Effect.logWarning("automation run ownership read failed", cause).pipe(
+											Effect.as(false),
+										),
+								),
+							),
+			);
+		const awaitsDispatch = (
+			state: AutomationDispatchState,
+			payload: AutomationRunWorkflowPayload,
+		) => {
+			if (state === "claimed") {
+				return awaitsClaimed(payload);
+			}
+			if (state === "closed") {
+				return Effect.succeed(false);
+			}
+			return operations.submit(payload).pipe(
+				Effect.as(true),
+				Effect.catchCauseIf(
+					(cause) => !Cause.hasInterruptsOnly(cause),
+					(cause) =>
+						Effect.logWarning("automation run submission failed", cause).pipe(Effect.as(false)),
+				),
+			);
+		};
 		const dispatchRuns = Effect.fnUntraced(function* (
 			payloads: ReadonlyArray<AutomationRunWorkflowPayload>,
 		) {
@@ -205,20 +260,7 @@ export const LifecycleExecutionLive = Layer.effect(
 				payloads,
 				(payload) => {
 					const { state } = states.get(payload.runId) ?? { state: "closed" };
-					const awaited =
-						state === "fresh"
-							? operations.submit(payload).pipe(
-									Effect.as(true),
-									Effect.catchCauseIf(
-										(cause) => !Cause.hasInterruptsOnly(cause),
-										(cause) =>
-											Effect.logWarning("automation run submission failed", cause).pipe(
-												Effect.as(false),
-											),
-									),
-								)
-							: Effect.succeed(state === "claimed");
-					return Effect.map(awaited, (value) => ({ awaited: value }));
+					return Effect.map(awaitsDispatch(state, payload), (awaited) => ({ awaited }));
 				},
 				{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
 			);
