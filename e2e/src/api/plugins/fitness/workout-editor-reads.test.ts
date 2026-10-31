@@ -85,8 +85,6 @@ it.live(
 								),
 							),
 						}),
-						undefined,
-						timestamp,
 					),
 				);
 				assertCondition(saved.kind === "saved", "Expected a saved workout");
