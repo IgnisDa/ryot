@@ -386,7 +386,7 @@ const makeAuthInstance = (args: {
 					// oxlint-disable-next-line effecttsgo/async-function -- Better Auth database hooks are Promise-native.
 					after: async (user, context) => {
 						const header = context?.headers?.get(REPORTING_TIME_ZONE_HEADER);
-						const oauthState = context === null || header ? null : await getOAuthState();
+						const oauthState = !context || header ? null : await getOAuthState();
 						const requested: unknown = header ?? oauthState?.["reportingTimeZone"];
 						const reportingTimeZone = Schema.decodeUnknownOption(TimeZone)(requested);
 						await Effect.runPromiseWith(args.runtime)(
