@@ -1,10 +1,11 @@
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
 	CalendarHeatmap,
 	type CalendarHeatmapDay,
+	CoverageBar,
 	formatReportingDateTime,
 	HourlyHistogram,
 	PeriodTrendChart,
@@ -17,6 +18,7 @@ import {
 	type TimeSeriesChartSeries,
 	type TimeSeriesPoint,
 } from "./charts";
+import { countUnit, durationUnit } from "./metric-format";
 
 const renderHeatmap = (
 	days: ReadonlyArray<CalendarHeatmapDay>,
@@ -30,7 +32,7 @@ const renderHeatmap = (
 			onSelect={onSelect}
 			ariaLabel="Activity"
 			weekStart={weekStart}
-			formatValue={(value) => `${value} events`}
+			unit={countUnit("event")}
 		/>,
 	);
 
@@ -55,7 +57,7 @@ describe("CalendarHeatmap", () => {
 		);
 	});
 
-	it("labels the weeks where months begin and shows the level legend", () => {
+	it("labels the first month and the weeks where later months begin, with the level legend", () => {
 		const { container } = renderHeatmap([
 			{ value: 1, date: "2026-09-07" },
 			{ value: 2, date: "2026-11-08" },
@@ -67,8 +69,9 @@ describe("CalendarHeatmap", () => {
 				label.style.left,
 			]),
 		).toEqual([
-			["Oct", "45px"],
-			["Nov", "105px"],
+			["Sep", "1.5px"],
+			["Oct", "46.5px"],
+			["Nov", "106.5px"],
 		]);
 		expect(container.textContent).toContain("Less");
 		expect(container.textContent).toContain("More");
@@ -128,12 +131,25 @@ describe("CalendarHeatmap", () => {
 			1,
 			(day) => selected.push(day.date),
 		);
-		fireEvent.click(screen.getByText("View exact values"));
+		fireEvent.click(screen.getByRole("radio", { name: "Table" }));
 		const table = screen.getByRole("table", { name: "Activity exact values" });
 		expect(within(table).getByText("Not recorded")).toBeDefined();
 		expect(within(table).getAllByRole("button")).toHaveLength(1);
 		fireEvent.click(within(table).getByRole("button", { name: /Sep 21, 2026/ }));
 		expect(selected).toEqual(["2026-09-21"]);
+	});
+
+	it("summarises active days and the longest run of consecutive active days", () => {
+		renderHeatmap([
+			{ value: 1, date: "2026-09-01" },
+			{ value: 2, date: "2026-09-02" },
+			{ value: 0, date: "2026-09-03" },
+			{ value: 1, date: "2026-09-04" },
+			{ value: 1, date: "2026-09-06" },
+		]);
+
+		const summary = screen.getAllByRole("term").map((term) => term.parentElement?.textContent);
+		expect(summary).toEqual(["Active days4 of 5", "Longest streak2 days"]);
 	});
 
 	it("renders nothing without days", () => {
@@ -399,11 +415,12 @@ const losAngeles = TimeZone.make("America/Los_Angeles");
 const renderPeriodTrend = (overrides: Partial<PeriodTrendChartProps<PeriodTrendPoint>> = {}) =>
 	render(
 		<PeriodTrendChart
+			grouping="day"
 			compact={false}
 			timeZone={losAngeles}
 			label="Current period"
 			ariaLabel="Recorded activity"
-			formatValue={(value) => `${value} minutes`}
+			unit={durationUnit("minutes")}
 			previous={{
 				label: "Previous period",
 				points: [
@@ -420,30 +437,70 @@ const renderPeriodTrend = (overrides: Partial<PeriodTrendChartProps<PeriodTrendP
 		/>,
 	);
 
+const barFills = (container: HTMLElement) =>
+	[...container.querySelectorAll(".ts-chart__bar rect, .ts-chart__bar path")].map((bar) =>
+		bar.getAttribute("fill"),
+	);
+
+const axisText = (container: HTMLElement) =>
+	[...container.querySelectorAll("svg text")].map((label) => label.textContent);
+
 describe("PeriodTrendChart", () => {
-	it("uses one axis for equal values, dashed comparison lines, and gaps for missing values", () => {
+	it("draws current bars over muted previous-period bars by default", () => {
 		const { container } = renderPeriodTrend();
-		const lines = [...container.querySelectorAll(".ts-chart__line path")];
-		expect(lines).toHaveLength(3);
-		expect(lines.at(-1)?.getAttribute("stroke-dasharray")).toBe("5 4");
-		const dots = [...container.querySelectorAll(".ts-chart__dot circle")];
-		expect(dots).toHaveLength(4);
-		expect(dots[0]?.getAttribute("cy")).toBe(dots[2]?.getAttribute("cy"));
+		const fills = barFills(container);
+		expect(fills.filter((fill) => fill === "var(--border-emphasis)")).toHaveLength(2);
+		expect(fills.filter((fill) => fill === "var(--chart-accent)")).toHaveLength(2);
+		expect(screen.getByText("Current period")).toBeDefined();
+		expect(screen.getByText("Previous period")).toBeDefined();
 	});
 
-	it("shows actual period dates in the reporting timezone and exact provenance on keyboard focus", () => {
+	it("draws a dashed comparison line in line mode", () => {
+		const { container } = renderPeriodTrend({ mark: "line" });
+		const lines = [...container.querySelectorAll(".ts-chart__line path")];
+		expect(lines.some((line) => line.getAttribute("stroke-dasharray") === "4 4")).toBe(true);
+		expect(barFills(container)).toHaveLength(0);
+	});
+
+	it("shows each period's bucket date and provenance on keyboard focus", () => {
 		renderPeriodTrend();
 		fireEvent.focus(screen.getByRole("img", { name: "Recorded activity" }));
 		const tooltip = screen.getByRole("status", { hidden: true });
-		expect(tooltip.textContent).toContain("America/Los_Angeles");
-		expect(tooltip.textContent).toContain("Current period · Sep 1, 202612.25 minutes");
-		expect(tooltip.textContent).toContain("Previous period · Aug 1, 202612.25 minutes · Estimated");
+		expect(tooltip.textContent).toContain("Sep 1, 202612m 15s");
+		expect(tooltip.textContent).toContain("Aug 1, 202612m 15s · Estimated");
 		fireEvent.keyDown(screen.getByRole("img"), { key: "ArrowRight" });
 		expect(tooltip.textContent).toContain("Not recorded · Duration missing");
-		expect(tooltip.textContent).toContain("0 minutes");
+		expect(tooltip.textContent).toContain("0s");
 	});
 
-	it("keeps calendar dates fixed and returns the caller's point for each period", () => {
+	it("labels the axis by grouping and never splits counts into fractions", () => {
+		const months = renderPeriodTrend({
+			grouping: "month",
+			previous: undefined,
+			unit: countUnit("review"),
+			current: [
+				{ value: 1, at: "2025-12-01" },
+				{ value: 3, at: "2026-01-01" },
+			],
+		});
+		expect(axisText(months.container)).toEqual(
+			expect.arrayContaining(["Dec ’25", "Jan ’26", "0", "1", "2", "3"]),
+		);
+		expect(axisText(months.container).some((label) => label.includes("."))).toBe(false);
+		months.unmount();
+		const years = renderPeriodTrend({
+			grouping: "year",
+			previous: undefined,
+			unit: countUnit("review"),
+			current: [
+				{ value: 4, at: "2024-01-01" },
+				{ value: 2, at: "2025-01-01" },
+			],
+		});
+		expect(axisText(years.container)).toEqual(expect.arrayContaining(["2024", "2025"]));
+	});
+
+	it("lists periods side by side and returns the caller's point for each period", () => {
 		const selected: string[] = [];
 		const current = [{ value: 0, at: "2026-09-02", id: "current-bucket" }];
 		const previous = [
@@ -452,24 +509,28 @@ describe("PeriodTrendChart", () => {
 		];
 		render(
 			<PeriodTrendChart
+				grouping="day"
 				compact={false}
 				current={current}
 				timeZone={losAngeles}
 				label="Current period"
+				unit={countUnit("set")}
 				ariaLabel="Recorded activity"
-				formatValue={(value) => `${value} minutes`}
 				previous={{ points: previous, label: "Previous period" }}
 				onSelect={(point, period) => selected.push(`${period}:${point.id}`)}
 			/>,
 		);
-		fireEvent.click(screen.getByText("View exact values"));
+		fireEvent.click(screen.getByRole("radio", { name: "Table" }));
 		const table = screen.getByRole("table", { name: "Recorded activity exact values" });
-		expect(table.textContent).toContain("Sep 2, 2026");
-		expect(within(table).getAllByRole("row")).toHaveLength(4);
-		fireEvent.click(within(table).getByRole("button", { name: /Current period/ }));
-		for (const button of within(table).getAllByRole("button", { name: /Previous period/ })) {
-			fireEvent.click(button);
-		}
+		expect(
+			within(table)
+				.getAllByRole("columnheader")
+				.map((header) => header.textContent),
+		).toEqual(["Period", "Current period", "Previous period"]);
+		expect(within(table).getAllByRole("row")).toHaveLength(3);
+		fireEvent.click(within(table).getByRole("button", { name: /Sep 2, 2026/ }));
+		fireEvent.click(within(table).getByRole("button", { name: /Aug 2, 2026/ }));
+		fireEvent.click(within(table).getByRole("button", { name: /Aug 3, 2026/ }));
 		expect(selected).toEqual([
 			"current:current-bucket",
 			"previous:previous-bucket",
@@ -477,22 +538,34 @@ describe("PeriodTrendChart", () => {
 		]);
 	});
 
-	it("draws a single recorded zero and distinguishes missing-only from empty data", () => {
-		const single = renderPeriodTrend({
+	it("keeps a held table view across remounts and reports view changes", () => {
+		const changes: string[] = [];
+		const view = { value: "table" as const, onChange: (next: string) => changes.push(next) };
+		renderPeriodTrend({ view });
+		expect(screen.getByRole("table", { name: "Recorded activity exact values" })).toBeDefined();
+		cleanup();
+		renderPeriodTrend({ view });
+		expect(screen.getByRole("table", { name: "Recorded activity exact values" })).toBeDefined();
+		fireEvent.click(screen.getByRole("radio", { name: "Chart" }));
+		expect(changes).toEqual(["chart"]);
+	});
+
+	it("replaces the chart with an empty state when nothing was recorded", () => {
+		renderPeriodTrend({
 			previous: undefined,
-			current: [{ value: 0, at: "2026-09-02" }],
+			current: [
+				{ value: 0, at: "2026-09-02" },
+				{ value: null, at: "2026-09-03" },
+			],
 		});
-		expect(single.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(1);
-		single.unmount();
-		const missing = renderPeriodTrend({
-			previous: undefined,
-			current: [{ value: null, at: "2026-09-02" }],
-		});
-		expect(screen.getByText("No recorded values. Missing data is not zero.")).toBeDefined();
-		expect(missing.container.querySelectorAll(".ts-chart__dot circle")).toHaveLength(0);
-		missing.unmount();
+		expect(screen.getByText("Nothing recorded in this period.")).toBeDefined();
+		expect(screen.queryByRole("img")).toBeNull();
+		cleanup();
+		renderPeriodTrend({ previous: undefined, current: [{ value: null, at: "2026-09-02" }] });
+		expect(screen.getByText("No recorded values in this period.")).toBeDefined();
+		cleanup();
 		renderPeriodTrend({ current: [], previous: undefined });
-		expect(screen.getByText("No data in this period.")).toBeDefined();
+		expect(screen.getByText("No recorded values in this period.")).toBeDefined();
 	});
 });
 
@@ -503,9 +576,8 @@ describe("HourlyHistogram", () => {
 			<HourlyHistogram
 				compact={true}
 				ariaLabel="Hourly activity"
+				unit={countUnit("observation")}
 				timeZone={TimeZone.make("Asia/Kolkata")}
-				periodLabel="Observations · September 2026"
-				formatValue={(value) => `${value} observations`}
 				onSelect={(bucket) => selected.push(bucket.hour)}
 				buckets={[
 					{ hour: 0, value: 0 },
@@ -521,11 +593,35 @@ describe("HourlyHistogram", () => {
 		expect(screen.getByRole("status", { hidden: true }).textContent).toContain(
 			"23:00–24:008 observations · Exact instants only",
 		);
-		fireEvent.click(screen.getByText("View exact values"));
+		fireEvent.click(screen.getByRole("radio", { name: "Table" }));
 		const table = screen.getByRole("table");
 		expect(within(table).getAllByRole("row")).toHaveLength(25);
 		expect(within(table).getAllByText("Not recorded")).toHaveLength(22);
 		fireEvent.click(within(table).getByRole("button", { name: /23:00–24:00/ }));
 		expect(selected).toEqual([23]);
+	});
+});
+
+describe("CoverageBar", () => {
+	it("sizes segments by their share and names every segment for assistive technology", () => {
+		const { container } = render(
+			<CoverageBar
+				ariaLabel="Minutes coverage"
+				formatValue={(segment) => `${segment.value}`}
+				segments={[
+					{ value: 3, tone: "solid", key: "recorded", label: "Recorded" },
+					{ value: 1, tone: "soft", key: "estimated", label: "Estimated" },
+					{ value: 0, tone: "empty", key: "missing", label: "Missing" },
+				]}
+			/>,
+		);
+		expect(
+			screen.getByRole("img", { name: "Minutes coverage: Recorded 3, Estimated 1, Missing 0" }),
+		).toBeDefined();
+		expect(
+			[...container.querySelectorAll<HTMLElement>("[role=img] > div")].map(
+				(bar) => bar.style.width,
+			),
+		).toEqual(["75%", "25%"]);
 	});
 });

@@ -92,6 +92,8 @@ reduced motion inside its document, not through kernel-only CSS.
 | `DataTable`                     | Unstyled data with divided rows and right-aligned tabular numbers.                                                                                                                                                                                                                                                                                   |
 | `Shelf`                         | Horizontal item rail with hidden scrollbar, Arrow-key item focus, and desktop paging controls (pass `icons`). Bleeds to the compact gutter.                                                                                                                                                                                                          |
 | `StatStrip`                     | Description-list figures without a surface; values above labels, optional detail below.                                                                                                                                                                                                                                                              |
+| `MetricGrid` / `ChartCard`      | Reporting figures and chart surfaces. `MetricGrid` takes `Metric`s (value, `MetricUnit`, optional `delta`, `hint`, `atLeast`) as `tiles`, one `panel`, or `plain`; change badges read "vs …" from `comparisonLabel`. `ChartCard` titles one chart or table with trailing `actions`.                                                                  |
+| `MenuSelect`                    | Compact "Label: Value" toolbar choice that opens an anchored radio `Menu`; use `Select` for form fields.                                                                                                                                                                                                                                             |
 | `Timeline`                      | `TimelineGroup` dates and `TimelineEntry` rows with semantic markers; `expand` reveals collapsed batches. Markers are decorative, so titles carry the meaning.                                                                                                                                                                                       |
 | `ActivityTray` / `Toast`        | Shell-owned activity notices: attributed `source`, text-only `title`/`status`/`detail`, one optional action, and dismissal. The tray owns one visually hidden polite region; callers throttle its `announcement`. Compact trays span the bottom above the safe area.                                                                                 |
 
@@ -132,30 +134,40 @@ right axis for potentially different units. Root theme variables also apply to p
 `TimeSeriesPoint` uses `{ at, value }`; `value: null` marks a missing-data line break, not zero.
 Points may represent observations or caller-labelled bucket averages.
 
+Figures format through `metric-format`: a `MetricUnit` (`countUnit`, `durationUnit`, `measureUnit`,
+`percentUnit`) drives `formatMetric`, tile figures, compact axis ticks, and whole-number count axes.
+`metricDelta` compares with the previous period and separates new activity from unknown values.
+
 The reporting charts (`PeriodTrendChart`, `HourlyHistogram`, `CalendarHeatmap`) take `ariaLabel`,
-bridged `compact`, and a stable (module-level or memoized) `formatValue(number)` including units,
-which keys the chart definition. `value: null` is missing, while `0` is
-a recorded zero. Each renders an expandable exact-value table, built only while open, that lists
-every value and its `detail` context. Charts are generic over the caller's point type: optional
-`onSelect` receives that point from chart selection (Arrow keys inspect, Enter selects) and from the
-exact table's record buttons. Charts render data only; owning sections show query status with
+bridged `compact`, and a stable `unit`, which keys the chart definition. `value: null` is missing,
+while `0` is a recorded zero; a period chart or histogram with nothing but missing values and zeros
+shows an empty state instead. Each has a Chart/Table toggle whose table, built only while shown,
+lists every value with its `detail` context; pass `view` to hold that choice above a query boundary
+so it survives reloads. Charts are generic over the caller's point type:
+optional `onSelect` receives that point from chart selection (Arrow keys inspect, Enter selects) and
+from the table's record buttons. Charts render data only; owning sections show query status with
 `QueryStatus`.
 
 `PeriodTrendChart` compares the same metric and unit on one shared, zero-inclusive axis. `current`
 and optional `previous: { label, points }` are ordered buckets aligned by index; a longer previous
-period extends the x axis and its extra buckets appear in the tooltip and exact table. Current
-values use solid lines/filled points; the previous period uses dashed lines/open points. Include
-missing buckets so lines have visible gaps. `at` accepts an ISO instant or `YYYY-MM-DD`; instants
-display in the reporting `timeZone`, while calendar dates retain their original day. Build buckets
-with `calendarBuckets` from the client SDK.
+period extends the x axis and its extra buckets appear in the tooltip and table, where periods sit
+side by side. `mark` draws bars for per-bucket totals (the default, with the previous period as
+muted bars behind) or lines for levels such as averages. `grouping` picks axis and tooltip date
+labels. Include missing buckets so lines have visible gaps. `at` accepts an ISO instant or
+`YYYY-MM-DD`; instants display in the reporting `timeZone`, while calendar dates retain their
+original day. Build buckets with `calendarBuckets` from the client SDK.
 
-`HourlyHistogram` accepts `{ hour, value, detail? }` buckets already aggregated in `timeZone` and a
-`periodLabel` describing attribution and range. It always lays out 24 local hours; omitted hours
-are missing, not zero, and repeated DST hours share one bucket.
+`HourlyHistogram` accepts `{ hour, value, detail? }` buckets already aggregated in `timeZone`. It
+always lays out 24 local hours; omitted hours are missing, not zero, and repeated DST hours share
+one bucket.
 
-`CalendarHeatmap` lays out the supplied `{ date, value }` days as week columns with month labels,
-a zero level plus five positive bands of the maximum, and portaled tooltips outside its scroller.
-Supply every day to show; missing dates and `null` values render as blank cells.
+`CalendarHeatmap` lays out the supplied `{ date, value }` days as week columns with weekday and month
+labels, a zero level plus five positive bands of the maximum, and portaled tooltips outside its
+scroller. Cells grow to fill the available width up to a maximum size. It summarises active days
+and the longest streak. Supply every day to show; missing dates and `null` values render as blank
+cells.
+
+`CoverageBar` splits one total into labelled `solid`/`soft`/`empty` shares with a value legend.
 
 Chart and reporting dates format in one explicit locale through cached formatters, never the host
 default. `formatReportingDateTime(at, timeZone)` renders an instant as a date and time in the
