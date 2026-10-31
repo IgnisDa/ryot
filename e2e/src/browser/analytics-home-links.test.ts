@@ -6,7 +6,6 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { getUserSettings } from "~/fixtures/kernel/account";
-import { analyticsSection } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinPluginByPackage } from "~/fixtures/kernel/plugins";
@@ -19,7 +18,6 @@ import { getFrontendUrl } from "~/support/harness-target";
 const analyticsPath = savedViewPath({ kind: "kernel", slug: "analytics" });
 const cases = [
 	{
-		section: "media",
 		homeTitle: "Media",
 		needsLibrary: true,
 		contributor: "Media",
@@ -27,7 +25,6 @@ const cases = [
 	},
 	{
 		homeTitle: "Home",
-		section: "fitness",
 		needsLibrary: false,
 		contributor: "Fitness",
 		packageId: fitnessPlugin.metadata.packageId,
@@ -102,20 +99,11 @@ for (const testCase of cases) {
 				exact: true,
 				name: "Analytics sections",
 			});
-			expect(
-				yield* sections
-					.getByRole("radio", { exact: true, name: "Collections" })
-					.getAttribute("aria-checked"),
-			).toBe("true");
+			expect(yield* sections.getByRole("radio").first().getAttribute("aria-checked")).toBe("true");
 			const contributor = sections.getByRole("radio", { exact: true, name: testCase.contributor });
 			yield* contributor.waitFor({ state: "visible" });
-			expect(yield* contributor.getAttribute("aria-checked")).toBe("false");
 			expect(yield* contributor.isEnabled()).toBe(true);
 			yield* contributor.click();
-			const section = analyticsSection(installed.pluginId, testCase.section);
-			yield* page.waitForURL(
-				(url) => url.pathname === analyticsPath && url.searchParams.get("section") === section,
-			);
 			yield* contributor.waitForFunction((radio) => radio.getAttribute("aria-checked") === "true");
 			yield* analytics.getByRole("region", { exact: true, name: testCase.contributor }).waitFor();
 			yield* controls.getByText("· times in UTC", { exact: true }).waitFor();

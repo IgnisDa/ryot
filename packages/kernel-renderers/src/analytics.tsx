@@ -16,12 +16,11 @@ import {
 	useRyot,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { QueryStatus, SegmentedControl } from "@ryot-app/plugin-ui-sdk";
+import { EmptyState, QueryStatus, SegmentedControl } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useContext } from "react";
 
 import { AnalyticsControls } from "./analytics-controls";
-import { CollectionAnalytics } from "./collection-analytics";
 
 export default function AnalyticsPage() {
 	const page = usePageContext();
@@ -34,45 +33,38 @@ export default function AnalyticsPage() {
 	const selection = parseReportingSearch(location.search);
 	const selectionParams = reportingSearchParams(selection);
 	const requested = new URLSearchParams(location.search).get("section");
-	const active = sections.find((section) => analyticsSectionKey(section) === requested);
+	const active =
+		sections.find((section) => analyticsSectionKey(section) === requested) ?? sections[0];
 	const updateSelection = (next: ReportingSelection) =>
 		ryot.navigation.pageSearch.push(reportingSearchParams(next));
 	const sectionNav =
-		sections.length > 0 ? (
+		active !== undefined && sections.length > 1 ? (
 			<div className="max-w-full min-w-0 overflow-x-auto">
 				<SegmentedControl
 					optionClassName="px-3"
 					label="Analytics sections"
-					value={active === undefined ? "" : analyticsSectionKey(active)}
-					onChange={(key) => ryot.navigation.pageSearch.push({ section: key === "" ? null : key })}
-					options={[
-						{
-							value: "",
-							label: "Collections",
-							content: (
-								<>
-									<AppIcon size={16} name="folders" />
-									Collections
-								</>
-							),
-						},
-						...sections.map((section) => ({
-							label: section.name,
-							value: analyticsSectionKey(section),
-							content: (
-								<>
-									<AppIcon size={16} name={section.icon} />
-									{section.name}
-								</>
-							),
-						})),
-					]}
+					value={analyticsSectionKey(active)}
+					onChange={(key) => ryot.navigation.pageSearch.push({ section: key })}
+					options={sections.map((section) => ({
+						label: section.name,
+						value: analyticsSectionKey(section),
+						content: (
+							<>
+								<AppIcon size={16} name={section.icon} />
+								{section.name}
+							</>
+						),
+					}))}
 				/>
 			</div>
 		) : null;
 	const content = (timeZone: TimeZone) =>
 		active === undefined ? (
-			<CollectionAnalytics timeZone={timeZone} selection={selection} />
+			<EmptyState
+				title="No analytics available"
+				icon={<AppIcon size={18} name="chart-column" />}
+				description="Installed plugins that report analytics appear here."
+			/>
 		) : (
 			<section className="min-w-0" aria-label={active.name}>
 				<AnalyticsSection

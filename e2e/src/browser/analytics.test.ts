@@ -55,75 +55,73 @@ const expectEmptyAnalytics = Effect.fn(function* (page: Playwright.Page) {
 		.waitFor({ state: "visible" });
 	yield* frame
 		.contentFrame()
-		.getByText("No reviews in this period", { exact: true })
+		.getByText("No analytics available", { exact: true })
 		.waitFor({ state: "visible" });
 });
 
-it.live(
-	"opens kernel collection Analytics from global saved views and command-center keyboard search",
-	() =>
-		Effect.gen(function* () {
-			const { email, password } = yield* createAccountWithoutContributors();
-			const browser = yield* Playwright.Browser;
-			const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
-			yield* signInThroughHostedOAuth(page, email, password, { entryPath: "/v/k/calendar" });
-			yield* page.waitForURL(`${getFrontendUrl()}/v/k/calendar`);
+it.live("opens kernel Analytics from global saved views and command-center keyboard search", () =>
+	Effect.gen(function* () {
+		const { email, password } = yield* createAccountWithoutContributors();
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password, { entryPath: "/v/k/calendar" });
+		yield* page.waitForURL(`${getFrontendUrl()}/v/k/calendar`);
 
-			const savedViews = page
-				.getByTestId("desktop-sidebar")
-				.locator("section")
-				.filter({ hasText: "Saved Views" });
-			const analytics = savedViews.getByRole("link", { exact: true, name: "Analytics" });
-			yield* analytics.waitFor({ state: "visible" });
-			expect(yield* analytics.getAttribute("href")).toBe("/v/k/analytics");
-			yield* analytics.focus();
-			yield* page.keyboard.press("Enter");
-			yield* page.waitForURL(`${getFrontendUrl()}/v/k/analytics`);
-			yield* expectEmptyAnalytics(page);
+		const savedViews = page
+			.getByTestId("desktop-sidebar")
+			.locator("section")
+			.filter({ hasText: "Saved Views" });
+		const analytics = savedViews.getByRole("link", { exact: true, name: "Analytics" });
+		yield* analytics.waitFor({ state: "visible" });
+		expect(yield* analytics.getAttribute("href")).toBe("/v/k/analytics");
+		yield* analytics.focus();
+		yield* page.keyboard.press("Enter");
+		yield* page.waitForURL(`${getFrontendUrl()}/v/k/analytics`);
+		yield* expectEmptyAnalytics(page);
 
-			const frame = activePluginIframe(page);
-			expect(yield* frame.count).toBe(1);
-			expect(yield* frame.getAttribute("src")).toBeNull();
-			expect(yield* frame.getAttribute("srcdoc")).not.toBeNull();
-			expect(yield* frame.getAttribute("sandbox")).toBe("allow-scripts");
-			expect(
-				yield* page.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).count,
-			).toBe(0);
-			const realm = yield* frame
-				.contentFrame()
-				.locator("body")
-				.evaluate(() => {
-					let parentReadable = true;
-					try {
-						parent.document.querySelector("html");
-					} catch {
-						parentReadable = false;
-					}
-					return { parentReadable, origin: self.origin };
-				});
-			expect(realm).toEqual({ origin: "null", parentReadable: false });
+		const frame = activePluginIframe(page);
+		expect(yield* frame.count).toBe(1);
+		expect(yield* frame.getAttribute("src")).toBeNull();
+		expect(yield* frame.getAttribute("srcdoc")).not.toBeNull();
+		expect(yield* frame.getAttribute("sandbox")).toBe("allow-scripts");
+		expect(
+			yield* page.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).count,
+		).toBe(0);
+		const realm = yield* frame
+			.contentFrame()
+			.locator("body")
+			.evaluate(() => {
+				let parentReadable = true;
+				try {
+					parent.document.querySelector("html");
+				} catch {
+					parentReadable = false;
+				}
+				return { parentReadable, origin: self.origin };
+			});
+		expect(realm).toEqual({ origin: "null", parentReadable: false });
 
-			yield* savedViews.getByRole("link", { exact: true, name: "Calendar" }).click();
-			yield* page.waitForURL(`${getFrontendUrl()}/v/k/calendar`);
-			const calendar = activePluginIframe(page).contentFrame();
-			yield* calendar.getByRole("heading", { level: 1, exact: true, name: "Calendar" }).waitFor();
-			yield* calendar.locator("body").click();
-			const modifier = yield* page.evaluate(() =>
-				/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
-			);
-			yield* page.keyboard.press(`${modifier}+K`);
-			const commandCenter = page.getByRole("dialog", { name: "Command center" });
-			yield* commandCenter.waitFor({ state: "visible" });
-			const search = commandCenter.getByRole("combobox", { name: "Search commands" });
-			yield* search.fill("Analytics");
-			const result = commandCenter.getByRole("option", { exact: true, name: "Analytics" });
-			yield* result.waitFor({ state: "visible" });
-			yield* result.waitForFunction((option) => option.getAttribute("aria-selected") === "true");
-			yield* page.keyboard.press("Enter");
-			yield* commandCenter.waitFor({ state: "hidden" });
-			yield* page.waitForURL(`${getFrontendUrl()}/v/k/analytics`);
-			yield* expectEmptyAnalytics(page);
-		}).pipe(PlaywrightSpawner.withBrowser),
+		yield* savedViews.getByRole("link", { exact: true, name: "Calendar" }).click();
+		yield* page.waitForURL(`${getFrontendUrl()}/v/k/calendar`);
+		const calendar = activePluginIframe(page).contentFrame();
+		yield* calendar.getByRole("heading", { level: 1, exact: true, name: "Calendar" }).waitFor();
+		yield* calendar.locator("body").click();
+		const modifier = yield* page.evaluate(() =>
+			/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
+		);
+		yield* page.keyboard.press(`${modifier}+K`);
+		const commandCenter = page.getByRole("dialog", { name: "Command center" });
+		yield* commandCenter.waitFor({ state: "visible" });
+		const search = commandCenter.getByRole("combobox", { name: "Search commands" });
+		yield* search.fill("Analytics");
+		const result = commandCenter.getByRole("option", { exact: true, name: "Analytics" });
+		yield* result.waitFor({ state: "visible" });
+		yield* result.waitForFunction((option) => option.getAttribute("aria-selected") === "true");
+		yield* page.keyboard.press("Enter");
+		yield* commandCenter.waitFor({ state: "hidden" });
+		yield* page.waitForURL(`${getFrontendUrl()}/v/k/analytics`);
+		yield* expectEmptyAnalytics(page);
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live(

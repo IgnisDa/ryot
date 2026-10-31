@@ -25,7 +25,6 @@ const RESULTS_TABLE_PATHS = [
 
 const ANALYTICS_PATHS = [
 	"client/analytics-controls.tsx",
-	"client/collection-analytics.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
 const COLLECTION_PATHS = [

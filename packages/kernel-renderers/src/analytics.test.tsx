@@ -53,13 +53,11 @@ const periodCaptions = () => {
 	return within(controls).getByText(/^· times in /).parentElement?.textContent;
 };
 
-const reviewQueryWhere = (page: ReturnType<typeof mountPluginPage>, index: number) => {
-	const request = page.queryRequests("reviews")[index];
-	if (!request) {
-		throw new Error("Missing collection review query");
-	}
-	return request.document.queries.reviews?.where;
-};
+const RangeSection = ({ selection }: AnalyticsSectionProps) => (
+	<p>range input {JSON.stringify(selection.range)}</p>
+);
+
+const sectionRange = () => screen.getByText(/^range input /).textContent;
 
 const answerPreferences = (page: ReturnType<typeof mountPluginPage>) =>
 	waitFor(() => {
@@ -248,7 +246,6 @@ it.effect(
 				),
 			);
 			expect(loaded).toEqual(["second", "second"]);
-			expect(page.queryRequests("reviews")).toHaveLength(0);
 			const firstSearch = new URLSearchParams({
 				section: analyticsSectionKey({
 					slug: "activity",
@@ -265,61 +262,39 @@ it.effect(
 				),
 			);
 			expect(loaded).toEqual(["second", "second", "first"]);
-			fireEvent.click(screen.getByRole("radio", { name: "Collections" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(pageSearchUpdates(page).at(-1)).toMatchObject({
-						mode: "push",
-						update: { section: null },
-					}),
-				),
-			);
-			page.navigate(routeLocation("/v/k/analytics"), { index: 2, key: "kernel-section" });
-			yield* Effect.promise(() => screen.findByRole("region", { name: "Collection reviews" }));
-			expect(screen.queryByText("first-local / rolling / Europe/Paris")).toBeNull();
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("reviews")).toHaveLength(1)),
-			);
-			page.navigate(routeLocation("/v/k/analytics", `?${firstSearch}`), {
-				index: 1,
-				key: "first-section",
-			});
-			yield* Effect.promise(() => screen.findByText("first-local / rolling / Europe/Paris"));
-			expect(screen.queryByRole("region", { name: "Collection reviews" })).toBeNull();
 		}),
 );
 
-it.effect(
-	"renders kernel collection reviews with effective preferences and zero plugin contributors",
-	() =>
-		Effect.gen(function* () {
-			const page = mountPluginPage(AnalyticsPage, { page: context });
-			page.navigate(routeLocation("/v/k/analytics"));
-			yield* Effect.promise(() => answerPreferences(page));
-			yield* Effect.promise(() => screen.findByRole("region", { name: "Collection reviews" }));
-			expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("reviews")).toHaveLength(1)),
-			);
-			const records = page.queryRequests("reviews")[0];
-			if (!records) {
-				throw new Error("Missing collection records request");
-			}
-			page.replyQuery(records.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						reviews: {
-							items: [],
-							type: "rows",
-							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-						},
-					},
+it.effect("selects the only contributor without section navigation for an absent section", () =>
+	Effect.gen(function* () {
+		const page = mountPluginPage(AnalyticsPage, {
+			page: context,
+			analyticsSections: [
+				{
+					icon: "box",
+					name: "Only",
+					slug: "activity",
+					ownerPluginId: PluginId.make("only-local"),
+					load: () => Promise.resolve(FixtureSection),
 				},
-			});
-			yield* Effect.promise(() => screen.findByText("No reviews in this period"));
-			expect(screen.getAllByRole("heading", { level: 1, name: "Analytics" })).toHaveLength(1);
-		}),
+			],
+		});
+		page.navigate(routeLocation("/v/k/analytics"));
+		yield* Effect.promise(() => answerPreferences(page));
+		yield* Effect.promise(() => screen.findByText("only-local / rolling / Asia/Kolkata"));
+		expect(screen.queryByRole("radiogroup", { name: "Analytics sections" })).toBeNull();
+	}),
+);
+
+it.effect("renders an empty state with effective preferences and zero plugin contributors", () =>
+	Effect.gen(function* () {
+		const page = mountPluginPage(AnalyticsPage, { page: context });
+		page.navigate(routeLocation("/v/k/analytics"));
+		yield* Effect.promise(() => answerPreferences(page));
+		yield* Effect.promise(() => screen.findByText("No analytics available"));
+		expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
+		expect(screen.getAllByRole("heading", { level: 1, name: "Analytics" })).toHaveLength(1);
+	}),
 );
 
 it.effect("decodes controls from the URL and follows incoming history state", () =>
@@ -398,17 +373,28 @@ it.effect("keeps the committed range and query input in sync across range histor
 		};
 		const thirtyDaySearch = `?${reportingSearch(thirtyDaySelection)}`;
 		const sevenDaySearch = `?${reportingSearch(sevenDaySelection)}`;
-		const page = mountControls(thirtyDaySearch);
+		const page = mountPluginPage(AnalyticsPage, {
+			page: context,
+			analyticsSections: [
+				{
+					icon: "box",
+					name: "Range",
+					slug: "activity",
+					load: () => Promise.resolve(RangeSection),
+					ownerPluginId: PluginId.make("range-local"),
+				},
+			],
+		});
+		page.navigate(routeLocation("/v/k/analytics", thirtyDaySearch));
 		yield* Effect.promise(() => answerPreferences(page));
 		yield* Effect.promise(() =>
 			waitFor(() => {
 				expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
-				expect(page.queryRequests("reviews").length).toBeGreaterThan(0);
+				expect(sectionRange()).toContain('"days":30');
 			}),
 		);
 		const thirtyDayCaptions = periodCaptions();
-		const thirtyDayWhere = reviewQueryWhere(page, 0);
-		expect(thirtyDayWhere).toBeDefined();
+		const thirtyDayRange = sectionRange();
 
 		const previousUpdateCount = pageSearchUpdates(page).length;
 		yield* choose("Range", "Last 7 days");
@@ -425,37 +411,35 @@ it.effect("keeps the committed range and query input in sync across range histor
 		yield* Effect.promise(() =>
 			waitFor(() => {
 				expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined();
-				expect(page.queryRequests("reviews").length).toBeGreaterThan(1);
+				expect(sectionRange()).toContain('"days":7');
 			}),
 		);
 		const sevenDayCaptions = periodCaptions();
-		const sevenDayWhere = reviewQueryWhere(page, 1);
-		expect(sevenDayWhere).toBeDefined();
-		expect(sevenDayWhere).not.toEqual(thirtyDayWhere);
+		const sevenDayRange = sectionRange();
 
 		page.navigate(routeLocation("/v/k/analytics", thirtyDaySearch), {
 			index: 0,
 			key: "analytics-thirty-days",
 		});
 		yield* Effect.promise(() =>
-			waitFor(() =>
-				expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined(),
-			),
+			waitFor(() => {
+				expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
+				expect(sectionRange()).toEqual(thirtyDayRange);
+			}),
 		);
 		expect(periodCaptions()).toEqual(thirtyDayCaptions);
-		expect(reviewQueryWhere(page, 0)).toEqual(thirtyDayWhere);
 
 		page.navigate(routeLocation("/v/k/analytics", sevenDaySearch), {
 			index: 1,
 			key: "analytics-seven-days",
 		});
 		yield* Effect.promise(() =>
-			waitFor(() =>
-				expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined(),
-			),
+			waitFor(() => {
+				expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined();
+				expect(sectionRange()).toEqual(sevenDayRange);
+			}),
 		);
 		expect(periodCaptions()).toEqual(sevenDayCaptions);
-		expect(reviewQueryWhere(page, 1)).toEqual(sevenDayWhere);
 	}),
 );
 
