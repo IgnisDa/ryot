@@ -1,7 +1,6 @@
 import { Effect, Layer, Stream } from "effect";
 
 import { AccountApi } from "#/api/account";
-import { AutomationHistoryApi } from "#/api/automation-history";
 import { AutomationsApi } from "#/api/automations";
 import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
@@ -26,10 +25,6 @@ import { PluginManagementService } from "#/modules/plugins/management/service";
 
 // oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
 export const unused = () => Effect.die("not used");
-
-export const makeAutomationHistoryApi = (
-	overrides: Partial<AutomationHistoryApi["Service"]> = {},
-) => Layer.succeed(AutomationHistoryApi, { retryRun: unused, ...overrides });
 
 export const makeEntityWatchApi = (overrides: Partial<EntityWatchApi["Service"]> = {}) =>
 	Layer.succeed(EntityWatchApi, { createSocketTicket: unused, ...overrides });
@@ -185,7 +180,6 @@ export const KernelApiTestLayer = Layer.mergeAll(
 		open: () => Effect.die("Unused external link"),
 		outcome: () => Effect.die("Unused external link"),
 	}),
-	makeAutomationHistoryApi(),
 	makeRyotQLApi(),
 	makeCollectionsApi(),
 	makeCalendarSourcesApi(),

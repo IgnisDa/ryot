@@ -46,12 +46,6 @@ export const settingsGroups = [
 				path: "/settings/import-data",
 			},
 			{ icon: "archive", slug: "backups", label: "Backups", path: "/settings/backups" },
-			{
-				icon: "clock",
-				slug: "automation-history",
-				label: "Automation history",
-				path: "/settings/automation-history",
-			},
 		],
 	},
 	{

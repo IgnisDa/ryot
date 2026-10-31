@@ -5,7 +5,6 @@ import { FetchHttpClient } from "effect/http";
 import { AccountApi } from "#/api/account";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
-import { AutomationHistoryApi } from "#/api/automation-history";
 import { AutomationsApi } from "#/api/automations";
 import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
@@ -43,7 +42,6 @@ export const TransportLive = Layer.mergeAll(
 export const ApiLive = Layer.mergeAll(
 	AutomationsApi.layer,
 	PublicApi.layer,
-	AutomationHistoryApi.layer,
 	EntityWatchApi.layer,
 	RyotQLApi.layer,
 	BackupsApi.layer,
