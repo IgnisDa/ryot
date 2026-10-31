@@ -79,6 +79,7 @@ const AnomalyCode = Schema.Literals([
 	"asset-locator-unresolved",
 	"asset-deletion-failed",
 	"exercise-ownerless-unreferenced",
+	"person-identity-duplicate-merged",
 	"integration-cache-provider-unmapped",
 	"integration-cache-entity-unresolved",
 	"workout-set-completion-outside-session",

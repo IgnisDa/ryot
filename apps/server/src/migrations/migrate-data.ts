@@ -66,6 +66,7 @@ import {
 	resolveRelationshipMigrationTargets,
 } from "./migration-resolution";
 import { buildNotificationPlatformMigrationSql } from "./notification-platform-mapping";
+import { buildLegacyPersonDuplicateMergeSql } from "./person-duplicate-merge-sql";
 import {
 	buildCompanyEntityMigrationSql,
 	buildCompanyRelationshipMigrationSql,
@@ -507,6 +508,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 
 	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
+			yield* connection.executeRaw(buildLegacyPersonDuplicateMergeSql(), []);
 			yield* connection.executeRaw(createLegacyDescriptionInputsSql, []);
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
 			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);
