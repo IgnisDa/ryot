@@ -102,10 +102,15 @@ describe("Media activity recipe", () => {
 				mediaActivityRecipe({ reference: { kind: "local", pluginId: movie.pluginId }, ...WINDOW }),
 			);
 
-			expect(activity.figures).toEqual({ reviews: 1, finished: 2, minutes: 195 });
+			expect(activity.figures).toEqual({
+				reviews: 1,
+				finished: 2,
+				minutes: 195,
+				minutesMissing: 0,
+			});
 			expect(activity.days).toEqual([
-				{ events: 2, day: "2026-01-09T05:00:00.000Z" },
-				{ events: 2, day: "2026-01-12T05:00:00.000Z" },
+				{ events: 2, day: "2026-01-09" },
+				{ events: 2, day: "2026-01-12" },
 			]);
 			expect(activity.mediaTypes).toEqual([
 				{ events: 2, slug: "movie", label: "Movie" },
@@ -115,7 +120,7 @@ describe("Media activity recipe", () => {
 		}),
 	);
 
-	it.live("counts dateUnknown completions in figures but not in day or media type buckets", () =>
+	it.live("excludes dateUnknown completions from windowed figures, days, and media types", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const movie = yield* seed(client, "movie", { runtime: 120 });
@@ -129,8 +134,13 @@ describe("Media activity recipe", () => {
 				mediaActivityRecipe({ reference: { kind: "local", pluginId: movie.pluginId }, ...WINDOW }),
 			);
 
-			expect(activity.figures).toEqual({ reviews: 0, finished: 2, minutes: 150 });
-			expect(activity.days).toEqual([{ events: 1, day: "2026-01-09T05:00:00.000Z" }]);
+			expect(activity.figures).toEqual({
+				reviews: 0,
+				finished: 1,
+				minutes: 120,
+				minutesMissing: 0,
+			});
+			expect(activity.days).toEqual([{ events: 1, day: "2026-01-09" }]);
 			expect(activity.mediaTypes).toEqual([{ events: 1, slug: "movie", label: "Movie" }]);
 		}),
 	);
