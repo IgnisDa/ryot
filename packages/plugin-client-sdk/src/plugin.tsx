@@ -1,15 +1,10 @@
 export { loadStylesheet } from "./stylesheets";
 export { usePageRefresh } from "./refresh/page-registry";
+export { periodCaption, reportingRangeOptions } from "./analytics/reporting";
 export { UTC, TimeZone, deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 export type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 export type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 export { IosLiveActivityValue, IosLiveActivityContent } from "@ryot-app/plugin-client-contract";
-export {
-	periodCaption,
-	formatExactValue,
-	comparisonDetail,
-	reportingRangeOptions,
-} from "./analytics/reporting";
 export {
 	useDrillRequest,
 	AnalyticsSection,

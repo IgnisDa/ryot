@@ -102,8 +102,9 @@ resolves half-open local-calendar boundaries and pins the resolved period as a c
 `resolveReportingSelection` coarsens grouping so every bounded period stays within
 `REPORTING_BUCKET_LIMIT` buckets, and all-time groups by year. `calendarBuckets` lays out every
 bucket of a period (or of the data's extent for all time) with its points, so charts never page or
-truncate buckets. `selectionForPeriod`, `periodCaption`, `formatExactValue`, and `comparisonDetail`
-are the shared reporting vocabulary.
+truncate buckets. `selectionForPeriod` and `periodCaption` (readable ranges such as `Oct 2 – 31, 2026`)
+are the shared reporting vocabulary; figures, units, and period-over-period changes format through
+the UI SDK's metric helpers.
 
 Reporting queries come from `@ryot-app/plugin-client-sdk/react`. `createReportedQuery` resolves the
 input's `selection` and `timeZone` against `schedule.now()` when it executes, passes the resolved

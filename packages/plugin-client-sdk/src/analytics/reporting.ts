@@ -11,67 +11,28 @@ import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 
 type CaptionPeriod = null | { readonly endDate: string; readonly startDate: string };
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const dateParts = (date: string) => {
+	const [year = "", month = "", day = ""] = date.split("-");
+	return { year, day: String(Number(day)), month: MONTHS[Number(month) - 1] ?? month };
+};
+
 export const periodCaption = (period: CaptionPeriod) => {
 	if (period === null) {
 		return "All time";
 	}
-	return period.startDate === period.endDate
-		? period.startDate
-		: `${period.startDate} – ${period.endDate}`;
-};
-
-export const formatExactValue = (value: null | number, unit: null | string = null) => {
-	if (value === null || !Number.isFinite(value)) {
-		return "Unknown";
+	const start = dateParts(period.startDate);
+	const end = dateParts(period.endDate);
+	if (period.startDate === period.endDate) {
+		return `${start.month} ${start.day}, ${start.year}`;
 	}
-	return `${Object.is(value, -0) ? "0" : String(value)}${unit === null || unit === "" ? "" : ` ${unit}`}`;
-};
-
-const compareValues = (current: null | number, previous: null | number) => {
-	if (
-		current === null ||
-		previous === null ||
-		!Number.isFinite(current) ||
-		!Number.isFinite(previous)
-	) {
-		return { percent: null, absolute: null, kind: "unknown" as const };
+	if (start.year !== end.year) {
+		return `${start.month} ${start.day}, ${start.year} – ${end.month} ${end.day}, ${end.year}`;
 	}
-	const absolute = current - previous;
-	let percent: null | number = null;
-	if (previous !== 0) {
-		percent = (absolute / Math.abs(previous)) * 100;
-	} else if (current === 0) {
-		percent = 0;
-	}
-	return {
-		percent,
-		absolute,
-		kind: previous === 0 && current > 0 ? ("new-activity" as const) : ("change" as const),
-	};
-};
-
-export const comparisonDetail = (input: {
-	readonly unit: string;
-	readonly current: null | number;
-	readonly previous: null | number;
-	readonly resolved: { readonly current: CaptionPeriod; readonly previous: CaptionPeriod };
-}) => {
-	const currentCaption = periodCaption(input.resolved.current);
-	if (input.resolved.previous === null) {
-		return `${currentCaption} · No comparison`;
-	}
-	const periods = `${currentCaption} vs ${periodCaption(input.resolved.previous)}`;
-	const comparison = compareValues(input.current, input.previous);
-	if (comparison.kind === "unknown") {
-		return `${periods} · Change unavailable`;
-	}
-	if (comparison.kind === "new-activity") {
-		return `${periods} · New activity · +${formatExactValue(comparison.absolute, input.unit)}`;
-	}
-	const delta = `${comparison.absolute > 0 ? "+" : ""}${formatExactValue(comparison.absolute, input.unit)}`;
-	const percent =
-		comparison.percent === null ? "" : ` (${formatExactValue(comparison.percent, "%")})`;
-	return `${periods} · ${delta}${percent}`;
+	return start.month === end.month
+		? `${start.month} ${start.day} – ${end.day}, ${end.year}`
+		: `${start.month} ${start.day} – ${end.month} ${end.day}, ${end.year}`;
 };
 
 /** A daily selection of at most `REPORTING_BUCKET_LIMIT` days ending at the period end or today. */
