@@ -159,7 +159,7 @@ it.live("manages entity reminders from media and fitness pages", () =>
 		yield* visible(page.getByText(/^Cancelled/));
 		yield* page.getByRole("button", { exact: true, name: "Remove history" }).click();
 		yield* page.getByText(editedMessage, { exact: true }).waitFor({ state: "hidden" });
-		yield* visible(page.getByText("No reminders in this view.", { exact: true }));
+		yield* visible(page.getByText("No reminder history", { exact: true }));
 		const remaining = yield* listReminders(client);
 		expect(remaining.items.some((reminder) => reminder.message === editedMessage)).toBe(false);
 	}).pipe(PlaywrightSpawner.withBrowser),
@@ -253,7 +253,7 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 		yield* editor.getByRole("button", { exact: true, name: "Schedule reminder" }).click();
 		yield* editor.waitFor({ state: "hidden" });
 		yield* page.getByText(message, { exact: true }).waitFor({ state: "hidden" });
-		yield* visible(page.getByText("No reminders in this view.", { exact: true }));
+		yield* visible(page.getByText("Nothing needs scheduling", { exact: true }));
 
 		const readinessAfterSchedule = yield* executeRyotQLRecipe(
 			destination.client,
