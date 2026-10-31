@@ -83,9 +83,9 @@ CREATE TABLE "automation_run_attempt" (
 	"logs" jsonb,
 	"error" jsonb,
 	"timing" jsonb,
-	"history_artifacts_truncated" boolean DEFAULT false NOT NULL,
 	"history_logs" jsonb,
 	"history_error" jsonb,
+	"history_artifacts_truncated" boolean DEFAULT false NOT NULL,
 	"status" text NOT NULL,
 	"failure_kind" text,
 	"returned_value" jsonb,
@@ -160,6 +160,32 @@ CREATE TABLE "backup_run" (
 	"status" text DEFAULT 'pending' NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY
+);
+--> statement-breakpoint
+CREATE TABLE "backup_staging_record" (
+	"id" text,
+	"destination_id" text,
+	"section" text NOT NULL,
+	"namespace" text,
+	"value" jsonb NOT NULL,
+	"inserted" boolean DEFAULT false NOT NULL,
+	"run_id" text,
+	CONSTRAINT "backup_staging_record_pkey" PRIMARY KEY("run_id","namespace","id")
+);
+--> statement-breakpoint
+CREATE TABLE "backup_staging_reference" (
+	"source_id" text,
+	"target_id" text,
+	"source_namespace" text,
+	"target_namespace" text,
+	"run_id" text,
+	CONSTRAINT "backup_staging_reference_pkey" PRIMARY KEY("run_id","source_namespace","source_id","target_namespace","target_id")
+);
+--> statement-breakpoint
+CREATE TABLE "backup_staging_run" (
+	"id" text PRIMARY KEY,
+	"expires_at" timestamp(3) with time zone NOT NULL,
+	"backup_run_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "calendar_source_override" (
@@ -491,13 +517,13 @@ CREATE TABLE "event_stream_work" (
 	"dirty_from" timestamp(3) with time zone,
 	"completed_revision" integer,
 	"account_token" text NOT NULL,
-	"claimed_alone" boolean DEFAULT false NOT NULL,
 	"event_schema_slug" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	"processor_script_id" text NOT NULL,
 	"event_schema_plugin_id" text NOT NULL,
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"claimed_alone" boolean DEFAULT false NOT NULL,
 	"output_schema" jsonb NOT NULL,
 	"checkpoint" jsonb DEFAULT 'null',
 	"config_revision_id" text GENERATED ALWAYS AS (plugin_pin ->> 'configRevisionId') STORED,
@@ -1368,6 +1394,8 @@ CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "backup_run_user_active_unique" ON "backup_run" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
+CREATE INDEX "backup_staging_record_run_section_id_idx" ON "backup_staging_record" ("run_id","section","id");--> statement-breakpoint
+CREATE INDEX "backup_staging_reference_run_target_idx" ON "backup_staging_reference" ("run_id","target_namespace","target_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "data_import_submission_identity_unique" ON "data_import_submission" ("user_id",coalesce("integration_id", ''),"key");--> statement-breakpoint
 CREATE INDEX "definition_calendar_source_slug_idx" ON "definition_calendar_source" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_entity_schema_slug_idx" ON "definition_entity_schema" ("slug");--> statement-breakpoint
@@ -1522,6 +1550,9 @@ ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_re
 ALTER TABLE "background_work" ADD CONSTRAINT "background_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "background_work" ADD CONSTRAINT "background_work_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "backup_staging_record" ADD CONSTRAINT "backup_staging_record_run_id_backup_staging_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "backup_staging_run"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "backup_staging_reference" ADD CONSTRAINT "backup_staging_reference_run_id_backup_staging_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "backup_staging_run"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "backup_staging_run" ADD CONSTRAINT "backup_staging_run_backup_run_id_backup_run_id_fkey" FOREIGN KEY ("backup_run_id") REFERENCES "backup_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "calendar_source_override" ADD CONSTRAINT "calendar_source_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_artifact_file" ADD CONSTRAINT "client_artifact_file_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint

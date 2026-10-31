@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "7486ba4f-ec80-4f1d-95e0-facff9228037",
+	"id": "d990802d-d724-487f-9866-d997a91826ff",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -32,6 +32,24 @@
 			"schema": "public"
 		},
 		{ "isRlsEnabled": false, "name": "backup_run", "entityType": "tables", "schema": "public" },
+		{
+			"isRlsEnabled": false,
+			"name": "backup_staging_record",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "backup_staging_reference",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "backup_staging_run",
+			"entityType": "tables",
+			"schema": "public"
+		},
 		{
 			"isRlsEnabled": false,
 			"name": "calendar_source_override",
@@ -1293,19 +1311,6 @@
 			"table": "automation_run_attempt"
 		},
 		{
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
-			"name": "history_artifacts_truncated",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "automation_run_attempt"
-		},
-		{
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -1327,6 +1332,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "history_error",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_run_attempt"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "history_artifacts_truncated",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_run_attempt"
@@ -2019,6 +2037,201 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "destination_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "section",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "namespace",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "value",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "inserted",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "run_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "source_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "target_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "source_namespace",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "target_namespace",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "run_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_run"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "expires_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "backup_run_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_staging_run"
 		},
 		{
 			"type": "text",
@@ -5063,19 +5276,6 @@
 			"table": "event_stream_work"
 		},
 		{
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
-			"name": "claimed_alone",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "event_stream_work"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -5149,6 +5349,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "updated_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "event_stream_work"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "claimed_alone",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "event_stream_work"
@@ -13344,6 +13557,70 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "run_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "section",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "backup_staging_record_run_section_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "run_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "target_namespace",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "target_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "backup_staging_reference_run_target_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -16953,6 +17230,45 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["run_id"],
+			"schemaTo": "public",
+			"tableTo": "backup_staging_run",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "backup_staging_record_run_id_backup_staging_run_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["run_id"],
+			"schemaTo": "public",
+			"tableTo": "backup_staging_run",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "backup_staging_reference_run_id_backup_staging_run_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["backup_run_id"],
+			"schemaTo": "public",
+			"tableTo": "backup_run",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "backup_staging_run_backup_run_id_backup_run_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "backup_staging_run"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -18629,6 +18945,22 @@
 			"table": "automation_trigger_recipient"
 		},
 		{
+			"columns": ["run_id", "namespace", "id"],
+			"nameExplicit": false,
+			"name": "backup_staging_record_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "backup_staging_record"
+		},
+		{
+			"columns": ["run_id", "source_namespace", "source_id", "target_namespace", "target_id"],
+			"nameExplicit": false,
+			"name": "backup_staging_reference_pkey",
+			"entityType": "pks",
+			"schema": "public",
+			"table": "backup_staging_reference"
+		},
+		{
 			"columns": ["artifact_hash", "name"],
 			"nameExplicit": false,
 			"name": "client_artifact_file_pkey",
@@ -18810,6 +19142,14 @@
 			"name": "backup_run_pkey",
 			"schema": "public",
 			"table": "backup_run",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "backup_staging_run_pkey",
+			"schema": "public",
+			"table": "backup_staging_run",
 			"entityType": "pks"
 		},
 		{
