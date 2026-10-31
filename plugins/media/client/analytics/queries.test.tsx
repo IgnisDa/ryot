@@ -227,18 +227,18 @@ describe("Media analytics query adapters", () => {
 	for (const sample of [
 		{
 			offset: -1,
+			current: "Feb 1 – 28, 2026",
+			previous: "Jan 1 – 31, 2026",
 			end: "2026-03-01T05:00:00.000Z",
 			start: "2026-02-01T05:00:00.000Z",
-			current: "2026-02-01 – 2026-02-28",
-			previous: "2026-01-01 – 2026-01-31",
 			previousStart: "2026-01-01T05:00:00.000Z",
 		},
 		{
 			offset: 0,
+			current: "Mar 1 – 31, 2026",
+			previous: "Feb 1 – 28, 2026",
 			end: "2026-04-01T04:00:00.000Z",
 			start: "2026-03-01T05:00:00.000Z",
-			current: "2026-03-01 – 2026-03-31",
-			previous: "2026-02-01 – 2026-02-28",
 			previousStart: "2026-02-01T05:00:00.000Z",
 		},
 	] as const) {
@@ -310,10 +310,10 @@ describe("Media analytics query adapters", () => {
 					}
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByLabelText("Period").textContent).toBe("2026-10-26 – 2026-11-01"),
+							expect(screen.getByLabelText("Period").textContent).toBe("Oct 26 – Nov 1, 2026"),
 						),
 					);
-					expect(screen.getByLabelText("Previous").textContent).toBe("2026-10-19 – 2026-10-25");
+					expect(screen.getByLabelText("Previous").textContent).toBe("Oct 19 – 25, 2026");
 					yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
 					act(() => {
 						fireEvent.click(screen.getByRole("button", { name: "Refresh report" }));
@@ -325,7 +325,7 @@ describe("Media analytics query adapters", () => {
 					}
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByLabelText("Period").textContent).toBe("2026-10-27 – 2026-11-02"),
+							expect(screen.getByLabelText("Period").textContent).toBe("Oct 27 – Nov 2, 2026"),
 						),
 					);
 				} finally {
@@ -352,7 +352,7 @@ describe("Media analytics query adapters", () => {
 					});
 				}
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("2026-10-27 – 2026-11-02")).toBeDefined()),
+					waitFor(() => expect(screen.getByText("Oct 27 – Nov 2, 2026")).toBeDefined()),
 				);
 				expect(screen.getByLabelText("Clipped").textContent).toBe("false");
 			} finally {

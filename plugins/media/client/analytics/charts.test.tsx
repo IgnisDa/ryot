@@ -11,7 +11,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act, type ComponentType } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -91,12 +91,16 @@ const requestsNotReplied = (
 const replyRequests = (
 	page: ReturnType<typeof mountCharts>,
 	replied: Set<string>,
-	options: { readonly includeTrendRow?: boolean } = {},
+	options: { readonly trendAt?: string; readonly includeTrendRow?: boolean } = {},
 ) => {
 	for (const request of requestsNotReplied(page, replied)) {
 		replied.add(request.requestId);
 		const queries = request.document.queries;
-		const series = aggregate(options.includeTrendRow ? [trendRow()] : []);
+		const series = aggregate(
+			options.includeTrendRow
+				? [trendRow(options.trendAt === undefined ? {} : { at: options.trendAt })]
+				: [],
+		);
 		page.replyQuery(request.requestId, {
 			outcome: "success",
 			response: {
@@ -117,19 +121,21 @@ const choose = (label: string, selected: string, option: string) =>
 			act(() => fireEvent.click(screen.getByRole("button", { name: `${label}: ${selected}` }))),
 		);
 		yield* Effect.promise(() =>
-			act(() => fireEvent.click(screen.getByRole("radio", { name: option }))),
+			act(() => fireEvent.click(screen.getByRole("menuitemradio", { name: option }))),
 		);
 	});
 
+const tableToggles = () => screen.getAllByRole("radio", { name: "Table" });
+
 const openExactValues = (index: number) =>
 	Effect.gen(function* () {
-		const summary = screen.getAllByText("View exact values")[index];
-		expect(summary).toBeDefined();
-		if (summary === undefined) {
+		const toggle = tableToggles()[index];
+		expect(toggle).toBeDefined();
+		if (toggle === undefined) {
 			return;
 		}
-		if (summary.closest("details")?.open !== true) {
-			yield* Effect.promise(() => act(() => fireEvent.click(summary)));
+		if (toggle.getAttribute("aria-checked") !== "true") {
+			yield* Effect.promise(() => act(() => fireEvent.click(toggle)));
 		}
 	});
 
@@ -153,15 +159,13 @@ describe("Media analytics charts UI", () => {
 						waitFor(() => expect(page.queryRequests().length).toBeGreaterThanOrEqual(3)),
 					);
 					replyRequests(page, replied, { includeTrendRow: true });
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
-					);
+					yield* Effect.promise(() => waitFor(() => expect(tableToggles()).toHaveLength(3)));
 					const requestTexts = yield* Effect.forEach(page.queryRequests(), (request) =>
 						documentText(request.document),
 					);
 					expect(requestTexts.some((text) => text.includes("America/New_York"))).toBe(true);
-					yield* choose("Trend metric", "Active observations", "Pages");
-					yield* choose("Media type", "All media types", "Book");
+					yield* choose("Show", "Activity entries", "Pages");
+					yield* choose("Type", "All", "Book");
 					yield* Effect.promise(() =>
 						waitFor(() => expect(requestsNotReplied(page, replied).length).toBe(2)),
 					);
@@ -169,9 +173,7 @@ describe("Media analytics charts UI", () => {
 						yield* documentText(requestsNotReplied(page, replied, "current")[0]?.document),
 					).toContain('"book"');
 					replyRequests(page, replied, { includeTrendRow: true });
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
-					);
+					yield* Effect.promise(() => waitFor(() => expect(tableToggles()).toHaveLength(3)));
 					yield* openExactValues(0);
 					const trendValues = screen.getByRole("table", {
 						name: "Pages by reporting period exact values",
@@ -179,7 +181,7 @@ describe("Media analytics charts UI", () => {
 					expect(trendValues.textContent).toContain("12.5 pages");
 					expect(trendValues.textContent).toContain("Not recorded");
 					fireEvent.click(
-						screen.getByRole("button", { name: /View records: .*2026-03-02.*12\.5 pages/ }),
+						screen.getByRole("button", { name: "View records: Mar 2, 2026 · 12.5 pages" }),
 					);
 					expect(requests.at(-1)).toMatchObject({
 						mediaType: "book",
@@ -188,10 +190,10 @@ describe("Media analytics charts UI", () => {
 							range: { kind: "custom", endDate: "2026-03-02", startDate: "2026-03-02" },
 						},
 					});
-					yield* choose("Trend metric", "Pages", "Title completions");
+					yield* choose("Show", "Pages", "Titles completed");
 					yield* openExactValues(0);
 					fireEvent.click(
-						screen.getByRole("button", { name: /View records: .*2026-03-02.*1 title completions/ }),
+						screen.getByRole("button", { name: "View records: Mar 2, 2026 · 1 title" }),
 					);
 					expect(requests.at(-1)?.mediaType).toBe("book");
 					yield* openExactValues(1);
@@ -204,7 +206,11 @@ describe("Media analytics charts UI", () => {
 						},
 					});
 					yield* openExactValues(2);
-					fireEvent.click(screen.getByRole("button", { name: /View records: Mar 2, 2026/ }));
+					fireEvent.click(
+						within(
+							screen.getByRole("table", { name: /^Daily activity entries .* exact values$/ }),
+						).getByRole("button", { name: /View records: Mar 2, 2026/ }),
+					);
 					expect(requests.at(-1)).toMatchObject({
 						activeOnly: true,
 						selection: {
@@ -235,15 +241,15 @@ describe("Media analytics charts UI", () => {
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests("previous")).toHaveLength(1)),
 					);
-					replyRequests(page, replied);
+					replyRequests(page, replied, { includeTrendRow: true, trendAt: "2026-02-10" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getAllByText(/2026-02-01 – 2026-02-28/).length).toBeGreaterThan(0),
+							expect(screen.getAllByText("Feb 1 – 28, 2026").length).toBeGreaterThan(0),
 						),
 					);
 					yield* openExactValues(0);
 					const trendValues = screen.getByRole("table", {
-						name: "Active observations by reporting period exact values",
+						name: "Activity entries by reporting period exact values",
 					});
 					expect(trendValues.textContent).toContain("Jan 29, 2026");
 					expect(trendValues.textContent).toContain("Jan 31, 2026");
@@ -279,9 +285,7 @@ describe("Media analytics charts UI", () => {
 					replyRequests(page, replied, { includeTrendRow: true });
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(
-								screen.getByText("Showing the most recent 366 days of the selected period."),
-							).toBeDefined(),
+							expect(screen.getByText(/All media types · .* · last 366 days/)).toBeDefined(),
 						),
 					);
 					yield* openExactValues(0);
@@ -289,7 +293,7 @@ describe("Media analytics charts UI", () => {
 					yield* openExactValues(2);
 					const tables = screen.getAllByRole("table");
 					const loaded = tables.map((table) => table.textContent);
-					expect(loaded.join(" ")).toContain("1 observations");
+					expect(loaded.join(" ")).toContain("1 entry");
 					page.send({ type: "page-refresh" });
 					yield* waitForMessagePortMacrotask;
 					yield* Effect.promise(() => clock.advance(250));

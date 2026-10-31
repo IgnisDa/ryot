@@ -158,7 +158,7 @@ describe("Media analytics rankings", () => {
 					);
 					expect(within(rankingTable).getAllByRole("row")).toHaveLength(102);
 					expect(within(rankingTable).getByText("Entity 101")).toBeDefined();
-					expect(within(rankingTable).getByText("0 observations")).toBeDefined();
+					expect(within(rankingTable).getByText("0 entries")).toBeDefined();
 					expect(within(preview).getAllByRole("listitem")).toHaveLength(10);
 					expect(page.queryRequests("ranking")).toHaveLength(2);
 				} finally {

@@ -40,7 +40,7 @@ const request: RecordsDrillRequest = {
 	title: "Captured title",
 	selection: selectedPeriod,
 	entityId: "title/record-source",
-	periodCaption: "2026-09-01 – 2026-09-07",
+	periodCaption: "Sep 1 – 7, 2026",
 };
 const contribution = (
 	attribution: MediaAnalyticsRecord["contribution"]["attribution"] = {
@@ -191,7 +191,7 @@ describe("Media analytics records drill", () => {
 					);
 					expect(
 						screen.getByText(
-							"Period: 2026-09-01 – 2026-09-07 · Time zone: America/New_York · Type: book · Hour: 1 · Active observations only",
+							"Period: Sep 1 – 7, 2026 · Time zone: America/New_York · Type: book · Hour: 1 · Active observations only",
 						),
 					).toBeDefined();
 					const table = screen.getByRole("table", { name: "Media analytics records" });
@@ -283,13 +283,13 @@ describe("Media analytics records drill", () => {
 					expect(within(itemRow).getByText("Consumed item position:")).toBeDefined();
 					expect(within(itemRow).getByText("episodes position 12")).toBeDefined();
 					expect(within(itemRow).getByText("Manually recorded time:")).toBeDefined();
-					expect(within(itemRow).getByText("0 minutes")).toBeDefined();
+					expect(within(itemRow).getByText("0s")).toBeDefined();
 					expect(within(itemRow).getByText("Source progress:")).toBeDefined();
 					expect(within(itemRow).getByText(/not an allocated amount/)).toBeDefined();
 					expect(within(itemRow).getByText("Source progress pages:")).toBeDefined();
 					expect(within(itemRow).getByText("0 pages")).toBeDefined();
 					expect(within(itemRow).getByText("Source progress percent:")).toBeDefined();
-					expect(within(itemRow).getByText("42.5 %")).toBeDefined();
+					expect(within(itemRow).getByText("42.5%")).toBeDefined();
 					expect(within(itemRow).getByText("Frozen consumption basis:")).toBeDefined();
 					expect(
 						within(itemRow).getByText("episodes · total 24 · source property episodes"),
@@ -342,7 +342,7 @@ describe("Media analytics records drill", () => {
 				).getByRole("row", { name: /Pending source title/ });
 				expect(within(row).getByText("item-complete")).toBeDefined();
 				expect(within(row).getByText("chapters position 3")).toBeDefined();
-				expect(within(row).getByText("0 minutes")).toBeDefined();
+				expect(within(row).getByText("0s")).toBeDefined();
 				expect(within(row).getByText("Active observation:")).toBeDefined();
 			} finally {
 				page.dispose();

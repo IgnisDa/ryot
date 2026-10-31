@@ -1,15 +1,12 @@
-import {
-	formatExactValue,
-	periodCaption,
-	PluginLink,
-	useRyotViewport,
-} from "@ryot-app/plugin-client-sdk/plugin";
+import { periodCaption, PluginLink, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
 	EmptyState,
+	formatMetric,
 	LoadMoreButton,
+	type MetricUnit,
 	Select,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
@@ -18,7 +15,14 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { useMemo, useState } from "react";
 
-import type { MediaAnalyticsRanking, RankingsRecordsProps, RecordsDrillRequest } from "./model";
+import {
+	entryUnit,
+	episodeUnit,
+	type MediaAnalyticsRanking,
+	type RankingsRecordsProps,
+	type RecordsDrillRequest,
+	titleUnit,
+} from "./model";
 import { mediaAnalyticsRankingQuery } from "./queries";
 
 type RankingRow = MediaAnalyticsRanking["items"][number];
@@ -71,14 +75,14 @@ const countCellClassName = "px-3 py-2.5 text-right text-text-muted";
 const countColumn = (
 	id: string,
 	header: string,
-	unit: string,
+	unit: MetricUnit,
 	value: (row: RankingRow) => null | number,
 ): DataTableColumn<RankingRow> => ({
 	id,
 	header,
 	cellClassName: countCellClassName,
 	headerClassName: countHeaderClassName,
-	cell: (row) => formatExactValue(value(row), unit),
+	cell: (row) => formatMetric(value(row), unit),
 });
 
 const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColumn<RankingRow>[] => [
@@ -103,9 +107,9 @@ const rankingColumns = ({ request, onDrill }: RankingTableProps): DataTableColum
 		cell: (row) => row.label,
 		cellClassName: "px-3 py-2.5 text-text-muted",
 	},
-	countColumn("active", "Active observations", "observations", (row) => row.activeObservations),
-	countColumn("titles", "Title completions", "titles", (row) => row.titleCompletions),
-	countColumn("episodes", "Episode completions", "episodes", (row) => row.episodeCompletions),
+	countColumn("active", "Activity entries", entryUnit, (row) => row.activeObservations),
+	countColumn("titles", "Titles completed", titleUnit, (row) => row.titleCompletions),
+	countColumn("episodes", "Episodes finished", episodeUnit, (row) => row.episodeCompletions),
 	{
 		id: "actions",
 		headerClassName: countHeaderClassName,
@@ -261,7 +265,7 @@ function RankingResults(props: {
 								</div>
 								<RankedBarList
 									rows={preview}
-									formatValue={({ value }) => formatExactValue(value, "observations")}
+									formatValue={({ value }) => formatMetric(value, entryUnit)}
 								/>
 							</section>
 							<RankingTable items={rows} request={requestFor} onDrill={props.onDrill} />

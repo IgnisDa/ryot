@@ -5,6 +5,7 @@ import {
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { countUnit, durationUnit, type MetricUnit } from "@ryot-app/plugin-ui-sdk";
 
 import type {
 	MediaAnalyticsFilter,
@@ -44,6 +45,28 @@ export type RecordsDrillRequest = MediaAnalyticsFilter & {
 };
 
 type TypeRow = MediaAnalyticsSummary["current"]["types"][number];
+
+export const titleUnit = countUnit("title");
+export const episodeUnit = countUnit("episode");
+export const dayUnit = countUnit("day");
+export const entryUnit = countUnit("entry", "entries");
+export const uniqueTitleUnit = countUnit("unique title");
+
+export const measureUnits: Record<ConsumptionMeasureUnit, MetricUnit> = {
+	pages: countUnit("page"),
+	volumes: countUnit("volume"),
+	chapters: countUnit("chapter"),
+	episodes: countUnit("episode"),
+	minutes: durationUnit("minutes"),
+};
+
+export const measureLabels: Record<ConsumptionMeasureUnit, string> = {
+	pages: "Pages",
+	volumes: "Volumes",
+	chapters: "Chapters",
+	episodes: "Episodes",
+	minutes: "Time spent",
+};
 type MeasureRow = Omit<MediaAnalyticsTrend["current"]["items"][number], "at">;
 
 const total = <Row>(rows: readonly Row[], value: (row: Row) => null | number | undefined) =>

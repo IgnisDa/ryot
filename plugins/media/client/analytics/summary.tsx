@@ -1,327 +1,317 @@
+import { periodCaption, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
-	comparisonDetail,
-	formatExactValue,
-	periodCaption,
-	useRyotViewport,
-} from "@ryot-app/plugin-client-sdk/plugin";
-import { Card, StatStrip } from "@ryot-app/plugin-ui-sdk";
+	ChartCard,
+	countUnit,
+	formatMetric,
+	formatNumber,
+	measureUnit,
+	type Metric,
+	metricDelta,
+	MetricGrid,
+} from "@ryot-app/plugin-ui-sdk";
+import { CoverageBar } from "@ryot-app/plugin-ui-sdk/charts";
 
+import { consumptionMeasureUnits } from "../../shared/consumption-allocation";
 import {
-	type ConsumptionMeasureUnit,
-	consumptionMeasureUnits,
-} from "../../shared/consumption-allocation";
-import { type reviewModel, type SummaryChartsProps, summaryModel } from "./model";
+	dayUnit,
+	entryUnit,
+	episodeUnit,
+	measureLabels,
+	measureUnits,
+	type reviewModel,
+	type SummaryChartsProps,
+	summaryModel,
+	titleUnit,
+	uniqueTitleUnit,
+} from "./model";
 
-type QuantitySummary = ReturnType<typeof summaryModel>["current"]["quantities"]["pages"];
+type PeriodModel = ReturnType<typeof summaryModel>["current"];
 
-const measureLabels: Record<ConsumptionMeasureUnit, string> = {
-	pages: "Pages",
-	minutes: "Minutes",
-	volumes: "Volumes",
-	chapters: "Chapters",
-	episodes: "Episodes",
-};
+const reviewUnit = countUnit("review");
+const ratingUnit = countUnit("rating");
+const ratingScaleUnit = measureUnit("/ 100");
+const undatedUnit = countUnit("undated entry", "undated entries");
 
-const quantityDetail = (quantity: QuantitySummary, unit: string) =>
-	[
-		`Known observations · ${formatExactValue(quantity.known, "observations")}`,
-		`Recorded · ${formatExactValue(quantity.recorded, unit)}`,
-		`Estimated · ${formatExactValue(quantity.estimated, unit)}`,
-		`Missing observations · ${formatExactValue(quantity.missing, "observations")}`,
-	].join(" · ");
+const formatRating = (value: null | number) =>
+	value === null ? "—" : `${formatNumber(value)}/100`;
+
+const typeAmounts = (row: PeriodModel["types"][number]) =>
+	consumptionMeasureUnits
+		.filter((unit) => unit !== "minutes" && row.quantities[unit].value !== null)
+		.map((unit) => formatMetric(row.quantities[unit].value, measureUnits[unit]))
+		.join(" · ");
 
 export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 	const { compact } = useRyotViewport();
 	const model = summaryModel(props.summary);
-	const currentCaption = periodCaption(props.summary.reporting.resolved.current);
-	const previousCaption =
-		props.summary.reporting.resolved.previous === null
-			? null
-			: periodCaption(props.summary.reporting.resolved.previous);
-	const current = model.current;
-	const previous = model.previous;
-	const comparison = (value: number, oldValue: number | undefined, unit: string) =>
-		comparisonDetail({
-			unit,
-			current: value,
-			previous: oldValue ?? null,
-			resolved: props.summary.reporting.resolved,
-		});
+	const { current, previous } = model;
+	const delta = (value: null | number, old: null | number | undefined) =>
+		previous === null ? undefined : metricDelta(value, old ?? null);
+	const minutes = current.quantities.minutes;
+	const metrics: Metric[] = [
+		{
+			unit: titleUnit,
+			key: "title-completions",
+			label: "Titles completed",
+			value: current.titleCompletions,
+			hint: formatMetric(current.distinctTitles, uniqueTitleUnit),
+			delta: delta(current.titleCompletions, previous?.titleCompletions),
+		},
+		{
+			unit: episodeUnit,
+			key: "episode-completions",
+			label: "Episodes finished",
+			hint: "Shows and podcasts",
+			value: current.episodeCompletions,
+			delta: delta(current.episodeCompletions, previous?.episodeCompletions),
+		},
+		{
+			key: "minutes",
+			label: "Time spent",
+			value: minutes.value,
+			atLeast: minutes.partial,
+			unit: measureUnits.minutes,
+			delta: delta(minutes.value, previous?.quantities.minutes.value),
+		},
+		{
+			unit: dayUnit,
+			key: "active-days",
+			label: "Active days",
+			value: current.activeDays,
+			delta: delta(current.activeDays, previous?.activeDays),
+			hint: formatMetric(current.activeObservations, entryUnit),
+		},
+	];
+	const amounts = consumptionMeasureUnits.filter((unit) => current.quantities[unit].value !== null);
+	const types = current.types
+		.filter(
+			(row) =>
+				row.activeDays > 0 ||
+				row.titleCompletions > 0 ||
+				row.episodeCompletions > 0 ||
+				row.activeObservations > 0,
+		)
+		.sort((left, right) => right.activeObservations - left.activeObservations);
 
 	return (
 		<section aria-label="Media analytics summary" className="flex min-w-0 flex-col gap-4 font-ui">
-			<header className="min-w-0">
-				<h2 className="text-heading font-semibold text-text">Consumption summary</h2>
-				<p className="text-sm text-text-muted">
-					Current period · {currentCaption}
-					{previousCaption === null
-						? " · No previous period"
-						: ` · Previous period · ${previousCaption}`}
-				</p>
-			</header>
-			<StatStrip
+			<MetricGrid
+				variant="tiles"
 				compact={compact}
-				className="min-w-0"
-				stats={[
-					{
-						key: "title-completions",
-						label: "Title completion occurrences",
-						value: formatExactValue(current.titleCompletions, "titles"),
-						detail: comparison(current.titleCompletions, previous?.titleCompletions, "titles"),
-					},
-					{
-						key: "episode-completions",
-						label: "Episode completion occurrences",
-						value: formatExactValue(current.episodeCompletions, "occurrences"),
-						detail: comparison(
-							current.episodeCompletions,
-							previous?.episodeCompletions,
-							"occurrences",
-						),
-					},
-					{
-						key: "distinct-titles",
-						label: "Distinct completed titles",
-						value: formatExactValue(current.distinctTitles, "titles"),
-						detail: comparison(current.distinctTitles, previous?.distinctTitles, "titles"),
-					},
-					{
-						key: "active-days",
-						label: "Active days",
-						value: formatExactValue(current.activeDays, "days"),
-						detail: comparison(current.activeDays, previous?.activeDays, "days"),
-					},
-					{
-						key: "active-observations",
-						label: "Active observations",
-						value: formatExactValue(current.activeObservations, "observations"),
-						detail: comparison(
-							current.activeObservations,
-							previous?.activeObservations,
-							"observations",
-						),
-					},
-				]}
+				metrics={metrics}
+				comparisonLabel="vs previous period"
 			/>
-			<p className="text-sm text-text-muted">
-				Episode completion counts cover show and podcast episodes. Independent numbered items are
-				included in their unit totals.
-			</p>
-			<Card className="flex min-w-0 flex-col gap-3">
-				<h3 className="text-body font-semibold text-text">Quantity coverage</h3>
-				<p className="text-sm text-text-muted">
-					Units stay separate. Recorded and estimated quantities are not added across measures.
-				</p>
-				<div
-					className={
-						compact
-							? "grid min-w-0 grid-cols-1 gap-x-5 gap-y-4"
-							: "grid min-w-0 grid-cols-2 gap-x-5 gap-y-4"
-					}
+			{amounts.length === 0 ? null : (
+				<ChartCard
+					title="Amounts"
+					description="Recorded amounts plus estimates from title lengths. Each unit is counted separately."
 				>
-					{consumptionMeasureUnits.map((unit) => {
-						const quantity = current.quantities[unit];
-						return (
-							<dl key={unit} className="flex min-w-0 flex-col gap-1">
-								<dt className="text-label text-text-muted">{measureLabels[unit]}</dt>
-								<dd className="break-words text-body font-semibold text-text tabular-nums">
-									{quantity.value === null
-										? "Unknown"
-										: `${quantity.partial ? "≥ " : ""}${formatExactValue(quantity.value, unit)}`}
-								</dd>
-								<dd className="break-words text-xs text-text-subtle">
-									{quantityDetail(quantity, unit)}
-								</dd>
-							</dl>
-						);
-					})}
-				</div>
-				{model.unknownDate > 0 ? (
-					<p className="text-sm text-text-muted">
-						Full-history source coverage includes{" "}
-						{formatExactValue(model.unknownDate, "unknown-date observations")}; these records are
-						not assigned to a reporting date.
-					</p>
-				) : null}
-			</Card>
-			<Card className="flex min-w-0 flex-col gap-3">
-				<h3 className="text-body font-semibold text-text">By media type</h3>
-				<p className="text-sm text-text-muted">
-					Episode and season rows remain separate from parent titles. Parent and child quantities
-					are not combined.
-				</p>
-				<div className="min-w-0 overflow-x-auto">
-					<table className="w-full min-w-[48rem] border-collapse text-left text-sm">
-						<caption className="sr-only">
-							Completion, activity, distinct-title, active-day, and quantity coverage by media type
-						</caption>
-						<thead className="text-xs text-text-muted">
-							<tr>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Media type
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Title completions
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Episode completions
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Active observations
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Distinct titles
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Active days
-								</th>
-								<th scope="col" className="py-2 font-medium">
-									Quantity coverage
-								</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border">
-							{current.types.map((row) => (
-								<tr key={row.source.mediaType}>
-									<th scope="row" className="py-2 pr-3 align-top font-medium text-text">
-										{row.source.label}
+					<div
+						className={compact ? "grid min-w-0 gap-5" : "grid min-w-0 grid-cols-2 gap-x-8 gap-y-5"}
+					>
+						{amounts.map((unit) => {
+							const quantity = current.quantities[unit];
+							const measure = measureUnits[unit];
+							return (
+								<div key={unit} className="flex min-w-0 flex-col gap-2">
+									<div className="flex min-w-0 items-baseline justify-between gap-3">
+										<span className="text-label text-text-muted">{measureLabels[unit]}</span>
+										<span className="text-body font-semibold text-text tabular-nums">
+											{quantity.partial ? "≥ " : ""}
+											{formatMetric(quantity.value, measure)}
+										</span>
+									</div>
+									<CoverageBar
+										ariaLabel={`${measureLabels[unit]} sources`}
+										formatValue={(segment) => formatMetric(segment.value, measure)}
+										segments={[
+											{
+												tone: "solid",
+												key: "recorded",
+												label: "Recorded",
+												value: quantity.recorded,
+											},
+											{
+												tone: "soft",
+												key: "estimated",
+												label: "Estimated",
+												value: quantity.estimated,
+											},
+										]}
+									/>
+									{quantity.missing > 0 ? (
+										<p className="text-micro text-text-subtle">
+											{formatMetric(quantity.missing, entryUnit)} without an amount
+										</p>
+									) : null}
+								</div>
+							);
+						})}
+					</div>
+					{model.unknownDate > 0 ? (
+						<p className="text-micro text-text-subtle">
+							Not counted in any period: {formatMetric(model.unknownDate, undatedUnit)}.
+						</p>
+					) : null}
+				</ChartCard>
+			)}
+			{types.length === 0 ? null : (
+				<ChartCard
+					title="By media type"
+					description="Episodes and seasons are counted separately from their shows."
+				>
+					<div className="min-w-0 overflow-x-auto">
+						<table className="w-full min-w-[36rem] border-collapse text-left text-label">
+							<caption className="sr-only">
+								Completions, activity, and amounts by media type
+							</caption>
+							<thead className="text-text-muted">
+								<tr className="border-b border-border">
+									<th scope="col" className="py-2 pr-3 font-medium">
+										Type
 									</th>
-									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{formatExactValue(row.titleCompletions, "titles")}
-									</td>
-									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{formatExactValue(row.episodeCompletions, "occurrences")}
-									</td>
-									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{formatExactValue(row.activeObservations, "observations")}
-									</td>
-									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{formatExactValue(row.distinctTitles, "titles")}
-									</td>
-									<td className="py-2 pr-3 align-top tabular-nums text-text">
-										{formatExactValue(row.activeDays, "days")}
-									</td>
-									<td className="py-2 align-top">
-										<div className="flex min-w-48 flex-col gap-2">
-											{consumptionMeasureUnits.map((unit) => {
-												return (
-													<p key={unit} className="text-xs text-text-muted">
-														<span className="font-medium text-text">{measureLabels[unit]} · </span>
-														{quantityDetail(row.quantities[unit], unit)}
-													</p>
-												);
-											})}
-										</div>
-									</td>
+									<th scope="col" className="py-2 pr-3 text-right font-medium">
+										Completed
+									</th>
+									<th scope="col" className="py-2 pr-3 text-right font-medium">
+										Episodes
+									</th>
+									<th scope="col" className="py-2 pr-3 text-right font-medium">
+										Active days
+									</th>
+									<th scope="col" className="py-2 pr-3 text-right font-medium">
+										Time spent
+									</th>
+									<th scope="col" className="py-2 text-right font-medium">
+										Other amounts
+									</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
-			</Card>
-			<Card className="flex min-w-0 flex-col gap-3">
-				<h3 className="text-body font-semibold text-text">Reviews</h3>
-				<div
-					className={compact ? "grid min-w-0 grid-cols-1 gap-4" : "grid min-w-0 grid-cols-2 gap-4"}
-				>
-					<ReviewGlobal reviews={current.reviews} label={`Current · ${currentCaption}`} />
-					{previous === null ? (
-						<p className="text-sm text-text-muted">No previous review period.</p>
-					) : (
-						<ReviewGlobal reviews={previous.reviews} label={`Previous · ${previousCaption}`} />
-					)}
-				</div>
-				<div className="min-w-0 overflow-x-auto">
-					<table className="w-full min-w-[36rem] border-collapse text-left text-sm">
-						<caption className="sr-only">Review count and rating by media category</caption>
-						<thead className="text-xs text-text-muted">
-							<tr>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Category
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Current reviews
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Current rated
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Current average
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Previous reviews
-								</th>
-								<th scope="col" className="py-2 pr-3 font-medium">
-									Previous rated
-								</th>
-								<th scope="col" className="py-2 font-medium">
-									Previous average
-								</th>
-							</tr>
-						</thead>
-						<tbody className="divide-y divide-border">
-							{reviewCategories(current.reviews.categories, previous?.reviews.categories ?? []).map(
-								({ current: row, previous: old }) => (
-									<tr key={row?.mediaType ?? old?.mediaType}>
-										<th scope="row" className="py-2 pr-3 font-medium text-text">
-											{row?.label ?? old?.label}
+							</thead>
+							<tbody className="divide-y divide-border">
+								{types.map((row) => (
+									<tr key={row.source.mediaType}>
+										<th scope="row" className="py-2.5 pr-3 font-medium text-text">
+											{row.source.label}
 										</th>
-										<td className="py-2 pr-3 tabular-nums">
-											{formatExactValue(row?.reviews ?? null, "reviews")}
+										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
+											{formatNumber(row.titleCompletions)}
 										</td>
-										<td className="py-2 pr-3 tabular-nums">
-											{formatExactValue(row?.rated ?? null, "ratings")}
+										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
+											{formatNumber(row.episodeCompletions)}
 										</td>
-										<td className="py-2 pr-3 tabular-nums">
-											{formatExactValue(row?.averageRating ?? null, "/100")}
+										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
+											{formatNumber(row.activeDays)}
 										</td>
-										<td className="py-2 pr-3 tabular-nums">
-											{formatExactValue(old?.reviews ?? null, "reviews")}
+										<td className="py-2.5 pr-3 text-right text-text tabular-nums">
+											{row.quantities.minutes.value === null
+												? "—"
+												: formatMetric(row.quantities.minutes.value, measureUnits.minutes)}
 										</td>
-										<td className="py-2 pr-3 tabular-nums">
-											{formatExactValue(old?.rated ?? null, "ratings")}
-										</td>
-										<td className="py-2 tabular-nums">
-											{formatExactValue(old?.averageRating ?? null, "/100")}
+										<td className="py-2.5 text-right text-text-muted tabular-nums">
+											{typeAmounts(row) || "—"}
 										</td>
 									</tr>
-								),
-							)}
-						</tbody>
-					</table>
-				</div>
-			</Card>
+								))}
+							</tbody>
+						</table>
+					</div>
+				</ChartCard>
+			)}
+			<ChartCard title="Reviews">
+				<ReviewFigures reviews={current.reviews} previous={previous?.reviews ?? null} />
+				{current.reviews.categories.length === 0 ? null : (
+					<div className="min-w-0 overflow-x-auto">
+						<table className="w-full min-w-[28rem] border-collapse text-left text-label">
+							<caption className="sr-only">Review count and rating by media category</caption>
+							<thead className="text-text-muted">
+								<tr className="border-b border-border">
+									<th scope="col" className="py-2 pr-3 font-medium">
+										Category
+									</th>
+									<th scope="col" className="py-2 pr-3 text-right font-medium">
+										Reviews
+									</th>
+									<th scope="col" className="py-2 pr-3 text-right font-medium">
+										Rated
+									</th>
+									<th scope="col" className="py-2 text-right font-medium">
+										Average rating
+									</th>
+								</tr>
+							</thead>
+							<tbody className="divide-y divide-border">
+								{current.reviews.categories.map((row) => (
+									<tr key={row.mediaType}>
+										<th scope="row" className="py-2.5 pr-3 font-medium text-text">
+											{row.label}
+										</th>
+										<td className="py-2.5 pr-3 text-right tabular-nums">
+											{formatNumber(row.reviews)}
+										</td>
+										<td className="py-2.5 pr-3 text-right tabular-nums">
+											{formatNumber(row.rated ?? 0)}
+										</td>
+										<td className="py-2.5 text-right tabular-nums">
+											{formatRating(row.averageRating ?? null)}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+				)}
+				{props.summary.reporting.resolved.previous === null ? null : (
+					<p className="text-micro text-text-subtle">
+						Changes compare with {periodCaption(props.summary.reporting.resolved.previous)}.
+					</p>
+				)}
+			</ChartCard>
 		</section>
 	);
 }
 
-function ReviewGlobal(props: {
-	readonly label: string;
+function ReviewFigures(props: {
 	readonly reviews: ReturnType<typeof reviewModel>;
+	readonly previous: null | ReturnType<typeof reviewModel>;
 }) {
+	const { compact } = useRyotViewport();
 	return (
-		<dl className="flex min-w-0 flex-col gap-1">
-			<dt className="text-label text-text-muted">{props.label}</dt>
-			<dd className="break-words text-sm text-text">
-				{formatExactValue(props.reviews.reviews, "reviews")} ·{" "}
-				{formatExactValue(props.reviews.rated, "rated")}
-			</dd>
-			<dd className="break-words text-sm text-text-muted">
-				Source average · {formatExactValue(props.reviews.averageRating, "/100")}
-			</dd>
-		</dl>
+		<MetricGrid
+			variant="plain"
+			compact={compact}
+			comparisonLabel="vs previous period"
+			metrics={[
+				{
+					key: "reviews",
+					label: "Reviews",
+					unit: reviewUnit,
+					value: props.reviews.reviews,
+					delta:
+						props.previous === null
+							? undefined
+							: metricDelta(props.reviews.reviews, props.previous.reviews),
+				},
+				{
+					key: "rated",
+					label: "Rated",
+					unit: ratingUnit,
+					value: props.reviews.rated,
+					delta:
+						props.previous === null
+							? undefined
+							: metricDelta(props.reviews.rated, props.previous.rated),
+				},
+				{
+					key: "average",
+					unit: ratingScaleUnit,
+					label: "Average rating",
+					value: props.reviews.averageRating,
+					delta:
+						props.previous === null
+							? undefined
+							: metricDelta(props.reviews.averageRating, props.previous.averageRating),
+				},
+			]}
+		/>
 	);
 }
-
-const reviewCategories = <Category extends { readonly mediaType: string }>(
-	current: readonly Category[],
-	previous: readonly Category[],
-) => {
-	const before = new Map(previous.map((row) => [row.mediaType, row]));
-	return [
-		...current.map((row) => ({ current: row, previous: before.get(row.mediaType) })),
-		...previous
-			.filter((row) => !current.some((item) => item.mediaType === row.mediaType))
-			.map((row) => ({ previous: row, current: undefined })),
-	];
-};

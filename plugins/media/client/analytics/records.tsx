@@ -1,17 +1,15 @@
-import {
-	formatExactValue,
-	PluginLink,
-	type TimeZone,
-	useRyotViewport,
-} from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
 	Dialog,
 	EmptyState,
+	formatMetric,
+	formatNumber,
 	LoadMoreButton,
 	MotionPresence,
+	percentUnit,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import { formatReportingDateTime } from "@ryot-app/plugin-ui-sdk/charts";
@@ -20,11 +18,14 @@ import { useMemo } from "react";
 
 import {
 	type AnalyticsInput,
+	measureUnits,
 	type MediaAnalyticsRecord,
 	recordModel,
 	type RecordsDrillRequest,
 } from "./model";
 import { mediaAnalyticsRecordsQuery } from "./queries";
+
+const exact = (value: null | number) => (value === null ? "Unknown" : formatNumber(value));
 
 type RecordRow = ReturnType<typeof recordModel>;
 type RecordTableProps = {
@@ -194,19 +195,18 @@ function Contribution(props: { readonly contribution: MediaAnalyticsRecord["cont
 			</div>
 			<div>
 				<dt className="inline font-medium text-text">Title completions: </dt>
-				<dd className="inline">{formatExactValue(contribution.titleCompletions)}</dd>
+				<dd className="inline">{exact(contribution.titleCompletions)}</dd>
 			</div>
 			<div>
 				<dt className="inline font-medium text-text">Episode completions: </dt>
-				<dd className="inline">{formatExactValue(contribution.episodeCompletions)}</dd>
+				<dd className="inline">{exact(contribution.episodeCompletions)}</dd>
 			</div>
 			{measures.map(([label, measure]) =>
 				measure === undefined ? null : (
 					<div key={label}>
 						<dt className="inline font-medium text-text">{label}: </dt>
 						<dd className="inline">
-							{formatExactValue(measure.recorded, "recorded")} ·{" "}
-							{formatExactValue(measure.estimated, "estimated")} · missing:{" "}
+							{exact(measure.recorded)} recorded · {exact(measure.estimated)} estimated · missing:{" "}
 							{measure.missing ? "yes" : "no"} · superseded estimate:{" "}
 							{measure.supersededEstimate ? "yes" : "no"}
 						</dd>
@@ -300,7 +300,7 @@ function SourceFacts(props: {
 			: [
 					{
 						label: "Manually recorded time",
-						value: formatExactValue(props.modeled.manualMinutes, "minutes"),
+						value: formatMetric(props.modeled.manualMinutes, measureUnits.minutes),
 					},
 				]),
 		...(props.modeled.sourceProgress === null
@@ -309,12 +309,18 @@ function SourceFacts(props: {
 		...(facts.progressPages === undefined
 			? []
 			: [
-					{ label: "Source progress pages", value: formatExactValue(facts.progressPages, "pages") },
+					{
+						label: "Source progress pages",
+						value: formatMetric(facts.progressPages, measureUnits.pages),
+					},
 				]),
 		...(facts.progressPercent === undefined
 			? []
 			: [
-					{ label: "Source progress percent", value: formatExactValue(facts.progressPercent, "%") },
+					{
+						label: "Source progress percent",
+						value: formatMetric(facts.progressPercent, percentUnit),
+					},
 				]),
 		...(facts.consumptionBasis === undefined
 			? []
@@ -325,7 +331,7 @@ function SourceFacts(props: {
 							facts.consumptionBasis.unit,
 							...(facts.consumptionBasis.total === undefined
 								? []
-								: [`total ${formatExactValue(facts.consumptionBasis.total)}`]),
+								: [`total ${exact(facts.consumptionBasis.total)}`]),
 							...(facts.consumptionBasis.property === undefined
 								? []
 								: [`source property ${facts.consumptionBasis.property}`]),
@@ -341,13 +347,13 @@ function SourceFacts(props: {
 		...(facts.dateUnknown === true ? [{ label: "Source date", value: "Marked unknown" }] : []),
 		...(facts.animeEpisode === undefined
 			? []
-			: [{ label: "Source anime episode", value: formatExactValue(facts.animeEpisode) }]),
+			: [{ label: "Source anime episode", value: exact(facts.animeEpisode) }]),
 		...(facts.mangaChapter === undefined
 			? []
-			: [{ label: "Source manga chapter", value: formatExactValue(facts.mangaChapter) }]),
+			: [{ label: "Source manga chapter", value: exact(facts.mangaChapter) }]),
 		...(facts.mangaVolume === undefined
 			? []
-			: [{ label: "Source manga volume", value: formatExactValue(facts.mangaVolume) }]),
+			: [{ label: "Source manga volume", value: exact(facts.mangaVolume) }]),
 		...(facts.completionKey === undefined
 			? []
 			: [{ value: facts.completionKey, label: "Source completion key" }]),

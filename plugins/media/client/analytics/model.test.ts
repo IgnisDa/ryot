@@ -1,4 +1,3 @@
-import { formatExactValue } from "@ryot-app/plugin-client-sdk/plugin";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { describe, expect, it } from "vitest";
@@ -82,9 +81,7 @@ const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalytics
 	);
 
 describe("Media analytics presentation model", () => {
-	it("preserves exact fractions, known zero, missing-only, and absent/superseded quantity distinctions", () => {
-		expect(formatExactValue(70.125, "pages")).toBe("70.125 pages");
-		expect(formatExactValue(null)).toBe("Unknown");
+	it("preserves known zero, missing-only, and absent/superseded quantity distinctions", () => {
 		const row = trend().current.items[0];
 		if (row === undefined) {
 			throw new Error("Expected a trend row");

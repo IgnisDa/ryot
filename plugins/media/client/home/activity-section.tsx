@@ -7,7 +7,7 @@ import {
 	useRyotQuery,
 	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
-import { StatStrip, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { countUnit, StatStrip, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { CalendarHeatmap, RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import clsx from "clsx";
 import { useEffect } from "react";
@@ -16,7 +16,6 @@ import { type MediaActivity, mediaActivityRecipe } from "../../shared/activity-r
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { type MediaRailStatus, MediaSectionFrame } from "../media/entity-rail";
 import { classifyRyotQueryResult } from "../media/query-state";
-import { mediaCountLabel } from "../media/summary-state";
 import {
 	activityDays,
 	activityShares,
@@ -27,8 +26,7 @@ import {
 
 const TITLE = "Your activity";
 
-const formatActivity = (value: number) =>
-	value === 0 ? "No activity" : mediaCountLabel(value, "update");
+const activityUnit = countUnit("update");
 
 type MediaActivityInput = { readonly timeZone: TimeZone };
 type MediaActivityResult = { readonly window: ActivityWindow; readonly activity: MediaActivity };
@@ -99,8 +97,8 @@ function ActivityBody(props: {
 			>
 				<CalendarHeatmap
 					weekStart={1}
+					unit={activityUnit}
 					compact={props.compact}
-					formatValue={formatActivity}
 					days={activityDays(window, counts)}
 					ariaLabel="Activity over the last 52 weeks"
 				/>

@@ -103,35 +103,24 @@ const mountSummary = (clock: ReturnType<typeof createTestRyotClock>, props: Summ
 	});
 
 describe("Media analytics summary UI", () => {
-	it.live("distinguishes known zero, unknown and missing quantities by unit", () =>
+	it.live("lists only known amounts per unit and every active media type", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const props = summaryProps();
 			const page = mountSummary(clock, props);
 			try {
 				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByRole("heading", { name: "Quantity coverage" })).toBeDefined(),
-					),
+					waitFor(() => expect(screen.getByRole("heading", { name: "Amounts" })).toBeDefined()),
 				);
-				expect(screen.getByText("0 pages")).toBeDefined();
-				expect(screen.getAllByText("Unknown", { selector: "dd" }).length).toBeGreaterThan(0);
-				expect(screen.getAllByText(/Missing observations · 0 observations/).length).toBeGreaterThan(
-					0,
-				);
-				expect(screen.getAllByText(/Missing observations · 2 observations/).length).toBeGreaterThan(
-					0,
-				);
-				expect(screen.getByText("Pages")).toBeDefined();
-				expect(screen.getByText("Episodes")).toBeDefined();
-				expect(screen.getByText("Chapters")).toBeDefined();
-				expect(screen.getByText("Volumes")).toBeDefined();
-				expect(screen.getByText("Minutes")).toBeDefined();
-				expect(screen.getAllByText("Show episode").length).toBeGreaterThan(0);
-				expect(screen.getByText("Show")).toBeDefined();
-				expect(
-					screen.getByText(/Full-history source coverage includes 3 unknown-date observations/),
-				).toBeDefined();
+				expect(screen.getByRole("img", { name: /^Pages sources/ })).toBeDefined();
+				expect(screen.getByRole("img", { name: /^Time spent sources/ })).toBeDefined();
+				expect(screen.queryByRole("img", { name: /^Episodes sources/ })).toBeNull();
+				expect(screen.queryByRole("img", { name: /^Chapters sources/ })).toBeNull();
+				expect(screen.queryByRole("img", { name: /^Volumes sources/ })).toBeNull();
+				expect(screen.getAllByText("0 pages").length).toBeGreaterThan(0);
+				const rows = screen.getAllByRole("rowheader").map((row) => row.textContent);
+				expect(rows).toEqual(["Book", "Show", "Show episode", "Person", "Show episode"]);
+				expect(screen.getByText("Not counted in any period: 3 undated entries.")).toBeDefined();
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());
@@ -140,7 +129,7 @@ describe("Media analytics summary UI", () => {
 	);
 
 	it.live(
-		"shows actual unequal comparison dates and labels prior-zero activity without an infinite percent",
+		"marks activity after an empty previous period as new instead of an infinite percent",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -148,13 +137,11 @@ describe("Media analytics summary UI", () => {
 				const page = mountSummary(clock, props);
 				try {
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText(/New activity · \+3 titles/)).toBeDefined()),
+						waitFor(() => expect(screen.getByText("+3 titles vs previous period")).toBeDefined()),
 					);
-					expect(
-						screen.getAllByText(/2026-03-01 – 2026-03-31 vs 2026-02-01 – 2026-02-28/).length,
-					).toBeGreaterThan(0);
+					expect(screen.getByText("Changes compare with Feb 1 – 28, 2026.")).toBeDefined();
 					expect(screen.queryByText(/Infinity|%/)).toBeNull();
-					expect(screen.getByText("Episode completion occurrences")).toBeDefined();
+					expect(screen.getByText("Episodes finished")).toBeDefined();
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());
@@ -162,18 +149,25 @@ describe("Media analytics summary UI", () => {
 			}),
 	);
 
-	it.live("shows recorded and estimated precision without combining separate units", () =>
+	it.live("splits each unit into recorded and estimated shares without combining units", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
 			const props = summaryProps("ready", { pagesRecorded: 70.125, pagesEstimated: 29.875 });
 			const page = mountSummary(clock, props);
 			try {
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("100 pages")).toBeDefined()),
+					waitFor(() =>
+						expect(
+							screen.getByRole("img", {
+								name: "Pages sources: Recorded 70.1 pages, Estimated 29.9 pages",
+							}),
+						).toBeDefined(),
+					),
 				);
-				expect(screen.getAllByText(/Recorded · 70\.125 pages/).length).toBeGreaterThan(0);
-				expect(screen.getAllByText(/Estimated · 29\.875 pages/).length).toBeGreaterThan(0);
-				expect(screen.getAllByText(/Recorded · 20 minutes/).length).toBeGreaterThan(0);
+				expect(
+					screen.getByRole("img", { name: "Time spent sources: Recorded 20m, Estimated 0s" }),
+				).toBeDefined();
+				expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0);
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());
@@ -190,10 +184,12 @@ describe("Media analytics summary UI", () => {
 			);
 			try {
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("100 pages")).toBeDefined()),
+					waitFor(() => expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0)),
 				);
-				expect(screen.getByText("Source average · 40 /100")).toBeDefined();
-				expect(screen.getByText("0 /100")).toBeDefined();
+				expect(screen.getByText("Average rating", { selector: "dt" })).toBeDefined();
+				expect(screen.getByText("40")).toBeDefined();
+				expect(screen.getByText("0/100")).toBeDefined();
+				expect(screen.getByText("80/100")).toBeDefined();
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());
