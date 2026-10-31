@@ -159,9 +159,11 @@ collection, podcasts, shows not from TMDB, and cast and crew pages are downloade
 browse, so right after the upgrade some of them may show only their title for a moment.
 Recommendations are not carried over and come back when an item is refreshed.
 
-After the upgrade, Ryot processes your media history in the background. With a large history this
-can take several hours. Until it finishes, media totals in Analytics show as pending rather than
-zero. You can keep using Ryot meanwhile.
+After the upgrade, Ryot processes your media history and workouts in the background to compute
+analytics, progress and personal bests. This usually takes a few minutes: a library with about
+65,000 media history entries and 40,000 workout sets finishes in under ten minutes. Until it
+finishes, Analytics shows the values computed so far with a note that processing is still running.
+You can keep using Ryot meanwhile.
 
 These are not carried over:
 
