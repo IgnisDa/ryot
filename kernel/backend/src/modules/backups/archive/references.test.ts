@@ -76,7 +76,11 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 			addAction: {
 				type: "provider-search",
 				schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "media-library",
+					relationshipSlug: "in-media-library",
+				},
 			},
 		};
 		const renderer = { kind: "kernel", name: "entity-browser" };
@@ -88,7 +92,11 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 		expect(exported["addAction"]).toEqual({
 			type: "provider-search",
 			schema: { pluginKey: key, slug: "bottle" },
-			library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			library: {
+				entryEvent: null,
+				librarySchemaSlug: "media-library",
+				relationshipSlug: "in-media-library",
+			},
 		});
 		expect(exported["subject"]).toEqual({
 			entityAlias: "entity",
@@ -114,7 +122,11 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 		expect(restored["addAction"]).toEqual({
 			type: "provider-search",
 			schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
-			library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			library: {
+				entryEvent: null,
+				librarySchemaSlug: "media-library",
+				relationshipSlug: "in-media-library",
+			},
 		});
 		const opaque = { ownerPluginId: "source-owner", addAction: settings.addAction };
 		expect(yield* exportRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);

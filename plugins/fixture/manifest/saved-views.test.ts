@@ -58,7 +58,11 @@ describe("fixture saved-view presentations", () => {
 		expect(view.settings.addAction).toEqual({
 			type: "provider-search",
 			schema: { slug: schema.slug, owner: { kind: "self" } },
-			library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+			library: {
+				entryEvent: null,
+				librarySchemaSlug: "fixture-library",
+				relationshipSlug: "in-fixture-library",
+			},
 		});
 		expect(schema.editor).toEqual({ relationships: [] });
 	});

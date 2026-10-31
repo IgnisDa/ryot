@@ -450,7 +450,11 @@ describe("first run", () => {
 			expect(home.entityPicks).toEqual([
 				{
 					schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } },
-					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+					library: {
+						librarySchemaSlug: "media-library",
+						relationshipSlug: "in-media-library",
+						entryEvent: null,
+					},
 				},
 			]);
 			expect(document.body.querySelector('[role="menu"]')).toBeNull();

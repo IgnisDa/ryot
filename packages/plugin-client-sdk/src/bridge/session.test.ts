@@ -109,7 +109,11 @@ const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
 const providerSearch = (runtime: ReturnType<typeof createPluginRuntime>) =>
 	runtime.client.screens.pickEntity({
 		schema: { slug: "entry", owner: { kind: "plugin", pluginId: "fixture" } },
-		library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+		library: {
+			entryEvent: null,
+			librarySchemaSlug: "fixture-library",
+			relationshipSlug: "in-fixture-library",
+		},
 	});
 const entitySave = (pluginId: string) => ({
 	idempotencyKey: "form-1",
@@ -249,7 +253,11 @@ describe("plugin Effect request engine", () => {
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
 					schema: { slug: "entry", owner: { kind: "plugin", pluginId: "fixture" } },
-					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+					library: {
+						entryEvent: null,
+						librarySchemaSlug: "fixture-library",
+						relationshipSlug: "in-fixture-library",
+					},
 				},
 			]);
 			channel.port1.postMessage({

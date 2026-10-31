@@ -174,6 +174,7 @@ beforeAll(() =>
 						slug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
 					},
 					library: {
+						entryEvent: null,
 						librarySchemaSlug: LIBRARY_SCHEMA_SLUG,
 						relationshipSlug: `in-${LIBRARY_SCHEMA_SLUG}`,
 					},

@@ -56,8 +56,8 @@ const settings = {
 
 const providerAction = {
 	type: "provider-search",
-	library: { librarySchemaSlug: "library", relationshipSlug: "in-library" },
 	schema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("item") },
+	library: { entryEvent: null, librarySchemaSlug: "library", relationshipSlug: "in-library" },
 } as const;
 
 const record = (

@@ -13,9 +13,16 @@ export const ProviderEntityReference = strictStruct({
 });
 export type ProviderEntityReference = typeof ProviderEntityReference.Type;
 
+export const ProviderLibraryEntryEvent = strictStruct({
+	label: Schema.NonEmptyString,
+	eventSchemaSlug: Schema.NonEmptyString,
+});
+export type ProviderLibraryEntryEvent = typeof ProviderLibraryEntryEvent.Type;
+
 export const ProviderLibraryMembership = strictStruct({
 	relationshipSlug: Schema.NonEmptyString,
 	librarySchemaSlug: Schema.NonEmptyString,
+	entryEvent: Schema.NullOr(ProviderLibraryEntryEvent),
 });
 export type ProviderLibraryMembership = typeof ProviderLibraryMembership.Type;
 

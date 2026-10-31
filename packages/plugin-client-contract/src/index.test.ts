@@ -493,7 +493,11 @@ describe("plugin client bridge contract", () => {
 			type: "pick-entity-screen",
 			requestId: "pick-entity-screen-1",
 			schema: { slug: "entry", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-			library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+			library: {
+				entryEvent: null,
+				librarySchemaSlug: "fixture-library",
+				relationshipSlug: "in-fixture-library",
+			},
 		};
 
 		expect(Result.isSuccess(decode(request))).toBe(true);

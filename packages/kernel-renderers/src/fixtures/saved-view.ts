@@ -35,7 +35,11 @@ export const browserSettings = {
 	addAction: {
 		type: "provider-search",
 		schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
-		library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+		library: {
+			entryEvent: null,
+			librarySchemaSlug: "fixture-library",
+			relationshipSlug: "in-fixture-library",
+		},
 	},
 };
 

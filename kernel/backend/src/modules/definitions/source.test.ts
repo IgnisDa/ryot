@@ -125,7 +125,11 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 			addAction: {
 				type: "provider-search",
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make("bottle") },
-				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "media-library",
+					relationshipSlug: "in-media-library",
+				},
 			},
 		} satisfies AuthoredEntityBrowserSavedViewSettings,
 	};
@@ -153,7 +157,11 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 	expect(views[1]?.settings["addAction"]).toEqual({
 		type: "provider-search",
 		schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "plugin-a" } },
-		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+		library: {
+			entryEvent: null,
+			librarySchemaSlug: "media-library",
+			relationshipSlug: "in-media-library",
+		},
 	});
 	expect(views[1]?.settings["subject"]).toEqual({
 		entityAlias: "entity",

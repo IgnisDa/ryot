@@ -93,7 +93,11 @@ describe("saved-view schemas", () => {
 				addAction: {
 					type: "provider-search",
 					schema: { slug: "record", owner: { kind: "plugin", pluginId: "plugin-a" } },
-					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+					library: {
+						entryEvent: null,
+						librarySchemaSlug: "fixture-library",
+						relationshipSlug: "in-fixture-library",
+					},
 				},
 			});
 			const resultsInput = {

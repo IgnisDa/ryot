@@ -381,7 +381,11 @@ describe("PageIframeHost", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
 
@@ -655,7 +659,11 @@ describe("PageIframeHost", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			bridge.port.postMessage({
 				mode: "replace",
@@ -686,7 +694,11 @@ describe("PageIframeHost", () => {
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
 					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+					library: {
+						entryEvent: null,
+						librarySchemaSlug: "fixture-library",
+						relationshipSlug: "in-fixture-library",
+					},
 				},
 			]);
 			expect(host.operations).toEqual([

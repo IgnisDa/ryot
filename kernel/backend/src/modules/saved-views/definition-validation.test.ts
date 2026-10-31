@@ -70,7 +70,11 @@ const browserSettings = {
 	},
 	addAction: {
 		type: "provider-search",
-		library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+		library: {
+			entryEvent: null,
+			librarySchemaSlug: "fixture-library",
+			relationshipSlug: "in-fixture-library",
+		},
 		schema: {
 			slug: EntitySchemaSlug.make("unit"),
 			owner: { kind: "plugin", pluginId: PluginId.make("plugin-a-id") },

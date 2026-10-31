@@ -85,7 +85,11 @@ const buildDefinition = (
 			addAction: {
 				type: "provider-search",
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(entitySchemaSlug) },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			} satisfies AuthoredEntityBrowserAddAction,
 		} satisfies AuthoredEntityBrowserSavedViewSettings,
 	};

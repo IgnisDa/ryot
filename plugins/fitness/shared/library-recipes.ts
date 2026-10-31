@@ -19,6 +19,7 @@ import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/sch
 const entityFitnessLibrary = table("entity", "fitnessLibrary");
 
 export const fitnessLibraryMembership = {
+	entryEvent: null,
 	librarySchemaSlug: "fitness-library",
 	relationshipSlug: "in-fitness-library",
 } as const;

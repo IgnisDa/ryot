@@ -1,4 +1,5 @@
 export const mediaLibraryMembership = {
+	entryEvent: null,
 	librarySchemaSlug: "media-library",
 	relationshipSlug: "in-media-library",
 } as const;

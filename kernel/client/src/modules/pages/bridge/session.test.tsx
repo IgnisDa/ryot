@@ -697,7 +697,11 @@ describe("bridge page screens", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() => waitFor(() => expect(entityPicks).toHaveLength(1)));
 			yield* Effect.promise(() =>
@@ -721,7 +725,11 @@ describe("bridge page screens", () => {
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
 					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-					library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+					library: {
+						entryEvent: null,
+						librarySchemaSlug: "fixture-library",
+						relationshipSlug: "in-fixture-library",
+					},
 				},
 			]);
 		}),
@@ -747,7 +755,11 @@ describe("bridge page screens", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() => waitFor(() => expect(entityPicks).toHaveLength(1)));
 			pluginPort.postMessage({

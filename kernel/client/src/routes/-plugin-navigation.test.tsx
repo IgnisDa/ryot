@@ -605,6 +605,7 @@ describe("client page routes", () => {
 									type: "provider-search",
 									schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
 									library: {
+										entryEvent: null,
 										librarySchemaSlug: "fixture-library",
 										relationshipSlug: "in-fixture-library",
 									},
@@ -625,7 +626,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true")),
@@ -635,7 +640,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-2",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -714,6 +723,7 @@ describe("client page routes", () => {
 									schema,
 									type: "provider-search",
 									library: {
+										entryEvent: null,
 										librarySchemaSlug: "fixture-library",
 										relationshipSlug: "in-fixture-library",
 									},
@@ -732,7 +742,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -843,7 +857,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -857,7 +875,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-2",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -922,7 +944,11 @@ describe("client page routes", () => {
 				initialQuery: "sample part two",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -958,7 +984,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -1021,7 +1051,11 @@ describe("client page routes", () => {
 				type: "pick-entity-screen",
 				requestId: "pick-entity-screen-1",
 				schema: { slug: "unit", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "fixture-library",
+					relationshipSlug: "in-fixture-library",
+				},
 			});
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Sample" }));
