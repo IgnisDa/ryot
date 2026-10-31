@@ -3,14 +3,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { AutomationRunId, NotificationSubscriptionId } from "../../schema/brands";
-import {
-	AutomationHistoryInternalError,
-	AutomationHistoryNotFound,
-	AutomationHistoryRetryBody,
-	AutomationHistoryRetryConflict,
-	AutomationHistoryRetryResult,
-} from "./history-schemas";
+import { NotificationSubscriptionId } from "../../schema/brands";
 import {
 	AutomationConflictError,
 	AutomationNotFoundError,
@@ -57,24 +50,5 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 			success: Schema.Struct({ id: NotificationSubscriptionId }),
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Deletes an installed notification rule."),
-	)
-	.middleware(AuthMiddleware);
-
-const historyErrors = [
-	AutomationHistoryNotFound.pipe(HttpApiSchema.status(404)),
-	AutomationHistoryInternalError.pipe(HttpApiSchema.status(500)),
-];
-export const AutomationHistoryGroup = HttpApiGroup.make("automationHistory")
-	.annotate(OpenApi.Description, "Queues eligible automation run retries.")
-	.add(
-		AuthenticatedMutationEndpoint.post("protected")("retryRun", "/automations/runs/:runId/retry", {
-			params: { runId: AutomationRunId },
-			payload: AutomationHistoryRetryBody,
-			success: AutomationHistoryRetryResult.pipe(HttpApiSchema.status(202)),
-			error: [...historyErrors, AutomationHistoryRetryConflict.pipe(HttpApiSchema.status(409))],
-		}).annotate(
-			OpenApi.Description,
-			"Queues the next attempt of an eligible failed run with its exact retained pins.",
-		),
 	)
 	.middleware(AuthMiddleware);

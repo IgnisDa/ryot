@@ -1,10 +1,9 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationHookSlug, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Duration, Effect, Option } from "effect";
+import { Duration, Effect } from "effect";
 
 import {
 	type AutomationRun,
@@ -13,21 +12,17 @@ import {
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	createEntity,
-	executeRyotQLRecipe,
 	type InstalledTestPlugin,
 	installTestPluginBundle,
 	listAutomationRunAttempts,
-	listAutomationRuns,
 	pollAutomationRuns,
 	pollTerminalAutomationRunAttempts,
 	pollTerminalAutomationRuns,
 	reconcileAutomations,
-	reinstallTestPluginScript,
 	testPluginEntitySchema,
 	testPluginPackageId,
 	type TestPluginScript,
 	uninstallTestPlugin,
-	updatePluginState,
 } from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -132,25 +127,6 @@ export const manifest = defineManifest({
 export default defineAutomation({
   manifest,
   run: () => Effect.fail(new Error("E2E terminal business failure")),
-});
-`;
-
-const immediateSuccessSource = (slug: string) => `
-import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
-import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-
-export const manifest = defineManifest({
-  kind: "automation",
-  automationType: "automation",
-  name: ${JSON.stringify(`E2E retry automation ${slug}`)},
-  slug: ${JSON.stringify(slug)},
-  inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
-});
-
-export default defineAutomation({
-  manifest,
-  run: () => Effect.succeed({ marker: "replacement", revision: "B" }),
 });
 `;
 
@@ -353,98 +329,6 @@ describe("automation retries", () => {
 			for (const attempt of attempts) {
 				expectRetryableAttempt(attempt);
 			}
-		}),
-	);
-
-	it.live("retries retained pins after upgrade and refuses them while hidden", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const fixture = yield* installRetryFixtureScoped(client, {
-				source: claimedRetryableSource("__SCRIPT_SLUG__", "A"),
-				capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
-				retry: {
-					maxAttempts: 1,
-					maxDelayMs: 1_000,
-					initialDelayMs: 1_000,
-					externalIdempotency: "run-id",
-				},
-			});
-			const initialRuns = yield* Effect.forEach(
-				["upgrade", "hide"],
-				(label) => createTargetRun(client, fixture, `Retry after ${label}`),
-				{ concurrency: "unbounded" },
-			);
-			const runs = yield* Effect.forEach(initialRuns, (run) =>
-				pollTerminalAutomationRuns({ triggerId: run.triggerId }).pipe(
-					Effect.map((terminal) => requirePresent(terminal[0], `Missing terminal run '${run.id}'`)),
-				),
-			);
-			for (const run of runs) {
-				expect(run).toMatchObject({ attemptCount: 1, status: "failed" });
-				expectOriginalPins(run, fixture.installed);
-				const firstAttempts = yield* listAutomationRunAttempts({ runId: run.id });
-				expect(firstAttempts).toHaveLength(1);
-				expectRetryableAttempt(
-					requirePresent(firstAttempts[0], `Missing initial attempt for '${run.id}'`),
-				);
-			}
-
-			const replacement = yield* reinstallTestPluginScript(
-				fixture.installed.scriptId,
-				immediateSuccessSource(fixture.installed.slug),
-				fixture.script,
-			);
-			expect(replacement.activePluginRevisionId).not.toBe(fixture.installed.activePluginRevisionId);
-			expect(replacement.scriptId).not.toBe(fixture.installed.scriptId);
-			yield* updatePluginState(
-				client,
-				requirePresent(replacement.installationId, "Retry plugin installation is missing"),
-				{ config: { marker: "beta" } },
-			);
-
-			const retry = (run: (typeof runs)[number]) =>
-				Effect.gen(function* () {
-					const history = requirePresent(
-						Option.getOrUndefined(
-							yield* executeRyotQLRecipe(client, automationHistoryRunRecipe({ id: run.id })),
-						),
-						`Missing retry history for '${run.id}'`,
-					);
-					expect(history.retryEligibility).toEqual({ reason: null });
-					const queued = yield* client.call((c) =>
-						c.automationHistory.retryRun({
-							params: { runId: run.id },
-							payload: { expectedAttemptCount: history.run.attemptCount },
-						}),
-					);
-					expect(queued).toMatchObject({ runId: run.id, attemptNumber: 2 });
-					const attempts = ascendingAttempts(
-						yield* pollTerminalAutomationRunAttempts({ runId: run.id }, 2),
-					);
-					const retained = requirePresent(
-						(yield* listAutomationRuns({ triggerId: run.triggerId }))[0],
-						`Missing retained run '${run.id}'`,
-					);
-					expectOriginalPins(retained, fixture.installed);
-					return { retained, attempt: requirePresent(attempts[1], "Missing retry attempt") };
-				});
-
-			const upgraded = yield* retry(requirePresent(runs[0], "Missing upgrade retry run"));
-			expect(upgraded.attempt.error).toBeNull();
-			expect(upgraded.attempt).toMatchObject({ status: "succeeded" });
-			expect(upgraded.retained).toMatchObject({ attemptCount: 2, status: "succeeded" });
-
-			yield* updatePluginState(
-				client,
-				requirePresent(replacement.installationId, "Retry plugin installation is missing"),
-				{ isHidden: true },
-			);
-			const hidden = yield* retry(requirePresent(runs[1], "Missing hidden retry run"));
-			expect(hidden.attempt).toMatchObject({
-				status: "failed",
-				error: { code: "installation-unavailable" },
-			});
-			expect(hidden.retained).toMatchObject({ attemptCount: 2, status: "failed" });
 		}),
 	);
 

@@ -1,5 +1,4 @@
 import { it, layer } from "@effect/vitest";
-import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
@@ -8,16 +7,10 @@ import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe, expect, it as unit } from "vitest";
 
-import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt, automationTrigger } from "#schema/tables/automations";
-import {
-	plugin,
-	pluginConfigEncryptionKey,
-	pluginConfigRevision,
-	sandboxScript,
-} from "#schema/tables/core";
+import { sandboxScript } from "#schema/tables/core";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import {
@@ -28,6 +21,7 @@ import {
 	type FinalizeAutomationAttempt,
 	projectAutomationAttemptHistory,
 } from "./attempt-repository";
+import { AUTOMATION_HISTORY_LIMITS } from "./history-limits";
 
 const encodeJson = Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -204,7 +198,7 @@ it.effect("bounds UTF-8 attempt history and marks truncation", () =>
 describe("AutomationAttemptRepository (PostgreSQL)", () => {
 	layer(attemptDatabaseLayer)((test) => {
 		test.effect(
-			"serializes claims/finalization, replays one attempt, caps automatic retries and atomically queues one manual retry",
+			"serializes claims/finalization, replays one attempt and caps automatic retries",
 			() =>
 				Effect.gen(function* () {
 					yield* seed();
@@ -265,42 +259,9 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 								status: "failed",
 								nextAttemptAt: null,
 							});
-							expect(yield* repo.retryEligibility(runId, due)).toBeNull();
-							const retries = yield* Effect.all(
-								[
-									repo.queueRetry({ runId, now: due, expectedAttemptCount: 2 }).pipe(Effect.exit),
-									repo.queueRetry({ runId, now: due, expectedAttemptCount: 2 }).pipe(Effect.exit),
-								],
-								{ concurrency: 2 },
-							);
-							expect(retries.map((r) => r._tag).sort()).toEqual(["Failure", "Success"]);
-							yield* repo.claimNextAttempt({ runId, now: due, attemptNumber: 3 });
-							yield* repo.finalizeAttempt(
-								{
-									...failure,
-									error: null,
-									attemptNumber: 3,
-									failureKind: null,
-									status: "succeeded",
-									returnedValue: { ok: true },
-								},
-								due,
-							);
-							expect(
-								yield* repo
-									.queueRetry({ runId, now: due, expectedAttemptCount: 2 })
-									.pipe(Effect.flip),
-							).toMatchObject({ _tag: "DbError" });
 							const rows = yield* db.select().from(automationRunAttempt);
-							expect(rows).toHaveLength(3);
+							expect(rows).toHaveLength(2);
 							expect(rows.every((row) => row.status !== "running")).toBe(true);
-							const [succeeded] = yield* db.select().from(automationRun);
-							expect(succeeded).toMatchObject({
-								attemptCount: 3,
-								finishedAt: due,
-								status: "succeeded",
-								nextAttemptAt: null,
-							});
 						}),
 					);
 				}),
@@ -382,122 +343,6 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 
 	layer(attemptDatabaseLayer)((test) => {
 		test.effect(
-			"blocks manual retries after expiry or artifact loss and never re-resolves a kernel script",
-			() =>
-				Effect.gen(function* () {
-					yield* seed("after", 1);
-					const repo = yield* AutomationAttemptRepository;
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
-							yield* repo.finalizeAttempt(failure, now);
-							expect(
-								yield* repo.retryEligibility(
-									runId,
-									DateTime.toDate(DateTime.makeUnsafe("2026-10-15T00:00:00.000Z")),
-								),
-							).toBe("expired");
-							expect(
-								yield* repo
-									.queueRetry({
-										runId,
-										expectedAttemptCount: 1,
-										now: DateTime.toDate(DateTime.makeUnsafe("2026-10-15T00:00:00.000Z")),
-									})
-									.pipe(Effect.flip),
-							).toMatchObject({ _tag: "DbError" });
-							yield* db.update(automationTrigger).set({ payload: null, payloadPrunedAt: now });
-							expect(yield* repo.retryEligibility(runId, now)).toBe("missing-artifact");
-							yield* db
-								.update(automationRun)
-								.set({ sandboxScriptId: null })
-								.where(eq(automationRun.id, runId));
-							expect(yield* repo.retryEligibility(runId, now)).toBe("missing-artifact");
-							expect(
-								yield* repo.queueRetry({ now, runId, expectedAttemptCount: 1 }).pipe(Effect.flip),
-							).toMatchObject({ _tag: "DbError" });
-						}),
-					);
-				}),
-		);
-	});
-
-	layer(attemptDatabaseLayer)((test) => {
-		test.effect(
-			"requires the retained config payload and exact encryption key even for an inactive plugin",
-			() =>
-				Effect.gen(function* () {
-					yield* seed("after", 1);
-					const repo = yield* AutomationAttemptRepository;
-					yield* (yield* DatabaseSession).run((db) =>
-						Effect.gen(function* () {
-							yield* db
-								.insert(plugin)
-								.values({
-									id: "plugin",
-									status: "inactive",
-									packageId: fixtureManifest().metadata.packageId,
-								});
-							yield* insertPluginRevision(db, {
-								id: "revision",
-								pluginId: "plugin",
-								contentHash: "source",
-								manifest: fixtureManifest(),
-							});
-							yield* db
-								.insert(pluginConfigRevision)
-								.values({
-									id: "config",
-									configuredKeys: [],
-									encryptionKeyId: "key",
-									nonce: Buffer.alloc(12),
-									pluginRevisionId: "revision",
-									payloadFingerprint: "fingerprint",
-									encryptedPayload: Buffer.alloc(16),
-								});
-							yield* db
-								.update(sandboxScript)
-								.set({ source: null, pluginRevisionId: "revision" })
-								.where(eq(sandboxScript.id, "script"));
-							yield* db
-								.update(automationRun)
-								.set({
-									pluginId: "plugin",
-									pluginRevisionId: "revision",
-									pluginConfigRevisionId: "config",
-								})
-								.where(eq(automationRun.id, runId));
-							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
-							yield* repo.finalizeAttempt(failure, now);
-							expect(yield* repo.retryEligibility(runId, now)).toBe("missing-artifact");
-							expect(
-								yield* repo.queueRetry({ now, runId, expectedAttemptCount: 1 }).pipe(Effect.flip),
-							).toMatchObject({ _tag: "DbError" });
-							yield* db
-								.insert(pluginConfigEncryptionKey)
-								.values({ id: "key", key: Buffer.alloc(32) });
-							expect(yield* repo.retryEligibility(runId, now)).toBeNull();
-							yield* db
-								.update(pluginConfigRevision)
-								.set({ payloadPrunedAt: now, encryptedPayload: null });
-							expect(yield* repo.retryEligibility(runId, now)).toBe("missing-artifact");
-							expect(
-								yield* repo.queueRetry({ now, runId, expectedAttemptCount: 1 }).pipe(Effect.flip),
-							).toMatchObject({ _tag: "DbError" });
-							yield* db
-								.update(pluginConfigRevision)
-								.set({ payloadPrunedAt: null, encryptedPayload: Buffer.alloc(16) });
-							expect(yield* repo.queueRetry({ now, runId, expectedAttemptCount: 1 })).toMatchObject(
-								{ attemptNumber: 2 },
-							);
-						}),
-					);
-				}),
-		);
-	});
-
-	layer(attemptDatabaseLayer)((test) => {
-		test.effect(
 			"writes redacted attempt history when finalizing and clears it with pruned artifacts",
 			() =>
 				Effect.gen(function* () {
@@ -506,7 +351,6 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
 							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
-							expect(yield* repo.retryEligibility(runId, now)).toBe("not-failed");
 							yield* repo.finalizeAttempt(
 								{
 									...failure,
@@ -586,10 +430,6 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 					Effect.gen(function* () {
 						yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
 						expect(yield* repo.finalizeAttempt(failure, now)).toMatchObject({ retryable: false });
-						expect(yield* repo.retryEligibility(runId, now)).toBe("before-policy");
-						expect(
-							yield* repo.queueRetry({ now, runId, expectedAttemptCount: 1 }).pipe(Effect.flip),
-						).toMatchObject({ _tag: "DbError" });
 						expect(
 							yield* repo.claimNextAttempt({ now, runId, attemptNumber: 2 }).pipe(Effect.flip),
 						).toMatchObject({ _tag: "DbError" });

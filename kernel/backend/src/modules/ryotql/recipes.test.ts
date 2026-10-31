@@ -1,8 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import {
-	automationHistoryRunRecipe,
-	automationHistoryRunsRecipe,
-} from "@ryot-app/ryotql-recipes/automation-history";
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
 import {
 	activeSignalSchemasRecipe,
@@ -44,21 +40,6 @@ const recipes = [
 	["import sources", importSourcesRecipe(page).document, userAccess],
 	["integration providers", integrationProvidersRecipe(page).document, userAccess],
 	["integration detail", integrationRecipe({ id: "integration" }).document, userAccess],
-	[
-		"automation history",
-		automationHistoryRunsRecipe({
-			...page,
-			stage: "after",
-			status: "failed",
-			hookSlug: "hook",
-			pluginId: "plugin",
-			triggerId: "trigger",
-			to: "2026-02-01T00:00:00.000Z",
-			from: "2026-01-01T00:00:00.000Z",
-		}).document,
-		userAccess,
-	],
-	["automation detail", automationHistoryRunRecipe({ id: "run" }).document, userAccess],
 	[
 		"instance admin users",
 		instanceAdminUsersRecipe({ ...page, search: "example" }).document,

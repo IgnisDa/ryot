@@ -27,7 +27,6 @@ import {
 } from "#modules/assets/layer";
 import { ManagedAssetsRepository } from "#modules/assets/storage/managed-assets-repository";
 import {
-	AutomationHistoryServiceLive,
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
 	AutomationRunWorkflowOperationsServiceLive,
@@ -226,7 +225,6 @@ const StagedRuntimeSandboxExecutorLive = RuntimeSandboxExecutorLive.pipe(
 
 const ServicesLive = Layer.mergeAll(
 	AuthServiceLive,
-	AutomationHistoryServiceLive,
 	BackupServicesLive,
 	BackgroundWorkService.layer,
 	CollectionsServiceLive,

@@ -2,7 +2,7 @@ import { HttpApi, OpenApi } from "effect/http-api";
 
 import { AccountGroup } from "./modules/account/contract";
 import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
-import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/contract";
+import { AutomationsGroup } from "./modules/automations/contract";
 import { BackupDownloadsGroup, BackupsGroup } from "./modules/backups/contract";
 import { CalendarSourcesGroup } from "./modules/calendar-sources/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
@@ -57,13 +57,11 @@ export type AppGroups =
 	| typeof CalendarSourcesGroup
 	| typeof ImportDownloadsGroup
 	| typeof OAuthConnectionsGroup
-	| typeof AutomationHistoryGroup
 	| typeof ServerLogDownloadsGroup;
 
 export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryot")
 	.add(SystemGroup)
 	.add(AutomationsGroup)
-	.add(AutomationHistoryGroup)
 	.add(BackupsGroup)
 	.add(BackupDownloadsGroup)
 	.add(RelationshipsGroup)

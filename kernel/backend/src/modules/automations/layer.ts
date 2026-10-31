@@ -10,8 +10,6 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
-import { AutomationHistoryRepository } from "./history-repository";
-import { AutomationHistoryService } from "./history-service";
 import { PolicyBatchWorkflowLive } from "./lifecycle/policy-batch";
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import { LifecyclePlannerLive } from "./planner";
@@ -55,16 +53,6 @@ export const PolicyBatchWorkflowProvidedLive = PolicyBatchWorkflowLive.pipe(
 
 export const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
 	Layer.provide(WorkflowEngineLive),
-);
-
-export const AutomationHistoryServiceLive = AutomationHistoryService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			AutomationAttemptRepository.layer,
-			AutomationExecutionOperationsServiceLive,
-			AutomationHistoryRepository.layer,
-		),
-	),
 );
 
 export const AutomationRunWorkflowOperationsServiceLive = AutomationRunWorkflowOperationsLive.pipe(

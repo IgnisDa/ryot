@@ -1,9 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AUTOMATION_HISTORY_LIMITS,
-	type AutomationHistoryAttempt,
-} from "@ryot-app/contract/modules/automations/history-schemas";
-import {
 	AutomationRunAttempt,
 	type AutomationRunSkipReason,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -18,15 +14,14 @@ import { makeSandboxObservabilityCollector } from "@ryot-app/sandbox/host/observ
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/pg-core";
+import { and, asc, eq, inArray, isNull, lte, notInArray } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { automationRunRetryEligibility } from "#modules/automations/retry-eligibility";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt as table } from "#schema/tables/automations";
 
+import { AUTOMATION_HISTORY_LIMITS } from "./history-limits";
 import { automaticRetryAt, isRetryableAutomationFailure } from "./retry-policy";
 
 export const AUTOMATION_ATTEMPT_ARTIFACT_BYTES = SANDBOX_LIMITS.logs.totalBytes;
@@ -92,8 +87,8 @@ export const projectAutomationAttemptHistory = Effect.fnUntraced(function* (
 	attempt: Pick<AutomationRunAttempt, "logs" | "error" | "failureKind">,
 ): Effect.fn.Return<{
 	historyArtifactsTruncated: boolean;
-	historyLogs: AutomationHistoryAttempt["logs"];
-	historyError: AutomationHistoryAttempt["error"];
+	historyLogs: AutomationRunAttempt["logs"];
+	historyError: AutomationRunAttempt["error"];
 }> {
 	const limit = AUTOMATION_HISTORY_LIMITS.attemptBytes;
 	const collector = makeSandboxObservabilityCollector();
@@ -199,79 +194,6 @@ const lockRun = Effect.fn(function* (session: DatabaseSession["Service"], runId:
 		}),
 	);
 });
-
-const retryRun = alias(automationRun, "retry_run");
-
-const lockedRetryEligibility = Effect.fn(function* (
-	session: DatabaseSession["Service"],
-	runId: AutomationRunId,
-	now: Date,
-) {
-	return yield* session.run((db) =>
-		Effect.gen(function* () {
-			const [row] = yield* db
-				.select({
-					reason: automationRunRetryEligibility(
-						"retry_run",
-						sql`${now.toISOString()}::timestamptz`,
-						{ lockArtifacts: true },
-					),
-				})
-				.from(retryRun)
-				.where(eq(retryRun.id, runId));
-			if (!row) {
-				return yield* conflict(`Automation run not found: ${runId}`);
-			}
-			return row.reason;
-		}),
-	);
-});
-
-const retryEligibility = (session: DatabaseSession["Service"], runId: AutomationRunId, now: Date) =>
-	atomic(
-		session,
-		Effect.gen(function* () {
-			yield* validateTime(now);
-			yield* lockRun(session, runId);
-			return yield* lockedRetryEligibility(session, runId, now);
-		}),
-	);
-
-const queueRetry = (
-	session: DatabaseSession["Service"],
-	input: { now: Date; runId: AutomationRunId; expectedAttemptCount: number },
-) =>
-	atomic(
-		session,
-		session.run((db) =>
-			Effect.gen(function* () {
-				yield* validateTime(input.now);
-				const run = yield* lockRun(session, input.runId);
-				if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
-					return yield* conflict("Manual retry attempt count conflict");
-				}
-				const reason = yield* lockedRetryEligibility(session, input.runId, input.now);
-				if (reason) {
-					return yield* conflict(`Manual retry unavailable: ${reason}`);
-				}
-				yield* db
-					.update(automationRun)
-					.set({ status: "queued", finishedAt: null, nextAttemptAt: input.now })
-					.where(
-						and(
-							eq(automationRun.id, run.id),
-							eq(automationRun.status, "failed"),
-							eq(automationRun.attemptCount, input.expectedAttemptCount),
-						),
-					);
-				return {
-					runId: input.runId,
-					attemptNumber: run.attemptCount + 1,
-					...automationAttemptIdentity(input.runId, run.attemptCount + 1),
-				};
-			}),
-		),
-	);
 
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(
 	"@ryot-app/kernel-backend/modules/automations/attempt-repository/AutomationAttemptRepository",
@@ -510,15 +432,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						.returning({ id: table.id });
 				});
 			});
-			return {
-				findAttempt,
-				pruneArtifacts,
-				finalizeAttempt,
-				claimNextAttempt,
-				queueRetry: (input: Parameters<typeof queueRetry>[1]) => queueRetry(session, input),
-				retryEligibility: (runId: AutomationRunId, now: Date) =>
-					retryEligibility(session, runId, now),
-			};
+			return { findAttempt, pruneArtifacts, finalizeAttempt, claimNextAttempt };
 		}),
 	},
 ) {

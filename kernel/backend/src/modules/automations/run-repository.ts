@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
 	type AutomationPopulationContext,
 	AutomationRun,
@@ -33,6 +32,8 @@ import { insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { automationRun as table } from "#schema/tables/automations";
 import { pluginRevision } from "#schema/tables/core";
+
+import { AUTOMATION_HISTORY_LIMITS } from "./history-limits";
 
 const policyChainStopped: AutomationRunSkipReason = { code: "policy-chain-stopped" };
 

@@ -3,7 +3,6 @@ import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-vi
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { sql } from "drizzle-orm";
 
-import { automationRunRetryEligibility } from "#modules/automations/retry-eligibility";
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { ingestionReadinessMetadataSql } from "#modules/plugins/catalog/readiness-projection";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
@@ -1290,150 +1289,6 @@ const backupRun: CatalogTable = {
 	},
 };
 
-const automationTriggerKind = (triggerAlias: string) =>
-	`jsonb_build_object('category', ${triggerAlias}.category, 'operation', ${triggerAlias}.operation, 'resource', ${triggerAlias}.resource_kind)`;
-
-const automationTrigger: CatalogTable = {
-	primaryKey: ["id"],
-	name: "automation_trigger",
-	visibility: {
-		admin: { type: "all" },
-		user: {
-			column: "id",
-			type: "parentOwned",
-			pluginReadable: false,
-			parentColumn: "trigger_id",
-			parentTable: "automation_run",
-			parentOwnerColumn: "execution_user_id",
-		},
-	},
-	fields: {
-		id: physicalField("id", "text", false),
-		category: physicalField("category", "text", false),
-		operation: physicalField("operation", "text", false),
-		occurredAt: physicalField("occurred_at", "date", false),
-		payloadPrunedAt: physicalField("payload_pruned_at", "date"),
-		resourceKind: physicalField("resource_kind", "text", false),
-		payload: withAccess(physicalField("payload", "json"), "admin"),
-		lane: withAccess(physicalField("lane", "text", false), "admin"),
-		depth: withAccess(physicalField("depth", "number", false), "admin"),
-		source: withAccess(physicalField("source", "text", false), "admin"),
-		initiatorId: withAccess(physicalField("initiator_id", "text"), "admin"),
-		parentRunId: withAccess(physicalField("parent_run_id", "text"), "admin"),
-		importRunId: withAccess(physicalField("import_run_id", "text"), "admin"),
-		scopeUserId: withAccess(physicalField("scope_user_id", "text"), "admin"),
-		createdAt: withAccess(physicalField("created_at", "date", false), "admin"),
-		blockedReason: withAccess(physicalField("blocked_reason", "json"), "admin"),
-		integrationId: withAccess(physicalField("integration_id", "text"), "admin"),
-		executionId: withAccess(physicalField("execution_id", "text", false), "admin"),
-		parentTriggerId: withAccess(physicalField("parent_trigger_id", "text"), "admin"),
-		initiatorKind: withAccess(physicalField("initiator_kind", "text", false), "admin"),
-		rootExecutionId: withAccess(physicalField("root_execution_id", "text", false), "admin"),
-		providerExecutionId: withAccess(physicalField("provider_execution_id", "text"), "admin"),
-		kind: {
-			kind: "json",
-			nullable: false,
-			resolve: ({ sqlAlias }) => sql.raw(automationTriggerKind(sqlAlias)),
-		},
-	},
-};
-
-const automationRun: CatalogTable = {
-	primaryKey: ["id"],
-	name: "automation_run",
-	visibility: {
-		admin: { type: "all" },
-		user: {
-			type: "owned",
-			includeGlobal: false,
-			pluginReadable: false,
-			column: "execution_user_id",
-		},
-	},
-	fields: {
-		id: physicalField("id", "text", false),
-		stage: physicalField("stage", "text", false),
-		pluginId: physicalField("plugin_id", "text"),
-		status: physicalField("status", "text", false),
-		startedAt: physicalField("started_at", "date"),
-		skipReason: physicalField("skip_reason", "json"),
-		finishedAt: physicalField("finished_at", "date"),
-		delivery: physicalField("delivery", "text", false),
-		hookSlug: physicalField("hook_slug", "text", false),
-		hookName: physicalField("hook_name", "text", false),
-		queuedAt: physicalField("queued_at", "date", false),
-		triggerId: physicalField("trigger_id", "text", false),
-		nextAttemptAt: physicalField("next_attempt_at", "date"),
-		historyPayload: physicalField("history_payload", "json"),
-		executionUserId: physicalField("execution_user_id", "text"),
-		pluginRevisionId: physicalField("plugin_revision_id", "text"),
-		attemptCount: physicalField("attempt_count", "number", false),
-		artifactsExpireAt: physicalField("artifacts_expire_at", "date", false),
-		retryPolicy: withAccess(physicalField("retry_policy", "json"), "admin"),
-		scriptSlug: withAccess(physicalField("script_slug", "text", false), "admin"),
-		sandboxScriptId: withAccess(physicalField("sandbox_script_id", "text"), "admin"),
-		historyPayloadTruncated: physicalField("history_payload_truncated", "boolean", false),
-		scriptContentHash: withAccess(physicalField("script_content_hash", "text", false), "admin"),
-		pluginConfigRevisionId: withAccess(physicalField("plugin_config_revision_id", "text"), "admin"),
-		retryEligibility: {
-			kind: "json",
-			nullable: false,
-			resolve: ({ sqlAlias }) =>
-				sql`jsonb_build_object('reason', ${automationRunRetryEligibility(sqlAlias, sql`statement_timestamp()`)})`,
-		},
-		pluginName: {
-			kind: "text",
-			nullable: true,
-			resolve: ({ sqlAlias }) =>
-				sql.raw(
-					`(SELECT revision.name FROM plugin_revision revision WHERE revision.id = ${sqlAlias}.plugin_revision_id)`,
-				),
-		},
-		triggerKind: {
-			kind: "json",
-			nullable: false,
-			resolve: ({ sqlAlias }) =>
-				sql.raw(
-					`(SELECT ${automationTriggerKind("run_trigger")} FROM automation_trigger run_trigger WHERE run_trigger.id = ${sqlAlias}.trigger_id)`,
-				),
-		},
-	},
-};
-
-const automationRunAttempt: CatalogTable = {
-	primaryKey: ["id"],
-	name: "automation_run_attempt",
-	visibility: {
-		admin: { type: "all" },
-		user: {
-			column: "run_id",
-			parentColumn: "id",
-			type: "parentOwned",
-			pluginReadable: false,
-			parentTable: "automation_run",
-			parentOwnerColumn: "execution_user_id",
-		},
-	},
-	fields: {
-		id: physicalField("id", "text", false),
-		timing: physicalField("timing", "json"),
-		runId: physicalField("run_id", "text", false),
-		status: physicalField("status", "text", false),
-		finishedAt: physicalField("finished_at", "date"),
-		failureKind: physicalField("failure_kind", "text"),
-		historyLogs: physicalField("history_logs", "json"),
-		historyError: physicalField("history_error", "json"),
-		startedAt: physicalField("started_at", "date", false),
-		retryable: physicalField("retryable", "boolean", false),
-		logs: withAccess(physicalField("logs", "json"), "admin"),
-		error: withAccess(physicalField("error", "json"), "admin"),
-		artifactsPrunedAt: physicalField("artifacts_pruned_at", "date"),
-		attemptNumber: physicalField("attempt_number", "number", false),
-		historyArtifactsTruncated: physicalField("history_artifacts_truncated", "boolean", false),
-		workflowExecutionId: withAccess(physicalField("workflow_execution_id", "text", false), "admin"),
-	},
-};
-
 const entityTranslation: CatalogTable = {
 	name: "entity_translation",
 	primaryKey: ["entityId", "language"],
@@ -1495,16 +1350,6 @@ const migrationReportDetail: CatalogTable = {
 	},
 };
 
-const automationTriggerRecipient: CatalogTable = {
-	primaryKey: ["triggerId", "userId"],
-	name: "automation_trigger_recipient",
-	visibility: { admin: { type: "all" } },
-	fields: {
-		userId: physicalField("user_id", "text", false),
-		triggerId: physicalField("trigger_id", "text", false),
-	},
-};
-
 const migrationReportTotalDetails: CatalogField = {
 	kind: "number",
 	nullable: true,
@@ -1549,7 +1394,6 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	signalSchema,
 	notification,
 	sandboxScript,
-	automationRun,
 	backgroundWork,
 	calendarSource,
 	oauthConnection,
@@ -1557,19 +1401,16 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	eventStreamWork,
 	migrationReport,
 	sandboxProvider,
-	automationTrigger,
 	entityTranslation,
 	pluginInstallation,
 	relationshipSchema,
 	integrationProvider,
 	notificationChannel,
 	notificationDelivery,
-	automationRunAttempt,
 	migrationReportDetail,
 	userLifecycleOperation,
 	sandboxProviderOperation,
 	notificationSubscription,
-	automationTriggerRecipient,
 };
 
 export const jsonElementsTable: CatalogTable = {

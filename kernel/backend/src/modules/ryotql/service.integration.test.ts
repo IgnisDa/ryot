@@ -1,5 +1,4 @@
 import { expect, layer } from "@effect/vitest";
-import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CLIENT_API_VERSION,
 	type PluginConfigSchema,
@@ -19,7 +18,6 @@ import {
 	NotificationSubscriptionId,
 	PluginPackageId,
 	SavedViewId,
-	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
@@ -55,10 +53,6 @@ import {
 	sum,
 	table,
 } from "@ryot-app/ryotql";
-import {
-	automationHistoryRunRecipe,
-	automationHistoryRunsRecipe,
-} from "@ryot-app/ryotql-recipes/automation-history";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import {
@@ -82,13 +76,7 @@ import {
 } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { account, user } from "#schema/tables/auth";
-import {
-	automationRun,
-	automationRunAttempt,
-	automationTrigger,
-	automationTriggerRecipient,
-	notificationSubscription,
-} from "#schema/tables/automations";
+import { notificationSubscription } from "#schema/tables/automations";
 import { backgroundWork } from "#schema/tables/background-work";
 import { backupRun } from "#schema/tables/backups";
 import {
@@ -116,6 +104,7 @@ import {
 	relationshipProjection,
 	relationshipProjectionWork,
 } from "#schema/tables/relationship-projections";
+import { entityTranslation } from "#schema/tables/translations";
 import { savedView, savedViewOverride } from "#schema/tables/views";
 import { makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -127,29 +116,6 @@ const occurredAt = new Date(0);
 const futureExpiry = new Date("2100-01-01T00:00:00Z");
 const systemPluginName = "media-hub";
 const systemPackageId = PluginPackageId.make("ryot/fixture-hub");
-
-const trigger = (id: string) => ({
-	id,
-	depth: 0,
-	occurredAt,
-	executionId: id,
-	rootExecutionId: id,
-	source: "api" as const,
-	operation: "emit" as const,
-	category: "signal" as const,
-	lane: "interactive" as const,
-	resourceKind: "signal" as const,
-	initiatorKind: "system" as const,
-	payload: {
-		properties: {},
-		actorUserId: null,
-		signalSchemaPluginId: null,
-		operation: "emit" as const,
-		resource: "signal" as const,
-		category: "signal" as const,
-		signalSchemaSlug: SignalSchemaSlug.make("fixture.signal"),
-	},
-});
 
 const manifest = (
 	slug: string,
@@ -330,28 +296,6 @@ const view = (
 	name: slug,
 	icon: "box",
 	settings: {},
-	...input,
-});
-
-const run = (
-	id: string,
-	input: Partial<typeof automationRun.$inferInsert> = {},
-): typeof automationRun.$inferInsert => ({
-	id,
-	hookSlug: id,
-	hookName: id,
-	stage: "after",
-	attemptCount: 1,
-	status: "failed",
-	delivery: "async",
-	queuedAt: occurredAt,
-	triggerId: "trigger-a",
-	executionUserId: "owner",
-	scriptContentHash: "hash",
-	scriptSlug: "kernel.notify",
-	artifactsExpireAt: futureExpiry,
-	sandboxScriptId: "kernel-script",
-	retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
 	...input,
 });
 
@@ -667,47 +611,6 @@ const seedCatalog = Effect.gen(function* () {
 				},
 				{ userId: "other", kind: "restore", status: "pending", id: "backup-other" },
 			]);
-			yield* db.insert(automationTrigger).values([trigger("trigger-a"), trigger("trigger-b")]);
-			yield* db.insert(automationTriggerRecipient).values([
-				{ userId: "owner", triggerId: "trigger-b" },
-				{ userId: "other", triggerId: "trigger-a" },
-				{ userId: "owner", triggerId: "trigger-a" },
-			]);
-			yield* db
-				.insert(automationRun)
-				.values([
-					run("run-eligible", { historyPayload: { shown: true } }),
-					run("run-before", { stage: "before", retryPolicy: null, delivery: "policy" }),
-					run("run-succeeded", { status: "succeeded" }),
-					run("run-expired", { artifactsExpireAt: occurredAt }),
-					run("run-missing", {
-						sandboxScriptId: null,
-						pluginId: "system-plugin",
-						pluginConfigRevisionId: "system-env",
-						pluginRevisionId: "system-plugin-revision",
-					}),
-					run("run-other", { triggerId: "trigger-b", executionUserId: "other" }),
-				]);
-			yield* db.execute(
-				sql`update automation_run set queued_at = queued_at + (case id when 'run-eligible' then 100 when 'run-missing' then 200 when 'run-before' then 300 when 'run-succeeded' then 400 when 'run-expired' then 500 else 0 end) * interval '1 millisecond'`,
-			);
-			yield* db.insert(automationRunAttempt).values(
-				[
-					{ id: "attempt-owner", runId: "run-eligible" },
-					{ runId: "run-other", id: "attempt-other" },
-				].map(({ id, runId }) => ({
-					id,
-					runId,
-					attemptNumber: 1,
-					retryable: false,
-					startedAt: occurredAt,
-					finishedAt: occurredAt,
-					status: "failed" as const,
-					workflowExecutionId: `workflow-${id}`,
-					logs: [{ message: "raw", level: "info" as const }],
-					historyLogs: [{ message: "projected", level: "info" as const }],
-				})),
-			);
 			yield* db
 				.insert(migrationReport)
 				.values([
@@ -1605,46 +1508,6 @@ layer(catalogDatabaseLayer)((test) => {
 		}),
 	);
 
-	test.effect("executes automation history filters against persisted runs", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const read = (input: Parameters<typeof automationHistoryRunsRecipe>[0]) =>
-				Effect.map(
-					service.executeForUser(
-						"owner",
-						null,
-						"kernel",
-						automationHistoryRunsRecipe(input).document,
-					),
-					(response) =>
-						Result.getOrThrow(automationHistoryRunsRecipe(input).decode(response)).items.map(
-							({ id }) => id,
-						),
-				);
-			expect(
-				yield* read({
-					limit: 10,
-					stage: "after",
-					status: "failed",
-					to: "1970-01-02",
-					from: "1969-12-31",
-					triggerId: "trigger-a",
-					hookSlug: "run-missing",
-					pluginId: "system-plugin",
-				}),
-			).toEqual(["run-missing"]);
-			expect(yield* read({ limit: 10, from: "1970-01-02" })).toEqual([]);
-			expect(yield* read({ limit: 10, to: "1969-12-31" })).toEqual([]);
-			expect(yield* read({ limit: 10 })).toEqual([
-				"run-expired",
-				"run-succeeded",
-				"run-before",
-				"run-missing",
-				"run-eligible",
-			]);
-		}),
-	);
-
 	test.effect("executes recipe documents and decodes correlated includes and admin totals", () =>
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
@@ -1679,20 +1542,6 @@ layer(catalogDatabaseLayer)((test) => {
 				installations.items.find(({ packageId }) => packageId === "test/private")
 					?.configuredSecrets,
 			).toEqual(["token"]);
-
-			const runRecipe = automationHistoryRunRecipe({ id: "run-eligible" });
-			const runDetail = Result.getOrThrow(
-				runRecipe.decode(
-					yield* service.executeForUser("owner", null, "kernel", runRecipe.document),
-				),
-			);
-			expect(Option.isSome(runDetail)).toBe(true);
-			if (Option.isSome(runDetail)) {
-				expect(runDetail.value.trigger.payload).toEqual({ shown: true });
-				expect(runDetail.value.attempts[0]?.logs).toEqual([
-					{ level: "info", message: "projected" },
-				]);
-			}
 
 			const usersRecipe = instanceAdminUsersRecipe({ limit: 2, search: "example.test" });
 			const users = Result.getOrThrow(
@@ -1739,23 +1588,49 @@ layer(catalogDatabaseLayer)((test) => {
 layer(catalogDatabaseLayer)((test) => {
 	test.effect("pages timestamp cursors at full database precision", () =>
 		Effect.gen(function* () {
-			const runs = table("automationRun", "runs");
-			const queuedAt = column(runs, "queuedAt");
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db.insert(backupRun).values([
+					{
+						kind: "export",
+						userId: "owner",
+						id: "precision-a",
+						status: "completed",
+						createdAt: sql`'2026-01-01T00:00:00.100Z'::timestamptz`,
+					},
+					{
+						kind: "export",
+						userId: "owner",
+						id: "precision-b",
+						status: "completed",
+						createdAt: sql`'2026-01-01T00:00:00.200Z'::timestamptz`,
+					},
+					{
+						kind: "export",
+						userId: "owner",
+						id: "precision-c",
+						status: "completed",
+						createdAt: sql`'2026-01-01T00:00:00.300Z'::timestamptz`,
+					},
+				]),
+			);
+			const runs = table("backupRun", "runs");
+			const ids = ["precision-a", "precision-b", "precision-c"].map(literal);
 			const fields = [field("id", column(runs, "id"))];
-			const queuedOrder = [
-				{ id: "run-eligible" },
-				{ id: "run-missing" },
-				{ id: "run-before" },
-				{ id: "run-succeeded" },
-				{ id: "run-expired" },
-			];
+			const where = inArray(column(runs, "id"), ids);
 
 			expect(
-				yield* collectPages(rows(runs, { fields, orderBy: [ascending(queuedAt)] }), owner),
-			).toEqual(queuedOrder);
+				yield* collectPages(
+					rows(runs, { where, fields, orderBy: [ascending(column(runs, "createdAt"))] }),
+					owner,
+				),
+			).toEqual([{ id: "precision-a" }, { id: "precision-b" }, { id: "precision-c" }]);
 			expect(
-				yield* collectPages(rows(runs, { fields, orderBy: [descending(queuedAt)] }), owner),
-			).toEqual(queuedOrder.toReversed());
+				yield* collectPages(
+					rows(runs, { where, fields, orderBy: [descending(column(runs, "createdAt"))] }),
+					owner,
+				),
+			).toEqual([{ id: "precision-c" }, { id: "precision-b" }, { id: "precision-a" }]);
 		}),
 	);
 });
@@ -1763,22 +1638,39 @@ layer(catalogDatabaseLayer)((test) => {
 layer(catalogDatabaseLayer)((test) => {
 	test.effect("pages composite primary keys with every key column as a tie breaker", () =>
 		Effect.gen(function* () {
-			const recipient = table("automationTriggerRecipient", "recipient");
-			const fields = [star(recipient)];
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db.insert(entityTranslation).values([
+					{ language: "en", sourceContentGeneration: 1, entityId: "stream-entity-other" },
+					{ language: "en", sourceContentGeneration: 1, entityId: "stream-entity-owner" },
+					{ language: "de", sourceContentGeneration: 1, entityId: "stream-entity-owner" },
+				]),
+			);
+			const translations = table("entityTranslation", "translations");
+			const entityIds = ["stream-entity-other", "stream-entity-owner"].map(literal);
+			const where = inArray(column(translations, "entityId"), entityIds);
+			const fields = [
+				field("entityId", column(translations, "entityId")),
+				field("language", column(translations, "language")),
+			];
 
-			expect(yield* collectPages(rows(recipient, { fields, orderBy: [] }))).toEqual([
-				{ userId: "other", triggerId: "trigger-a" },
-				{ userId: "owner", triggerId: "trigger-a" },
-				{ userId: "owner", triggerId: "trigger-b" },
+			expect(yield* collectPages(rows(translations, { where, fields, orderBy: [] }))).toEqual([
+				{ language: "en", entityId: "stream-entity-other" },
+				{ language: "de", entityId: "stream-entity-owner" },
+				{ language: "en", entityId: "stream-entity-owner" },
 			]);
 			expect(
 				yield* collectPages(
-					rows(recipient, { fields, orderBy: [descending(column(recipient, "userId"))] }),
+					rows(translations, {
+						where,
+						fields,
+						orderBy: [descending(column(translations, "language"))],
+					}),
 				),
 			).toEqual([
-				{ userId: "owner", triggerId: "trigger-a" },
-				{ userId: "owner", triggerId: "trigger-b" },
-				{ userId: "other", triggerId: "trigger-a" },
+				{ language: "en", entityId: "stream-entity-other" },
+				{ language: "en", entityId: "stream-entity-owner" },
+				{ language: "de", entityId: "stream-entity-owner" },
 			]);
 		}),
 	);
@@ -2249,38 +2141,6 @@ layer(catalogDatabaseLayer)((test) => {
 					]),
 				).toEqual([{ id: "stream-other", completedRevision: null }]);
 			}
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("scopes automation history to the executing user and derives retry eligibility", () =>
-		Effect.gen(function* () {
-			expect(
-				yield* readRows(owner, "automationRun", ["id", "pluginName", "retryEligibility"]),
-			).toEqual([
-				{ id: "run-before", pluginName: null, retryEligibility: { reason: "before-policy" } },
-				{ pluginName: null, id: "run-eligible", retryEligibility: { reason: null } },
-				{ pluginName: null, id: "run-expired", retryEligibility: { reason: "expired" } },
-				{
-					id: "run-missing",
-					pluginName: `${systemPluginName} name`,
-					retryEligibility: { reason: "missing-artifact" },
-				},
-				{ pluginName: null, id: "run-succeeded", retryEligibility: { reason: "not-failed" } },
-			]);
-			expect(yield* readRows(other, "automationRun", ["id"])).toEqual([{ id: "run-other" }]);
-			expect(yield* readRows(owner, "automationTrigger", ["id", "kind"])).toEqual([
-				{ id: "trigger-a", kind: { operation: "emit", category: "signal", resource: "signal" } },
-			]);
-			expect(yield* readRows(other, "automationTrigger", ["id"])).toEqual([{ id: "trigger-b" }]);
-			expect(yield* readRows(owner, "automationRunAttempt", ["id", "historyLogs"])).toEqual([
-				{ id: "attempt-owner", historyLogs: [{ level: "info", message: "projected" }] },
-			]);
-			expect(yield* readRows("admin", "automationRunAttempt", ["id", "logs"])).toEqual([
-				{ id: "attempt-other", logs: [{ level: "info", message: "raw" }] },
-				{ id: "attempt-owner", logs: [{ level: "info", message: "raw" }] },
-			]);
 		}),
 	);
 });

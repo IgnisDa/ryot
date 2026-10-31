@@ -128,6 +128,14 @@ describe("OpenAPI documentation", () => {
 		expect(paths["/test-support/system-plugins"]?.get).toBeUndefined();
 		expect(paths["/test-support/system-plugins"]?.post?.security).toEqual([{ adminToken: [] }]);
 		expect(paths["/test-support/automations/reconcile"]?.post).toBeDefined();
+		for (const path of [
+			"/test-support/automations/triggers",
+			"/test-support/automations/runs",
+			"/test-support/automations/attempts",
+			"/test-support/automations/recipients",
+		]) {
+			expect(paths[path]?.post?.security).toEqual([{ adminToken: [] }]);
+		}
 		expect(paths["/test-support/sandbox/result/{jobId}"]?.get).toBeDefined();
 		expect(paths["/test-support/entity-translations"]?.put).toBeDefined();
 		expect(paths["/test-support/relationships/global"]?.put).toBeDefined();
@@ -141,6 +149,6 @@ describe("OpenAPI documentation", () => {
 		expect(paths["/automations/rules/{ruleId}/activate"]?.post).toBeDefined();
 		expect(paths["/automations/rules/{ruleId}/deactivate"]?.post).toBeDefined();
 		expect(paths["/automations/rules/{ruleId}"]?.delete).toBeDefined();
-		expect(paths["/automations/runs/{runId}/retry"]?.post).toBeDefined();
+		expect(paths["/automations/runs/{runId}/retry"]).toBeUndefined();
 	});
 });

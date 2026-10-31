@@ -20,7 +20,6 @@ import {
 } from "#modules/accounts/auth/service";
 import { UserSettingsRoutesLive } from "#modules/accounts/preferences/routes";
 import { LocalUploadsRoutesLive, UploadsRoutesLive } from "#modules/assets/routes";
-import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupDownloadsRoutesLive, BackupsRoutesLive } from "#modules/backups/routes";
 import { CalendarSourcesRoutesLive } from "#modules/calendar-sources/routes";
@@ -99,9 +98,7 @@ const decodeErrorsAsBadRequest = <A, E, R>(self: Effect.Effect<A, E, R>) =>
 	});
 
 const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
-	Layer.provide(
-		Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive, AutomationHistoryRoutesLive),
-	),
+	Layer.provide(Layer.merge(SystemRoutesLive, AutomationsRoutesLive)),
 	Layer.provide(BackupsRoutesLive),
 	Layer.provide(BackupDownloadsRoutesLive),
 	Layer.provide(Layer.merge(RelationshipsRoutesLive, RemindersRoutesLive)),

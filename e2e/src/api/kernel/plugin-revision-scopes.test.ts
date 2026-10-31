@@ -1,9 +1,3 @@
-import {
-	AutomationHookSlug,
-	EntityId,
-	SignalSchemaSlug,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { entitySchemaRecordSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
@@ -20,15 +14,10 @@ import {
 	installTestSupportSystemPlugin,
 	invokeNamespaceOperation,
 	listAdminSandboxScripts,
-	listAutomationRuns,
-	listEventsForEntity,
 	namespaceBottlesRecipe,
 	namespaceInstallation,
 	pluginNamespacePackages,
 	pollSandboxResult,
-	pollSignalTrigger,
-	pollTerminalAutomationRunAttempts,
-	pollTerminalAutomationRuns,
 	requireCompletedSandboxValue,
 	updateNamespacePackage,
 	updateTestSupportSystemPlugin,
@@ -38,86 +27,6 @@ import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 describe("plugin revision scopes", () => {
-	it.live(
-		"retries an eligible failed hook using its retained revision and config after an additive update",
-		() =>
-			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
-				let ready = false;
-				const upstream = yield* startFakeHttpServerScoped(
-					() => new Response(ready ? "ok" : "retry", { status: ready ? 200 : 503 }),
-				);
-				const packages = pluginNamespacePackages();
-				const a = yield* installNamespacePackage(client, packages.a, {
-					retryGateUrl: `${upstream.url}/before`,
-				});
-				const bottle = requirePresent(
-					(yield* executeRyotQLRecipe(
-						client,
-						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
-					))[0],
-					"A bottle missing",
-				);
-				yield* invokeNamespaceOperation(client, a.installation.packageId, {
-					entityId: bottle.id,
-					action: "create-event",
-				});
-				const event = requirePresent(
-					(yield* listEventsForEntity(client, bottle.id, undefined, 100))[0],
-					"A event missing",
-				);
-				const original = requirePresent(
-					(yield* pollTerminalAutomationRuns({
-						hookSlug: AutomationHookSlug.make("after"),
-						sourceRecord: { id: event.id, resource: "event" },
-					}))[0],
-					"Failed hook missing",
-				);
-				expect(original).toMatchObject({
-					attemptCount: 1,
-					status: "failed",
-					pluginId: a.pluginId,
-					pluginRevisionId: a.installation.activeRevisionId,
-				});
-				yield* updateNamespacePackage(client, a, packages.a2, {
-					retryGateUrl: `${upstream.url}/after`,
-				});
-				ready = true;
-				const retried = yield* client.call((contract) =>
-					contract.automationHistory.retryRun({
-						params: { runId: original.id },
-						payload: { expectedAttemptCount: original.attemptCount },
-					}),
-				);
-				expect(retried).toMatchObject({ attemptNumber: 2, runId: original.id });
-				const attempts = yield* pollTerminalAutomationRunAttempts({ runId: original.id }, 2);
-				expect(attempts.map(({ status }) => status)).toEqual(["failed", "succeeded"]);
-				const retained = requirePresent(
-					(yield* listAutomationRuns({
-						triggerId: original.triggerId,
-						hookSlug: AutomationHookSlug.make("after"),
-					}))[0],
-					"Retained hook missing",
-				);
-				expect(retained).toMatchObject({
-					attemptCount: 2,
-					status: "succeeded",
-					sandboxScriptId: original.sandboxScriptId,
-					pluginRevisionId: original.pluginRevisionId,
-					pluginConfigRevisionId: original.pluginConfigRevisionId,
-				});
-				const signal = yield* pollSignalTrigger({
-					actorUserId: UserId.make(userId),
-					subjectEntityId: EntityId.make(bottle.id),
-					signalSchema: {
-						slug: SignalSchemaSlug.make("tasted"),
-						owner: { kind: "plugin", pluginId: a.pluginId },
-					},
-				});
-				expect(signal.payload.properties).toEqual({ label: "A1" });
-				expect(upstream.requests.map(({ path }) => path)).toEqual(["/before", "/before"]);
-			}),
-	);
 	it.live(
 		"lets an admitted old writer finish after an additive update with its exact script and definitions",
 		() =>

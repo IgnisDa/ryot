@@ -405,11 +405,6 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "automation", automationType: "automation", name: "Whiskey after hook", slug: "after", inputProjection: { event: { properties: ["note"], compareProperties: [] } } });
 export default defineAutomation({ manifest, run: ({ automation }, host) => Effect.gen(function* () {
-  const config = yield* host.getPluginConfig({ optional: ["retryGateUrl"] });
-  if (typeof config.retryGateUrl === "string") {
-    const response = yield* host.httpCall("GET", config.retryGateUrl, { headers: { "Idempotency-Key": automation.runId } });
-    if (response.status !== 200) return yield* Effect.fail(new Error("namespace upstream refused"));
-  }
   const payload = automation.payload;
   if (payload.resource !== "event" || payload.operation !== "create") return null;
   return yield* host.emitSignal({ schemaSlug: "tasted", discriminator: payload.after.id, subjectEntityId: payload.after.entityId, properties: { label: ${JSON.stringify(label)} } });
@@ -577,6 +572,26 @@ const namespacePackage = (input: {
 				targetEntitySchemaSlug: "distillery",
 			},
 		],
+		configSchema: {
+			unknownKeys: "strict",
+			fields: {
+				writerMarker: {
+					type: "string",
+					label: "Writer marker",
+					description: "Exact retained configuration marker",
+				},
+				checkpointUrl: {
+					type: "string",
+					label: "Checkpoint",
+					description: "Hermetic kernel child admission checkpoint",
+				},
+				bootstrapGateUrl: {
+					type: "string",
+					label: "Bootstrap gate",
+					description: "Hermetic installation admission checkpoint",
+				},
+			},
+		},
 		clientDefinition: {
 			apiVersion: 1,
 			homeView: "all-bottles",
@@ -595,31 +610,6 @@ const namespacePackage = (input: {
 					entry: "client/home.tsx",
 					settingsSchema: { fields: {} },
 					automaticEntityPresentations: false,
-				},
-			},
-		},
-		configSchema: {
-			unknownKeys: "strict",
-			fields: {
-				retryGateUrl: {
-					type: "string",
-					label: "Retry gate",
-					description: "Hermetic retry checkpoint",
-				},
-				writerMarker: {
-					type: "string",
-					label: "Writer marker",
-					description: "Exact retained configuration marker",
-				},
-				checkpointUrl: {
-					type: "string",
-					label: "Checkpoint",
-					description: "Hermetic kernel child admission checkpoint",
-				},
-				bootstrapGateUrl: {
-					type: "string",
-					label: "Bootstrap gate",
-					description: "Hermetic installation admission checkpoint",
 				},
 			},
 		},
@@ -677,12 +667,6 @@ const namespacePackage = (input: {
 				scriptSlug: "after",
 				delivery: "required",
 				name: "Whiskey after hook",
-				retry: {
-					maxAttempts: 1,
-					maxDelayMs: 1000,
-					initialDelayMs: 1000,
-					externalIdempotency: "run-id",
-				},
 				targets: [
 					{
 						resource: "event",

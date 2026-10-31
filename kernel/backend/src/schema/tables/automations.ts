@@ -1,4 +1,3 @@
-import type { AutomationHistoryAttempt } from "@ryot-app/contract/modules/automations/history-schemas";
 import type {
 	AutomationRun,
 	AutomationRunAttempt,
@@ -203,9 +202,9 @@ export const automationRunAttempt = snakeCase.table(
 		logs: jsonb().$type<AutomationRunAttempt["logs"]>(),
 		error: jsonb().$type<AutomationRunAttempt["error"]>(),
 		timing: jsonb().$type<AutomationRunAttempt["timing"]>(),
+		historyLogs: jsonb().$type<AutomationRunAttempt["logs"]>(),
+		historyError: jsonb().$type<AutomationRunAttempt["error"]>(),
 		historyArtifactsTruncated: boolean().notNull().default(false),
-		historyLogs: jsonb().$type<AutomationHistoryAttempt["logs"]>(),
-		historyError: jsonb().$type<AutomationHistoryAttempt["error"]>(),
 		status: text().$type<AutomationRunAttempt["status"]>().notNull(),
 		failureKind: text().$type<AutomationRunAttempt["failureKind"]>(),
 		returnedValue: jsonb().$type<AutomationRunAttempt["returnedValue"]>(),

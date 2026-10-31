@@ -508,7 +508,6 @@ it("rejects hidden application-table fields", () => {
 		["integrationProvider", "scriptId"],
 		["integrationProvider", "configRevisionId"],
 		["entitySchema", "isEffective"],
-		["automationRunAttempt", "returnedValue"],
 		["eventStreamWork", "accountToken"],
 		["eventStreamWork", "checkpoint"],
 		["eventStreamWork", "pluginPin"],
@@ -601,17 +600,13 @@ it("limits admin execution to tables with an admin policy", () => {
 		"user",
 		"plugin",
 		"relationship",
-		"automationRun",
 		"sandboxScript",
 		"migrationReport",
-		"automationTrigger",
 		"entityTranslation",
 		"pluginInstallation",
-		"automationRunAttempt",
 		"migrationReportDetail",
 		"userLifecycleOperation",
 		"notificationSubscription",
-		"automationTriggerRecipient",
 	] as const) {
 		const source = table(tableName, "source");
 		expect(
@@ -662,7 +657,6 @@ it("denies admin-only tables to every user audience", () => {
 			"entityTranslation",
 			"migrationReportDetail",
 			"userLifecycleOperation",
-			"automationTriggerRecipient",
 		] as const) {
 			const source = table(tableName, "source");
 			expect(
@@ -681,11 +675,8 @@ it("denies kernel-only tables to the plugin audience", () => {
 		"user",
 		"backupRun",
 		"importSource",
-		"automationRun",
-		"automationTrigger",
 		"integrationProvider",
 		"oauthConnection",
-		"automationRunAttempt",
 	] as const) {
 		const source = table(tableName, "source");
 		const query = document({ rows: rows(source, { fields: [star(source)] }) });
@@ -906,15 +897,6 @@ it("hides admin-only fields of user-visible tables from every user audience", ()
 		["user", "twoFactorEnabled"],
 		["plugin", "environmentConfigRevisionId"],
 		["pluginInstallation", "activeConfigRevisionId"],
-		["automationTrigger", "payload"],
-		["automationTrigger", "createdAt"],
-		["automationTrigger", "rootExecutionId"],
-		["automationRun", "scriptSlug"],
-		["automationRun", "retryPolicy"],
-		["automationRun", "sandboxScriptId"],
-		["automationRunAttempt", "logs"],
-		["automationRunAttempt", "error"],
-		["automationRunAttempt", "workflowExecutionId"],
 	] as const) {
 		const source = table(tableName, "source");
 		const query = document({
@@ -1003,6 +985,30 @@ it("rejects unknown fields and tables", () => {
 			userAccess,
 		).error,
 	).toBe("Query 'accounts': Unknown table 'account'");
+});
+
+it("rejects removed automation history tables in every execution scope", () => {
+	const scopes = [
+		{ type: "admin" },
+		{ type: "plugin" },
+		{ type: "user", audience: "kernel", accessClass: "standard" },
+		{ type: "user", audience: "kernel", accessClass: "demo" },
+		{ type: "user", audience: "plugin", accessClass: "standard" },
+	] as const;
+
+	for (const tableName of [
+		"automationRun",
+		"automationTrigger",
+		"automationRunAttempt",
+		"automationTriggerRecipient",
+	] as const) {
+		const source = table(tableName, "source");
+		for (const scope of scopes) {
+			expect(
+				validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), scope).error,
+			).toBe(`Query 'rows': Unknown table '${tableName}'`);
+		}
+	}
 });
 
 it("validates join aliases in lexical order", () => {
