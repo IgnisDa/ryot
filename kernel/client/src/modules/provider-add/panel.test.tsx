@@ -39,10 +39,12 @@ const renderPanel = (
 		readonly initialQuery?: string;
 		readonly search?: PanelProps["search"];
 		readonly onImported?: PanelProps["onImported"];
+		readonly entryEvent?: PanelProps["entryEvent"];
 		readonly selectedProviderId?: SandboxProviderId;
 		readonly onCreateCustom?: (query: string) => void;
 		readonly importEntity?: PanelProps["importEntity"];
 		readonly providers?: readonly ProviderSearchSummary[];
+		readonly loadEntityLinks?: PanelProps["loadEntityLinks"];
 		readonly loadSearchOptions?: (
 			providerId: SandboxProviderId,
 		) => Effect.Effect<SearchProviderOptionsResponse, Error>;
@@ -67,14 +69,17 @@ const renderPanel = (
 				librarySchemaSlug="fixture-library"
 				initialQuery={options.initialQuery}
 				relationshipSlug="in-fixture-library"
+				entryEvent={options.entryEvent ?? null}
 				onCreateCustom={options.onCreateCustom}
 				onImported={options.onImported ?? (() => undefined)}
 				uploadFile={() => Promise.reject(new Error("not used"))}
 				uploadAsset={() => Promise.reject(new Error("not used"))}
-				loadEntityLinks={() => Effect.succeed(new Map<string, never>())}
 				search={options.search ?? (() => Effect.die(new Error("not used")))}
 				providers={{ status: "ready", providers: options.providers ?? providers }}
 				importEntity={options.importEntity ?? (() => Effect.die(new Error("not used")))}
+				loadEntityLinks={
+					options.loadEntityLinks ?? (() => Effect.succeed(new Map<string, never>()))
+				}
 			/>
 		);
 	}
@@ -502,6 +507,42 @@ describe("provider search panel", () => {
 			yield* Effect.promise(() => waitFor(() => expect(imported).toEqual([entityId])));
 			expect(imports).toEqual([{ externalId: "provider-1", providerId: providers[0].providerId }]);
 			expect(screen.getByText("Result provider-2")).toBeTruthy();
+		}),
+	);
+
+	it.live("offers the declared entry event once library links load and imports with it", () =>
+		Effect.gen(function* () {
+			const imports: Parameters<PanelProps["importEntity"]>[0][] = [];
+			const linksLoaded: Array<() => void> = [];
+			renderPanel({
+				initialQuery: "Sample",
+				entryEvent: { label: "Plan it", eventSchemaSlug: "planned" },
+				search: (payload) => Effect.succeed(searchResponse(payload.page)),
+				importEntity: (input) =>
+					Effect.sync(() => {
+						imports.push(input);
+						return { status: "queued" } as const;
+					}),
+				loadEntityLinks: () =>
+					Effect.callback((resume) => {
+						linksLoaded.push(() => resume(Effect.succeed(new Map())));
+					}),
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByRole("button", { name: "Add Result 1" })).toBeTruthy()),
+			);
+			expect(screen.queryByRole("button", { name: "Plan it: Result 1" })).toBeNull();
+			act(() => linksLoaded[0]?.());
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Plan it: Result 1" })),
+			);
+			expect(imports).toMatchObject([
+				{
+					externalId: "item-1",
+					entryEventSchemaSlug: "planned",
+					providerId: providers[0].providerId,
+				},
+			]);
 		}),
 	);
 

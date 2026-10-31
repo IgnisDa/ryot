@@ -1,4 +1,5 @@
 import type {
+	ProviderLibraryEntryEvent,
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
 	SearchProviderOptionsResponse,
@@ -78,12 +79,6 @@ export type ProviderSummariesState =
 	| { readonly status: "loading" }
 	| { readonly status: "ready"; readonly providers: readonly ProviderSearchSummary[] };
 
-export type ImportProviderEntity = (input: {
-	readonly externalId: string;
-	readonly providerId: SandboxProviderId;
-	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
-}) => Effect.Effect<ProviderEntityImportEntry, ProviderAddLoadError>;
-
 export type ProviderEntityLinksInput = {
 	readonly relationshipSlug: string;
 	readonly librarySchemaSlug: string;
@@ -91,6 +86,13 @@ export type ProviderEntityLinksInput = {
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly externalIds: readonly [string, ...string[]];
 };
+
+export type ImportProviderEntity = (input: {
+	readonly externalId: string;
+	readonly providerId: SandboxProviderId;
+	readonly entryEventSchemaSlug?: string | undefined;
+	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
+}) => Effect.Effect<ProviderEntityImportEntry, ProviderAddLoadError>;
 
 type ProviderSearchPanelProps = {
 	readonly onClose: () => void;
@@ -104,6 +106,7 @@ type ProviderSearchPanelProps = {
 	readonly entitySchemaSlug: EntitySchemaSlug;
 	readonly importEntity: ImportProviderEntity;
 	readonly onImported: (entityId: EntityId) => void;
+	readonly entryEvent: null | ProviderLibraryEntryEvent;
 	readonly selectedProviderId: undefined | SandboxProviderId;
 	readonly onCreateCustom?: undefined | ((query: string) => void);
 	readonly onSelectProvider: (providerId: SandboxProviderId) => void;
@@ -131,7 +134,11 @@ type ProviderSearchSessionProps = ProviderSearchPanelProps & {
 	readonly provider: ProviderSearchSummary;
 	readonly onQueryChange: (query: string) => void;
 	readonly importState: ProviderEntityImportState;
-	readonly importItem: (providerId: SandboxProviderId, externalId: string) => void;
+	readonly importItem: (
+		providerId: SandboxProviderId,
+		externalId: string,
+		entryEventSchemaSlug?: string,
+	) => void;
 };
 
 export function Spinner(props: { readonly label: string; readonly className?: string }) {
@@ -263,7 +270,11 @@ export function useProviderEntityImports(input: {
 	readonly onImported: (entityId: EntityId) => void;
 }) {
 	const [importState, setImportState] = useState(createProviderEntityImportState);
-	const importItem = (providerId: SandboxProviderId, externalId: string) => {
+	const importItem = (
+		providerId: SandboxProviderId,
+		externalId: string,
+		entryEventSchemaSlug?: string,
+	) => {
 		const current = providerEntityImportEntry(importState, externalId).status;
 		if (current === "queued" || current === "importing") {
 			return;
@@ -272,18 +283,20 @@ export function useProviderEntityImports(input: {
 			setImportState((entries) => setProviderEntityImportEntry(entries, externalId, entry));
 		setEntry({ status: "importing" });
 		void Effect.runPromise(
-			input.importEntity({ externalId, providerId, onProgress: setEntry }).pipe(
-				Effect.tap((entry) =>
-					Effect.sync(() => {
-						if (entry.status === "imported") {
-							input.onImported(entry.entityId);
-						}
-						if (input.showImported || entry.status !== "imported") {
-							setEntry(entry);
-						}
-					}),
+			input
+				.importEntity({ externalId, providerId, entryEventSchemaSlug, onProgress: setEntry })
+				.pipe(
+					Effect.tap((entry) =>
+						Effect.sync(() => {
+							if (entry.status === "imported") {
+								input.onImported(entry.entityId);
+							}
+							if (input.showImported || entry.status !== "imported") {
+								setEntry(entry);
+							}
+						}),
+					),
 				),
-			),
 		);
 	};
 	return { importItem, importState };
@@ -392,10 +405,11 @@ function ProviderSearchResultList(props: {
 	readonly librarySchemaSlug: string;
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
 	readonly items: readonly ProviderSearchResultItem[];
+	readonly entryEvent: null | ProviderLibraryEntryEvent;
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
+	readonly onAdd: (externalId: string, entryEventSchemaSlug?: string) => void;
 }) {
 	const externalIds = props.items.map((item) => item.externalId);
 	const links = useExternalIdLookup<undefined | ProviderEntityLinks>({
@@ -424,9 +438,15 @@ function ProviderSearchResultList(props: {
 				<ProviderSearchResultRow
 					item={item}
 					key={item.externalId}
-					onAdd={() => props.onAdd(item.externalId)}
 					linkedEntityId={links?.get(item.externalId)}
 					entry={providerEntityImportEntry(props.importState, item.externalId)}
+					entryEventLabel={links === undefined ? undefined : props.entryEvent?.label}
+					onAdd={(withEntryEvent) =>
+						props.onAdd(
+							item.externalId,
+							withEntryEvent ? props.entryEvent?.eventSchemaSlug : undefined,
+						)
+					}
 				/>
 			))}
 		</div>
@@ -445,11 +465,12 @@ function ProviderSearchResults(props: {
 	readonly isFetchingNextPage: boolean;
 	readonly providerId: SandboxProviderId;
 	readonly entitySchemaSlug: EntitySchemaSlug;
-	readonly onAdd: (externalId: string) => void;
 	readonly importState: ProviderEntityImportState;
 	readonly items: readonly ProviderSearchResultItem[];
+	readonly entryEvent: null | ProviderLibraryEntryEvent;
 	readonly errorOperation: null | "append" | "initial" | "refresh";
 	readonly loadEntityLinks: ProviderSearchPanelProps["loadEntityLinks"];
+	readonly onAdd: (externalId: string, entryEventSchemaSlug?: string) => void;
 }) {
 	const renderPaginationAction = () => {
 		if (props.errorOperation !== null) {
@@ -490,6 +511,7 @@ function ProviderSearchResults(props: {
 				<ProviderSearchResultList
 					onAdd={props.onAdd}
 					items={props.items}
+					entryEvent={props.entryEvent}
 					providerId={props.providerId}
 					importState={props.importState}
 					loadEntityLinks={props.loadEntityLinks}
@@ -681,6 +703,7 @@ function ProviderSearchForm(
 				items={resultItems}
 				query={submitted.query}
 				onRetry={pagination.retry}
+				entryEvent={props.entryEvent}
 				importState={props.importState}
 				hasMore={pagination.hasNextPage}
 				providerId={submitted.providerId}
@@ -693,7 +716,9 @@ function ProviderSearchForm(
 				errorOperation={pagination.errorOperation}
 				librarySchemaSlug={props.librarySchemaSlug}
 				isFetchingNextPage={pagination.isFetchingNextPage}
-				onAdd={(externalId) => props.importItem(submitted.providerId, externalId)}
+				onAdd={(externalId, entryEventSchemaSlug) =>
+					props.importItem(submitted.providerId, externalId, entryEventSchemaSlug)
+				}
 			/>
 		);
 	};

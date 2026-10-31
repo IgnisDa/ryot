@@ -177,7 +177,10 @@ call it; other documents receive `invalid-request`.
 `screens.pickEntity({ schema, initialQuery?, library? })` opens the kernel entity picker. It
 carries an exact `EntitySchemaReference` and returns an Effect with `{ kind: "selected", entityIds }`,
 `{ kind: "cancelled" }`, or `{ kind: "create-requested" }`. With a `library` membership the kernel
-shows provider search with in-library badges and imports; without one it lists visible entities of the
+shows provider search with in-library badges and imports. A membership's optional
+`entryEvent: { label, eventSchemaSlug }` adds a second, labelled action to each result not yet in the
+library; it imports the item and records that event on it, so the event must belong to the picked
+schema. Without a membership the picker lists visible entities of the
 schema, provider results that are not yet materialized, and a create action. Library picks navigate to
 the schema's catalog-declared `createRoute` when it has one (returning `create-requested`); otherwise,
 and always for plain picks, a schema with a manifest `editor` gets an inline name and properties form

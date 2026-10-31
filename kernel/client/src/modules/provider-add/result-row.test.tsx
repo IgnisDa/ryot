@@ -90,4 +90,48 @@ describe("provider search result row", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Retry adding Fixture item" }));
 		expect(addCount).toBe(1);
 	});
+
+	it("adds with the entry event, retries with it, and hides it without a label", () => {
+		const adds: boolean[] = [];
+		const onAdd = (withEntryEvent: boolean) => {
+			adds.push(withEntryEvent);
+		};
+		const view = render(
+			<ProviderSearchResultRow
+				item={item}
+				onAdd={onAdd}
+				entry={{ status: "idle" }}
+				linkedEntityId={undefined}
+				entryEventLabel="Add to backlog"
+			/>,
+		);
+
+		fireEvent.click(screen.getByRole("button", { name: "Add to backlog: Fixture item" }));
+		fireEvent.click(screen.getByRole("button", { name: "Add Fixture item" }));
+		expect(adds).toEqual([true, false]);
+
+		fireEvent.click(screen.getByRole("button", { name: "Add to backlog: Fixture item" }));
+		view.rerender(
+			<ProviderSearchResultRow
+				item={item}
+				onAdd={onAdd}
+				linkedEntityId={undefined}
+				entryEventLabel="Add to backlog"
+				entry={{ status: "failed", message: "Could not add this item." }}
+			/>,
+		);
+		fireEvent.click(screen.getByRole("button", { name: "Retry adding Fixture item" }));
+		expect(adds).toEqual([true, false, true, true]);
+
+		view.rerender(
+			<ProviderSearchResultRow
+				item={item}
+				onAdd={onAdd}
+				entry={{ status: "idle" }}
+				linkedEntityId={undefined}
+			/>,
+		);
+		expect(screen.queryByRole("button", { name: "Add to backlog: Fixture item" })).toBeNull();
+		expect(screen.getByRole("button", { name: "Add Fixture item" })).toBeTruthy();
+	});
 });

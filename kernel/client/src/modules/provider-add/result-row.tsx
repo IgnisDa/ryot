@@ -3,6 +3,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import { Link } from "@tanstack/react-router";
 import { Match } from "effect";
+import { useState } from "react";
 
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
 import { describeProviderSearchResultItem } from "#/modules/provider-add/result-display";
@@ -11,12 +12,18 @@ import type { ProviderSearchResultItem } from "#/modules/provider-add/search-con
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md object-cover";
 
 export function ProviderSearchResultRow(props: {
-	readonly onAdd: () => void;
 	readonly item: ProviderSearchResultItem;
 	readonly entry: ProviderEntityImportEntry;
 	readonly linkedEntityId: EntityId | undefined;
+	readonly entryEventLabel?: string | undefined;
+	readonly onAdd: (withEntryEvent: boolean) => void;
 }) {
 	const display = describeProviderSearchResultItem(props.item);
+	const [withEntryEvent, setWithEntryEvent] = useState(false);
+	const add = (next: boolean) => {
+		setWithEntryEvent(next);
+		props.onAdd(next);
+	};
 	const pending =
 		props.linkedEntityId === undefined &&
 		(props.entry.status === "queued" || props.entry.status === "importing");
@@ -41,10 +48,12 @@ export function ProviderSearchResultRow(props: {
 				) : null}
 			</div>
 			<ResultAction
+				onAdd={add}
 				entry={props.entry}
-				onAdd={props.onAdd}
 				title={display.title}
+				withEntryEvent={withEntryEvent}
 				linkedEntityId={props.linkedEntityId}
+				entryEventLabel={props.entryEventLabel}
 			/>
 		</div>
 	);
@@ -66,9 +75,11 @@ function InLibraryLink(props: { readonly title: string; readonly entityId: Entit
 
 function ResultAction(props: {
 	readonly title: string;
-	readonly onAdd: () => void;
+	readonly withEntryEvent: boolean;
 	readonly entry: ProviderEntityImportEntry;
+	readonly entryEventLabel: string | undefined;
 	readonly linkedEntityId: EntityId | undefined;
+	readonly onAdd: (withEntryEvent: boolean) => void;
 }) {
 	if (props.linkedEntityId !== undefined) {
 		return <InLibraryLink title={props.title} entityId={props.linkedEntityId} />;
@@ -100,23 +111,35 @@ function ResultAction(props: {
 		Match.when({ status: "failed" }, () => (
 			<button
 				type="button"
-				onClick={props.onAdd}
 				aria-label={`Retry adding ${props.title}`}
+				onClick={() => props.onAdd(props.withEntryEvent)}
 				className="flex h-7 shrink-0 items-center px-1 text-xs font-medium text-accent-text"
 			>
 				Retry
 			</button>
 		)),
 		Match.when({ status: "idle" }, () => (
-			<button
-				type="button"
-				onClick={props.onAdd}
-				aria-label={`Add ${props.title}`}
-				className="flex h-7 shrink-0 items-center gap-1 rounded-pill bg-accent-soft px-2.5 md:rounded-md md:border md:border-border-strong md:bg-transparent md:px-3"
-			>
-				<AppIcon size={13} name="plus" className="text-accent-text md:hidden" />
-				<span className="text-xs font-medium text-accent-text md:text-text">Add</span>
-			</button>
+			<div className="flex shrink-0 items-center gap-1.5">
+				{props.entryEventLabel === undefined ? null : (
+					<button
+						type="button"
+						onClick={() => props.onAdd(true)}
+						aria-label={`${props.entryEventLabel}: ${props.title}`}
+						className="flex h-7 shrink-0 items-center px-2 text-xs font-medium whitespace-nowrap text-text-muted"
+					>
+						{props.entryEventLabel}
+					</button>
+				)}
+				<button
+					type="button"
+					aria-label={`Add ${props.title}`}
+					onClick={() => props.onAdd(false)}
+					className="flex h-7 shrink-0 items-center gap-1 rounded-pill bg-accent-soft px-2.5 md:rounded-md md:border md:border-border-strong md:bg-transparent md:px-3"
+				>
+					<AppIcon size={13} name="plus" className="text-accent-text md:hidden" />
+					<span className="text-xs font-medium text-accent-text md:text-text">Add</span>
+				</button>
+			</div>
 		)),
 		Match.exhaustive,
 	);

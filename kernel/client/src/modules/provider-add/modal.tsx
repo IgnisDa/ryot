@@ -139,11 +139,16 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 		externalId,
 		onProgress,
 		providerId,
+		entryEventSchemaSlug,
 	}) =>
 		importProviderEntity({
 			onProgress,
 			poll: (jobId) => providerService.pollImport(scope, jobId),
-			start: providerService.startImport(scope, { externalId, providerId }),
+			start: providerService.startImport(scope, {
+				externalId,
+				providerId,
+				...(entryEventSchemaSlug === undefined ? {} : { entryEventSchemaSlug }),
+			}),
 		});
 	const loadEntityLinks: ComponentProps<typeof ProviderSearchPanel>["loadEntityLinks"] = (input) =>
 		ownerPluginId === undefined
@@ -258,6 +263,7 @@ export function EntityPickerModal(props: EntityPickerModalProps) {
 				initialQuery={props.initialQuery}
 				loadEntityLinks={loadEntityLinks}
 				entitySchemaSlug={entitySchemaSlug}
+				entryEvent={props.library.entryEvent}
 				selectedProviderId={state.selectedProviderId}
 				searchOptionsQuery={providerSearchOptionsQuery}
 				relationshipSlug={props.library.relationshipSlug}
