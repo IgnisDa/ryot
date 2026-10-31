@@ -97,32 +97,28 @@ for (const testCase of cases) {
 			expect(
 				yield* page.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).count,
 			).toBe(0);
-			yield* controls.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
-			const sections = analytics.getByRole("navigation", {
+			yield* controls.getByText("· times in UTC", { exact: true }).waitFor();
+			const sections = analytics.getByRole("radiogroup", {
 				exact: true,
 				name: "Analytics sections",
 			});
 			expect(
 				yield* sections
-					.getByRole("button", { exact: true, name: "Collection reviews" })
-					.getAttribute("aria-pressed"),
+					.getByRole("radio", { exact: true, name: "Collections" })
+					.getAttribute("aria-checked"),
 			).toBe("true");
-			const contributor = sections.getByRole("button", { exact: true, name: testCase.contributor });
+			const contributor = sections.getByRole("radio", { exact: true, name: testCase.contributor });
 			yield* contributor.waitFor({ state: "visible" });
-			expect(yield* contributor.getAttribute("aria-pressed")).toBe("false");
+			expect(yield* contributor.getAttribute("aria-checked")).toBe("false");
 			expect(yield* contributor.isEnabled()).toBe(true);
 			yield* contributor.click();
 			const section = analyticsSection(installed.pluginId, testCase.section);
 			yield* page.waitForURL(
 				(url) => url.pathname === analyticsPath && url.searchParams.get("section") === section,
 			);
-			yield* contributor.waitForFunction(
-				(button) => button.getAttribute("aria-pressed") === "true",
-			);
-			yield* analytics
-				.getByRole("heading", { level: 2, exact: true, name: testCase.contributor })
-				.waitFor();
-			yield* controls.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
+			yield* contributor.waitForFunction((radio) => radio.getAttribute("aria-checked") === "true");
+			yield* analytics.getByRole("region", { exact: true, name: testCase.contributor }).waitFor();
+			yield* controls.getByText("· times in UTC", { exact: true }).waitFor();
 			expect((yield* getUserSettings(account.client)).preferences.reportingTimeZone).toBe("UTC");
 		}).pipe(PlaywrightSpawner.withBrowser),
 	);

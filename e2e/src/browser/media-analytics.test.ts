@@ -25,14 +25,12 @@ import {
 	chartVisualCases,
 	colorSchemes,
 	desktopViewport,
-	periodRow,
 	signInThroughHostedOAuth,
 	termDefinition,
 } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-const currentRange = "2026-09-01 – 2026-09-07";
-const previousRange = "2026-08-25 – 2026-08-31";
+const currentRange = "Sep 1 – 7, 2026";
 const periodDates = [
 	["Sep 1, 2026", "Aug 25, 2026"],
 	["Sep 2, 2026", "Aug 26, 2026"],
@@ -42,6 +40,8 @@ const periodDates = [
 	["Sep 6, 2026", "Aug 30, 2026"],
 	["Sep 7, 2026", "Aug 31, 2026"],
 ] satisfies ReadonlyArray<readonly [string, string]>;
+
+const entries = (count: number) => `${count} ${count === 1 ? "entry" : "entries"}`;
 
 const openMediaAnalytics = Effect.fn("openMediaAnalytics")(function* () {
 	const fixture = yield* createMediaAnalyticsFixture();
@@ -64,9 +64,7 @@ const openMediaAnalytics = Effect.fn("openMediaAnalytics")(function* () {
 		.getByRole("heading", { level: 1, exact: true, name: "Analytics" })
 		.waitFor({ state: "visible" });
 	const summary = frame.getByRole("region", { exact: true, name: "Media analytics summary" });
-	yield* termDefinition(summary, "Active days")
-		.and(summary.getByText("3 days", { exact: true }))
-		.waitFor();
+	yield* termDefinition(summary, "Active days").getByText("3", { exact: true }).waitFor();
 	return { page, frame, summary, context, fixture, section, frameElement };
 });
 
@@ -84,62 +82,56 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		expect(yield* frame.getByRole("heading", { level: 1 }).count).toBe(1);
 		expect(yield* summary.getByRole("heading", { level: 1 }).count).toBe(0);
 		expect(yield* page.getByRole("heading", { level: 1, name: "Analytics" }).count).toBe(0);
-		yield* frame.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
+		yield* frame.getByText("· times in UTC", { exact: true }).waitFor();
 
 		for (const [label, value] of [
-			["Title completion occurrences", "3 titles"],
-			["Episode completion occurrences", "0 occurrences"],
-			["Distinct completed titles", "2 titles"],
-			["Active days", "3 days"],
-			["Active observations", "5 observations"],
-			["Pages", "100 pages"],
-			["Episodes", "1 episodes"],
-			["Minutes", "≥ 0 minutes"],
-		] satisfies ReadonlyArray<readonly [string, string]>) {
-			expect(yield* termDefinition(summary, label).innerText()).toBe(value);
+			["Titles completed", /^3\s*titles$/],
+			["Episodes finished", /^0\s*episodes$/],
+			["Time spent", /^≥\s*0s$/],
+			["Active days", /^3\s*days$/],
+		] satisfies ReadonlyArray<readonly [string, RegExp]>) {
+			expect(yield* termDefinition(summary, label).innerText()).toMatch(value);
 		}
-		expect(yield* termDefinition(summary, "Pages", 1).innerText()).toBe(
-			"Known observations · 2 observations · Recorded · 40 pages · Estimated · 60 pages · Missing observations · 0 observations",
+		expect(yield* termDefinition(summary, "Titles completed", 1).innerText()).toMatch(
+			/^New\s*\+3 titles vs previous period$/,
 		);
-		expect(yield* termDefinition(summary, "Episodes", 1).innerText()).toBe(
-			"Known observations · 1 observations · Recorded · 1 episodes · Estimated · 0 episodes · Missing observations · 0 observations",
+		expect(yield* termDefinition(summary, "Titles completed", 2).innerText()).toBe(
+			"2 unique titles",
 		);
-		expect(yield* termDefinition(summary, "Minutes", 1).innerText()).toBe(
-			"Known observations · 1 observations · Recorded · 0 minutes · Estimated · 0 minutes · Missing observations · 1 observations",
+		expect(yield* termDefinition(summary, "Active days", 2).innerText()).toBe("5 entries");
+		for (const name of [
+			"Pages sources: Recorded 40 pages, Estimated 60 pages",
+			"Episodes sources: Recorded 1 episode, Estimated 0 episodes",
+			"Time spent sources: Recorded 0s, Estimated 0s",
+		]) {
+			expect(yield* summary.getByRole("img", { name, exact: true }).count).toBe(1);
+		}
+		expect(yield* summary.getByText("1 entry without an amount", { exact: true }).count).toBe(1);
+		expect(
+			yield* summary.getByText("Not counted in any period: 1 undated entry.", { exact: true })
+				.count,
+		).toBe(1);
+		expect(yield* termDefinition(summary, "Reviews").innerText()).toMatch(/^2\s*reviews$/);
+		expect(yield* termDefinition(summary, "Reviews", 1).innerText()).toMatch(
+			/^New\s*\+2 reviews vs previous period$/,
 		);
-		expect(yield* summary.innerText()).toContain(
-			"Full-history source coverage includes 1 unknown-date observations; these records are not assigned to a reporting date.",
-		);
-		const currentReviews = summary
-			.getByRole("term")
-			.and(summary.getByText(`Current · ${currentRange}`, { exact: true }))
-			.locator("xpath=..");
-		const previousReviews = summary
-			.getByRole("term")
-			.and(summary.getByText(`Previous · ${previousRange}`, { exact: true }))
-			.locator("xpath=..");
-		expect(yield* currentReviews.getByRole("definition").allTextContents()).toEqual([
-			"2 reviews · 2 rated",
-			"Source average · 40 /100",
-		]);
-		expect(yield* previousReviews.getByRole("definition").allTextContents()).toEqual([
-			"0 reviews · 0 rated",
-			"Source average · Unknown",
-		]);
+		expect(yield* termDefinition(summary, "Rated").innerText()).toMatch(/^2\s*ratings$/);
+		expect(yield* termDefinition(summary, "Average rating").innerText()).toMatch(/^40\s*\/ 100$/);
+		expect(yield* termDefinition(summary, "Average rating", 1).innerText()).toBe("No comparison");
+		expect(
+			yield* summary.getByText("Changes compare with Aug 25 – 31, 2026.", { exact: true }).count,
+		).toBe(1);
 		const reviewTable = summary.getByRole("table", {
 			exact: true,
 			name: "Review count and rating by media category",
 		});
 		expect(
 			yield* reviewTable.getByRole("row", { name: "Book" }).getByRole("cell").allTextContents(),
-		).toEqual(["1 reviews", "1 ratings", "0 /100", "Unknown", "Unknown", "Unknown"]);
+		).toEqual(["1", "1", "0/100"]);
 		expect(
 			yield* reviewTable.getByRole("row", { name: "Movie" }).getByRole("cell").nth(2).innerText(),
-		).toBe("80 /100");
+		).toBe("80/100");
 		const initialSummary = yield* summary.innerText();
-		expect(initialSummary).toContain(
-			`${currentRange} vs ${previousRange} · New activity · +3 titles`,
-		);
 		expect(initialSummary).not.toContain("Infinity");
 		expect(initialSummary).not.toContain("NaN");
 
@@ -154,16 +146,16 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		);
 		const trendChart = frame.getByRole("img", {
 			exact: true,
-			name: "Active observations by reporting period",
+			name: "Activity entries by reporting period",
 		});
 		const hourChart = frame.getByRole("img", {
 			exact: true,
-			name: "Active observations by local hour",
+			name: "Activity entries by local hour",
 		});
 		yield* trendChart.waitFor({ state: "visible" });
 		yield* hourChart.waitFor({ state: "visible" });
 		yield* frame
-			.getByRole("img", { exact: true, name: `Daily active observations · ${currentRange}` })
+			.getByRole("img", { exact: true, name: `Daily activity entries · ${currentRange}` })
 			.waitFor({ state: "visible" });
 		for (const visualCase of chartVisualCases) {
 			yield* page.setViewportSize(visualCase.viewport);
@@ -205,38 +197,40 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		}
 
 		yield* page.setViewportSize(desktopViewport);
-		const exactValues = frame.getByText("View exact values", { exact: true });
-		yield* exactValues.first().click();
+		const activityDisplay = frame.getByRole("radiogroup", {
+			exact: true,
+			name: "Activity entries by reporting period display",
+		});
+		yield* activityDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		const activityTable = frame.getByRole("table", {
 			exact: true,
-			name: "Active observations by reporting period exact values",
+			name: "Activity entries by reporting period exact values",
 		});
-		yield* activityTable.waitForFunction((table) => table.querySelectorAll("tr").length === 15);
+		yield* activityTable.waitForFunction((table) => table.querySelectorAll("tr").length === 8);
 		for (const [date, previousDate] of periodDates) {
 			const expected =
 				date === "Sep 2, 2026" ? 3 : Number(date === "Sep 4, 2026" || date === "Sep 5, 2026");
-			expect(
-				yield* periodRow(activityTable, currentRange, date).getByRole("cell").nth(1).innerText(),
-			).toBe(`${expected} observations`);
-			expect(
-				yield* periodRow(activityTable, previousRange, previousDate)
-					.getByRole("cell")
-					.nth(1)
-					.innerText(),
-			).toBe("0 observations");
+			const row = activityTable.getByRole("row").filter({ hasText: date });
+			expect(yield* row.getByRole("cell").nth(1).innerText()).toBe(entries(expected));
+			expect(yield* row.getByRole("cell").nth(2).innerText()).toMatch(
+				new RegExp(`^0 entries\\s+${previousDate}$`),
+			);
 		}
-		const trendDrill = periodRow(activityTable, currentRange, "Sep 2, 2026").getByRole("button");
+		const trendDrill = activityTable.getByRole("button", {
+			exact: true,
+			name: "View records: Sep 2, 2026 · 3 entries",
+		});
 		yield* trendDrill.focus();
 		yield* trendDrill.press("Enter");
 		const dayDialog = frame.getByRole("dialog");
 		yield* dayDialog.getByText("3 records loaded", { exact: true }).waitFor();
 		expect(yield* dayDialog.count).toBe(1);
 		expect(
-			yield* dayDialog.getByText("Active observations · 2026-09-02 · 2026-09-02", { exact: true })
+			yield* dayDialog.getByText("Activity entries · Sep 2, 2026 · Sep 2, 2026", { exact: true })
 				.count,
 		).toBe(1);
 		expect(yield* dayDialog.innerText()).toContain(
-			"Period: 2026-09-02 · Time zone: UTC · Active observations only",
+			"Period: Sep 2, 2026 · Time zone: UTC · Active observations only",
 		);
 		const dayRecords = dayDialog.getByRole("table", {
 			exact: true,
@@ -254,10 +248,13 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			yield* trendDrill.evaluate((button) => button.ownerDocument.activeElement === button),
 		).toBe(true);
 
-		yield* exactValues.nth(1).click();
+		yield* frame
+			.getByRole("radiogroup", { exact: true, name: "Activity entries by local hour display" })
+			.getByRole("radio", { exact: true, name: "Table" })
+			.click();
 		const hourTable = frame.getByRole("table", {
 			exact: true,
-			name: "Active observations by local hour exact values",
+			name: "Activity entries by local hour exact values",
 		});
 		expect(yield* hourTable.getByRole("row").count).toBe(25);
 		for (let hour = 0; hour < 24; hour += 1) {
@@ -265,27 +262,22 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			const expected = hour === 18 ? 2 : Number(hour === 19);
 			expect(
 				yield* hourTable.getByRole("row", { name: label }).getByRole("cell").nth(1).innerText(),
-			).toBe(`${expected} observations`);
+			).toBe(entries(expected));
 		}
 		yield* frame
-			.getByText(
-				"Only instant-dated observations are grouped by hour. Date-only and unknown dates are excluded.",
-				{ exact: true },
-			)
+			.getByText("Activity entries with an exact time, in UTC", { exact: true })
 			.waitFor();
-		yield* frame
-			.getByRole("heading", { exact: true, name: "Daily consistency" })
-			.locator("xpath=..")
-			.getByText("View exact values", { exact: true })
-			.click();
-		expect(
-			yield* frame
-				.getByRole("heading", { exact: true, name: "Daily consistency" })
-				.locator("xpath=..")
-				.getByText(currentRange, { exact: true }).count,
-		).toBe(1);
+		const dailyDisplay = frame.getByRole("radiogroup", {
+			exact: true,
+			name: `Daily activity entries · ${currentRange} display`,
+		});
+		yield* dailyDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
+		expect(yield* frame.getByText(`All media types · ${currentRange}`, { exact: true }).count).toBe(
+			1,
+		);
 		const dailyTable = frame.getByRole("table", {
-			name: /^Daily active observations · .* exact values$/,
+			exact: true,
+			name: `Daily activity entries · ${currentRange} exact values`,
 		});
 		expect(yield* dailyTable.locator("tbody tr").count).toBe(7);
 		for (let day = 1; day <= 7; day += 1) {
@@ -296,33 +288,25 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 					.getByRole("cell")
 					.nth(1)
 					.innerText(),
-			).toBe(expected === 0 ? "No active observations" : `${expected} active observations`);
+			).toBe(entries(expected));
 		}
-		yield* frame
-			.getByRole("heading", { exact: true, name: "Daily consistency" })
-			.locator("xpath=..")
-			.getByText("View exact values", { exact: true })
-			.click();
+		yield* dailyDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 		yield* dailyTable.waitFor({ state: "hidden" });
-		yield* exactValues.first().click();
+		yield* activityDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 		yield* activityTable.waitFor({ state: "hidden" });
 		yield* page.setViewportSize({ width: 390, height: 844 });
 		yield* trendChart.waitForFunction((image) => image.getBoundingClientRect().height === 200);
-		yield* frame
-			.getByRole("heading", { exact: true, name: "Daily consistency" })
-			.locator("xpath=..")
-			.getByText("View exact values", { exact: true })
-			.click();
+		yield* dailyDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		yield* dailyTable.waitForFunction((table) => table.querySelectorAll("tbody tr").length === 7);
 		const dailyDrill = dailyTable.getByRole("button", {
 			exact: true,
-			name: "View records: Sep 4, 2026 · 1 active observations",
+			name: "View records: Sep 4, 2026 · 1 entry",
 		});
 		yield* dailyDrill.focus();
 		yield* dailyDrill.tap();
 		yield* dayDialog.getByText("1 record loaded", { exact: true }).waitFor();
 		expect(yield* dayDialog.innerText()).toContain(
-			"Period: 2026-09-04 · Time zone: UTC · Active observations only",
+			"Period: Sep 4, 2026 · Time zone: UTC · Active observations only",
 		);
 		expect(
 			yield* dayDialog.getByRole("link", { exact: true, name: fixture.entities.book.name }).count,
@@ -334,103 +318,94 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 			yield* dailyDrill.evaluate((button) => button.ownerDocument.activeElement === button),
 		).toBe(true);
 		yield* page.setViewportSize(desktopViewport);
-		yield* trendChart.waitForFunction((image) => image.getBoundingClientRect().height === 280);
+		yield* trendChart.waitForFunction((image) => image.getBoundingClientRect().height === 260);
 
-		yield* frame
-			.getByRole("button", { exact: true, name: "Trend metric: Active observations" })
-			.click();
-		yield* frame.getByRole("radio", { exact: true, name: "Pages" }).click();
-		yield* exactValues.first().click();
+		yield* frame.getByRole("button", { exact: true, name: "Show: Activity entries" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		const pagesDisplay = frame.getByRole("radiogroup", {
+			exact: true,
+			name: "Pages by reporting period display",
+		});
+		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		const pagesTable = frame.getByRole("table", {
 			exact: true,
 			name: "Pages by reporting period exact values",
 		});
 		yield* pagesTable.waitFor();
-		for (const [date, recorded, estimated] of [
-			["Sep 2, 2026", 40, 0],
-			["Sep 4, 2026", 0, 60],
-		] satisfies ReadonlyArray<readonly [string, number, number]>) {
-			expect(
-				yield* periodRow(pagesTable, currentRange, date).getByRole("cell").nth(1).innerText(),
-			).toBe(
-				`${recorded + estimated} pages · Known observations · 1 observations · Recorded · ${recorded} pages · Estimated · ${estimated} pages · Missing observations · 0 observations`,
-			);
-		}
+		expect(
+			yield* pagesTable
+				.getByRole("row")
+				.filter({ hasText: "Sep 2, 2026" })
+				.getByRole("cell")
+				.nth(1)
+				.innerText(),
+		).toBe("40 pages");
+		expect(
+			yield* pagesTable
+				.getByRole("row")
+				.filter({ hasText: "Sep 4, 2026" })
+				.getByRole("cell")
+				.nth(1)
+				.innerText(),
+		).toMatch(/^60 pages\s+60 pages estimated$/);
 		for (const [date, previousDate] of periodDates) {
-			const previousRow = periodRow(pagesTable, previousRange, previousDate);
-			expect(yield* previousRow.getByRole("cell").first().innerText()).toBe(
-				`${previousRange} · ${previousDate}`,
+			const row = pagesTable.getByRole("row").filter({ hasText: date });
+			expect(yield* row.getByRole("cell").first().innerText()).toBe(date);
+			const previousCell = row.getByRole("cell").nth(2);
+			expect(yield* previousCell.innerText()).toMatch(
+				new RegExp(`^Not recorded\\s+${previousDate}$`),
 			);
-			expect(yield* previousRow.getByRole("cell").nth(1).innerText()).toMatch(
-				/^Not recorded · Known observations · 0 observations/,
-			);
-			expect(yield* previousRow.getByRole("button").count).toBe(0);
+			expect(yield* previousCell.getByRole("button").count).toBe(0);
 			if (date !== "Sep 2, 2026" && date !== "Sep 4, 2026") {
-				const row = periodRow(pagesTable, currentRange, date);
-				expect(yield* row.getByRole("cell").nth(1).innerText()).toMatch(/^Not recorded ·/);
+				expect(yield* row.getByRole("cell").nth(1).innerText()).toBe("Not recorded");
 				expect(yield* row.getByRole("button").count).toBe(0);
 			}
 		}
 		const exactPages = yield* pagesTable.innerText();
-		yield* frame.getByRole("button", { exact: true, name: "Media type: All media types" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Book" }).click();
-		expect(
-			yield* frame.getByRole("button", { exact: true, name: "Trend metric: Pages" }).count,
-		).toBe(1);
+		yield* frame.getByRole("button", { exact: true, name: "Type: All" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Book" }).click();
+		expect(yield* frame.getByRole("button", { exact: true, name: "Show: Pages" }).count).toBe(1);
 		expect(yield* pagesTable.innerText()).toBe(exactPages);
-		yield* frame.getByRole("button", { exact: true, name: "Media type: Book" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "All media types" }).click();
-		yield* frame.getByRole("button", { exact: true, name: "Trend metric: Pages" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Minutes" }).click();
-		const minutesTable = frame.getByRole("table", {
-			exact: true,
-			name: "Minutes by reporting period exact values",
-		});
+		yield* frame.getByRole("button", { exact: true, name: "Type: Book" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "All" }).click();
+		yield* frame.getByRole("button", { exact: true, name: "Show: Pages" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Time spent" }).click();
+		const trendCard = frame
+			.getByRole("heading", { level: 3, exact: true, name: "Activity over time" })
+			.locator("xpath=ancestor::header/..");
+		yield* trendCard.getByText("Nothing recorded in this period.", { exact: true }).waitFor();
+		expect(yield* trendCard.getByRole("table").count).toBe(0);
 		expect(
-			yield* periodRow(minutesTable, currentRange, "Sep 2, 2026")
-				.getByRole("cell")
-				.nth(1)
-				.innerText(),
-		).toBe(
-			"0 minutes · Known observations · 1 observations · Recorded · 0 minutes · Estimated · 0 minutes · Missing observations · 0 observations",
-		);
-		expect(
-			yield* periodRow(minutesTable, currentRange, "Sep 5, 2026")
-				.getByRole("cell")
-				.nth(1)
-				.innerText(),
-		).toBe(
-			"Not recorded · Known observations · 0 observations · Recorded · 0 minutes · Estimated · 0 minutes · Missing observations · 1 observations · Partial lower bound",
-		);
-		expect(
-			yield* periodRow(minutesTable, currentRange, "Sep 5, 2026").getByRole("button").count,
+			yield* frame.getByRole("img", { exact: true, name: "Time spent by reporting period" }).count,
 		).toBe(0);
-		yield* frame.getByRole("button", { exact: true, name: "Trend metric: Minutes" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Pages" }).click();
-		yield* exactValues.first().click();
+		yield* frame.getByRole("button", { exact: true, name: "Show: Time spent" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 		yield* pagesTable.waitFor({ state: "hidden" });
 
 		const weekSelection: ReportingSelection = { ...fixture.reportingSelection, grouping: "week" };
 		yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Week" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Week" }).click();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, weekSelection, section));
 		yield* frame.getByRole("button", { exact: true, name: "Group by: Week" }).waitFor();
-		const freshMetric = frame.getByRole("button", {
-			exact: true,
-			name: "Trend metric: Active observations",
-		});
+		const freshMetric = frame.getByRole("button", { exact: true, name: "Show: Activity entries" });
 		yield* freshMetric.waitFor();
 		expect(yield* freshMetric.count).toBe(1);
 		yield* freshMetric.click();
-		yield* frame.getByRole("radio", { exact: true, name: "Pages" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
 		yield* frame.getByRole("img", { exact: true, name: "Pages by reporting period" }).waitFor();
-		yield* exactValues.first().click();
-		yield* pagesTable.waitForFunction((table) => table.querySelectorAll("tr").length === 5);
-		expect(yield* pagesTable.innerText()).toContain(
-			"100 pages · Known observations · 2 observations · Recorded · 40 pages · Estimated · 60 pages",
-		);
+		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
+		yield* pagesTable.waitForFunction((table) => table.querySelectorAll("tr").length === 3);
+		expect(
+			yield* pagesTable
+				.getByRole("row")
+				.filter({ hasText: "Week of Aug 31, 2026" })
+				.getByRole("cell")
+				.nth(1)
+				.innerText(),
+		).toMatch(/^100 pages\s+60 pages estimated$/);
 		expect(yield* summary.innerText()).toBe(initialSummary);
-		yield* exactValues.first().click();
+		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 		yield* pagesTable.waitFor({ state: "hidden" });
 		yield* page.goBack();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
@@ -438,10 +413,10 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		yield* freshMetric.waitFor();
 		expect(yield* freshMetric.count).toBe(1);
 		yield* freshMetric.click();
-		yield* frame.getByRole("radio", { exact: true, name: "Pages" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
 		yield* frame.getByRole("img", { exact: true, name: "Pages by reporting period" }).waitFor();
-		yield* exactValues.first().click();
-		yield* pagesTable.waitForFunction((table) => table.querySelectorAll("tr").length === 15);
+		yield* pagesDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
+		yield* pagesTable.waitForFunction((table) => table.querySelectorAll("tr").length === 8);
 		expect(yield* pagesTable.innerText()).toBe(exactPages);
 		expect(yield* summary.innerText()).toBe(initialSummary);
 	}).pipe(PlaywrightSpawner.withBrowser),
@@ -507,17 +482,17 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		expect(yield* rankingTable.getByRole("link").allTextContents()).toEqual(
 			ranking.items.map(({ name }) => name),
 		);
-		for (const [entity, category, observations, titles] of [
-			[fixture.entities.book, "Book", 2, 1],
-			[fixture.entities.movie, "Movie", 2, 2],
-			[fixture.entities.anime, "Anime", 1, 0],
-		] satisfies ReadonlyArray<readonly [typeof fixture.entities.book, string, number, number]>) {
+		for (const [entity, category, activity, titles] of [
+			[fixture.entities.book, "Book", "2 entries", "1 title"],
+			[fixture.entities.movie, "Movie", "2 entries", "2 titles"],
+			[fixture.entities.anime, "Anime", "1 entry", "0 titles"],
+		] satisfies ReadonlyArray<readonly [typeof fixture.entities.book, string, string, string]>) {
 			const row = rankingTable.getByRole("row", { name: entity.name });
 			expect(yield* row.getByRole("cell").allTextContents()).toEqual([
 				entity.name,
 				category,
-				`${observations} observations`,
-				`${titles} titles`,
+				activity,
+				titles,
 				"0 episodes",
 				"View records",
 			]);
@@ -614,7 +589,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			'tbody tr:has(time[datetime="2026-09-02T18:00:00.000Z"])',
 		);
 		expect(yield* movieZeroRow.getByRole("cell").nth(4).innerText()).toContain(
-			"Manually recorded time: 0 minutes",
+			"Manually recorded time: 0s",
 		);
 		expect(yield* movieZeroRow.getByRole("cell").nth(5).innerText()).toContain(
 			"Minutes: 0 recorded · 0 estimated · missing: no",
@@ -634,8 +609,12 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		const reviewsBefore = yield* summary
 			.getByRole("table", { exact: true, name: "Review count and rating by media category" })
 			.innerText();
-		const minutesBefore = yield* termDefinition(summary, "Minutes", 1).innerText();
-		const episodesBefore = yield* termDefinition(summary, "Episodes", 1).innerText();
+		const minutesBefore = yield* summary
+			.getByRole("img", { name: /^Time spent sources:/ })
+			.getAttribute("aria-label");
+		const episodesBefore = yield* summary
+			.getByRole("img", { name: /^Episodes sources:/ })
+			.getAttribute("aria-label");
 		const progressId = requirePresent(
 			fixture.sourceEventIds[0],
 			"Expected the book progress source ID",
@@ -699,61 +678,73 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			exact: true,
 			name: "Media analytics summary",
 		});
-		yield* termDefinition(refreshedSummary, "Pages", 1)
-			.and(
-				refreshedSummary.getByText(
-					"Known observations · 2 observations · Recorded · 50 pages · Estimated · 50 pages · Missing observations · 0 observations",
-					{ exact: true },
-				),
-			)
+		yield* refreshedSummary
+			.getByRole("img", {
+				exact: true,
+				name: "Pages sources: Recorded 50 pages, Estimated 50 pages",
+			})
 			.waitFor();
-		expect(yield* termDefinition(refreshedSummary, "Pages").innerText()).toBe("100 pages");
-		expect(yield* termDefinition(refreshedSummary, "Active observations").innerText()).toBe(
-			"5 observations",
+		expect(yield* termDefinition(refreshedSummary, "Active days").innerText()).toMatch(
+			/^3\s*days$/,
 		);
-		expect(yield* termDefinition(refreshedSummary, "Active days").innerText()).toBe("3 days");
-		expect(yield* termDefinition(refreshedSummary, "Distinct completed titles").innerText()).toBe(
-			"2 titles",
+		expect(yield* termDefinition(refreshedSummary, "Active days", 2).innerText()).toBe("5 entries");
+		expect(yield* termDefinition(refreshedSummary, "Titles completed", 2).innerText()).toBe(
+			"2 unique titles",
 		);
-		expect(yield* termDefinition(refreshedSummary, "Minutes", 1).innerText()).toBe(minutesBefore);
-		expect(yield* termDefinition(refreshedSummary, "Episodes", 1).innerText()).toBe(episodesBefore);
+		expect(
+			yield* refreshedSummary
+				.getByRole("img", { name: /^Time spent sources:/ })
+				.getAttribute("aria-label"),
+		).toBe(minutesBefore);
+		expect(
+			yield* refreshedSummary
+				.getByRole("img", { name: /^Episodes sources:/ })
+				.getAttribute("aria-label"),
+		).toBe(episodesBefore);
 		expect(
 			yield* refreshedSummary
 				.getByRole("table", { exact: true, name: "Review count and rating by media category" })
 				.innerText(),
 		).toBe(reviewsBefore);
-		expect(yield* refreshedSummary.innerText()).toContain("Source average · 40 /100");
-		expect(yield* refreshedSummary.innerText()).toContain(
-			"Full-history source coverage includes 1 unknown-date observations",
+		expect(yield* termDefinition(refreshedSummary, "Average rating").innerText()).toMatch(
+			/^40\s*\/ 100$/,
 		);
+		expect(
+			yield* refreshedSummary.getByText("Not counted in any period: 1 undated entry.", {
+				exact: true,
+			}).count,
+		).toBe(1);
 		yield* refreshedFrame
-			.getByRole("button", { exact: true, name: "Trend metric: Active observations" })
+			.getByRole("button", { exact: true, name: "Show: Activity entries" })
 			.click();
-		yield* refreshedFrame.getByRole("radio", { exact: true, name: "Pages" }).click();
-		yield* refreshedFrame.getByText("View exact values", { exact: true }).first().click();
+		yield* refreshedFrame.getByRole("menuitemradio", { exact: true, name: "Pages" }).click();
+		yield* refreshedFrame
+			.getByRole("radiogroup", { exact: true, name: "Pages by reporting period display" })
+			.getByRole("radio", { exact: true, name: "Table" })
+			.click();
 		const correctedPagesTable = refreshedFrame.getByRole("table", {
 			exact: true,
 			name: "Pages by reporting period exact values",
 		});
 		yield* correctedPagesTable.waitForFunction(
-			(table) => table.querySelectorAll("tr").length === 15,
+			(table) => table.querySelectorAll("tr").length === 8,
 		);
 		expect(
-			yield* periodRow(correctedPagesTable, currentRange, "Sep 2, 2026")
+			yield* correctedPagesTable
+				.getByRole("row")
+				.filter({ hasText: "Sep 2, 2026" })
 				.getByRole("cell")
 				.nth(1)
 				.innerText(),
-		).toBe(
-			"50 pages · Known observations · 1 observations · Recorded · 50 pages · Estimated · 0 pages · Missing observations · 0 observations",
-		);
+		).toBe("50 pages");
 		expect(
-			yield* periodRow(correctedPagesTable, currentRange, "Sep 4, 2026")
+			yield* correctedPagesTable
+				.getByRole("row")
+				.filter({ hasText: "Sep 4, 2026" })
 				.getByRole("cell")
 				.nth(1)
 				.innerText(),
-		).toBe(
-			"50 pages · Known observations · 1 observations · Recorded · 0 pages · Estimated · 50 pages · Missing observations · 0 observations",
-		);
+		).toMatch(/^50 pages\s+50 pages estimated$/);
 
 		const refreshedRankingsTab = refreshedFrame.getByRole("tab", { exact: true, name: "Rankings" });
 		yield* refreshedRankingsTab.click();
@@ -829,7 +820,12 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			.waitFor({ state: "hidden" });
 		expect(yield* refreshedRankingTable.innerText()).toBe(retainedRankings);
 		expect(yield* refreshedRankingsTab.getAttribute("aria-selected")).toBe("true");
-		expect(yield* termDefinition(refreshedSummary, "Pages").innerText()).toBe("100 pages");
+		expect(
+			yield* refreshedSummary.getByRole("img", {
+				exact: true,
+				name: "Pages sources: Recorded 50 pages, Estimated 50 pages",
+			}).count,
+		).toBe(1);
 		expect(hasAnalyticsLocation(new URL(page.url()), fixture.reportingSelection, section)).toBe(
 			true,
 		);

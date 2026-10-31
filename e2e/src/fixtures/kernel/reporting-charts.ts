@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { encodePluginSourceFiles, testPluginManifest, testPluginPackageId } from "./test-plugin";
 
 const homeSource = `
+import { countUnit, formatMetric } from "@ryot-app/plugin-ui-sdk";
 import { HourlyHistogram, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
 import { TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
@@ -23,7 +24,11 @@ const baseTrend = {
   ],
 };
 
-const trendFor = (dataset: "default" | "empty" | "single" | "zero" | "missing-only") => {
+type TrendPoint = { readonly at: string; readonly value: null | number; readonly detail?: string };
+
+const trendFor = (
+  dataset: "default" | "empty" | "single" | "zero" | "missing-only",
+): { readonly current: readonly TrendPoint[]; readonly previous: readonly TrendPoint[] } => {
   if (dataset === "empty") return { current: [], previous: [] };
   if (dataset === "single") return { current: [{ at: "2026-09-01", value: 4, detail: "Estimated" }], previous: [] };
   if (dataset === "zero") {
@@ -38,7 +43,7 @@ const trendFor = (dataset: "default" | "empty" | "single" | "zero" | "missing-on
   return baseTrend;
 };
 
-const formatValue = (value: number) => String(value) + " entries";
+const unit = countUnit("entry", "entries");
 
 const hoursFor = (dataset: "default" | "empty" | "single" | "zero" | "missing-only") => {
   if (dataset === "empty") return [];
@@ -82,11 +87,13 @@ export default function Home() {
           ariaLabel="Period trend"
           timeZone={timeZone}
           label="Current period · Sep 1–3, 2026"
-          formatValue={formatValue}
+          grouping="day"
+          mark="line"
+          unit={unit}
           current={trendBuckets.current}
           previous={trendBuckets.previous.length === 0 ? undefined : { label: "Previous period · Aug 1–3, 2026", points: trendBuckets.previous }}
           onSelect={(point, period) => setSelection(
-            period + " · " + point.at + " · " + (point.value === null ? "Not recorded" : formatValue(point.value)) + (point.detail ? " · " + point.detail : ""),
+            period + " · " + point.at + " · " + (point.value === null ? "Not recorded" : formatMetric(point.value, unit)) + (point.detail ? " · " + point.detail : ""),
           )}
         />
       </section>
@@ -96,11 +103,10 @@ export default function Home() {
           compact={compact}
           ariaLabel="Hourly histogram"
           timeZone={timeZone}
-          periodLabel="Local-hour observations · Sep 1–3, 2026"
-          formatValue={formatValue}
+          unit={unit}
           buckets={hourlyBuckets}
           onSelect={(bucket) => setSelection(
-            String(bucket.hour).padStart(2, "0") + ":00 · " + (bucket.value === null ? "Not recorded" : formatValue(bucket.value)) + (bucket.detail ? " · " + bucket.detail : ""),
+            String(bucket.hour).padStart(2, "0") + ":00 · " + (bucket.value === null ? "Not recorded" : formatMetric(bucket.value, unit)) + (bucket.detail ? " · " + bucket.detail : ""),
           )}
         />
       </section>

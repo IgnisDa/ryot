@@ -13,26 +13,25 @@ import {
 	chartVisualCases,
 	colorSchemes,
 	desktopViewport,
-	periodRow,
 	signInThroughHostedOAuth,
 	termDefinition,
 } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
 const currentWorkoutRows: ReadonlyArray<{ readonly date: string; readonly value: string }> = [
-	{ date: "Sep 2, 2026", value: "1 workouts" },
-	{ date: "Sep 4, 2026", value: "1 workouts" },
-	{ date: "Sep 3, 2026", value: "0 workouts · No activity" },
-	{ date: "Sep 5, 2026", value: "0 workouts · No activity" },
-	{ date: "Sep 6, 2026", value: "0 workouts · No activity" },
+	{ value: "1 workout", date: "Sep 2, 2026" },
+	{ value: "1 workout", date: "Sep 4, 2026" },
+	{ date: "Sep 3, 2026", value: "0 workouts" },
+	{ date: "Sep 5, 2026", value: "0 workouts" },
+	{ date: "Sep 6, 2026", value: "0 workouts" },
 ];
 const volumeWorkoutRows: ReadonlyArray<{ readonly date: string; readonly value: string }> = [
 	{ date: "Sep 2, 2026", value: "200 kg × reps" },
 	{ date: "Sep 4, 2026", value: "150 kg × reps" },
 ];
-const hourRows: ReadonlyArray<{ readonly hour: string; readonly detail: string }> = [
-	{ hour: "10:00–11:00", detail: "1 workouts · 1 workout starts in reporting hour 10" },
-	{ hour: "18:00–19:00", detail: "1 workouts · 1 workout starts in reporting hour 18" },
+const hourRows: ReadonlyArray<{ readonly hour: string; readonly value: string }> = [
+	{ value: "1 workout", hour: "10:00–11:00" },
+	{ value: "1 workout", hour: "18:00–19:00" },
 ];
 
 it.live("smokes Fitness analytics summary and workout charts across viewports", () =>
@@ -75,25 +74,21 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 
 		const summary = frame.getByRole("region", { exact: true, name: "Fitness analytics summary" });
 		yield* summary.waitFor({ state: "visible" });
-		expect(yield* termDefinition(summary, "Workouts").innerText()).toBe(
-			`${fixture.expectedSourceValues.workouts} workouts`,
+		expect(yield* termDefinition(summary, "Workouts").innerText()).toMatch(
+			new RegExp(`^${fixture.expectedSourceValues.workouts}\\s*workouts$`),
 		);
-		expect(yield* termDefinition(summary, "Sets").innerText()).toBe(
-			`${fixture.expectedSourceValues.sets} sets`,
+		expect(yield* termDefinition(summary, "Sets").innerText()).toMatch(
+			new RegExp(`^${fixture.expectedSourceValues.sets}\\s*sets$`),
 		);
-		expect(yield* termDefinition(summary, "Recorded active duration").innerText()).toBe(
-			`${fixture.expectedSourceValues.activeDuration} seconds`,
+		expect(yield* termDefinition(summary, "Active time").innerText()).toBe("1h 30m");
+		expect(yield* termDefinition(summary, "Volume").innerText()).toMatch(
+			new RegExp(`^${fixture.expectedSourceValues.volume}\\s*kg × reps$`),
 		);
-		expect(yield* termDefinition(summary, "Weight volume").innerText()).toBe(
-			`${fixture.expectedSourceValues.volume} kg × reps`,
-		);
-		expect(yield* termDefinition(summary, "Planned rest").innerText()).toBe(
-			`${fixture.expectedSourceValues.plannedRest} seconds`,
-		);
-		expect(yield* frame.getByText("Reporting time zone: UTC", { exact: true }).count).toBe(1);
+		expect(yield* termDefinition(summary, "Planned rest").innerText()).toBe("2m 30s");
+		expect(yield* frame.getByText("· times in UTC", { exact: true }).count).toBe(1);
 		const initialSummary = yield* summary.innerText();
-		expect(initialSummary).toContain(
-			"2026-09-01 – 2026-09-07 vs 2026-08-25 – 2026-08-31 · New activity",
+		expect(yield* termDefinition(summary, "Workouts", 1).innerText()).toMatch(
+			/^New\s*\+2 workouts vs previous period$/,
 		);
 		expect(initialSummary).not.toContain("Infinity");
 
@@ -109,7 +104,7 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		);
 
 		const trendHeading = frame.getByRole("heading", {
-			level: 2,
+			level: 3,
 			exact: true,
 			name: "Workout trend",
 		});
@@ -178,27 +173,34 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 		);
 		yield* trendChart.waitFor({ state: "visible" });
 		yield* hourChart.waitFor({ state: "visible" });
-		expect(yield* termDefinition(summary, "Weight volume").innerText()).toBe(
-			`${fixture.expectedSourceValues.volume} kg × reps`,
+		expect(yield* termDefinition(summary, "Volume").innerText()).toMatch(
+			new RegExp(`^${fixture.expectedSourceValues.volume}\\s*kg × reps$`),
 		);
 
-		const viewExactValues = frame.getByText("View exact values", { exact: true });
-		yield* viewExactValues.first().click();
+		const workoutDisplay = frame.getByRole("radiogroup", {
+			exact: true,
+			name: "Workouts by workout-start period display",
+		});
+		yield* workoutDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
+		yield* trendChart.waitFor({ state: "detached" });
 		const workoutTable = frame.getByRole("table", {
 			exact: true,
 			name: "Workouts by workout-start period exact values",
 		});
-		yield* workoutTable.waitForFunction((table) => table.querySelectorAll("tr").length === 15);
-		expect(yield* workoutTable.getByRole("row").count).toBe(15);
-		const currentRange = "2026-09-01 – 2026-09-07";
-		const previousRange = "2026-08-25 – 2026-08-31";
+		yield* workoutTable.waitForFunction((table) => table.querySelectorAll("tr").length === 8);
+		expect(yield* workoutTable.getByRole("row").count).toBe(8);
+		expect(yield* workoutTable.getByRole("columnheader").allInnerTexts()).toEqual([
+			"Period",
+			"Sep 1 – 7, 2026",
+			"Aug 25 – 31, 2026",
+		]);
 		for (const { date, value } of currentWorkoutRows) {
-			const row = periodRow(workoutTable, currentRange, date);
+			const row = workoutTable.getByRole("row").filter({ hasText: date });
 			expect(yield* row.count).toBe(1);
-			expect(yield* row.getByRole("cell").nth(0).innerText()).toBe(`${currentRange} · ${date}`);
+			expect(yield* row.getByRole("cell").nth(0).innerText()).toBe(date);
 			expect(yield* row.getByRole("cell").nth(1).innerText()).toContain(value);
 		}
-		for (const date of [
+		for (const [index, date] of [
 			"Aug 25, 2026",
 			"Aug 26, 2026",
 			"Aug 27, 2026",
@@ -206,77 +208,90 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 			"Aug 29, 2026",
 			"Aug 30, 2026",
 			"Aug 31, 2026",
-		]) {
-			const row = periodRow(workoutTable, previousRange, date);
-			expect(yield* row.count).toBe(1);
-			expect(yield* row.getByRole("cell").nth(0).innerText()).toBe(`${previousRange} · ${date}`);
-			const value = yield* row.getByRole("cell").nth(1).innerText();
+		].entries()) {
+			const value = yield* workoutTable
+				.getByRole("row")
+				.nth(index + 1)
+				.getByRole("cell")
+				.nth(2)
+				.innerText();
 			expect(value).toContain("0 workouts");
+			expect(value).toContain(date);
 			expect(value).not.toContain("Unknown");
 		}
 
-		yield* viewExactValues.nth(1).click();
+		const hourDisplay = frame.getByRole("radiogroup", {
+			exact: true,
+			name: "Workout starts by reporting hour display",
+		});
+		yield* hourDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		const hourTable = frame.getByRole("table", {
 			exact: true,
 			name: "Workout starts by reporting hour exact values",
 		});
 		expect(yield* hourTable.getByRole("row").count).toBe(25);
 		expect(yield* hourTable.getByRole("button").count).toBe(0);
-		for (const { hour, detail } of hourRows) {
+		for (const { hour, value } of hourRows) {
 			const row = hourTable.getByRole("row", { name: hour, exact: false });
 			expect(yield* row.count).toBe(1);
 			expect(yield* row.getByRole("cell").nth(0).innerText()).toBe(hour);
-			expect(yield* row.getByRole("cell").nth(1).innerText()).toBe(detail);
+			expect(yield* row.getByRole("cell").nth(1).innerText()).toBe(value);
 		}
 
-		yield* viewExactValues.first().click();
-		yield* workoutTable.waitFor({ state: "hidden" });
-		yield* frame.getByRole("button", { exact: true, name: "Trend metric: Workouts" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Weight volume" }).click();
+		yield* workoutDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
+		yield* workoutTable.waitFor({ state: "detached" });
+		yield* frame.getByRole("button", { exact: true, name: "Show: Workouts" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Volume" }).click();
 		const volumeChart = frame.getByRole("img", {
 			exact: true,
-			name: "Weight volume by workout-start period",
+			name: "Volume by workout-start period",
 		});
 		yield* volumeChart.waitFor({ state: "visible" });
-		yield* frame.getByText("View exact values", { exact: true }).first().click();
+		const volumeDisplay = frame.getByRole("radiogroup", {
+			exact: true,
+			name: "Volume by workout-start period display",
+		});
+		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		const volumeTable = frame.getByRole("table", {
 			exact: true,
-			name: "Weight volume by workout-start period exact values",
+			name: "Volume by workout-start period exact values",
 		});
 		for (const { date, value } of volumeWorkoutRows) {
-			const row = periodRow(volumeTable, currentRange, date);
+			const row = volumeTable.getByRole("row").filter({ hasText: date });
 			expect(yield* row.count).toBe(1);
 			expect(yield* row.getByRole("cell").nth(1).innerText()).toContain(value);
 		}
-		expect(yield* termDefinition(summary, "Weight volume").innerText()).toBe(
-			`${fixture.expectedSourceValues.volume} kg × reps`,
+		expect(yield* termDefinition(summary, "Volume").innerText()).toMatch(
+			new RegExp(`^${fixture.expectedSourceValues.volume}\\s*kg × reps$`),
 		);
-		yield* frame.getByText("View exact values", { exact: true }).first().click();
-		yield* volumeTable.waitFor({ state: "hidden" });
+		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
+		yield* volumeTable.waitFor({ state: "detached" });
 
 		const weekSelection: ReportingSelection = { ...fixture.reportingSelection, grouping: "week" };
 		yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Week" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Week" }).click();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, weekSelection, section));
 		yield* frame
 			.getByRole("button", { exact: true, name: "Group by: Week" })
 			.waitFor({ state: "visible" });
 		yield* trendChart.waitFor({ state: "visible" });
 		expect(yield* workoutsTab.getAttribute("aria-selected")).toBe("true");
-		yield* frame.getByRole("button", { exact: true, name: "Trend metric: Workouts" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Weight volume" }).click();
+		yield* frame.getByRole("button", { exact: true, name: "Show: Workouts" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Volume" }).click();
 		yield* volumeChart.waitFor({ state: "visible" });
-		yield* frame.getByText("View exact values", { exact: true }).first().click();
-		yield* volumeTable.waitForFunction((table) => table.querySelectorAll("tr").length === 5);
-		expect(yield* volumeTable.getByRole("row").count).toBe(5);
-		const groupedCurrentRow = periodRow(volumeTable, currentRange, "Sep 1, 2026");
+		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
+		yield* volumeTable.waitForFunction((table) => table.querySelectorAll("tr").length === 3);
+		expect(yield* volumeTable.getByRole("row").count).toBe(3);
+		const groupedCurrentRow = volumeTable
+			.getByRole("row")
+			.filter({ hasText: "Week of Sep 1, 2026" });
 		expect(yield* groupedCurrentRow.count).toBe(1);
 		expect(yield* groupedCurrentRow.getByRole("cell").nth(1).innerText()).toContain(
 			`${fixture.expectedSourceValues.volume} kg × reps`,
 		);
 		expect(yield* summary.innerText()).toBe(initialSummary);
-		yield* frame.getByText("View exact values", { exact: true }).first().click();
-		yield* volumeTable.waitFor({ state: "hidden" });
+		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
+		yield* volumeTable.waitFor({ state: "detached" });
 
 		yield* page.goBack();
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, fixture.reportingSelection, section));
@@ -285,15 +300,15 @@ it.live("smokes Fitness analytics summary and workout charts across viewports", 
 			.waitFor({ state: "visible" });
 		yield* trendChart.waitFor({ state: "visible" });
 		expect(yield* workoutsTab.getAttribute("aria-selected")).toBe("true");
-		yield* frame.getByRole("button", { exact: true, name: "Trend metric: Workouts" }).click();
-		yield* frame.getByRole("radio", { exact: true, name: "Weight volume" }).click();
+		yield* frame.getByRole("button", { exact: true, name: "Show: Workouts" }).click();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Volume" }).click();
 		yield* volumeChart.waitFor({ state: "visible" });
-		yield* frame.getByText("View exact values", { exact: true }).first().click();
+		yield* volumeDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 		yield* volumeTable.getByRole("row").first().waitFor({ state: "visible" });
-		yield* volumeTable.waitForFunction((table) => table.querySelectorAll("tr").length === 15);
-		expect(yield* volumeTable.getByRole("row").count).toBe(15);
+		yield* volumeTable.waitForFunction((table) => table.querySelectorAll("tr").length === 8);
+		expect(yield* volumeTable.getByRole("row").count).toBe(8);
 		for (const { date, value } of volumeWorkoutRows) {
-			const row = periodRow(volumeTable, currentRange, date);
+			const row = volumeTable.getByRole("row").filter({ hasText: date });
 			expect(yield* row.count).toBe(1);
 			expect(yield* row.getByRole("cell").nth(1).innerText()).toContain(value);
 		}

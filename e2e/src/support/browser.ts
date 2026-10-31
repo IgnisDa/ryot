@@ -51,13 +51,10 @@ export const termDefinition = (container: Playwright.Locator, term: string, inde
 		.getByRole("definition")
 		.nth(index);
 
-export const periodRow = (table: Playwright.Locator, period: string, date: string) =>
-	table.getByRole("row", { name: `${period} · ${date}` });
-
 export const desktopViewport = { width: 1280, height: 900 };
 export const compactViewport = { width: 390, height: 844 };
 export const colorSchemes: ReadonlyArray<"dark" | "light"> = ["light", "dark"];
 export const chartVisualCases = [
-	{ name: "desktop", chartHeight: 280, viewport: desktopViewport },
+	{ name: "desktop", chartHeight: 260, viewport: desktopViewport },
 	{ name: "compact", chartHeight: 200, viewport: compactViewport },
 ];

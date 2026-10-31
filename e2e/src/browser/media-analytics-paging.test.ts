@@ -205,7 +205,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		const frame = iframe.contentFrame();
 		yield* frame.getByRole("heading", { level: 1, exact: true, name: "Analytics" }).waitFor();
 		expect(yield* iframe.count).toBe(1);
-		yield* frame.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
+		yield* frame.getByText("· times in UTC", { exact: true }).waitFor();
 		const rankings = frame.getByRole("tab", { exact: true, name: "Rankings" });
 		yield* rankings.click();
 		yield* rankings.waitForFunction((tab) => tab.getAttribute("aria-selected") === "true");
@@ -215,7 +215,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		expect(yield* animeRow.getByRole("cell").allTextContents()).toEqual([
 			entities.anime.name,
 			"Anime",
-			"102 observations",
+			"102 entries",
 			"0 titles",
 			"0 episodes",
 			"View records",
@@ -230,7 +230,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		yield* dialog.getByText("100+ records loaded", { exact: true }).waitFor();
 		expect(yield* dialog.count).toBe(1);
 		expect(yield* dialog.innerText()).toContain(
-			"Period: 2026-09-01 – 2026-09-07 · Time zone: UTC · Type: anime · Active observations only",
+			"Period: Sep 1 – 7, 2026 · Time zone: UTC · Type: anime · Active observations only",
 		);
 		const table = dialog.getByRole("table", { exact: true, name: "Media analytics records" });
 		expect(yield* table.locator("tbody tr").count).toBe(100);

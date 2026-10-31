@@ -55,7 +55,7 @@ const expectEmptyAnalytics = Effect.fn(function* (page: Playwright.Page) {
 		.waitFor({ state: "visible" });
 	yield* frame
 		.contentFrame()
-		.getByText("No collection reviews in this period.", { exact: true })
+		.getByText("No reviews in this period", { exact: true })
 		.waitFor({ state: "visible" });
 });
 
@@ -144,8 +144,8 @@ it.live(
 			yield* frame.getByRole("heading", { exact: true, name: "activity-initial" }).waitFor();
 			expect(yield* frame.getByTestId("analytics-owner").textContent()).toBe(installed.pluginId);
 			expect(yield* frame.locator("html").getAttribute("data-mounted-failure")).toBeNull();
-			yield* frame.getByRole("button", { exact: true, name: "Date range: Last 30 days" }).click();
-			yield* frame.getByRole("radio", { exact: true, name: "Last 7 days" }).click();
+			yield* frame.getByRole("button", { exact: true, name: "Range: Last 30 days" }).click();
+			yield* frame.getByRole("menuitemradio", { exact: true, name: "Last 7 days" }).click();
 			const sevenDaySelection: ReportingSelection = {
 				grouping: "auto",
 				comparison: "previous-period",
@@ -156,17 +156,15 @@ it.live(
 			);
 			yield* frame.getByRole("heading", { exact: true, name: "activity-initial" }).waitFor();
 			yield* expectReportingSelection(frame, sevenDaySelection);
-			yield* frame
-				.getByRole("button", { exact: true, name: "Compare with: Previous period" })
-				.click();
-			yield* frame.getByRole("radio", { exact: true, name: "None" }).click();
+			yield* frame.getByRole("button", { exact: true, name: "Compare: Previous period" }).click();
+			yield* frame.getByRole("menuitemradio", { exact: true, name: "Off" }).click();
 			const unComparedSelection: ReportingSelection = { ...sevenDaySelection, comparison: "none" };
 			yield* page.waitForURL((url) =>
 				hasAnalyticsLocation(url, unComparedSelection, { section: activitySection }),
 			);
 			yield* frame.getByRole("heading", { exact: true, name: "activity-initial" }).waitFor();
 			yield* expectReportingSelection(frame, unComparedSelection);
-			yield* frame.getByRole("button", { exact: true, name: "Fixture failure" }).click();
+			yield* frame.getByRole("radio", { exact: true, name: "Fixture failure" }).click();
 			yield* page.waitForURL((url) =>
 				hasAnalyticsLocation(url, unComparedSelection, { section: failureSection }),
 			);
@@ -175,8 +173,8 @@ it.live(
 			expect(
 				yield* frame.getByRole("heading", { exact: true, name: "activity-initial" }).count,
 			).toBe(0);
-			yield* frame.getByRole("button", { exact: true, name: "Group by: Automatic" }).click();
-			yield* frame.getByRole("radio", { exact: true, name: "Year" }).click();
+			yield* frame.getByRole("button", { exact: true, name: "Group by: Auto" }).click();
+			yield* frame.getByRole("menuitemradio", { exact: true, name: "Year" }).click();
 			const yearSelection: ReportingSelection = { ...unComparedSelection, grouping: "year" };
 			yield* page.waitForURL((url) =>
 				hasAnalyticsLocation(url, yearSelection, { section: failureSection }),
@@ -187,7 +185,7 @@ it.live(
 			yield* frame.getByRole("heading", { exact: true, name: "failure" }).waitFor();
 			yield* expectReportingSelection(frame, yearSelection);
 			expect(yield* frame.getByTestId("analytics-owner").textContent()).toBe(installed.pluginId);
-			yield* frame.getByRole("button", { exact: true, name: "Fixture activity" }).click();
+			yield* frame.getByRole("radio", { exact: true, name: "Fixture activity" }).click();
 			yield* page.waitForURL((url) =>
 				hasAnalyticsLocation(url, yearSelection, { section: activitySection }),
 			);
@@ -204,7 +202,7 @@ it.live(
 			yield* page.waitForURL((url) =>
 				hasAnalyticsLocation(url, unComparedSelection, { section: failureSection }),
 			);
-			yield* frame.getByRole("button", { exact: true, name: "Group by: Automatic" }).waitFor();
+			yield* frame.getByRole("button", { exact: true, name: "Group by: Auto" }).waitFor();
 			yield* frame.getByText("Could not load this section.", { exact: true }).waitFor();
 			yield* updatePluginState(client, installed.installationId, { isHidden: true });
 			const reload = page.getByRole("button", { exact: true, name: "Reload updated page" });
@@ -214,7 +212,7 @@ it.live(
 			expect(
 				yield* activePluginIframe(page)
 					.contentFrame()
-					.getByRole("button", { exact: true, name: "Fixture activity" }).count,
+					.getByRole("radio", { exact: true, name: "Fixture activity" }).count,
 			).toBe(0);
 		}).pipe(PlaywrightSpawner.withBrowser),
 );
@@ -269,11 +267,9 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		yield* expectEmptyAnalytics(page);
 		const frame = activePluginIframe(page).contentFrame();
 		const controls = frame.getByRole("region", { exact: true, name: "Analytics controls" });
+		yield* controls.getByRole("button", { exact: true, name: "Range: Custom dates" }).waitFor();
 		yield* controls
-			.getByRole("button", { exact: true, name: "Date range: Custom dates" })
-			.waitFor();
-		yield* controls
-			.getByRole("button", { exact: true, name: "Compare with: Previous period" })
+			.getByRole("button", { exact: true, name: "Compare: Previous period" })
 			.waitFor();
 		const grouping = controls.getByRole("button", { exact: true, name: "Group by: Week" });
 		yield* grouping.waitFor({ state: "visible" });
@@ -283,7 +279,7 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		expect(yield* controls.getByLabel("End date", { exact: true }).inputValue()).toBe("2026-09-30");
 
 		yield* grouping.tap();
-		yield* frame.getByRole("radio", { exact: true, name: "Month" }).tap();
+		yield* frame.getByRole("menuitemradio", { exact: true, name: "Month" }).tap();
 		const monthSelection: ReportingSelection = { ...reportingSelection, grouping: "month" };
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, monthSelection, { keep: "1" }));
 		yield* expectEmptyAnalytics(page);
@@ -293,11 +289,9 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, reportingSelection, { keep: "1" }));
 		yield* expectEmptyAnalytics(page);
 		yield* grouping.waitFor({ state: "visible" });
+		yield* controls.getByRole("button", { exact: true, name: "Range: Custom dates" }).waitFor();
 		yield* controls
-			.getByRole("button", { exact: true, name: "Date range: Custom dates" })
-			.waitFor();
-		yield* controls
-			.getByRole("button", { exact: true, name: "Compare with: Previous period" })
+			.getByRole("button", { exact: true, name: "Compare: Previous period" })
 			.waitFor();
 		expect(yield* controls.getByLabel("Start date", { exact: true }).inputValue()).toBe(
 			"2026-09-01",
@@ -308,11 +302,9 @@ it.live("opens Analytics by touch in the drawer and restores its reporting URL w
 		yield* page.waitForURL((url) => hasAnalyticsLocation(url, reportingSelection, { keep: "1" }));
 		yield* expectEmptyAnalytics(page);
 		yield* grouping.waitFor({ state: "visible" });
+		yield* controls.getByRole("button", { exact: true, name: "Range: Custom dates" }).waitFor();
 		yield* controls
-			.getByRole("button", { exact: true, name: "Date range: Custom dates" })
-			.waitFor();
-		yield* controls
-			.getByRole("button", { exact: true, name: "Compare with: Previous period" })
+			.getByRole("button", { exact: true, name: "Compare: Previous period" })
 			.waitFor();
 		expect(yield* controls.getByLabel("Start date", { exact: true }).inputValue()).toBe(
 			"2026-09-01",

@@ -88,13 +88,13 @@ it.live(
 			const summary = frame.getByRole("region", { exact: true, name: "Fitness analytics summary" });
 			yield* summary.waitFor({ state: "visible" });
 			const initialSummary = yield* summary.innerText();
-			expect(yield* termDefinition(summary, "Measurement entries").innerText()).toBe(
-				`${fixture.expectedSourceValues.measurementEntries} entries`,
+			expect(yield* termDefinition(summary, "Measurement entries").innerText()).toMatch(
+				new RegExp(`^${fixture.expectedSourceValues.measurementEntries}\\s*entries$`),
 			);
-			expect(yield* termDefinition(summary, "Measurement readings").innerText()).toBe(
-				`${fixture.expectedSourceValues.measurementReadings} readings`,
+			expect(yield* termDefinition(summary, "Measurement readings").innerText()).toMatch(
+				new RegExp(`^${fixture.expectedSourceValues.measurementReadings}\\s*readings$`),
 			);
-			yield* frame.getByText("Reporting time zone: UTC", { exact: true }).waitFor();
+			yield* frame.getByText("· times in UTC", { exact: true }).waitFor();
 
 			const targetNames = yield* Effect.forEach(fixture.taxonomy.targets, (target) =>
 				Effect.gen(function* () {
@@ -148,7 +148,7 @@ it.live(
 				name: `View workouts contributing to ${exercise.name}`,
 			});
 			yield* drillButton.click();
-			const drillTitle = `${exercise.name} · 2026-09-01 – 2026-09-07`;
+			const drillTitle = `${exercise.name} · Sep 1 – 7, 2026`;
 			const dialog = frame.getByRole("dialog", { exact: true, name: drillTitle });
 			yield* dialog.waitFor({ state: "visible" });
 			expect(yield* dialog.getByText(drillTitle, { exact: true }).count).toBe(1);
@@ -179,12 +179,12 @@ it.live(
 				"2026-09-02T10:00:00.000Z",
 			);
 			expect(yield* firstRow.getByRole("cell").nth(1).innerText()).toBe("Sep 2, 2026, 10:00 AM");
-			expect(yield* firstRow.getByRole("cell").nth(2).innerText()).toBe("3600 seconds");
+			expect(yield* firstRow.getByRole("cell").nth(2).innerText()).toBe("1h");
 			expect(yield* secondRow.locator("time").getAttribute("datetime")).toBe(
 				"2026-09-04T18:00:00.000Z",
 			);
 			expect(yield* secondRow.getByRole("cell").nth(1).innerText()).toBe("Sep 4, 2026, 6:00 PM");
-			expect(yield* secondRow.getByRole("cell").nth(2).innerText()).toBe("1800 seconds");
+			expect(yield* secondRow.getByRole("cell").nth(2).innerText()).toBe("30m");
 
 			yield* page.keyboard.press("Escape");
 			yield* dialog.waitFor({ state: "hidden" });
@@ -202,7 +202,7 @@ it.live(
 				.click();
 			yield* dialog.waitFor({ state: "hidden" });
 			yield* frame.getByRole("button", { exact: true, name: "Group by: Day" }).click();
-			yield* frame.getByRole("radio", { exact: true, name: "Week" }).click();
+			yield* frame.getByRole("menuitemradio", { exact: true, name: "Week" }).click();
 			const weekSelection: ReportingSelection = { ...fixture.reportingSelection, grouping: "week" };
 			yield* page.waitForURL((url) => hasAnalyticsLocation(url, weekSelection, section));
 			yield* dialog.waitFor({ state: "hidden" });
@@ -268,28 +268,30 @@ it.live(
 				name: `${fixture.measurementMetricName} bucket averages`,
 			});
 			yield* chart.waitFor({ state: "visible" });
-			yield* trend
-				.getByText(`${fixture.measurementMetricName} · Bucket averages · 2026-09-01 – 2026-09-07`, {
-					exact: true,
-				})
-				.waitFor({ state: "visible" });
-			const exactValuesButton = trend.getByText("View exact values", { exact: true });
-			yield* exactValuesButton.click();
+			yield* trend.getByText("Sep 1 – 7, 2026", { exact: true }).waitFor({ state: "visible" });
+			const trendDisplay = trend.getByRole("radiogroup", {
+				exact: true,
+				name: `${fixture.measurementMetricName} bucket averages display`,
+			});
+			yield* trendDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 			const trendTable = trend.getByRole("table", {
 				exact: true,
 				name: `${fixture.measurementMetricName} bucket averages exact values`,
 			});
-			expect(yield* trendTable.getByRole("row").count).toBe(15);
+			expect(yield* trendTable.getByRole("row").count).toBe(8);
 			const zeroBucket = rowWithName(trendTable, "Sep 2, 2026");
-			expect(yield* zeroBucket.innerText()).toContain(
-				"0 widgets · 1 readings; grouped average; source average 0 widgets",
+			expect(yield* zeroBucket.getByRole("cell").nth(1).innerText()).toMatch(
+				/^0 widgets\s+Average of 1 reading$/,
 			);
 			const missingBucket = rowWithName(trendTable, "Sep 3, 2026");
-			expect(yield* missingBucket.innerText()).toContain("Not recorded · No readings");
+			expect(yield* missingBucket.getByRole("cell").nth(1).innerText()).toMatch(
+				/^Not recorded\s+No readings$/,
+			);
 			expect(yield* missingBucket.innerText()).not.toContain("0 widgets");
-			const previousBucket = rowWithName(trendTable, "Aug 25, 2026");
-			expect(yield* previousBucket.innerText()).toContain("Not recorded · No readings");
-			expect(yield* previousBucket.innerText()).not.toContain("0 widgets");
+			const previousBucket = rowWithName(trendTable, "Sep 1, 2026").getByRole("cell").nth(2);
+			expect(yield* previousBucket.innerText()).toMatch(
+				/^Not recorded\s+Aug 25, 2026 · No readings$/,
+			);
 
 			const readingsTable = frame.getByRole("table", {
 				exact: true,
@@ -303,15 +305,7 @@ it.live(
 				expect(yield* row.innerText()).toContain("12:00 PM UTC");
 			}
 
-			const exactValuesBeforeSmooth = yield* trendTable.innerText();
-			const expectedSmoothedExactValues = expectedMeasurementRows.reduce(
-				(text, [date, value]) =>
-					text.replace(
-						`${date}\t${value} · 1 readings; grouped average; source average ${value}`,
-						`${date}\t${value} · 1 readings; grouped average; 3-point smoothing; source average ${value}`,
-					),
-				exactValuesBeforeSmooth,
-			);
+			const exactRowsBeforeSmooth = yield* trendTable.getByRole("row").count;
 			const readingRowsBeforeSmooth = yield* readingsTable.innerText();
 			const smoothing = trend.getByRole("checkbox", {
 				exact: true,
@@ -325,9 +319,16 @@ it.live(
 					"Smoothing uses rolling averages of the grouped bucket averages. It uses 3 or 7 points, does not cross missing buckets or unit changes, and leaves exact readings unchanged.",
 				)
 				.waitFor({ state: "visible" });
-			expect(yield* trendTable.innerText()).toBe(expectedSmoothedExactValues);
+			expect(yield* trendTable.getByRole("row").count).toBe(exactRowsBeforeSmooth);
+			for (const [date, value] of expectedMeasurementRows) {
+				expect(yield* rowWithName(trendTable, date).getByRole("cell").nth(1).innerText()).toMatch(
+					new RegExp(
+						`^${value}\\s+Average of 1 reading · 3-point smoothing · raw average ${value}$`,
+					),
+				);
+			}
 			expect(yield* readingsTable.innerText()).toBe(readingRowsBeforeSmooth);
-			yield* exactValuesButton.click();
+			yield* trendDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
 
 			yield* updateMeasurementReadings(fixture.account.client, {
 				entryId,
@@ -345,11 +346,11 @@ it.live(
 				name: "Fitness analytics summary",
 			});
 			yield* refreshedSummary.waitFor({ state: "visible" });
-			expect(yield* termDefinition(refreshedSummary, "Measurement entries").innerText()).toBe(
-				`${fixture.expectedSourceValues.measurementEntries} entries`,
+			expect(yield* termDefinition(refreshedSummary, "Measurement entries").innerText()).toMatch(
+				new RegExp(`^${fixture.expectedSourceValues.measurementEntries}\\s*entries$`),
 			);
-			expect(yield* termDefinition(refreshedSummary, "Measurement readings").innerText()).toBe(
-				`${fixture.expectedSourceValues.measurementReadings} readings`,
+			expect(yield* termDefinition(refreshedSummary, "Measurement readings").innerText()).toMatch(
+				new RegExp(`^${fixture.expectedSourceValues.measurementReadings}\\s*readings$`),
 			);
 			expect(yield* refreshedSummary.innerText()).toBe(initialSummary);
 			const refreshedWorkoutsTab = refreshedFrame.getByRole("tab", {
@@ -386,17 +387,21 @@ it.live(
 				name: `${fixture.measurementMetricName} bucket averages`,
 			});
 			yield* refreshedChart.waitFor({ state: "visible" });
-			yield* refreshedTrend.getByText("View exact values", { exact: true }).click();
+			const refreshedTrendDisplay = refreshedTrend.getByRole("radiogroup", {
+				exact: true,
+				name: `${fixture.measurementMetricName} bucket averages display`,
+			});
+			yield* refreshedTrendDisplay.getByRole("radio", { exact: true, name: "Table" }).click();
 			const refreshedTrendTable = refreshedTrend.getByRole("table", {
 				exact: true,
 				name: `${fixture.measurementMetricName} bucket averages exact values`,
 			});
-			expect(yield* rowWithName(refreshedTrendTable, "Sep 4, 2026").innerText()).toContain(
-				"3.75 widgets · 1 readings; grouped average; source average 3.75 widgets",
-			);
-			expect(yield* rowWithName(refreshedTrendTable, "Sep 2, 2026").innerText()).toContain(
-				"0 widgets · 1 readings; grouped average; source average 0 widgets",
-			);
+			expect(
+				yield* rowWithName(refreshedTrendTable, "Sep 4, 2026").getByRole("cell").nth(1).innerText(),
+			).toMatch(/^3\.75 widgets\s+Average of 1 reading$/);
+			expect(
+				yield* rowWithName(refreshedTrendTable, "Sep 2, 2026").getByRole("cell").nth(1).innerText(),
+			).toMatch(/^0 widgets\s+Average of 1 reading$/);
 			const refreshedReadingsTable = refreshedFrame.getByRole("table", {
 				exact: true,
 				name: "Loaded measurement readings in UTC",
@@ -408,11 +413,10 @@ it.live(
 			expect(yield* rowWithName(refreshedReadingsTable, "Sep 2, 2026").innerText()).toContain(
 				"0 widgets",
 			);
-			yield* refreshedFrame
-				.getByRole("img", { exact: true, name: `${fixture.measurementMetricName} bucket averages` })
-				.evaluate((plot) =>
-					plot.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }),
-				);
+			yield* refreshedTrendDisplay.getByRole("radio", { exact: true, name: "Chart" }).click();
+			yield* refreshedChart.evaluate((plot) =>
+				plot.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" }),
+			);
 
 			expect(
 				yield* refreshedFrame

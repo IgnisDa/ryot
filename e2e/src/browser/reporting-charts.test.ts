@@ -88,34 +88,56 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 		);
 		yield* trend.getByText("Current period · Sep 1–3, 2026", { exact: true }).waitFor();
 		yield* trend.getByText("Previous period · Aug 1–3, 2026", { exact: true }).waitFor();
-		yield* trend.getByText("View exact values", { exact: true }).click();
-		const trendTable = trend.getByRole("table", { name: "Period trend exact values" });
-		const trendValues = yield* trendTable.innerText();
-		expect(trendValues).toContain("Current period · Sep 1–3, 2026 · Sep 1, 2026");
-		expect(trendValues).toContain("0 entries · Recorded");
-		expect(trendValues).toContain("4 entries · Estimated");
-		expect(trendValues).toContain("Not recorded · Missing");
-		expect(trendValues).toContain("Previous period · Aug 1–3, 2026 · Aug 1, 2026");
-		expect(trendValues).toContain("2 entries");
-		expect(trendValues).toContain("1 entries");
-		expect(trendValues).toContain("3 entries");
-		const missingTrendRow = trendTable.getByRole("row", {
-			name: /Current period.*Sep 3, 2026.*Not recorded · Missing/,
+		const trendDisplay = trend.getByRole("radiogroup", { name: "Period trend display" });
+		const histogramDisplay = histogram.getByRole("radiogroup", {
+			name: "Hourly histogram display",
 		});
+		yield* trendDisplay.getByRole("radio", { name: "Table" }).click();
+		yield* trendChart.waitFor({ state: "detached" });
+		const trendTable = trend.getByRole("table", { name: "Period trend exact values" });
+		expect(yield* trendTable.getByRole("columnheader").allInnerTexts()).toEqual([
+			"Period",
+			"Current period · Sep 1–3, 2026",
+			"Previous period · Aug 1–3, 2026",
+		]);
+		const trendValues = yield* trendTable.innerText();
+		expect(trendValues).toContain("Sep 1, 2026");
+		expect(trendValues).toContain("0 entries");
+		expect(trendValues).toContain("Recorded");
+		expect(trendValues).toContain("4 entries");
+		expect(trendValues).toContain("Estimated");
+		expect(trendValues).toContain("Not recorded");
+		expect(trendValues).toContain("Missing");
+		expect(trendValues).toContain("Aug 1, 2026");
+		expect(trendValues).toContain("2 entries");
+		expect(trendValues).toContain("1 entry");
+		expect(trendValues).toContain("3 entries");
+		const missingTrendRow = trendTable.getByRole("row").filter({ hasText: "Sep 3, 2026" });
 		expect(yield* missingTrendRow.count).toBe(1);
-		expect(yield* missingTrendRow.getByRole("button").count).toBe(0);
-		yield* histogram.getByText("View exact values", { exact: true }).click();
+		expect(yield* missingTrendRow.getByRole("button").count).toBe(1);
+		expect(
+			yield* missingTrendRow.getByRole("button", {
+				exact: true,
+				name: "View records: Aug 3, 2026 · 3 entries",
+			}).count,
+		).toBe(1);
+		yield* histogramDisplay.getByRole("radio", { name: "Table" }).click();
+		yield* histogramChart.waitFor({ state: "detached" });
 		const histogramTable = histogram.getByRole("table", { name: "Hourly histogram exact values" });
 		expect(yield* histogramTable.getByRole("row").count).toBe(25);
-		const histogramValues = yield* histogramTable.innerText();
-		expect(histogramValues).toContain("08:00–09:00");
-		expect(histogramValues).toContain("4 entries · Recorded");
-		expect(histogramValues).toContain("12:00–13:00");
-		expect(histogramValues).toContain("0 entries · Recorded");
-		expect(histogramValues).toContain("18:00–19:00");
-		expect(histogramValues).toContain("Not recorded · Missing");
+		expect(
+			yield* histogramTable.getByRole("row").filter({ hasText: "08:00–09:00" }).innerText(),
+		).toMatch(/4 entries\s+Recorded/);
+		expect(
+			yield* histogramTable.getByRole("row").filter({ hasText: "12:00–13:00" }).innerText(),
+		).toMatch(/0 entries\s+Recorded/);
+		expect(
+			yield* histogramTable.getByRole("row").filter({ hasText: "18:00–19:00" }).innerText(),
+		).toMatch(/Not recorded\s+Missing/);
 
 		const selection = frame.getByLabel("Selected chart point");
+		yield* trendDisplay.getByRole("radio", { name: "Chart" }).click();
+		yield* trendTable.waitFor({ state: "detached" });
 		yield* trendChart.focus();
 		yield* trendChart.press("ArrowRight");
 		yield* frame
@@ -133,13 +155,15 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 			.waitFor({ state: "visible" });
 		yield* trendChart.press("Enter");
 		yield* selection.getByText(/previous.*2026-08-03.*3 entries/).waitFor({ state: "visible" });
+		yield* trendDisplay.getByRole("radio", { name: "Table" }).click();
 		yield* trendTable
-			.getByRole("button", { name: /View records: Previous period.*2 entries/ })
+			.getByRole("button", { exact: true, name: "View records: Aug 1, 2026 · 2 entries" })
 			.click();
 		yield* selection.getByText(/previous.*2026-08-01.*2 entries/).waitFor({ state: "visible" });
+		yield* trendDisplay.getByRole("radio", { name: "Chart" }).click();
 
 		const zeroPointPosition = yield* trendChart.evaluate((svg) => {
-			const point = svg.querySelector(".ts-chart__dot circle");
+			const point = [...svg.querySelectorAll(".ts-chart__dot")].at(-1)?.querySelector("circle");
 			if (!point) {
 				throw new Error("Expected the recorded zero SVG point");
 			}
@@ -158,51 +182,47 @@ it.live("renders reporting charts in the isolated plugin document across visual 
 			nativePage.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" }),
 		);
 		yield* frame.getByText("Viewport: compact", { exact: true }).waitFor({ state: "visible" });
-		yield* histogram.getByText("View exact values", { exact: true }).click();
+		yield* histogramDisplay.getByRole("radio", { name: "Table" }).click();
 		yield* histogramTable
-			.getByRole("button", { name: /View records: 08:00–09:00.*4 entries/ })
+			.getByRole("button", { exact: true, name: "View records: 08:00–09:00 · 4 entries" })
 			.tap();
 		yield* selection.getByText(/08:00.*4 entries/).waitFor({ state: "visible" });
 
-		const noDataNotice = "No data in this period.";
+		const noRecordedValues = "No recorded values in this period.";
 		yield* frame.getByRole("button", { name: "Show empty data" }).click();
-		expect(yield* frame.getByText(noDataNotice, { exact: true }).count).toBe(2);
+		yield* histogram.getByText(noRecordedValues, { exact: true }).waitFor();
+		expect(yield* frame.getByText(noRecordedValues, { exact: true }).count).toBe(2);
+		expect(yield* trendDisplay.count).toBe(0);
+		expect(yield* histogramDisplay.count).toBe(0);
 		yield* frame.getByRole("button", { name: "Show single value" }).click();
-		yield* trend.getByText("View exact values", { exact: true }).click();
-		yield* trend
-			.getByRole("table", { name: "Period trend exact values" })
-			.getByText("4 entries · Estimated")
-			.waitFor();
-		yield* histogram.getByText("View exact values", { exact: true }).click();
-		yield* histogram
-			.getByRole("table", { name: "Hourly histogram exact values" })
-			.getByText("4 entries · Estimated")
-			.waitFor();
-		yield* frame.getByRole("button", { name: "Show empty data" }).click();
-		yield* frame.getByRole("button", { name: "Show zero-only data" }).click();
-		yield* trend.getByText("View exact values", { exact: true }).click();
-		const zeroTrendTable = trend.getByRole("table", { name: "Period trend exact values" });
-		expect(yield* zeroTrendTable.getByRole("row").count).toBe(3);
+		yield* trendDisplay.getByRole("radio", { name: "Table" }).click();
+		const singleTrendTable = trend.getByRole("table", { name: "Period trend exact values" });
+		expect(yield* singleTrendTable.getByRole("columnheader").allInnerTexts()).toEqual([
+			"Period",
+			"Value",
+		]);
 		expect(
-			yield* zeroTrendTable.getByRole("row", { name: /Current period.*Sep 1, 2026.*0 entries/ })
-				.count,
-		).toBe(1);
-		expect(
-			yield* zeroTrendTable.getByRole("row", { name: /Previous period.*Aug 1, 2026.*0 entries/ })
-				.count,
-		).toBe(1);
-		expect(yield* zeroTrendTable.getByText("0 entries", { exact: true }).count).toBe(2);
-		yield* histogram.getByText("View exact values", { exact: true }).click();
+			yield* singleTrendTable.getByRole("row").filter({ hasText: "Sep 1, 2026" }).innerText(),
+		).toMatch(/4 entries\s+Estimated/);
+		yield* histogramDisplay.getByRole("radio", { name: "Table" }).click();
 		expect(
 			yield* histogram
 				.getByRole("table", { name: "Hourly histogram exact values" })
-				.getByText("0 entries · Recorded").count,
-		).toBe(24);
-		yield* frame.getByRole("button", { name: "Show empty data" }).click();
+				.getByRole("row")
+				.filter({ hasText: "08:00–09:00" })
+				.innerText(),
+		).toMatch(/4 entries\s+Estimated/);
+		yield* frame.getByRole("button", { name: "Show zero-only data" }).click();
+		const nothingRecorded = "Nothing recorded in this period.";
+		yield* histogram.getByText(nothingRecorded, { exact: true }).waitFor();
+		expect(yield* frame.getByText(nothingRecorded, { exact: true }).count).toBe(2);
+		expect(yield* frame.getByRole("table").count).toBe(0);
+		expect(yield* trendDisplay.count).toBe(0);
+		expect(yield* histogramDisplay.count).toBe(0);
 		yield* frame.getByRole("button", { name: "Show missing-only data" }).click();
-		expect(
-			yield* frame.getByText("No recorded values. Missing data is not zero.", { exact: true })
-				.count,
-		).toBe(2);
+		yield* histogram.getByText(noRecordedValues, { exact: true }).waitFor();
+		expect(yield* frame.getByText(noRecordedValues, { exact: true }).count).toBe(2);
+		expect(yield* trendDisplay.count).toBe(0);
+		expect(yield* histogramDisplay.count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
