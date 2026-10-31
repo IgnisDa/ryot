@@ -25,8 +25,6 @@ const INTRO =
 const LIVE_REASON =
 	"A backup or restore is already under way. You can start another when it finishes.";
 
-const KEEPS_RUNNING = "This keeps running on your server, even if you close Ryot.";
-
 export const BACKUP_LOAD_ERROR = {
 	title: "Unable to load backups",
 	detail: "Your backups could not be loaded. Check the server and try again.",
@@ -155,7 +153,6 @@ function LiveBackupRunCard(props: { readonly nowMs: number; readonly run: Backup
 					</span>
 				</div>
 			</div>
-			<span className="text-xs text-text-muted">{KEEPS_RUNNING}</span>
 		</div>
 	);
 }
