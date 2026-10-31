@@ -10,6 +10,7 @@ import {
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
+	pollUntil,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 	requireRows,
@@ -60,44 +61,56 @@ const savedViewIds = (
 	});
 
 describe("Media saved-view sorting", () => {
-	it.live(
-		"orders media by user updates and library additions, excluding another user's activity",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const { client: otherClient } = yield* createAuthenticatedClient();
-				const older = yield* seed(client, "book", "Alpha");
-				const newer = yield* seed(client, "book", "Zulu");
-				yield* insertLibraryMembership(client, { mediaEntityId: older.id });
-				yield* insertLibraryMembership(client, { mediaEntityId: newer.id });
-				expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
-					newer.id,
-					older.id,
-				]);
+	it.live("orders media by lifecycle activity, ignoring reviews and another user's activity", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			const older = yield* seed(client, "book", "Alpha");
+			const newer = yield* seed(client, "book", "Zulu");
+			yield* insertLibraryMembership(client, { mediaEntityId: older.id });
+			yield* insertLibraryMembership(client, { mediaEntityId: newer.id });
+			expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
+				newer.id,
+				older.id,
+			]);
 
-				const { schema: bookSchema } = yield* findMediaEntitySchema(client, "book");
-				const schemas = yield* listEventSchemas(client, bookSchema.reference);
-				const review = requireEventSchemaBySlug(schemas, "review");
-				yield* createEventFixture(client, {
-					entityId: older.id,
-					eventSchemaSlug: review.id,
-					properties: { rating: 80 },
-					occurredAt: "2020-01-01T00:00:00.000Z",
-				});
-				expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
-					older.id,
-					newer.id,
-				]);
-				yield* createEventFixture(otherClient, {
-					entityId: newer.id,
-					eventSchemaSlug: review.id,
-					properties: { rating: 90 },
-				});
-				expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
-					older.id,
-					newer.id,
-				]);
-			}),
+			const { schema: bookSchema } = yield* findMediaEntitySchema(client, "book");
+			const schemas = yield* listEventSchemas(client, bookSchema.reference);
+			const review = requireEventSchemaBySlug(schemas, "review");
+			const progress = requireEventSchemaBySlug(schemas, "progress");
+			yield* createEventFixture(client, {
+				entityId: older.id,
+				eventSchemaSlug: review.id,
+				properties: { rating: 80 },
+				occurredAt: "2020-01-01T00:00:00.000Z",
+			});
+			expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
+				newer.id,
+				older.id,
+			]);
+			yield* createEventFixture(client, {
+				entityId: older.id,
+				eventSchemaSlug: progress.id,
+				properties: { progressPercent: 40 },
+			});
+			expect(
+				yield* pollUntil(
+					"progress moves the older book first",
+					savedViewIds(client, older.pluginId, "all-books").pipe(
+						Effect.map((ids) => (ids[0] === older.id ? ids : null)),
+					),
+				),
+			).toEqual([older.id, newer.id]);
+			yield* createEventFixture(otherClient, {
+				entityId: newer.id,
+				eventSchemaSlug: progress.id,
+				properties: { progressPercent: 60 },
+			});
+			expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
+				older.id,
+				newer.id,
+			]);
+		}),
 	);
 
 	it.live("uses episode activity when ordering podcasts", () =>
