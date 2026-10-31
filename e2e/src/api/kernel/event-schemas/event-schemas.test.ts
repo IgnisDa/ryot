@@ -41,7 +41,11 @@ describe("GET /event-schemas", () => {
 
 			const eventSchemas = yield* listEventSchemas(client, exerciseSchema.reference);
 
-			expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review", "workout-exercise", "workout-set"]);
+			expect(eventSchemas.map((schema) => schema.slug)).toEqual([
+				"review",
+				"workout-exercise",
+				"workout-set",
+			]);
 			const workoutSetSchema = eventSchemas.find((schema) => schema.slug === "workout-set");
 			assertPresent(workoutSetSchema, "Missing built-in workout-set schema for exercise");
 			expect(workoutSetSchema.propertiesSchema).toMatchObject({
@@ -417,12 +421,29 @@ describe("GET /event-schemas", () => {
 			).not.toHaveProperty("validation.required");
 
 			const progressSchemas = yield* Effect.forEach(
-				["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"],
+				["audiobook", "video-game", "music", "visual-novel"],
 				(slug) => getProgressSchema(slug),
 			);
 
 			for (const progressSchema of progressSchemas) {
 				expect(progressSchema).toEqual(movieProgressSchema);
+			}
+			const pagedProgressSchemas = yield* Effect.forEach(["book", "comic-book"], (slug) =>
+				getProgressSchema(slug),
+			);
+			for (const pagedProgressSchema of pagedProgressSchemas) {
+				expect(pagedProgressSchema).toEqual({
+					...movieProgressSchema,
+					fields: {
+						...movieProgressSchema.fields,
+						progressPages: {
+							type: "number",
+							label: "Pages reached",
+							validation: { minimum: 0 },
+							description: "Exact cumulative pages in this run",
+						},
+					},
+				});
 			}
 			expect(podcastEpisodeProgressSchema).toEqual(movieProgressSchema);
 
