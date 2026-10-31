@@ -51,7 +51,7 @@ describe("Events built-in status schemas", () => {
 	);
 
 	it.live(
-		"creates built-in progress events with normalized values and no completion side effects",
+		"creates built-in progress events with unrounded values and no completion side effects",
 		() =>
 			Effect.gen(function* () {
 				const { client: apiClient } = yield* createAuthenticatedClient();
@@ -83,7 +83,7 @@ describe("Events built-in status schemas", () => {
 				expect(events).toHaveLength(2);
 				expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
 				expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
-					25.56, 50.44,
+					25.555, 50.444,
 				]);
 			}),
 	);
@@ -114,7 +114,10 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
 			expect(events.map((event) => event.properties)).toEqual(
-				arrayContaining([{ dateUnknown: true }, {}]),
+				arrayContaining([
+					{ dateUnknown: true, consumptionBasis: { unit: "pages", property: "pages" } },
+					{ consumptionBasis: { unit: "pages", property: "pages" } },
+				]),
 			);
 		}),
 	);
@@ -292,7 +295,9 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 4);
 			for (const slug of ["progress", "dropped", "on_hold"]) {
 				const event = allEvents.find((candidate) => candidate.eventSchemaSlug === slug);
-				expect(event?.properties).toEqual({});
+				expect(event?.properties).toEqual({
+					consumptionBasis: { unit: "pages", property: "pages" },
+				});
 			}
 		}),
 	);
@@ -323,7 +328,7 @@ describe("Events built-in status schemas", () => {
 		}),
 	);
 
-	it.live("creates built-in dropped events with rounded progress values", () =>
+	it.live("creates built-in dropped events with unrounded progress values", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
 			const { entityId, droppedEventSchemaSlug } =
@@ -353,12 +358,12 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["dropped", "dropped"]);
 			expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
-				33.33, 66.67,
+				33.333, 66.666,
 			]);
 		}),
 	);
 
-	it.live("creates built-in on_hold events with rounded progress values", () =>
+	it.live("creates built-in on_hold events with unrounded progress values", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
 			const { entityId, onHoldEventSchemaSlug } =
@@ -388,7 +393,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["on_hold", "on_hold"]);
 			expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
-				45.56, 75.44,
+				45.555, 75.444,
 			]);
 		}),
 	);
@@ -438,7 +443,10 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
 			const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);
-			expect(sortedEvents.map((event) => event.properties)).toEqual([{}, {}]);
+			expect(sortedEvents.map((event) => event.properties)).toEqual([
+				{ consumptionBasis: { unit: "episodes" } },
+				{ consumptionBasis: { unit: "episodes" } },
+			]);
 		}),
 	);
 });
