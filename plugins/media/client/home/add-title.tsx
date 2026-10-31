@@ -6,7 +6,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import {
 	builtinMediaEntitySchemaSlugs,
-	mediaLibraryMembership,
+	mediaBacklogLibraryMembership,
 } from "../../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
@@ -38,7 +38,7 @@ export function AddTitleMenu(props: { readonly variant: "icon" | "button" }) {
 					schedule.run(
 						client.screens
 							.pickEntity({
-								library: mediaLibraryMembership,
+								library: mediaBacklogLibraryMembership,
 								schema: {
 									slug: EntitySchemaSlug.make(slug),
 									owner: { kind: "plugin", pluginId: identity.pluginId },

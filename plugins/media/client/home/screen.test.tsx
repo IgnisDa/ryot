@@ -453,7 +453,7 @@ describe("first run", () => {
 					library: {
 						librarySchemaSlug: "media-library",
 						relationshipSlug: "in-media-library",
-						entryEvent: null,
+						entryEvent: { label: "Add to backlog", eventSchemaSlug: "backlog" },
 					},
 				},
 			]);

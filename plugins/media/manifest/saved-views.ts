@@ -15,7 +15,10 @@ import {
 	mediaPresentationSource,
 } from "../shared/entity-presentations";
 import { mangaRecipes } from "../shared/manga-recipes";
-import { mediaLibraryMembership } from "../shared/media-schema-slugs";
+import {
+	mediaBacklogLibraryMembership,
+	mediaLibraryMembership,
+} from "../shared/media-schema-slugs";
 import { movieGroupRecipes } from "../shared/movie-group-recipes";
 import { movieRecipes } from "../shared/movie-recipes";
 import { musicGroupRecipes } from "../shared/music-group-recipes";
@@ -187,15 +190,17 @@ export const mediaSavedViews = () => {
 						{ owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
 					],
 				},
-				addAction: {
-					type: "provider-search",
-					library: mediaLibraryMembership,
-					schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
-				},
 				tableColumns: [
 					{ label: "Image", field: "image", displayKind: "managed-asset" as const },
 					...tableExpressions.columns.map(({ expression: _, ...tableColumn }) => tableColumn),
 				],
+				addAction: {
+					type: "provider-search",
+					schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
+					library: schema.eventSchemas.some(({ slug }) => slug === "backlog")
+						? mediaBacklogLibraryMembership
+						: mediaLibraryMembership,
+				},
 			} satisfies AuthoredEntityBrowserSavedViewSettings,
 		};
 	});

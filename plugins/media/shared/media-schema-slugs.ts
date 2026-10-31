@@ -4,6 +4,11 @@ export const mediaLibraryMembership = {
 	relationshipSlug: "in-media-library",
 } as const;
 
+export const mediaBacklogLibraryMembership = {
+	...mediaLibraryMembership,
+	entryEvent: { label: "Add to backlog", eventSchemaSlug: "backlog" },
+} as const;
+
 export const builtinMediaEntitySchemaSlugs = [
 	"book",
 	"comic-book",
