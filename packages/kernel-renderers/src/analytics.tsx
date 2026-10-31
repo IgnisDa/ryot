@@ -16,7 +16,7 @@ import {
 	useRyot,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, QueryStatus } from "@ryot-app/plugin-ui-sdk";
+import { QueryStatus, SegmentedControl } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useContext } from "react";
 
@@ -37,12 +37,44 @@ export default function AnalyticsPage() {
 	const active = sections.find((section) => analyticsSectionKey(section) === requested);
 	const updateSelection = (next: ReportingSelection) =>
 		ryot.navigation.pageSearch.push(reportingSearchParams(next));
+	const sectionNav =
+		sections.length > 0 ? (
+			<div className="max-w-full min-w-0 overflow-x-auto">
+				<SegmentedControl
+					optionClassName="px-3"
+					label="Analytics sections"
+					value={active === undefined ? "" : analyticsSectionKey(active)}
+					onChange={(key) => ryot.navigation.pageSearch.push({ section: key === "" ? null : key })}
+					options={[
+						{
+							value: "",
+							label: "Collections",
+							content: (
+								<>
+									<AppIcon size={16} name="folders" />
+									Collections
+								</>
+							),
+						},
+						...sections.map((section) => ({
+							label: section.name,
+							value: analyticsSectionKey(section),
+							content: (
+								<>
+									<AppIcon size={16} name={section.icon} />
+									{section.name}
+								</>
+							),
+						})),
+					]}
+				/>
+			</div>
+		) : null;
 	const content = (timeZone: TimeZone) =>
 		active === undefined ? (
 			<CollectionAnalytics timeZone={timeZone} selection={selection} />
 		) : (
-			<section aria-label={active.name}>
-				<h2 className="mb-4 text-xl font-semibold">{active.name}</h2>
+			<section className="min-w-0" aria-label={active.name}>
 				<AnalyticsSection
 					timeZone={timeZone}
 					registration={active}
@@ -58,7 +90,7 @@ export default function AnalyticsPage() {
 		>
 			<div
 				style={{ paddingBottom: safeAreaBottom + 48 }}
-				className="mx-auto grid w-full max-w-5xl gap-6 p-4"
+				className="mx-auto grid w-full max-w-5xl gap-5 p-4"
 			>
 				<QueryStatus
 					query={preferences}
@@ -69,37 +101,13 @@ export default function AnalyticsPage() {
 						<AnalyticsControls
 							compact={compact}
 							timeZone={timeZone}
+							leading={sectionNav}
 							selection={selection}
 							onSelectionChange={updateSelection}
 							key={Object.values(selectionParams).join("|")}
 						/>
 					)}
 				</QueryStatus>
-				{sections.length > 0 && (
-					<nav aria-label="Analytics sections" className="flex flex-wrap gap-2">
-						<Button
-							aria-pressed={active === undefined}
-							variant={active === undefined ? "primary" : "ghost"}
-							onClick={() => ryot.navigation.pageSearch.push({ section: null })}
-						>
-							<AppIcon size={18} name="folders" />
-							Collection reviews
-						</Button>
-						{sections.map((section) => (
-							<Button
-								aria-pressed={section === active}
-								key={analyticsSectionKey(section)}
-								variant={section === active ? "primary" : "ghost"}
-								onClick={() =>
-									ryot.navigation.pageSearch.push({ section: analyticsSectionKey(section) })
-								}
-							>
-								<AppIcon size={18} name={section.icon} />
-								{section.name}
-							</Button>
-						))}
-					</nav>
-				)}
 				{isActiveScreen && preferences.data !== undefined
 					? content(preferences.data.timeZone)
 					: null}

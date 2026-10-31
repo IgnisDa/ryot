@@ -86,7 +86,7 @@ const replySummary = (
 const chartRows = () =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() => screen.findByRole("img", { name: "Collection review trend" }));
-		fireEvent.click(screen.getByText("View exact values"));
+		fireEvent.click(screen.getByRole("radio", { name: "Table" }));
 		const table = yield* Effect.promise(() =>
 			screen.findByRole("table", { name: "Collection review trend exact values" }),
 		);
@@ -136,14 +136,12 @@ it.effect(
 				},
 			});
 			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByText("Rating: 0/100")).toBeDefined()),
+				waitFor(() => expect(screen.getByLabelText("Rating: 0/100")).toBeDefined()),
 			);
-			expect(screen.getByText("Current · 2026-03-08")).toBeDefined();
-			expect(screen.getByText("Previous · 2026-03-07")).toBeDefined();
-			expect(screen.getByText("0 reviews", { selector: "dd" })).toBeDefined();
-			expect(screen.getByText(/Includes rating-only reviews/).textContent).toContain(
-				TimeZone.make("America/New_York"),
-			);
+			expect(screen.getByText("2 reviews", { selector: "p" })).toBeDefined();
+			expect(screen.getByText("New")).toBeDefined();
+			expect(screen.getByText("+2 reviews vs Mar 7, 2026")).toBeDefined();
+			expect(screen.getByText("Includes rating-only reviews")).toBeDefined();
 			fireEvent.click(screen.getByRole("button", { name: "Load more reviews" }));
 			const next = yield* request(page, "reviews", 1);
 			expect(next.document.queries.reviews?.output).toMatchObject({
@@ -227,7 +225,11 @@ it.effect("fills all-time review buckets between the first and last reviewed yea
 				{ count: 2, at: "2025-01-01T05:00:00.000Z" },
 			],
 		);
-		expect(rows.map(([, value]) => value)).toEqual(["1 reviews", "0 reviews", "2 reviews"]);
+		expect(rows).toEqual([
+			["2023", "1 review"],
+			["2024", "0 reviews"],
+			["2025", "2 reviews"],
+		]);
 	}),
 );
 
@@ -250,9 +252,7 @@ it.effect("keeps record results usable when totals fail and retries only totals"
 			},
 		});
 		yield* Effect.promise(() =>
-			waitFor(() =>
-				expect(screen.getByText("No collection reviews in this period.")).toBeDefined(),
-			),
+			waitFor(() => expect(screen.getByText("No reviews in this period")).toBeDefined()),
 		);
 		fireEvent.click(screen.getByRole("button", { name: "Retry collection review totals" }));
 		yield* request(page, "current", 1);

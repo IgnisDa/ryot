@@ -50,10 +50,7 @@ const pageSearchUpdates = (page: ReturnType<typeof mountPluginPage>) =>
 
 const periodCaptions = () => {
 	const controls = screen.getByRole("region", { name: "Analytics controls" });
-	return {
-		current: within(controls).getByText(/^Current period:/).textContent,
-		previous: within(controls).getByText(/^Previous period:/).textContent,
-	};
+	return within(controls).getByText(/^· times in /).parentElement?.textContent;
 };
 
 const reviewQueryWhere = (page: ReturnType<typeof mountPluginPage>, index: number) => {
@@ -130,7 +127,7 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 		yield* Effect.promise(() =>
 			waitFor(() => {
 				expect(attempts).toBe(1);
-				expect(screen.getByText("Reporting time zone: UTC")).toBeDefined();
+				expect(screen.getByText("· times in UTC")).toBeDefined();
 				expect(screen.getByText("first-local / rolling / UTC")).toBeDefined();
 			}),
 		);
@@ -146,7 +143,7 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 				expect(alert.textContent).toContain(
 					"Could not update reporting preferences. Showing the last loaded values.",
 				);
-				expect(screen.getByText("Reporting time zone: UTC")).toBeDefined();
+				expect(screen.getByText("· times in UTC")).toBeDefined();
 				expect(screen.getByText("first-local / rolling / UTC")).toBeDefined();
 			}),
 		);
@@ -162,7 +159,7 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 			waitFor(() => {
 				expect(attempts).toBe(3);
 				expect(screen.queryByRole("alert")).toBeNull();
-				expect(screen.getByText("Reporting time zone: Asia/Kolkata")).toBeDefined();
+				expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
 				expect(screen.getByText("first-local / rolling / Asia/Kolkata")).toBeDefined();
 			}),
 		);
@@ -172,9 +169,11 @@ it.effect("retains loaded analytics with an error when reporting preferences ref
 const choose = (label: string, choice: string) =>
 	Effect.gen(function* () {
 		fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label}:`) }));
-		fireEvent.click(yield* Effect.promise(() => screen.findByRole("radio", { name: choice })));
+		fireEvent.click(
+			yield* Effect.promise(() => screen.findByRole("menuitemradio", { name: choice })),
+		);
 		yield* Effect.promise(() =>
-			waitFor(() => expect(screen.queryByRole("dialog", { name: label })).toBeNull()),
+			waitFor(() => expect(screen.queryByRole("menu", { name: label })).toBeNull()),
 		);
 	});
 
@@ -266,7 +265,7 @@ it.effect(
 				),
 			);
 			expect(loaded).toEqual(["second", "second", "first"]);
-			fireEvent.click(screen.getByRole("button", { name: "Collection reviews" }));
+			fireEvent.click(screen.getByRole("radio", { name: "Collections" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(pageSearchUpdates(page).at(-1)).toMatchObject({
@@ -276,7 +275,7 @@ it.effect(
 				),
 			);
 			page.navigate(routeLocation("/v/k/analytics"), { index: 2, key: "kernel-section" });
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Collection reviews" }));
+			yield* Effect.promise(() => screen.findByRole("region", { name: "Collection reviews" }));
 			expect(screen.queryByText("first-local / rolling / Europe/Paris")).toBeNull();
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.queryRequests("reviews")).toHaveLength(1)),
@@ -286,7 +285,7 @@ it.effect(
 				key: "first-section",
 			});
 			yield* Effect.promise(() => screen.findByText("first-local / rolling / Europe/Paris"));
-			expect(screen.queryByRole("heading", { name: "Collection reviews" })).toBeNull();
+			expect(screen.queryByRole("region", { name: "Collection reviews" })).toBeNull();
 		}),
 );
 
@@ -297,10 +296,8 @@ it.effect(
 			const page = mountPluginPage(AnalyticsPage, { page: context });
 			page.navigate(routeLocation("/v/k/analytics"));
 			yield* Effect.promise(() => answerPreferences(page));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Collection reviews" }));
-			expect(screen.getByText(/Includes rating-only reviews/).textContent).toContain(
-				"Asia/Kolkata",
-			);
+			yield* Effect.promise(() => screen.findByRole("region", { name: "Collection reviews" }));
+			expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.queryRequests("reviews")).toHaveLength(1)),
 			);
@@ -320,7 +317,7 @@ it.effect(
 					},
 				},
 			});
-			yield* Effect.promise(() => screen.findByText("No collection reviews in this period."));
+			yield* Effect.promise(() => screen.findByText("No reviews in this period"));
 			expect(screen.getAllByRole("heading", { level: 1, name: "Analytics" })).toHaveLength(1);
 		}),
 );
@@ -338,10 +335,10 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 		yield* Effect.promise(() => answerPreferences(page));
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Last 90 days" })).toBeDefined();
-				expect(screen.getByRole("button", { name: "Compare with: Previous period" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Last 90 days" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Compare: Previous period" })).toBeDefined();
 				expect(screen.getByRole("button", { name: "Group by: Week" })).toBeDefined();
-				expect(screen.getByText("Reporting time zone: Asia/Kolkata")).toBeDefined();
+				expect(screen.getByText("· times in Asia/Kolkata")).toBeDefined();
 			}),
 		);
 
@@ -358,8 +355,8 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Previous month" })).toBeDefined();
-				expect(screen.getByRole("button", { name: "Compare with: None" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Previous month" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Compare: Off" })).toBeDefined();
 				expect(screen.getByRole("button", { name: "Group by: Month" })).toBeDefined();
 			}),
 		);
@@ -375,11 +372,11 @@ it.effect("decodes controls from the URL and follows incoming history state", ()
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: All time" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: All time" })).toBeDefined();
 				expect(
-					screen.getByRole("button", { name: "Compare with: None" }).getAttribute("disabled"),
+					screen.getByRole("button", { name: "Compare: Off" }).getAttribute("disabled"),
 				).not.toBeNull();
-				expect(screen.getByText("No comparison for all time.")).toBeDefined();
+				expect(screen.queryByText(/compared with/)).toBeNull();
 				expect(
 					screen.getByRole("button", { name: "Group by: Year" }).getAttribute("disabled"),
 				).not.toBeNull();
@@ -405,7 +402,7 @@ it.effect("keeps the committed range and query input in sync across range histor
 		yield* Effect.promise(() => answerPreferences(page));
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Last 30 days" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
 				expect(page.queryRequests("reviews").length).toBeGreaterThan(0);
 			}),
 		);
@@ -414,7 +411,7 @@ it.effect("keeps the committed range and query input in sync across range histor
 		expect(thirtyDayWhere).toBeDefined();
 
 		const previousUpdateCount = pageSearchUpdates(page).length;
-		yield* choose("Date range", "Last 7 days");
+		yield* choose("Range", "Last 7 days");
 		yield* Effect.promise(() =>
 			waitFor(() => expect(pageSearchUpdates(page).length).toBeGreaterThan(previousUpdateCount)),
 		);
@@ -427,7 +424,7 @@ it.effect("keeps the committed range and query input in sync across range histor
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Last 7 days" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined();
 				expect(page.queryRequests("reviews").length).toBeGreaterThan(1);
 			}),
 		);
@@ -442,7 +439,7 @@ it.effect("keeps the committed range and query input in sync across range histor
 		});
 		yield* Effect.promise(() =>
 			waitFor(() =>
-				expect(screen.getByRole("button", { name: "Date range: Last 30 days" })).toBeDefined(),
+				expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined(),
 			),
 		);
 		expect(periodCaptions()).toEqual(thirtyDayCaptions);
@@ -454,7 +451,7 @@ it.effect("keeps the committed range and query input in sync across range histor
 		});
 		yield* Effect.promise(() =>
 			waitFor(() =>
-				expect(screen.getByRole("button", { name: "Date range: Last 7 days" })).toBeDefined(),
+				expect(screen.getByRole("button", { name: "Range: Last 7 days" })).toBeDefined(),
 			),
 		);
 		expect(periodCaptions()).toEqual(sevenDayCaptions);
@@ -473,10 +470,10 @@ it.effect("does not navigate for invalid custom dates and pushes valid dates onl
 		search.set("section", "contributor/activity");
 		const page = mountControls(`?${search}`);
 		yield* Effect.promise(() => answerPreferences(page));
-		yield* Effect.promise(() => screen.findByRole("button", { name: "Date range: Last 30 days" }));
+		yield* Effect.promise(() => screen.findByRole("button", { name: "Range: Last 30 days" }));
 		const committedCaptions = periodCaptions();
 
-		yield* choose("Date range", "Custom dates");
+		yield* choose("Range", "Custom dates");
 		fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2025-03-02" } });
 		fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2025-03-01" } });
 		expect(pageSearchUpdates(page)).toHaveLength(0);
@@ -523,7 +520,7 @@ it.effect("discards custom date edits when history returns to committed URL sele
 		const customSearch = `?${reportingSearch(customSelection)}`;
 		const page = mountControls(rollingSearch);
 		yield* Effect.promise(() => answerPreferences(page));
-		yield* Effect.promise(() => screen.findByRole("button", { name: "Date range: Last 30 days" }));
+		yield* Effect.promise(() => screen.findByRole("button", { name: "Range: Last 30 days" }));
 
 		page.navigate(routeLocation("/v/k/analytics", customSearch), {
 			index: 1,
@@ -531,7 +528,7 @@ it.effect("discards custom date edits when history returns to committed URL sele
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Custom dates" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Custom dates" })).toBeDefined();
 				expect(screen.getByDisplayValue("2025-03-02")).toBeDefined();
 				expect(screen.getByDisplayValue("2025-03-04")).toBeDefined();
 			}),
@@ -550,7 +547,7 @@ it.effect("discards custom date edits when history returns to committed URL sele
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Last 30 days" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Last 30 days" })).toBeDefined();
 				expect(screen.queryByLabelText("Start date")).toBeNull();
 			}),
 		);
@@ -561,7 +558,7 @@ it.effect("discards custom date edits when history returns to committed URL sele
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => {
-				expect(screen.getByRole("button", { name: "Date range: Custom dates" })).toBeDefined();
+				expect(screen.getByRole("button", { name: "Range: Custom dates" })).toBeDefined();
 				expect(screen.getByDisplayValue("2025-03-02")).toBeDefined();
 				expect(screen.getByDisplayValue("2025-03-04")).toBeDefined();
 			}),
@@ -608,9 +605,9 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 		});
 		page.navigate(routeLocation("/v/k/analytics", `?${search}`));
 		yield* Effect.promise(() => answerPreferences(page));
-		yield* Effect.promise(() => screen.findByRole("button", { name: "Compare with: None" }));
+		yield* Effect.promise(() => screen.findByRole("button", { name: "Compare: Off" }));
 
-		yield* choose("Compare with", "Previous period");
+		yield* choose("Compare", "Previous period");
 		yield* Effect.promise(() =>
 			waitFor(() => {
 				const update = pageSearchUpdates(page).at(-1);
@@ -631,7 +628,7 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 		);
 		yield* Effect.promise(() =>
 			waitFor(() =>
-				expect(screen.getByRole("button", { name: "Compare with: Previous period" })).toBeDefined(),
+				expect(screen.getByRole("button", { name: "Compare: Previous period" })).toBeDefined(),
 			),
 		);
 
@@ -644,7 +641,7 @@ it.effect("pushes comparison, grouping, and section choices through page search"
 			}),
 		);
 
-		fireEvent.click(screen.getByRole("button", { name: "Second" }));
+		fireEvent.click(screen.getByRole("radio", { name: "Second" }));
 		yield* Effect.promise(() =>
 			waitFor(() => {
 				const update = pageSearchUpdates(page).at(-1);

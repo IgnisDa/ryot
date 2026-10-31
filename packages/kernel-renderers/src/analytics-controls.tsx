@@ -10,12 +10,12 @@ import {
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Select, TextField } from "@ryot-app/plugin-ui-sdk";
+import { Button, MenuSelect, TextField } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 
 const groupingChoices = [
-	{ value: "auto", label: "Automatic" },
+	{ value: "auto", label: "Auto" },
 	{ value: "day", label: "Day" },
 	{ value: "week", label: "Week" },
 	{ value: "month", label: "Month" },
@@ -23,7 +23,7 @@ const groupingChoices = [
 ] as const;
 
 const comparisonChoices = [
-	{ value: "none", label: "None" },
+	{ label: "Off", value: "none" },
 	{ value: "previous-period", label: "Previous period" },
 ] as const;
 
@@ -35,6 +35,7 @@ type CustomDateDraft = {
 
 /** Remount with a key derived from `selection` so an unapplied custom-date draft resets on navigation. */
 export function AnalyticsControls({
+	leading,
 	compact,
 	timeZone,
 	selection,
@@ -42,6 +43,7 @@ export function AnalyticsControls({
 }: {
 	readonly compact: boolean;
 	readonly timeZone: TimeZone;
+	readonly leading?: ReactNode;
 	readonly selection: ReportingSelection;
 	readonly onSelectionChange: (selection: ReportingSelection) => void;
 }) {
@@ -62,12 +64,10 @@ export function AnalyticsControls({
 				: (resolved.current?.startDate ?? ""),
 	};
 	const selectedRange = customDraft === null ? reportingRangeValue(selection.range) : "custom";
-	let previousCaption = "No comparison selected.";
-	if (resolved.previous !== null) {
-		previousCaption = `Previous period: ${periodCaption(resolved.previous)}`;
-	} else if (allTime) {
-		previousCaption = "No comparison for all time.";
-	}
+	const icons = {
+		checkIcon: <AppIcon size={14} name="check" />,
+		chevronIcon: <AppIcon size={14} name="chevron-down" />,
+	};
 
 	const changeRange = (value: string) => {
 		const range = reportingRangeOptions.find((option) => option.value === value)?.range;
@@ -95,44 +95,31 @@ export function AnalyticsControls({
 	};
 
 	return (
-		<section
-			aria-label="Analytics controls"
-			className="grid gap-4 rounded-lg border border-border p-4"
-		>
-			<div className={`grid gap-3 ${compact ? "grid-cols-1" : "grid-cols-3"}`}>
-				<div className="min-w-0">
-					<Select
-						label="Date range"
+		<section aria-label="Analytics controls" className="flex min-w-0 flex-col gap-3">
+			<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+				{leading}
+				<div className={`flex min-w-0 flex-wrap items-center gap-2 ${compact ? "" : "ml-auto"}`}>
+					<MenuSelect
+						{...icons}
+						label="Range"
 						value={selectedRange}
 						onChange={changeRange}
 						choices={reportingRangeOptions}
-						checkIcon={<AppIcon size={14} name="check" />}
-						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 					/>
-				</div>
-				<div className="min-w-0">
-					<Select
+					<MenuSelect
+						{...icons}
+						label="Compare"
 						disabled={allTime}
-						label="Compare with"
 						choices={comparisonChoices}
-						checkIcon={<AppIcon size={14} name="check" />}
 						value={allTime ? "none" : selection.comparison}
-						chevronIcon={<AppIcon size={14} name="chevron-down" />}
-						onChange={(value) => {
-							if (Schema.is(ReportingSelection.fields.comparison)(value)) {
-								onSelectionChange({ ...selection, comparison: value });
-							}
-						}}
+						onChange={(value) => onSelectionChange({ ...selection, comparison: value })}
 					/>
-				</div>
-				<div className="min-w-0">
-					<Select
+					<MenuSelect
+						{...icons}
 						label="Group by"
 						disabled={allTime}
 						choices={groupingChoices}
 						value={allTime ? "year" : selection.grouping}
-						checkIcon={<AppIcon size={14} name="check" />}
-						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 						onChange={(value) => {
 							if (Schema.is(ReportingGrouping)(value)) {
 								onSelectionChange({ ...selection, grouping: value });
@@ -142,8 +129,8 @@ export function AnalyticsControls({
 				</div>
 			</div>
 			{selectedRange === "custom" && (
-				<div className={`grid gap-3 ${compact ? "grid-cols-1" : "grid-cols-2"}`}>
-					<div className="grid content-start gap-1.5">
+				<div className="flex min-w-0 flex-wrap items-end gap-3">
+					<div className="grid min-w-0 gap-1.5">
 						<label htmlFor={`${id}-start-date`} className="text-label font-medium text-text">
 							Start date
 						</label>
@@ -158,7 +145,7 @@ export function AnalyticsControls({
 							}
 						/>
 					</div>
-					<div className="grid content-start gap-1.5">
+					<div className="grid min-w-0 gap-1.5">
 						<label htmlFor={`${id}-end-date`} className="text-label font-medium text-text">
 							End date
 						</label>
@@ -171,30 +158,34 @@ export function AnalyticsControls({
 							onChange={(event) => setCustomDraft({ ...draft, endDate: event.currentTarget.value })}
 						/>
 					</div>
+					<Button type="button" variant="secondary" onClick={applyCustomDates}>
+						Apply dates
+					</Button>
 					{draft.dateError && (
-						<p role="alert" id={`${id}-date-error`} className="text-xs font-medium text-danger">
+						<p
+							role="alert"
+							id={`${id}-date-error`}
+							className="w-full text-xs font-medium text-danger"
+						>
 							Enter valid dates with the start date on or before the end date.
 						</p>
 					)}
-					<Button type="button" variant="outline" onClick={applyCustomDates}>
-						Apply dates
-					</Button>
 				</div>
 			)}
-			<div className="grid gap-1 text-sm text-text-subtle">
-				<p>Current period: {periodCaption(resolved.current)}</p>
-				<p>{previousCaption}</p>
-				{selection.grouping !== "auto" && !allTime && selection.grouping !== resolved.grouping && (
-					<p>Grouped by {resolved.grouping} to keep charts within their bucket limit.</p>
+			<p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-label text-text-muted">
+				<span className="font-medium text-text">{periodCaption(resolved.current)}</span>
+				{resolved.previous === null ? null : (
+					<span>· compared with {periodCaption(resolved.previous)}</span>
 				)}
-			</div>
-			<p className="flex flex-wrap items-center gap-2 text-sm text-text-subtle">
-				<span>Reporting time zone: {resolved.timeZone}</span>
+				{selection.grouping !== "auto" && !allTime && selection.grouping !== resolved.grouping && (
+					<span>· grouped by {resolved.grouping} to stay within the chart limit</span>
+				)}
+				<span>· times in {resolved.timeZone}</span>
 				<PluginLink
 					to={{ kind: "kernel-page", page: "preferences" }}
 					className="font-medium text-accent-text underline-offset-4 hover:underline"
 				>
-					Preferences
+					Change
 				</PluginLink>
 			</p>
 		</section>
