@@ -41,7 +41,7 @@ describe("GET /event-schemas", () => {
 
 			const eventSchemas = yield* listEventSchemas(client, exerciseSchema.reference);
 
-			expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review", "workout-set"]);
+			expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review", "workout-exercise", "workout-set"]);
 			const workoutSetSchema = eventSchemas.find((schema) => schema.slug === "workout-set");
 			assertPresent(workoutSetSchema, "Missing built-in workout-set schema for exercise");
 			expect(workoutSetSchema.propertiesSchema).toMatchObject({
@@ -197,7 +197,6 @@ describe("GET /event-schemas", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress percent",
-							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -282,7 +281,6 @@ describe("GET /event-schemas", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress percent",
-							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -307,7 +305,6 @@ describe("GET /event-schemas", () => {
 						progressPercent: {
 							type: "number",
 							label: "Progress percent",
-							normalize: { round: { scale: 2 } },
 							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
@@ -406,7 +403,6 @@ describe("GET /event-schemas", () => {
 					progressPercent: {
 						type: "number",
 						label: "Progress percent",
-						normalize: { round: { scale: 2 } },
 						validation: { maximum: 100, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
