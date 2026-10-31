@@ -316,18 +316,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		name: "Progress",
 		slug: "progress",
 		propertiesSchema: withConsumptionFacts(
-			withStartedOn(
-				withTimeSpent({
-					fields: {
-						...progressPropertiesSchemaByEntity(entitySchemaSlug).fields,
-						dateUnknown: {
-							type: "boolean",
-							label: "Date unknown",
-							description: "No reliable consumption date",
-						},
-					},
-				}),
-			),
+			withStartedOn(withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug))),
 		),
 	},
 	{
