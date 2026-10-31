@@ -31,7 +31,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
+import { type BackupExcludedEventSchema, EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
 import { concretePluginConfigSecretPaths } from "#modules/plugins/configuration/redaction";
@@ -316,6 +316,28 @@ const dependencyIdentity = Effect.fn(function* (
 	}
 	return { kind: "unmanaged" } satisfies ArchiveEntityDependency["identity"];
 });
+
+// Transient user-state evidence is rebuildable progress, so restored accounts start without it.
+const transientEvidenceSchemas = (context: {
+	readonly definitionSnapshots: ReadonlyArray<DefinitionSnapshot>;
+}): ReadonlyArray<BackupExcludedEventSchema> => {
+	const schemas = new Map<string, BackupExcludedEventSchema>();
+	for (const snapshot of context.definitionSnapshots) {
+		for (const entitySchema of Object.values(snapshot.entitySchemas)) {
+			for (const { transient, eventSchema } of entitySchema.userState?.evidence ?? []) {
+				if (transient) {
+					const excluded = {
+						slug: eventSchema.slug,
+						entitySchemaSlug: eventSchema.entitySchemaSlug,
+						pluginId: eventSchema.owner.kind === "kernel" ? null : entitySchema.pluginId,
+					};
+					schemas.set(JSON.stringify(excluded), excluded);
+				}
+			}
+		}
+	}
+	return [...schemas.values()];
+};
 
 export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>()(
 	"@ryot-app/kernel-backend/modules/backups/export/snapshot/BackupExportSnapshot",
@@ -903,11 +925,13 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				userId: UserId;
 				afterId?: EventId | undefined;
 				pluginKeyById: ReadonlyMap<string, string>;
+				excluded: ReadonlyArray<BackupExcludedEventSchema>;
 			}) {
 				const rows = yield* events.listUserEventsForBackup({
 					userId: input.userId,
 					limit: exportPageSize,
 					afterId: input.afterId,
+					excluded: input.excluded,
 				});
 				const records: ArchiveEvent[] = yield* Effect.forEach(rows, (row) =>
 					Effect.gen(function* () {
@@ -944,13 +968,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			const eachEventPage = <E, R>(
 				userId: UserId,
 				pluginKeyById: ReadonlyMap<string, string>,
+				excluded: ReadonlyArray<BackupExcludedEventSchema>,
 				handle: (page: BackupEventPage) => Effect.Effect<void, E, R>,
 			) =>
 				Effect.gen(function* () {
 					let afterId: EventId | undefined;
 					let hasNextPage = true;
 					while (hasNextPage) {
-						const page = yield* readEventPage({ userId, afterId, pluginKeyById });
+						const page = yield* readEventPage({ userId, afterId, excluded, pluginKeyById });
 						yield* handle(page);
 						if (page.nextAfterId === null) {
 							hasNextPage = false;
@@ -1176,7 +1201,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					yield* fs.writeFile(eventsPath, new Uint8Array(0));
 				}
 				if (includeEvents) {
-					yield* eachEventPage(userId, pluginKeyById, (page) =>
+					yield* eachEventPage(userId, pluginKeyById, transientEvidenceSchemas(context), (page) =>
 						Effect.gen(function* () {
 							const pageLocators = new Map<string, ManagedAssetLocator>();
 							collectManagedAssetLocatorsInto(

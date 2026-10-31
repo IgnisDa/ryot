@@ -120,10 +120,13 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 		).toEqual(arrayContaining(occurrenceFacts));
 		const { bytes } = yield* exportAndDownloadBackup(source.client);
 		const archivedEvents = yield* readBackupSection(bytes, "events.ndjson");
-		expect(archivedEvents).toHaveLength(sourceEvents.length + sourceLibraryEvents.length);
+		const archivedLibraryEvents = sourceLibraryEvents.filter(
+			({ eventSchemaSlug }) => eventSchemaSlug !== "history-correction",
+		);
+		expect(archivedEvents).toHaveLength(sourceEvents.length + archivedLibraryEvents.length);
 		for (const { events, entityId } of [
 			{ events: sourceEvents, entityId: fixture.entityId },
-			{ entityId: sourceLibraryId, events: sourceLibraryEvents },
+			{ entityId: sourceLibraryId, events: archivedLibraryEvents },
 		]) {
 			for (const event of events) {
 				expect(archivedEvents).toContainEqual(
@@ -164,7 +167,6 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 		expect(restoredLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
 			"completion-occurrence",
 			"completion-occurrence",
-			"history-correction",
 		]);
 		for (const [index, fact] of facts.entries()) {
 			const restoredProgress = requirePresent(

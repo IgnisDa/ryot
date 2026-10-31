@@ -53,8 +53,7 @@ export const mediaUserStatePolicy = (slug: string): PluginEntityUserStatePolicy 
 			"history-coverage",
 		].map((eventSchemaSlug) => ({
 			subjectProperty: "subjectEntityId",
-			resetOnMerge:
-				eventSchemaSlug === "history-correction" || eventSchemaSlug === "history-coverage",
+			transient: eventSchemaSlug === "history-correction" || eventSchemaSlug === "history-coverage",
 			eventSchema: {
 				owner: { kind: "self" as const },
 				slug: EventSchemaSlug.make(eventSchemaSlug),
@@ -63,7 +62,7 @@ export const mediaUserStatePolicy = (slug: string): PluginEntityUserStatePolicy 
 		})),
 		...["subjectEntityId", "correctionSubjectEntityId"].map((subjectProperty) => ({
 			subjectProperty,
-			resetOnMerge: true,
+			transient: true,
 			eventSchema: {
 				owner: { kind: "self" as const },
 				slug: EventSchemaSlug.make("consumption-dependency"),

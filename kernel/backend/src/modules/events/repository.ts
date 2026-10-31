@@ -22,6 +22,7 @@ import { chunksOf } from "effect/Array";
 
 import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -54,6 +55,12 @@ type EventRow = { readonly eventSchemaName: string } & Pick<
 >;
 
 export const BACKUP_EVENT_PAGE_SIZE = 500;
+
+export type BackupExcludedEventSchema = {
+	readonly slug: string;
+	readonly pluginId: null | string;
+	readonly entitySchemaSlug: string;
+};
 export const RESTORE_EVENT_BATCH_SIZE = 1_000;
 
 const createdEventSelection = {
@@ -198,7 +205,12 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				},
 			);
 			const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
-				function* (input: { userId: UserId; limit?: number; afterId?: EventId | undefined }) {
+				function* (input: {
+					userId: UserId;
+					limit?: number;
+					afterId?: EventId | undefined;
+					excluded: ReadonlyArray<BackupExcludedEventSchema>;
+				}) {
 					return yield* session.run((db) =>
 						db
 							.select({
@@ -212,6 +224,15 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 								and(
 									eq(schema.event.userId, input.userId),
 									input.afterId ? gt(schema.event.id, input.afterId) : undefined,
+									...input.excluded.map(
+										(excluded) =>
+											sql`not coalesce(${and(
+												eq(schema.event.eventSchemaSlug, excluded.slug),
+												eq(schema.entity.entitySchemaSlug, excluded.entitySchemaSlug),
+												pluginIdWhere(schema.event.eventSchemaPluginId, excluded.pluginId),
+												pluginIdWhere(schema.entity.entitySchemaPluginId, excluded.pluginId),
+											)}, false)`,
+									),
 								),
 							)
 							.orderBy(asc(schema.event.id))

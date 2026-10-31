@@ -745,7 +745,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					});
 				}
 				const resetEvidence = [...sourceState.graph.evidence, ...targetState.graph.evidence].filter(
-					({ declaration }) => declaration.resetOnMerge,
+					({ declaration }) => declaration.transient,
 				);
 				const resetIds = new Set(resetEvidence.map(({ id }) => id));
 				const eventIds = sourceState.eventIds.filter((id) => !resetIds.has(id));

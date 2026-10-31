@@ -19,8 +19,8 @@ References contain archive-local IDs, exact package/schema ownership, stable pro
 identity, and a fallback name. Provider references are limited to provider roots. A provider child's
 external ID alone does not establish a safe reconstruction route, so such children retain portable
 snapshots. Non-reconstructible unmanaged dependencies also retain snapshots. Source database IDs
-never select destination rows. Generated translation overlays and properties/assets belonging only
-to compact references are omitted.
+never select destination rows. Generated translation overlays, properties/assets belonging only
+to compact references, and events declared as transient user-state evidence are omitted.
 
 The timezone preference is restored like any other preference. The zone chosen at account creation
 does not make a restore target unclean; the archived preference replaces it. Other non-default

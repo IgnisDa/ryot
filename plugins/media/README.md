@@ -657,7 +657,8 @@ episode basis and closing date evidence. Nested properties compare structurally,
 restore. Existing `completionKey` identifies derived output; editing it still makes it explicit, and
 deleting it retains suppression. Source facts introduce no new typed entity references. The existing
 user-state policy clears source events and occurrence evidence, transfers frozen occurrence evidence
-on merge, and resets only correction checkpoints/temporary coverage.
+on merge, and resets only correction checkpoints/temporary coverage, which are transient evidence that
+backups omit.
 
 Migration ordering and identity: use one deterministic `sourceRun` per original source occurrence
 (for example `seen:<source-id>`), shared by its baseline and explicit completion. Do not deduplicate

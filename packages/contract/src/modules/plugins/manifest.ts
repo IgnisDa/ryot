@@ -317,7 +317,7 @@ export const PluginEntityUserStatePolicy = strictStruct({
 			strictStruct({
 				subjectProperty: Schema.NonEmptyString,
 				eventSchema: AuthoredEventSchemaReference,
-				resetOnMerge: Schema.optional(Schema.Boolean),
+				transient: Schema.optional(Schema.Boolean),
 			}),
 		),
 	),

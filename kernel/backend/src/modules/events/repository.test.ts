@@ -205,6 +205,7 @@ layer(
 			for (let page = 0; page < 20; page += 1) {
 				expect(
 					(yield* repository.listUserEventsForBackup({
+						excluded: [],
 						userId: UserId.make("user-id"),
 						afterId: EventId.make(`event-${page.toString().padStart(4, "0")}`),
 					})).length,
@@ -309,6 +310,70 @@ layer(eventRepositoryStreamLayer)((test) => {
 			expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
 				targetBeforeMove.streamRevision + 2,
 			);
+		}),
+	);
+});
+
+layer(
+	EventsRepository.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("event_backup_exclusions"))),
+)((test) => {
+	test.effect("omits excluded event schemas from backup history by exact owner", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EventsRepository;
+			yield* session.run((db) =>
+				db
+					.insert(tables.user)
+					.values({ id: "user-id", name: "Backup owner", email: "backup-owner@example.test" }),
+			);
+			yield* session.run((db) =>
+				db.insert(tables.entity).values([
+					{ id: "library", name: "Library", userId: "user-id", entitySchemaSlug: "library" },
+					{ id: "record", name: "Record", userId: "user-id", entitySchemaSlug: "record" },
+				]),
+			);
+			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"));
+			yield* session.run((db) =>
+				db.insert(tables.event).values([
+					{
+						occurredAt,
+						properties: {},
+						userId: "user-id",
+						entityId: "library",
+						id: "event-checkpoint",
+						eventSchemaSlug: "checkpoint",
+					},
+					{
+						occurredAt,
+						properties: {},
+						userId: "user-id",
+						entityId: "record",
+						eventSchemaSlug: "checkpoint",
+						id: "event-other-entity-schema",
+					},
+					{
+						occurredAt,
+						properties: {},
+						userId: "user-id",
+						id: "event-review",
+						entityId: "library",
+						eventSchemaSlug: "review",
+					},
+				]),
+			);
+			const ids = (
+				excluded: Parameters<typeof repository.listUserEventsForBackup>[0]["excluded"],
+			) =>
+				Effect.map(
+					repository.listUserEventsForBackup({ excluded, userId: UserId.make("user-id") }),
+					(rows) => rows.map(({ id }) => id),
+				);
+			expect(
+				yield* ids([{ pluginId: null, slug: "checkpoint", entitySchemaSlug: "library" }]),
+			).toEqual(["event-other-entity-schema", "event-review"]);
+			expect(
+				yield* ids([{ slug: "checkpoint", pluginId: "plugin-id", entitySchemaSlug: "library" }]),
+			).toEqual(["event-checkpoint", "event-other-entity-schema", "event-review"]);
 		}),
 	);
 });

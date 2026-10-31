@@ -15,7 +15,8 @@ An entity schema's `userState` policy can declare:
 - `children`: owned outgoing relationship paths, target schemas, and exact child identity properties.
   `matchName` additionally requires equal trimmed, case-insensitive names.
 - `evidence`: events stored on another declared entity schema, selected by a declared entity-reference
-  property. `resetOnMerge` deletes transient evidence on both sides rather than transferring it.
+  property. `transient` evidence is deleted on both sides rather than transferred, and backups omit it so it is
+  rebuilt after restore.
 
 Scope reads include current children and historical children retained by session references or typed
 evidence. Merge requires a unique current destination for every child with user state or retained
