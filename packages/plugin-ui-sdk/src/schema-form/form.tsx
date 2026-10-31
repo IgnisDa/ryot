@@ -13,7 +13,7 @@ import { useForm } from "@tanstack/react-form";
 import { Schema } from "effect";
 import { type ReactNode, type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
 
-import { Button } from "../button";
+import { Button, IconButton } from "../button";
 import { Chip } from "../chips";
 import { toDateTimeInput } from "../datetime";
 import { MultiSelect } from "../multi-select";
@@ -38,6 +38,7 @@ import {
 	isJsonObjectValue,
 	propertyFormDefault,
 	schemaChoiceLabel,
+	type SchemaFormControl,
 	schemaFormInput,
 	schemaFormIssues,
 	type SchemaFormMode,
@@ -68,6 +69,7 @@ type NodeProps = {
 	readonly property: AppPropertyDefinition;
 	readonly issues: readonly PropertyValidationIssue[];
 	readonly onChange: (value: SchemaFormValue) => void;
+	readonly item?: undefined | { readonly index: number; readonly actions: ReactNode };
 };
 
 type SchemaFormProps = {
@@ -132,6 +134,14 @@ const objectValue = (value: unknown): Readonly<Record<string, JsonValue>> =>
 const arrayValue = (value: unknown): readonly JsonValue[] =>
 	Array.isArray(value) ? value.filter(isJsonValue) : [];
 const isAsset = Schema.is(AssetLocator);
+const clearableControls: ReadonlySet<SchemaFormControl> = new Set<SchemaFormControl>([
+	"chips",
+	"object",
+	"switch",
+	"timezone",
+	"segmented",
+	"oauth-connection",
+]);
 const samePath = (left: readonly string[], right: readonly string[]) =>
 	left.length === right.length && left.every((part, index) => part === right[index]);
 
@@ -142,7 +152,15 @@ function ObjectControl(props: NodeProps & { readonly excluded?: readonly string[
 	const values = objectValue(props.value);
 	const fields = getOrderedAppSchemaFieldEntries(props.property.properties);
 	return (
-		<div className="flex min-w-0 flex-col gap-3 border-l border-border pl-3">
+		<div className="flex min-w-0 flex-col gap-4 rounded-lg border border-border bg-surface p-3.5">
+			{props.item === undefined ? null : (
+				<div className="-my-1 flex items-center justify-between gap-2">
+					<span className="text-xs font-medium text-text-subtle tabular-nums">
+						{props.item.index + 1}
+					</span>
+					{props.item.actions}
+				</div>
+			)}
 			{fields.map(([key, property]) => {
 				if (props.excluded?.includes(key)) {
 					return null;
@@ -151,6 +169,7 @@ function ObjectControl(props: NodeProps & { readonly excluded?: readonly string[
 					<SchemaNode
 						{...props}
 						key={key}
+						item={undefined}
 						property={property}
 						path={[...props.path, key]}
 						value={
@@ -215,7 +234,7 @@ export function SchemaForm(props: SchemaFormProps) {
 				return (
 					<div
 						ref={root}
-						className="flex min-w-0 flex-col gap-3"
+						className="flex min-w-0 flex-col gap-5"
 						onKeyDown={(event) => {
 							if (
 								event.key !== "Enter" ||
@@ -299,42 +318,6 @@ function FocusInvalid(props: {
 	return null;
 }
 
-function NodeFrame(props: {
-	readonly id: string;
-	readonly label: string;
-	readonly invalid: boolean;
-	readonly expandable: boolean;
-	readonly children: ReactNode;
-}) {
-	if (props.expandable) {
-		return (
-			<details
-				open
-				role="group"
-				aria-labelledby={props.id}
-				className="min-w-0 space-y-2"
-				data-invalid={props.invalid ? "true" : undefined}
-			>
-				<summary id={props.id} className="cursor-pointer text-xs font-medium text-text-muted">
-					{props.label}
-				</summary>
-				{props.children}
-			</details>
-		);
-	}
-	return (
-		<div
-			className="flex min-w-0 flex-col gap-1.5"
-			data-invalid={props.invalid ? "true" : undefined}
-		>
-			<span id={props.id} className="text-xs font-medium text-text-muted">
-				{props.label}
-			</span>
-			{props.children}
-		</div>
-	);
-}
-
 function AssetControl(props: NodeProps) {
 	const { icons, uploadAsset, renderAsset } = props.context;
 	if (uploadAsset === undefined || renderAsset === undefined) {
@@ -357,7 +340,7 @@ function AssetControl(props: NodeProps) {
 	const setValues = (next: readonly JsonValue[]) =>
 		props.onChange(multiple ? next : (next[0] ?? null));
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="flex min-w-0 flex-col gap-3">
 			<SchemaAssetField
 				icons={icons}
 				value={assets}
@@ -394,6 +377,7 @@ function AssetControl(props: NodeProps) {
 					{...props}
 					key={key}
 					value={value}
+					item={undefined}
 					property={property}
 					excluded={["key", "url", "type"]}
 					addressable={multiple ? false : props.addressable}
@@ -406,103 +390,6 @@ function AssetControl(props: NodeProps) {
 				/>
 			))}
 		</div>
-	);
-}
-
-function SchemaNode(props: NodeProps) {
-	const id = useId();
-	const { value, property } = props;
-	if (
-		isFixedEnumProperty(property) ||
-		(props.addressable && isAppSchemaPathHidden(props.context.schema, props.path, props.input))
-	) {
-		return null;
-	}
-	const required = props.addressable
-		? isAppSchemaPathEffectivelyRequired(props.context.schema, props.path, props.input)
-		: property.validation?.required === true;
-	const readOnly = props.mode === "edit" && property.immutable === true;
-	const hasHelp = property.description !== property.label;
-	const absentObject =
-		property.type === "object" &&
-		!property.validation?.asset &&
-		(value === undefined || value === null);
-	const issue = props.issues.find((candidate) => {
-		if (samePath(candidate.path, props.path)) {
-			return true;
-		}
-		if (!props.path.every((segment, index) => candidate.path[index] === segment)) {
-			return false;
-		}
-		return (
-			absentObject ||
-			(property.type === "object" &&
-				!Object.hasOwn(property.properties, candidate.path[props.path.length] ?? ""))
-		);
-	});
-	return (
-		<NodeFrame
-			id={`${id}-label`}
-			invalid={issue !== undefined}
-			label={`${property.label}${required ? " *" : ""}`}
-			expandable={property.type === "object" || property.type === "array"}
-		>
-			<fieldset
-				disabled={readOnly}
-				className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0 disabled:opacity-60"
-				aria-describedby={
-					[issue ? `${id}-error` : undefined, hasHelp ? `${id}-help` : undefined]
-						.filter((describedBy) => describedBy !== undefined)
-						.join(" ") || undefined
-				}
-			>
-				{absentObject ? (
-					<Button
-						variant="secondary"
-						className="self-start"
-						onClick={() => {
-							props.onChange(
-								Object.fromEntries(
-									Object.entries(
-										initialSchemaFormValues(
-											{ fields: property.properties },
-											props.context.timeZone,
-										),
-									).filter((entry): entry is [string, JsonValue] => entry[1] !== undefined),
-								),
-							);
-						}}
-					>{`Add ${property.label}`}</Button>
-				) : (
-					<NodeControl {...props} />
-				)}
-				{!required && value !== undefined && value !== null ? (
-					<Button
-						variant="ghost"
-						className="self-start"
-						onClick={() => props.onChange(null)}
-						aria-label={`Clear ${property.label}`}
-					>
-						Clear
-					</Button>
-				) : null}
-			</fieldset>
-			{readOnly ? (
-				<span className="text-xs text-text-subtle">Can't be changed after creation</span>
-			) : null}
-			{hasHelp ? (
-				<span id={`${id}-help`} className="text-xs text-text-subtle">
-					{property.description}
-				</span>
-			) : null}
-			{props.mode === "edit" && property.secret ? (
-				<span className="text-xs text-text-subtle">Leave blank to keep the current value.</span>
-			) : null}
-			{property.type === "datetime" ? (
-				<span className="text-xs text-text-subtle">{`Time zone: ${props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone}`}</span>
-			) : null}
-			{issue ? <FieldMessage id={`${id}-error`}>{issue.message}</FieldMessage> : null}
-		</NodeFrame>
 	);
 }
 
@@ -540,59 +427,74 @@ function ArrayControl(props: NodeProps) {
 		props.onChange(reorder(values));
 		props.context.onReorder?.();
 	};
+	const { icons } = props.context;
 	return (
-		<div className="flex min-w-0 flex-col gap-3">
+		<div className="flex min-w-0 flex-col gap-2">
 			{props.mode === "edit" && hasPropertySecrets(props.property) ? (
 				<span className="text-xs text-text-subtle">
 					Changing this list replaces it. Re-enter hidden secrets in every item.
 				</span>
 			) : null}
 			{values.map((value, index) => (
-				<div key={ids[index]} className="flex min-w-0 flex-col gap-2 border-l border-border pl-3">
-					<SchemaNode
-						{...props}
-						value={value}
-						mode="create"
-						addressable={false}
-						path={[...props.path, String(index)]}
-						property={{ ...item, label: `${props.property.label} item ${index + 1}` }}
-						onChange={(next) =>
-							props.onChange(
-								values.map((current, position) => (position === index ? (next ?? null) : current)),
-							)
-						}
-					/>
-					<div className="flex flex-wrap gap-2">
-						<Button
-							variant="secondary"
-							aria-label={`Remove ${props.property.label} item ${index + 1}`}
-							onClick={() => {
-								setRowState({ ...rows, ids: ids.filter((_, position) => position !== index) });
-								props.onChange(values.filter((_, position) => position !== index));
-							}}
-						>
-							Remove
-						</Button>
-						<Button
-							variant="ghost"
-							disabled={index === 0}
-							onClick={() => move(index, index - 1)}
-							aria-label={`Move ${props.property.label} item ${index + 1} up`}
-						>
-							Move up
-						</Button>
-						<Button
-							variant="ghost"
-							disabled={index === values.length - 1}
-							onClick={() => move(index, index + 1)}
-							aria-label={`Move ${props.property.label} item ${index + 1} down`}
-						>
-							Move down
-						</Button>
-					</div>
-				</div>
+				<SchemaNode
+					{...props}
+					value={value}
+					mode="create"
+					key={ids[index]}
+					addressable={false}
+					path={[...props.path, String(index)]}
+					property={{ ...item, label: `${props.property.label} item ${index + 1}` }}
+					onChange={(next) =>
+						props.onChange(
+							values.map((current, position) => (position === index ? (next ?? null) : current)),
+						)
+					}
+					item={{
+						index,
+						actions: (
+							<div className="flex shrink-0 items-center">
+								{values.length > 1 ? (
+									<>
+										<IconButton
+											size="sm"
+											disabled={index === 0}
+											onClick={() => move(index, index - 1)}
+											label={`Move ${props.property.label} item ${index + 1} up`}
+										>
+											<span aria-hidden="true" className="flex rotate-180">
+												{icons.chevron}
+											</span>
+										</IconButton>
+										<IconButton
+											size="sm"
+											disabled={index === values.length - 1}
+											onClick={() => move(index, index + 1)}
+											label={`Move ${props.property.label} item ${index + 1} down`}
+										>
+											<span className="flex" aria-hidden="true">
+												{icons.chevron}
+											</span>
+										</IconButton>
+									</>
+								) : null}
+								<IconButton
+									size="sm"
+									tone="danger"
+									label={`Remove ${props.property.label} item ${index + 1}`}
+									onClick={() => {
+										setRowState({ ...rows, ids: ids.filter((_, position) => position !== index) });
+										props.onChange(values.filter((_, position) => position !== index));
+									}}
+								>
+									{icons.remove}
+								</IconButton>
+							</div>
+						),
+					}}
+				/>
 			))}
 			<Button
+				size="sm"
 				variant="secondary"
 				className="self-start"
 				aria-label={`Add ${props.property.label} item`}
@@ -610,8 +512,166 @@ function ArrayControl(props: NodeProps) {
 					]);
 				}}
 			>
-				Add row
+				Add item
 			</Button>
+		</div>
+	);
+}
+
+function SchemaNode(props: NodeProps) {
+	const id = useId();
+	const { value, property } = props;
+	if (
+		isFixedEnumProperty(property) ||
+		(props.addressable && isAppSchemaPathHidden(props.context.schema, props.path, props.input))
+	) {
+		return null;
+	}
+	const required = props.addressable
+		? isAppSchemaPathEffectivelyRequired(props.context.schema, props.path, props.input)
+		: property.validation?.required === true;
+	const readOnly = props.mode === "edit" && property.immutable === true;
+	const hasHelp = props.item === undefined && property.description !== property.label;
+	const absentObject =
+		property.type === "object" &&
+		!property.validation?.asset &&
+		(value === undefined || value === null);
+	const issue = props.issues.find((candidate) => {
+		if (samePath(candidate.path, props.path)) {
+			return true;
+		}
+		if (!props.path.every((segment, index) => candidate.path[index] === segment)) {
+			return false;
+		}
+		return (
+			absentObject ||
+			(property.type === "object" &&
+				!Object.hasOwn(property.properties, candidate.path[props.path.length] ?? ""))
+		);
+	});
+	const control = describeSchemaFormField(props.path.at(-1) ?? "", property, props.mode).control;
+	const label = `${property.label}${required ? " *" : ""}`;
+	const clearable =
+		props.item === undefined &&
+		!required &&
+		value !== undefined &&
+		value !== null &&
+		clearableControls.has(control);
+	const fieldset = (
+		<fieldset
+			disabled={readOnly}
+			className="m-0 flex min-w-0 flex-col border-0 p-0 disabled:opacity-60"
+			aria-describedby={
+				[issue ? `${id}-error` : undefined, hasHelp ? `${id}-help` : undefined]
+					.filter((describedBy) => describedBy !== undefined)
+					.join(" ") || undefined
+			}
+		>
+			{absentObject ? (
+				<Button
+					size="sm"
+					variant="secondary"
+					className="self-start"
+					onClick={() => {
+						props.onChange(
+							Object.fromEntries(
+								Object.entries(
+									initialSchemaFormValues({ fields: property.properties }, props.context.timeZone),
+								).filter((entry): entry is [string, JsonValue] => entry[1] !== undefined),
+							),
+						);
+					}}
+				>{`Add ${property.label}`}</Button>
+			) : (
+				<NodeControl {...props} />
+			)}
+		</fieldset>
+	);
+	const error = issue ? <FieldMessage id={`${id}-error`}>{issue.message}</FieldMessage> : null;
+	if (props.item !== undefined) {
+		const card = control === "object" && !absentObject;
+		return (
+			<div
+				role={card ? "group" : undefined}
+				className="flex min-w-0 flex-col gap-1.5"
+				aria-label={card ? property.label : undefined}
+				data-invalid={issue !== undefined ? "true" : undefined}
+			>
+				{card ? (
+					fieldset
+				) : (
+					<div className="flex min-w-0 items-start gap-1">
+						<div className="min-w-0 flex-1">{fieldset}</div>
+						{props.item.actions}
+					</div>
+				)}
+				{error}
+			</div>
+		);
+	}
+	const clear = clearable ? (
+		<IconButton
+			size="sm"
+			label={`Clear ${property.label}`}
+			onClick={() => props.onChange(null)}
+			className="-my-1.5 text-text-subtle"
+		>
+			{props.context.icons.close}
+		</IconButton>
+	) : null;
+	const notes = (
+		<>
+			{hasHelp ? (
+				<span id={`${id}-help`} className="text-xs text-text-subtle">
+					{property.description}
+				</span>
+			) : null}
+			{readOnly ? (
+				<span className="text-xs text-text-subtle">Can't be changed after creation</span>
+			) : null}
+			{props.mode === "edit" && property.secret ? (
+				<span className="text-xs text-text-subtle">Leave blank to keep the current value.</span>
+			) : null}
+			{property.type === "datetime" ? (
+				<span className="text-xs text-text-subtle">{`Time zone: ${props.context.timeZone ?? new Intl.DateTimeFormat().resolvedOptions().timeZone}`}</span>
+			) : null}
+		</>
+	);
+	const grouped = property.type === "object" || property.type === "array";
+	return (
+		<div
+			role={grouped ? "group" : undefined}
+			className="flex min-w-0 flex-col gap-1.5"
+			aria-labelledby={grouped ? `${id}-label` : undefined}
+			data-invalid={issue !== undefined ? "true" : undefined}
+		>
+			{control === "switch" ? (
+				<div className="flex min-w-0 items-center justify-between gap-3">
+					<div className="flex min-w-0 flex-col gap-0.5">
+						<span id={`${id}-label`} className="text-label font-medium text-text">
+							{label}
+						</span>
+						{notes}
+					</div>
+					<div className="flex shrink-0 items-center gap-1">
+						{clear}
+						{fieldset}
+					</div>
+				</div>
+			) : (
+				<>
+					<div className="flex min-w-0 items-center justify-between gap-2">
+						<span id={`${id}-label`} className="text-label font-medium text-text">
+							{label}
+						</span>
+						{clear}
+					</div>
+					{grouped ? notes : null}
+					{fieldset}
+					{grouped ? null : notes}
+				</>
+			)}
+			{error}
 		</div>
 	);
 }
