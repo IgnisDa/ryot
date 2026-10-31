@@ -53,14 +53,17 @@ const recordingDatabaseLayer = <A, E, R>(
 				make({
 					insert: () => ({ values: (values) => Ref.update(inserts, (all) => [...all, values]) }),
 					select: () => ({
-						from: () => ({
-							where: () => ({
-								orderBy: () => ({
-									limit: (limit: number) =>
-										Ref.update(limits, (all) => [...all, limit]).pipe(Effect.as(rows)),
+						from: () => {
+							const query = {
+								where: () => ({
+									orderBy: () => ({
+										limit: (limit: number) =>
+											Ref.update(limits, (all) => [...all, limit]).pipe(Effect.as(rows)),
+									}),
 								}),
-							}),
-						}),
+							};
+							return { ...query, innerJoin: () => query };
+						},
 					}),
 				}),
 				Layer.succeed(RecordedDatabaseCalls, {
