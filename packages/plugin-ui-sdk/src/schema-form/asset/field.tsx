@@ -92,7 +92,7 @@ export function SchemaAssetField(props: {
 
 	return (
 		<div className="flex flex-col gap-1.5">
-			<ul className="m-0 grid list-none grid-cols-3 gap-2 p-0">
+			<ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(6rem,7.5rem))] gap-2 p-0">
 				{props.value.map((asset, index) => (
 					<li
 						key={assetKey(asset, index)}
@@ -134,7 +134,7 @@ export function SchemaAssetField(props: {
 							uploading ||
 							(!props.replace && props.maximum !== undefined && props.value.length >= props.maximum)
 						}
-						className="flex size-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-strong text-text-subtle disabled:opacity-50"
+						className="flex size-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border-strong text-text-subtle transition-colors duration-100 hover:border-text-subtle hover:bg-hover hover:text-text-muted disabled:opacity-50 motion-reduce:transition-none"
 					>
 						{uploading ? (
 							<span
