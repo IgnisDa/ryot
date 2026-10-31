@@ -23,7 +23,6 @@ import { useRef, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 
-import { ReminderReadiness } from "./readiness";
 import { type ReminderCommand, reminderCommandMutation } from "./service";
 
 type Reminder = RemindersResult["items"][number];
@@ -166,14 +165,9 @@ export function ReminderEditor(props: {
 				</>
 			}
 		>
-			<div className="grid gap-4">
-				<p className="text-sm text-text-muted">
-					Server reminders use your enabled notification channels. Delivery is checked every five
-					minutes by default; this is not a precise alarm.
-				</p>
-				<ReminderReadiness />
+			<div className="grid gap-5">
 				{initial?.originalSchedule ? (
-					<Notice tone="info">
+					<Notice tone="info" icon={<AppIcon size={16} name="history" />}>
 						Original schedule:{" "}
 						{initial.originalSchedule.date ?? initial.originalSchedule.dueAt ?? "Not available"}
 						{initial.originalSchedule.timezone ? ` (${initial.originalSchedule.timezone})` : ""}.
@@ -188,38 +182,48 @@ export function ReminderEditor(props: {
 						{(control) => (
 							<TextArea
 								{...control}
+								rows={3}
 								autoFocus
 								value={message}
 								maxLength={REMINDER_MESSAGE_MAX_LENGTH}
+								placeholder="What should this remind you about?"
 								onChange={(event) => setMessage(event.currentTarget.value)}
 							/>
 						)}
 					</Field>
-					<Field label="Date and time" error={wallTime === "" ? undefined : resolution.error}>
-						{(control) => (
-							<TextField
-								{...control}
-								step="any"
-								value={wallTime}
-								type="datetime-local"
-								onChange={(event) => {
-									setWallTime(event.currentTarget.value);
+					<div className="grid gap-4 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+						<Field label="Date and time" error={wallTime === "" ? undefined : resolution.error}>
+							{(control) => (
+								<TextField
+									{...control}
+									step="any"
+									value={wallTime}
+									className="w-full min-w-0"
+									type="datetime-local"
+									onChange={(event) => {
+										setWallTime(event.currentTarget.value);
+										setOccurrence("");
+									}}
+								/>
+							)}
+						</Field>
+						<div className="grid min-w-0 content-start gap-1.5">
+							<span aria-hidden="true" className="text-label font-medium text-text">
+								Timezone
+							</span>
+							<Select
+								{...selectIcons}
+								choices={zones}
+								label="Timezone"
+								value={timezone}
+								searchIcon={<AppIcon size={16} name="search" />}
+								onChange={(zone) => {
+									setTimezone(zone);
 									setOccurrence("");
 								}}
 							/>
-						)}
-					</Field>
-					<Select
-						{...selectIcons}
-						choices={zones}
-						label="Timezone"
-						value={timezone}
-						searchIcon={<AppIcon size={16} name="search" />}
-						onChange={(zone) => {
-							setTimezone(zone);
-							setOccurrence("");
-						}}
-					/>
+						</div>
+					</div>
 					{resolution.choices.length > 1 ? (
 						<Select
 							{...selectIcons}
@@ -231,8 +235,10 @@ export function ReminderEditor(props: {
 						/>
 					) : null}
 				</fieldset>
-				<p className="text-sm text-text-muted">
-					This saves one fixed instant. Travel and device timezone changes do not move it.
+				<p className="flex gap-2 text-xs text-text-subtle">
+					<AppIcon size={14} name="info" className="mt-px shrink-0" />
+					Saved as one fixed instant. Travel and device timezone changes do not move it. Delivery is
+					checked periodically, so it is not a precise alarm.
 				</p>
 				{failure ? <Notice tone="danger">{failure.detail}</Notice> : null}
 			</div>
