@@ -133,7 +133,7 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		const failure = media
-			.getByRole("alert")
+			.getByRole("status")
 			.filter({ hasText: `Couldn't load details from ${providerName}.` });
 		yield* failure.waitFor({ state: "visible", timeout: 150_000 });
 		expect((yield* getEntity(client, show.id)).populationStatus).toEqual({
@@ -144,11 +144,11 @@ it.live("shows a failed Media population and repopulates it after Try again", ()
 		yield* mediaProviders.update(provider.providerSlug, { detailsFailure: undefined });
 		yield* page.getByRole("button", { name: "Reload updated page" }).click();
 		yield* failure.waitFor({ state: "visible" });
-		yield* failure.locator("xpath=..").getByRole("button", { name: "Try again" }).click();
+		yield* failure.getByRole("button", { name: "Try again" }).click();
 		yield* media
 			.getByRole("heading", { level: 1, exact: true, name: populatedName })
 			.waitFor({ state: "visible", timeout: 150_000 });
-		expect(yield* media.getByRole("alert").count).toBe(0);
+		expect(yield* failure.count).toBe(0);
 		const populated = yield* pollUntil(
 			`show '${show.id}' population settled`,
 			getEntity(client, show.id).pipe(
