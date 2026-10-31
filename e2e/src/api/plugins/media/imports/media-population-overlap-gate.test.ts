@@ -38,117 +38,120 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 
 	afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
-	it.live("completes repeated overlapping five- and twenty-import runs without deadlocks", () =>
-		Effect.gen(function* () {
-			const user = yield* createAuthenticatedClient(target);
-			const { schema } = yield* findMediaEntitySchema(user.client, "music");
-			const provider = yield* media.attachProvider({
-				rootEntitySchemaSlug: schema.id,
-				details: fakeProviderDetailsResult({
-					properties: {},
-					name: "Overlapping test track",
-					relatedEntityGroups: [
-						{
-							direction: "incoming",
-							synchronization: "additive",
-							relationshipSchemaSlug: "person-to-music",
-							entities: [
-								{
-									name: "Shared artist alpha",
-									externalId: "overlap-artist-alpha",
-									providerSlug: "person.youtube-music",
-									relationshipProperties: { roles: ["Artist"] },
-								},
-								{
-									name: "Shared artist zeta",
-									externalId: "overlap-artist-zeta",
-									providerSlug: "person.youtube-music",
-									relationshipProperties: { roles: ["Artist"] },
-								},
-							],
-						},
-						{
-							direction: "incoming",
-							synchronization: "additive",
-							relationshipSchemaSlug: "music-group-to-music",
-							entities: [
-								{
-									name: "Shared album",
-									externalId: "overlap-album",
-									providerSlug: "music-group.youtube-music",
-									relationshipProperties: { roles: ["Member"] },
-								},
-							],
-						},
-					],
-				}),
-			});
-			const baseline = yield* sampleOperationalPressure(
-				[`overlap-baseline-${yield* randomUuid}`],
-				target,
-			);
+	it.live(
+		"completes repeated overlapping five- and twenty-import runs without deadlocks",
+		() =>
+			Effect.gen(function* () {
+				const user = yield* createAuthenticatedClient(target);
+				const { schema } = yield* findMediaEntitySchema(user.client, "music");
+				const provider = yield* media.attachProvider({
+					rootEntitySchemaSlug: schema.id,
+					details: fakeProviderDetailsResult({
+						properties: {},
+						name: "Overlapping test track",
+						relatedEntityGroups: [
+							{
+								direction: "incoming",
+								synchronization: "additive",
+								relationshipSchemaSlug: "person-to-music",
+								entities: [
+									{
+										name: "Shared artist alpha",
+										externalId: "overlap-artist-alpha",
+										providerSlug: "person.youtube-music",
+										relationshipProperties: { roles: ["Artist"] },
+									},
+									{
+										name: "Shared artist zeta",
+										externalId: "overlap-artist-zeta",
+										providerSlug: "person.youtube-music",
+										relationshipProperties: { roles: ["Artist"] },
+									},
+								],
+							},
+							{
+								direction: "incoming",
+								synchronization: "additive",
+								relationshipSchemaSlug: "music-group-to-music",
+								entities: [
+									{
+										name: "Shared album",
+										externalId: "overlap-album",
+										providerSlug: "music-group.youtube-music",
+										relationshipProperties: { roles: ["Member"] },
+									},
+								],
+							},
+						],
+					}),
+				});
+				const baseline = yield* sampleOperationalPressure(
+					[`overlap-baseline-${yield* randomUuid}`],
+					target,
+				);
 
-			for (const concurrency of CONCURRENCY_LEVELS) {
-				for (let repetition = 0; repetition < REPETITIONS; repetition += 1) {
-					const prefix = `overlap-${concurrency}-${repetition}-${yield* randomUuid}`;
-					const runs = yield* Effect.forEach(
-						Array.from({ length: concurrency }, (_, index) => index),
-						(index) =>
-							startMediaPopulationGate(
-								{
-									itemCount: 1,
-									entitySchemaSlug: schema.id,
-									executingUserId: user.userId,
-									providerId: provider.providerId,
-									identifierPrefix: `${prefix}-${index}`,
-								},
-								target,
-							),
-						{ concurrency: "unbounded" },
-					);
-					const deadline = (yield* Clock.currentTimeMillis) + GATE_TIMEOUT_MS;
-					let results = yield* Effect.forEach(
-						runs,
-						(run) => getMediaPopulationGateResult(run, target),
-						{ concurrency: "unbounded" },
-					);
-					while (
-						results.some((result) => result.executions.some(({ status }) => status === "pending"))
-					) {
-						if ((yield* Clock.currentTimeMillis) >= deadline) {
-							return yield* Effect.die(
-								new Error(`Overlap gate timed out at concurrency ${concurrency}`),
-							);
-						}
-						yield* Effect.sleep(POLL_INTERVAL);
-						results = yield* Effect.forEach(
+				for (const concurrency of CONCURRENCY_LEVELS) {
+					for (let repetition = 0; repetition < REPETITIONS; repetition += 1) {
+						const prefix = `overlap-${concurrency}-${repetition}-${yield* randomUuid}`;
+						const runs = yield* Effect.forEach(
+							Array.from({ length: concurrency }, (_, index) => index),
+							(index) =>
+								startMediaPopulationGate(
+									{
+										itemCount: 1,
+										entitySchemaSlug: schema.id,
+										executingUserId: user.userId,
+										providerId: provider.providerId,
+										identifierPrefix: `${prefix}-${index}`,
+									},
+									target,
+								),
+							{ concurrency: "unbounded" },
+						);
+						const deadline = (yield* Clock.currentTimeMillis) + GATE_TIMEOUT_MS;
+						let results = yield* Effect.forEach(
 							runs,
 							(run) => getMediaPopulationGateResult(run, target),
 							{ concurrency: "unbounded" },
 						);
-					}
-
-					for (const result of results) {
-						for (const execution of result.executions) {
-							expect(execution.status).toBe("completed");
-							const output = yield* Schema.decodeUnknownEffect(MediaImportPopulationWorkflowOutput)(
-								execution.output,
+						while (
+							results.some((result) => result.executions.some(({ status }) => status === "pending"))
+						) {
+							if ((yield* Clock.currentTimeMillis) >= deadline) {
+								return yield* Effect.die(
+									new Error(`Overlap gate timed out at concurrency ${concurrency}`),
+								);
+							}
+							yield* Effect.sleep(POLL_INTERVAL);
+							results = yield* Effect.forEach(
+								runs,
+								(run) => getMediaPopulationGateResult(run, target),
+								{ concurrency: "unbounded" },
 							);
-							expect(output.results).toHaveLength(1);
-							expect(output.results[0]?.status).toBe("completed");
+						}
+
+						for (const result of results) {
+							for (const execution of result.executions) {
+								expect(execution.status).toBe("completed");
+								const output = yield* Schema.decodeUnknownEffect(
+									MediaImportPopulationWorkflowOutput,
+								)(execution.output);
+								expect(output.results).toHaveLength(1);
+								expect(output.results[0]?.status).toBe("completed");
+							}
 						}
 					}
 				}
-			}
 
-			const finalPressure = yield* sampleOperationalPressure(
-				[`overlap-final-${yield* randomUuid}`],
-				target,
-			);
-			expect(finalPressure.database.deadlocks - baseline.database.deadlocks).toBe(0);
-			expect(finalPressure.database.lockWaitingConnections).toBe(0);
-			expect(finalPressure.locks.waitingAdvisoryLocks).toBe(0);
-			return undefined;
-		}),
+				const finalPressure = yield* sampleOperationalPressure(
+					[`overlap-final-${yield* randomUuid}`],
+					target,
+				);
+				expect(finalPressure.database.deadlocks - baseline.database.deadlocks).toBe(0);
+				expect(finalPressure.database.lockWaitingConnections).toBe(0);
+				expect(finalPressure.locks.waitingAdvisoryLocks).toBe(0);
+				return undefined;
+			}),
+		GATE_TIMEOUT_MS + 30_000,
 	);
 });

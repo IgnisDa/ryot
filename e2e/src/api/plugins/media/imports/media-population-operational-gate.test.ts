@@ -38,131 +38,136 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 
 	afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
-	it.live("completes two concurrent full-size imports through durable infrastructure", () =>
-		Effect.gen(function* () {
-			const firstUser = yield* createAuthenticatedClient(target);
-			const secondUser = yield* createAuthenticatedClient(target);
-			const { schema } = yield* findMediaEntitySchema(firstUser.client, "book");
-			const provider = yield* media.attachProvider({
-				rootEntitySchemaSlug: schema.id,
-				details: fakeProviderDetailsResult({
-					properties: {},
-					name: "Phase 3 Operational Gate Book",
-				}),
-			});
-			const secondProvider = yield* media.attachProvider({
-				rootEntitySchemaSlug: schema.id,
-				details: fakeProviderDetailsResult({
-					properties: {},
-					name: "Phase 3 Operational Gate Book",
-				}),
-			});
-			const baseline = yield* sampleOperationalPressure(
-				[`phase-3-baseline-${yield* randomUuid}`],
-				target,
-			);
-			const startedAt = yield* Clock.currentTimeMillis;
-			const prefix = yield* randomUuid;
-			const runs = yield* Effect.forEach(
-				[
-					{
-						providerId: provider.providerId,
-						executingUserId: firstUser.userId,
-						identifierPrefix: `${prefix}-first`,
-					},
-					{
-						executingUserId: secondUser.userId,
-						identifierPrefix: `${prefix}-second`,
-						providerId: secondProvider.providerId,
-					},
-				],
-				(run) =>
-					startMediaPopulationGate(
-						{ ...run, itemCount: ITEM_COUNT, entitySchemaSlug: schema.id },
-						target,
-					),
-				{ concurrency: "unbounded" },
-			);
-			const deadline = startedAt + GATE_TIMEOUT_MS;
-			const executionIds = runs.flatMap((run) => run.executionIds);
-			let finalPressure = baseline;
-			let maxWaitingAdvisoryLocks = 0;
-			let maxConcurrentPendingRuns = 0;
-			let maxActiveSandboxExecutions = 0;
-			let finalResults = yield* Effect.forEach(
-				runs,
-				(run) => getMediaPopulationGateResult(run, target),
-				{ concurrency: "unbounded" },
-			);
-
-			for (;;) {
-				const now = yield* Clock.currentTimeMillis;
-				if (now >= deadline) {
-					return yield* Effect.die(
-						new Error(`Phase 3 operational gate exceeded ${GATE_TIMEOUT_MS}ms`),
-					);
-				}
-				const [pressure, results] = yield* Effect.all(
+	it.live(
+		"completes two concurrent full-size imports through durable infrastructure",
+		() =>
+			Effect.gen(function* () {
+				const firstUser = yield* createAuthenticatedClient(target);
+				const secondUser = yield* createAuthenticatedClient(target);
+				const { schema } = yield* findMediaEntitySchema(firstUser.client, "book");
+				const provider = yield* media.attachProvider({
+					rootEntitySchemaSlug: schema.id,
+					details: fakeProviderDetailsResult({
+						properties: {},
+						name: "Phase 3 Operational Gate Book",
+					}),
+				});
+				const secondProvider = yield* media.attachProvider({
+					rootEntitySchemaSlug: schema.id,
+					details: fakeProviderDetailsResult({
+						properties: {},
+						name: "Phase 3 Operational Gate Book",
+					}),
+				});
+				const baseline = yield* sampleOperationalPressure(
+					[`phase-3-baseline-${yield* randomUuid}`],
+					target,
+				);
+				const startedAt = yield* Clock.currentTimeMillis;
+				const prefix = yield* randomUuid;
+				const runs = yield* Effect.forEach(
 					[
-						sampleOperationalPressure(executionIds, target),
-						Effect.forEach(runs, (run) => getMediaPopulationGateResult(run, target), {
-							concurrency: "unbounded",
-						}),
+						{
+							providerId: provider.providerId,
+							executingUserId: firstUser.userId,
+							identifierPrefix: `${prefix}-first`,
+						},
+						{
+							executingUserId: secondUser.userId,
+							identifierPrefix: `${prefix}-second`,
+							providerId: secondProvider.providerId,
+						},
 					],
+					(run) =>
+						startMediaPopulationGate(
+							{ ...run, itemCount: ITEM_COUNT, entitySchemaSlug: schema.id },
+							target,
+						),
 					{ concurrency: "unbounded" },
 				);
-				finalPressure = pressure;
-				finalResults = results;
-				maxWaitingAdvisoryLocks = Math.max(
-					maxWaitingAdvisoryLocks,
-					pressure.locks.waitingAdvisoryLocks,
+				const deadline = startedAt + GATE_TIMEOUT_MS;
+				const executionIds = runs.flatMap((run) => run.executionIds);
+				let finalPressure = baseline;
+				let maxWaitingAdvisoryLocks = 0;
+				let maxConcurrentPendingRuns = 0;
+				let maxActiveSandboxExecutions = 0;
+				let finalResults = yield* Effect.forEach(
+					runs,
+					(run) => getMediaPopulationGateResult(run, target),
+					{ concurrency: "unbounded" },
 				);
-				maxActiveSandboxExecutions = Math.max(
-					maxActiveSandboxExecutions,
-					pressure.sandbox.activeExecutions,
-				);
-				const pendingRuns = results.filter((result) =>
-					result.executions.some(({ status }) => status === "pending"),
-				).length;
-				maxConcurrentPendingRuns = Math.max(maxConcurrentPendingRuns, pendingRuns);
-				if (
-					results.every((result) => result.executions.every(({ status }) => status !== "pending"))
-				) {
-					break;
-				}
-				yield* Effect.sleep(POLL_INTERVAL);
-			}
 
-			const resultCounts = yield* Effect.forEach(finalResults, (run) =>
-				Effect.map(
-					Effect.forEach(run.executions, (execution) => {
-						expect(execution.status).toBe("completed");
-						return Schema.decodeUnknownEffect(MediaImportPopulationWorkflowOutput)(
-							execution.output,
+				for (;;) {
+					const now = yield* Clock.currentTimeMillis;
+					if (now >= deadline) {
+						return yield* Effect.die(
+							new Error(`Phase 3 operational gate exceeded ${GATE_TIMEOUT_MS}ms`),
 						);
-					}),
-					(outputs) => {
-						const results = outputs.flatMap((output) => output.results);
-						expect(results).toHaveLength(ITEM_COUNT);
-						expect(results.filter(({ status }) => status !== "completed").slice(0, 5)).toEqual([]);
-						return results.length;
-					},
-				),
-			);
-			const sandboxExecutionCount =
-				finalPressure.sandbox.totalExecutions - baseline.sandbox.totalExecutions;
-			const deadlockCount = finalPressure.database.deadlocks - baseline.database.deadlocks;
+					}
+					const [pressure, results] = yield* Effect.all(
+						[
+							sampleOperationalPressure(executionIds, target),
+							Effect.forEach(runs, (run) => getMediaPopulationGateResult(run, target), {
+								concurrency: "unbounded",
+							}),
+						],
+						{ concurrency: "unbounded" },
+					);
+					finalPressure = pressure;
+					finalResults = results;
+					maxWaitingAdvisoryLocks = Math.max(
+						maxWaitingAdvisoryLocks,
+						pressure.locks.waitingAdvisoryLocks,
+					);
+					maxActiveSandboxExecutions = Math.max(
+						maxActiveSandboxExecutions,
+						pressure.sandbox.activeExecutions,
+					);
+					const pendingRuns = results.filter((result) =>
+						result.executions.some(({ status }) => status === "pending"),
+					).length;
+					maxConcurrentPendingRuns = Math.max(maxConcurrentPendingRuns, pendingRuns);
+					if (
+						results.every((result) => result.executions.every(({ status }) => status !== "pending"))
+					) {
+						break;
+					}
+					yield* Effect.sleep(POLL_INTERVAL);
+				}
 
-			expect(resultCounts).toEqual([ITEM_COUNT, ITEM_COUNT]);
-			expect(maxConcurrentPendingRuns).toBe(2);
-			expect(maxActiveSandboxExecutions).toBeGreaterThanOrEqual(2);
-			expect(maxWaitingAdvisoryLocks).toBe(0);
-			expect(deadlockCount).toBe(0);
-			expect(finalPressure.redis.projectionErrors).toBe(0);
-			expect(finalPressure.redis.projectionCount).toBeGreaterThanOrEqual(4);
-			expect(finalPressure.redis.maxJournalEntries).toBeGreaterThan(0);
-			expect(sandboxExecutionCount).toBeGreaterThanOrEqual(EXPECTED_MINIMUM_SANDBOX_EXECUTIONS);
-			return resultCounts;
-		}),
+				const resultCounts = yield* Effect.forEach(finalResults, (run) =>
+					Effect.map(
+						Effect.forEach(run.executions, (execution) => {
+							expect(execution.status).toBe("completed");
+							return Schema.decodeUnknownEffect(MediaImportPopulationWorkflowOutput)(
+								execution.output,
+							);
+						}),
+						(outputs) => {
+							const results = outputs.flatMap((output) => output.results);
+							expect(results).toHaveLength(ITEM_COUNT);
+							expect(results.filter(({ status }) => status !== "completed").slice(0, 5)).toEqual(
+								[],
+							);
+							return results.length;
+						},
+					),
+				);
+				const sandboxExecutionCount =
+					finalPressure.sandbox.totalExecutions - baseline.sandbox.totalExecutions;
+				const deadlockCount = finalPressure.database.deadlocks - baseline.database.deadlocks;
+
+				expect(resultCounts).toEqual([ITEM_COUNT, ITEM_COUNT]);
+				expect(maxConcurrentPendingRuns).toBe(2);
+				expect(maxActiveSandboxExecutions).toBeGreaterThanOrEqual(2);
+				expect(maxWaitingAdvisoryLocks).toBe(0);
+				expect(deadlockCount).toBe(0);
+				expect(finalPressure.redis.projectionErrors).toBe(0);
+				expect(finalPressure.redis.projectionCount).toBeGreaterThanOrEqual(4);
+				expect(finalPressure.redis.maxJournalEntries).toBeGreaterThan(0);
+				expect(sandboxExecutionCount).toBeGreaterThanOrEqual(EXPECTED_MINIMUM_SANDBOX_EXECUTIONS);
+				return resultCounts;
+			}),
+		GATE_TIMEOUT_MS + 30_000,
 	);
 });
