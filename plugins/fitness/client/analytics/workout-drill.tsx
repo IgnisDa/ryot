@@ -1,15 +1,12 @@
-import {
-	formatExactValue,
-	PluginLink,
-	type TimeZone,
-	useRyotViewport,
-} from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginLink, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
 	Dialog,
+	durationUnit,
 	EmptyState,
+	formatMetric,
 	LoadMoreButton,
 	MotionPresence,
 	StatusMessage,
@@ -24,6 +21,8 @@ import type {
 	AnalyticsScope,
 	WorkoutDrillRequest,
 } from "./reporting-model";
+
+const activeTimeUnit = durationUnit("seconds");
 
 type DrillWorkout = {
 	readonly id: string;
@@ -178,7 +177,7 @@ const workoutColumns = (timeZone: TimeZone): DataTableColumn<DrillWorkout>[] => 
 		header: "Active duration",
 		cellClassName: "px-3 py-2.5 text-right text-text-muted",
 		headerClassName: "px-3 py-2.5 text-right font-medium text-text-muted",
-		cell: (workout) => formatExactValue(workout.activeDuration, "seconds"),
+		cell: (workout) => formatMetric(workout.activeDuration, activeTimeUnit),
 	},
 ];
 

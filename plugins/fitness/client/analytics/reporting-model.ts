@@ -8,6 +8,7 @@ import {
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { measureUnit, type MetricUnit } from "@ryot-app/plugin-ui-sdk";
 
 import type {
 	fitnessAnalyticsTotalsRecipe,
@@ -18,7 +19,7 @@ import type {
 	fitnessWorkoutStartsByHourRecipe,
 	historicalFitnessRankingRecipe,
 } from "../../shared/analytics-recipes";
-import { fitnessMetricDefinitions } from "../../shared/fitness-metrics";
+import { fitnessMetricDefinitions, type FitnessMetricUnit } from "../../shared/fitness-metrics";
 import { smoothRuns } from "../../shared/measurement-metrics";
 import type { measurementSummaryRecipe } from "../../shared/measurement-recipes";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
@@ -62,23 +63,22 @@ export const metricDisplay = (
 	metric: keyof typeof fitnessMetricDefinitions,
 	value: null | number,
 	preferences: AnalyticsDisplayPreferences,
-): { readonly unit: string; readonly value: null | number } => {
-	const definition: { readonly unit: string } | { readonly measure: ConvertedMeasure } =
+): { readonly unit: MetricUnit; readonly value: null | number } => {
+	const definition: { readonly unit: FitnessMetricUnit } | { readonly measure: ConvertedMeasure } =
 		fitnessMetricDefinitions[metric];
 	if (!("measure" in definition)) {
 		return { value, unit: definition.unit };
 	}
-	return value === null
-		? { value, unit: displayMeasure(definition.measure, 0, preferences).unit }
-		: displayMeasure(definition.measure, value, preferences);
+	const display = displayMeasure(definition.measure, value ?? 0, preferences);
+	return { unit: measureUnit(display.unit), value: value === null ? null : display.value };
 };
 
 export type TrendBucket<Point> = {
 	readonly at: string;
-	readonly detail: string;
 	readonly value: null | number;
 	readonly source: null | Point;
 	readonly period: ReportingPeriod;
+	readonly detail: string | undefined;
 };
 
 export const trendBuckets = <Point extends { readonly at: string; readonly value: null | number }>(
@@ -97,24 +97,29 @@ export const trendBuckets = <Point extends { readonly at: string; readonly value
 		grouping: trend.grouping,
 	}).map((bucket) => {
 		const source = bucket.points[0] ?? null;
-		const missingDetail = emptyValue === 0 ? "No activity" : "No known value";
 		return {
 			source,
 			period: bucket.period,
 			at: bucket.period.startAt,
 			value: source === null ? emptyValue : source.value,
-			detail: source === null ? missingDetail : "Recorded bucket",
+			detail: source === null && emptyValue === null ? "No known value" : undefined,
 		};
 	});
 
 const processingDetail = {
-	ready: "",
-	pending: " · still processing",
-	failed: " · processing failed",
+	ready: [],
+	pending: ["Still processing"],
+	failed: ["Processing failed"],
 } as const;
 
-const trendBucketDetail = (point: AnalyticsTrendPoint) =>
-	`${point.knownValues ?? 0} of ${point.observations} with a value${processingDetail[point.processing]}`;
+const trendBucketDetail = (point: AnalyticsTrendPoint) => {
+	const known = point.knownValues ?? 0;
+	const parts = [
+		...(known < point.observations ? [`${known} of ${point.observations} with a value`] : []),
+		...processingDetail[point.processing],
+	];
+	return parts.length === 0 ? undefined : parts.join(" · ");
+};
 
 export const workoutTrendModel = (
 	current: AnalyticsTrend,
@@ -161,7 +166,7 @@ export const measurementTrendModel = (
 				detail:
 					bucket.source === null
 						? "No readings"
-						: `${bucket.source.readings} readings; grouped average${bucket.smoothing === null ? "" : `; ${bucket.smoothing}-point smoothing`}`,
+						: `Average of ${bucket.source.readings} ${bucket.source.readings === 1 ? "reading" : "readings"}${bucket.smoothing === null ? "" : ` · ${bucket.smoothing}-point smoothing`}`,
 			}),
 		);
 	};

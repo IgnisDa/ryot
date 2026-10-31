@@ -137,9 +137,7 @@ describe("fitness analytics section queries", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByText("Comparison ready")).toBeDefined()),
 				);
-				expect(screen.getByLabelText("Resolved comparison").textContent).toBe(
-					"2026-10-19 – 2026-10-25",
-				);
+				expect(screen.getByLabelText("Resolved comparison").textContent).toBe("Oct 19 – 25, 2026");
 				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
 				act(() => {
 					fireEvent.click(screen.getByRole("button", { name: "Refresh" }));

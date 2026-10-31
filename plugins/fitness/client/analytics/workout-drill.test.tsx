@@ -35,7 +35,7 @@ const scope: AnalyticsScope = {
 const request: WorkoutDrillRequest = {
 	selection,
 	title: "Upper back",
-	periodCaption: "2026-09-01 – 2026-09-03",
+	periodCaption: "Sep 1 – 3, 2026",
 	filter: { kind: "targets", id: "target-upper-back" },
 };
 
@@ -169,12 +169,12 @@ describe("Fitness analytics workout drill", () => {
 					const evening = within(table).getByRole("row", { name: /Evening session/ });
 					expect(within(morning).getByText(/^Sep 1, 2026(?:,| at)\s9:30\sPM$/u)).toBeDefined();
 					expect(within(morning).getByText("Unknown")).toBeDefined();
-					expect(within(evening).getByText("0 seconds")).toBeDefined();
+					expect(within(evening).getByText("0s")).toBeDefined();
 					expect(within(table).queryByRole("columnheader", { name: "Sets" })).toBeNull();
 					expect(within(table).queryByRole("columnheader", { name: "Volume" })).toBeNull();
 					expect(within(table).queryByRole("columnheader", { name: /personal best/i })).toBeNull();
 					expect(
-						screen.getByRole("heading", { name: "Upper back · 2026-09-01 – 2026-09-03" }),
+						screen.getByRole("heading", { name: "Upper back · Sep 1 – 3, 2026" }),
 					).toBeDefined();
 					expect(screen.getByText("2 workouts loaded")).toBeDefined();
 				} finally {

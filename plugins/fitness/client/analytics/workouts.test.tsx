@@ -47,6 +47,7 @@ const workoutPoint = (at: string, value: null | number) => ({
 	knownValues: value === null ? 0 : 1,
 });
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+const tableToggles = () => screen.getAllByRole("radio", { name: "Table" });
 
 const mountWorkouts = (
 	clock: ReturnType<typeof createTestRyotClock>,
@@ -116,7 +117,7 @@ const answerInitial = Effect.fnUntraced(function* (
 			page.replyQuery(request.requestId, {
 				outcome: "success",
 				response:
-					options.trend?.(text) ?? trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", 0)]),
+					options.trend?.(text) ?? trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", 1)]),
 			});
 		}
 	}
@@ -138,27 +139,27 @@ describe("Fitness analytics workout charts", () => {
 					}
 					yield* answerInitial(page, answered);
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("Workout starts")).toBeDefined()),
+						waitFor(() =>
+							expect(screen.getByRole("heading", { name: "Start times" })).toBeDefined(),
+						),
 					);
-					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getAllByText("View exact values")).toHaveLength(3)),
-					);
-					fireEvent.click(screen.getAllByText("View exact values")[1] ?? document.body);
+					yield* Effect.promise(() => waitFor(() => expect(tableToggles()).toHaveLength(3)));
+					fireEvent.click(tableToggles()[1] ?? document.body);
 					const hourTable = yield* Effect.promise(() =>
 						screen.findByRole("table", { name: "Workout starts by reporting hour exact values" }),
 					);
 					expect(within(hourTable).queryByRole("button")).toBeNull();
 					expect(drillRequests).toHaveLength(0);
 
-					fireEvent.click(screen.getAllByText("View exact values")[0] ?? document.body);
+					fireEvent.click(tableToggles()[0] ?? document.body);
 					fireEvent.click(
 						yield* Effect.promise(() =>
-							screen.findByRole("button", { name: /View records: 2026-03-01.*0 workouts/ }),
+							screen.findByRole("button", { name: "View records: Mar 1, 2026 · 1 workout" }),
 						),
 					);
 					expect(drillRequests).toEqual([
 						{
-							periodCaption: "2026-03-01",
+							periodCaption: "Mar 1, 2026",
 							title: "Workouts starting in this bucket",
 							selection: {
 								grouping: "day",
@@ -168,9 +169,9 @@ describe("Fitness analytics workout charts", () => {
 						},
 					]);
 
-					fireEvent.click(screen.getByRole("button", { name: "Trend metric: Workouts" }));
+					fireEvent.click(screen.getByRole("button", { name: "Show: Workouts" }));
 					const volumeOption = yield* Effect.promise(() =>
-						screen.findByRole("radio", { name: "Weight volume" }),
+						screen.findByRole("menuitemradio", { name: "Volume" }),
 					);
 					fireEvent.click(volumeOption);
 					const volumeRequest = yield* Effect.promise(() =>
@@ -192,19 +193,11 @@ describe("Fitness analytics workout charts", () => {
 					});
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(
-								screen.getByText("No recorded values. Missing data is not zero."),
-							).toBeDefined(),
+							expect(screen.getByText("No recorded values in this period.")).toBeDefined(),
 						),
 					);
-					fireEvent.click(screen.getAllByText("View exact values")[0] ?? document.body);
-					const volumeTable = yield* Effect.promise(() =>
-						screen.findByRole("table", {
-							name: "Weight volume by workout-start period exact values",
-						}),
-					);
-					expect(within(volumeTable).getByText(/Not recorded/)).toBeDefined();
-					expect(screen.getByText("Workout starts")).toBeDefined();
+					expect(tableToggles()).toHaveLength(2);
+					expect(screen.getByRole("heading", { name: "Start times" })).toBeDefined();
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());
@@ -237,23 +230,23 @@ describe("Fitness analytics workout charts", () => {
 								: trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", 2)]),
 					});
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("2026-01-29 – 2026-02-28")).toBeDefined()),
+						waitFor(() => expect(screen.getByText("Jan 29 – Feb 28, 2026")).toBeDefined()),
 					);
-					fireEvent.click(screen.getAllByText("View exact values")[0] ?? document.body);
+					fireEvent.click(tableToggles()[0] ?? document.body);
 					const trendTable = yield* Effect.promise(() =>
 						screen.findByRole("table", { name: "Workouts by workout-start period exact values" }),
 					);
-					expect(within(trendTable).getAllByRole("row")).toHaveLength(4);
-					expect(within(trendTable).getByText(/^4 workouts/)).toBeDefined();
+					expect(within(trendTable).getAllByRole("row")).toHaveLength(3);
+					expect(within(trendTable).getByText("4 workouts")).toBeDefined();
 					const priorBucket = within(trendTable).getAllByRole("button", {
-						name: /View records: 2026-01-29 – 2026-02-28/,
+						name: /View records: January 2026/,
 					})[0];
 					if (priorBucket === undefined) {
 						throw new Error("Expected the previous-period exact value action");
 					}
 					fireEvent.click(priorBucket);
 					expect(drillRequests.at(-1)).toEqual({
-						periodCaption: "2026-01-29 – 2026-01-31",
+						periodCaption: "Jan 29 – 31, 2026",
 						title: "Workouts starting in this bucket",
 						selection: {
 							grouping: "month",
@@ -286,13 +279,11 @@ describe("Fitness analytics workout charts", () => {
 				});
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(
-							screen.getByText("Showing the most recent 366 days of the selected period."),
-						).toBeDefined(),
+						expect(screen.getByText(/^Workout starts per day · .* · last 366 days$/)).toBeDefined(),
 					),
 				);
 				expect(
-					screen.getByRole("img", { name: /^Workout starts · 2025-12-31 – 2026-12-31$/ }),
+					screen.getByRole("img", { name: /^Workout starts · Dec 31, 2025 – Dec 31, 2026$/ }),
 				).toBeDefined();
 				expect(page.queryRequests("workoutTrend")).toHaveLength(2);
 			} finally {
@@ -316,7 +307,9 @@ describe("Fitness analytics workout charts", () => {
 						trend: () => trendResponse([workoutPoint("2026-03-01T00:00:00.000Z", 2)]),
 					});
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("Workout starts")).toBeDefined()),
+						waitFor(() =>
+							expect(screen.getByRole("heading", { name: "Start times" })).toBeDefined(),
+						),
 					);
 					page.send({ type: "page-refresh" });
 					yield* Effect.promise(() => clock.advance(0));
@@ -343,7 +336,12 @@ describe("Fitness analytics workout charts", () => {
 							expect(screen.getByText(/Could not update hourly workout starts/)).toBeDefined(),
 						),
 					);
-					expect(screen.getAllByText("2 workouts").length).toBeGreaterThan(0);
+					expect(
+						screen.getByRole("img", { name: "Workout starts by reporting hour" }),
+					).toBeDefined();
+					expect(
+						screen.getByRole("img", { name: "Workouts by workout-start period" }),
+					).toBeDefined();
 					fireEvent.click(screen.getByRole("button", { name: "Retry hourly workout starts" }));
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests("hours")).toHaveLength(3)),
@@ -356,7 +354,9 @@ describe("Fitness analytics workout charts", () => {
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests("workoutTrend")).toHaveLength(4)),
 					);
-					expect(screen.getAllByText("2 workouts").length).toBeGreaterThan(0);
+					expect(
+						screen.getByRole("img", { name: "Workouts by workout-start period" }),
+					).toBeDefined();
 					expect(page.queryRequests("hours")).toHaveLength(3);
 				} finally {
 					page.dispose();

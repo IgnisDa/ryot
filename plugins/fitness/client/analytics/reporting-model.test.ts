@@ -73,13 +73,25 @@ describe("trend buckets", () => {
 describe("exact quantities and comparisons", () => {
 	it("keeps exact table decimals and storage-unit conversions", () => {
 		const imperial = { energyUnit: "kJ", unitSystem: "imperial" } as const;
-		expect(metricDisplay("volume", 0.45359237, imperial)).toEqual({ value: 1, unit: "lb × reps" });
-		expect(metricDisplay("distance", 1.609344, imperial)).toEqual({ value: 1, unit: "mi" });
-		expect(metricDisplay("calories", 1, imperial)).toEqual({ unit: "kJ", value: 4.184 });
-		expect(metricDisplay("volume", null, imperial).value).toBeNull();
-		expect(metricDisplay("volume", 1.234567, { ...imperial, unitSystem: "metric" })).toEqual({
-			value: 1.234567,
-			unit: "kg × reps",
+		expect(metricDisplay("volume", 0.45359237, imperial)).toEqual({
+			value: 1,
+			unit: { kind: "measure", symbol: "lb × reps" },
+		});
+		expect(metricDisplay("distance", 1.609344, imperial)).toEqual({
+			value: 1,
+			unit: { symbol: "mi", kind: "measure" },
+		});
+		expect(metricDisplay("calories", 1, imperial)).toEqual({
+			value: 4.184,
+			unit: { symbol: "kJ", kind: "measure" },
+		});
+		expect(metricDisplay("volume", null, imperial)).toEqual({
+			value: null,
+			unit: { kind: "measure", symbol: "lb × reps" },
+		});
+		expect(metricDisplay("activeDuration", 90, imperial)).toEqual({
+			value: 90,
+			unit: { from: "seconds", kind: "duration" },
 		});
 	});
 	it("converts both workout periods without replacing prior dates or unknown volume", () => {
@@ -96,7 +108,7 @@ describe("exact quantities and comparisons", () => {
 		expect(model.current[0]?.value).toBe(1);
 		expect(model.previous?.[0]).toMatchObject({ value: 0, period: { startDate: "2024-02-24" } });
 		expect(model.current[1]?.value).toBeNull();
-		expect(model.unit).toBe("lb × reps");
+		expect(model.unit).toEqual({ kind: "measure", symbol: "lb × reps" });
 	});
 });
 
@@ -112,7 +124,7 @@ describe("measurement averages", () => {
 		expect(smooth[1]?.source).toEqual(data.points[1]);
 		expect(smooth[1]?.smoothing).toBe(3);
 		expect(measurementTrendModel(data, null, TimeZone.make("UTC"), true).current[1]?.detail).toBe(
-			"3 readings; grouped average; 3-point smoothing",
+			"Average of 3 readings · 3-point smoothing",
 		);
 	});
 	it("labels seven-point smoothing for long continuous known runs", () => {
@@ -149,7 +161,7 @@ describe("workout consistency", () => {
 		);
 		expect(model.days).toHaveLength(182);
 		expect(model.days[0]?.value).toBe(0);
-		expect(model.periodCaption).toBe("2023-09-03 – 2024-03-02");
+		expect(model.periodCaption).toBe("Sep 3, 2023 – Mar 2, 2024");
 	});
 	it("places recorded workouts on their local day", () => {
 		const model = consistencyModel(

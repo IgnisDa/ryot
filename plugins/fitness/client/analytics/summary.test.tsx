@@ -96,6 +96,8 @@ const totals = (overrides: Partial<Totals> = {}) => {
 	};
 };
 const documentText = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+const metricText = (label: string) =>
+	screen.getByText(label, { selector: "dt" }).parentElement?.textContent ?? "";
 
 const selection: AnalyticsScope["selection"] = {
 	grouping: "day",
@@ -174,20 +176,18 @@ describe("Fitness analytics summary UI", () => {
 					}),
 				});
 				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("5 readings")).toBeDefined()),
+					waitFor(() =>
+						expect(metricText("Measurement readings")).toBe("Measurement readings5readings"),
+					),
 				);
-				expect(screen.getByText("0 days")).toBeDefined();
-				expect(screen.getByText("2 entries")).toBeDefined();
-				expect(screen.getByText("5 readings")).toBeDefined();
-				expect(
-					screen.getByText(/Known subtotal · 0 workouts with duration · 1 missing/),
-				).toBeDefined();
-				expect(
-					screen.getByText(/Known subtotal · 0 workouts with energy · 1 missing/),
-				).toBeDefined();
-				expect(
-					screen.getAllByText(/Processing failed · values may be incomplete/).length,
-				).toBeGreaterThan(0);
+				expect(metricText("Active days")).toBe("Active days0days");
+				expect(metricText("Measurement entries")).toBe("Measurement entries2entries");
+				expect(metricText("Active time")).toBe("Active time—0 of 1 workouts timed");
+				expect(metricText("Energy")).toBe("Energy—0 of 1 workouts with energy");
+				expect(screen.queryByText("Distance", { selector: "dt" })).toBeNull();
+				expect(screen.getAllByText("Processing failed; may be incomplete").length).toBeGreaterThan(
+					0,
+				);
 			} finally {
 				page.dispose();
 				yield* Effect.promise(() => clock.dispose());
@@ -239,18 +239,27 @@ describe("Fitness analytics summary UI", () => {
 						});
 					}
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("8.368 kJ")).toBeDefined()),
+						waitFor(() =>
+							expect(metricText("Energy")).toBe(
+								"Energy≥8.37kJNew+8.37 kJ vs previous1 of 2 workouts with energy",
+							),
+						),
 					);
-					expect(screen.getByText("1.1023113109243878 lb × reps")).toBeDefined();
-					expect(screen.getByText("Personal-best awards")).toBeDefined();
-					expect(screen.getByText("Sets with personal bests")).toBeDefined();
-					expect(screen.getByText("3 awards")).toBeDefined();
-					expect(screen.getByText("2 sets")).toBeDefined();
-					expect(
-						screen.getAllByText(/2026-10-26 – 2026-11-01 vs 2026-10-19 – 2026-10-25 · New activity/)
-							.length,
-					).toBeGreaterThan(0);
-					expect(screen.getAllByText(/2026-10-19 – 2026-10-25/).length).toBeGreaterThan(0);
+					expect(metricText("Volume")).toBe(
+						"Volume1.1lb × repsNew+1.1 lb × reps vs previous period",
+					);
+					expect(metricText("Workouts")).toBe(
+						"Workouts2workouts↑ 100%+1 workout vs previous period",
+					);
+					expect(metricText("Active time")).toBe(
+						"Active time≥1m 31sNew+1m 31s vs previous period1 of 2 workouts timed",
+					);
+					expect(metricText("Personal bests")).toBe(
+						"Personal bests3personal bestsNew+3 personal bests vs previous",
+					);
+					expect(metricText("Sets with personal bests")).toBe(
+						"Sets with personal bests2sets↑ 100%+1 set vs previous",
+					);
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());

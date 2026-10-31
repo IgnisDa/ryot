@@ -1,9 +1,4 @@
-import {
-	formatExactValue,
-	periodCaption,
-	type TimeZone,
-	useRyotViewport,
-} from "@ryot-app/plugin-client-sdk/plugin";
+import { periodCaption, type TimeZone, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type Compared,
 	paginationItems,
@@ -15,13 +10,15 @@ import {
 	Checkbox,
 	Dialog,
 	EmptyState,
+	formatMetric,
 	LoadMoreButton,
+	measureUnit,
 	Notice,
 	QueryStatus,
 	Skeleton,
 } from "@ryot-app/plugin-ui-sdk";
 import { formatReportingDateTime, PeriodTrendChart } from "@ryot-app/plugin-ui-sdk/charts";
-import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
+import { type RefObject, useMemo, useRef, useState } from "react";
 
 import {
 	analyticsMeasurementMetricsQuery,
@@ -82,15 +79,6 @@ export function AnalyticsMeasurements(props: {
 
 function useSelectedReadings(scope: AnalyticsScope, metricId: string) {
 	return useReportedPages(measurementReadingsQuery, { ...scope, metricId });
-}
-
-function bucketDetail(bucket: {
-	readonly detail: string;
-	readonly source: null | MeasurementTrend["points"][number];
-}) {
-	return bucket.source === null
-		? bucket.detail
-		: `${bucket.detail}; source average ${formatExactValue(bucket.source.value, bucket.source.unit)}`;
 }
 
 function SelectedMeasurement(props: {
@@ -174,9 +162,15 @@ function TrendChart(props: {
 		[current, previous, smooth, timeZone],
 	);
 	const chartPoints = (buckets: NonNullable<typeof model.previous>) =>
-		buckets.map((bucket) => ({ at: bucket.at, value: bucket.value, detail: bucketDetail(bucket) }));
-	const unit = model.unit;
-	const formatValue = useCallback((value: number) => formatExactValue(value, unit), [unit]);
+		buckets.map((bucket) => ({
+			at: bucket.at,
+			value: bucket.value,
+			detail:
+				bucket.source === null || bucket.smoothing === null
+					? bucket.detail
+					: `${bucket.detail} · raw average ${formatMetric(bucket.source.value, measureUnit(bucket.source.unit ?? ""))}`,
+		}));
+	const unit = measureUnit(model.unit ?? "");
 	return (
 		<div className="flex min-w-0 flex-col gap-3">
 			{model.mixedUnits ? (
@@ -186,19 +180,18 @@ function TrendChart(props: {
 				</Notice>
 			) : (
 				<PeriodTrendChart
+					unit={unit}
+					mark="line"
 					compact={props.compact}
-					formatValue={formatValue}
 					timeZone={props.timeZone}
+					grouping={current.grouping}
 					current={chartPoints(model.current)}
+					label={periodCaption(current.period)}
 					ariaLabel={`${props.metric.name} bucket averages`}
-					label={`${props.metric.name} · Bucket averages · ${periodCaption(current.period)}`}
 					previous={
 						previous === null || model.previous === null
 							? undefined
-							: {
-									points: chartPoints(model.previous),
-									label: `Previous · ${periodCaption(previous.period)}`,
-								}
+							: { points: chartPoints(model.previous), label: periodCaption(previous.period) }
 					}
 				/>
 			)}
@@ -246,7 +239,7 @@ function ReadingsTable(props: {
 										{formatReportingDateTime(reading.occurredAt, timeZone)}
 									</th>
 									<td className="px-3 py-2 text-right tabular-nums">
-										{formatExactValue(reading.value, reading.unit)}
+										{[String(reading.value), reading.unit].filter(Boolean).join(" ")}
 									</td>
 									<td className="px-3 py-2 break-all">
 										{reading.entryId === null ? "—" : <code>{reading.entryId}</code>}

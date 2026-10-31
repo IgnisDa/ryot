@@ -1,10 +1,13 @@
-import { formatExactValue, periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
+import { periodCaption } from "@ryot-app/plugin-client-sdk/plugin";
 import { paginationItems, useReportedPages } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
+	countUnit,
 	EmptyState,
+	formatMetric,
 	LoadMoreButton,
+	type MetricUnit,
 	SegmentedControl,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
@@ -57,20 +60,25 @@ export function AnalyticsRankings(props: {
 	);
 }
 
+const setUnit = countUnit("set");
+const workoutUnit = countUnit("workout");
+const weightedSetUnit = countUnit("weighted set");
+const occurrenceUnit = countUnit("occurrence");
+
 const headerClassName = "px-3 py-2.5 text-right font-medium text-text-muted";
 const cellClassName = "px-3 py-2.5 text-right text-text-muted";
 
 const countColumn = (
 	id: string,
 	header: string,
-	unit: string,
+	unit: MetricUnit,
 	value: (row: AnalyticsRankingRow) => null | number,
 ): DataTableColumn<AnalyticsRankingRow> => ({
 	id,
 	header,
 	cellClassName,
 	headerClassName,
-	cell: (row) => formatExactValue(value(row), unit),
+	cell: (row) => formatMetric(value(row), unit),
 });
 
 type RankingTableProps = {
@@ -95,16 +103,16 @@ const rankingColumns = ({
 		headerClassName: "px-3 py-2.5 text-left font-medium text-text-muted",
 	},
 	...(kind === "targets"
-		? [countColumn("weighted-sets", "Weighted sets", "weighted sets", (row) => row.weightedSets)]
+		? [countColumn("weighted-sets", "Weighted sets", weightedSetUnit, (row) => row.weightedSets)]
 		: []),
-	countColumn("sets", "Recorded sets", "sets", (row) => row.sets),
+	countColumn("sets", "Recorded sets", setUnit, (row) => row.sets),
 	countColumn(
 		"occurrences",
 		"Exercise occurrences",
-		"occurrences",
+		occurrenceUnit,
 		(row) => row.exerciseOccurrences,
 	),
-	countColumn("workouts", "Distinct workouts", "workouts", (row) => row.workouts),
+	countColumn("workouts", "Distinct workouts", workoutUnit, (row) => row.workouts),
 	{
 		id: "actions",
 		headerClassName,
@@ -245,7 +253,9 @@ function RankingKindResults(props: {
 								) : (
 									<RankedBarList
 										rows={preview}
-										formatValue={(row) => formatExactValue(row.value, measureLabel)}
+										formatValue={(row) =>
+											formatMetric(row.value, kind === "targets" ? weightedSetUnit : setUnit)
+										}
 									/>
 								)}
 							</section>

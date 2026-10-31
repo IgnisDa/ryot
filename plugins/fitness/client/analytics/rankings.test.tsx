@@ -232,7 +232,7 @@ describe("Fitness analytics rankings", () => {
 				expect(opened).toEqual([
 					{
 						title: "Upper back",
-						periodCaption: "2026-10-26 – 2026-11-01",
+						periodCaption: "Oct 26 – Nov 1, 2026",
 						filter: { kind: "targets", id: "target-back" },
 						selection: {
 							grouping: "day",

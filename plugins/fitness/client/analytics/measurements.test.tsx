@@ -280,9 +280,9 @@ describe("Fitness analytics measurements", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(screen.getByLabelText("Metric 100 bucket averages")).toBeDefined()),
 				);
-				fireEvent.click(screen.getByText("View exact values"));
-				yield* Effect.promise(() => screen.findByText(/^0 stone/));
-				expect(screen.getAllByText(/Not recorded · No readings/)).toHaveLength(5);
+				fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+				yield* Effect.promise(() => screen.findByText("0 stone"));
+				expect(screen.getAllByText("No readings")).toHaveLength(5);
 			} finally {
 				yield* dispose(page, clock);
 			}
@@ -330,8 +330,8 @@ describe("Fitness analytics measurements", () => {
 				expect(
 					screen.getByText(/Smoothing uses rolling averages of the grouped bucket averages/),
 				).toBeDefined();
-				fireEvent.click(screen.getByText("View exact values"));
-				yield* Effect.promise(() => screen.findByText(/source average 2 custom-u/));
+				fireEvent.click(screen.getByRole("radio", { name: "Table" }));
+				yield* Effect.promise(() => screen.findByText(/raw average 2 custom-u/));
 				const readingsTable = screen.getByRole("table", { name: /Loaded measurement readings/ });
 				expect(within(readingsTable).getByText("12.75 custom-u")).toBeDefined();
 				expect(within(readingsTable).getByText("entry-plain-text").closest("a")).toBeNull();
@@ -368,16 +368,15 @@ describe("Fitness analytics measurements", () => {
 					response: pageResponse("readings", []),
 				});
 				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Previous · 2026-01-29 – 2026-02-28")).toBeDefined(),
-					),
+					waitFor(() => expect(screen.getByText("Jan 29 – Feb 28, 2026")).toBeDefined()),
 				);
-				fireEvent.click(screen.getByText("View exact values"));
+				fireEvent.click(screen.getByRole("radio", { name: "Table" }));
 				const table = yield* Effect.promise(() =>
 					screen.findByRole("table", { name: "Weight bucket averages exact values" }),
 				);
-				expect(within(table).getAllByRole("row")).toHaveLength(4);
-				expect(within(table).getByText(/Feb 1, 2026/)).toBeDefined();
+				expect(within(table).getAllByRole("row")).toHaveLength(3);
+				expect(within(table).getByText(/January 2026/)).toBeDefined();
+				expect(within(table).getAllByText(/February 2026/).length).toBeGreaterThan(0);
 			} finally {
 				yield* dispose(page, clock);
 			}
