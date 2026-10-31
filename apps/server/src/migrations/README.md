@@ -100,9 +100,11 @@ Plugin-owned definitions and views retain qualified stable plugin provenance; ke
 Seen conversion retains one source-supported cumulative baseline or explicit completion per original
 row, rather than interpolating quantities across `updated_at`. Each row gets `sourceRun: seen:<id>`;
 independent source records remain independent. Completion ordering keeps `finished_on` when present,
-otherwise the last update; partial progress uses its last update only for ordering. V1 has no retained
-precision tag, so these observations carry `dateUnknown: true`, including those with an ordering
-timestamp at midnight. No calendar day or hourly observation is inferred from timestamp shape.
+otherwise the last update; partial progress uses its last update only for ordering. A completion
+with `finished_on` is dated by it: a UTC-midnight value (V1 date-only imports write UTC midnight)
+becomes its `calendarDate`, any other value an exact instant. Completions without `finished_on` and
+all other observations carry `dateUnknown: true`; a show/podcast parent completion takes the date of
+the episode completion that finishes it.
 `startedOn` retains the available source start timestamp. Manual seconds convert to cumulative
 `timeSpent` minutes, including zero, on the fact carrying consumption. A resolved episode's terminal
 parent status does not repeat its child manual time.

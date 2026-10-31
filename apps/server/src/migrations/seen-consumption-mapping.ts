@@ -173,15 +173,22 @@ export const buildSeenConsumptionFactsSql = (mediaPluginId: string) => `
 	})}
 `;
 
+const finishedOnDateSql = (finishedOn: string) => `jsonb_strip_nulls(jsonb_build_object(
+	'dateUnknown', CASE WHEN ${finishedOn} IS NULL THEN true END,
+	'calendarDate', CASE WHEN (${finishedOn} AT TIME ZONE 'UTC')::time = '00:00'
+		THEN to_char(${finishedOn} AT TIME ZONE 'UTC', 'YYYY-MM-DD') END
+))`;
+
+/** `finishedOn` dates a completion; observations without it keep `dateUnknown`. */
 export const seenConsumptionPropertiesSql = (
 	alias: string,
-) => `jsonb_strip_nulls(jsonb_build_object(
+	finishedOn: null | string,
+) => `(${finishedOn === null ? `'{"dateUnknown": true}'::jsonb` : finishedOnDateSql(finishedOn)} || jsonb_strip_nulls(jsonb_build_object(
 	'consumptionBasis', jsonb_strip_nulls(jsonb_build_object(
 		'unit', ${alias}.basis_unit,
 		'property', ${alias}.basis_property,
 		'total', ${alias}.basis_total::numeric / ${alias}.basis_divisor
 	)),
-	'dateUnknown', true,
 	'sourceRun', 'seen:' || ${alias}.seen_id,
 	'timeSpent', ${alias}.manual_time_spent / 60.0,
 	'startedOn', to_char(${alias}.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
@@ -191,4 +198,4 @@ export const seenConsumptionPropertiesSql = (
 		'position', COALESCE(${alias}.source_position, ${alias}.source_volume)::numeric,
 		'percent', ${alias}.progress
 	) END
-))`;
+)))`;

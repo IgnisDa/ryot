@@ -141,7 +141,9 @@ BEGIN
 		COALESCE(ev.order_created_at, ev.created_at) AS created_at,
 		COALESCE(ev.order_key, ev.id) AS order_key,
 		ev.occurred_at,
-		NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on
+		NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on,
+		ev.properties -> 'dateUnknown' AS date_unknown,
+		ev.properties -> 'calendarDate' AS calendar_date
 	FROM "event" ev
 	INNER JOIN _seen_required_coverage required
 		ON  required.entity_id = ev.session_entity_id
@@ -196,7 +198,8 @@ BEGIN
 		covered_sources := '{}'::jsonb;
 
 		FOR event_rec IN
-			SELECT event_id, coverage_key, event_schema_slug, created_at, occurred_at, order_key, consumed_on
+			SELECT event_id, coverage_key, event_schema_slug, created_at, occurred_at, order_key, consumed_on,
+				date_unknown, calendar_date
 			FROM _seen_child_lifecycle
 			WHERE user_id = entity_rec.user_id
 			  AND entity_id = entity_rec.entity_id
@@ -249,7 +252,8 @@ BEGIN
 					jsonb_strip_nulls(jsonb_build_object(
 						'consumedOn', agreed_consumed_on,
 						'consumptionBasis', jsonb_build_object('unit', 'episodes'),
-						'dateUnknown', true,
+						'dateUnknown', event_rec.date_unknown,
+						'calendarDate', event_rec.calendar_date,
 						'completionKey', occurrence_id,
 						'completionSilent', true
 					)),
@@ -274,7 +278,9 @@ BEGIN
 						'expectedOccurredAt', to_char(event_rec.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 						'expectedOrderCreatedAt', to_char(event_rec.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 						'expectedOrderKey', event_rec.order_key || '~parent',
-						'expectedDateUnknown', true, 'expectedConsumedOn', agreed_consumed_on,
+						'expectedDateUnknown', event_rec.date_unknown,
+						'expectedCalendarDate', event_rec.calendar_date,
+						'expectedConsumedOn', agreed_consumed_on,
 						'expectedConsumptionBasis', jsonb_build_object('unit', 'episodes')
 					)), event_rec.created_at, event_rec.occurred_at
 				);

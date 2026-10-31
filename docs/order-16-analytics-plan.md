@@ -1625,8 +1625,10 @@ is claimed by this inventory.
   The adapter writes cumulative minutes on the source fact, including partial progress and resolved
   show/podcast completions. Parent terminal status does not repeat the resolved child's manual time.
 - `started_on` and `finished_on` are nullable timestamps. V1 explicitly supports completed records
-  without dates. Available timestamps remain ordering/start evidence. All migrated source facts use
-  `dateUnknown: true`; the README's claim that V1 completion dates are always known has been removed.
+  without dates. Available timestamps remain ordering/start evidence. Follow-up decision: a migrated
+  completion with `finished_on` is dated by it (UTC midnight → `calendarDate`, otherwise an
+  instant); completions without it and all other migrated facts use `dateUnknown: true`. Marking
+  every migrated fact undated hid all V1 history from period analytics.
 - V1 has no date-precision discriminator or source-import identity on `seen`. Date-only importers
   use `convert_naive_to_utc` in `crates/utils/common/src/lib.rs`, which writes UTC midnight. The UI
   also accepts custom dates and stores UTC timestamps. Midnight alone cannot prove original date

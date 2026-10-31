@@ -103,7 +103,7 @@ BEGIN
 			md5(r.seen_id || ':baseline'), r.user_id,
 			COALESCE(r.episode_entity_id, r.metadata_id), 'progress', ${quoteSqlString(mediaPluginId)},
 			r.episode_session_id,
-			${seenConsumptionPropertiesSql("r")} || jsonb_strip_nulls(jsonb_build_object(
+			${seenConsumptionPropertiesSql("r", null)} || jsonb_strip_nulls(jsonb_build_object(
 				'progressPercent', CASE WHEN r.item_unit IS NULL AND r.progress > 0 THEN r.progress END,
 				'mangaVolume', CASE WHEN r.item_unit = 'chapters' THEN r.source_volume::numeric END
 			)),
@@ -128,14 +128,14 @@ BEGIN
 			CASE WHEN r.item_unit IS NOT NULL THEN 'item-complete' ELSE 'complete' END,
 			${quoteSqlString(mediaPluginId)}, r.episode_session_id,
 			CASE WHEN r.item_unit IS NOT NULL THEN
-				(${seenConsumptionPropertiesSql("r")} - 'sourceProgress') || jsonb_build_object(
+				(${seenConsumptionPropertiesSql("r", "r.finished_on")} - 'sourceProgress') || jsonb_build_object(
 					'consumedItem', jsonb_strip_nulls(jsonb_build_object(
 						'unit', r.item_unit,
 						'position', COALESCE(r.source_position, r.source_volume)::numeric,
 						'volume', CASE WHEN r.item_unit = 'chapters' THEN r.source_volume::numeric END
 					))
 				)
-			ELSE ${seenConsumptionPropertiesSql("r")} END,
+			ELSE ${seenConsumptionPropertiesSql("r", "r.finished_on")} END,
 			r.ordering_time, COALESCE(r.finished_on, r.ordering_time)
 		FROM _legacy_seen_consumption r
 		WHERE r.seen_id > cursor_id AND r.seen_id <= next_cursor_id
@@ -164,7 +164,7 @@ BEGIN
 					'timeSpent', CASE WHEN r.episode_entity_id IS NULL THEN r.manual_time_spent / 60.0 END,
 					'startedOn', to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
 				))
-			ELSE ${seenConsumptionPropertiesSql("r")} || jsonb_strip_nulls(jsonb_build_object(
+			ELSE ${seenConsumptionPropertiesSql("r", null)} || jsonb_strip_nulls(jsonb_build_object(
 				'progressPercent', CASE WHEN r.item_unit IS NULL AND r.progress > 0 THEN r.progress END,
 				'mangaVolume', CASE WHEN r.item_unit = 'chapters' THEN r.source_volume::numeric END
 			)) END,
