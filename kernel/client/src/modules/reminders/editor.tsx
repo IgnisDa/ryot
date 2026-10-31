@@ -198,8 +198,8 @@ export function ReminderEditor(props: {
 									{...control}
 									step="any"
 									value={wallTime}
-									className="w-full min-w-0"
 									type="datetime-local"
+									className="w-full min-w-0"
 									onChange={(event) => {
 										setWallTime(event.currentTarget.value);
 										setOccurrence("");
