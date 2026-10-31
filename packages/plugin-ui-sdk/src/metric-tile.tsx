@@ -52,37 +52,6 @@ export function ChartCard(props: {
 	);
 }
 
-export function DeltaBadge(props: {
-	readonly unit: MetricUnit;
-	readonly delta: MetricDelta;
-	readonly comparisonLabel: string;
-}) {
-	const { delta } = props;
-	if (delta.kind === "unavailable") {
-		return <span className="text-micro text-text-subtle">No comparison</span>;
-	}
-	const signed = `${delta.absolute > 0 ? "+" : ""}${formatMetric(delta.absolute, props.unit)}`;
-	let variant: "info" | "danger" | "neutral" | "success" = "neutral";
-	let text = "No change";
-	if (delta.kind === "new") {
-		variant = "info";
-		text = "New";
-	} else if (Math.round(delta.percent * 10) !== 0) {
-		variant = delta.percent > 0 ? "success" : "danger";
-		text = `${delta.percent > 0 ? "↑" : "↓"} ${formatPercent(delta.percent)}`;
-	}
-	return (
-		<span className="inline-flex min-w-0 items-center gap-1.5">
-			<Badge size="sm" variant={variant} className="tabular-nums">
-				{text}
-			</Badge>
-			<span className="truncate text-micro text-text-subtle">
-				{signed} {props.comparisonLabel}
-			</span>
-		</span>
-	);
-}
-
 /**
  * Labelled figures with an optional change badge. `tiles` give each headline figure its own
  * surface; `panel` shares one surface in a denser grid; `plain` adds no surface.
@@ -167,6 +136,37 @@ function MetricFigure(props: { readonly metric: Metric; readonly primary: boolea
 			{parts.unit === "" ? null : (
 				<span className="shrink-0 text-label text-text-muted">{parts.unit}</span>
 			)}
+		</span>
+	);
+}
+
+function DeltaBadge(props: {
+	readonly unit: MetricUnit;
+	readonly delta: MetricDelta;
+	readonly comparisonLabel: string;
+}) {
+	const { delta } = props;
+	if (delta.kind === "unavailable") {
+		return <span className="text-micro text-text-subtle">No comparison</span>;
+	}
+	const signed = `${delta.absolute > 0 ? "+" : ""}${formatMetric(delta.absolute, props.unit)}`;
+	let variant: "info" | "danger" | "neutral" | "success" = "neutral";
+	let text = "No change";
+	if (delta.kind === "new") {
+		variant = "info";
+		text = "New";
+	} else if (Math.round(delta.percent * 10) !== 0) {
+		variant = delta.percent > 0 ? "success" : "danger";
+		text = `${delta.percent > 0 ? "↑" : "↓"} ${formatPercent(delta.percent)}`;
+	}
+	return (
+		<span className="inline-flex min-w-0 items-center gap-1.5">
+			<Badge size="sm" variant={variant} className="tabular-nums">
+				{text}
+			</Badge>
+			<span className="truncate text-micro text-text-subtle">
+				{signed} {props.comparisonLabel}
+			</span>
 		</span>
 	);
 }
