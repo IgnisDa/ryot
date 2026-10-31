@@ -1,9 +1,6 @@
 import { Star } from "lucide-react";
 
-type StarRatingProps = {
-	filled: number;
-	total?: number;
-};
+type StarRatingProps = { filled: number; total?: number };
 
 export function StarRating(props: StarRatingProps) {
 	const total = props.total ?? 5;
@@ -15,9 +12,7 @@ export function StarRating(props: StarRatingProps) {
 				<Star
 					key={position}
 					className={
-						position < filled
-							? "w-4 h-4 fill-yellow-400 text-yellow-400"
-							: "w-4 h-4 text-gray-300"
+						position < filled ? "w-4 h-4 fill-yellow-400 text-yellow-400" : "w-4 h-4 text-gray-300"
 					}
 				/>
 			))}

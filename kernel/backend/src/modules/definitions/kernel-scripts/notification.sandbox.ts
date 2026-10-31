@@ -1,0 +1,53 @@
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+
+export const manifest = defineManifest({
+	kind: "automation",
+	name: "Signal Notification",
+	automationType: "automation",
+	slug: "automation.notification",
+	inputProjection: {
+		signal: { properties: ["providerName", "message", "entityTitle", "dueAt", "timezone"] },
+	},
+});
+
+const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
+	const value = properties[key];
+	if (typeof value !== "string") {
+		throw new Error(`Signal property ${key} must be a string`);
+	}
+	return value;
+};
+
+const formatMessage = (
+	signalSchemaSlug: string,
+	properties: Readonly<Record<string, JsonValue>>,
+) => {
+	if (signalSchemaSlug === "integration.disabled") {
+		return `Integration ${stringProperty(properties, "providerName")} has been disabled due to too many errors`;
+	}
+	if (signalSchemaSlug === "reminder.due") {
+		return `${stringProperty(properties, "entityTitle")}: ${stringProperty(properties, "message")}\nScheduled for ${stringProperty(properties, "dueAt")} (${stringProperty(properties, "timezone")})`;
+	}
+	throw new Error(`Unsupported signal schema: ${signalSchemaSlug}`);
+};
+
+export default defineAutomation({
+	manifest,
+	run: ({ automation }, host) => {
+		return Effect.gen(function* () {
+			if (automation.payload.resource !== "signal") {
+				return yield* Effect.die(new Error("Signal notification requires a signal source"));
+			}
+			if (automation.executionUserId === null) {
+				return yield* Effect.die(new Error("Signal notification requires an execution user"));
+			}
+			yield* host.sendNotification(
+				formatMessage(automation.payload.signalSchemaSlug, automation.payload.properties),
+			);
+			return null;
+		});
+	},
+});

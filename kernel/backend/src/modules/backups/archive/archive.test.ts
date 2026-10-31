@@ -1,0 +1,912 @@
+import { BunFileSystem } from "@effect/platform-bun";
+import { assert, expect, layer } from "@effect/vitest";
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import {
+	CLIENT_API_VERSION,
+	clientArtifactMetadata,
+	clientDeclarationHash,
+} from "@ryot-app/plugin-client-contract";
+import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Effect, FileSystem, Schema, Stream } from "effect";
+import { unzipSync, Zip, ZipPassThrough, zipSync } from "fflate";
+
+import { pluginContentHash } from "#modules/plugins/packages/pipeline";
+import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
+import { fixtureManifest } from "#modules/plugins/test-support";
+
+import { type CreateArchiveInput, createArchiveStream, validateArchive } from "./archive";
+import { BackupArchiveError } from "./error";
+import {
+	ArchiveEvent,
+	ArchiveManifest,
+	archivePluginDefinitionContract,
+	ArchivePrivatePlugin,
+	type ArchiveRecords,
+} from "./schemas";
+import { encodeNdjson, IncrementalSha256 } from "./streaming";
+
+const timestamp = "2026-08-23T12:00:00.000Z";
+const packageId = fixtureManifest().metadata.packageId;
+const systemKey = pluginPackageKey({ packageId, scope: "system" });
+const encoder = new TextEncoder();
+const savedViewEntity = table("entity", "fixture");
+const savedViewQuery = document({
+	savedView: rows(savedViewEntity, {
+		orderBy: [ascending(column(savedViewEntity, "name"))],
+		fields: [
+			field("id", column(savedViewEntity, "id")),
+			field("name", column(savedViewEntity, "name")),
+		],
+	}),
+});
+const records: ArchiveRecords = {
+	entities: [],
+	reminders: [],
+	integrations: [],
+	relationships: [],
+	privatePlugins: [],
+	entityDependencies: [],
+	notificationSubscriptions: [],
+	calendarSourceOverrides: [{ slug: "dates", isHidden: true, pluginKey: systemKey }],
+	profile: {
+		image: null,
+		name: "Test User",
+		preferences: {
+			language: null,
+			disableIntegrations: false,
+			reportingTimeZone: TimeZone.make("Asia/Tokyo"),
+		},
+	},
+	installations: [
+		{
+			config: {},
+			sortOrder: 0,
+			userSettings: {},
+			healthReason: null,
+			hiddenIntent: false,
+			isInitialized: true,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			packageKey: systemKey,
+			lifecycleIntent: "ready",
+			configuredSecretPaths: [],
+			incompatibilityReason: null,
+			homeSavedView: { kind: "custom", savedViewId: "view-1" },
+		},
+	],
+	savedViews: [
+		{
+			id: "view-1",
+			icon: "list",
+			sortOrder: 0,
+			kind: "custom",
+			name: "Fixture",
+			slug: "fixture",
+			pluginKey: null,
+			isHidden: false,
+			isBuiltin: false,
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			dataSources: savedViewQuery,
+			settings: { heading: "Fixture" },
+			renderer: { kind: "plugin", pluginKey: systemKey, exportName: "FixturePage" },
+		},
+	],
+};
+
+const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput => {
+	const events = new IncrementalSha256().digest();
+	return {
+		records,
+		assets: [],
+		redactions: [],
+		createdAt: timestamp,
+		archiveId: "archive-1",
+		appVersion: "backend-v1",
+		events: { ...events, count: 0, chunks: [] },
+		requiredPlugins: [
+			{
+				packageId,
+				version: "1.0.0",
+				contentHash: "a".repeat(64),
+				definitionContract: archivePluginDefinitionContract(fixtureManifest()),
+			},
+		],
+		...overrides,
+	};
+};
+
+const bytes = (chunks: Iterable<Uint8Array>) => {
+	const values = [...chunks];
+	const result = new Uint8Array(values.reduce((total, value) => total + value.byteLength, 0));
+	let offset = 0;
+	for (const value of values) {
+		result.set(value, offset);
+		offset += value.byteLength;
+	}
+	return result;
+};
+
+const archiveBytes = Effect.fn(function* (
+	archiveInput: CreateArchiveInput = input(),
+	overrides: Parameters<typeof createArchiveStream>[1] = {},
+) {
+	return bytes(yield* Stream.runCollect(createArchiveStream(archiveInput, overrides)));
+});
+
+const asChunks = (value: Uint8Array) => Stream.toAsyncIterable(Stream.make(value));
+
+const decodeManifest = (value: Uint8Array) =>
+	Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(new TextDecoder().decode(value)).pipe(
+		Effect.orDie,
+	);
+
+const updateManifest = Effect.fnUntraced(function* (
+	files: Record<string, Uint8Array>,
+	update: (manifest: ArchiveManifest) => ArchiveManifest,
+) {
+	const manifestFile = files["manifest.json"];
+	assert(manifestFile !== undefined);
+	const manifest = yield* Schema.encodeEffect(ArchiveManifest)(
+		update(yield* decodeManifest(manifestFile)),
+	).pipe(Effect.orDie);
+	files["manifest.json"] = encoder.encode(`${stableStringify(manifest)}\n`);
+});
+
+const mutateArchive = Effect.fn(function* (
+	archiveInput: CreateArchiveInput,
+	mutate: (files: Record<string, Uint8Array>) => Effect.Effect<void>,
+) {
+	const files = unzipSync(yield* archiveBytes(archiveInput)) as Record<string, Uint8Array>;
+	yield* mutate(files);
+	return zipSync(files);
+});
+
+const replaceSection = (
+	files: Record<string, Uint8Array>,
+	path: string,
+	payload: Uint8Array,
+	count?: number,
+) => {
+	const hash = new IncrementalSha256();
+	hash.update(payload);
+	const sha256 = hash.digest().sha256;
+	files[path] = payload;
+	return updateManifest(files, (manifest) => ({
+		...manifest,
+		sections: manifest.sections.map((section) =>
+			section.path === path
+				? Object.assign({}, section, { sha256, count: count ?? section.count })
+				: section,
+		),
+	}));
+};
+
+const validationError = Effect.fn(function* (
+	value: Uint8Array,
+	options: Parameters<typeof validateArchive>[1] = {},
+) {
+	return yield* validateArchive(asChunks(value), options).pipe(Effect.scoped, Effect.flip);
+});
+
+const event = (id = "event-1"): ArchiveEvent => ({
+	id,
+	orderKey: id,
+	properties: {},
+	entityId: "entity-1",
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	occurredAt: timestamp,
+	sessionEntityId: null,
+	orderCreatedAt: timestamp,
+	eventSchemaSlug: "changed",
+	eventSchemaPluginKey: null,
+});
+
+const eventsInput = (events: ReadonlyArray<ArchiveEvent>) => {
+	const chunks = [...encodeNdjson(events, ArchiveEvent)];
+	const hash = new IncrementalSha256();
+	for (const chunk of chunks) {
+		hash.update(chunk);
+	}
+	return { chunks, count: events.length, ...hash.digest() };
+};
+
+const entity = (): ArchiveRecords["entities"][number] => ({
+	id: "entity-1",
+	name: "Entity",
+	properties: {},
+	provider: null,
+	externalId: null,
+	populatedAt: null,
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	entitySchemaSlug: "entity",
+	entitySchemaPluginKey: null,
+});
+
+const integration = (packageKey: null | string): ArchiveRecords["integrations"][number] => ({
+	packageKey,
+	name: null,
+	lot: "sink",
+	isDisabled: false,
+	id: "integration-1",
+	syncOwnership: false,
+	minimumProgress: "0",
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	lastFinishedAt: null,
+	providerSpecifics: {},
+	maximumProgress: "100",
+	configuredSecretPaths: [],
+	extraSettings: { disableOnContinuousErrors: false },
+	provider: packageKey === null ? dataJsonSource : "import",
+});
+
+const assetInput = () => {
+	const payload = encoder.encode("asset payload");
+	const hash = new IncrementalSha256();
+	hash.update(payload);
+	const measured = hash.digest();
+	return {
+		payload,
+		asset: {
+			chunks: [payload],
+			metadata: {
+				size: measured.bytes,
+				sha256: measured.sha256,
+				contentType: "text/plain",
+				path: `assets/${measured.sha256}`,
+			},
+		},
+	};
+};
+
+const rawZip = (paths: ReadonlyArray<string>) => {
+	const chunks: Uint8Array[] = [];
+	const zip = new Zip((error, chunk) => {
+		if (error !== null) {
+			throw error;
+		}
+		chunks.push(chunk.slice());
+	});
+	for (const path of paths) {
+		const file = new ZipPassThrough(path);
+		zip.add(file);
+		file.push(encoder.encode("value"), true);
+	}
+	zip.end();
+	return bytes(chunks);
+};
+
+const excludedAccountArchiveSections = [
+	"automation-triggers.ndjson",
+	"automation-trigger-recipients.ndjson",
+	"automation-runs.ndjson",
+	"automation-run-attempts.ndjson",
+	"automation-artifacts.ndjson",
+	"automation-retry-state.ndjson",
+	"plugin-config-revisions.ndjson",
+	"plugin-environment-config.ndjson",
+	"plugin-config-encryption-key.json",
+] as const;
+
+layer(BunFileSystem.layer)((test) => {
+	test.effect("round-trips source-free compiled packages and binary client assets", () =>
+		Effect.gen(function* () {
+			const manifest = {
+				...fixtureManifest(),
+				client: {
+					homeView: null,
+					apiVersion: CLIENT_API_VERSION,
+					exports: {
+						card: {
+							entry: "client/card.tsx",
+							kind: "component" as const,
+							automaticEntityPresentations: false,
+						},
+					},
+				},
+			};
+			const files = [
+				...fixtureClientArtifact(
+					manifest.metadata.name,
+					manifest.metadata.packageId,
+					manifest.client,
+				).files,
+				{
+					name: "asset.png",
+					contentType: "image/png",
+					contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
+				},
+			];
+			const compiledClient = {
+				...clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, files, {
+					imports: [],
+					clientDeclarationHash: clientDeclarationHash(manifest.client),
+				}),
+				files,
+			};
+			const compiledScripts = manifest.scripts.map(({ entry }) => ({
+				entry,
+				format: 1,
+				javascript: "export {};",
+			}));
+			const contentHash = pluginContentHash(manifest, compiledScripts, compiledClient);
+			const privatePlugin = {
+				manifest,
+				contentHash,
+				compiledClient,
+				compiledScripts,
+				version: manifest.metadata.version,
+				packageId: manifest.metadata.packageId,
+				key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
+			};
+			const archive = yield* archiveBytes(
+				input({ records: { ...records, privatePlugins: [privatePlugin] } }),
+			);
+			const section = unzipSync(archive)["private-plugins.ndjson"];
+			assert(section);
+			const text = new TextDecoder().decode(section);
+			const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(ArchivePrivatePlugin))(text);
+			expect(decoded).not.toHaveProperty("files");
+			expect(decoded.compiledScripts).toEqual(compiledScripts);
+			expect(text).not.toContain('"source":');
+			expect(text).toContain('"contents":"AP+AQQ=="');
+			const validated = yield* validateArchive(asChunks(archive));
+			expect(validated.records.privatePlugins).toEqual([privatePlugin]);
+		}).pipe(Effect.scoped),
+	);
+
+	test.effect("creates deterministic V1 archives and validates the round trip", () =>
+		Effect.gen(function* () {
+			const first = yield* archiveBytes();
+			const second = yield* archiveBytes();
+			expect(first).toEqual(second);
+			const validated = yield* validateArchive(asChunks(first));
+			expect(validated.manifest.version).toBe(1);
+			expect(validated.records).toEqual(records);
+		}).pipe(Effect.scoped),
+	);
+
+	test.effect(
+		"round-trips shared installation keys across scopes without source installation IDs",
+		() =>
+			Effect.gen(function* () {
+				const installation = records.installations[0];
+				const view = records.savedViews[0];
+				assert(installation && view?.kind === "custom");
+				const manifest = fixtureManifest();
+				const privateKey = pluginPackageKey({ packageId, scope: "user" });
+				const archiveRecords: ArchiveRecords = {
+					...records,
+					installations: [{ ...installation, packageKey: privateKey }, installation],
+					integrations: [null, systemKey, systemKey, privateKey, privateKey].map((key, index) =>
+						Object.assign(integration(key), { id: `integration-${index}` }),
+					),
+					privatePlugins: [
+						{
+							manifest,
+							packageId,
+							key: privateKey,
+							compiledScripts: [],
+							version: manifest.metadata.version,
+							contentHash: pluginContentHash(manifest, []),
+						},
+					],
+					savedViews: [
+						view,
+						...[systemKey, privateKey].flatMap((pluginKey, index) =>
+							[1, 2].map((number) =>
+								Object.assign({}, view, {
+									pluginKey,
+									id: `view-${index}-${number}`,
+									slug: `view-${index}-${number}`,
+								}),
+							),
+						),
+					],
+				};
+				const first = yield* archiveBytes(input({ records: archiveRecords }));
+				const second = yield* archiveBytes(
+					input({
+						records: {
+							...archiveRecords,
+							installations: archiveRecords.installations.toReversed(),
+						},
+					}),
+				);
+				expect(first).toEqual(second);
+				const validated = yield* validateArchive(asChunks(first));
+				expect(validated.records.installations.map(({ packageKey }) => packageKey)).toEqual([
+					systemKey,
+					privateKey,
+				]);
+				expect(validated.records.savedViews).toEqual(
+					archiveRecords.savedViews.slice().sort((a, b) => a.id.localeCompare(b.id)),
+				);
+				expect(validated.records.integrations).toEqual(archiveRecords.integrations);
+				for (const state of validated.records.installations) {
+					expect(state).not.toHaveProperty("id");
+				}
+				for (const record of [...validated.records.savedViews, ...validated.records.integrations]) {
+					expect(record).not.toHaveProperty("installationId");
+				}
+			}).pipe(Effect.scoped),
+	);
+
+	test.effect("rejects duplicate installation keys and missing workspace or integration keys", () =>
+		Effect.gen(function* () {
+			const installation = records.installations[0];
+			const view = records.savedViews[0];
+			assert(installation && view?.kind === "custom");
+			for (const { path, values, reason } of [
+				{
+					path: "installations.ndjson",
+					reason: "duplicate_record_id",
+					values: [installation, installation],
+				},
+				{
+					path: "saved-views.ndjson",
+					reason: "missing_reference_mapping",
+					values: [{ ...view, pluginKey: pluginPackageKey({ packageId, scope: "user" }) }],
+				},
+				{
+					path: "integrations.ndjson",
+					reason: "missing_reference_mapping",
+					values: [integration(pluginPackageKey({ packageId, scope: "user" }))],
+				},
+				{
+					path: "installations.ndjson",
+					reason: "missing_reference_mapping",
+					values: [{ ...installation, packageKey: "undeclared" }],
+				},
+			] as const) {
+				const archive = yield* mutateArchive(input(), (files) => {
+					return replaceSection(
+						files,
+						path,
+						encoder.encode(values.map((value) => `${JSON.stringify(value)}\n`).join("")),
+						values.length,
+					);
+				});
+				expect((yield* validationError(archive)).reason).toBe(reason);
+			}
+			for (const associated of [
+				{ ...records, installations: [], savedViews: [{ ...view, pluginKey: systemKey }] },
+				{ ...records, installations: [], integrations: [integration(systemKey)] },
+			]) {
+				const error = yield* archiveBytes(input({ records: associated })).pipe(Effect.flip);
+				expect(error.reason).toBe("missing_reference_mapping");
+			}
+		}),
+	);
+
+	test.effect("rejects source installation IDs and invalid null integration ownership", () =>
+		Effect.gen(function* () {
+			const installation = records.installations[0];
+			const view = records.savedViews[0];
+			assert(installation && view);
+			for (const { path, value } of [
+				{ path: "installations.ndjson", value: { ...installation, id: "source-installation" } },
+				{ path: "saved-views.ndjson", value: { ...view, installationId: "source-installation" } },
+				{
+					path: "integrations.ndjson",
+					value: { ...integration(systemKey), installationId: "source-installation" },
+				},
+				{
+					path: "integrations.ndjson",
+					value: { ...integration(null), provider: "plugin-provider" },
+				},
+			] as const) {
+				const archive = yield* mutateArchive(input(), (files) => {
+					return replaceSection(files, path, encoder.encode(`${JSON.stringify(value)}\n`), 1);
+				});
+				expect(yield* validationError(archive)).toMatchObject({ path, reason: "invalid_entry" });
+			}
+		}),
+	);
+
+	test.effect(
+		"retains incomplete quarantine initialization and rejects archives without the completion marker",
+		() =>
+			Effect.gen(function* () {
+				const manifest = fixtureManifest();
+				const compiledScripts = manifest.scripts.map(({ entry }) => ({
+					entry,
+					format: 1,
+					javascript: "export {};",
+				}));
+				const key = pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId });
+				const installation = records.installations[0];
+				assert(installation);
+				const incomplete = {
+					...installation,
+					packageKey: key,
+					isInitialized: false,
+					lifecycleIntent: "incompatible" as const,
+					healthReason: "Initialization interrupted",
+					incompatibilityReason: "package-identity-conflict" as const,
+				};
+				const archiveInput = input({
+					records: {
+						...records,
+						installations: [incomplete],
+						privatePlugins: [
+							{
+								key,
+								manifest,
+								compiledScripts,
+								version: manifest.metadata.version,
+								packageId: manifest.metadata.packageId,
+								contentHash: pluginContentHash(manifest, compiledScripts),
+							},
+						],
+					},
+				});
+				const archive = yield* archiveBytes(archiveInput);
+				const validated = yield* validateArchive(asChunks(archive));
+				expect(validated.records.installations[0]).toMatchObject({
+					hiddenIntent: false,
+					isInitialized: false,
+					lifecycleIntent: "incompatible",
+					incompatibilityReason: "package-identity-conflict",
+				});
+				const invalid = yield* mutateArchive(archiveInput, (files) => {
+					const missing = { ...incomplete };
+					Reflect.deleteProperty(missing, "isInitialized");
+					return replaceSection(
+						files,
+						"installations.ndjson",
+						encoder.encode(`${JSON.stringify(missing)}\n`),
+					);
+				});
+				expect(yield* validationError(invalid)).toMatchObject({
+					reason: "invalid_entry",
+					path: "installations.ndjson",
+				});
+			}).pipe(Effect.scoped),
+	);
+
+	test.effect("round-trips dependency translations by entity and language", () =>
+		Effect.gen(function* () {
+			const dependency = {
+				...entity(),
+				identity: { kind: "unmanaged" as const },
+				translations: [
+					{
+						language: "es",
+						name: "Entidad",
+						createdAt: timestamp,
+						updatedAt: timestamp,
+						populatedAt: timestamp,
+						properties: { description: "Traducida" },
+					},
+				],
+			};
+			const validated = yield* validateArchive(
+				asChunks(
+					yield* archiveBytes(input({ records: { ...records, entityDependencies: [dependency] } })),
+				),
+			);
+			expect(validated.records.entityDependencies).toEqual([dependency]);
+		}).pipe(Effect.scoped),
+	);
+
+	test.effect("excludes automation history and configuration revision sections", () =>
+		Effect.gen(function* () {
+			const files = unzipSync(yield* archiveBytes());
+			const manifestFile = files["manifest.json"];
+			assert(manifestFile);
+			const sectionPaths = (yield* decodeManifest(manifestFile)).sections.map(({ path }) => path);
+			for (const path of excludedAccountArchiveSections) {
+				expect(files).not.toHaveProperty(path);
+				expect(sectionPaths).not.toContain(path);
+			}
+		}),
+	);
+
+	test.effect("rejects a non-V1 manifest", () =>
+		Effect.gen(function* () {
+			const files = unzipSync(yield* archiveBytes());
+			const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(
+				new TextDecoder().decode(files["manifest.json"]),
+			);
+			files["manifest.json"] = new TextEncoder().encode(
+				stableStringify({ ...manifest, version: 2 }),
+			);
+			const error = yield* validateArchive(asChunks(zipSync(files))).pipe(
+				Effect.scoped,
+				Effect.flip,
+			);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error.reason).toBe("unsupported_format");
+		}),
+	);
+
+	test.effect("rejects unsafe ZIP paths", () =>
+		Effect.gen(function* () {
+			const error = yield* validateArchive(
+				asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
+			).pipe(Effect.scoped, Effect.flip);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error.reason).toBe("invalid_path");
+		}),
+	);
+
+	test.effect("enforces record, entry, and total archive limits", () =>
+		Effect.gen(function* () {
+			const { asset } = assetInput();
+			const archive = yield* archiveBytes(
+				input({ assets: [asset], records: { ...records, entities: [entity()] } }),
+			);
+			const cases = [
+				{ reason: "count_mismatch", limits: { maxRecordsPerSection: 0 } },
+				{ limits: { maxEntryCount: 1 }, reason: "entry_count_exceeded" },
+				{ reason: "entry_too_large", limits: { maxEntryBytes: 1 } },
+				{ reason: "entry_too_large", limits: { maxMetadataEntryBytes: 1 } },
+				{ reason: "total_size_exceeded", limits: { maxTotalUncompressedBytes: 1 } },
+			] as const;
+			for (const testCase of cases) {
+				const error = yield* validationError(archive, { limits: testCase.limits });
+				expect(error.reason).toBe(testCase.reason);
+			}
+		}),
+	);
+
+	test.effect("rejects section digest and count mismatches including streamed events", () =>
+		Effect.gen(function* () {
+			const populated = input({
+				events: eventsInput([event()]),
+				records: { ...records, entities: [entity()] },
+			});
+			const boundedDigest = yield* mutateArchive(populated, (files) =>
+				Effect.sync(() => {
+					files["entities.ndjson"] = encoder.encode("\n");
+				}),
+			);
+			expect((yield* validationError(boundedDigest)).reason).toBe("checksum_mismatch");
+
+			const eventDigest = yield* mutateArchive(populated, (files) =>
+				Effect.sync(() => {
+					files["events.ndjson"] = encoder.encode("\n");
+				}),
+			);
+			expect((yield* validationError(eventDigest)).reason).toBe("checksum_mismatch");
+
+			const boundedCount = yield* mutateArchive(populated, (files) => {
+				return updateManifest(files, (manifest) => ({
+					...manifest,
+					sections: manifest.sections.map((section) =>
+						section.path === "entities.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
+					),
+				}));
+			});
+			expect((yield* validationError(boundedCount)).reason).toBe("count_mismatch");
+
+			const eventCount = yield* mutateArchive(populated, (files) => {
+				return updateManifest(files, (manifest) => ({
+					...manifest,
+					sections: manifest.sections.map((section) =>
+						section.path === "events.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
+					),
+				}));
+			});
+			yield* Effect.gen(function* () {
+				const validated = yield* validateArchive(asChunks(eventCount));
+				const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+				expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
+			}).pipe(Effect.scoped);
+		}),
+	);
+
+	test.effect("rejects duplicate and missing paths and unsupported compression", () =>
+		Effect.gen(function* () {
+			expect((yield* validationError(rawZip(["manifest.json", "manifest.json"]))).reason).toBe(
+				"duplicate_path",
+			);
+			const missing = yield* mutateArchive(input(), (files) =>
+				Effect.sync(() => {
+					Reflect.deleteProperty(files, "entities.ndjson");
+				}),
+			);
+			expect((yield* validationError(missing)).reason).toBe("missing_entry");
+
+			const unsupported = (yield* archiveBytes()).slice();
+			const view = new DataView(unsupported.buffer, unsupported.byteOffset, unsupported.byteLength);
+			for (let offset = 0; offset <= unsupported.byteLength - 12; offset += 1) {
+				const signature = view.getUint32(offset, true);
+				if (signature === 0x04034b50) {
+					view.setUint16(offset + 8, 99, true);
+				} else if (signature === 0x02014b50) {
+					view.setUint16(offset + 10, 99, true);
+				}
+			}
+			expect((yield* validationError(unsupported)).reason).toBe("unsupported_compression");
+		}),
+	);
+
+	test.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
+		Effect.gen(function* () {
+			for (const { reason, payload } of [
+				{ payload: "not-json\n", reason: "invalid_entry" },
+				{ payload: '{"id":', reason: "truncated_ndjson" },
+			] as const) {
+				const bounded = yield* mutateArchive(input(), (files) => {
+					return replaceSection(files, "entities.ndjson", encoder.encode(payload));
+				});
+				expect((yield* validationError(bounded)).reason).toBe(reason);
+
+				const streamed = yield* mutateArchive(input(), (files) => {
+					return replaceSection(files, "events.ndjson", encoder.encode(payload));
+				});
+				yield* Effect.gen(function* () {
+					const validated = yield* validateArchive(asChunks(streamed));
+					const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
+					expect(error).toMatchObject({ reason, path: "events.ndjson" });
+				}).pipe(Effect.scoped);
+			}
+		}),
+	);
+
+	test.effect("rejects undeclared, missing, and mismatched assets", () =>
+		Effect.gen(function* () {
+			const { asset } = assetInput();
+			const archiveInput = input({ assets: [asset] });
+			const undeclared = yield* mutateArchive(archiveInput, (files) =>
+				Effect.sync(() => {
+					files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
+				}),
+			);
+			expect((yield* validationError(undeclared)).reason).toBe("undeclared_asset");
+
+			const missing = yield* mutateArchive(archiveInput, (files) =>
+				Effect.sync(() => {
+					Reflect.deleteProperty(files, asset.metadata.path);
+				}),
+			);
+			expect((yield* validationError(missing)).reason).toBe("missing_entry");
+
+			const digest = yield* mutateArchive(archiveInput, (files) =>
+				Effect.sync(() => {
+					files[asset.metadata.path] = encoder.encode("changed asset");
+				}),
+			);
+			expect((yield* validationError(digest)).reason).toBe("checksum_mismatch");
+
+			const size = yield* mutateArchive(archiveInput, (files) => {
+				return updateManifest(files, (manifest) => ({
+					...manifest,
+					assets: manifest.assets.map((item) => Object.assign({}, item, { size: item.size + 1 })),
+				}));
+			});
+			expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
+		}),
+	);
+
+	test.effect("releases the spool directory on success, failure, and interruption", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const root = yield* fs.makeTempDirectory({ prefix: "ryot-backup-spool-test-" });
+			const spooled = yield* archiveBytes(input({ records: { ...records, entities: [entity()] } }));
+			const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
+
+			const held = yield* Effect.gen(function* () {
+				const validated = yield* validateArchive(asChunks(spooled), { directory: root });
+				expect(yield* spoolEntries()).toBe(1);
+				return validated.assets.length;
+			}).pipe(Effect.scoped);
+			expect(held).toBe(0);
+			expect(yield* spoolEntries()).toBe(0);
+
+			const truncated = yield* mutateArchive(input(), (files) => {
+				return replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
+			});
+			yield* Effect.gen(function* () {
+				const validated = yield* validateArchive(asChunks(truncated), { directory: root });
+				return yield* Stream.runDrain(validated.events.read());
+			}).pipe(Effect.scoped, Effect.flip);
+			expect(yield* spoolEntries()).toBe(0);
+
+			expect(
+				(yield* validationError(rawZip(["manifest.json", "manifest.json"]), { directory: root }))
+					.reason,
+			).toBe("duplicate_path");
+			expect(yield* spoolEntries()).toBe(0);
+
+			const exit = yield* Effect.exit(
+				Effect.gen(function* () {
+					yield* validateArchive(asChunks(spooled), { directory: root });
+					return yield* Effect.interrupt;
+				}).pipe(Effect.scoped),
+			);
+			expect(exit._tag).toBe("Failure");
+			expect(yield* spoolEntries()).toBe(0);
+
+			yield* fs.remove(root, { force: true, recursive: true });
+		}),
+	);
+
+	test.effect("rejects duplicate and undeclared calendar source overrides", () =>
+		Effect.gen(function* () {
+			const override = { slug: "dates", isHidden: true, pluginKey: systemKey };
+			for (const [values, reason] of [
+				[[override, override], "duplicate_record_id"],
+				[[{ ...override, pluginKey: "undeclared" }], "missing_reference_mapping"],
+			] as const) {
+				const archive = yield* mutateArchive(input(), (files) => {
+					const path = "calendar-source-overrides.ndjson";
+					const payload = encoder.encode(
+						values.map((value) => `${JSON.stringify(value)}\n`).join(""),
+					);
+					return replaceSection(files, path, payload, values.length);
+				});
+				expect((yield* validationError(archive)).reason).toBe(reason);
+			}
+		}),
+	);
+
+	test.effect("rejects invalid private plugin archive records", () =>
+		Effect.gen(function* () {
+			const archive = yield* mutateArchive(input(), (files) => {
+				return replaceSection(
+					files,
+					"private-plugins.ndjson",
+					encoder.encode(
+						`${JSON.stringify({
+							packageId,
+							manifest: {},
+							version: "1.0.0",
+							compiledScripts: [],
+							contentHash: "a".repeat(64),
+							key: pluginPackageKey({ packageId, scope: "user" }),
+						})}\n`,
+					),
+				);
+			});
+			const error = yield* validationError(archive);
+			expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
+		}),
+	);
+
+	test.effect("rejects invalid reminder time zones in archive records", () =>
+		Effect.gen(function* () {
+			const archive = yield* mutateArchive(input(), (files) => {
+				const reminder = {
+					reason: null,
+					entityId: null,
+					state: "settled",
+					dueAt: timestamp,
+					message: "Message",
+					processingAt: null,
+					id: "reminder-zone",
+					outcome: "accepted",
+					replacementId: null,
+					parentEntityId: null,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					settledAt: timestamp,
+					entityTitle: "Target",
+					timezone: "Not/A_Zone",
+					originalSchedule: null,
+				};
+				return replaceSection(
+					files,
+					"reminders.ndjson",
+					encoder.encode(`${JSON.stringify(reminder)}\n`),
+					1,
+				);
+			});
+			const error = yield* validationError(archive);
+			expect(error).toBeInstanceOf(BackupArchiveError);
+			expect(error).toMatchObject({
+				reason: "invalid_entry",
+				path: "reminders.ndjson",
+				_tag: "BackupArchiveError",
+			});
+		}),
+	);
+});

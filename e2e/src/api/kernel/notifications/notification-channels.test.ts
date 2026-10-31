@@ -1,0 +1,441 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { NotificationChannelId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	ascending,
+	column,
+	document,
+	eq,
+	exists,
+	field,
+	inArray,
+	include,
+	join,
+	literal,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
+import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
+import {
+	notificationDeliveriesRecipe,
+	notificationOutcomeRecipe,
+} from "@ryot-app/ryotql-recipes/notification-delivery";
+import { randomUuid } from "@ryot-app/testing/random";
+import { DateTime, Effect } from "effect";
+
+import {
+	createAuthenticatedClient,
+	createNotificationChannel,
+	deleteNotificationChannel,
+	executeRyotQL,
+	getApiClient,
+	listNotificationChannels,
+	pollSignalTrigger,
+	pollTerminalAutomationRuns,
+	pollUntil,
+	postApiJson,
+	requireRows,
+	requireRyotQLValue,
+	startFakeAppriseServer,
+	testNotificationChannels,
+	updateNotificationChannel,
+} from "~/fixtures/kernel";
+import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
+import {
+	findFitnessEntitySchema,
+	operationInput,
+	saveWorkoutEditor,
+	workoutData,
+} from "~/fixtures/plugins/fitness";
+import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import type { FakeHttpServer } from "~/support/fake-http-server";
+
+let fakeApprise: FakeHttpServer;
+
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			fakeApprise = yield* startFakeAppriseServer;
+		}),
+	),
+);
+
+afterAll(() => fakeApprise.stop());
+
+describe("notification channel CRUD", () => {
+	it.live(
+		"derives listed kinds from specifics for every channel and preserves disabled creation",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const bodies = [
+					{ channelSpecifics: { kind: "apprise", key: "secret-key", baseUrl: fakeApprise.url } },
+					{
+						channelSpecifics: {
+							kind: "discord",
+							webhookUrl: "https://discord.example.com/webhook/secret",
+						},
+					},
+					{ channelSpecifics: { kind: "email", recipient: "recipient@example.com" } },
+					{
+						channelSpecifics: {
+							kind: "gotify",
+							token: "secret-token",
+							baseUrl: "https://gotify.example.com",
+						},
+					},
+					{
+						channelSpecifics: { kind: "ntfy", topic: "private-topic", accessToken: "secret-token" },
+					},
+					{ channelSpecifics: { kind: "push_bullet", accessToken: "secret-token" } },
+					{ channelSpecifics: { kind: "push_over", userKey: "secret-key" } },
+					{ channelSpecifics: { key: "secret-key", kind: "push_safer" } },
+					{
+						channelSpecifics: { kind: "telegram", chatId: "1234567890", botToken: "secret-token" },
+					},
+				] satisfies ReadonlyArray<ContractPayload<"notifications", "createChannel">>;
+				for (const body of bodies) {
+					const { id } = yield* createNotificationChannel(client, { ...body, isDisabled: true });
+					const listed = requirePresent(
+						(yield* listNotificationChannels(client)).find((channel) => channel.id === id),
+						"Expected created notification channel",
+					);
+					expect(listed.channel).toBe(body.channelSpecifics.kind);
+					expect(listed.isDisabled).toBe(true);
+					expect(listed).not.toHaveProperty("channelSpecifics");
+					expect(listed.description).not.toContain("secret");
+				}
+			}),
+	);
+
+	it.live("rejects malformed channel specifics before storing a channel", () =>
+		Effect.gen(function* () {
+			const { token, client } = yield* createAuthenticatedClient();
+			const response = yield* postApiJson(
+				client,
+				"/notifications/channels",
+				{ channelSpecifics: { kind: "discord", webhookUrl: "not-a-url" } },
+				token,
+			);
+			expect(response.status).toBe(400);
+			expect(yield* listNotificationChannels(client)).toEqual([]);
+		}),
+	);
+
+	it.live("creates an enabled channel and returns a safe description", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(client, {
+				channelSpecifics: { kind: "apprise", key: "secret-key", baseUrl: fakeApprise.url },
+			});
+
+			const channels = yield* listNotificationChannels(client);
+			const channel = requirePresent(channels[0], "Expected created notification channel");
+			expect(channel.isDisabled).toBe(false);
+			expect(channel.channel).toBe("apprise");
+			expect(channel).not.toHaveProperty("channelSpecifics");
+			expect(channel.description).toBe(`Apprise at ${fakeApprise.url}`);
+			expect(channel.description).not.toContain("secret-key");
+		}),
+	);
+
+	it.live("updates the disabled state", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { id } = yield* createNotificationChannel(client, {
+				channelSpecifics: { chatId: "1234", kind: "telegram", botToken: "bot-secret" },
+			});
+
+			const updated = yield* updateNotificationChannel(client, id, { isDisabled: true });
+			expect(updated).toEqual({ id });
+			const channel = requirePresent(
+				(yield* listNotificationChannels(client)).find((item) => item.id === id),
+				"Expected updated notification channel",
+			);
+			expect(channel.isDisabled).toBe(true);
+			expect(channel.description).not.toContain("bot-secret");
+			expect(yield* updateNotificationChannel(client, id, {})).toEqual({ id });
+		}),
+	);
+
+	it.live("lists only the authenticated user's channels and protects mutations", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const { id } = yield* createNotificationChannel(owner.client, {
+				channelSpecifics: { key: "secret-key", kind: "push_safer" },
+			});
+
+			expect(yield* listNotificationChannels(owner.client)).toHaveLength(1);
+			expect(yield* listNotificationChannels(other.client)).toHaveLength(0);
+
+			const updateError = yield* Effect.flip(
+				other.client.call((c) =>
+					c.notifications.updateChannel({
+						payload: { isDisabled: true },
+						params: { channelId: NotificationChannelId.make(id) },
+					}),
+				),
+			);
+			assertTaggedError(updateError, "NotificationNotFoundError");
+			expect(updateError.reason).toEqual({ channelId: id, code: "channel-not-found" });
+			const emptyUpdateError = yield* Effect.flip(updateNotificationChannel(other.client, id, {}));
+			assertTaggedError(emptyUpdateError, "NotificationNotFoundError");
+			expect(emptyUpdateError.reason).toEqual({ channelId: id, code: "channel-not-found" });
+
+			const deleteError = yield* Effect.flip(
+				other.client.call((c) =>
+					c.notifications.deleteChannel({ params: { channelId: NotificationChannelId.make(id) } }),
+				),
+			);
+			assertTaggedError(deleteError, "NotificationNotFoundError");
+			expect(deleteError.reason).toEqual({ channelId: id, code: "channel-not-found" });
+
+			yield* deleteNotificationChannel(owner.client, id);
+			expect(yield* listNotificationChannels(owner.client)).toEqual([]);
+		}),
+	);
+});
+
+describe("notification channel RyotQL authorization", () => {
+	it.live("hides another user's channels from roots, joins, includes, and correlated queries", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const { id: ownerChannelId } = yield* createNotificationChannel(owner.client, {
+				channelSpecifics: { kind: "push_safer", key: "owner-secret" },
+			});
+			const { id: otherChannelId } = yield* createNotificationChannel(other.client, {
+				channelSpecifics: { kind: "push_safer", key: "other-secret" },
+			});
+
+			const joinRoot = table("notificationChannel", "joinRoot");
+			const directRoot = table("notificationChannel", "directRoot");
+			const includeRoot = table("notificationChannel", "includeRoot");
+			const joinedChannel = table("notificationChannel", "joinedChannel");
+			const correlatedRoot = table("notificationChannel", "correlatedRoot");
+			const includedChannel = table("notificationChannel", "includedChannel");
+			const correlatedChannel = table("notificationChannel", "correlatedChannel");
+			const result = yield* executeRyotQL(
+				owner.client,
+				document({
+					directRoot: rows(directRoot, {
+						limit: 100,
+						fields: [field("id", column(directRoot, "id"))],
+						where: inArray(column(directRoot, "id"), [
+							literal(ownerChannelId),
+							literal(otherChannelId),
+						]),
+					}),
+					craftedJoin: rows(joinRoot, {
+						limit: 100,
+						where: eq(column(joinRoot, "id"), literal(ownerChannelId)),
+						joins: [
+							join("left", joinedChannel, eq(column(joinedChannel, "id"), literal(otherChannelId))),
+						],
+						fields: [
+							field("id", column(joinRoot, "id")),
+							field("otherDescription", column(joinedChannel, "description")),
+						],
+					}),
+					correlated: rows(correlatedRoot, {
+						limit: 100,
+						where: eq(column(correlatedRoot, "id"), literal(ownerChannelId)),
+						fields: [
+							field("id", column(correlatedRoot, "id")),
+							field(
+								"hasOtherChannel",
+								exists(correlatedChannel, {
+									where: eq(column(correlatedChannel, "id"), literal(otherChannelId)),
+								}),
+							),
+						],
+					}),
+					craftedInclude: rows(includeRoot, {
+						limit: 100,
+						fields: [field("id", column(includeRoot, "id"))],
+						where: eq(column(includeRoot, "id"), literal(ownerChannelId)),
+						include: [
+							include(includedChannel, {
+								limit: 100,
+								key: "otherChannels",
+								orderBy: [ascending(column(includedChannel, "id"))],
+								fields: [field("id", column(includedChannel, "id"))],
+								where: eq(column(includedChannel, "id"), literal(otherChannelId)),
+							}),
+						],
+					}),
+				}),
+			);
+
+			const directRows = requireRows(result.data.directRoot, "directRoot");
+			expect(directRows.items.map((item) => requireRyotQLValue(item, "id"))).toEqual([
+				ownerChannelId,
+			]);
+
+			const joinedRow = requirePresent(
+				requireRows(result.data.craftedJoin, "craftedJoin").items[0],
+				"Expected crafted join row",
+			);
+			expect(requireRyotQLValue(joinedRow, "otherDescription")).toBeNull();
+
+			const includedRow = requirePresent(
+				requireRows(result.data.craftedInclude, "craftedInclude").items[0],
+				"Expected crafted include row",
+			);
+			const otherChannels = requireObjectRecord(
+				includedRow["otherChannels"],
+				"Expected other channels include",
+			);
+			expect(otherChannels["items"]).toEqual([]);
+
+			const correlatedRow = requirePresent(
+				requireRows(result.data.correlated, "correlated").items[0],
+				"Expected correlated row",
+			);
+			expect(requireRyotQLValue(correlatedRow, "hasOtherChannel")).toBe(false);
+		}),
+	);
+});
+
+describe("notification delivery", () => {
+	it.live("delivers to enabled channels in the background and skips disabled ones", () =>
+		Effect.gen(function* () {
+			fakeApprise.requests.length = 0;
+			const { client } = yield* createAuthenticatedClient();
+			yield* createNotificationChannel(client, {
+				channelSpecifics: { key: "success", kind: "apprise", baseUrl: fakeApprise.url },
+			});
+			yield* createNotificationChannel(client, {
+				channelSpecifics: { key: "fail", kind: "apprise", baseUrl: fakeApprise.url },
+			});
+			yield* createNotificationChannel(client, {
+				isDisabled: true,
+				channelSpecifics: { key: "disabled", kind: "apprise", baseUrl: fakeApprise.url },
+			});
+
+			const admitted = yield* testNotificationChannels(client);
+
+			const delivered = yield* pollUntil(
+				"background notification deliveries",
+				Effect.sync(() => {
+					const paths = fakeApprise.requests.map((request) => request.path).sort();
+					const complete = paths.includes("/notify/fail") && paths.includes("/notify/success");
+					return complete ? paths : null;
+				}),
+			);
+
+			expect(delivered).toEqual(["/notify/fail", "/notify/success"]);
+			expect(fakeApprise.requests.map((request) => request.body)).toEqual([
+				{ title: "Ryot", body: "This is a test notification for channel: apprise" },
+				{ title: "Ryot", body: "This is a test notification for channel: apprise" },
+			]);
+			expect(fakeApprise.requests.some((request) => request.path === "/notify/disabled")).toBe(
+				false,
+			);
+			const outcome = yield* pollUntil(
+				"settled notification outcome",
+				executeRyotQLRecipe(client, notificationOutcomeRecipe({ id: admitted.id })).pipe(
+					Effect.map((result) => (result?.state === "settled" ? result : null)),
+				),
+			);
+			expect(outcome.outcome).toBe("partial");
+			const deliveries = yield* executeRyotQLRecipe(
+				client,
+				notificationDeliveriesRecipe({ limit: 20, notificationId: admitted.id }),
+			);
+			expect(deliveries.items.map((item) => item.status).sort()).toEqual(["accepted", "failed"]);
+			const other = yield* createAuthenticatedClient();
+			expect(
+				yield* executeRyotQLRecipe(other.client, notificationOutcomeRecipe({ id: admitted.id })),
+			).toBeNull();
+			expect(
+				(yield* executeRyotQLRecipe(
+					other.client,
+					notificationDeliveriesRecipe({ limit: 20, notificationId: admitted.id }),
+				)).items,
+			).toEqual([]);
+		}),
+	);
+
+	it.live("retains channel-test submissions and reports no-channel work as Not sent", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const payload: ContractPayload<"notifications", "testChannels"> = {
+				idempotencyKey: yield* randomUuid,
+				submittedAt: DateTime.formatIso(yield* DateTime.now),
+			};
+			const first = yield* client.call((c) => c.notifications.testChannels({ payload }));
+			const replay = yield* client.call((c) => c.notifications.testChannels({ payload }));
+			expect(first.id).toBe(replay.id);
+			const outcome = yield* executeRyotQLRecipe(
+				client,
+				notificationOutcomeRecipe({ id: first.id }),
+			);
+			expect(outcome).toMatchObject({
+				state: "settled",
+				outcome: "not-sent",
+				reason: "no-enabled-channels",
+			});
+			const changedSubmittedAt = DateTime.formatIso(
+				DateTime.add(yield* DateTime.now, { seconds: 1 }),
+			);
+			const conflict = yield* client
+				.call((c) =>
+					c.notifications.testChannels({
+						payload: { ...payload, submittedAt: changedSubmittedAt },
+					}),
+				)
+				.pipe(Effect.flip);
+			assertTaggedError(conflict, "NotificationAdmissionConflictError");
+			expect(conflict.reason.code).toBe("source-content-conflict");
+		}),
+	);
+
+	it.live("completes a subscription run successfully with zero enabled channels", () =>
+		Effect.gen(function* () {
+			const { client, userId } = yield* createAuthenticatedClient();
+			expect(yield* listNotificationChannels(client)).toEqual([]);
+
+			const { schema } = yield* findFitnessEntitySchema(client, "workout");
+			const signalSchema = {
+				owner: schema.reference.owner,
+				slug: SignalSchemaSlug.make("workout.created"),
+			};
+			const now = DateTime.formatIso(yield* DateTime.now);
+			const saved = yield* saveWorkoutEditor(
+				client,
+				operationInput(
+					workoutData({ startedAt: now, name: `Zero Channel Workout ${yield* randomUuid}` }),
+					undefined,
+					now,
+				),
+			);
+			expect(saved.kind).toBe("saved");
+
+			const { id: triggerId } = yield* pollSignalTrigger({
+				signalSchema,
+				actorUserId: UserId.make(userId),
+			});
+			const runs = yield* pollTerminalAutomationRuns({
+				triggerId,
+				executionUserId: UserId.make(userId),
+			});
+			expect(runs.map((run) => run.status)).toEqual(["succeeded"]);
+		}),
+	);
+
+	it.live("exposes SMTP capability and requires authentication", () =>
+		Effect.gen(function* () {
+			const config = yield* getApiClient().call((c) => c.system.config());
+			expect(config.notifications.smtpEnabled).toBe(false);
+
+			const error = yield* Effect.flip(
+				getApiClient().call((c) =>
+					c.ryotql.execute({ payload: notificationChannelsRecipe({ limit: 100 }).document }),
+				),
+			);
+			assertTaggedError(error, "AuthUnauthorized");
+		}),
+	);
+});

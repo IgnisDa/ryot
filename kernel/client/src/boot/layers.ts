@@ -1,0 +1,40 @@
+import { Layer } from "effect";
+
+import { ApiLive, TransportLive } from "#/api/layer";
+import { AssetsLive } from "#/modules/assets/layer";
+import { AuthLive } from "#/modules/auth/layer";
+import { BackgroundSubmissionsLive } from "#/modules/background-submissions/layer";
+import { DeviceLive } from "#/modules/device/layer";
+import { EntityWatchLive } from "#/modules/entity-watches/layer";
+import { ExternalLinksLive } from "#/modules/external-links/layer";
+import { ImportsService } from "#/modules/imports/service";
+import { InstanceAdminLive } from "#/modules/instance-admin/layer";
+import { IntegrationsLive } from "#/modules/integrations/layer";
+import { IosLiveActivitiesLive } from "#/modules/ios-live-activities/layer";
+import { DeepLinkClaims } from "#/modules/navigation/deep-link";
+import { NavigationLive } from "#/modules/navigation/layer";
+import { NotificationChannelsService } from "#/modules/notifications/service";
+import { PagesLive } from "#/modules/pages/layer";
+import { PluginsLive } from "#/modules/plugins/layer";
+import { ProviderAddLive } from "#/modules/provider-add/layer";
+import { ServerLive } from "#/modules/server/layer";
+import { ShellLive } from "#/modules/shell/layer";
+
+export const ClientLive = Layer.mergeAll(
+	IosLiveActivitiesLive,
+	DeviceLive,
+	AssetsLive,
+	EntityWatchLive,
+	ExternalLinksLive,
+	InstanceAdminLive,
+	ImportsService.layer,
+	IntegrationsLive.pipe(Layer.provideMerge(DeepLinkClaims.layer)),
+	NavigationLive,
+	ShellLive,
+	NotificationChannelsService.layer,
+	PagesLive,
+	PluginsLive.pipe(Layer.provideMerge(AuthLive)),
+	BackgroundSubmissionsLive,
+	ProviderAddLive,
+	ServerLive,
+).pipe(Layer.provideMerge(ApiLive), Layer.provide(TransportLive));

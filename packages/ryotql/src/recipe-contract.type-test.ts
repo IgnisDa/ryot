@@ -1,0 +1,72 @@
+import { Result, Schema } from "effect";
+
+import {
+	column,
+	defineRecipe,
+	type Recipe,
+	selectedField,
+	type SelectedQuery,
+	selectedRows,
+	table,
+} from "./index";
+
+type Assert<Condition extends true> = Condition;
+type Equal<Left, Right> = [Left] extends [Right] ? ([Right] extends [Left] ? true : false) : false;
+
+const entity = table("entity", "entity");
+const entries = selectedRows(entity, {
+	selection: { id: selectedField(column(entity, "id"), Schema.String) },
+});
+
+const unmapped = defineRecipe((id: string, limit: number) => ({
+	queries: {
+		entries: selectedRows(entity, {
+			limit,
+			selection: { id: selectedField(column(entity, "id"), Schema.String) },
+			where: {
+				operator: "eq",
+				type: "comparison",
+				left: column(entity, "id"),
+				right: { value: id, type: "literal" },
+			},
+		}),
+	},
+}));
+const mapped = defineRecipe((id: string) => ({
+	queries: { entries },
+	map: ({ entries: selected }) => Result.succeed({ id, count: selected.items.length }),
+}));
+
+const optional = defineRecipe((enabled: boolean) => ({
+	queries: { entries: enabled ? entries : undefined },
+}));
+
+export type RecipeContractChecks = [
+	OptionalResult,
+	UnmappedResult,
+	MappedResult,
+	InputTuple,
+	CannotForgeUnmappedSuccess,
+];
+type InputTuple = Assert<Equal<Parameters<typeof unmapped>, [id: string, limit: number]>>;
+type MappedResult = Assert<Equal<Recipe.Success<typeof mapped>, { id: string; count: number }>>;
+type UnmappedResult = Assert<
+	Equal<
+		Recipe.Success<typeof unmapped>["entries"],
+		typeof entries extends SelectedQuery<infer Success> ? Success : never
+	>
+>;
+type OptionalResult = Assert<
+	Equal<
+		Recipe.Success<typeof optional>["entries"],
+		undefined | (typeof entries extends SelectedQuery<infer Success> ? Success : never)
+	>
+>;
+
+type CannotForgeUnmappedSuccess = Assert<
+	{ queries: { entries: typeof entries } } extends ReturnType<
+		Parameters<typeof defineRecipe<[], { entries: typeof entries }, string>>[0]
+	>
+		? false
+		: true
+>;

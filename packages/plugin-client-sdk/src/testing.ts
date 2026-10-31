@@ -1,0 +1,435 @@
+import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	type PluginPackageId,
+} from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import {
+	type BackgroundSubmissionOutcome,
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
+	CLIENT_PAGE_ROOT_ELEMENT_ID,
+	ClientPageContext,
+	type PluginAssetOutcome,
+	PluginBridgeClientMessage,
+	type PluginBridgeHostMessage,
+	type PluginBridgeLocation,
+	type PluginCalendarSourceVisibilityOutcome,
+	PluginEntityLocation,
+	type PluginLogicalLocation,
+	type PluginRouteLocation,
+	type PluginRyotQLOutcome,
+} from "@ryot-app/plugin-client-contract";
+import * as Clock from "effect/Clock";
+import { SecureRandom } from "effect/crypto";
+import type * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as ManagedRuntime from "effect/ManagedRuntime";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
+import * as TestClock from "effect/testing/TestClock";
+import { act, type ComponentType, createElement, Fragment } from "react";
+
+import type { AnalyticsSectionRegistration } from "./analytics/sections";
+import { bootstrapClientPage, createClientBootstrap } from "./bootstrap/application";
+import type { BackgroundOperationAdapterRequest, RyotClientAdapter } from "./client/adapter";
+import { createRyotClient } from "./client/client";
+import type { RyotClientError } from "./client/errors";
+import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
+import type { EntityPresentationRegistration } from "./presentations/entity-results";
+import { makeRyotPluginLayer } from "./runtime/runtime";
+import { RyotScheduleService } from "./schedule";
+
+// Fills only the required capabilities, so tests of a missing optional one still see
+// `unsupported-capability`.
+export const createTestRyotAdapter = (
+	overrides: Partial<RyotClientAdapter> = {},
+): RyotClientAdapter => ({
+	query: () => Effect.succeed({}),
+	upload: (request) => {
+		if (request.action === "temporary") {
+			return Effect.succeed({
+				action: "temporary",
+				token: { token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" },
+			});
+		}
+		return Effect.succeed({
+			action: "permanent",
+			asset: { type: "local", key: "permanent/test-upload" },
+		});
+	},
+	...overrides,
+});
+
+/**
+ * A recording background-submission capability. `accept` decides each acceptance (default: a
+ * sequential submission ID); `settle` delivers a kernel settlement to subscribed hooks.
+ */
+export const createTestBackgroundSubmissions = (
+	accept?: (request: BackgroundOperationAdapterRequest) => Effect.Effect<string, RyotClientError>,
+) => {
+	const requests: BackgroundOperationAdapterRequest[] = [];
+	const listeners = new Set<(settlement: unknown) => void>();
+	const adapter = {
+		subscribeBackgroundSettled: (listener) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		submitBackground: (request) => {
+			requests.push(request);
+			return accept?.(request) ?? Effect.succeed(`submission-${requests.length}`);
+		},
+	} satisfies Pick<RyotClientAdapter, "submitBackground" | "subscribeBackgroundSettled">;
+	return {
+		adapter,
+		requests,
+		settle: (submissionId: string, outcome: BackgroundSubmissionOutcome) =>
+			act(() => {
+				for (const listener of listeners) {
+					listener({ outcome, submissionId });
+				}
+			}),
+	};
+};
+
+export const createTestPluginStorage = (initial: Iterable<readonly [string, JsonValue]> = []) => {
+	const entries = new Map<string, JsonValue>(initial);
+	const accessStorage: NonNullable<RyotClientAdapter["accessStorage"]> = (request) => {
+		const entry = identityTupleKey(request.pluginId, request.key);
+		if (request.action === "set") {
+			entries.set(entry, request.value);
+		} else if (request.action === "remove") {
+			entries.delete(entry);
+		} else {
+			return Effect.succeed(entries.get(entry) ?? null);
+		}
+		return Effect.succeed(null);
+	};
+	return { entries, accessStorage };
+};
+
+// MessagePort delivery is a real macrotask, so it also drains promise chains queued by prior work.
+export const waitForMessagePortMacrotask = Effect.callback<void>((resume) => {
+	const channel = new MessageChannel();
+	channel.port1.addEventListener("message", () => resume(Effect.void), { once: true });
+	channel.port1.start();
+	channel.port2.postMessage(undefined);
+	return Effect.sync(() => {
+		channel.port1.close();
+		channel.port2.close();
+	});
+});
+
+export const advanceRyotSchedule = (millis: Duration.Input): Effect.Effect<void> =>
+	Effect.andThen(TestClock.adjust(millis), waitForMessagePortMacrotask);
+
+/** Used by runtimes whose test never mounts a `PluginRouter`. */
+const inertNavigation = (): PluginRouterNavigation => {
+	const store = createPluginNavigationStore(() => ({
+		params: {},
+		element: createElement(Fragment),
+	}));
+	return {
+		back: () => undefined,
+		subscribe: store.subscribe,
+		openDrawer: () => undefined,
+		publishTitle: () => undefined,
+		getSnapshot: store.getSnapshot,
+		registerShortcut: () => () => undefined,
+		completeTransition: store.completeTransition,
+	};
+};
+
+/**
+ * A `RyotSchedule` backed by a `TestClock`, plus the runtime `RyotProvider` needs. Pass `navigation`
+ * to drive a mounted `PluginRouter`. Pass `bootstrap` explicitly to bootstrapped pages that
+ * should use this clock; the page owns its runtime, while this harness owns the schedule.
+ */
+export const createTestRyotClock = (
+	overrides: Partial<RyotClientAdapter> = {},
+	navigation: PluginRouterNavigation = inertNavigation(),
+) => {
+	const client = createRyotClient(createTestRyotAdapter(overrides));
+	const runtime = ManagedRuntime.make(
+		// Keep the test clock in the output so clock adjustments reach the same harness-owned instance.
+		Layer.provideMerge(
+			makeRyotPluginLayer(client, navigation, RyotScheduleService.layer),
+			Layer.merge(TestClock.layer({ warningDelay: "1 hour" }), SecureRandom.layerWebCrypto),
+		),
+	);
+	const clock = runtime.runSync(Clock.Clock);
+	const bootstrap = createClientBootstrap((bootstrapClient, bootstrapNavigation) =>
+		ManagedRuntime.make(
+			makeRyotPluginLayer(
+				bootstrapClient,
+				bootstrapNavigation,
+				Layer.provide(RyotScheduleService.layer, Layer.succeed(Clock.Clock, clock)),
+			).pipe(Layer.provide(SecureRandom.layerWebCrypto)),
+		),
+	);
+	return {
+		client,
+		runtime,
+		bootstrap,
+		dispose: () => runtime.dispose(),
+		advance: (millis: Duration.Input) => act(() => runtime.runPromise(advanceRyotSchedule(millis))),
+		setTime: (timestamp: number) =>
+			act(() =>
+				runtime.runPromise(
+					Effect.andThen(TestClock.setTime(timestamp), waitForMessagePortMacrotask),
+				),
+			),
+	};
+};
+
+const compositionMetadata = {
+	hash: "test-composition-hash",
+	format: CLIENT_ARTIFACT_FORMAT,
+	apiVersion: CLIENT_API_VERSION,
+	compilerVersion: CLIENT_COMPILER_VERSION,
+	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+};
+
+const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+
+export const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
+});
+
+export const entityLocation = (
+	entityId: string,
+	entitySchemaSlug: string,
+	search = "",
+): PluginEntityLocation =>
+	PluginEntityLocation.make({
+		search,
+		kind: "entity",
+		entityId: EntityId.make(entityId),
+		entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+	});
+
+export const pluginContributor = (options: {
+	readonly name: string;
+	readonly pluginId: string;
+	readonly packageId: PluginPackageId;
+}) =>
+	ClientPageCodeContributor.make({
+		kind: "plugin",
+		packageId: options.packageId,
+		contentHash: `${options.name}-source`,
+		revisionId: `${options.name}-revision`,
+		pluginId: PluginId.make(options.pluginId),
+		installationId: `${options.name}-installation`,
+	});
+
+export const entityPageContext = (options: {
+	readonly pluginId: string;
+	readonly entityId: string;
+	readonly exportName: string;
+	readonly entitySchemaSlug: string;
+	readonly params?: undefined | Record<string, string>;
+	readonly settings?: undefined | Record<string, JsonValue>;
+}): ClientPageContext =>
+	ClientPageContext.make({
+		view: null,
+		contributors: [],
+		dataSources: null,
+		settings: options.settings ?? {},
+		route: { params: options.params ?? {} },
+		renderer: { kind: "plugin", pluginId: options.pluginId, exportName: options.exportName },
+		target: {
+			kind: "entity",
+			entitySchemaPluginId: options.pluginId,
+			entityId: EntityId.make(options.entityId),
+			entitySchemaSlug: EntitySchemaSlug.make(options.entitySchemaSlug),
+		},
+	});
+
+export const savedViewPageContext = (options: {
+	readonly savedViewId: string;
+	readonly rendererName: string;
+	readonly dataSources: RyotQLDocument;
+	readonly settings: Record<string, JsonValue>;
+	readonly view?: undefined | { readonly name: string; readonly icon: string };
+}): ClientPageContext =>
+	ClientPageContext.make({
+		contributors: [],
+		route: { params: {} },
+		settings: options.settings,
+		dataSources: options.dataSources,
+		renderer: { kind: "kernel", name: options.rendererName },
+		view: options.view ?? { icon: "library", name: "All Records" },
+		target: { kind: "saved-view", reference: { kind: "kernel", slug: options.savedViewId } },
+	});
+
+export const kernelEntityPageContext = (options: {
+	readonly entityId: string;
+	readonly rendererName: string;
+	readonly entitySchemaSlug: string;
+	readonly settings?: undefined | Record<string, JsonValue>;
+}): ClientPageContext =>
+	ClientPageContext.make({
+		view: null,
+		contributors: [],
+		dataSources: null,
+		route: { params: {} },
+		settings: options.settings ?? {},
+		renderer: { kind: "kernel", name: options.rendererName },
+		target: {
+			kind: "entity",
+			entitySchemaPluginId: null,
+			entityId: EntityId.make(options.entityId),
+			entitySchemaSlug: EntitySchemaSlug.make(options.entitySchemaSlug),
+		},
+	});
+
+const mounted: Array<{ dispose: () => void }> = [];
+
+export const disposePluginBridges = () => {
+	while (mounted.length > 0) {
+		mounted.pop()?.dispose();
+	}
+};
+
+/**
+ * Boots `component` the way the kernel does: embedded composition metadata, a `MessagePort` bridge
+ * handshake, and an optional first location. Everything below the bridge — the route resolver,
+ * `PluginRouter`, `usePluginLocation`, `useRyotQuery`, `PluginScreenFrame` — stays real, so tests
+ * assert on the messages the page actually puts on the port.
+ */
+export const mountPluginPage = (
+	component: ComponentType,
+	options: {
+		readonly page?: undefined | ClientPageContext;
+		readonly location?: undefined | PluginLogicalLocation;
+		readonly bootstrap?: undefined | ReturnType<typeof createClientBootstrap>;
+		readonly analyticsSections?: undefined | readonly AnalyticsSectionRegistration[];
+		readonly entityPresentations?: undefined | readonly EntityPresentationRegistration[];
+		readonly onClientMessage?: undefined | ((message: PluginBridgeClientMessage) => void);
+	} = {},
+) => {
+	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
+	const metadataElement = document.createElement("script");
+	metadataElement.type = "application/json";
+	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
+	metadataElement.textContent = JSON.stringify(compositionMetadata);
+	document.head.append(metadataElement);
+
+	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(component, {
+		...(options.entityPresentations === undefined
+			? {}
+			: { entityPresentations: options.entityPresentations }),
+		...(options.analyticsSections === undefined
+			? {}
+			: { analyticsSections: options.analyticsSections }),
+	});
+	const channel = new MessageChannel();
+	const messages: unknown[] = [];
+	channel.port1.addEventListener("message", ({ data }) => {
+		messages.push(data);
+		const decoded = decodeClientMessage(data);
+		if (Result.isSuccess(decoded)) {
+			options.onClientMessage?.(decoded.success);
+		}
+	});
+	channel.port1.start();
+	window.dispatchEvent(
+		new MessageEvent("message", {
+			source: window.parent,
+			ports: [channel.port2],
+			data: {
+				mode: "light",
+				safeAreaTop: 0,
+				safeAreaBottom: 0,
+				page: options.page,
+				sessionId: "test-session",
+				documentKey: "test-document",
+				format: compositionMetadata.format,
+				compositionHash: compositionMetadata.hash,
+				apiVersion: compositionMetadata.apiVersion,
+				bridgeVersion: compositionMetadata.bridgeVersion,
+				compilerVersion: compositionMetadata.compilerVersion,
+			},
+		}),
+	);
+
+	const send = (message: PluginBridgeHostMessage) => channel.port1.postMessage(message);
+	const navigate = (
+		location: PluginLogicalLocation,
+		overrides: Partial<Omit<PluginBridgeLocation, "type" | "location">> = {},
+	) =>
+		send({
+			index: 0,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			...overrides,
+			location,
+		});
+	// `PluginBridgeReady` is not a member of the client union, so the handshake message drops out
+	// here by design; `messages` keeps every raw payload for tests that need it.
+	const clientMessages = () =>
+		messages
+			.map((message) => decodeClientMessage(message))
+			.filter(Result.isSuccess)
+			.map((decoded) => decoded.success);
+	const clientMessagesOfType = <TType extends PluginBridgeClientMessage["type"]>(type: TType) =>
+		clientMessages().filter(
+			(message): message is Extract<PluginBridgeClientMessage, { readonly type: TType }> =>
+				message.type === type,
+		);
+
+	const page = {
+		send,
+		messages,
+		navigate,
+		clientMessages,
+		assetCancels: () => clientMessagesOfType("asset-cancel"),
+		assetRequests: () => clientMessagesOfType("asset-request"),
+		container: document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID),
+		calendarSourceVisibilityRequests: () =>
+			clientMessagesOfType("calendar-source-visibility-request"),
+		replyAssets: (requestId: string, outcome: PluginAssetOutcome) =>
+			send({ ...outcome, requestId, type: "asset-result" }),
+		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>
+			send({ ...outcome, requestId, type: "ryotql-result" }),
+		queryRequests: (queryKey?: string) =>
+			clientMessagesOfType("ryotql-request").filter(
+				(request) => queryKey === undefined || queryKey in request.document.queries,
+			),
+		replyCalendarSourceVisibility: (
+			requestId: string,
+			outcome: PluginCalendarSourceVisibilityOutcome,
+		) => send({ ...outcome, requestId, type: "calendar-source-visibility-result" }),
+		dispose: () => {
+			const index = mounted.indexOf(page);
+			if (index >= 0) {
+				mounted.splice(index, 1);
+			}
+			bootstrap.dispose();
+			channel.port1.close();
+			channel.port2.close();
+			document.head.innerHTML = "";
+			document.body.innerHTML = "";
+		},
+	};
+	mounted.push(page);
+	if (options.location !== undefined) {
+		navigate(options.location);
+	}
+	return page;
+};

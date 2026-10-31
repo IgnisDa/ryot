@@ -1,4 +1,5 @@
 import { Shield, TrendingUp, Zap } from "lucide-react";
+
 import { FeatureCard } from "~/lib/components/FeatureCard";
 import { SectionHeader } from "~/lib/components/SectionHeader";
 import { SECTION_CONTAINER, SECTION_Y_PADDING } from "~/lib/styles";

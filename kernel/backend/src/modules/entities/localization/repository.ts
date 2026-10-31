@@ -1,0 +1,130 @@
+import { DbError } from "@ryot-app/contract/errors";
+import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
+import { and, asc, eq, getTableColumns, inArray, sql } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
+
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { entityVisibleToUserClause } from "#modules/entities/repository-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
+
+export type TranslationOverlayInput = {
+	language: string;
+	populatedAt: Date;
+	entityId: EntityId;
+	name: null | string;
+	sourceContentGeneration: number;
+	properties: null | Record<string, unknown>;
+};
+
+export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
+	"@ryot-app/kernel-backend/modules/entities/localization/repository/TranslationsRepository",
+	{
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const auth = yield* AuthRepository;
+			const findEntityById = Effect.fn("TranslationsRepository.findEntityById")(function* (
+				entityId: EntityId,
+				lock?: boolean,
+			) {
+				const [row] = yield* session.run((db) => {
+					const query = db
+						.select()
+						.from(schema.entity)
+						.where(eq(schema.entity.id, entityId))
+						.limit(1);
+					return lock ? query.for("update") : query;
+				});
+				return row ?? null;
+			});
+			const findEntityForUser = Effect.fn("TranslationsRepository.findEntityForUser")(function* (
+				input: { userId: UserId; entityId: EntityId },
+				lock?: boolean,
+			) {
+				const [row] = yield* session.run((db) => {
+					const query = db
+						.select()
+						.from(schema.entity)
+						.where(
+							and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+						)
+						.limit(1);
+					return lock ? query.for("update") : query;
+				});
+				return row ?? null;
+			});
+			const listForBackup = Effect.fn("TranslationsRepository.listForBackup")(function* (
+				entityIds: ReadonlyArray<EntityId>,
+			) {
+				if (entityIds.length === 0) {
+					return [];
+				}
+				return yield* session.run((db) =>
+					db
+						.select(getTableColumns(schema.entityTranslation))
+						.from(schema.entityTranslation)
+						.innerJoin(
+							schema.entity,
+							and(
+								eq(schema.entity.id, schema.entityTranslation.entityId),
+								eq(
+									schema.entity.contentGeneration,
+									schema.entityTranslation.sourceContentGeneration,
+								),
+							),
+						)
+						.where(inArray(schema.entityTranslation.entityId, [...entityIds]))
+						.orderBy(
+							asc(schema.entityTranslation.entityId),
+							asc(schema.entityTranslation.language),
+						),
+				);
+			});
+
+			const upsertOverlay = Effect.fn("TranslationsRepository.upsertOverlay")(function* (
+				input: TranslationOverlayInput,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.insert(schema.entityTranslation)
+						.values({
+							name: input.name,
+							entityId: input.entityId,
+							language: input.language,
+							properties: input.properties,
+							populatedAt: input.populatedAt,
+							sourceContentGeneration: input.sourceContentGeneration,
+						})
+						.onConflictDoUpdate({
+							target: [schema.entityTranslation.entityId, schema.entityTranslation.language],
+							set: {
+								updatedAt: sql`now()`,
+								name: sql`excluded.name`,
+								properties: sql`excluded.properties`,
+								populatedAt: sql`excluded.populated_at`,
+								sourceContentGeneration: sql`excluded.source_content_generation`,
+							},
+						})
+						.returning({
+							entityId: schema.entityTranslation.entityId,
+							language: schema.entityTranslation.language,
+						}),
+				);
+				if (!row) {
+					return yield* new DbError({ message: "Translation overlay upsert returned no row" });
+				}
+				return { language: row.language, entityId: EntityId.make(row.entityId) };
+			});
+
+			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
+				userId: UserId,
+			) {
+				return (yield* auth.getUserPreferences(userId))?.language ?? null;
+			});
+
+			return { upsertOverlay, listForBackup, findEntityById, findUserLanguage, findEntityForUser };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(AuthRepository.layer));
+}

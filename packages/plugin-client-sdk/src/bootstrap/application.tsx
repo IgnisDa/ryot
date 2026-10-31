@@ -1,0 +1,278 @@
+import {
+	CLIENT_BRIDGE_BOOTSTRAP_READY,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
+	CLIENT_PAGE_ROOT_ELEMENT_ID,
+	ClientCompositionMetadata,
+	type ClientPageContext,
+	KERNEL_SHORTCUTS,
+	PluginBridgeInit,
+} from "@ryot-app/plugin-client-contract";
+import { useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { Result, Schema } from "effect";
+import {
+	type ComponentType,
+	type ContextType,
+	createContext,
+	type ReactNode,
+	useContext,
+	useSyncExternalStore,
+} from "react";
+import { createRoot, type Root } from "react-dom/client";
+
+import {
+	type AnalyticsSectionRegistration,
+	AnalyticsSectionsProvider,
+} from "../analytics/sections";
+import { createPluginRuntime } from "../bridge/session";
+import type { RyotClient } from "../client/client";
+import {
+	createClientPageRouteResolver,
+	createPluginRouteResolver,
+	PluginRouter,
+	type PluginRouterDefinition,
+} from "../navigation/routing";
+import type { ResolvePluginScreen } from "../navigation/stack";
+import { createPluginNavigationStore } from "../navigation/store";
+import type { PluginRouterNavigation } from "../navigation/store";
+import {
+	type EntityPresentationRegistration,
+	EntityPresentationRegistryProvider,
+} from "../presentations/entity-results";
+import { RyotProvider } from "../queries/provider";
+import { makeRyotPluginRuntime, type RyotPluginRuntime } from "../runtime/runtime";
+
+type ClientPluginDefinition = PluginRouterDefinition;
+
+const PageContext = createContext<
+	| undefined
+	| {
+			readonly subscribe: (listener: () => void) => () => void;
+			readonly getSnapshot: () => undefined | ClientPageContext;
+	  }
+>(undefined);
+
+const PageStoreProvider = ({
+	store,
+	children,
+}: {
+	readonly children: ReactNode;
+	readonly store: NonNullable<ContextType<typeof PageContext>>;
+}) => <PageContext.Provider value={store}>{children}</PageContext.Provider>;
+
+export const usePageContext = () => {
+	const store = useContext(PageContext);
+	if (!store) {
+		throw new Error("Page context is only available in a mounted page");
+	}
+	const context = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+	if (!context) {
+		throw new Error("Page context is only available in a mounted page");
+	}
+	return context;
+};
+
+const decodeCompositionMetadata = Schema.decodeUnknownResult(
+	Schema.fromJsonString(ClientCompositionMetadata),
+);
+
+const KernelShortcutForwarder = ({
+	runtime,
+}: {
+	runtime: ReturnType<typeof createPluginRuntime>;
+}) => {
+	const { compact } = useSyncExternalStore(
+		runtime.navigation.subscribe,
+		runtime.navigation.getSnapshot,
+		runtime.navigation.getSnapshot,
+	);
+	useShortcut(KERNEL_SHORTCUTS.commandCenter, () =>
+		runtime.forwardKernelShortcut("command-center"),
+	);
+	useShortcut(
+		KERNEL_SHORTCUTS.workspaceSwitcher,
+		() => runtime.forwardKernelShortcut("workspace-switcher"),
+		{ enabled: !compact },
+	);
+	return null;
+};
+
+const bootstrapClientApplication = (
+	createResolver: (page: undefined | ClientPageContext) => ResolvePluginScreen,
+	registrations: readonly EntityPresentationRegistration[],
+	analyticsSections: readonly AnalyticsSectionRegistration[],
+	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
+) => {
+	let root: Root | undefined;
+	const listener = new AbortController();
+	let sdkRuntime: undefined | RyotPluginRuntime;
+	let sessionListener: undefined | AbortController;
+	let runtime: undefined | ReturnType<typeof createPluginRuntime>;
+	let currentPage: undefined | ClientPageContext;
+	let documentKey = "";
+	const pageListeners = new Set<() => void>();
+	const pageStore = {
+		getSnapshot: () => currentPage,
+		subscribe: (notify: () => void) => {
+			pageListeners.add(notify);
+			return () => {
+				pageListeners.delete(notify);
+			};
+		},
+	};
+	const renderPage = () => {
+		if (!root || !runtime || !sdkRuntime) {
+			return;
+		}
+		root.render(
+			<RyotProvider key={documentKey} runtime={sdkRuntime}>
+				<AnalyticsSectionsProvider registrations={analyticsSections}>
+					<EntityPresentationRegistryProvider registrations={registrations}>
+						<PageStoreProvider store={pageStore}>
+							<KernelShortcutForwarder runtime={runtime} />
+							<PluginRouter />
+						</PageStoreProvider>
+					</EntityPresentationRegistryProvider>
+				</AnalyticsSectionsProvider>
+			</RyotProvider>,
+		);
+	};
+	const handleFatalEvent = (event: Event) => {
+		event.preventDefault();
+		runtime?.fatal();
+	};
+	const mount = () => {
+		if (!root && runtime && sdkRuntime) {
+			const rootElement = document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID);
+			if (!rootElement) {
+				return;
+			}
+			try {
+				root = createRoot(rootElement, { onUncaughtError: () => runtime?.fatal() });
+				renderPage();
+			} catch {
+				runtime.fatal();
+			}
+		}
+	};
+	const unmount = () => {
+		root?.unmount();
+		root = undefined;
+	};
+	const dispose = () => {
+		listener.abort();
+		sessionListener?.abort();
+		sessionListener = undefined;
+		const activeRuntime = runtime;
+		const activeSdkRuntime = sdkRuntime;
+		runtime = undefined;
+		sdkRuntime = undefined;
+		activeRuntime?.dispose();
+		unmount();
+		void activeSdkRuntime?.dispose();
+	};
+	const metadataElement = document.getElementById(CLIENT_COMPOSITION_METADATA_ELEMENT_ID);
+	const metadata = decodeCompositionMetadata(metadataElement?.textContent ?? "");
+	if (Result.isFailure(metadata)) {
+		return { dispose };
+	}
+
+	const compositionMetadata = metadata.success;
+	window.addEventListener(
+		"message",
+		(event) => {
+			if (runtime || event.source !== window.parent || event.ports.length !== 1) {
+				return;
+			}
+			const decoded = Schema.decodeUnknownResult(PluginBridgeInit)(event.data);
+			if (
+				Result.isFailure(decoded) ||
+				decoded.success.compositionHash !== compositionMetadata.hash
+			) {
+				return;
+			}
+			const port = event.ports[0];
+			if (!document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID) || !port) {
+				return;
+			}
+
+			listener.abort();
+			sessionListener = new AbortController();
+			window.addEventListener("error", handleFatalEvent, { signal: sessionListener.signal });
+			window.addEventListener("unhandledrejection", handleFatalEvent, {
+				signal: sessionListener.signal,
+			});
+			const init = decoded.success;
+			currentPage = init.page;
+			documentKey = init.documentKey;
+			const navigationStore = createPluginNavigationStore(createResolver(init.page));
+			const pluginRuntime = createPluginRuntime(
+				port,
+				init,
+				compositionMetadata,
+				document.documentElement,
+				navigationStore,
+				mount,
+				() => {
+					sessionListener?.abort();
+					sessionListener = undefined;
+					unmount();
+					const activeSdkRuntime = sdkRuntime;
+					sdkRuntime = undefined;
+					void activeSdkRuntime?.dispose();
+				},
+				(nextKey, page) => {
+					currentPage = page;
+					documentKey = nextKey;
+					navigationStore.replaceDocument(createResolver(page));
+					for (const notify of pageListeners) {
+						notify();
+					}
+					renderPage();
+				},
+			);
+			try {
+				sdkRuntime = createRuntime(pluginRuntime.client, pluginRuntime.navigation);
+			} catch {
+				pluginRuntime.fatal();
+				return;
+			}
+			runtime = pluginRuntime;
+		},
+		{ signal: listener.signal },
+	);
+	window.parent.postMessage({ type: CLIENT_BRIDGE_BOOTSTRAP_READY }, "*");
+	return { dispose };
+};
+
+type ClientPluginOptions = {
+	readonly entityPresentations?: readonly EntityPresentationRegistration[];
+};
+type ClientPageOptions = ClientPluginOptions & {
+	readonly analyticsSections?: readonly AnalyticsSectionRegistration[];
+};
+
+export const createClientBootstrap = (
+	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
+) => ({
+	bootstrapClientPlugin: (definition: ClientPluginDefinition, options: ClientPluginOptions = {}) =>
+		bootstrapClientApplication(
+			() => createPluginRouteResolver(definition),
+			options.entityPresentations ?? [],
+			[],
+			createRuntime,
+		),
+
+	bootstrapClientPage: (component: ComponentType, options: ClientPageOptions = {}) =>
+		bootstrapClientApplication(
+			(page) =>
+				page === undefined
+					? createPluginRouteResolver({ home: { component } })
+					: createClientPageRouteResolver(component, page),
+			options.entityPresentations ?? [],
+			options.analyticsSections ?? [],
+			createRuntime,
+		),
+});
+
+export const { bootstrapClientPage, bootstrapClientPlugin } =
+	createClientBootstrap(makeRyotPluginRuntime);

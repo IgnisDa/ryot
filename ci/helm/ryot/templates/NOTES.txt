@@ -14,6 +14,16 @@ Database:
   External database from the chart-managed secret "{{ include "ryot.secretName" . }}" (key "database-url").
 {{- end }}
 
+Redis:
+{{- if .Values.redis.enabled }}
+  Bundled Redis (StatefulSet {{ include "ryot.redis.fullname" . }}).
+  REDIS_URL is wired automatically.
+{{- else if .Values.externalRedis.existingSecret }}
+  External Redis from secret "{{ .Values.externalRedis.existingSecret }}" (key "{{ .Values.externalRedis.existingSecretKey }}").
+{{- else }}
+  External Redis from the chart-managed secret "{{ include "ryot.secretName" . }}" (key "redis-url").
+{{- end }}
+
 Access the application:
 {{- if .Values.ingress.enabled }}
 {{- range .Values.ingress.hosts }}

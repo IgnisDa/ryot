@@ -1,134 +1,41 @@
 # Collections
 
-Collections are one of the core organizing systems in Ryot. They are not only labels for your
-media: they also drive dashboard sections, notification behavior, and some automatic status
-transitions.
+Collections are private lists of items. Use them to group media, exercises, or other collections.
+You can create, rename, and delete collections, and add fields such as notes or a rating to each member.
 
-## Default Collections
+## Add or remove items
 
-Ryot creates these collections automatically for every user account. They are default system
-collections and cannot be deleted.
+Open an item's collection controls to add it to a collection, edit its member fields, or remove it.
+New members appear at the start. Editing member fields does not change their position.
+Removing an item from a collection does not remove it from your library or delete its history.
 
-| Collection      | Description                              | Special behavior                                           |
-| --------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| **Watchlist**   | Items you want to consume in the future  | Automatically removed when progress/seen is updated        |
-| **In Progress** | Items you are currently consuming        | Powers the "In Progress" dashboard section                 |
-| **Completed**   | Items you have finished                  | Used for completion history and filters                    |
-| **Monitoring**  | Items you want to keep an eye on         | Powers upcoming events and update notifications            |
-| **Owned**       | Items in your physical/digital inventory | Includes an optional `Owned on` date field                 |
-| **Reminders**   | Items with scheduled reminders           | Uses reminder-specific extra fields                        |
-| **Custom**      | Items you created manually in Ryot       | Custom metadata/groups/people are added here automatically |
+## Sort collection members
 
-## Automatic Collection Management
+1. Open **Filters** (**View options** on a phone), then choose a field from **Sort by**.
+2. Use the direction button beside it to change direction. A newly selected field starts in its
+   default direction; selecting the current field again keeps its direction.
+3. Choose **Collection order** to see the saved manual order.
 
-Ryot applies collection automation when progress/seen state changes are recorded.
+**Date added to collection** means when the item joined this collection. **Date added to library**
+means when it entered your library.
 
-### Step 1: Watchlist removal
+## Change collection order
 
-On every progress/seen update, Ryot first removes the item from `Watchlist` (if present).
+1. Open the collection and select **Reorder**.
+2. Drag a handle, or focus it and use the up/down arrow keys. Home and End move within the loaded list.
+3. Use **Move to start** or **Move to end** to move across the whole collection without loading every item.
+4. Select **Done** to return to browsing.
 
-### Step 2: State-based rules
+Each move saves immediately. Reorder mode shows the collection without search or filters.
+Select **Load more** to reorder additional members. Normal browsing offers the filters and sorts of
+the collection's item types.
 
-When state becomes `In Progress`:
+If another tab changes the collection, reload it before making another move. If a move cannot be
+confirmed because of a connection failure, **Retry move** safely retries that same move.
 
-1. Add item to `In Progress`
-2. Add item to `Monitoring`
+## Library state and monitoring
 
-When state becomes `Dropped` or `On Hold`:
-
-1. Remove item from `In Progress`
-2. Leave `Monitoring` unchanged
-
-When state becomes `Completed`, behavior depends on media type:
-
-- **Non-episodic media** (movies, books, audiobooks, music, video games, comic books, visual
-  novels):
-  1. Add to `Completed`
-  2. Remove from `In Progress`
-  3. Remove from `Monitoring`
-- **Episodic media** (shows, anime, manga, podcasts):
-  - Use the completion algorithm below
-  - If complete: add to `Completed`, remove from `In Progress`
-  - If not complete: keep/add in `In Progress` and `Monitoring`
-
-::: info
-For episodic media, `Monitoring` is not auto-removed on completion. This helps ongoing series
-continue surfacing future updates.
-:::
-
-## Episodic Completion Algorithm
-
-For shows, anime, manga, and podcasts, Ryot decides completion using consume counts.
-
-### Core rule
-
-All tracked episodes/chapters must have equal, non-zero consume counts.
-
-Example for a 10-episode show:
-
-- Episodes 1-10 watched once each -> **Completed**
-- Episodes 1-9 watched once, episode 10 watched twice -> **Not completed**
-- Episodes 1-10 watched twice each -> **Completed** (second full pass)
-
-This is why rewatching a single favorite episode can put a show back in `In Progress` until
-other episodes catch up.
-
-### Specials and extras exclusion
-
-For shows, seasons named `Specials` or `Extras` are excluded from completion counting.
-
-### Unknown totals
-
-If Ryot cannot determine a full episode/chapter set (common with ongoing anime/manga), it treats
-the item as complete by default. Strict counting starts once totals become known.
-
-## Show Update Edge Case: Completed -> Watchlist
-
-There is one additional automation path for shows during metadata refresh.
-
-If a show is in both `Completed` and `Monitoring`, and provider updates add new not-yet-seen
-content (for example new episodes/seasons), Ryot can:
-
-1. Remove it from `Completed`
-2. Add it to `Watchlist`
-3. Send a notification about the move
-
-This helps re-surface shows that were previously complete.
-
-## Monitoring and Notifications
-
-`Monitoring` is the main driver for update-based awareness in Ryot.
-
-- The dashboard `Upcoming` section is built from monitored items with upcoming calendar events
-- Monitoring notifications include more than episode releases, such as metadata status changes,
-  release-date changes, and episode/chapter count changes
-
-## Reminders Behavior
-
-The default `Reminders` collection uses reminder-specific data fields (date + text). On the
-scheduled date, Ryot sends a reminder notification and removes the item from `Reminders`.
-
-## Manual Collection Management
-
-You can always add or remove collection memberships manually from an item page.
-
-Common use cases:
-
-- Keep manual control when algorithmic completion is not what you want
-- Remove from `In Progress` when you decide not to continue
-- Keep in `In Progress` but remove `Monitoring` to reduce notifications
-
-::: tip
-Notifications are controlled by `Monitoring`, not `Completed`. Adding something to `Completed`
-does not disable update notifications by itself.
-:::
-
-::: warning
-If you update progress again later, automation rules may add `In Progress`/`Monitoring` back,
-depending on the new state.
-:::
-
-## Dashboard Mapping
-
-- **In Progress** section shows items in the `In Progress` collection
-- **Upcoming** section is driven by monitored items that have upcoming events
+Media lifecycle lists, ownership, and monitoring are separate from ordinary collections.
+Logging progress does not move items between named collections or turn on monitoring.
+Collections imported from V1 keep their names and member order, but names such as Watchlist,
+Completed, Owned, and Monitoring do not make them protected system collections.

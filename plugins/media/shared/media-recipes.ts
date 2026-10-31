@@ -1,0 +1,1109 @@
+import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import {
+	and,
+	ascending,
+	castBoolean,
+	castDate,
+	castText,
+	column,
+	conditional,
+	count,
+	defineRecipe,
+	descending,
+	entitySchemaPredicate,
+	eq,
+	eventOrderDescending,
+	first,
+	inArray,
+	isNotNull,
+	isNull,
+	IsoDateString,
+	join,
+	jsonPath,
+	literal,
+	lt,
+	neq,
+	or,
+	type Recipe,
+	relationshipSchemaPredicate,
+	schemaOwnerPredicate,
+	selectedField,
+	selectedInclude,
+	type SelectedIncludes,
+	type SelectedIncludeValue,
+	selectedOptionalRow,
+	type SelectedQuery,
+	type SelectedRow,
+	selectedRows,
+	type SelectedSelection,
+	table,
+} from "@ryot-app/plugin-kit/ryotql";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	type PluginIdentityReference,
+} from "@ryot-app/plugin-kit/schema";
+
+import { ConsumedItem } from "./consumption";
+import type { ConsumptionMeasureUnit } from "./consumption-allocation";
+import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
+import {
+	mediaPresentationImageSelection,
+	type MediaPresentationSource,
+	selectedPresentationSource,
+} from "./entity-presentations";
+import {
+	entityId,
+	entityIdentitySelection,
+	entitySyncSelection,
+	libraryLinkExists,
+	propertyBoolean,
+	propertyJson,
+	propertyNumber,
+	propertyText,
+	type Table,
+} from "./entity-selections";
+import {
+	mediaLifecycleExpressions,
+	MediaLifecycleStateSchema,
+	type ScalarExpression,
+} from "./lifecycle-expressions";
+import { MediaImageListSchema, MediaImageSchema } from "./media-image";
+import { isPositional } from "./media-schema-slugs";
+import { WatchProviderListSchema } from "./watch-provider";
+
+const libraryOwnershipProperty = (entity: Table, key: "owned" | "ownedOn") => {
+	const mediaLibrary = table("entity", `${key}MediaLibrary`);
+	const relationship = table("relationship", `${key}Relationship`);
+	return first(relationship, {
+		select: jsonPath(column(relationship, "properties"), key),
+		orderBy: [descending(column(relationship, "createdAt")), ascending(column(relationship, "id"))],
+		joins: [
+			join(
+				"inner",
+				mediaLibrary,
+				eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
+			),
+		],
+		where: and(
+			eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+			eq(column(mediaLibrary, "entitySchemaPluginId"), column(entity, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(entity, "entitySchemaPluginId"),
+			),
+			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal("in-media-library")),
+		),
+	});
+};
+
+export const collectionMembershipInclude = (collectionLimit: number) => {
+	const entity = table("entity", "entity");
+	const collection = table("entity", "memberCollection");
+	const membership = table("relationship", "memberCollectionRelationship");
+
+	return selectedInclude(collection, {
+		limit: collectionLimit,
+		orderBy: [ascending(column(collection, "name")), ascending(column(collection, "id"))],
+		joins: [
+			join("inner", membership, eq(column(membership, "targetEntityId"), column(collection, "id"))),
+		],
+		selection: {
+			id: selectedField(column(collection, "id"), EntityId),
+			name: selectedField(column(collection, "name"), Schema.String),
+		},
+		where: and(
+			entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
+			eq(column(membership, "sourceEntityId"), column(entity, "id")),
+			relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
+		),
+	});
+};
+
+export const mediaGenresInclude = (
+	entity: Table,
+	slug: string,
+	reference: PluginIdentityReference,
+) => {
+	const genre = table("entity", "genre");
+	const relationship = table("relationship", "genreRelationship");
+
+	return selectedInclude(genre, {
+		limit: 100,
+		orderBy: [ascending(column(genre, "name")), ascending(column(genre, "id"))],
+		joins: [
+			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(genre, "id"))),
+		],
+		selection: {
+			id: selectedField(column(genre, "id"), EntityId),
+			name: selectedField(column(genre, "name"), Schema.String),
+		},
+		where: and(
+			entitySchemaPredicate(genre, "genre", reference),
+			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+			relationshipSchemaPredicate(relationship, `${slug}-to-genre`, reference),
+		),
+	});
+};
+
+export type MediaGenresList = SelectedIncludeValue<ReturnType<typeof mediaGenresInclude>>;
+
+export const requestedSchemaQuery = (id: string) => {
+	const requested = table("entity", "requested");
+	return selectedOptionalRow(requested, {
+		where: entityId(requested, id),
+		orderBy: [ascending(column(requested, "id"))],
+		selection: {
+			schemaSlug: selectedField(column(requested, "entitySchemaSlug"), EntitySchemaSlug),
+		},
+	});
+};
+
+export const mediaEntitySummarySelection = (entity: Table, provider: Table) => ({
+	providerCheckedAt: selectedField(
+		column(entity, "providerCheckedAt"),
+		Schema.NullOr(Schema.String),
+	),
+	canRefreshProvider: selectedField(
+		conditional(
+			eq(column(provider, "rootEntitySchemaSlug"), column(entity, "entitySchemaSlug")),
+			literal(true),
+			literal(false),
+		),
+		Schema.Boolean,
+	),
+	...entityIdentitySelection(entity),
+	providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
+	description: selectedField(propertyText(entity, "description"), Schema.NullOr(Schema.String)),
+	images: selectedField(
+		propertyJson(entity, "images"),
+		Schema.NullOr(Schema.Array(MediaImageSchema)),
+	),
+	isMonitored: selectedField(
+		libraryLinkExists(entity, "monitoringMediaLibrary", "media-monitoring"),
+		Schema.Boolean,
+	),
+	isInMediaLibrary: selectedField(
+		libraryLinkExists(entity, "mediaLibraryLibrary", "in-media-library"),
+		Schema.Boolean,
+	),
+	isCustom: selectedField(
+		conditional(
+			and(isNotNull(column(entity, "userId")), isNull(column(entity, "providerId"))),
+			literal(true),
+			literal(false),
+		),
+		Schema.Boolean,
+	),
+});
+
+export type MediaEntitySummarySelection = ReturnType<typeof mediaEntitySummarySelection>;
+
+export const mediaSummarySelection = (entity: Table, provider: Table) => ({
+	...mediaEntitySummarySelection(entity, provider),
+	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
+	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Finite)),
+	providerRating: selectedField(
+		propertyNumber(entity, "providerRating"),
+		Schema.NullOr(Schema.Finite),
+	),
+	productionStatus: selectedField(
+		propertyText(entity, "productionStatus"),
+		Schema.NullOr(Schema.String),
+	),
+	owned: selectedField(
+		castBoolean(libraryOwnershipProperty(entity, "owned")),
+		Schema.NullOr(Schema.Boolean),
+	),
+	ownedOn: selectedField(
+		castText(libraryOwnershipProperty(entity, "ownedOn")),
+		Schema.NullOr(Schema.String),
+	),
+});
+
+export type MediaSummarySelection = ReturnType<typeof mediaSummarySelection>;
+
+/** The summary row of one entity of `slug`, with its provider and collections, and the requested entity's schema. */
+export const mediaSummaryQueries = <
+	const Selection extends SelectedSelection,
+	const Includes extends SelectedIncludes,
+>(input: {
+	readonly slug: string;
+	readonly entityId: string;
+	readonly collectionLimit: number;
+	readonly reference: PluginIdentityReference;
+	/** Includes a schema adds beside the shared collection membership. */
+	readonly include: (entity: Table) => Includes;
+	readonly selection: (entity: Table, provider: Table) => Selection;
+}) => {
+	const entity = table("entity", "entity");
+	const provider = table("sandboxProvider", "provider");
+	return {
+		requested: requestedSchemaQuery(input.entityId),
+		summary: selectedOptionalRow(entity, {
+			orderBy: [ascending(column(entity, "id"))],
+			selection: input.selection(entity, provider),
+			joins: [join("left", provider, eq(column(entity, "providerId"), column(provider, "id")))],
+			include: {
+				collections: collectionMembershipInclude(input.collectionLimit),
+				...input.include(entity),
+			},
+			where: and(
+				entitySchemaPredicate(entity, input.slug, input.reference),
+				entityId(entity, input.entityId),
+			),
+		}),
+	};
+};
+
+export const mediaSummaryResult = <Summary>(result: {
+	readonly summary: Summary | undefined;
+	readonly requested: undefined | { readonly schemaSlug: EntitySchemaSlug };
+}) =>
+	Result.succeed({
+		summary: result.summary ?? null,
+		entitySchemaSlug: result.requested?.schemaSlug ?? null,
+	});
+
+export const mediaWatchProviderSelection = (entity: Table) => ({
+	watchProviders: selectedField(propertyJson(entity, "watchProviders"), WatchProviderListSchema),
+});
+
+export const mediaNumberField = (entity: Table, key: string) =>
+	selectedField(propertyNumber(entity, key), Schema.NullOr(Schema.Finite));
+
+export const mediaTextField = (entity: Table, key: string) =>
+	selectedField(propertyText(entity, key), Schema.NullOr(Schema.String));
+
+export const creditSelection = (credit: Table, relationship: Table) => ({
+	id: selectedField(column(credit, "id"), EntityId),
+	name: selectedField(column(credit, "name"), Schema.String),
+	images: selectedField(propertyJson(credit, "images"), MediaImageListSchema),
+	order: selectedField(propertyNumber(relationship, "order"), Schema.NullOr(Schema.Finite)),
+	roles: selectedField(
+		propertyJson(relationship, "roles"),
+		Schema.NullOr(Schema.Array(Schema.String)),
+	),
+	...entitySyncSelection(credit),
+});
+
+export const creditCharacterSelection = (relationship: Table) => ({
+	character: selectedField(propertyText(relationship, "character"), Schema.NullOr(Schema.String)),
+});
+
+/** Rows of `relationship` joining `related` on `relatedSide`, anchored to the entity on the other side. */
+export const relatedRows = (input: {
+	readonly limit: number;
+	readonly related: Table;
+	readonly entityId: string;
+	readonly relationship: Table;
+	readonly relatedSchemaSlug: string;
+	readonly relationshipSchemaSlug: string;
+	readonly reference: PluginIdentityReference;
+	readonly relatedSide: "sourceEntityId" | "targetEntityId";
+	readonly orderBy: readonly ReturnType<typeof ascending>[];
+}) => ({
+	limit: input.limit,
+	orderBy: input.orderBy,
+	joins: [
+		join(
+			"inner",
+			input.related,
+			eq(column(input.relationship, input.relatedSide), column(input.related, "id")),
+		),
+	],
+	where: and(
+		entitySchemaPredicate(input.related, input.relatedSchemaSlug, input.reference),
+		eq(
+			column(
+				input.relationship,
+				input.relatedSide === "sourceEntityId" ? "targetEntityId" : "sourceEntityId",
+			),
+			literal(input.entityId),
+		),
+		relationshipSchemaPredicate(input.relationship, input.relationshipSchemaSlug, input.reference),
+	),
+});
+
+const creditOrder = (credit: Table, relationship: Table) => [
+	ascending(propertyNumber(relationship, "order")),
+	ascending(column(credit, "name")),
+];
+
+type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
+
+type SelectedQueryRows<Queries> = {
+	readonly [Key in keyof Queries]: SelectedQuerySuccess<Queries[Key]>;
+};
+
+/** People and company credits of one entity of `slug`, with the schema's own person credit fields. */
+export const mediaCreditQueries = <const PersonFields extends SelectedSelection>(input: {
+	readonly slug: string;
+	readonly entityId: string;
+	readonly peopleLimit: number;
+	readonly companyLimit: number;
+	readonly reference: PluginIdentityReference;
+	readonly personFields: (relationship: Table) => PersonFields;
+}) => {
+	const person = table("entity", "person");
+	const company = table("entity", "company");
+	const personRelationship = table("relationship", "personRelationship");
+	const companyRelationship = table("relationship", "companyRelationship");
+	return {
+		companies: selectedRows(companyRelationship, {
+			...relatedRows({
+				related: company,
+				entityId: input.entityId,
+				limit: input.companyLimit,
+				reference: input.reference,
+				relatedSchemaSlug: "company",
+				relatedSide: "sourceEntityId",
+				relationship: companyRelationship,
+				relationshipSchemaSlug: `company-to-${input.slug}`,
+				orderBy: creditOrder(company, companyRelationship),
+			}),
+			selection: creditSelection(company, companyRelationship),
+		}),
+		people: selectedRows(personRelationship, {
+			...relatedRows({
+				related: person,
+				entityId: input.entityId,
+				limit: input.peopleLimit,
+				reference: input.reference,
+				relatedSchemaSlug: "person",
+				relatedSide: "sourceEntityId",
+				relationship: personRelationship,
+				orderBy: creditOrder(person, personRelationship),
+				relationshipSchemaSlug: `person-to-${input.slug}`,
+			}),
+			selection: {
+				...creditSelection(person, personRelationship),
+				...input.personFields(personRelationship),
+			},
+		}),
+	};
+};
+
+export type MediaCreditRows<PersonFields extends SelectedSelection> = SelectedQueryRows<
+	ReturnType<typeof mediaCreditQueries<PersonFields>>
+>;
+
+export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config: {
+	readonly slug: string;
+	readonly personFields: (relationship: Table) => Fields;
+}) =>
+	defineRecipe(
+		(input: {
+			readonly limit: number;
+			readonly entityId: string;
+			readonly after?: string | undefined;
+			readonly reference: PluginIdentityReference;
+		}) => {
+			const person = table("entity", "person");
+			const relationship = table("relationship", "personRelationship");
+			return {
+				map: ({ people }) => Result.succeed(people),
+				queries: {
+					people: selectedRows(relationship, {
+						...relatedRows({
+							...input,
+							relationship,
+							related: person,
+							relatedSchemaSlug: "person",
+							relatedSide: "sourceEntityId",
+							relationshipSchemaSlug: `person-to-${config.slug}`,
+							orderBy: [...creditOrder(person, relationship), ascending(column(person, "id"))],
+						}),
+						...(input.after === undefined ? {} : { after: input.after }),
+						selection: {
+							...creditSelection(person, relationship),
+							...config.personFields(relationship),
+						},
+					}),
+				},
+			};
+		},
+	);
+
+export const mediaOverviewQueries = (input: {
+	readonly slug: string;
+	readonly entityId: string;
+	readonly peopleLimit: number;
+	readonly companyLimit: number;
+	readonly recommendationLimit: number;
+	readonly reference: PluginIdentityReference;
+}) => {
+	const suggested = table("entity", "suggested");
+	const suggestionRelationship = table("relationship", "suggestionRelationship");
+	return {
+		...mediaCreditQueries({ ...input, personFields: creditCharacterSelection }),
+		recommendations: selectedRows(suggestionRelationship, {
+			...relatedRows({
+				related: suggested,
+				entityId: input.entityId,
+				reference: input.reference,
+				relatedSide: "targetEntityId",
+				relatedSchemaSlug: input.slug,
+				limit: input.recommendationLimit,
+				relationship: suggestionRelationship,
+				relationshipSchemaSlug: "media-suggestion",
+				orderBy: [ascending(column(suggested, "name"))],
+			}),
+			selection: {
+				id: selectedField(column(suggested, "id"), EntityId),
+				name: selectedField(column(suggested, "name"), Schema.String),
+				images: selectedField(propertyJson(suggested, "images"), MediaImageListSchema),
+				...entitySyncSelection(suggested),
+			},
+		}),
+	};
+};
+
+export type MediaOverviewRows = SelectedQueryRows<ReturnType<typeof mediaOverviewQueries>>;
+
+export const mediaGroupQuery = (input: {
+	readonly limit: number;
+	readonly entityId: string;
+	readonly groupSlug: string;
+	readonly memberSlug: string;
+	readonly relationshipSlug: string;
+	readonly reference: PluginIdentityReference;
+	readonly aliases: { readonly group: string; readonly relationship: string };
+}) => {
+	const group = table("entity", input.aliases.group);
+	const groupRelationship = table("relationship", input.aliases.relationship);
+	const member = table("entity", "groupMember");
+	const membership = table("relationship", "groupMembership");
+	return selectedOptionalRow(group, {
+		orderBy: [ascending(column(group, "id"))],
+		joins: [
+			join(
+				"inner",
+				groupRelationship,
+				eq(column(groupRelationship, "sourceEntityId"), column(group, "id")),
+			),
+		],
+		selection: {
+			id: selectedField(column(group, "id"), EntityId),
+			name: selectedField(column(group, "name"), Schema.String),
+			...entitySyncSelection(group),
+		},
+		where: and(
+			entitySchemaPredicate(group, input.groupSlug, input.reference),
+			eq(column(groupRelationship, "targetEntityId"), literal(input.entityId)),
+			relationshipSchemaPredicate(groupRelationship, input.relationshipSlug, input.reference),
+		),
+		include: {
+			members: selectedInclude(member, {
+				limit: input.limit,
+				joins: [
+					join("inner", membership, eq(column(membership, "targetEntityId"), column(member, "id"))),
+				],
+				orderBy: [
+					ascending(propertyNumber(membership, "order")),
+					ascending(column(member, "name")),
+					ascending(column(member, "id")),
+				],
+				selection: {
+					id: selectedField(column(member, "id"), EntityId),
+					name: selectedField(column(member, "name"), Schema.String),
+					images: selectedField(propertyJson(member, "images"), MediaImageListSchema),
+					...entitySyncSelection(member),
+				},
+				where: and(
+					entitySchemaPredicate(member, input.memberSlug, input.reference),
+					neq(column(member, "id"), literal(input.entityId)),
+					eq(column(membership, "sourceEntityId"), column(group, "id")),
+					relationshipSchemaPredicate(membership, input.relationshipSlug, input.reference),
+				),
+			}),
+		},
+	});
+};
+
+const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
+	entity: Table,
+	lifecycle: { readonly state: ScalarExpression; readonly progressPercent: ScalarExpression },
+	duration: Duration,
+) => ({
+	...entityIdentitySelection(entity),
+	state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
+	...mediaPresentationImageSelection(entity),
+	...duration,
+	progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
+	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
+	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Finite)),
+	productionStatus: selectedField(
+		propertyText(entity, "productionStatus"),
+		Schema.NullOr(Schema.String),
+	),
+});
+
+export const mediaActivityParentSlugs = [
+	"add-to-media-library",
+	"backlog",
+	"on_hold",
+	"dropped",
+	"complete",
+	"review",
+] as const;
+
+export const mediaActivityCollectionSlugs = [
+	"add-entity-to-collection",
+	"remove-entity-from-collection",
+] as const;
+
+export const eventSchemaIsOneOf = (event: Table, slugs: readonly string[]) =>
+	inArray(
+		column(event, "eventSchemaSlug"),
+		slugs.map((slug) => literal(slug)),
+	);
+
+export const mediaEventSnapshotSelection = (event: Table) => ({
+	id: selectedField(column(event, "id"), EventId),
+	entityId: selectedField(column(event, "entityId"), EntityId),
+	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
+	sessionEntityId: selectedField(column(event, "sessionEntityId"), Schema.NullOr(EntityId)),
+	properties: selectedField(column(event, "properties"), Schema.Record(Schema.String, Schema.Json)),
+});
+
+export const mediaReviewEventSelection = (event: Table) => ({
+	...mediaEventSnapshotSelection(event),
+	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
+	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
+	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Finite)),
+	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
+});
+
+export const mediaReviewActivityEventSelection = (event: Table) => ({
+	...mediaReviewEventSelection(event),
+	eventSchemaSlug: selectedField(column(event, "eventSchemaSlug"), Schema.String),
+});
+
+export const mediaActivityEventSelection = (event: Table) => ({
+	...mediaReviewEventSelection(event),
+	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Finite)),
+	consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
+});
+
+export const mediaCollectionEventsQuery = (input: {
+	readonly limit: number;
+	readonly entityId: string;
+	readonly before?: undefined | MediaHistoryCursor;
+}) => {
+	const collectionEvent = table("event", "collectionEvent");
+	const eventCollection = table("entity", "eventCollection");
+	return selectedRows(collectionEvent, {
+		limit: input.limit,
+		orderBy: eventOrderDescending(collectionEvent),
+		joins: [
+			join(
+				"inner",
+				eventCollection,
+				eq(column(collectionEvent, "entityId"), column(eventCollection, "id")),
+			),
+		],
+		where: and(
+			...(input.before === undefined ? [] : [mediaHistoryBefore(collectionEvent, input.before)]),
+			entitySchemaPredicate(eventCollection, "collection", { kind: "kernel" }),
+			schemaOwnerPredicate(collectionEvent, "eventSchemaPluginId", { kind: "kernel" }),
+			eventSchemaIsOneOf(collectionEvent, mediaActivityCollectionSlugs),
+			eq(propertyText(collectionEvent, "entityId"), literal(input.entityId)),
+		),
+		selection: {
+			id: selectedField(column(collectionEvent, "id"), EventId),
+			collectionId: selectedField(column(eventCollection, "id"), EntityId),
+			collectionName: selectedField(column(eventCollection, "name"), Schema.String),
+			createdAt: selectedField(column(collectionEvent, "createdAt"), IsoDateString),
+			occurredAt: selectedField(column(collectionEvent, "occurredAt"), IsoDateString),
+			eventSchemaSlug: selectedField(
+				column(collectionEvent, "eventSchemaSlug"),
+				Schema.Literals(mediaActivityCollectionSlugs),
+			),
+		},
+	});
+};
+
+export const mediaFlatActivityParentSlugs = [
+	...mediaActivityParentSlugs,
+	"item-complete",
+	"progress",
+	"list-state",
+] as const;
+
+const mediaFlatActivityEventSelection = (event: Table, numberedItems: boolean) => ({
+	...mediaActivityEventSelection(event),
+	startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
+	dateUnknown: selectedField(propertyBoolean(event, "dateUnknown"), Schema.NullOr(Schema.Boolean)),
+	progressPercent: selectedField(
+		propertyNumber(event, "progressPercent"),
+		Schema.NullOr(Schema.Finite),
+	),
+	eventSchemaSlug: selectedField(
+		column(event, "eventSchemaSlug"),
+		Schema.Literals(mediaFlatActivityParentSlugs),
+	),
+	consumedItem: selectedField(
+		numberedItems ? propertyJson(event, "consumedItem") : literal(null),
+		Schema.NullOr(ConsumedItem),
+	),
+});
+
+/** The entity's own events of `slugs`, newest first. */
+export const mediaEntityEventsQuery = <const Selection extends SelectedSelection>(input: {
+	readonly limit: number;
+	readonly alias: string;
+	readonly entityId: string;
+	readonly slugs: readonly string[];
+	readonly reference: PluginIdentityReference;
+	readonly selection: (event: Table) => Selection;
+	readonly before?: undefined | MediaHistoryCursor;
+}) => {
+	const event = table("event", input.alias);
+	return selectedRows(event, {
+		limit: input.limit,
+		selection: input.selection(event),
+		orderBy: eventOrderDescending(event),
+		where: and(
+			...(input.before === undefined ? [] : [mediaHistoryBefore(event, input.before)]),
+			schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
+			eq(column(event, "entityId"), literal(input.entityId)),
+			eventSchemaIsOneOf(event, input.slugs),
+		),
+	});
+};
+
+export const compareMediaActivityDescending = (
+	left: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
+	right: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
+) =>
+	right.occurredAt.localeCompare(left.occurredAt) ||
+	right.createdAt.localeCompare(left.createdAt) ||
+	right.id.localeCompare(left.id);
+
+type MediaActivityOrdered = {
+	readonly id: string;
+	readonly createdAt: string;
+	readonly occurredAt: string;
+};
+
+const MediaHistoryCursor = Schema.Struct({
+	id: Schema.String,
+	createdAt: IsoDateString,
+	occurredAt: IsoDateString,
+});
+export type MediaHistoryCursor = typeof MediaHistoryCursor.Type;
+const HistoryCursorJson = Schema.fromJsonString(MediaHistoryCursor);
+const encodeHistoryCursor = Schema.encodeResult(HistoryCursorJson);
+
+/** Invalid cursors fail the recipe's `map`, after queries built without a cursor have run. */
+export const mediaHistoryCursor = (before: string | undefined) =>
+	before === undefined ? Result.succeed(undefined) : Schema.decodeResult(HistoryCursorJson)(before);
+
+export type MediaHistoryInput = {
+	readonly limit: number;
+	readonly entityId: string;
+	readonly before?: string | undefined;
+	readonly reference: PluginIdentityReference;
+};
+
+export const mediaHistoryBefore = (event: Table, cursor: MediaHistoryCursor) => {
+	const occurredAt = castDate(literal(cursor.occurredAt));
+	const createdAt = castDate(literal(cursor.createdAt));
+	return or(
+		lt(column(event, "occurredAt"), occurredAt),
+		and(eq(column(event, "occurredAt"), occurredAt), lt(column(event, "createdAt"), createdAt)),
+		and(
+			eq(column(event, "occurredAt"), occurredAt),
+			eq(column(event, "createdAt"), createdAt),
+			lt(column(event, "id"), literal(cursor.id)),
+		),
+	);
+};
+
+export const mediaHistoryPage = <Event extends MediaActivityOrdered>(
+	events: readonly Event[],
+	limit: number,
+	hasMore: boolean,
+) => {
+	const items = [...events].sort(compareMediaActivityDescending).slice(0, limit);
+	const last = items.at(-1);
+	const more = hasMore || events.length > limit;
+	return Result.map(
+		more && last !== undefined
+			? encodeHistoryCursor({ id: last.id, createdAt: last.createdAt, occurredAt: last.occurredAt })
+			: Result.succeed(null),
+		(nextCursor) => ({ items, pageInfo: { nextCursor, hasMore: more } }),
+	);
+};
+
+export const mediaEntityHistoryRecipe = <const Selection extends SelectedSelection>(config: {
+	readonly alias: string;
+	readonly slugs: readonly string[];
+	readonly selection: (event: Table) => Selection;
+}) =>
+	defineRecipe((input: MediaHistoryInput) => {
+		const cursor = mediaHistoryCursor(input.before);
+		const query = { ...input, before: Result.getOrUndefined(cursor) };
+		return {
+			queries: {
+				collectionEvents: mediaCollectionEventsQuery(query),
+				events: mediaEntityEventsQuery({
+					...query,
+					...config,
+					alias: `${config.alias}HistoryEvent`,
+					selection: (event) => ({
+						...mediaReviewActivityEventSelection(event),
+						...config.selection(event),
+					}),
+				}),
+			},
+			map: ({ events, collectionEvents }) =>
+				Result.flatMap(cursor, () =>
+					mediaHistoryPage(
+						mergeMediaActivityEvents({
+							parentEvents: events.items,
+							collectionEvents: collectionEvents.items,
+						}),
+						input.limit,
+						events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+					),
+				),
+		};
+	});
+
+type MediaCollectionActivityRow = MediaActivityOrdered & {
+	readonly collectionId: string;
+	readonly collectionName: string;
+};
+
+/** Collection membership events as activity rows carrying none of the media event fields. */
+export const mediaCollectionActivityEvents = <Collection extends MediaCollectionActivityRow>(
+	rows: readonly Collection[],
+) =>
+	rows.map(({ collectionId, collectionName, ...row }) => ({
+		...row,
+		text: null,
+		rating: null,
+		timeSpent: null,
+		isSpoiler: null,
+		consumedOn: null,
+		progressPercent: null,
+		kind: "collection" as const,
+		collection: { id: collectionId, name: collectionName },
+	}));
+
+export const mergeMediaActivityEvents = <
+	Parent extends MediaActivityOrdered,
+	Collection extends MediaCollectionActivityRow,
+>(input: {
+	readonly parentEvents: readonly Parent[];
+	readonly collectionEvents: readonly Collection[];
+}) =>
+	[
+		...input.parentEvents.map((row) => ({ ...row, kind: "media" as const })),
+		...mediaCollectionActivityEvents(input.collectionEvents),
+	].sort(compareMediaActivityDescending);
+
+export type MediaFlatActivityCollectionEvent = Extract<
+	MergedFlatActivityEvent,
+	{ readonly kind: "collection" }
+>;
+
+export type MediaFlatActivityEvent<Extra = unknown> =
+	MediaFlatActivityCollectionEvent | MediaFlatActivityMediaEvent<Extra>;
+
+export type MediaFlatActivityMediaEvent<Extra = unknown> = Extra &
+	Extract<MergedFlatActivityEvent, { readonly kind: "media" }>;
+
+export type MediaReviewActivityEvent = ReturnType<
+	typeof mergeMediaActivityEvents<MediaReviewActivityParentRow, MediaActivityCollectionRow>
+>[number];
+
+export type MediaReviewActivityResult = {
+	readonly truncated: boolean;
+	readonly reviewCount: number;
+	readonly events: readonly MediaReviewActivityEvent[];
+};
+
+type MediaFlatActivityParentRow = SelectedRow<ReturnType<typeof mediaFlatActivityEventSelection>>;
+
+type MediaReviewActivityParentRow = SelectedRow<
+	ReturnType<typeof mediaReviewActivityEventSelection>
+>;
+
+type MediaActivityCollectionRow = SelectedQuerySuccess<
+	ReturnType<typeof mediaCollectionEventsQuery>
+>["items"][number];
+
+type MergedFlatActivityEvent = ReturnType<
+	typeof mergeMediaActivityEvents<MediaFlatActivityParentRow, MediaActivityCollectionRow>
+>[number];
+
+/** Reviews, media library changes, and collection changes of an entity without media lifecycle events. */
+export const mediaReviewActivityRecipe = (config: {
+	readonly slug: string;
+	readonly alias: string;
+}) =>
+	defineRecipe(
+		(input: {
+			readonly entityId: string;
+			readonly eventLimit: number;
+			readonly collectionEventLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => {
+			const entity = table("entity", `${config.alias}ActivityEntity`);
+			const review = table("event", `${config.alias}ReviewCountEvent`);
+			return {
+				map: ({ totals, events, collectionEvents }) =>
+					Result.succeed({
+						reviewCount: totals?.reviewCount ?? 0,
+						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+						events: mergeMediaActivityEvents({
+							parentEvents: events.items,
+							collectionEvents: collectionEvents.items,
+						}),
+					}),
+				queries: {
+					collectionEvents: mediaCollectionEventsQuery({
+						entityId: input.entityId,
+						limit: input.collectionEventLimit,
+					}),
+					events: mediaEntityEventsQuery({
+						limit: input.eventLimit,
+						entityId: input.entityId,
+						reference: input.reference,
+						alias: `${config.alias}Event`,
+						slugs: ["review", "add-to-media-library"],
+						selection: mediaReviewActivityEventSelection,
+					}),
+					totals: selectedOptionalRow(entity, {
+						orderBy: [ascending(column(entity, "id"))],
+						where: and(
+							entitySchemaPredicate(entity, config.slug, input.reference),
+							entityId(entity, input.entityId),
+						),
+						selection: {
+							reviewCount: selectedField(
+								count(review, {
+									where: and(
+										eq(column(review, "entityId"), column(entity, "id")),
+										eq(
+											column(review, "eventSchemaPluginId"),
+											column(entity, "entitySchemaPluginId"),
+										),
+										eq(column(review, "eventSchemaSlug"), literal("review")),
+									),
+								}),
+								Schema.Finite,
+							),
+						},
+					}),
+				},
+			};
+		},
+	);
+
+export const mediaUnlinkedCreatorsQuery = (reference: PluginIdentityReference, id: string) => {
+	const entity = table("entity", "creatorsEntity");
+	return selectedOptionalRow(entity, {
+		orderBy: [ascending(column(entity, "id"))],
+		where: and(
+			entityId(entity, id),
+			schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
+		),
+		selection: {
+			unlinkedCreators: selectedField(
+				propertyJson(entity, "unlinkedCreators"),
+				Schema.NullOr(Schema.Array(Schema.Struct({ name: Schema.String, role: Schema.String }))),
+			),
+		},
+	});
+};
+
+export const mediaUnlinkedCreatorsOverviewQueries = (input: {
+	readonly entityId: string;
+	readonly reference: PluginIdentityReference;
+}) => ({ creators: mediaUnlinkedCreatorsQuery(input.reference, input.entityId) });
+
+export type MediaExtraQueries = Readonly<Record<string, SelectedQuery<unknown>>>;
+
+export type MediaActivityOf<Recipes extends { readonly activityRecipe: unknown }> = Recipe.Success<
+	Recipes["activityRecipe"]
+>;
+
+export type MediaUnlinkedCreatorsOverview = {
+	readonly creators?:
+		undefined | SelectedQuerySuccess<ReturnType<typeof mediaUnlinkedCreatorsQuery>>;
+};
+
+export type MediaActivityEventOf<Recipes extends { readonly activityRecipe: unknown }> =
+	MediaActivityOf<Recipes> extends { readonly events: readonly (infer Event)[] } ? Event : never;
+
+export type MediaPresentationDataOf<Recipes extends { readonly presentationSource: unknown }> =
+	Recipes["presentationSource"] extends MediaPresentationSource<infer Data> ? Data : never;
+
+export type MediaSummaryOf<Recipes extends { readonly summaryRecipe: unknown }> =
+	Recipe.Success<Recipes["summaryRecipe"]> extends { readonly summary: infer Summary }
+		? NonNullable<Summary>
+		: never;
+
+export type MediaFlatOverviewInput = {
+	readonly entityId: string;
+	readonly groupLimit: number;
+	readonly peopleLimit: number;
+	readonly companyLimit: number;
+	readonly recommendationLimit: number;
+	readonly reference: PluginIdentityReference;
+};
+
+export const mediaFlatRecipes = <
+	const SummaryFields extends SelectedSelection,
+	const PresentationFields extends SelectedSelection,
+	const ActivityEventFields extends SelectedSelection,
+	const ExtraOverviewQueries extends MediaExtraQueries,
+>(config: {
+	readonly slug: string;
+	readonly alias: string;
+	readonly groupSlug?: string;
+	readonly consumptionUnit: ConsumptionMeasureUnit;
+	readonly summaryFields: (entity: Table) => SummaryFields;
+	readonly presentationFields: (entity: Table) => PresentationFields;
+	readonly activityEventFields: (event: Table) => ActivityEventFields;
+	readonly extraOverviewQueries: (input: MediaFlatOverviewInput) => ExtraOverviewQueries;
+}) => {
+	const summaryRecipe = defineRecipe(
+		(input: {
+			readonly entityId: string;
+			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => ({
+			map: (result) => mediaSummaryResult(result),
+			queries: mediaSummaryQueries({
+				...input,
+				slug: config.slug,
+				include: (entity) => ({ genres: mediaGenresInclude(entity, config.slug, input.reference) }),
+				selection: (entity, provider) => {
+					const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}SummaryLifecycle`);
+					return {
+						...mediaSummarySelection(entity, provider),
+						state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
+						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
+						...config.summaryFields(entity),
+					};
+				},
+			}),
+		}),
+	);
+
+	const overviewQueries = (input: MediaFlatOverviewInput) => {
+		const { groupSlug } = config;
+		const credits = {
+			...mediaOverviewQueries({ ...input, slug: config.slug }),
+			...config.extraOverviewQueries(input),
+		};
+		return groupSlug === undefined
+			? credits
+			: {
+					...credits,
+					group: mediaGroupQuery({
+						groupSlug,
+						memberSlug: config.slug,
+						limit: input.groupLimit,
+						entityId: input.entityId,
+						reference: input.reference,
+						relationshipSlug: `${groupSlug}-to-${config.slug}`,
+						aliases: {
+							group: `${config.alias}Group`,
+							relationship: `${config.alias}GroupRelationship`,
+						},
+					}),
+				};
+	};
+
+	const overviewRecipe = defineRecipe((input: MediaFlatOverviewInput) => ({
+		queries: overviewQueries(input),
+	}));
+	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
+	const activitySelection = (event: Table) => ({
+		...mediaFlatActivityEventSelection(event, isPositional(config.slug)),
+		...config.activityEventFields(event),
+	});
+	const historyRecipe = mediaEntityHistoryRecipe({
+		alias: config.alias,
+		selection: activitySelection,
+		slugs: mediaFlatActivityParentSlugs,
+	});
+
+	const activityRecipe = defineRecipe(
+		(input: {
+			readonly entityId: string;
+			readonly eventLimit: number;
+			readonly collectionEventLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => {
+			const entity = table("entity", `${config.alias}ActivityEntity`);
+			return {
+				map: ({ totals, events, collectionEvents }) =>
+					Result.succeed({
+						completionCount: totals?.completionCount ?? 0,
+						consumedAmount: totals?.consumedAmount ?? null,
+						unknownAmountCount: totals?.unknownAmountCount ?? 0,
+						consumptionProcessing: totals?.consumptionProcessing ?? "ready",
+						truncated: events.pageInfo.hasMore || collectionEvents.pageInfo.hasMore,
+						events: mergeMediaActivityEvents({
+							parentEvents: events.items,
+							collectionEvents: collectionEvents.items,
+						}),
+					}),
+				queries: {
+					collectionEvents: mediaCollectionEventsQuery({
+						entityId: input.entityId,
+						limit: input.collectionEventLimit,
+					}),
+					events: mediaEntityEventsQuery({
+						limit: input.eventLimit,
+						entityId: input.entityId,
+						reference: input.reference,
+						selection: activitySelection,
+						alias: `${config.alias}Event`,
+						slugs: mediaFlatActivityParentSlugs,
+					}),
+					totals: selectedOptionalRow(entity, {
+						orderBy: [ascending(column(entity, "id"))],
+						selection: mediaConsumptionTotalsSelection(entity, config.consumptionUnit),
+						where: and(
+							entitySchemaPredicate(entity, config.slug, input.reference),
+							entityId(entity, input.entityId),
+						),
+					}),
+				},
+			};
+		},
+	);
+
+	const presentationSelection = (entity: Table, alias: string) =>
+		mediaFlatPresentationSelection(
+			entity,
+			mediaLifecycleExpressions(entity, `${alias}Lifecycle`),
+			config.presentationFields(entity),
+		);
+
+	const presentationEntity = table("entity", "entity");
+	const presentationSource = selectedPresentationSource({
+		table: presentationEntity,
+		selection: presentationSelection(presentationEntity, `${config.alias}Presentation`),
+	});
+
+	return {
+		peopleRecipe,
+		summaryRecipe,
+		historyRecipe,
+		overviewRecipe,
+		activityRecipe,
+		presentationSource,
+		presentationSelection,
+	};
+};

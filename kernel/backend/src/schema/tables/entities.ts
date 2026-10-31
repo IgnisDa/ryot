@@ -1,0 +1,152 @@
+import { generateId } from "better-auth";
+import { sql } from "drizzle-orm";
+import {
+	check,
+	index,
+	integer,
+	jsonb,
+	snakeCase,
+	text,
+	unique,
+	uniqueIndex,
+} from "drizzle-orm/pg-core";
+
+import { user } from "./auth";
+import { plugin, sandboxProvider } from "./core";
+import { timestamptz, updatedAtColumn } from "./timestamps";
+
+export const entity = snakeCase.table(
+	"entity",
+	{
+		externalId: text(),
+		name: text().notNull(),
+		populatedAt: timestamptz(),
+		updatedAt: updatedAtColumn(),
+		relatedPopulatedAt: timestamptz(),
+		entitySchemaSlug: text().notNull(),
+		relatedPopulationGeneration: text(),
+		relatedPopulationStartedAt: timestamptz(),
+		createdAt: timestamptz().defaultNow().notNull(),
+		contentGeneration: integer().notNull().default(1),
+		collectionOrderRevision: integer().notNull().default(0),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
+		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		checkAfter: timestamptz()
+			.notNull()
+			.default(sql`now() + interval '7 days'`),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+	},
+	(table) => [
+		index("entity_user_schema_name_idx").on(table.userId, table.entitySchemaSlug, table.name),
+		index("entity_external_id_idx").on(table.externalId),
+		index("entity_provider_id_idx").on(table.providerId),
+		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
+		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
+		index("entity_properties_idx").using("gin", table.properties),
+		index("entity_check_after_idx")
+			.on(table.checkAfter)
+			.where(sql`${table.providerId} is not null`),
+		uniqueIndex("entity_collection_name_unique")
+			.on(table.userId, table.name)
+			.where(
+				sql`${table.entitySchemaSlug} = 'collection' and ${table.entitySchemaPluginId} is null`,
+			),
+		uniqueIndex("entity_external_identity_unique")
+			.on(
+				table.externalId,
+				table.entitySchemaSlug,
+				sql`(case when ${table.userId} is null then '0' else '1' || ${table.userId} end)`,
+				sql`(case when ${table.providerId} is null then '0' else '1' || ${table.providerId} end)`,
+				sql`(case when ${table.entitySchemaPluginId} is null then '0' else '1' || ${table.entitySchemaPluginId} end)`,
+			)
+			.where(
+				sql`${table.externalId} is not null and (${table.userId} is null or ${table.providerId} is not null)`,
+			),
+	],
+);
+
+export const relationship = snakeCase.table(
+	"relationship",
+	{
+		syncGeneration: text(),
+		updatedAt: updatedAtColumn(),
+		relationshipSchemaSlug: text().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
+		userId: text().references(() => user.id, { onDelete: "cascade" }),
+		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+		relationshipSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		id: text()
+			.notNull()
+			.primaryKey()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		sourceEntityId: text()
+			.notNull()
+			.references(() => entity.id, { onDelete: "cascade" }),
+		targetEntityId: text()
+			.notNull()
+			.references(() => entity.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		index("relationship_schema_slug_idx").on(table.relationshipSchemaSlug),
+		check(
+			"relationship_collection_rank_valid",
+			sql`${table.relationshipSchemaSlug} <> 'member-of' or ${table.relationshipSchemaPluginId} is not null or coalesce((${table.userId} is not null and jsonb_typeof(${table.properties} -> 'rank') = 'number' and (${table.properties} ->> 'rank')::numeric = trunc((${table.properties} ->> 'rank')::numeric) and abs((${table.properties} ->> 'rank')::numeric) < 4503599627370496), false)`,
+		),
+		index("relationship_schema_plugin_id_idx").on(table.relationshipSchemaPluginId),
+		index("relationship_user_schema_idx").on(
+			table.userId,
+			table.relationshipSchemaPluginId,
+			table.relationshipSchemaSlug,
+		),
+		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
+		index("relationship_target_entity_id_idx").on(table.targetEntityId),
+		index("relationship_properties_idx").using("gin", table.properties),
+		index("relationship_collection_order_idx")
+			.on(
+				table.targetEntityId,
+				sql`(case when ${table.relationshipSchemaSlug} = 'member-of' and ${table.relationshipSchemaPluginId} is null then (${table.properties} ->> 'rank')::double precision end)`,
+				table.sourceEntityId,
+			)
+			.where(
+				sql`${table.relationshipSchemaSlug} = 'member-of' and ${table.relationshipSchemaPluginId} is null`,
+			),
+		unique("relationship_identity_unique")
+			.on(
+				table.userId,
+				table.sourceEntityId,
+				table.targetEntityId,
+				table.relationshipSchemaSlug,
+				table.relationshipSchemaPluginId,
+			)
+			.nullsNotDistinct(),
+	],
+);
+
+export const relationshipSyncGeneration = snakeCase.table(
+	"relationship_sync_generation",
+	{
+		generation: text().notNull(),
+		startedAt: timestamptz().notNull(),
+		relationshipSchemaSlug: text().notNull(),
+		direction: text({ enum: ["incoming", "outgoing"] }).notNull(),
+		relationshipSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
+		anchorEntityId: text()
+			.notNull()
+			.references(() => entity.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		unique("relationship_sync_generation_group_unique")
+			.on(
+				table.anchorEntityId,
+				table.relationshipSchemaSlug,
+				table.relationshipSchemaPluginId,
+				table.direction,
+			)
+			.nullsNotDistinct(),
+	],
+);

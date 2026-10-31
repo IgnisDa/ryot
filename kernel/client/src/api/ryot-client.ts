@@ -1,0 +1,142 @@
+import {
+	createRyotClient,
+	type RyotClientAdapter,
+	RyotClientError,
+} from "@ryot-app/plugin-client-sdk";
+import { Effect } from "effect";
+
+import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";
+import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
+import { UploadsApi } from "#/api/uploads";
+import type { KernelHostServices } from "#/host-services";
+import {
+	classifyManagedAssetFailure,
+	mapManagedAssetResolutions,
+} from "#/modules/assets/managed-assets";
+import { classifyUploadFailure, Uploads } from "#/modules/assets/uploads";
+import { EntityWatchService } from "#/modules/entity-watches/service";
+import { ExternalLinks } from "#/modules/external-links/service";
+import type { ThemeStore } from "#/modules/theme/store";
+import type { ClientRuntime } from "#/runtime";
+
+type KernelApiRuntime = {
+	readonly runSync: <A>(
+		effect: Effect.Effect<
+			A,
+			never,
+			Uploads | RyotQLApi | UploadsApi | CollectionsApi | EntityWatchService
+		>,
+	) => A;
+};
+
+export const createKernelRyotClient = (
+	runtime: KernelApiRuntime,
+	scope: ApiScope,
+	theme: ThemeStore,
+	openExternalLink?: RyotClientAdapter["openExternalLink"],
+) => {
+	return createRyotClient({
+		theme,
+		openExternalLink,
+		watchEntities: (interest, onUpdate) =>
+			runtime.runSync(
+				Effect.map(EntityWatchService, (service) => service.watch(scope, interest, onUpdate)),
+			),
+		upload: (request) =>
+			runtime
+				.runSync(Uploads)
+				.upload(scope, request)
+				.pipe(
+					Effect.mapError((error) => new RyotClientError({ reason: classifyUploadFailure(error) })),
+				),
+		query: (document) =>
+			runtime
+				.runSync(RyotQLApi)
+				.execute(scope, { payload: document })
+				.pipe(
+					Effect.mapError((error) => new RyotClientError({ reason: classifyRyotQLFailure(error) })),
+				),
+		resolveAssets: (assets) =>
+			runtime
+				.runSync(UploadsApi)
+				.resolveDownloads(scope, { payload: { assets: [...assets] } })
+				.pipe(
+					Effect.mapBoth({
+						onSuccess: (response) => mapManagedAssetResolutions(scope, response),
+						onFailure: (error) =>
+							new RyotClientError({ reason: classifyManagedAssetFailure(error) }),
+					}),
+				),
+		mutateCollection: (request) => {
+			const api = runtime.runSync(CollectionsApi);
+			return Effect.gen(function* () {
+				if (request.action === "create") {
+					return yield* api.create(scope, { payload: request.input });
+				}
+				if (request.action === "upsert-membership") {
+					return yield* api.createMembership(scope, { payload: request.input });
+				}
+				if (request.action === "remove-membership") {
+					return yield* api.deleteMembership(scope, { payload: request.input });
+				}
+				return yield* api.reorderMembership(scope, { payload: request.input });
+			}).pipe(
+				Effect.mapBoth({
+					onSuccess: (value): unknown => value,
+					onFailure: (error) => new RyotClientError({ reason: classifyCollectionFailure(error) }),
+				}),
+			);
+		},
+	});
+};
+
+export type KernelRyotClient = ReturnType<typeof createKernelRyotClient>;
+
+export type KernelRyotClientEntry = {
+	readonly client: KernelRyotClient;
+	readonly hostServices: KernelHostServices;
+};
+
+export type KernelRyotClientStore = {
+	readonly get: (scope: ApiScope) => KernelRyotClientEntry;
+	readonly commit: (entry: KernelRyotClientEntry) => () => void;
+};
+
+export const createKernelRyotClientStore = (
+	runtime: ClientRuntime,
+	theme: ThemeStore,
+): KernelRyotClientStore => {
+	type Slot = { readonly key: string; readonly entry: KernelRyotClientEntry };
+	let last: Slot | undefined;
+	let committed: Slot | undefined;
+	return {
+		commit: (entry) => {
+			const slot = { entry, key: apiScopeKey(entry.hostServices.scope) };
+			committed = slot;
+			return () => {
+				if (committed === slot) {
+					committed = undefined;
+				}
+			};
+		},
+		get: (scope) => {
+			const key = apiScopeKey(scope);
+			if (committed?.key === key) {
+				return committed.entry;
+			}
+			if (last?.key === key) {
+				return last.entry;
+			}
+			const client = createKernelRyotClient(
+				runtime,
+				scope,
+				theme,
+				runtime.runSync(ExternalLinks).open,
+			);
+			const entry = { client, hostServices: { scope, runtime } };
+			last = { key, entry };
+			return entry;
+		},
+	};
+};

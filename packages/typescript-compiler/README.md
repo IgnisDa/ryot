@@ -1,0 +1,25 @@
+# TypeScript Compiler
+
+`@ryot-app/typescript-compiler` is private generic infrastructure shared by the client plugin and
+plugin backend compilers. It owns TypeScript 7 native compiler resolution, virtual project
+lifecycle, diagnostic collection, and normalized diagnostic output. The core entry stays free of
+Rolldown so standalone plugin backend compiler workers can bundle the TypeScript project code.
+
+The `./javascript-references` entry exposes a Rolldown AST visitor. It extracts static imports,
+re-exports, literal dynamic imports, and `new URL(..., import.meta.url)` references from emitted
+JavaScript. It reports nonliteral dynamic expressions to the caller; plugin client and backend compilers
+enforce their own approval policies.
+
+The Rolldown-free `./typescript-references` entry walks a parsed TypeScript source file and reports,
+in document order, every import and export declaration with a module specifier, import assignment,
+import type, dynamic import, and `import.meta` use, with `new URL(..., import.meta.url)` reported as
+one site. Each reference carries its declaration or expression node, its literal specifier or `null`,
+and whether its parent is the source file. Reference directives, glob interpretation, and every
+approval decision stay with the plugin compilers.
+
+Each target supplies a complete in-memory project configuration and resolved source/type aliases.
+Dynamic compilation does not inherit repository or package TypeScript configuration.
+
+The package does not own plugin import policies, compiler limits, worker protocols, output models, or
+public compiler APIs. `@ryot-app/plugin-client-compiler` and `@ryot-app/plugin-backend-compiler` configure and
+enforce those concerns independently.

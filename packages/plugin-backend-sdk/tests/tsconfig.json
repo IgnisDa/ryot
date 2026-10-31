@@ -1,0 +1,12 @@
+{
+	"exclude": [],
+	"extends": "../tsconfig.json",
+	"compilerOptions": { "noEmit": true, "rootDir": "..", "composite": false },
+	"include": [
+		"./host-types.ts",
+		"./provider-types.ts",
+		"./definition-types.ts",
+		"./dependency-types.ts",
+		"./workflow-types.ts"
+	]
+}

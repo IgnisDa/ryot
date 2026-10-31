@@ -1,55 +1,54 @@
 # Authentication
 
-Ryot supports multiple authentication methods. By default, it uses local authentication
-which means that you can log in using a username and password.
+Ryot supports passwords and OpenID Connect (OIDC). The web and Capacitor clients use OAuth 2.1
+Authorization Code with S256 PKCE and short-lived API access tokens.
 
-## OpenID
+## OpenID Connect
 
-Ryot can be configured to use OpenID Connect (OIDC) for authentication. The following
-environment variables need to be set:
+Create one application in your OIDC provider, then set:
 
 ```bash
-FRONTEND_URL=https://app.ryot.io # The URL of your Ryot instance
+FRONTEND_URL=https://app.ryot.io
 SERVER_OIDC_CLIENT_ID=********
 SERVER_OIDC_CLIENT_SECRET=********
-SERVER_OIDC_ISSUER_URL=https://accounts.google.com # The URL of your OIDC provider (might end with trailing slash)
-# Below are optional
+SERVER_OIDC_ISSUER_URL=https://accounts.google.com
+# Optional
 FRONTEND_OIDC_BUTTON_LABEL=Use Google
-RUST_LOG=ryot=debug # To debug why OIDC authentication is failing
+USERS_DISABLE_LOCAL_AUTH=true
 ```
 
-In your OIDC provider, you will need to set the redirect URL to
-`<FRONTEND_URL>/api/auth`. The scopes required are `openid email`.
+Register one callback:
 
-Once these are set, restart your Ryot instance and you should be able to see the button to
-"Continue with OpenID Connect" on the authentication pages. New users will have their
-username set to their email address. This can be changed later in the profile settings.
+```text
+<FRONTEND_URL>/api/auth/callback/oidc
+```
 
-You can set `USERS_DISABLE_LOCAL_AUTH=true` to disable local authentication and only allow
-users to authenticate using OIDC. When OIDC is enabled and local authentication is
-disabled, users will be redirected to the OIDC provider when they visit the auth page. To
-see the authentication page anyway, you can visit
-`<FRONTEND_URL>/auth?autoOidcLaunch=false`.
+Use the `openid email profile` scopes. Do not register iOS or Android callbacks at the external
+provider. Ryot creates its internal web and native OAuth clients.
 
 ::: warning
-A user can either authenticate using local authentication or OIDC, but not both.
+`FRONTEND_URL` must be the exact public origin with no path, query, or fragment. It defines the OAuth
+issuer, API audience, trusted browser origin, and web callbacks. Invalid values stop startup.
 :::
 
-### Converting a local user to an OIDC user
+### Running without HTTPS
 
-- Setup OpenID on your instance using the the above guide.
-- Make a backup of your database using this
-  [guide](../exporting.md#exporting-the-entire-database).
-- Logout of your original account and then click on "Continue with OpenID Connect".
-  Continue with user you want to select, after which a new account will be created.
-- Let's say that I want `IgnisDa` below to be able to login using OIDC (of
-  `ignisda2001@gmail.com`): ![image](../images/authentication_original-state.png)
-- Drop into your database (`docker exec -u postgres -it ryot-db psql`) and copy the
-  `oidc_issuer_id` (`104798859970005336426` here) of the new user and then delete it using
-  `DELETE FROM "user" WHERE id = 'usr_v5aGOC9UzrId';`
-- Update details of the old user using
-  `UPDATE "user" SET oidc_issuer_id = '104798859970005336426', password = NULL WHERE id = 'usr_ujrD0pCeKc1Y';`.
-  After this, it should look like this:
-  ![image](../images/authentication_new-state.png)
+Plain HTTP works in a browser, including at a LAN address such as `http://192.168.1.50:8000`.
 
-You should now be able login using OIDC. The same procedure needs to be followed for all users that want their provider changed to OIDC.
+::: danger
+HTTP sends passwords and API keys without encryption. Other users on the network can steal them.
+Use HTTP only on a trusted network. Use HTTPS for all internet-accessible instances.
+:::
+
+- Sign-out shows an extra confirmation page.
+- iOS and Android block plain HTTP, so installed apps cannot connect.
+
+Ryot logs a warning at startup when `FRONTEND_URL` uses HTTP on anything other than `localhost`.
+
+With local authentication disabled, `/oauth/login` starts OIDC automatically. Existing password,
+OIDC, and two-factor users complete sign-in on this server route.
+
+## API keys
+
+API keys are personal automation credentials sent in `X-Api-Key`. They are not OAuth client
+credentials. Expiry, rate limits, ownership, and revocation apply.

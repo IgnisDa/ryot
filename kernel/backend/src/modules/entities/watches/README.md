@@ -1,0 +1,70 @@
+# Entity Interest
+
+Entity interest lets authenticated clients declare which entities are visible and receive population and translation completion hints. The same socket carries user-scoped projection completion hints. Reads remain side-effect-free; pending interest drives background work.
+
+## Transport
+
+- `POST /api/entity-watches/socket-ticket` uses normal OAuth or API-key authentication and returns `{ ticket, expiresAt }` or a typed `ticket-store-unavailable` failure.
+- `GET /api/entity-watches/ws` is a raw WebSocket. Credentials never appear in its URL; the first JSON text frame must be `{ type: "authenticate", ticket }`.
+- A ticket is 32 random bytes encoded as an opaque value. Redis stores only its SHA-256 hash with `{ userId, preferredLanguage, accountGeneration }` and, for impersonated OAuth credentials, the auth session ID and expiry for 30 seconds. It is single-use. Population requests retain this account generation, so an old session cannot write after account reset.
+- Missing, expired, reused, or malformed tickets close as `1008 Authentication failed`; ticket-store failures close as `1011 Internal error`.
+- Ticket consumption and socket registration recheck active impersonation. Revoking the auth session closes its local impersonated sockets as `4001 Session expired`.
+
+## Frames
+
+Client frames:
+
+| `type`         | Fields                                                                         |
+| -------------- | ------------------------------------------------------------------------------ |
+| `authenticate` | `ticket: string`                                                               |
+| `replace`      | `revision: positive integer`, `entityIds: string[]`, `foregroundIds: string[]` |
+| `pong`         | `nonce: string`                                                                |
+
+Server frames:
+
+| `type`                 | Fields                                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------------------- |
+| `ready`                | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                                            |
+| `applied`              | `revision`                                                                                    |
+| `rejected`             | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`                                 |
+| `entity-updated`       | `entityId`, `reason`: `populated`, `translated`, `population-failed`, or `enrichment-updated` |
+| `derived-data-updated` | none                                                                                          |
+| `ping`                 | `nonce`                                                                                       |
+
+After `ready`, send a complete `replace` at revision 1. Each later `replace` increments the current revision by one and carries both complete sets. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
+
+IDs are deduplicated. An empty replacement is valid. Membership may contain at most 500 IDs; an over-limit command is rejected without partial mutation or revision advancement (`rejected` with `interest-limit-exceeded`). A frame that lists more than 50 distinct foreground IDs is malformed. `foregroundIds` must be a subset of `entityIds`; a violation is a protocol error. Every other member has visible priority.
+
+Priority chooses the population level. Pending interest requests `base` when visible and `full` when foreground. Foreground interest in a populated entity with missing or partial related data requests `full`; visible interest never requests `full`. A full population waits for all related pages and required authoritative sweeps before related data is complete. Root data is published earlier, and related pages are visible as they arrive, so clients can show partial data while work continues.
+
+`populationStatus`, `relatedPopulationStatus`, and `translationStatus` expose separate data availability and request activity. Availability is `missing`, `partial`, `complete`, or `none`; activity is `idle`, `queued`, `running`, `retrying`, `succeeded`, `failed`, or `cancelled`. Activity is scoped to the applicable requester and account generation. Missing data does not imply that work is running. See [entity enrichment](../enrichment/README.md) for request, retry, and recovery behavior.
+
+`entity-updated` is a refresh hint, not entity data. `enrichment-updated` refreshes status and progress only; it does not start translation progression or settle client progress. `populated` can start translation progression. `translated` can represent a successful empty negative-cache result; inspect status to distinguish it from failure. Localized child entities must be listed explicitly, and a language change requires reconnect because the ticket captures the preferred language.
+
+Population and translation failures appear in their status objects. Reconciliation returns `enrichment-updated` for status refresh rather than treating missing data as proof of an active or terminal population. Translated still wins when completion hints coalesce.
+
+`derived-data-updated` is sent to every session of a user after one of that user's background jobs (user scripts and event-stream or relationship projection steps) settles, independent of entity interest, because aggregate and status reads cannot declare the entities they cover. Background-work settlement publishes the user ID on the non-durable `ryot:derived-data:updated` channel; each backend forwards it to its local sessions for that user. Each session writes at most one frame per three seconds: the first update is written immediately, and updates during the interval collapse into one frame at its end, so the final state always arrives. Clients refresh their open queries on this frame and after every reconnect, which recovers a missed publication.
+
+## Lifetime And Delivery
+
+| Boundary                   | Value                                                      |
+| -------------------------- | ---------------------------------------------------------- |
+| Ticket TTL                 | 30 seconds                                                 |
+| Session and membership TTL | 15 minutes                                                 |
+| Renewal interval           | 5 minutes                                                  |
+| Fixed socket lease         | Up to 15 min; capped at auth-session expiry                |
+| Heartbeat                  | `ping` every 25 seconds; matching `pong` within 10 seconds |
+| Heartbeat failure          | `4000 Heartbeat timeout`                                   |
+| Malformed protocol         | `1002 Protocol error`                                      |
+
+Redis owns session metadata, revision, membership, reverse entity-to-session indexes, and progression leases. Every backend receives the non-durable `ryot:entity:updated` Pub/Sub stream, resolves interested sessions in Redis, and writes only to local socket mailboxes. Backends also receive auth-session invalidations and close matching local impersonated sockets; heartbeat checks recover from missed invalidations. Reconnect plus reconciliation recovers missed entity publications without sticky routing.
+
+Normal close removes local routing before Redis membership and indexes. Process crashes rely on TTLs and reverse-index expiry pruning.
+
+## Atomicity And Races
+
+One Redis operation verifies session existence and next revision, computes the final size, then updates membership, reverse indexes, revision, and TTLs atomically. Membership tokens carry priority (`f` or `v`): new IDs receive `pending:<revision>:<priority>` and reconciled IDs hold `watching:<priority>`. Retained values with an unchanged priority survive. A promotion re-marks the ID `pending:<revision>:f` so it reconciles again; a demotion of a pending ID re-marks it `pending:<revision>:v` with the new revision, and a demotion of a watching ID becomes `watching:v` without reconciling. `applied` means this state is durable, not that reconciliation has finished.
+
+Reconciliation runs afterward in bounded sequential chunks. It authorizes each pending entity, triggers population before translation when needed, and changes or removes membership only if the exact pending token, including priority, still matches. Re-marking a watching entity pending after a progression failure keeps its priority. Output uses the same token check. This prevents stale work from emitting or marking a remove-and-re-added entity. Failures retry with exponential backoff while the session remains active; a progression failure leaves the current membership pending.
+
+Population uses the stored entity's schema owner and data scope. Translation captures the exact provider script, plugin revision, configuration and account generation in a recorded activity. Retries retain that pin after compatible upgrades. Private translations remain user-owned; system translations retain shared global overlays. Overlay commits recheck the exact entity/provider and current account and installation authority in a short transaction. Quarantine blocks an in-flight translation from committing.

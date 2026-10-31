@@ -1,12 +1,10 @@
-import { PassThrough } from "node:stream";
-import { createReadableStreamFromReadable } from "@react-router/node";
+import { Effect } from "effect";
 import { isbot } from "isbot";
-import { renderToPipeableStream } from "react-dom/server";
-import {
-	type AppLoadContext,
-	type EntryContext,
-	ServerRouter,
-} from "react-router";
+import { renderToReadableStream } from "react-dom/server";
+import { type AppLoadContext, type EntryContext, ServerRouter } from "react-router";
+
+import { WebsiteFailure } from "~/lib/effect.server";
+import { runPromise } from "~/lib/runtime.server";
 
 const ABORT_DELAY = 5_000;
 
@@ -17,101 +15,34 @@ export default function handleRequest(
 	reactRouterContext: EntryContext,
 	_loadContext: AppLoadContext,
 ) {
-	return isbot(request.headers.get("user-agent") || "")
-		? handleBotRequest(
-				request,
-				responseStatusCode,
-				responseHeaders,
-				reactRouterContext,
-			)
-		: handleBrowserRequest(
-				request,
-				responseStatusCode,
-				responseHeaders,
-				reactRouterContext,
-			);
-}
+	return runPromise(
+		Effect.gen(function* () {
+			if (request.method.toUpperCase() === "HEAD") {
+				return new Response(null, { headers: responseHeaders, status: responseStatusCode });
+			}
 
-function handleBotRequest(
-	request: Request,
-	responseStatusCode: number,
-	responseHeaders: Headers,
-	reactRouterContext: EntryContext,
-) {
-	return new Promise((resolve, reject) => {
-		let shellRendered = false;
-		const { pipe, abort } = renderToPipeableStream(
-			<ServerRouter context={reactRouterContext} url={request.url} />,
-			{
-				onAllReady() {
-					shellRendered = true;
-					const body = new PassThrough();
-					const stream = createReadableStreamFromReadable(body);
+			const isBot = isbot(request.headers.get("user-agent") ?? "");
 
-					responseHeaders.set("Content-Type", "text/html");
+			const stream = yield* Effect.tryPromise({
+				catch: (cause) => new WebsiteFailure({ cause }),
+				try: (signal) =>
+					renderToReadableStream(<ServerRouter url={request.url} context={reactRouterContext} />, {
+						signal,
+						onError(error: unknown) {
+							// oxlint-disable-next-line no-param-reassign
+							responseStatusCode = 500;
+							console.error(error);
+						},
+					}),
+			}).pipe(Effect.timeout(ABORT_DELAY));
 
-					resolve(
-						new Response(stream, {
-							headers: responseHeaders,
-							status: responseStatusCode,
-						}),
-					);
+			if (isBot) {
+				yield* Effect.promise(() => stream.allReady);
+			}
 
-					pipe(body);
-				},
-				onShellError(error: unknown) {
-					reject(error);
-				},
-				onError(error: unknown) {
-					// biome-ignore lint/style/noParameterAssign: part of the starter template
-					responseStatusCode = 500;
-					if (shellRendered) console.error(error);
-				},
-			},
-		);
+			responseHeaders.set("Content-Type", "text/html");
 
-		setTimeout(abort, ABORT_DELAY);
-	});
-}
-
-function handleBrowserRequest(
-	request: Request,
-	responseStatusCode: number,
-	responseHeaders: Headers,
-	reactRouterContext: EntryContext,
-) {
-	return new Promise((resolve, reject) => {
-		let shellRendered = false;
-		const { pipe, abort } = renderToPipeableStream(
-			<ServerRouter context={reactRouterContext} url={request.url} />,
-			{
-				onShellReady() {
-					shellRendered = true;
-					const body = new PassThrough();
-					const stream = createReadableStreamFromReadable(body);
-
-					responseHeaders.set("Content-Type", "text/html");
-
-					resolve(
-						new Response(stream, {
-							headers: responseHeaders,
-							status: responseStatusCode,
-						}),
-					);
-
-					pipe(body);
-				},
-				onShellError(error: unknown) {
-					reject(error);
-				},
-				onError(error: unknown) {
-					// biome-ignore lint/style/noParameterAssign: part of the starter template
-					responseStatusCode = 500;
-					if (shellRendered) console.error(error);
-				},
-			},
-		);
-
-		setTimeout(abort, ABORT_DELAY);
-	});
+			return new Response(stream, { headers: responseHeaders, status: responseStatusCode });
+		}),
+	);
 }

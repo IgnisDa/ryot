@@ -1,0 +1,915 @@
+import {
+	isCommitConflict,
+	type ScriptHost,
+	type UserCommandInput,
+} from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import {
+	and,
+	castBoolean,
+	castNumber,
+	column,
+	continuationCursor,
+	eq,
+	executeRyotqlRecipe,
+	jsonPath,
+	literal,
+	type Recipe,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { EntityId, EventId, jsonValueEquals } from "@ryot-app/plugin-kit/schema";
+
+import { ConsumptionBasis } from "../../shared/consumption";
+import type { HistoryCorrection } from "../../shared/history-correction";
+import {
+	CompletionEpisode,
+	CompletionOccurrence,
+	HistoryCoverage,
+} from "../../shared/history-correction";
+import {
+	type EpisodicKindConfig,
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+} from "../../shared/lifecycle-expressions";
+import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
+import type { HistoryCorrectionRequest } from "../contracts/history-correction";
+import {
+	consumptionDependenciesPageRecipe,
+	correctionCoverageRecipe,
+	correctionInventoryFingerprintRecipe,
+	correctionInventoryRecipe,
+	correctionRecordsRecipe,
+	coverageBasisRecipe,
+	historyCorrectionContextRecipe,
+	type HistoryEvent,
+	type historyProperty,
+	historyPropertyIs,
+	historyRecordRecipe,
+	historySourceRecipe,
+	progressCompletionBlockersRecipe,
+} from "../contracts/history-correction-recipes";
+import { HistoryCorrectionConflict, MediaSandboxError } from "../lib/failures";
+
+type Request = typeof HistoryCorrectionRequest.Type;
+type Host = Pick<ScriptHost, "executeRyotql" | "commitUserChanges">;
+type Creates = Array<UserCommandInput["events"]["creates"][number]>;
+type Changes = Array<UserCommandInput["events"]["changes"][number]>;
+type Context = Recipe.Success<typeof historyCorrectionContextRecipe>;
+type RecordRow<A> = { readonly properties: A } & Pick<
+	HistoryEvent,
+	"id" | "revision" | "occurredAt"
+>;
+
+const occurrenceProperties = (id: string, occurrence: CompletionOccurrence) => ({
+	completionKey: id,
+	completionSilent: occurrence.silent,
+	...(occurrence.expectedSourceRun === undefined
+		? {}
+		: { sourceRun: occurrence.expectedSourceRun }),
+	...(occurrence.expectedConsumptionBasis === undefined
+		? {}
+		: { consumptionBasis: occurrence.expectedConsumptionBasis }),
+	...(occurrence.expectedCalendarDate === undefined
+		? {}
+		: { calendarDate: occurrence.expectedCalendarDate }),
+	...(occurrence.expectedTimeSpent === undefined
+		? {}
+		: { timeSpent: occurrence.expectedTimeSpent }),
+	...(occurrence.expectedConsumedOn === undefined
+		? {}
+		: { consumedOn: occurrence.expectedConsumedOn }),
+	...(occurrence.expectedDateUnknown === true ? { dateUnknown: true } : {}),
+});
+
+const occurrenceMatches = (id: string, occurrence: CompletionOccurrence, event: HistoryEvent) =>
+	event.entityId === occurrence.entityId &&
+	event.sessionEntityId === (occurrence.sessionEntityId ?? null) &&
+	event.occurredAt === occurrence.expectedOccurredAt &&
+	event.orderKey === occurrence.expectedOrderKey &&
+	event.orderCreatedAt === occurrence.expectedOrderCreatedAt &&
+	jsonValueEquals(event.properties, occurrenceProperties(id, occurrence));
+
+const expected = (libraryId: string, record: RecordRow<Readonly<Record<string, JsonValue>>>) => ({
+	absentProperties: [],
+	sessionEntityId: null,
+	kind: "fields" as const,
+	properties: record.properties,
+	occurredAt: record.occurredAt,
+	entityId: EntityId.make(libraryId),
+});
+const expectedEvent = (event: HistoryEvent) => ({
+	absentProperties: [],
+	kind: "fields" as const,
+	properties: event.properties,
+	occurredAt: event.occurredAt,
+	entityId: EntityId.make(event.entityId),
+	sessionEntityId: event.sessionEntityId === null ? null : EntityId.make(event.sessionEntityId),
+});
+
+const writer = (libraryId: string, subjectEntityId: string) => {
+	const creates: Creates = [];
+	const changes: Changes = [];
+	let sourceWrites = 0;
+	const touches = (event: Pick<HistoryEvent, "entityId" | "sessionEntityId">) =>
+		event.entityId === subjectEntityId || event.sessionEntityId === subjectEntityId;
+	const create = (slug: string, properties: Readonly<Record<string, JsonValue>>) =>
+		creates.push({
+			properties,
+			eventSchemaSlug: slug,
+			entity: { kind: "root" },
+			itemIdentity: `${slug}:${creates.length}`,
+		});
+	const replace = (
+		record: RecordRow<Readonly<Record<string, JsonValue>>>,
+		properties: Readonly<Record<string, JsonValue>>,
+	) =>
+		changes.push({
+			kind: "update",
+			itemIdentity: `replace:${record.id}`,
+			item: {
+				eventId: EventId.make(record.id),
+				expected: expected(libraryId, record),
+				patch: {
+					properties: {
+						set: properties,
+						remove: Object.keys(record.properties).filter((key) => !Object.hasOwn(properties, key)),
+					},
+				},
+			},
+		});
+	const remove = (record: RecordRow<Readonly<Record<string, JsonValue>>>) =>
+		changes.push({
+			kind: "delete",
+			eventId: EventId.make(record.id),
+			itemIdentity: `remove:${record.id}`,
+			expected: expected(libraryId, record),
+		});
+	const removeOutput = (event: HistoryEvent) => {
+		changes.push({
+			kind: "delete",
+			expected: expectedEvent(event),
+			eventId: EventId.make(event.id),
+			itemIdentity: `remove-output:${event.id}`,
+		});
+		if (touches(event)) {
+			sourceWrites += 1;
+		}
+	};
+	const override = (event: HistoryEvent) => {
+		changes.push({
+			kind: "update",
+			itemIdentity: `override:${event.id}`,
+			item: {
+				expected: expectedEvent(event),
+				eventId: EventId.make(event.id),
+				patch: {
+					orderAfter: null,
+					properties: { set: {}, remove: ["completionKey", "completionSilent"] },
+				},
+			},
+		});
+		if (touches(event)) {
+			sourceWrites += 1;
+		}
+	};
+	const output = (
+		occurrence: RecordRow<CompletionOccurrence>,
+		value: CompletionOccurrence,
+		anchor: HistoryEvent,
+		actual: undefined | HistoryEvent,
+	) => {
+		if (value.status === "suppressed" || value.status === "overridden") {
+			return;
+		}
+		const suffix = value.rule === "progress" ? "complete" : "parent";
+		const properties = occurrenceProperties(occurrence.id, value);
+		if (actual) {
+			if (occurrenceMatches(occurrence.id, value, actual)) {
+				return;
+			}
+			changes.push({
+				kind: "update",
+				itemIdentity: `repair:${actual.id}`,
+				item: {
+					expected: expectedEvent(actual),
+					eventId: EventId.make(actual.id),
+					patch: {
+						occurredAt: anchor.occurredAt,
+						orderAfter: { suffix, eventId: EventId.make(anchor.id) },
+						properties: {
+							set: properties,
+							remove: Object.keys(actual.properties).filter(
+								(key) => !Object.hasOwn(properties, key),
+							),
+						},
+					},
+				},
+			});
+			if (touches(actual)) {
+				sourceWrites += 1;
+			}
+		} else {
+			creates.push({
+				properties,
+				eventSchemaSlug: "complete",
+				itemIdentity: `complete:${occurrence.id}`,
+				entity: { kind: "existing", entityId: EntityId.make(value.entityId) },
+				...(value.sessionEntityId === undefined
+					? {}
+					: {
+							session: {
+								kind: "existing" as const,
+								entityId: EntityId.make(value.sessionEntityId),
+							},
+						}),
+				occurredAt: anchor.occurredAt,
+				orderAfter: { suffix, eventId: EventId.make(anchor.id) },
+			});
+			sourceWrites += 1;
+		}
+	};
+	return {
+		create,
+		remove,
+		output,
+		creates,
+		changes,
+		replace,
+		override,
+		removeOutput,
+		sourceWrites: () => sourceWrites,
+	};
+};
+
+const maintenancePageSize = 25;
+
+const positive = (value: JsonValue | undefined) =>
+	typeof value === "number" && value > 0 ? value : 0;
+type Page = {
+	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
+};
+const preserveDecision = (value: CompletionOccurrence): CompletionOccurrence["status"] =>
+	value.status === "suppressed" || value.status === "overridden" ? value.status : "active";
+
+export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(function* (
+	host: Host,
+	input: Request,
+	libraryId: string,
+) {
+	const context = yield* executeRyotqlRecipe(
+		host.executeRyotql,
+		historyCorrectionContextRecipe({ libraryId, entityId: input.entityId }),
+	);
+	if (!context.library || !context.target) {
+		return yield* new MediaSandboxError({
+			message: "History subject or media library is unavailable",
+		});
+	}
+	const previous = context.work?.properties;
+	const restart =
+		previous === undefined ||
+		previous.sourceRevision !== context.sourceRevision ||
+		(previous.phase === "done" && context.target.missingDependencies) ||
+		(input.force && previous.requestKey !== input.requestKey);
+	if (!restart && previous.phase === "done") {
+		return { nextKey: "", pending: false };
+	}
+	const next: HistoryCorrection =
+		previous !== undefined && !restart
+			? { ...previous }
+			: {
+					step: 0,
+					cycle: 0,
+					workKey: input.workKey,
+					requestKey: input.requestKey,
+					subjectEntityId: input.entityId,
+					liveSourceIds: input.liveSourceIds,
+					sourceRevision: context.sourceRevision,
+					runKey: `${input.requestKey}:${context.sourceRevision}`,
+					phase: context.target.missingDependencies ? "dependencies" : "audit",
+				};
+	const state = { ...next };
+	const write = writer(libraryId, input.entityId);
+	const records = <A, I>(
+		codec: Schema.Codec<A, I>,
+		slug: string,
+		options: Pick<Parameters<typeof correctionRecordsRecipe>[1], "where" | "after" | "limit"> = {},
+	) =>
+		executeRyotqlRecipe(
+			host.executeRyotql,
+			correctionRecordsRecipe(codec, {
+				slug,
+				libraryId,
+				subjectEntityId: input.entityId,
+				...options,
+			}),
+		);
+	const occurrence = (id: string) =>
+		records(CompletionOccurrence, "completion-occurrence", {
+			limit: 1,
+			where: (event) => eq(column(event, "id"), literal(id)),
+		}).pipe(Effect.map((page) => page.items[0]));
+	const actual = (id: string) =>
+		executeRyotqlRecipe(host.executeRyotql, historyRecordRecipe({ occurrenceId: id }));
+	let config: undefined | EpisodicKindConfig;
+	if (context.target.schemaSlug === "show") {
+		config = showEpisodicKindConfig;
+	}
+	if (context.target.schemaSlug === "podcast") {
+		config = podcastEpisodicKindConfig;
+	}
+	if (
+		restart &&
+		config === undefined &&
+		!context.target.missingDependencies &&
+		!context.target.hasCorrectionInputs
+	) {
+		state.phase = "done";
+	}
+	const inventory = (episodic: EpisodicKindConfig) =>
+		executeRyotqlRecipe(
+			host.executeRyotql,
+			correctionInventoryFingerprintRecipe({ config: episodic, subjectEntityId: input.entityId }),
+		).pipe(
+			Effect.map((row) =>
+				JSON.stringify(
+					row
+						? [
+								row.required,
+								row.total,
+								row.latestEpisode,
+								row.latestSeason,
+								row.latestLink,
+								row.subjectUpdatedAt,
+							]
+						: null,
+				),
+			),
+		);
+	const changePhase = (phase: HistoryCorrection["phase"]) => {
+		state.phase = phase;
+		delete state.after;
+	};
+	const setAfter = (after: string | undefined) => {
+		if (after === undefined) {
+			delete state.after;
+		} else {
+			state.after = after;
+		}
+	};
+	const advanceCursor = Effect.fnUntraced(function* (page: Page) {
+		setAfter(yield* continuationCursor(page.pageInfo));
+	});
+	const finishCoverageItem = Effect.fnUntraced(function* (page: Page) {
+		yield* advanceCursor(page);
+		if (state.after === undefined) {
+			changePhase("sweep");
+		}
+	});
+	const deactivate = Effect.fnUntraced(function* (row: RecordRow<CompletionOccurrence>) {
+		if (row.properties.status !== "active") {
+			return;
+		}
+		const output = yield* actual(row.id);
+		if (output) {
+			write.removeOutput(output);
+		}
+		write.replace(row, { ...row.properties, status: "inactive" });
+	});
+	if (!restart) {
+		if (state.phase === "dependencies") {
+			const page = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				consumptionDependenciesPageRecipe({ after: state.after, subjectEntityId: input.entityId }),
+			);
+			for (const child of page.items) {
+				if (!child.exists) {
+					write.create("consumption-dependency", {
+						subjectEntityId: child.id,
+						correctionSubjectEntityId: input.entityId,
+					});
+				}
+			}
+			yield* advanceCursor(page);
+			if (state.after === undefined) {
+				changePhase("audit");
+			}
+		} else if (state.phase === "audit" || state.phase === "prune" || state.phase === "sweep") {
+			const phase = state.phase;
+			const page = yield* records(CompletionOccurrence, "completion-occurrence", {
+				after: state.after,
+				limit: maintenancePageSize,
+				...(phase === "prune"
+					? {
+							where: (event: Parameters<typeof historyProperty>[0]) =>
+								historyPropertyIs(event, "rule", "progress"),
+						}
+					: {}),
+			});
+			for (const row of page.items) {
+				if (phase === "audit" && row.properties.status === "active") {
+					const output = yield* actual(row.id);
+					if (!output) {
+						write.replace(row, { ...row.properties, status: "suppressed" });
+					} else if (!occurrenceMatches(row.id, row.properties, output)) {
+						write.override(output);
+						write.replace(row, { ...row.properties, status: "overridden" });
+					}
+				} else if (phase !== "audit" && row.properties.runKey !== state.runKey) {
+					yield* deactivate(row);
+				}
+			}
+			yield* advanceCursor(page);
+			if (state.after === undefined) {
+				if (phase === "audit") {
+					changePhase("progress");
+				} else if (phase === "prune") {
+					changePhase(config ? "coverage" : "clear");
+				} else {
+					changePhase("clear");
+					state.coverageFinished = true;
+				}
+			}
+		} else if (state.phase === "progress") {
+			const page = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				historySourceRecipe({ progressOnly: true, after: state.after, entityId: input.entityId }),
+			);
+			const source = page.items[0];
+			let advance = true;
+			if (source) {
+				const saved = yield* records(CompletionOccurrence, "completion-occurrence", {
+					limit: 1,
+					where: (event) =>
+						and(
+							historyPropertyIs(event, "rule", "progress"),
+							historyPropertyIs(event, "sourceEventId", source.id),
+						),
+				});
+				const row = saved.items[0];
+				const positional = isPositional(source.entitySchemaSlug);
+				const position = positional ? positionalProperties[source.entitySchemaSlug] : undefined;
+				const basis = Schema.decodeUnknownOption(ConsumptionBasis)(
+					source.properties["consumptionBasis"],
+				);
+				let total = basis._tag === "Some" ? (basis.value.total ?? 0) : 0;
+				if (row?.properties.frozen) {
+					total = row.properties.total;
+				}
+				const blockers = yield* executeRyotqlRecipe(
+					host.executeRyotql,
+					progressCompletionBlockersRecipe({
+						source,
+						libraryId,
+						runKey: state.runKey,
+						positional: positional && row?.properties.frozen !== true,
+					}),
+				);
+				const full =
+					(source.properties["progressPercent"] === 100 ||
+						(total > 0 && positive(source.properties["progressPages"]) >= total) ||
+						(position !== undefined &&
+							total > 0 &&
+							positive(source.properties[position.position]) >= total)) &&
+					blockers?.explicit !== true &&
+					(!positional || blockers?.sameTime !== true);
+				if (!row) {
+					write.create("completion-occurrence", {
+						total,
+						frozen: false,
+						rule: "progress",
+						status: "inactive",
+						runKey: state.runKey,
+						sourceEventId: source.id,
+						entityId: source.entityId,
+						subjectEntityId: input.entityId,
+						silent: !full || source.revision !== 0 || !state.liveSourceIds.includes(source.id),
+						...(source.sessionEntityId === null ? {} : { sessionEntityId: source.sessionEntityId }),
+					});
+					advance = false;
+				} else if (full) {
+					const output = yield* actual(row.id);
+					const value = {
+						...row.properties,
+						total,
+						frozen: true,
+						runKey: state.runKey,
+						expectedOccurredAt: source.occurredAt,
+						status: preserveDecision(row.properties),
+						expectedOrderCreatedAt: source.orderCreatedAt,
+						expectedOrderKey: `${source.orderKey}~complete`,
+						...(basis._tag === "Some" ? { expectedConsumptionBasis: basis.value } : {}),
+						silent: output
+							? row.properties.silent
+							: row.properties.silent || row.properties.frozen || source.revision !== 0,
+					};
+					const consumedOn = source.properties["consumedOn"];
+					const sourceRun = source.properties["sourceRun"];
+					if (typeof sourceRun === "string") {
+						value.expectedSourceRun = sourceRun;
+					} else {
+						delete value.expectedSourceRun;
+					}
+					const calendarDate = source.properties["calendarDate"];
+					if (typeof calendarDate === "string") {
+						value.expectedCalendarDate = calendarDate;
+					} else {
+						delete value.expectedCalendarDate;
+					}
+					const timeSpent = source.properties["timeSpent"];
+					if (typeof timeSpent === "number") {
+						value.expectedTimeSpent = timeSpent;
+					} else {
+						delete value.expectedTimeSpent;
+					}
+					if (typeof consumedOn === "string") {
+						value.expectedConsumedOn = consumedOn;
+					} else {
+						delete value.expectedConsumedOn;
+					}
+					if (source.properties["dateUnknown"] === true) {
+						value.expectedDateUnknown = true;
+					} else {
+						delete value.expectedDateUnknown;
+					}
+					write.output(row, value, source, output);
+					write.replace(row, value);
+				} else {
+					yield* deactivate(row);
+				}
+			}
+			if (advance) {
+				yield* advanceCursor(page);
+				if (state.after === undefined) {
+					changePhase("prune");
+				}
+			}
+		} else if (state.phase === "coverage" && config) {
+			const page = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				historySourceRecipe({ after: state.after, progressOnly: false, entityId: input.entityId }),
+			);
+			const source = page.items[0];
+			if (!source) {
+				changePhase("sweep");
+			} else if (source.entityId === input.entityId) {
+				if (source.eventSchemaSlug === "complete") {
+					state.phase = "clear";
+					state.cycle += 1;
+					delete state.basisId;
+				}
+				yield* finishCoverageItem(page);
+			} else {
+				const saved = yield* records(HistoryCoverage, "history-coverage", {
+					limit: 1,
+					where: (event) =>
+						and(
+							historyPropertyIs(event, "runKey", state.runKey),
+							eq(castNumber(jsonPath(column(event, "properties"), "cycle")), literal(state.cycle)),
+							historyPropertyIs(event, "episodeId", source.entityId),
+						),
+				});
+				const scratch = saved.items[0];
+				if (source.eventSchemaSlug === "progress") {
+					if (scratch) {
+						write.remove(scratch);
+					}
+					yield* finishCoverageItem(page);
+				} else {
+					let sourceId = source.id;
+					const key = source.properties["completionKey"];
+					if (typeof key === "string") {
+						const completion = yield* occurrence(key);
+						if (!completion?.properties.sourceEventId) {
+							return yield* new MediaSandboxError({
+								message: "Episode completion source is unavailable",
+							});
+						}
+						sourceId = completion.properties.sourceEventId;
+					}
+					const coverageProperties = {
+						cycle: state.cycle,
+						runKey: state.runKey,
+						sourceEventId: sourceId,
+						episodeId: source.entityId,
+						subjectEntityId: input.entityId,
+						...(typeof source.properties["consumedOn"] === "string"
+							? { consumedOn: source.properties["consumedOn"] }
+							: {}),
+						...(source.properties["dateUnknown"] === true ? { dateUnknown: true } : {}),
+					};
+					const captured =
+						scratch !== undefined && jsonValueEquals(scratch.properties, coverageProperties);
+					if (!captured) {
+						if (scratch) {
+							write.replace(scratch, coverageProperties);
+						} else {
+							write.create("history-coverage", coverageProperties);
+						}
+					}
+					if (captured) {
+						if (!state.basisId) {
+							const basis = yield* executeRyotqlRecipe(
+								host.executeRyotql,
+								coverageBasisRecipe({
+									libraryId,
+									runKey: state.runKey,
+									sourceEventId: sourceId,
+									subjectEntityId: input.entityId,
+								}),
+							);
+							if (basis) {
+								state.basisId = basis.id;
+							}
+						}
+						let coverage = yield* executeRyotqlRecipe(
+							host.executeRyotql,
+							correctionCoverageRecipe({
+								config,
+								libraryId,
+								cycle: state.cycle,
+								runKey: state.runKey,
+								basisId: state.basisId,
+								subjectEntityId: input.entityId,
+								liveSourceIds: state.liveSourceIds,
+							}),
+						);
+						if (state.basisId && coverage?.supportCount === 0) {
+							delete state.basisId;
+							coverage = yield* executeRyotqlRecipe(
+								host.executeRyotql,
+								correctionCoverageRecipe({
+									config,
+									libraryId,
+									cycle: state.cycle,
+									runKey: state.runKey,
+									subjectEntityId: input.entityId,
+									liveSourceIds: state.liveSourceIds,
+								}),
+							);
+						}
+						const productionStatus = context.target.properties["productionStatus"];
+						const terminal =
+							typeof productionStatus === "string" &&
+							["ended", "canceled", "cancelled"].includes(productionStatus.trim().toLowerCase());
+						if (
+							coverage &&
+							coverage.required > 0 &&
+							coverage.required === coverage.covered &&
+							(terminal || state.basisId !== undefined)
+						) {
+							state.closingEventId = source.id;
+							state.coverageFinished = !page.pageInfo.hasMore;
+							yield* advanceCursor(page);
+							if (!state.basisId) {
+								const candidate = yield* records(CompletionOccurrence, "completion-occurrence", {
+									limit: 1,
+									where: (event) =>
+										and(
+											historyPropertyIs(event, "rule", "coverage"),
+											historyPropertyIs(event, "sourceEventId", sourceId),
+											eq(
+												castBoolean(jsonPath(column(event, "properties"), "frozen")),
+												literal(false),
+											),
+										),
+								});
+								if (candidate.items[0]) {
+									state.basisId = candidate.items[0].id;
+								} else {
+									write.create("completion-occurrence", {
+										total: 0,
+										frozen: false,
+										rule: "coverage",
+										status: "building",
+										runKey: state.runKey,
+										sourceEventId: sourceId,
+										entityId: input.entityId,
+										silent: coverage.live === 0,
+										sessionEntityId: input.entityId,
+										subjectEntityId: input.entityId,
+									});
+									delete state.closingEventId;
+									delete state.coverageFinished;
+									setAfter(previous.after);
+								}
+							}
+							if (state.basisId) {
+								const basis = yield* occurrence(state.basisId);
+								state.phase = basis?.properties.frozen ? "snapshot" : "reset-snapshot";
+								state.inventory = yield* inventory(config);
+							}
+							delete state.inventoryAfter;
+						} else {
+							yield* finishCoverageItem(page);
+						}
+					}
+				}
+			}
+		} else if (
+			(state.phase === "reset-snapshot" ||
+				state.phase === "snapshot" ||
+				state.phase === "publish") &&
+			config &&
+			state.basisId
+		) {
+			const basis = yield* occurrence(state.basisId);
+			if (!basis) {
+				return yield* new MediaSandboxError({ message: "Completion occurrence is unavailable" });
+			}
+			const fingerprint = yield* inventory(config);
+			if (state.phase === "reset-snapshot") {
+				const page = yield* records(CompletionEpisode, "completion-episode", {
+					where: (event) => historyPropertyIs(event, "occurrenceId", basis.id),
+				});
+				for (const row of page.items) {
+					write.remove(row);
+				}
+				state.inventory = fingerprint;
+				if (!page.pageInfo.hasMore) {
+					state.phase = "snapshot";
+					delete state.inventoryAfter;
+				}
+			} else if (!basis.properties.frozen && state.inventory !== fingerprint) {
+				state.phase = "reset-snapshot";
+				delete state.inventoryAfter;
+			} else if (state.phase === "snapshot") {
+				const page = yield* executeRyotqlRecipe(
+					host.executeRyotql,
+					correctionInventoryRecipe({
+						config,
+						libraryId,
+						cycle: state.cycle,
+						runKey: state.runKey,
+						subjectEntityId: input.entityId,
+						...(basis.properties.frozen ? { basisId: basis.id } : {}),
+						after: state.inventoryAfter,
+					}),
+				);
+				for (const row of page.items) {
+					const properties = {
+						occurrenceId: basis.id,
+						episodeId: row.episodeId,
+						subjectEntityId: input.entityId,
+						...(row.sourceEventId === null ? {} : { sourceEventId: row.sourceEventId }),
+					};
+					if (basis.properties.frozen) {
+						const saved = yield* records(CompletionEpisode, "completion-episode", {
+							limit: 1,
+							where: (event) => eq(column(event, "id"), literal(row.id)),
+						});
+						if (!saved.items[0]) {
+							return yield* new MediaSandboxError({
+								message: "Saved completion episode is unavailable",
+							});
+						}
+						write.replace(saved.items[0], properties);
+					} else {
+						write.create("completion-episode", properties);
+					}
+				}
+				const after = yield* continuationCursor(page.pageInfo);
+				if (after === undefined) {
+					delete state.inventoryAfter;
+				} else {
+					state.inventoryAfter = after;
+				}
+				if (state.inventoryAfter === undefined) {
+					state.phase = "publish";
+				}
+			} else {
+				const coverage = yield* executeRyotqlRecipe(
+					host.executeRyotql,
+					correctionCoverageRecipe({
+						config,
+						libraryId,
+						basisId: basis.id,
+						cycle: state.cycle,
+						runKey: state.runKey,
+						subjectEntityId: input.entityId,
+					}),
+				);
+				const closing = state.closingEventId
+					? yield* executeRyotqlRecipe(
+							host.executeRyotql,
+							historyRecordRecipe({ id: state.closingEventId }),
+						)
+					: null;
+				if (!closing || !coverage) {
+					return yield* new MediaSandboxError({ message: "Closing coverage is unavailable" });
+				}
+				if (coverage.required > 0 && coverage.required === coverage.covered) {
+					const output = yield* actual(basis.id);
+					const value = {
+						...basis.properties,
+						frozen: true,
+						runKey: state.runKey,
+						expectedOccurredAt: closing.occurredAt,
+						status: preserveDecision(basis.properties),
+						expectedOrderKey: `${closing.orderKey}~parent`,
+						expectedOrderCreatedAt: closing.orderCreatedAt,
+						expectedConsumptionBasis: { unit: "episodes" as const },
+						silent: output
+							? basis.properties.silent
+							: basis.properties.frozen || basis.properties.silent,
+					};
+					if (
+						coverage.sourceCount === 1 &&
+						coverage.sourced === coverage.required &&
+						coverage.consumedOn !== null
+					) {
+						value.expectedConsumedOn = coverage.consumedOn;
+					} else {
+						delete value.expectedConsumedOn;
+					}
+					if (coverage.unknown === coverage.required) {
+						value.expectedDateUnknown = true;
+					} else {
+						delete value.expectedDateUnknown;
+					}
+					const calendarDate = closing.properties["calendarDate"];
+					if (typeof calendarDate === "string" && value.expectedDateUnknown !== true) {
+						value.expectedCalendarDate = calendarDate;
+					} else {
+						delete value.expectedCalendarDate;
+					}
+					write.output(basis, value, closing, output);
+					write.replace(basis, value);
+					state.cycle += 1;
+					state.phase = "clear";
+				} else {
+					state.phase = state.coverageFinished ? "sweep" : "coverage";
+				}
+				delete state.basisId;
+				delete state.closingEventId;
+				delete state.inventoryAfter;
+				delete state.inventory;
+			}
+		} else if (state.phase === "clear") {
+			const page = yield* records(HistoryCoverage, "history-coverage");
+			for (const row of page.items) {
+				write.remove(row);
+			}
+			if (!page.pageInfo.hasMore) {
+				if (!config || state.coverageFinished) {
+					changePhase("done");
+				} else {
+					state.phase = "coverage";
+				}
+			}
+		} else {
+			return yield* new MediaSandboxError({ message: "History correction phase is invalid" });
+		}
+	}
+	state.step += 1;
+	state.workKey = input.workKey;
+	state.sourceRevision = context.sourceRevision + write.sourceWrites();
+	if (context.work) {
+		write.replace(context.work, state);
+	} else {
+		write.create("history-correction", state);
+	}
+	yield* commitStep(host, libraryId, input.entityId, context, write);
+	return {
+		pending: state.phase !== "done",
+		nextKey: `${input.entityId}:${state.runKey}:${state.step}`,
+	};
+});
+
+const commitStep = Effect.fn("commitHistoryCorrectionStep")(function* (
+	host: Host,
+	libraryId: string,
+	entityId: string,
+	context: Context,
+	write: ReturnType<typeof writer>,
+) {
+	const library = context.library;
+	if (!library) {
+		return yield* new MediaSandboxError({ message: "Media library is unavailable" });
+	}
+	yield* host
+		.commitUserChanges({
+			relationships: [],
+			events: {
+				creates: write.creates,
+				changes: write.changes,
+				baselines: [{ revision: context.sourceRevision, entityId: EntityId.make(entityId) }],
+			},
+			entity: {
+				name: library.name,
+				properties: library.properties,
+				entitySchemaSlug: "media-library",
+				target: {
+					kind: "update",
+					entityId: EntityId.make(libraryId),
+					expected: {
+						name: library.name,
+						updatedAt: library.updatedAt,
+						properties: library.properties,
+					},
+				},
+			},
+		})
+		.pipe(Effect.catchIf(isCommitConflict, () => Effect.fail(new HistoryCorrectionConflict())));
+	return undefined;
+});

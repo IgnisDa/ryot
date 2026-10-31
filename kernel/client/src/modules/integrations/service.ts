@@ -1,0 +1,258 @@
+import type { ContractSuccess } from "@ryot-app/contract/client";
+import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
+import type {
+	CreateIntegrationBody,
+	UpdateIntegrationBody,
+} from "@ryot-app/contract/modules/integrations/schemas";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { createRyotHostMutation, createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
+import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
+import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
+import {
+	type IntegrationProvidersPage,
+	integrationProvidersRecipe,
+} from "@ryot-app/ryotql-recipes/integration-providers";
+import {
+	type IntegrationDetail,
+	type IntegrationList,
+	integrationRecipe,
+	integrationsRecipe,
+} from "@ryot-app/ryotql-recipes/integrations";
+import { Context, Effect, Layer, Option, Schema } from "effect";
+
+import type { AuthenticatedApiError } from "#/api/authenticated";
+import { IntegrationsApi } from "#/api/integrations";
+import { PublicApi } from "#/api/public";
+import type { KernelRyotClient } from "#/api/ryot-client";
+import type { ApiScope } from "#/api/scope";
+import { KernelHostServices } from "#/host-services";
+
+export const INTEGRATIONS_PAGE_SIZE = 20;
+export const INTEGRATION_RUNS_PAGE_SIZE = 10;
+
+export type IntegrationProviderItem = { readonly isCreatable: boolean } & Omit<
+	IntegrationProvidersPage["items"][number],
+	"id"
+>;
+
+export type IntegrationClientDetail = { readonly webhookUrl?: string } & Omit<
+	IntegrationDetail extends Option.Option<infer Row> ? Row : never,
+	"webhookToken"
+>;
+
+type IntegrationsClient = Pick<KernelRyotClient, "data">;
+
+export class IntegrationsLoadError extends Schema.TaggedError<
+	IntegrationsLoadError,
+	{ readonly brand: unique symbol }
+>()("IntegrationsLoadError", { cause: Schema.Unknown, stage: Schema.Literals(["list", "runs"]) }) {}
+
+export class IntegrationsService extends Context.Service<IntegrationsService>()(
+	"@ryot-app/kernel-client/modules/integrations/service/IntegrationsService",
+	{
+		make: Effect.gen(function* () {
+			const publicApi = yield* PublicApi;
+			const loadIntegrations = Effect.fn("IntegrationsService.loadIntegrations")(function* (
+				client: IntegrationsClient,
+				input: { readonly limit: number },
+			) {
+				return yield* client.data
+					.query(integrationsRecipe({ limit: input.limit }))
+					.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
+			});
+			const loadRuns = Effect.fn("IntegrationsService.loadRuns")(function* (
+				client: IntegrationsClient,
+				input: { readonly limit: number; readonly integrationId: string },
+			) {
+				return yield* client.data
+					.query(
+						integrationImportRunsRecipe({ limit: input.limit, integrationId: input.integrationId }),
+					)
+					.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "runs" })));
+			});
+
+			const loadProviders = Effect.fn("IntegrationsService.loadProviders")(function* (
+				client: IntegrationsClient,
+				serverUrl: ApiScope["serverUrl"],
+			) {
+				const config = yield* publicApi
+					.getSystemConfig(serverUrl)
+					.pipe(Effect.orElseSucceed(() => null));
+				const providers: IntegrationProviderItem[] = [];
+				let after: null | string | undefined;
+				do {
+					const page = yield* client.data
+						.query(integrationProvidersRecipe({ limit: 100, after: after ?? undefined }))
+						.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
+					providers.push(
+						...page.items.map(({ id: _id, ...provider }) => ({
+							...provider,
+							isCreatable:
+								provider.hasScript &&
+								(!provider.requiresProKey || config?.pro.isServerKeyValidated === true),
+						})),
+					);
+					after = page.pageInfo.nextCursor;
+				} while (after !== null);
+				return providers;
+			});
+			const loadIntegration = Effect.fn("IntegrationsService.loadIntegration")(function* (
+				client: IntegrationsClient,
+				serverUrl: ApiScope["serverUrl"],
+				id: string,
+			) {
+				const result = yield* client.data
+					.query(integrationRecipe({ id }))
+					.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
+				if (Option.isNone(result)) {
+					return Option.none();
+				}
+				const { webhookToken, ...integration } = result.value;
+				if (webhookToken === null) {
+					return Option.some(integration);
+				}
+				const config = yield* publicApi.getSystemConfig(serverUrl);
+				return Option.some({
+					...integration,
+					webhookUrl: integrationWebhookUrl(config.frontendOrigin, webhookToken),
+				});
+			});
+
+			return { loadRuns, loadProviders, loadIntegration, loadIntegrations };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
+
+export const getIntegration = Effect.fnUntraced(function* (
+	client: IntegrationsClient,
+	serverUrl: ApiScope["serverUrl"],
+	integrationId: string,
+) {
+	const service = yield* IntegrationsService;
+	return yield* service.loadIntegration(client, serverUrl, integrationId);
+});
+
+export const integrationsQuery = createRyotHostQuery<
+	number,
+	IntegrationList,
+	KernelHostServices,
+	IntegrationsLoadError
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime.runSync(IntegrationsService).loadIntegrations(client, { limit: input }),
+	{ hostServices: KernelHostServices },
+);
+
+export const integrationRunsQuery = createRyotHostQuery<
+	{ readonly limit: number; readonly integrationId: string },
+	ImportRunList,
+	KernelHostServices,
+	IntegrationsLoadError
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime.runSync(IntegrationsService).loadRuns(client, input),
+	{ hostServices: KernelHostServices },
+);
+
+export const integrationProvidersQuery = createRyotHostQuery<
+	void,
+	readonly IntegrationProviderItem[],
+	KernelHostServices,
+	IntegrationsLoadError
+>(
+	({ client, hostServices }) =>
+		hostServices.runtime
+			.runSync(IntegrationsService)
+			.loadProviders(client, hostServices.scope.serverUrl)
+			.pipe(
+				Effect.mapError((cause) =>
+					cause instanceof IntegrationsLoadError
+						? cause
+						: new IntegrationsLoadError({ cause, stage: "list" }),
+				),
+			),
+	{ hostServices: KernelHostServices },
+);
+
+export const integrationDetailQuery = createRyotHostQuery<
+	string,
+	undefined | IntegrationClientDetail,
+	KernelHostServices,
+	IntegrationsLoadError
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(IntegrationsService)
+			.loadIntegration(client, hostServices.scope.serverUrl, input)
+			.pipe(
+				Effect.mapBoth({
+					onSuccess: Option.getOrUndefined,
+					onFailure: (cause) =>
+						cause instanceof IntegrationsLoadError
+							? cause
+							: new IntegrationsLoadError({ cause, stage: "list" }),
+				}),
+			),
+	{ hostServices: KernelHostServices },
+);
+
+export const syncIntegrationsMutation = createRyotHostMutation<
+	void,
+	ContractSuccess<"integrations", "sync">,
+	KernelHostServices,
+	AuthenticatedApiError
+>(
+	({ client, hostServices }) =>
+		hostServices.runtime
+			.runSync(IntegrationsApi)
+			.sync(hostServices.scope)
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
+);
+
+export const createIntegrationMutation = createRyotHostMutation<
+	CreateIntegrationBody,
+	ContractSuccess<"integrations", "create">,
+	KernelHostServices,
+	AuthenticatedApiError
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(IntegrationsApi)
+			.create(hostServices.scope, { payload: input })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
+);
+
+export const updateIntegrationMutation = createRyotHostMutation<
+	{ readonly id: string; readonly payload: UpdateIntegrationBody },
+	ContractSuccess<"integrations", "update">,
+	KernelHostServices,
+	AuthenticatedApiError
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(IntegrationsApi)
+			.update(hostServices.scope, {
+				payload: input.payload,
+				params: { integrationId: IntegrationId.make(input.id) },
+			})
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
+);
+
+export const deleteIntegrationMutation = createRyotHostMutation<
+	string,
+	ContractSuccess<"integrations", "delete">,
+	KernelHostServices,
+	AuthenticatedApiError
+>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(IntegrationsApi)
+			.delete(hostServices.scope, { params: { integrationId: IntegrationId.make(input) } })
+			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+	{ hostServices: KernelHostServices },
+);

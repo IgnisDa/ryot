@@ -1,0 +1,446 @@
+import {
+	decodeEntityWatchServerMessage,
+	encodeEntityWatchClientMessage,
+	type EntityWatchClientMessage,
+	MAX_FOREGROUND_ENTITY_IDS,
+	MAX_INTEREST_ENTITY_IDS,
+} from "@ryot-app/contract/modules/entity-watches/messages";
+import type { EntityWatch, RyotClient } from "@ryot-app/plugin-client-sdk";
+import type { Fiber } from "effect";
+import { Context, Effect, FiberHandle, Layer, Match, PubSub, Result, Stream } from "effect";
+
+import { EntityWatchApi, entityWatchSocketUrl } from "#/api/entity-watches";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
+
+import { EntityWatchTransport, type InterestSocket } from "./transport";
+
+export type WatchEntities = RyotClient["entities"]["watch"];
+
+type Owner = {
+	interest: EntityWatch;
+	readonly active: () => boolean;
+	readonly onUpdate: Parameters<WatchEntities>[1];
+};
+
+export class EntityWatchService extends Context.Service<EntityWatchService>()(
+	"@ryot-app/kernel-client/modules/entity-watches/service/EntityWatchService",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* EntityWatchApi;
+			const io = yield* EntityWatchTransport;
+			const runTicket = yield* FiberHandle.makeRuntime<never, never, void>();
+			const declarations = new Map<string, Set<Owner>>();
+			const derivedData = yield* PubSub.unbounded<string>();
+			const derivedDataUpdated = (key: string) => {
+				PubSub.publishUnsafe(derivedData, key);
+			};
+			const derivedDataUpdates = (scope: ApiScope) => {
+				const key = apiScopeKey(scope);
+				return Stream.fromPubSub(derivedData).pipe(
+					Stream.filter((updated) => updated === key),
+					Stream.map(() => undefined),
+				);
+			};
+			let active:
+				| undefined
+				| {
+						key: string;
+						release: () => void;
+						refresh: () => void;
+						reconnect: () => void;
+						retain: () => () => void;
+				  };
+
+			const watch = (
+				scope: ApiScope,
+				interest: EntityWatch,
+				onUpdate: Owner["onUpdate"],
+				isActive: () => boolean = () => true,
+			) => {
+				const key = apiScopeKey(scope);
+				const owners = declarations.get(key) ?? new Set<Owner>();
+				declarations.set(key, owners);
+				const owner = { interest, onUpdate, active: isActive };
+				owners.add(owner);
+				if (active?.key === key) {
+					active.refresh();
+				}
+				return {
+					update: (next: EntityWatch) => {
+						if (declarations.get(key) !== owners || !owners.has(owner)) {
+							return;
+						}
+						owner.interest = next;
+						if (active?.key === key) {
+							active.refresh();
+						}
+					},
+					dispose: () => {
+						if (declarations.get(key) !== owners || !owners.delete(owner)) {
+							return;
+						}
+						if (active?.key === key) {
+							active.refresh();
+						} else if (!owners.size) {
+							declarations.delete(key);
+						}
+					},
+				};
+			};
+
+			const acquire = (scope: ApiScope) => {
+				const key = apiScopeKey(scope);
+				if (active?.key === key) {
+					return active.retain();
+				}
+				active?.release();
+				for (const other of declarations.keys()) {
+					if (other !== key) {
+						declarations.delete(other);
+					}
+				}
+				let leases = 0;
+				let attempt = 0;
+				let failures = 0;
+				let revision = 0;
+				let ready = false;
+				let connectedBefore = false;
+				let disposed = false;
+				let heartbeatMs = 90_000;
+				let reportedOverflow = false;
+				let applied = new Set<string>();
+				let effective = new Set<string>();
+				let appliedForeground = new Set<string>();
+				let effectiveForeground = new Set<string>();
+				let batch: undefined | (() => void);
+				let retry: undefined | (() => void);
+				let socket: undefined | InterestSocket;
+				let deadline: undefined | (() => void);
+				const grace = new Map<string, () => void>();
+				let ticketFiber: undefined | Fiber.Fiber<void>;
+				let socketListeners: undefined | AbortController;
+				let pending: undefined | { revision: number; ids: Set<string>; foreground: Set<string> };
+
+				const stop = () => {
+					attempt++;
+					ticketFiber?.interruptUnsafe();
+					ticketFiber = undefined;
+					retry?.();
+					retry = undefined;
+					deadline?.();
+					deadline = undefined;
+					const previous = socket;
+					socketListeners?.abort();
+					socketListeners = undefined;
+					socket = undefined;
+					ready = false;
+					pending = undefined;
+					if (previous) {
+						try {
+							previous.close();
+						} catch {
+							/* Already unavailable. */
+						}
+					}
+				};
+				const failed = () => {
+					stop();
+					if (disposed || !io.available()) {
+						return;
+					}
+					retry = io.schedule(Math.min(30_000, 1000 * 2 ** Math.min(failures++, 5)), connect);
+				};
+				const send = (message: EntityWatchClientMessage) => {
+					const frame = encodeEntityWatchClientMessage(message);
+					if (Result.isFailure(frame)) {
+						failed();
+						return;
+					}
+					try {
+						socket?.send(frame.success);
+					} catch {
+						failed();
+					}
+				};
+				const flush = () => {
+					if (!ready || pending || batch || disposed) {
+						return;
+					}
+					const ids = new Set(effective);
+					const foreground = new Set([...effectiveForeground].filter((id) => ids.has(id)));
+					if (
+						revision &&
+						ids.size === applied.size &&
+						[...ids].every((id) => applied.has(id)) &&
+						foreground.size === appliedForeground.size &&
+						[...foreground].every((id) => appliedForeground.has(id))
+					) {
+						return;
+					}
+					pending = { ids, foreground, revision: revision + 1 };
+					send({
+						type: "replace",
+						revision: pending.revision,
+						entityIds: [...ids].sort(),
+						foregroundIds: [...foreground].sort(),
+					});
+				};
+				const refresh = () => {
+					if (disposed) {
+						return;
+					}
+					const owners = [...(declarations.get(key) ?? [])];
+					const activeOwners = owners.filter((owner) => owner.active());
+					const ordered = [activeOwners, owners.filter((owner) => !owner.active())];
+					const selected = new Set(
+						ordered.flatMap((group) =>
+							(["foreground", "visible"] as const).flatMap((priority) =>
+								[...new Set(group.flatMap((owner) => owner.interest[priority]))].sort(),
+							),
+						),
+					);
+					const next = new Set([...selected].slice(0, MAX_INTEREST_ENTITY_IDS));
+					if (selected.size > MAX_INTEREST_ENTITY_IDS && !reportedOverflow) {
+						reportedOverflow = true;
+						io.reportOverflow(selected.size - MAX_INTEREST_ENTITY_IDS);
+					}
+					for (const [id, removal] of grace) {
+						if (next.has(id)) {
+							removal();
+							grace.delete(id);
+						}
+					}
+					for (const id of effective) {
+						if (!next.has(id) && !grace.has(id)) {
+							grace.set(
+								id,
+								io.schedule(2000, () => {
+									grace.delete(id);
+									effective.delete(id);
+									effectiveForeground.delete(id);
+									flush();
+								}),
+							);
+						}
+					}
+					for (const [id, removal] of grace) {
+						if (next.size < MAX_INTEREST_ENTITY_IDS) {
+							next.add(id);
+						} else {
+							removal();
+							grace.delete(id);
+						}
+					}
+					const foreground = new Set(
+						[...new Set(activeOwners.flatMap((owner) => owner.interest.foreground))]
+							.sort()
+							.filter((id) => next.has(id))
+							.slice(0, MAX_FOREGROUND_ENTITY_IDS),
+					);
+					for (const id of grace.keys()) {
+						if (foreground.size < MAX_FOREGROUND_ENTITY_IDS && effectiveForeground.has(id)) {
+							foreground.add(id);
+						}
+					}
+					const changed =
+						next.size !== effective.size ||
+						[...next].some((id) => !effective.has(id)) ||
+						foreground.size !== effectiveForeground.size ||
+						[...foreground].some((id) => !effectiveForeground.has(id));
+					effective = next;
+					effectiveForeground = foreground;
+					if (changed && !batch) {
+						batch = io.schedule(100, () => {
+							batch = undefined;
+							flush();
+						});
+					}
+				};
+				function connect() {
+					stop();
+					if (disposed || !io.available()) {
+						return;
+					}
+					const current = attempt;
+					deadline = io.schedule(15_000, failed);
+					ticketFiber = runTicket(
+						api.createSocketTicket(scope).pipe(
+							Effect.map(({ ticket }) => {
+								if (disposed || current !== attempt) {
+									return;
+								}
+								const connection = io.open(entityWatchSocketUrl(scope));
+								socket = connection;
+								const isCurrent = () => !disposed && socket === connection && current === attempt;
+								socketListeners = new AbortController();
+								const options = { signal: socketListeners.signal };
+								connection.addEventListener(
+									"open",
+									() => {
+										if (isCurrent()) {
+											send({ ticket, type: "authenticate" });
+										}
+									},
+									options,
+								);
+								const onFailure = () => {
+									if (isCurrent()) {
+										failed();
+									}
+								};
+								connection.addEventListener("close", onFailure, options);
+								connection.addEventListener("error", onFailure, options);
+								connection.addEventListener(
+									"message",
+									(event) => {
+										if (!isCurrent()) {
+											return;
+										}
+										const decoded = decodeEntityWatchServerMessage(
+											event instanceof MessageEvent ? event.data : undefined,
+										);
+										if (Result.isFailure(decoded) || (!ready && decoded.success.type !== "ready")) {
+											failed();
+											return;
+										}
+										Match.value(decoded.success).pipe(
+											Match.when({ type: "ready" }, (message) => {
+												if (
+													ready ||
+													message.maxEntityIds < MAX_INTEREST_ENTITY_IDS ||
+													message.heartbeatIntervalMs <= 0
+												) {
+													failed();
+													return;
+												}
+												ready = true;
+												if (connectedBefore) {
+													derivedDataUpdated(key);
+												}
+												connectedBefore = true;
+												failures = revision = 0;
+												applied = new Set();
+												appliedForeground = new Set();
+												deadline?.();
+												heartbeatMs = message.heartbeatIntervalMs * 3;
+												deadline = io.schedule(heartbeatMs, failed);
+												batch?.();
+												batch = undefined;
+												flush();
+											}),
+											Match.when({ type: "applied" }, (message) => {
+												if (pending?.revision !== message.revision) {
+													failed();
+													return;
+												}
+												applied = pending.ids;
+												appliedForeground = pending.foreground;
+												revision = pending.revision;
+												pending = undefined;
+												flush();
+											}),
+											Match.when({ type: "ping" }, ({ nonce }) => {
+												deadline?.();
+												deadline = io.schedule(heartbeatMs, failed);
+												send({ nonce, type: "pong" });
+											}),
+											Match.when({ type: "rejected" }, failed),
+											Match.when({ type: "derived-data-updated" }, () => derivedDataUpdated(key)),
+											Match.when({ type: "entity-updated" }, (message) => {
+												for (const owner of declarations.get(key) ?? []) {
+													if (!isCurrent()) {
+														return;
+													}
+													if (
+														owner.interest.foreground.includes(message.entityId) ||
+														owner.interest.visible.includes(message.entityId)
+													) {
+														try {
+															owner.onUpdate({
+																reason: message.reason,
+																entityId: message.entityId,
+															});
+														} catch {
+															/* A listener must not stop transport. */
+														}
+													}
+												}
+											}),
+											Match.exhaustive,
+										);
+									},
+									options,
+								);
+							}),
+							Effect.catchCause(() =>
+								Effect.sync(() => {
+									if (!disposed && current === attempt) {
+										failed();
+									}
+								}),
+							),
+						),
+					);
+				}
+				const unsubscribe = io.subscribe(connect);
+				const release = () => {
+					if (disposed) {
+						return;
+					}
+					disposed = true;
+					stop();
+					batch?.();
+					for (const removal of grace.values()) {
+						removal();
+					}
+					grace.clear();
+					unsubscribe();
+					declarations.delete(key);
+					if (active?.release === release) {
+						active = undefined;
+					}
+				};
+				const retain = () => {
+					leases++;
+					let released = false;
+					return () => {
+						if (released || disposed) {
+							return;
+						}
+						released = true;
+						if (--leases === 0) {
+							release();
+						}
+					};
+				};
+				active = { key, retain, release, refresh, reconnect: connect };
+				refresh();
+				connect();
+				return retain();
+			};
+			yield* Effect.addFinalizer(() =>
+				Effect.sync(() => {
+					active?.release();
+					declarations.clear();
+				}).pipe(Effect.andThen(PubSub.shutdown(derivedData))),
+			);
+			return {
+				watch,
+				acquire,
+				derivedDataUpdates,
+				refresh: (scope: ApiScope) => {
+					if (active?.key === apiScopeKey(scope)) {
+						active.refresh();
+					}
+				},
+				reconnect: (scope: ApiScope) => {
+					if (active?.key === apiScopeKey(scope)) {
+						active.reconnect();
+					}
+				},
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

@@ -1,0 +1,606 @@
+import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
+import type {
+	EntityRendererProps,
+	PluginIdentityReference,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { TabOption } from "@ryot-app/plugin-ui-sdk";
+import clsx from "clsx";
+import { createElement, type ReactNode } from "react";
+
+import type { ConsumedItem } from "../../shared/consumption";
+import type { MediaPresentationSource } from "../../shared/entity-presentations";
+import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
+import type {
+	MediaFlatActivityEvent,
+	MediaUnlinkedCreatorsOverview,
+} from "../../shared/media-recipes";
+import { mediaActivityRunLabel } from "./activity-copy";
+import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
+import type { MediaActivityLogger } from "./activity-log/state";
+import {
+	MediaActivityReviewDetail,
+	type MediaActivityRowRender,
+	MediaActivityRows,
+} from "./activity-rows";
+import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
+import { decimalLabel, mediaCollectionRowLabel, mergeActivityRuns } from "./activity-timeline";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
+import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
+import {
+	MediaDetailBody,
+	type MediaDetailBodyInput,
+	mediaDetailPage,
+	MediaDetailScreen,
+} from "./detail-screen";
+import {
+	defineMediaPresentationPair,
+	type MediaArtworkAspect,
+	MediaCardContent,
+	type MediaPresentationSubject,
+	type MediaPresentationViewData,
+	MediaRowContent,
+	type MediaSavedViewPresentationSubject,
+} from "./entity-presentation";
+import { MediaEntityRailSection } from "./entity-rail";
+import {
+	type MediaFlatActivityBeat,
+	mediaFlatActivityFigures,
+	type MediaFlatActivityRow,
+	mediaFlatActivityRow,
+	type MediaFlatActivitySummary,
+	type MediaFlatActivityView,
+	mediaFlatActivityView,
+	mergeFlatRuns,
+} from "./flat-activity-state";
+import {
+	type MediaGroupOverview,
+	mediaGroupOverviewIsEmpty,
+	mediaGroupOverviewManagedAssets,
+	MediaPartOfSection,
+} from "./group-section";
+import { collectManagedAssetLocators } from "./image";
+import {
+	type MediaCreditCopy,
+	MediaOverviewRelations,
+	type MediaOverviewRelationsRender,
+} from "./overview";
+import {
+	type MediaOverviewState,
+	mediaUnlinkedCreators,
+	mediaUnlinkedCredits,
+} from "./overview-state";
+import {
+	mediaFlatLifecycleLabel,
+	mediaPosterAsset,
+	mediaReleaseLabel,
+	type MediaSummaryFact,
+	mediaSummaryHeaderDetail,
+	type MediaSummaryState,
+	mediaSummaryStateMapper,
+	type MediaSummaryValue,
+} from "./summary-state";
+
+const GROUP_LIMIT = 20;
+const PEOPLE_LIMIT = 12;
+const COMPANY_LIMIT = 6;
+const RECOMMENDATION_LIMIT = 12;
+const ACTIVITY_EVENT_LIMIT = 60;
+const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
+
+type FlatReviewSubject = { readonly on: "media" };
+
+const REVIEW_SUBJECT: FlatReviewSubject = { on: "media" };
+
+export type MediaFlatSchemaRow<Extra = unknown> = MediaFlatActivityRow<FlatReviewSubject, Extra>;
+
+export type MediaFlatSchemaActivityView<Extra = unknown> = MediaFlatActivityView<
+	FlatReviewSubject,
+	Extra
+>;
+
+export type MediaOverviewRail = {
+	readonly key: string;
+	readonly title: string;
+	readonly items: readonly MediaPresentationSubject[];
+};
+
+export type MediaFlatActivityResult<Extra = unknown> = {
+	readonly truncated: boolean;
+	readonly completionCount: number;
+	readonly unknownAmountCount: number;
+	readonly consumedAmount: null | number;
+	readonly events: readonly MediaFlatActivityEvent<Extra>[];
+	readonly consumptionProcessing: "ready" | "failed" | "pending";
+};
+
+export type MediaFlatSchemaDescriptor<
+	Summary extends FlatSummary,
+	Overview extends MediaGroupOverview & MediaUnlinkedCreatorsOverview,
+	Presentation extends FlatPresentation,
+	Extra = unknown,
+> = {
+	readonly aspect: MediaArtworkAspect;
+	readonly creditCopy: MediaCreditCopy;
+	readonly overviewLoadingDetail: string;
+	readonly logActivity: MediaActivityLogger;
+	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+	readonly presentationFacts: (data: Presentation) => readonly string[];
+	readonly overviewRails?: (overview: Overview) => readonly MediaOverviewRail[];
+	readonly group?: { readonly actionLabel: string; readonly title: (name: string) => string };
+	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
+	readonly overviewTrailing?: (input: {
+		readonly summary: Summary;
+		readonly compact: boolean;
+	}) => ReactNode;
+	readonly measureFigure: {
+		readonly label: string;
+		readonly value: (amount: MediaFlatActivitySummary["amount"]) => string;
+	};
+	readonly activityCopy: {
+		readonly recordLabel: string;
+		readonly segmentNoun: string;
+		readonly emptyDetail: string;
+		readonly libraryLabel: string;
+		readonly progressVerb: string;
+		readonly loadingDetail: string;
+		readonly completionsLabel: string;
+		readonly itemLabel?: (item: ConsumedItem) => string;
+		readonly beats: Record<Exclude<MediaFlatActivityBeat, "backlog">, string>;
+		readonly snapshot?: {
+			readonly label: string;
+			readonly detail: (extra: Extra) => string | undefined;
+		};
+		readonly rowLabels: {
+			readonly review: string;
+			readonly completion: string;
+			readonly progress: (percent: string | undefined, extra: Extra) => string;
+		};
+	};
+	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly presentationSource: MediaPresentationSource<Presentation>;
+		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
+		readonly summaryRecipe: (input: {
+			readonly entityId: string;
+			readonly collectionLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<FlatSummaryResult<Summary>>;
+		readonly activityRecipe: (input: {
+			readonly entityId: string;
+			readonly eventLimit: number;
+			readonly collectionEventLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
+		readonly overviewRecipe: (input: {
+			readonly entityId: string;
+			readonly groupLimit: number;
+			readonly peopleLimit: number;
+			readonly companyLimit: number;
+			readonly recommendationLimit: number;
+			readonly reference: PluginIdentityReference;
+		}) => PreparedRecipe<Overview>;
+	};
+};
+
+type FlatSummaryResult<Summary> = {
+	readonly summary: null | Summary;
+	readonly entitySchemaSlug: null | string;
+};
+
+type FlatSummary = MediaSummaryValue & {
+	readonly state: MediaLifecycleState;
+	readonly progressPercent: null | number;
+	readonly collections: { readonly items: readonly { readonly id: string }[] };
+};
+
+type FlatPresentation = MediaSavedViewPresentationSubject & {
+	readonly state: MediaLifecycleState;
+	readonly publishDate: null | string;
+	readonly publishYear: null | number;
+	readonly progressPercent: null | number;
+};
+
+const TABS: readonly TabOption<"overview" | "activity">[] = [
+	{ value: "overview", label: "Overview" },
+	{ value: "activity", label: "Activity" },
+];
+
+const lifecycleLabel = (media: { readonly state: MediaLifecycleState }) =>
+	mediaFlatLifecycleLabel(media.state);
+
+const summaryProgress = (summary: FlatSummary) =>
+	summary.state === "in_progress" && summary.progressPercent !== null
+		? { percent: summary.progressPercent }
+		: undefined;
+
+export const defineFlatMediaSchema = <
+	Summary extends FlatSummary,
+	Overview extends MediaGroupOverview & MediaUnlinkedCreatorsOverview,
+	Presentation extends FlatPresentation,
+	Extra = unknown,
+>(
+	descriptor: MediaFlatSchemaDescriptor<Summary, Overview, Presentation, Extra>,
+) => {
+	const { nouns, recipes, activityCopy } = descriptor;
+
+	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
+	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
+
+	const railsOf = (overview: Overview) => descriptor.overviewRails?.(overview) ?? [];
+
+	const overviewIsEmpty = (overview: Overview) =>
+		mediaGroupOverviewIsEmpty(overview, mediaUnlinkedCreators(overview)) &&
+		railsOf(overview).every((rail) => rail.items.length === 0);
+
+	const overviewManagedAssets = (overview: Overview) =>
+		collectManagedAssetLocators([
+			...mediaGroupOverviewManagedAssets(overview),
+			...railsOf(overview).flatMap((rail) => rail.items.map((item) => mediaPosterAsset(item))),
+		]);
+
+	const overviewQuery = createMediaEntityQuery(
+		(input) =>
+			recipes.overviewRecipe({
+				groupLimit: GROUP_LIMIT,
+				entityId: input.entityId,
+				peopleLimit: PEOPLE_LIMIT,
+				reference: input.reference,
+				companyLimit: COMPANY_LIMIT,
+				recommendationLimit: RECOMMENDATION_LIMIT,
+			}),
+		(data) =>
+			[
+				...data.people.items,
+				...data.companies.items,
+				...data.recommendations.items,
+				...(data.group?.members.items ?? []),
+				...railsOf(data).flatMap((rail) => rail.items),
+			].map(({ id }) => id),
+	);
+
+	const activityQuery = createMediaEntityQuery(
+		(input) =>
+			recipes.activityRecipe({
+				entityId: input.entityId,
+				reference: input.reference,
+				eventLimit: ACTIVITY_EVENT_LIMIT,
+				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
+			}),
+		(data) =>
+			data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
+	);
+
+	const summaryState = mediaSummaryStateMapper<FlatSummaryResult<Summary>, Summary>({
+		...nouns,
+		select: ({ summary }) => summary,
+	});
+
+	const mergeRuns = mergeFlatRuns<FlatReviewSubject, Extra>(
+		(current, next) =>
+			activityCopy.rowLabels.progress(undefined, current) ===
+			activityCopy.rowLabels.progress(undefined, next),
+	);
+
+	const activityView = (result: MediaFlatActivityResult<Extra>) =>
+		mediaFlatActivityView({
+			merge: mergeRuns,
+			events: result.events,
+			subject: REVIEW_SUBJECT,
+			truncated: result.truncated,
+			completions: result.completionCount,
+			processing: result.consumptionProcessing,
+			amount: { total: result.consumedAmount ?? 0, missing: result.unknownAmountCount },
+		});
+
+	const activityRowLabel = (row: MediaFlatSchemaRow<Extra>): string => {
+		if (row.type === "item") {
+			return row.item === null
+				? "Item consumed"
+				: (activityCopy.itemLabel?.(row.item) ?? "Item consumed");
+		}
+		if (row.type === "completion") {
+			return activityCopy.rowLabels.completion;
+		}
+		if (row.type === "collection") {
+			return mediaCollectionRowLabel(row);
+		}
+		if (row.type === "media-library") {
+			return activityCopy.libraryLabel;
+		}
+		if (row.type === "beat") {
+			return row.beat === "backlog" ? "Added to backlog" : activityCopy.beats[row.beat];
+		}
+		if (row.type === "progress") {
+			return activityCopy.rowLabels.progress(
+				row.percent === undefined ? undefined : decimalLabel(row.percent),
+				row.extra,
+			);
+		}
+		if (row.type === "snapshot") {
+			return activityCopy.snapshot?.label ?? "Synced";
+		}
+		return activityCopy.rowLabels.review;
+	};
+
+	const activityRender: MediaActivityRowRender<MediaFlatSchemaRow<Extra>> = {
+		rowLabel: activityRowLabel,
+		segmentNoun: activityCopy.segmentNoun,
+		rowSource: (row) => (row.type === "progress" ? row.source : undefined),
+		rowRun: (row) =>
+			(row.type === "progress" || row.type === "completion") && row.run !== undefined
+				? mediaActivityRunLabel(row.run)
+				: undefined,
+		rowBody: (row) => {
+			if (row.type === "review") {
+				return <MediaActivityReviewDetail row={row} />;
+			}
+			if (row.type === "snapshot") {
+				const detail = activityCopy.snapshot?.detail(row.extra);
+				return detail === undefined ? null : (
+					<p className="text-micro text-text-subtle">{detail}</p>
+				);
+			}
+			return null;
+		},
+	};
+
+	function ActivityRecord(props: {
+		readonly compact: boolean;
+		readonly history?: ReactNode;
+		readonly view: MediaFlatSchemaActivityView<Extra>;
+	}) {
+		const { view } = props;
+		return (
+			<MediaActivityRecord
+				history={props.history}
+				compact={props.compact}
+				render={activityRender}
+				timeline={view.timeline}
+				recordLabel={activityCopy.recordLabel}
+				partial={view.summary.span.bound === "partial"}
+				figures={mediaFlatActivityFigures(view.summary, {
+					measure: descriptor.measureFigure,
+					completions: activityCopy.completionsLabel,
+				})}
+			/>
+		);
+	}
+
+	const { Activity, ActivityTab, mapActivity } = defineMediaActivityTab({
+		view: activityView,
+		copy: activityCopy,
+		query: activityQuery,
+		Record: ActivityRecord,
+		emptyAction: descriptor.logActivity,
+		hasMoreActivities: (result) => result.truncated,
+		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
+			events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
+		),
+		renderHistory: (events, compact) => (
+			<MediaActivityRows
+				compact={compact}
+				render={activityRender}
+				rows={mergeActivityRuns(
+					events.map((event) => mediaFlatActivityRow(event, REVIEW_SUBJECT)),
+					mergeRuns,
+				)}
+			/>
+		),
+	});
+
+	const header = mediaSummaryHeaderDetail({
+		facts: descriptor.facts,
+		progress: summaryProgress,
+		logActivity: descriptor.logActivity,
+	});
+
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
+		compact,
+		entityId,
+		overview,
+		safeAreaTop,
+	}) => {
+		const groupCopy = descriptor.group;
+		const group = groupCopy === undefined ? null : (overview.group ?? null);
+		const unlinked = mediaUnlinkedCreators(overview);
+		return (
+			<MediaOverviewRelations
+				compact={compact}
+				overview={overview}
+				unlinked={unlinked}
+				aspect={descriptor.aspect}
+				copy={descriptor.creditCopy}
+				peopleAction={
+					<MediaCreditsButton
+						aspect="square"
+						compact={compact}
+						purpose="profile"
+						query={peopleQuery}
+						input={{ entityId }}
+						label="View all people"
+						safeAreaTop={safeAreaTop}
+						title={descriptor.creditCopy.people}
+						unlinked={mediaUnlinkedCredits(unlinked).people}
+					/>
+				}
+				trailing={
+					<>
+						{group === null || groupCopy === undefined ? null : (
+							<MediaPartOfSection
+								group={group}
+								compact={compact}
+								aspect={descriptor.aspect}
+								title={groupCopy.title(group.name)}
+								actionLabel={groupCopy.actionLabel}
+							/>
+						)}
+						{railsOf(overview).map((rail) => (
+							<MediaEntityRailSection
+								key={rail.key}
+								compact={compact}
+								items={rail.items}
+								title={rail.title}
+								aspect={() => descriptor.aspect}
+							/>
+						))}
+					</>
+				}
+			/>
+		);
+	};
+
+	function ScreenBody(props: {
+		readonly compact: boolean;
+		readonly safeAreaTop: number;
+		readonly refresh: () => void;
+		readonly activity: ReactNode;
+		readonly refreshOverview: () => void;
+		readonly summaryRefreshStatus?: ReactNode;
+		readonly overviewRefreshStatus?: ReactNode;
+		readonly state: MediaSummaryState<Summary>;
+		readonly overview: MediaOverviewState<Overview>;
+		readonly settled: undefined | EntitySettleReason;
+	}) {
+		return (
+			<MediaDetailBody
+				tabs={TABS}
+				header={header}
+				state={props.state}
+				defaultTab="overview"
+				overviewTab="overview"
+				compact={props.compact}
+				settled={props.settled}
+				refresh={props.refresh}
+				overview={props.overview}
+				loading={summaryState.loading}
+				safeAreaTop={props.safeAreaTop}
+				overviewIsEmpty={overviewIsEmpty}
+				overviewRelations={overviewRelations}
+				refreshOverview={props.refreshOverview}
+				summaryError={summaryState.summaryError}
+				tabContent={{ activity: props.activity }}
+				overviewTrailing={descriptor.overviewTrailing}
+				summaryRefreshStatus={props.summaryRefreshStatus}
+				overviewNoticeTitle={descriptor.creditCopy.notice}
+				overviewRefreshStatus={props.overviewRefreshStatus}
+				summaryUnavailable={summaryState.summaryUnavailable}
+				overviewLoadingDetail={descriptor.overviewLoadingDetail}
+				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
+			/>
+		);
+	}
+
+	const DetailBody = (input: MediaDetailBodyInput<Summary, Overview>) => (
+		<ScreenBody
+			{...input}
+			activity={createElement(ActivityTab, {
+				compact: input.compact,
+				entityId: input.entityId,
+				safeAreaTop: input.safeAreaTop,
+			})}
+		/>
+	);
+
+	function Screen(props: EntityRendererProps) {
+		return (
+			<MediaDetailScreen
+				Body={DetailBody}
+				entityId={props.entityId}
+				summaryQuery={summaryQuery}
+				overviewQuery={overviewQuery}
+				mapSummary={summaryState.mapSummary}
+				overviewAssets={overviewManagedAssets}
+			/>
+		);
+	}
+
+	function Facts(props: { readonly compact: boolean; readonly data: Presentation }) {
+		const { data } = props;
+		const release = mediaReleaseLabel(data);
+		const progress =
+			data.state === "in_progress" && data.progressPercent !== null
+				? `${decimalLabel(data.progressPercent)}% ${descriptor.activityCopy.progressVerb}`
+				: undefined;
+		return (
+			<div className={clsx("flex min-w-0 flex-col", props.compact ? "gap-1" : "gap-1.5")}>
+				<div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-ui text-[12px] text-text-muted">
+					{release === undefined ? null : <span>{release}</span>}
+					{descriptor.presentationFacts(data).map((fact) => (
+						<span key={fact}>{fact}</span>
+					))}
+					<span className="font-medium text-accent-text">{lifecycleLabel(data)}</span>
+				</div>
+				{progress === undefined ? null : (
+					<p className="font-ui text-[12px] leading-5 text-text-subtle">{progress}</p>
+				)}
+			</div>
+		);
+	}
+
+	function CardContent(props: {
+		readonly compact: boolean;
+		readonly entityId: string;
+		readonly data: MediaPresentationViewData<Presentation>;
+	}) {
+		return (
+			<MediaCardContent
+				data={props.data}
+				compact={props.compact}
+				entityId={props.entityId}
+				aspect={descriptor.aspect}
+				facts={<Facts data={props.data} compact={props.compact} />}
+			/>
+		);
+	}
+
+	function RowContent(props: {
+		readonly compact: boolean;
+		readonly entityId: string;
+		readonly position?: string | undefined;
+		readonly data: MediaPresentationViewData<Presentation>;
+	}) {
+		return (
+			<MediaRowContent
+				data={props.data}
+				compact={props.compact}
+				entityId={props.entityId}
+				position={props.position}
+				aspect={descriptor.aspect}
+				facts={<Facts data={props.data} compact={props.compact} />}
+			/>
+		);
+	}
+
+	const presentations = defineMediaPresentationPair({
+		Facts,
+		aspect: descriptor.aspect,
+		source: recipes.presentationSource,
+	});
+
+	return {
+		Screen,
+		Activity,
+		ScreenBody,
+		RowContent,
+		mapActivity,
+		ActivityTab,
+		CardContent,
+		summaryQuery,
+		activityView,
+		overviewQuery,
+		activityQuery,
+		lifecycleLabel,
+		summaryProgress,
+		overviewIsEmpty,
+		activityRowLabel,
+		overviewRelations,
+		overviewManagedAssets,
+		page: mediaDetailPage(Screen),
+		mapSummary: summaryState.mapSummary,
+		summaryError: summaryState.summaryError,
+		rowPresentation: presentations.rowPresentation,
+		cardPresentation: presentations.cardPresentation,
+		summaryUnavailable: summaryState.summaryUnavailable,
+	};
+};

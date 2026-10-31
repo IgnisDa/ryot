@@ -1,0 +1,2004 @@
+import { assert, expect, it } from "@effect/vitest";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	aggregate,
+	and,
+	ascending,
+	castDate,
+	castNumber,
+	column,
+	concat,
+	conditional,
+	contains,
+	count,
+	currentDate,
+	dateBucket,
+	document,
+	eq,
+	exists,
+	field,
+	first,
+	floor,
+	groupDescending,
+	gt,
+	include,
+	integer,
+	isNotNull,
+	join,
+	jsonArrayCount,
+	jsonArrayExists,
+	jsonArrayFirst,
+	jsonElement,
+	jsonElementsJoin,
+	jsonPath,
+	kebabCase,
+	literal,
+	localDate,
+	localHour,
+	maximum,
+	measure,
+	measureDescending,
+	minimum,
+	round,
+	rows,
+	star,
+	startsWith,
+	sum,
+	table,
+	titleCase,
+} from "@ryot-app/ryotql";
+
+import { getCatalogTable } from "./catalog";
+import { validateRyotQLDocument } from "./validator";
+
+const userAccess = { type: "user", audience: "kernel", accessClass: "standard" } as const;
+
+const nested = (depth: number): ReturnType<typeof include> => {
+	const child = table("entity", `child${depth}`);
+	return include(child, {
+		limit: 10,
+		fields: [],
+		key: `child${depth}`,
+		...(depth < 4 ? { include: [nested(depth + 1)] } : {}),
+		orderBy: [{ direction: "asc", expr: column(child, "id") }],
+	});
+};
+
+const nestedExists = (depth: number, maximumDepth: number): ReturnType<typeof exists> => {
+	const child = table("entity", `correlated${depth}`);
+	return exists(child, {
+		where: depth < maximumDepth ? nestedExists(depth + 1, maximumDepth) : undefined,
+	});
+};
+
+it("returns expanded fields and nested includes in declaration order with lexical aliases", () => {
+	const entity = table("entity", "entity");
+	const child = table("entity", "child");
+	const sibling = table("entity", "sibling");
+	const elements = jsonElementsJoin("left", "element", column(child, "properties"));
+	const wildcard = { type: "wildcard", tableAlias: elements.alias } as const;
+	const input = document({
+		first: rows(entity, {
+			fields: [field("before", literal(1))],
+			include: [
+				include(child, {
+					limit: 2,
+					key: "children",
+					joins: [elements],
+					orderBy: [ascending(column(child, "id"))],
+					fields: [field("parentId", column(entity, "id")), wildcard],
+					include: [
+						include(sibling, {
+							limit: 1,
+							key: "nested",
+							orderBy: [ascending(column(sibling, "id"))],
+							fields: [wildcard, field("childId", column(child, "id"))],
+						}),
+					],
+				}),
+				include(sibling, {
+					limit: 3,
+					key: "sibling",
+					orderBy: [ascending(column(sibling, "id"))],
+					fields: [field("id", column(sibling, "id"))],
+				}),
+			],
+		}),
+
+		second: rows(entity, {
+			joins: [jsonElementsJoin("inner", "element", column(entity, "properties"))],
+			fields: [field("before", literal(1)), wildcard, field("after", literal(2))],
+		}),
+	});
+	const validated = validateRyotQLDocument(input, userAccess);
+	assert(validated.error === null);
+	expect(Object.keys(validated.value.queries)).toEqual(["first", "second"]);
+	const rootQuery = validated.value.queries["first"];
+	const second = validated.value.queries["second"];
+	assert(rootQuery?.output.type === "rows");
+	assert(second?.output.type === "rows");
+	expect(rootQuery.output.include?.map(({ key }) => key)).toEqual(["children", "sibling"]);
+	const children = rootQuery.output.include?.[0];
+	assert(children);
+	expect(children.fields).toEqual([
+		field("parentId", column(entity, "id")),
+		field("ordinal", column(elements, "ordinal")),
+		field("value", column(elements, "value")),
+	]);
+	expect(children.include?.[0].fields).toEqual([
+		field("ordinal", column(elements, "ordinal")),
+		field("value", column(elements, "value")),
+		field("childId", column(child, "id")),
+	]);
+	expect(second.output.fields.map(({ key }) => key)).toEqual([
+		"before",
+		"ordinal",
+		"value",
+		"after",
+	]);
+	expect(input.queries.second.output.fields[1]).toEqual(wildcard);
+});
+
+it("expands root and include wildcards only to fields allowed by the execution access", () => {
+	const integration = table("integration", "integration");
+	const nestedIntegration = table("integration", "nested");
+	const input = document({
+		integrations: rows(integration, {
+			fields: [star(integration)],
+			include: [
+				include(nestedIntegration, {
+					limit: 1,
+					key: "nested",
+					fields: [star(nestedIntegration)],
+					orderBy: [ascending(column(nestedIntegration, "id"))],
+				}),
+			],
+		}),
+	});
+	for (const access of [
+		userAccess,
+		{ ...userAccess, accessClass: "demo" },
+		{ ...userAccess, audience: "plugin" },
+	] as const) {
+		const validated = validateRyotQLDocument(input, access);
+		assert(validated.error === null);
+		const query = validated.value.queries["integrations"];
+		assert(query?.output.type === "rows");
+		const rootKeys = query.output.fields.map(({ key }) => key);
+		expect(query.output.include?.[0].fields.map(({ key }) => key)).toEqual(rootKeys);
+		expect(rootKeys).toContain("name");
+		if (access.accessClass === "standard" && access.audience === "kernel") {
+			expect(rootKeys).toContain("webhookToken");
+			expect(rootKeys).toContain("providerSpecifics");
+		} else {
+			expect(rootKeys).not.toContain("webhookToken");
+			expect(rootKeys).not.toContain("providerSpecifics");
+		}
+	}
+});
+
+it("exposes only approved entity fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("entity")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"name",
+			"userId",
+			"createdAt",
+			"updatedAt",
+			"properties",
+			"externalId",
+			"providerId",
+			"populatedAt",
+			"populationStatus",
+			"entitySchemaSlug",
+			"providerCheckedAt",
+			"translationStatus",
+			"entitySchemaPluginId",
+			"relatedPopulationStatus",
+			"collectionOrderRevision",
+		]),
+	);
+});
+
+it("exposes only approved event fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("event")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"userId",
+			"entityId",
+			"revision",
+			"orderKey",
+			"createdAt",
+			"updatedAt",
+			"properties",
+			"occurredAt",
+			"projection",
+			"orderCreatedAt",
+			"eventSchemaSlug",
+			"sessionEntityId",
+			"projectionStatus",
+			"eventSchemaPluginId",
+		]),
+	);
+});
+
+it("exposes only user-owned event streams and safe work fields", () => {
+	const eventStream = getCatalogTable("eventStream");
+	const eventStreamWork = getCatalogTable("eventStreamWork");
+
+	expect(eventStream?.name).toBe("event_stream");
+	expect(eventStream?.primaryKey).toEqual(["id"]);
+	expect(new Set(Object.keys(eventStream?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"entityId",
+			"revision",
+			"eventSchemaSlug",
+			"projectionStatus",
+			"eventSchemaPluginId",
+		]),
+	);
+	expect(eventStream?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+
+	expect(eventStreamWork?.name).toBe("event_stream_work");
+	expect(eventStreamWork?.primaryKey).toEqual(["id"]);
+	expect(new Set(Object.keys(eventStreamWork?.fields ?? {}))).toEqual(
+		new Set(["id", "completedRevision"]),
+	);
+	expect(eventStreamWork?.visibility).toEqual({
+		user: {
+			column: "id",
+			parentColumn: "id",
+			type: "parentOwned",
+			pluginReadable: true,
+			parentTable: "event_stream",
+			parentOwnerColumn: "user_id",
+		},
+	});
+});
+
+it("exposes only approved relationship fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("relationship")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"userId",
+			"createdAt",
+			"properties",
+			"projection",
+			"sourceEntityId",
+			"targetEntityId",
+			"collectionRank",
+			"projectionStatus",
+			"relationshipSchemaSlug",
+			"relationshipSchemaPluginId",
+		]),
+	);
+});
+
+it("exposes only approved application-table fields", () => {
+	expect(new Set(Object.keys(getCatalogTable("plugin")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"icon",
+			"name",
+			"scope",
+			"status",
+			"version",
+			"packageId",
+			"ingestedAt",
+			"contentHash",
+			"description",
+			"activationId",
+			"configSchema",
+			"clientEntities",
+			"activeRevisionId",
+			"clientApiVersion",
+			"userSettingsSchema",
+			"environmentConfigRevisionId",
+		]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"health",
+			"config",
+			"pluginId",
+			"isHidden",
+			"sortOrder",
+			"createdAt",
+			"updatedAt",
+			"healthReason",
+			"userSettings",
+			"isInitialized",
+			"homeSavedView",
+			"configuredSecrets",
+			"incompatibilityReason",
+			"activeConfigRevisionId",
+			"conflictingSystemPluginId",
+		]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("sandboxProvider")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"slug",
+			"name",
+			"pluginId",
+			"packageId",
+			"createdAt",
+			"updatedAt",
+			"information",
+			"rootEntitySchemaSlug",
+		]),
+	);
+	expect(getCatalogTable("sandboxProvider")?.name).toBe("user_sandbox_provider");
+	expect(getCatalogTable("sandboxProvider")?.primaryKey).toEqual(["id"]);
+	expect(getCatalogTable("sandboxProvider")?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
+		new Set(["pluginId", "operation", "packageId", "providerId", "optionsSchema"]),
+	);
+	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("user_sandbox_provider_operation");
+	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toEqual([
+		"providerId",
+		"operation",
+	]);
+	expect(getCatalogTable("sandboxProviderOperation")?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"slug",
+			"name",
+			"icon",
+			"isHidden",
+			"renderer",
+			"settings",
+			"revision",
+			"pluginId",
+			"sortOrder",
+			"isBuiltin",
+			"reference",
+			"packageId",
+			"createdAt",
+			"updatedAt",
+			"dataSources",
+			"pluginInstallationId",
+		]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("notificationChannel")?.fields ?? {}))).toEqual(
+		new Set(["id", "channel", "createdAt", "updatedAt", "isDisabled", "description"]),
+	);
+	const notificationChannel = getCatalogTable("notificationChannel");
+	expect(notificationChannel?.name).toBe("notification_channel");
+	expect(notificationChannel?.primaryKey).toEqual(["id"]);
+	expect(notificationChannel?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+	expect(notificationChannel && "plugin" in notificationChannel.visibility).toBe(false);
+	const notificationSubscription = getCatalogTable("notificationSubscription");
+	expect(
+		Object.fromEntries(
+			Object.entries(notificationSubscription?.fields ?? {}).map(([name, catalogField]) => [
+				name,
+				catalogField.kind,
+			]),
+		),
+	).toEqual({
+		id: "text",
+		userId: "text",
+		createdAt: "date",
+		updatedAt: "date",
+		isActive: "boolean",
+		signalSchemaSlug: "text",
+		signalSchemaPluginId: "text",
+	});
+	expect(notificationSubscription?.name).toBe("notification_subscription");
+	expect(notificationSubscription?.primaryKey).toEqual(["id"]);
+	expect(notificationSubscription?.visibility).toEqual({
+		admin: { type: "all" },
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+	expect(notificationSubscription && "plugin" in notificationSubscription.visibility).toBe(false);
+	expect(new Set(Object.keys(getCatalogTable("integration")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"lot",
+			"name",
+			"provider",
+			"pluginId",
+			"packageId",
+			"createdAt",
+			"updatedAt",
+			"isDisabled",
+			"webhookToken",
+			"syncOwnership",
+			"extraSettings",
+			"lastFinishedAt",
+			"minimumProgress",
+			"maximumProgress",
+			"providerSpecifics",
+		]),
+	);
+	const integration = getCatalogTable("integration");
+	expect(integration?.name).toBe("integration");
+	expect(integration?.primaryKey).toEqual(["id"]);
+	expect(integration?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+	expect(integration && "plugin" in integration.visibility).toBe(false);
+	expect(new Set(Object.keys(getCatalogTable("importRun")?.fields ?? {}))).toEqual(
+		new Set([
+			"id",
+			"source",
+			"status",
+			"summary",
+			"startedAt",
+			"createdAt",
+			"updatedAt",
+			"activities",
+			"finishedAt",
+			"blockReasons",
+			"expiryReason",
+			"inputSummary",
+			"blockDeadline",
+			"failureReason",
+			"integrationId",
+			"pluginInstallationId",
+		]),
+	);
+	expect(new Set(Object.keys(getCatalogTable("importIssue")?.fields ?? {}))).toEqual(
+		new Set(["id", "data", "runId"]),
+	);
+	const importRun = getCatalogTable("importRun");
+	const importIssue = getCatalogTable("importIssue");
+	expect(importRun?.name).toBe("import_run");
+	expect(importRun?.visibility).toEqual({
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	});
+	expect(importIssue?.name).toBe("import_issue");
+	expect(importIssue?.visibility).toEqual({
+		user: {
+			column: "run_id",
+			parentColumn: "id",
+			type: "parentOwned",
+			pluginReadable: true,
+			parentTable: "import_run",
+			parentOwnerColumn: "user_id",
+		},
+	});
+	expect(importRun && "plugin" in importRun.visibility).toBe(false);
+	expect(importIssue && "plugin" in importIssue.visibility).toBe(false);
+});
+
+it("rejects hidden application-table fields", () => {
+	for (const [tableName, fieldName] of [
+		["plugin", "ownerId"],
+		["plugin", "compiledHashes"],
+		["plugin", "clientArtifact"],
+		["pluginInstallation", "userId"],
+		["pluginInstallation", "clientConfig"],
+		["pluginInstallation", "activeConfigRevisionId"],
+		["sandboxProviderOperation", "scriptId"],
+		["savedView", "userId"],
+		["notificationChannel", "userId"],
+		["notificationChannel", "channelSpecifics"],
+		["notificationChannel", "platform_specifics"],
+		["notificationSubscription", "userId"],
+		["notificationSubscription", "metadata"],
+		["integration", "userId"],
+		["integration", "webhookUrl"],
+		["integration", "clientProviderSpecifics"],
+		["importRun", "userId"],
+		["importRun", "pins"],
+		["importRun", "plan"],
+		["importRun", "progress"],
+		["importRun", "totalItems"],
+		["importRun", "failedItems"],
+		["importRun", "processedItems"],
+		["importRun", "importedItems"],
+		["backupRun", "userId"],
+		["backupRun", "artifactKey"],
+		["importSource", "userId"],
+		["importSource", "workflowScriptId"],
+		["importSource", "configRevisionId"],
+		["integrationProvider", "scriptId"],
+		["integrationProvider", "configRevisionId"],
+		["entitySchema", "isEffective"],
+		["eventStreamWork", "accountToken"],
+		["eventStreamWork", "checkpoint"],
+		["eventStreamWork", "pluginPin"],
+		["eventStreamWork", "processorScriptId"],
+		["eventStreamWork", "pluginRevisionId"],
+	] as const) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(
+				document({ rows: rows(source, { fields: [field("value", column(source, fieldName))] }) }),
+				userAccess,
+			).error,
+		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					rows: rows(source, {
+						fields: [],
+						where: eq(column(source, fieldName), literal("hidden")),
+					}),
+				}),
+				userAccess,
+			).error,
+		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`);
+	}
+});
+
+it("denies user-only catalog tables to plugin execution", () => {
+	for (const tableName of ["importRun", "importIssue", "eventStream", "eventStreamWork"]) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), { type: "plugin" })
+				.error,
+		).toBe(`Query 'rows': Table '${tableName}' is not available to plugin execution`);
+	}
+});
+
+it("denies sandbox catalog tables in every plugin query occurrence", () => {
+	for (const tableName of ["sandboxProvider", "sandboxProviderOperation"] as const) {
+		const root = table("entity", "root");
+		const joined = table(tableName, "joined");
+		const included = table(tableName, "included");
+		const correlated = table(tableName, "correlated");
+		const pluginScope = { type: "plugin" } as const;
+
+		expect(
+			validateRyotQLDocument(document({ root: rows(joined, { fields: [] }) }), pluginScope).error,
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					root: rows(root, {
+						fields: [],
+						joins: [join("inner", joined, eq(column(root, "id"), column(joined, "id")))],
+					}),
+				}),
+				pluginScope,
+			).error,
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+		expect(
+			validateRyotQLDocument(
+				document({
+					root: rows(root, {
+						fields: [],
+						include: [
+							include(included, {
+								limit: 1,
+								fields: [],
+								key: "providers",
+								orderBy: [ascending(column(included, "id"))],
+							}),
+						],
+					}),
+				}),
+				pluginScope,
+			).error,
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+		expect(
+			validateRyotQLDocument(
+				document({ root: rows(root, { fields: [field("hasProvider", exists(correlated))] }) }),
+				pluginScope,
+			).error,
+		).toContain(`Table '${tableName}' is not available to plugin execution`);
+	}
+});
+
+it("limits admin execution to tables with an admin policy", () => {
+	const admin = { type: "admin" } as const;
+	for (const tableName of [
+		"user",
+		"plugin",
+		"relationship",
+		"sandboxScript",
+		"migrationReport",
+		"entityTranslation",
+		"pluginInstallation",
+		"migrationReportDetail",
+		"userLifecycleOperation",
+		"notificationSubscription",
+	] as const) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(
+				document({ rows: rows(source, { orderBy: [], fields: [star(source)] }) }),
+				admin,
+			).error,
+		).toBeNull();
+	}
+	for (const tableName of [
+		"event",
+		"entity",
+		"backupRun",
+		"importRun",
+		"savedView",
+		"eventSchema",
+		"integration",
+		"entitySchema",
+		"importSource",
+		"signalSchema",
+		"sandboxProvider",
+		"importIssue",
+		"relationshipSchema",
+		"integrationProvider",
+		"notificationChannel",
+		"sandboxProviderOperation",
+	] as const) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), admin).error,
+		).toBe(`Query 'rows': Table '${tableName}' is not available to admin execution`);
+	}
+	const root = table("plugin", "root");
+	const correlated = table("entity", "correlated");
+	expect(
+		validateRyotQLDocument(
+			document({ root: rows(root, { fields: [field("hasEntity", exists(correlated))] }) }),
+			admin,
+		).error,
+	).toBe("Query 'root': Table 'entity' is not available to admin execution");
+});
+
+it("denies admin-only tables to every user audience", () => {
+	for (const audience of ["kernel", "plugin"] as const) {
+		for (const tableName of [
+			"sandboxScript",
+			"migrationReport",
+			"entityTranslation",
+			"migrationReportDetail",
+			"userLifecycleOperation",
+		] as const) {
+			const source = table(tableName, "source");
+			expect(
+				validateRyotQLDocument(document({ rows: rows(source, { fields: [], orderBy: [] }) }), {
+					audience,
+					type: "user",
+					accessClass: "standard",
+				}).error,
+			).toBe(`Query 'rows': Table '${tableName}' is not available to the ${audience} audience`);
+		}
+	}
+});
+
+it("denies kernel-only tables to the plugin audience", () => {
+	for (const tableName of [
+		"user",
+		"backupRun",
+		"importSource",
+		"integrationProvider",
+		"oauthConnection",
+	] as const) {
+		const source = table(tableName, "source");
+		const query = document({ rows: rows(source, { fields: [star(source)] }) });
+		expect(validateRyotQLDocument(query, userAccess).error).toBeNull();
+		expect(
+			validateRyotQLDocument(query, { type: "user", audience: "plugin", accessClass: "standard" })
+				.error,
+		).toBe(`Query 'rows': Table '${tableName}' is not available to the plugin audience`);
+	}
+	for (const tableName of ["entitySchema", "eventSchema", "relationshipSchema", "signalSchema"]) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(document({ rows: rows(source, { fields: [star(source)] }) }), {
+				type: "user",
+				audience: "plugin",
+				accessClass: "standard",
+			}).error,
+		).toBeNull();
+	}
+});
+
+it("restricts account security and OAuth status reads to standard kernel users", () => {
+	const user = table("user", "user");
+	const connection = table("oauthConnection", "connection");
+	for (const query of [
+		document({
+			status: rows(user, { fields: [field("status", column(user, "twoFactorStatus"))] }),
+		}),
+		document({ status: rows(connection, { fields: [star(connection)] }) }),
+	]) {
+		expect(validateRyotQLDocument(query, userAccess).error).toBeNull();
+		expect(
+			validateRyotQLDocument(query, { ...userAccess, accessClass: "demo" }).error,
+		).not.toBeNull();
+		expect(
+			validateRyotQLDocument(query, { ...userAccess, audience: "plugin" }).error,
+		).not.toBeNull();
+	}
+	expect(
+		validateRyotQLDocument(document({ status: rows(connection, { fields: [] }) }), {
+			type: "admin",
+		}).error,
+	).not.toBeNull();
+	for (const name of [
+		"accessToken",
+		"refreshToken",
+		"code",
+		"codeVerifier",
+		"stateHash",
+		"completionSecretHash",
+		"refreshLeaseUntil",
+		"tokenVersion",
+	]) {
+		expect(
+			validateRyotQLDocument(
+				document({
+					status: rows(connection, { fields: [field("secret", column(connection, name))] }),
+				}),
+				userAccess,
+			).error,
+		).toBe(`Query 'status': Unknown field '${name}' on table 'oauthConnection'`);
+	}
+});
+
+it("hides kernel-only fields from the plugin audience", () => {
+	for (const [tableName, fieldName] of [
+		["pluginInstallation", "config"],
+		["pluginInstallation", "configuredSecrets"],
+		["integration", "webhookToken"],
+		["integration", "providerSpecifics"],
+	] as const) {
+		const source = table(tableName, "source");
+		const query = document({
+			rows: rows(source, { fields: [field("value", column(source, fieldName))] }),
+		});
+		expect(validateRyotQLDocument(query, userAccess).error).toBeNull();
+		expect(
+			validateRyotQLDocument(query, { type: "user", audience: "plugin", accessClass: "standard" })
+				.error,
+		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`);
+	}
+});
+
+it("requires text prefix operands visible to the execution audience", () => {
+	const pluginAccess = { type: "user", audience: "plugin", accessClass: "standard" } as const;
+	const entity = table("entity", "entity");
+	const prefixQuery = (left: ScalarExpression, right: ScalarExpression) =>
+		document({ entities: rows(entity, { fields: [], where: startsWith(left, right) }) });
+	expect(
+		validateRyotQLDocument(
+			prefixQuery(column(entity, "name"), column(entity, "externalId")),
+			pluginAccess,
+		).error,
+	).toBeNull();
+	for (const [left, right] of [
+		[column(entity, "properties"), literal("a")],
+		[column(entity, "name"), jsonPath(column(entity, "properties"), "title")],
+		[column(entity, "name"), literal(1)],
+		[literal(null), literal("a")],
+		[column(entity, "name"), literal(null)],
+	] as const) {
+		expect(validateRyotQLDocument(prefixQuery(left, right), userAccess).error).toBe(
+			"Query 'entities': Prefix operands must both be text",
+		);
+	}
+
+	const installation = table("pluginInstallation", "installation");
+	const integration = table("integration", "integration");
+	for (const [source, fieldName, kernelError] of [
+		[installation, "config", "Query 'rows': Prefix operands must both be text"],
+		[integration, "webhookToken", null],
+	] as const) {
+		const query = document({
+			rows: rows(source, {
+				fields: [],
+				where: startsWith(literal("a"), column(source, fieldName)),
+			}),
+		});
+		expect(validateRyotQLDocument(query, userAccess).error).toBe(kernelError);
+		expect(validateRyotQLDocument(query, pluginAccess).error).toBe(
+			`Query 'rows': Unknown field '${fieldName}' on table '${source.table}'`,
+		);
+	}
+});
+
+it("denies demo access to backup runs in root, join, include, and correlated queries", () => {
+	const demo = { ...userAccess, accessClass: "demo" } as const;
+	const root = table("integration", "root");
+	const backup = table("backupRun", "backup");
+	const candidates = [
+		document({ runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) }),
+		document({
+			runs: rows(root, {
+				fields: [],
+				joins: [join("inner", backup, eq(column(root, "id"), column(backup, "id")))],
+			}),
+		}),
+		document({
+			runs: rows(root, {
+				fields: [],
+				include: [
+					include(backup, {
+						limit: 1,
+						fields: [],
+						key: "backups",
+						orderBy: [ascending(column(backup, "id"))],
+					}),
+				],
+			}),
+		}),
+		document({ runs: rows(root, { fields: [], where: exists(backup) }) }),
+	];
+	for (const candidate of candidates) {
+		expect(validateRyotQLDocument(candidate, userAccess).error).toBeNull();
+		expect(validateRyotQLDocument(candidate, demo).error).toContain(
+			"Table 'backupRun' is not available to the kernel audience",
+		);
+		expect(validateRyotQLDocument(candidate, { ...demo, audience: "plugin" }).error).toContain(
+			"Table 'backupRun' is not available to the plugin audience",
+		);
+	}
+});
+
+it("denies demo reads of integration secrets without hiding safe fields or wildcards", () => {
+	const demo = { ...userAccess, accessClass: "demo" } as const;
+	const integration = table("integration", "integration");
+	for (const sensitive of ["webhookToken", "providerSpecifics"] as const) {
+		for (const candidate of [
+			document({
+				integrations: rows(integration, {
+					fields: [field("value", column(integration, sensitive))],
+				}),
+			}),
+			document({
+				integrations: rows(integration, {
+					fields: [],
+					where: isNotNull(column(integration, sensitive)),
+				}),
+			}),
+		]) {
+			expect(validateRyotQLDocument(candidate, userAccess).error).toBeNull();
+			expect(validateRyotQLDocument(candidate, demo).error).toBe(
+				`Query 'integrations': Unknown field '${sensitive}' on table 'integration'`,
+			);
+			expect(validateRyotQLDocument(candidate, { ...demo, audience: "plugin" }).error).toBe(
+				`Query 'integrations': Unknown field '${sensitive}' on table 'integration'`,
+			);
+		}
+	}
+	const ordered = document({
+		integrations: rows(integration, {
+			fields: [],
+			orderBy: [ascending(column(integration, "webhookToken"))],
+		}),
+	});
+	expect(validateRyotQLDocument(ordered, userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(ordered, demo).error).toContain("Unknown field 'webhookToken'");
+	expect(
+		validateRyotQLDocument(
+			document({ integrations: rows(integration, { fields: [star(integration)] }) }),
+			demo,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				integrations: rows(integration, { fields: [field("name", column(integration, "name"))] }),
+			}),
+			demo,
+		).error,
+	).toBeNull();
+});
+
+it("hides admin-only fields of user-visible tables from every user audience", () => {
+	for (const [tableName, fieldName] of [
+		["user", "authState"],
+		["user", "disabledAt"],
+		["user", "twoFactorEnabled"],
+		["plugin", "environmentConfigRevisionId"],
+		["pluginInstallation", "activeConfigRevisionId"],
+	] as const) {
+		const source = table(tableName, "source");
+		const query = document({
+			rows: rows(source, { fields: [field("value", column(source, fieldName))] }),
+		});
+		expect(validateRyotQLDocument(query, userAccess).error).toBe(
+			`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`,
+		);
+		expect(
+			validateRyotQLDocument(query, { type: "user", audience: "plugin", accessClass: "standard" })
+				.error,
+		).not.toBeNull();
+		expect(validateRyotQLDocument(query, { type: "admin" }).error).toBeNull();
+	}
+});
+
+it("never exposes script bodies or artifact keys, even to admins", () => {
+	for (const [tableName, fieldName, access] of [
+		["sandboxScript", "source", { type: "admin" }],
+		["sandboxScript", "compiledCode", { type: "admin" }],
+		["sandboxScript", "compiled_code", { type: "admin" }],
+		["backupRun", "artifactKey", userAccess],
+		["backupRun", "artifact_key", userAccess],
+	] as const) {
+		const source = table(tableName, "source");
+		expect(
+			validateRyotQLDocument(
+				document({ rows: rows(source, { fields: [field("value", column(source, fieldName))] }) }),
+				access,
+			).error,
+		).toBe(`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`);
+	}
+});
+
+it("hides admin-only fields outside admin execution", () => {
+	const subscription = table("notificationSubscription", "subscription");
+	const selected = document({
+		rows: rows(subscription, { fields: [field("userId", column(subscription, "userId"))] }),
+	});
+	const filtered = document({
+		rows: rows(subscription, {
+			fields: [],
+			where: eq(column(subscription, "userId"), literal("other-user")),
+		}),
+	});
+	for (const audience of ["kernel", "plugin"] as const) {
+		for (const candidate of [selected, filtered]) {
+			expect(
+				validateRyotQLDocument(candidate, { audience, type: "user", accessClass: "standard" })
+					.error,
+			).toBe("Query 'rows': Unknown field 'userId' on table 'notificationSubscription'");
+		}
+	}
+	expect(validateRyotQLDocument(selected, { type: "admin" }).error).toBeNull();
+	expect(validateRyotQLDocument(filtered, { type: "admin" }).error).toBeNull();
+});
+
+it("accepts notification channel descriptions as text fields", () => {
+	const channel = table("notificationChannel", "channel");
+	expect(
+		validateRyotQLDocument(
+			document({
+				channels: rows(channel, {
+					fields: [field("description", column(channel, "description"))],
+					where: contains(column(channel, "description"), literal("configured")),
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+});
+
+it("rejects unknown fields and tables", () => {
+	const entity = table("entity", "entity");
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [field("secret", column(entity, "secret"))] }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown field 'secret' on table 'entity'");
+
+	const auth = table("account", "account");
+	expect(
+		validateRyotQLDocument(
+			document({ accounts: rows(auth, { fields: [field("id", column(auth, "id"))] }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'accounts': Unknown table 'account'");
+});
+
+it("rejects removed automation history tables in every execution scope", () => {
+	const scopes = [
+		{ type: "admin" },
+		{ type: "plugin" },
+		{ type: "user", audience: "kernel", accessClass: "standard" },
+		{ type: "user", audience: "kernel", accessClass: "demo" },
+		{ type: "user", audience: "plugin", accessClass: "standard" },
+	] as const;
+
+	for (const tableName of [
+		"automationRun",
+		"automationTrigger",
+		"automationRunAttempt",
+		"automationTriggerRecipient",
+	] as const) {
+		const source = table(tableName, "source");
+		for (const scope of scopes) {
+			expect(
+				validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), scope).error,
+			).toBe(`Query 'rows': Unknown table '${tableName}'`);
+		}
+	}
+});
+
+it("validates join aliases in lexical order", () => {
+	const root = table("entity", "root");
+	const child = table("entity", "child");
+	const future = table("entity", "future");
+	const query = rows(root, {
+		fields: [],
+		joins: [
+			join("left", child, {
+				operator: "eq",
+				type: "comparison",
+				left: column(root, "id"),
+				right: column(future, "id"),
+			}),
+		],
+	});
+
+	expect(validateRyotQLDocument(document({ entities: query }), userAccess).error).toBe(
+		"Query 'entities': Unknown table alias 'future'",
+	);
+});
+
+it("accepts empty fields and rejects retained limits", () => {
+	const entity = table("entity", "entity");
+	expect(
+		validateRyotQLDocument(document({ entities: rows(entity, { fields: [] }) }), userAccess).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { limit: 101, fields: [] }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Rows limit must not exceed 100");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [],
+					where: { type: "in", values: [], expr: column(entity, "id") },
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(literal("unused")).toEqual({ type: "literal", value: "unused" });
+});
+
+it("expands qualified wildcards and validates their output keys", () => {
+	const entity = table("entity", "entity");
+	const joined = table("event", "joined");
+
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [star(entity)] }) }),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, { fields: [star(entity), field("id", column(entity, "id"))] }),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Duplicate output field key 'id'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [star(joined)],
+					joins: [join("inner", joined, eq(column(entity, "id"), column(joined, "entityId")))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [star(joined)] }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown table alias 'joined'");
+});
+
+it("validates aggregate keys, grouped requirements, ordering, and limits", () => {
+	const entity = table("entity", "entity");
+	const countMeasure = measure("count", { function: "count" });
+	const group = field("name", column(entity, "name"));
+
+	expect(
+		validateRyotQLDocument(
+			document({ entities: aggregate(entity, { measures: [countMeasure] }) }),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ entities: aggregate(entity, { after: "cursor", measures: [countMeasure] }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Only grouped aggregate outputs accept a cursor");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					after: "cursor",
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+					groupBy: [field("properties", column(entity, "properties"))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Grouped aggregate cursors require scalar group values");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Grouped aggregate outputs require a limit");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, { limit: 10, groupBy: [group], measures: [countMeasure] }),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Grouped aggregate outputs require non-empty orderBy");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 1001,
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Grouped aggregate limit must not exceed 1000");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [measureDescending("missing")],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown aggregate order key 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					groupBy: [group],
+					measures: [countMeasure],
+					orderBy: [groupDescending("name")],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					measures: [countMeasure],
+					orderBy: [groupDescending("metadata")],
+					groupBy: [field("metadata", jsonPath(column(entity, "properties"), "metadata"))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Aggregate group order key 'metadata' must resolve to a scalar value");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: aggregate(entity, {
+					limit: 10,
+					measures: [countMeasure],
+					orderBy: [measureDescending("count")],
+					groupBy: [field("count", column(entity, "name"))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Duplicate aggregate output key 'count'");
+});
+
+it("validates timezone-aware date bucket expressions", () => {
+	const entity = table("entity", "entity");
+	const query = (expr: Parameters<typeof dateBucket>[0], timeZone = "America/New_York") =>
+		document({
+			entities: rows(entity, {
+				fields: [field("day", dateBucket(expr, { timeZone, bucket: "day" }))],
+			}),
+		});
+
+	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(currentDate()), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toBe(
+		"Query 'entities': Date operations require a date expression",
+	);
+	expect(
+		validateRyotQLDocument(query(column(entity, "createdAt"), "Invalid/Zone"), userAccess).error,
+	).toBe("Query 'entities': Invalid date operation time zone 'Invalid/Zone'");
+	expect(
+		validateRyotQLDocument(query(column(entity, "createdAt"), "+05:30"), userAccess).error,
+	).toBe("Query 'entities': Invalid date operation time zone '+05:30'");
+});
+
+it("validates local hour inputs and types the result as numeric", () => {
+	const entity = table("entity", "entity");
+	const query = (expr: Parameters<typeof localHour>[0], timeZone = "America/New_York") =>
+		document({
+			entities: rows(entity, {
+				where: eq(localHour(expr, { timeZone }), literal(3)),
+				fields: [field("hour", localHour(expr, { timeZone }))],
+			}),
+		});
+	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toContain(
+		"require a date expression",
+	);
+	expect(
+		validateRyotQLDocument(query(column(entity, "createdAt"), "+05:30"), userAccess).error,
+	).toContain("Invalid date operation time zone");
+});
+
+it("validates local date inputs", () => {
+	const entity = table("entity", "entity");
+	const query = (expr: Parameters<typeof localDate>[0], timeZone = "America/New_York") =>
+		document({
+			entities: rows(entity, {
+				fields: [field("day", localDate(expr, { timeZone }))],
+				where: eq(localDate(expr, { timeZone }), literal("2024-02-29")),
+			}),
+		});
+
+	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(castDate(literal(null))), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query(literal(null)), userAccess).error).toContain(
+		"require a date expression",
+	);
+	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess).error).toContain(
+		"require a date expression",
+	);
+	expect(
+		validateRyotQLDocument(query(column(entity, "createdAt"), "Invalid/Zone"), userAccess).error,
+	).toContain("Invalid date operation time zone");
+});
+
+it("types currentDate as a date operand", () => {
+	const entity = table("entity", "entity");
+	const query = (where: Parameters<typeof rows>[1]["where"]) =>
+		document({ entities: rows(entity, { where, fields: [field("today", currentDate())] }) });
+
+	expect(
+		validateRyotQLDocument(
+			query(eq(castDate(jsonPath(column(entity, "properties"), "date")), currentDate())),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(query(eq(column(entity, "name"), currentDate())), userAccess).error,
+	).toBe("Query 'entities': Comparison operands must have compatible types");
+});
+
+it("rejects document and join counts above the retained limits", () => {
+	const entity = table("entity", "entity");
+	const query = rows(entity, { fields: [] });
+	const queries = Object.fromEntries(
+		Array.from({ length: 11 }, (_, index) => [`query${index}`, query]),
+	);
+	expect(validateRyotQLDocument(document(queries), userAccess).error).toBe(
+		"A RyotQL document may contain at most 10 named queries",
+	);
+
+	const joins = Array.from({ length: 9 }, (_, index) => {
+		const joined = table("entity", `joined${index}`);
+		return join("inner", joined, {
+			operator: "eq",
+			type: "comparison",
+			left: column(entity, "id"),
+			right: column(joined, "id"),
+		});
+	});
+	expect(
+		validateRyotQLDocument(document({ entities: rows(entity, { joins, fields: [] }) }), userAccess)
+			.error,
+	).toBe("Query 'entities': A query may contain at most 8 joins");
+});
+
+it("validates nested expression aliases, fields, JSON paths, and scalar kinds", () => {
+	const entity = table("entity", "entity");
+	const missing = table("entity", "missing");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [
+						field("value", castNumber(jsonPath(column(missing, "properties"), "nested", "score"))),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown table alias 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [field("value", jsonPath(column(entity, "name"), "nested"))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': JSON paths require a JSON expression");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [field("constant", literal(true))],
+					where: and(
+						eq(
+							castDate(jsonPath(column(entity, "properties"), "date")),
+							castDate(literal("2026-08-07")),
+						),
+						contains(column(entity, "name"), literal("RyotQL")),
+					),
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [],
+					where: eq(column(entity, "createdAt"), literal("2026-08-07T12:00:00.000Z")),
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Comparison operands must have compatible types");
+});
+
+it("validates scalar operations, recursive predicates, and operand kinds", () => {
+	const entity = table("entity", "entity");
+	const valid = rows(entity, {
+		fields: [
+			field("concat", concat(column(entity, "name"), literal(" suffix"))),
+			field(
+				"conditional",
+				conditional(eq(column(entity, "name"), literal("Ryot")), literal("yes"), literal(null)),
+			),
+			field("title", titleCase(column(entity, "name"))),
+			field("kebab", kebabCase(column(entity, "name"))),
+			field("round", round(literal(1.5))),
+			field("floor", floor(literal(1.5))),
+			field("integer", integer(literal(-1.5))),
+			field("notNull", isNotNull(column(entity, "name"))),
+		],
+	});
+	expect(validateRyotQLDocument(document({ entities: valid }), userAccess).error).toBeNull();
+
+	const missing = table("entity", "missing");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [
+						field(
+							"value",
+							conditional(eq(column(missing, "id"), literal("id")), literal("yes"), literal("no")),
+						),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown table alias 'missing'");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, { fields: [field("value", round(column(entity, "name")))] }),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Numeric operands must be numeric: text");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [field("value", titleCase(column(entity, "createdAt")))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Text operands must be text: date");
+});
+
+it("validates include correlation, lexical scopes, keys, limits, and depth", () => {
+	const course = table("entity", "course");
+	const relationship = table("relationship", "courseModule");
+	const module = table("entity", "module");
+	const modules = include(relationship, {
+		limit: 10,
+		key: "modules",
+		fields: [field("name", column(module, "name"))],
+		orderBy: [{ direction: "asc", expr: column(module, "name") }],
+		where: eq(column(relationship, "sourceEntityId"), column(course, "id")),
+		joins: [
+			join("inner", module, eq(column(relationship, "targetEntityId"), column(module, "id"))),
+		],
+	});
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, { include: [modules], fields: [field("id", column(course, "id"))] }),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					include: [modules],
+					fields: [field("modules", column(course, "id"))],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Duplicate output key 'modules'");
+
+	const unknown = table("entity", "siblingAlias");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						modules,
+						include(module, {
+							limit: 10,
+							fields: [],
+							key: "lessons",
+							where: eq(column(module, "id"), column(unknown, "id")),
+							orderBy: [{ direction: "asc", expr: column(module, "id") }],
+						}),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Include 'lessons': Unknown table alias 'siblingAlias'");
+
+	const shadowed = table("entity", "course");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						include(shadowed, {
+							limit: 10,
+							fields: [],
+							key: "shadowed",
+							orderBy: [{ direction: "asc", expr: column(shadowed, "id") }],
+						}),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Include 'shadowed': Duplicate table alias 'course'");
+
+	const joinedRoot = table("entity", "joinedRoot");
+	const tooManyJoins = Array.from({ length: 9 }, (_, index) => {
+		const joined = table("entity", `includeJoin${index}`);
+		return join("inner", joined, eq(column(joinedRoot, "id"), column(joined, "id")));
+	});
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						include(joinedRoot, {
+							limit: 10,
+							fields: [],
+							key: "joined",
+							joins: tooManyJoins,
+							orderBy: [{ direction: "asc", expr: column(joinedRoot, "id") }],
+						}),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Include 'joined': A query may contain at most 8 joins");
+
+	const limited = table("entity", "limited");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [],
+					include: [
+						include(limited, {
+							limit: 101,
+							fields: [],
+							key: "limited",
+							orderBy: [{ direction: "asc", expr: column(limited, "id") }],
+						}),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Include limit must not exceed 100");
+	expect(
+		validateRyotQLDocument(
+			document({ courses: rows(course, { fields: [], include: [nested(1)] }) }),
+			userAccess,
+		).error,
+	).toBe(
+		"Query 'courses': Include 'child1': Include 'child2': Include 'child3': Include depth must not exceed 3",
+	);
+});
+
+it("validates correlated expression scopes and ordering", () => {
+	const course = table("entity", "course");
+	const event = table("event", "event");
+	const relationship = table("relationship", "relationship");
+	const related = { where: eq(column(event, "entityId"), column(course, "id")) };
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					where: exists(event, related),
+					fields: [
+						field("count", count(event, related)),
+						field("total", sum(event, jsonPath(column(event, "properties"), "score"), related)),
+						field(
+							"first",
+							first(event, {
+								...related,
+								select: column(event, "occurredAt"),
+								orderBy: [ascending(column(event, "occurredAt"))],
+							}),
+						),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, { fields: [field("duplicate", count(table("event", "course")))] }),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Duplicate table alias 'course'");
+
+	const future = table("event", "future");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [
+						field(
+							"forward",
+							count(event, {
+								joins: [
+									join("inner", relationship, eq(column(relationship, "id"), column(future, "id"))),
+									join("inner", future, eq(column(event, "id"), column(future, "id"))),
+								],
+							}),
+						),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Unknown table alias 'future'");
+
+	const sibling = table("event", "sibling");
+	expect(
+		validateRyotQLDocument(
+			document({
+				courses: rows(course, {
+					fields: [
+						field(
+							"unknown",
+							count(event, { where: eq(column(event, "id"), column(sibling, "id")) }),
+						),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'courses': Unknown table alias 'sibling'");
+});
+
+it("types minimum and maximum by their operand kind", () => {
+	const event = table("event", "event");
+	const latest = table("event", "latest");
+	const occurredAt = column(event, "occurredAt");
+	const latestOccurredAt = column(latest, "occurredAt");
+	const latestName = column(latest, "id");
+
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, {
+					fields: [],
+					where: eq(occurredAt, maximum(latest, latestOccurredAt)),
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, { fields: [field("earliest", minimum(latest, latestOccurredAt))] }),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, { fields: [], where: eq(occurredAt, maximum(latest, latestName)) }),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'events': Comparison operands must have compatible types");
+	expect(
+		validateRyotQLDocument(
+			document({
+				events: rows(event, {
+					fields: [],
+					where: eq(literal(4), maximum(latest, latestOccurredAt)),
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'events': Comparison operands must have compatible types");
+});
+
+it("enforces the correlated expression depth limit", () => {
+	const root = table("entity", "root");
+
+	expect(
+		validateRyotQLDocument(
+			document({ root: rows(root, { fields: [], where: nestedExists(1, 3) }) }),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ root: rows(root, { fields: [], where: nestedExists(1, 4) }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'root': Correlated query depth must not exceed 3");
+});
+
+it("validates JSON array operators, element scope, and outer references", () => {
+	const entity = table("entity", "entity");
+	const schedule = jsonPath(column(entity, "properties"), "slots");
+	const startsAt = castDate(jsonPath(jsonElement(), "startsAt"));
+	const upcoming = gt(startsAt, castDate(literal("2026-09-01T00:00:00.000Z")));
+	const nextStartsAt = jsonArrayFirst(schedule, {
+		where: upcoming,
+		select: startsAt,
+		orderBy: [ascending(startsAt)],
+	});
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					orderBy: [ascending(nextStartsAt)],
+					where: and(
+						eq(column(entity, "entitySchemaSlug"), literal("series")),
+						jsonArrayExists(schedule, upcoming),
+					),
+					fields: [
+						field("name", column(entity, "name")),
+						field("nextStartsAt", nextStartsAt),
+						field("upcomingCount", jsonArrayCount(schedule, upcoming)),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, { fields: [field("element", jsonPath(jsonElement(), "startsAt"))] }),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': JSON element expressions require a JSON array operator");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [],
+					where: jsonArrayExists(column(entity, "name"), upcoming),
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': JSON array operators require a JSON expression");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [
+						field(
+							"next",
+							jsonArrayFirst(schedule, {
+								where: upcoming,
+								select: startsAt,
+								orderBy: [ascending(jsonPath(jsonElement(), "startsAt"))],
+							}),
+						),
+					],
+				}),
+			}),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Ordering expressions must resolve to scalar values");
+	const nestedJsonArray = (depth: number): ReturnType<typeof jsonArrayExists> =>
+		jsonArrayExists(
+			jsonArrayFirst(schedule, {
+				select: jsonElement(),
+				orderBy: [ascending(jsonArrayCount(schedule))],
+				...(depth > 0 ? { where: nestedJsonArray(depth - 1) } : {}),
+			}),
+		);
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [], where: nestedJsonArray(1) }) }),
+			userAccess,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [], where: nestedJsonArray(3) }) }),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': JSON array depth must not exceed 3");
+});
+
+it("validates JSON elements joins in lexical scope with audience-aware field checks", () => {
+	const entity = table("entity", "entity");
+	const later = table("entity", "later");
+	const items = jsonPath(column(entity, "properties"), "items");
+	const element = jsonElementsJoin("inner", "element", items);
+	const laterElement = jsonElementsJoin(
+		"left",
+		"laterElement",
+		jsonPath(column(later, "properties"), "items"),
+	);
+	const startsAt = castDate(jsonPath(column(element, "value"), "startsAt"));
+	const query = (
+		joins: Parameters<typeof rows>[1]["joins"],
+		fields: Parameters<typeof rows>[1]["fields"] = [star(entity)],
+	) => document({ entities: rows(entity, { joins, fields }) });
+	const plugin = { ...userAccess, audience: "plugin" } as const;
+	const demo = { ...userAccess, accessClass: "demo" } as const;
+
+	expect(
+		validateRyotQLDocument(
+			document({
+				correlated: rows(entity, {
+					fields: [],
+					where: exists(later, {
+						joins: [laterElement],
+						where: eq(column(laterElement, "ordinal"), literal(1)),
+					}),
+				}),
+				entities: rows(entity, {
+					joins: [element],
+					where: gt(startsAt, castDate(literal("2026-01-01T00:00:00.000Z"))),
+					orderBy: [ascending(startsAt), ascending(column(element, "ordinal"))],
+					fields: [
+						{ type: "wildcard", tableAlias: "element" },
+						field("startsAt", startsAt),
+						field("day", dateBucket(startsAt, { bucket: "day", timeZone: "UTC" })),
+					],
+					include: [
+						include(later, {
+							limit: 10,
+							key: "later",
+							joins: [laterElement],
+							orderBy: [ascending(column(later, "id"))],
+							fields: [field("value", column(laterElement, "value"))],
+						}),
+					],
+				}),
+			}),
+			plugin,
+		).error,
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(query([jsonElementsJoin("left", "element", items)]), plugin).error,
+	).toBeNull();
+	for (const mode of ["inner", "left"] as const) {
+		expect(
+			validateRyotQLDocument(
+				query([jsonElementsJoin(mode, "element", column(entity, "name"))]),
+				userAccess,
+			).error,
+		).toBe("Query 'entities': JSON elements joins require a JSON expression");
+	}
+	expect(
+		validateRyotQLDocument(
+			query([
+				jsonElementsJoin(
+					"inner",
+					"element",
+					jsonPath(column(table("entity", "missing"), "properties"), "items"),
+				),
+			]),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown table alias 'missing'");
+	expect(
+		validateRyotQLDocument(
+			query([
+				jsonElementsJoin("inner", "element", jsonPath(column(later, "properties"), "items")),
+				join("inner", later, eq(column(entity, "id"), column(later, "id"))),
+			]),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown table alias 'later'");
+	expect(
+		validateRyotQLDocument(
+			query([jsonElementsJoin("inner", "element", column(element, "value"))]),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown table alias 'element'");
+	expect(
+		validateRyotQLDocument(query([jsonElementsJoin("inner", "element", jsonElement())]), userAccess)
+			.error,
+	).toBe("Query 'entities': JSON element expressions require a JSON array operator");
+	expect(
+		validateRyotQLDocument(query([jsonElementsJoin("inner", "entity", items)]), userAccess).error,
+	).toBe("Query 'entities': Duplicate table alias 'entity'");
+	expect(validateRyotQLDocument(query([element, element]), userAccess).error).toBe(
+		"Query 'entities': Duplicate table alias 'element'",
+	);
+	expect(
+		validateRyotQLDocument(query([jsonElementsJoin("inner", " ", items)]), userAccess).error,
+	).toBe("Query 'entities': Table alias must not be empty");
+	expect(
+		validateRyotQLDocument(
+			query([element], [field("other", { type: "column", field: "other", tableAlias: "element" })]),
+			userAccess,
+		).error,
+	).toBe("Query 'entities': Unknown field 'other' on table 'jsonElements'");
+	const tableJoins = Array.from({ length: 8 }, (_, index) => {
+		const joined = table("entity", `joined${index}`);
+		return join("inner", joined, eq(column(entity, "id"), column(joined, "id")));
+	});
+	expect(validateRyotQLDocument(query(tableJoins), userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(query([...tableJoins, element]), userAccess).error).toBe(
+		"Query 'entities': A query may contain at most 8 joins",
+	);
+
+	const integration = table("integration", "integration");
+	const secrets = document({
+		integrations: rows(integration, {
+			fields: [],
+			joins: [jsonElementsJoin("inner", "secret", column(integration, "providerSpecifics"))],
+		}),
+	});
+	expect(validateRyotQLDocument(secrets, userAccess).error).toBeNull();
+	for (const access of [plugin, demo]) {
+		expect(validateRyotQLDocument(secrets, access).error).toBe(
+			"Query 'integrations': Unknown field 'providerSpecifics' on table 'integration'",
+		);
+	}
+	const account = table("user", "account");
+	const accountPreferences = query([
+		jsonElementsJoin(
+			"inner",
+			"element",
+			first(account, {
+				select: column(account, "preferences"),
+				orderBy: [ascending(column(account, "id"))],
+			}),
+		),
+	]);
+	expect(validateRyotQLDocument(accountPreferences, userAccess).error).toBeNull();
+	expect(validateRyotQLDocument(accountPreferences, plugin).error).toBe(
+		"Query 'entities': Table 'user' is not available to the plugin audience",
+	);
+});
+
+it("restricts notification delivery reads to kernel users", () => {
+	const pluginAudience = { ...userAccess, audience: "plugin" } as const;
+	const systemPlugin = { type: "plugin" } as const;
+	const admin = { type: "admin" } as const;
+
+	for (const tableName of ["notification", "notificationDelivery"] as const) {
+		const source = table(tableName, "source");
+		const query = document({ rows: rows(source, { fields: [star(source)] }) });
+
+		expect(validateRyotQLDocument(query, userAccess).error).toBeNull();
+		expect(validateRyotQLDocument(query, pluginAudience).error).toBe(
+			`Query 'rows': Table '${tableName}' is not available to the plugin audience`,
+		);
+		expect(validateRyotQLDocument(query, systemPlugin).error).toBe(
+			`Query 'rows': Table '${tableName}' is not available to plugin execution`,
+		);
+		expect(validateRyotQLDocument(query, admin).error).toBe(
+			`Query 'rows': Table '${tableName}' is not available to admin execution`,
+		);
+	}
+});
+
+it("keeps notification internals out of kernel fields and wildcards", () => {
+	for (const [tableName, fieldName] of [
+		["notification", "accountGeneration"],
+		["notification", "sourceKey"],
+		["notification", "inputDigest"],
+		["notification", "request"],
+		["notification", "sourceRunId"],
+		["notificationDelivery", "diagnostic"],
+		["notificationDelivery", "attemptId"],
+	] as const) {
+		const source = table(tableName, "source");
+		const query = document({
+			rows: rows(source, { fields: [field("value", column(source, fieldName))] }),
+		});
+		expect(validateRyotQLDocument(query, userAccess).error).toBe(
+			`Query 'rows': Unknown field '${fieldName}' on table '${tableName}'`,
+		);
+	}
+
+	for (const [tableName, safeFields] of [
+		["notification", ["id", "reminderId", "state", "outcome", "reason", "createdAt", "settledAt"]],
+		[
+			"notificationDelivery",
+			[
+				"id",
+				"notificationId",
+				"channelId",
+				"channel",
+				"description",
+				"status",
+				"reason",
+				"claimedAt",
+				"settledAt",
+			],
+		],
+	] as const) {
+		const source = table(tableName, "source");
+		const validated = validateRyotQLDocument(
+			document({ rows: rows(source, { fields: [star(source)] }) }),
+			userAccess,
+		);
+		assert(validated.error === null);
+		const query = validated.value.queries["rows"];
+		assert(query?.output.type === "rows");
+		expect(new Set(query.output.fields.map(({ key }) => key))).toEqual(new Set(safeFields));
+	}
+});
