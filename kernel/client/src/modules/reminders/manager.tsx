@@ -7,7 +7,17 @@ import {
 	useRyotMutation,
 	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, LoadMoreButton, Notice, SegmentedControl } from "@ryot-app/plugin-ui-sdk";
+import {
+	Badge,
+	Button,
+	Card,
+	EmptyState,
+	LoadMoreButton,
+	Notice,
+	SegmentedControl,
+	Skeleton,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { RemindersResult } from "@ryot-app/ryotql-recipes/reminders";
 import { Link } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
@@ -44,6 +54,36 @@ const stateLabels = {
 	"needs-scheduling": "Needs scheduling",
 };
 const stateLabel = (row: Reminder) => (row.outcome ? labels[row.outcome] : stateLabels[row.state]);
+const outcomeVariants = {
+	failed: "danger",
+	partial: "warning",
+	unknown: "warning",
+	accepted: "success",
+	"not-sent": "warning",
+} as const;
+const stateVariants = {
+	settled: "success",
+	processing: "info",
+	scheduled: "accent",
+	cancelled: "neutral",
+	"needs-scheduling": "warning",
+} as const;
+const statusVariant = (row: Reminder) =>
+	row.outcome ? outcomeVariants[row.outcome] : stateVariants[row.state];
+const emptyStates: Readonly<Record<string, { title: string; description: string }>> = {
+	history: {
+		title: "No reminder history",
+		description: "Sent and cancelled reminders appear here.",
+	},
+	upcoming: {
+		title: "No upcoming reminders",
+		description: "Scheduled reminders appear here until they are sent.",
+	},
+	needs: {
+		title: "Nothing needs scheduling",
+		description: "Reminders that need a new time before they can be sent appear here.",
+	},
+};
 
 export function ReminderManager(props: {
 	readonly disabled?: boolean;
@@ -54,7 +94,7 @@ export function ReminderManager(props: {
 	const schedule = useRyotSchedule();
 	const [tab, setTab] = useState("upcoming");
 	const [editor, setEditor] = useState<null | "new" | Reminder>(null);
-	const [notice, setNotice] = useState<null | string>(null);
+	const [notice, setNotice] = useState<null | { text: string; tone: "danger" | "success" }>(null);
 	const [stale, setStale] = useState(false);
 	const [detail, setDetail] = useState<null | string>(null);
 	const writesDisabled = props.disabled === true || stale;
@@ -110,17 +150,18 @@ export function ReminderManager(props: {
 						if (result.sendStarted) {
 							message = "Cancelled unsent work. A send already started and cannot be recalled.";
 						}
-						setNotice(message);
+						setNotice({ text: message, tone: "success" });
 					},
 					onFailure: (error) => {
 						const cause = error instanceof AuthenticatedApiError ? error.cause : undefined;
 						const changed = Schema.is(ReminderConflict)(cause);
 						setStale(changed);
-						setNotice(
-							changed
+						setNotice({
+							tone: "danger",
+							text: changed
 								? "This reminder changed. Reload before you continue."
 								: "The result could not be confirmed. Retry the same action to reuse its submission.",
-						);
+						});
 					},
 				}),
 			),
@@ -129,7 +170,8 @@ export function ReminderManager(props: {
 	const selected = typeof editor === "object" ? editor : undefined;
 	const editorEntityId = selected?.entityId ?? props.entityId;
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-5">
+			<ReminderReadiness disabled={props.disabled} />
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<SegmentedControl
 					value={tab}
@@ -143,127 +185,176 @@ export function ReminderManager(props: {
 					]}
 				/>
 				{props.entityId ? (
-					<Button disabled={writesDisabled} onClick={() => setEditor("new")}>
+					<Button size="sm" disabled={writesDisabled} onClick={() => setEditor("new")}>
+						<AppIcon size={14} name="plus" />
 						New reminder
 					</Button>
 				) : null}
 			</div>
-			<p className="text-sm text-text-muted">Reminders do not change library membership.</p>
-			<ReminderReadiness disabled={props.disabled} />
 			{notice ? (
-				<Notice tone="info">
-					{notice}
-					{stale ? <Button onClick={reload}>Reload</Button> : null}
+				<Notice
+					tone={notice.tone}
+					action={
+						stale ? (
+							<Button size="sm" onClick={reload} variant="secondary">
+								Reload
+							</Button>
+						) : null
+					}
+				>
+					{notice.text}
 				</Notice>
 			) : null}
 			{query.isError ? (
-				<Notice tone="danger">
-					Reminders could not be loaded. <Button onClick={query.retry}>Retry</Button>
+				<Notice
+					tone="danger"
+					action={
+						<Button size="sm" variant="secondary" onClick={query.retry}>
+							Retry
+						</Button>
+					}
+				>
+					Reminders could not be loaded.
 				</Notice>
 			) : null}
-			{query.isPending ? <p role="status">Loading reminders...</p> : null}
-			{!query.isPending && reminders.length === 0 ? <p>No reminders in this view.</p> : null}
+			{query.isPending ? (
+				<div role="status" className="grid gap-3" aria-label="Loading reminders">
+					<Skeleton className="h-24 rounded-lg" />
+					<Skeleton className="h-24 rounded-lg" />
+				</div>
+			) : null}
+			{!query.isPending && !query.isError && reminders.length === 0 ? (
+				<EmptyState
+					title={emptyStates[tab].title}
+					icon={<AppIcon size={18} name="clock" />}
+					description={emptyStates[tab].description}
+					className="rounded-lg border border-dashed border-border"
+				/>
+			) : null}
 			<ul className="grid gap-3">
-				{reminders.map((row) => (
-					<li key={row.id} className="grid gap-2 rounded-lg border border-border p-4">
-						{row.entityId ? (
-							<Link
-								to="/e/$entityId"
-								className="font-medium underline"
-								params={{ entityId: row.entityId }}
-							>
-								{row.entityTitle ?? "Entity"}
-							</Link>
-						) : (
-							<span className="font-medium">{row.entityTitle ?? "Entity no longer available"}</span>
-						)}
-						<p className="whitespace-pre-wrap">{row.message}</p>
-						<p className="text-sm text-text-muted">
-							{row.dueAt
-								? `${new Intl.DateTimeFormat(undefined, { timeStyle: "long", dateStyle: "medium", timeZone: row.timezone ?? "UTC" }).format(new Date(row.dueAt))} (${row.timezone})`
-								: `Original schedule: ${row.originalSchedule?.date ?? row.originalSchedule?.dueAt ?? "Not available"}`}
-						</p>
-						<p className="text-sm">
-							{stateLabel(row)}
-							{row.reason ? ` · ${row.reason.replaceAll("-", " ")}` : ""}
-						</p>
-						{row.processingAt &&
-						row.dueAt &&
-						Date.parse(row.processingAt) > Date.parse(row.dueAt) ? (
-							<p className="text-sm text-text-muted">
-								Processed after its scheduled time at {row.processingAt}.
-							</p>
-						) : null}
-						{row.outcome === "unknown" ? (
-							<p className="text-sm">
-								A request may have reached a provider. It will not be resent automatically.
-							</p>
-						) : null}
-						{row.outcome === "accepted" || row.outcome === "partial" ? (
-							<p className="text-sm text-text-muted">
-								Provider acceptance does not confirm that the recipient read the message.
-							</p>
-						) : null}
-						<div className="flex flex-wrap gap-2">
-							{row.processingAt !== null ? (
-								<Button
-									variant="ghost"
-									aria-expanded={detail === row.id}
-									onClick={() => setDetail(detail === row.id ? null : row.id)}
-								>
-									Channel outcomes
-								</Button>
-							) : null}
-							{row.state === "scheduled" && row.entityId ? (
-								<Button
-									variant="secondary"
-									disabled={writesDisabled}
-									onClick={() => setEditor(row)}
-								>
-									Edit
-								</Button>
-							) : null}
-							{row.state === "scheduled" ||
-							row.state === "processing" ||
-							row.state === "needs-scheduling" ? (
-								<Button
-									variant="secondary"
-									onClick={() => change(row, "cancel")}
-									disabled={writesDisabled || mutation.isPending}
-								>
-									Cancel reminder
-								</Button>
-							) : (
-								<>
-									{row.entityId && row.replacementId === null ? (
+				{reminders.map((row) => {
+					const status = stateLabel(row);
+					const reason = row.reason?.replaceAll("-", " ");
+					return (
+						<li key={row.id}>
+							<Card className="grid gap-3">
+								<div className="flex items-start justify-between gap-3">
+									<div className="grid min-w-0 gap-1">
+										{props.entityId ? null : <ReminderEntity row={row} />}
+										<p className="text-body font-medium whitespace-pre-wrap text-text">
+											{row.message}
+										</p>
+									</div>
+									<Badge dot variant={statusVariant(row)}>
+										{status}
+									</Badge>
+								</div>
+								<div className="grid gap-1 text-label text-text-muted">
+									<p className="flex items-center gap-1.5">
+										<AppIcon size={14} name="calendar" />
+										<span>
+											{row.dueAt
+												? new Intl.DateTimeFormat(undefined, {
+														timeStyle: "short",
+														dateStyle: "medium",
+														timeZone: row.timezone ?? "UTC",
+													}).format(new Date(row.dueAt))
+												: `Original schedule: ${row.originalSchedule?.date ?? row.originalSchedule?.dueAt ?? "Not available"}`}
+										</span>
+										{row.dueAt && row.timezone ? (
+											<span className="text-text-subtle">· {row.timezone}</span>
+										) : null}
+									</p>
+									{reason && reason !== status.toLowerCase() ? (
+										<p className="first-letter:uppercase">{reason}</p>
+									) : null}
+									{row.processingAt &&
+									row.dueAt &&
+									Date.parse(row.processingAt) > Date.parse(row.dueAt) ? (
+										<p>Processed after its scheduled time at {row.processingAt}.</p>
+									) : null}
+									{row.outcome === "unknown" ? (
+										<p>
+											A request may have reached a provider. It will not be resent automatically.
+										</p>
+									) : null}
+									{row.outcome === "accepted" || row.outcome === "partial" ? (
+										<p>Provider acceptance does not confirm that the recipient read the message.</p>
+									) : null}
+								</div>
+								<div className="-mx-1 flex flex-wrap items-center gap-1 border-t border-border pt-2">
+									{row.state === "needs-scheduling" && row.entityId ? (
+										<Button size="sm" disabled={writesDisabled} onClick={() => setEditor(row)}>
+											Schedule reminder
+										</Button>
+									) : null}
+									{row.state === "scheduled" && row.entityId ? (
 										<Button
-											variant="secondary"
+											size="sm"
+											variant="ghost"
 											disabled={writesDisabled}
 											onClick={() => setEditor(row)}
 										>
-											Schedule again
+											<AppIcon size={14} name="pencil" />
+											Edit
 										</Button>
 									) : null}
-									<Button
-										variant="ghost"
-										onClick={() => change(row, "remove")}
-										disabled={writesDisabled || mutation.isPending}
-									>
-										Remove history
-									</Button>
-								</>
-							)}
-							{row.state === "needs-scheduling" && row.entityId ? (
-								<Button disabled={writesDisabled} onClick={() => setEditor(row)}>
-									Schedule reminder
-								</Button>
-							) : null}
-						</div>
-						{detail === row.id ? (
-							<ReminderDeliveries reminderId={row.id} processing={row.state === "processing"} />
-						) : null}
-					</li>
-				))}
+									{row.state === "scheduled" ||
+									row.state === "processing" ||
+									row.state === "needs-scheduling" ? (
+										<Button
+											size="sm"
+											variant="dangerGhost"
+											onClick={() => change(row, "cancel")}
+											disabled={writesDisabled || mutation.isPending}
+										>
+											<AppIcon size={14} name="circle-x" />
+											Cancel reminder
+										</Button>
+									) : (
+										<>
+											{row.entityId && row.replacementId === null ? (
+												<Button
+													size="sm"
+													variant="ghost"
+													disabled={writesDisabled}
+													onClick={() => setEditor(row)}
+												>
+													<AppIcon size={14} name="rotate-ccw" />
+													Schedule again
+												</Button>
+											) : null}
+											<Button
+												size="sm"
+												variant="ghost"
+												onClick={() => change(row, "remove")}
+												disabled={writesDisabled || mutation.isPending}
+											>
+												<AppIcon size={14} name="archive" />
+												Remove history
+											</Button>
+										</>
+									)}
+									{row.processingAt !== null ? (
+										<Button
+											size="sm"
+											variant="ghost"
+											className="ml-auto"
+											aria-expanded={detail === row.id}
+											onClick={() => setDetail(detail === row.id ? null : row.id)}
+										>
+											Channel outcomes
+											<AppIcon size={14} name={detail === row.id ? "chevron-up" : "chevron-down"} />
+										</Button>
+									) : null}
+								</div>
+								{detail === row.id ? (
+									<ReminderDeliveries reminderId={row.id} processing={row.state === "processing"} />
+								) : null}
+							</Card>
+						</li>
+					);
+				})}
 			</ul>
 			{query.hasNextPage ? (
 				<LoadMoreButton
@@ -287,5 +378,21 @@ export function ReminderManager(props: {
 				/>
 			) : null}
 		</div>
+	);
+}
+
+function ReminderEntity(props: { readonly row: Reminder }) {
+	return props.row.entityId ? (
+		<Link
+			to="/e/$entityId"
+			params={{ entityId: props.row.entityId }}
+			className="truncate text-label font-medium text-text-muted hover:text-text hover:underline"
+		>
+			{props.row.entityTitle ?? "Entity"}
+		</Link>
+	) : (
+		<span className="truncate text-label font-medium text-text-muted">
+			{props.row.entityTitle ?? "Entity no longer available"}
+		</span>
 	);
 }

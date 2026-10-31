@@ -24,8 +24,7 @@ const remindersQueries = (
 	documents: ReturnType<typeof mountReminderTestScreen>["queryDocuments"],
 ) => documents.filter((document) => "reminders" in document.queries);
 
-const waitForReadiness = () =>
-	screen.findByText("Server scan schedule: every 5 minutes. This is not a precise alarm.");
+const waitForReadiness = () => screen.findByRole("switch", { name: /reminder subscription$/ });
 
 it.live("filters the reminder views and replaces a needs-scheduling source without a time", () =>
 	Effect.gen(function* () {
@@ -328,7 +327,7 @@ it.live("reports reminder readiness and enables its existing subscription only o
 			const before = view.queryDocuments.filter(
 				(document) => "channels" in document.queries && "subscriptions" in document.queries,
 			).length;
-			fireEvent.click(screen.getByRole("button", { name: "Enable reminder subscription" }));
+			fireEvent.click(screen.getByRole("switch", { name: "Enable reminder subscription" }));
 			yield* Effect.promise(() => waitFor(() => expect(activations).toHaveLength(1)));
 			expect(activations[0]).toEqual({ params: { ruleId: subscriptionId } });
 			expect(installations).toEqual([]);

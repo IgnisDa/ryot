@@ -44,8 +44,7 @@ const mountEditor = (
 	return { requests, outcomes, dispose: view.dispose };
 };
 
-const waitForReadiness = () =>
-	screen.findByText("Server scan schedule: every 5 minutes. This is not a precise alarm.");
+const waitForEditor = () => screen.findByLabelText("Message");
 
 const chooseTimezone = (zone: string) => {
 	fireEvent.click(screen.getByRole("button", { name: /^Timezone:/ }));
@@ -59,7 +58,7 @@ it.live("requires an explicit repeated-time choice and sends the selected UTC in
 	Effect.gen(function* () {
 		const editor = mountEditor();
 		yield* Effect.addFinalizer(() => Effect.promise(editor.dispose));
-		yield* Effect.promise(waitForReadiness);
+		yield* Effect.promise(waitForEditor);
 		chooseTimezone("America/New_York");
 		fireEvent.change(screen.getByLabelText("Message"), { target: { value: "  Check target  " } });
 		fireEvent.change(screen.getByLabelText("Date and time"), {
@@ -96,7 +95,7 @@ it.live("retries the exact immutable submission after an uncertain transport res
 	Effect.gen(function* () {
 		const editor = mountEditor({ transport: true });
 		yield* Effect.addFinalizer(() => Effect.promise(editor.dispose));
-		yield* Effect.promise(waitForReadiness);
+		yield* Effect.promise(waitForEditor);
 		chooseTimezone("UTC");
 		fireEvent.change(screen.getByLabelText("Message"), { target: { value: "A reminder" } });
 		fireEvent.change(screen.getByLabelText("Date and time"), {
@@ -116,7 +115,7 @@ it.live("offers Reload instead of overwriting a stale reminder", () =>
 	Effect.gen(function* () {
 		const editor = mountEditor({ conflict: true });
 		yield* Effect.addFinalizer(() => Effect.promise(editor.dispose));
-		yield* Effect.promise(waitForReadiness);
+		yield* Effect.promise(waitForEditor);
 		chooseTimezone("UTC");
 		fireEvent.change(screen.getByLabelText("Message"), { target: { value: "A reminder" } });
 		fireEvent.change(screen.getByLabelText("Date and time"), {
