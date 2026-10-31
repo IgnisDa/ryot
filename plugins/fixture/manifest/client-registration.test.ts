@@ -8,9 +8,11 @@ describe("fixture client registration", () => {
 			"/": "fixture-home",
 			"/full-bleed": "fixture-full-bleed",
 			"/details/$itemId": "fixture-details",
+			"/all-field-controls/new": "all-field-controls-create",
 		});
 		expect(fixturePlugin.client.notFoundPage).toBe("fixture-not-found");
 		expect(fixturePlugin.client.entities).toEqual({
+			"all-field-controls": { createRoute: "/all-field-controls/new" },
 			move: { listPresentation: "move-row", gridPresentation: "move-card" },
 			pokemon: {
 				detailPage: "pokemon-detail",
@@ -29,6 +31,7 @@ describe("fixture client registration", () => {
 			"pokemon-row": { kind: "presentation", entry: "client/pokemon-row.ts" },
 			"pokemon-card": { kind: "presentation", entry: "client/pokemon-card.ts" },
 			"pokemon-picker": { kind: "component", entry: "client/pokemon-picker.tsx" },
+			"all-field-controls-create": { kind: "page", entry: "client/all-field-controls-create.tsx" },
 		});
 		expect(fixturePlugin.client.exports).not.toHaveProperty("pokemon-grid");
 		expect(fixturePlugin.client.exports).not.toHaveProperty("pokemon-list");

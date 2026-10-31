@@ -55,6 +55,68 @@ export const fixturePlugin = definePlugin({
 			information: { source: "pokeapi" },
 		},
 	],
+	entitySchemas: [
+		{
+			slug: "pokemon",
+			name: "Pokemon",
+			icon: "sparkles",
+			eventSchemas: [],
+			browse: {
+				fields: [
+					{
+						key: "height",
+						kind: "value",
+						type: "number",
+						label: "Height",
+						expression: castNumber(
+							jsonPath(column(table("entity", "subject"), "properties"), "height"),
+						),
+					},
+				],
+			},
+			propertiesSchema: {
+				fields: {
+					types: stringArrayField("Types", "Elemental types of this Pokémon"),
+					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
+					height: integerField("Height", "Height of this Pokémon in decimetres"),
+					weight: integerField("Weight", "Weight of this Pokémon in hectograms"),
+					pokedexNumber: integerField("Pokedex Number", "National Pokédex number"),
+					abilities: stringArrayField("Abilities", "Abilities this Pokémon can have"),
+					baseExperience: integerField(
+						"Base Experience",
+						"Base experience gained for defeating this Pokémon",
+					),
+					images: {
+						type: "array",
+						label: "Images",
+						items: managedAssetItemSchema,
+						description: "Official artwork for this Pokémon",
+					},
+				},
+			},
+		},
+		{
+			icon: "zap",
+			slug: "move",
+			name: "Move",
+			eventSchemas: [],
+			propertiesSchema: {
+				fields: {
+					power: integerField("Power", "Base power of this move"),
+					target: stringField("Target", "What this move targets"),
+					pp: integerField("PP", "Base power points of this move"),
+					type: stringField("Type", "Elemental type of this move"),
+					effect: stringField("Effect", "Short English effect description"),
+					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
+					accuracy: integerField("Accuracy", "Accuracy percentage of this move"),
+					priority: integerField("Priority", "Turn priority bracket of this move"),
+					generation: stringField("Generation", "Generation this move was introduced in"),
+					damageClass: stringField("Damage Class", "Physical, special, or status damage class"),
+				},
+			},
+		},
+		allFieldControlsSchema,
+	],
 	client: {
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
@@ -63,8 +125,10 @@ export const fixturePlugin = definePlugin({
 			"/": "fixture-home",
 			"/full-bleed": "fixture-full-bleed",
 			"/details/$itemId": "fixture-details",
+			"/all-field-controls/new": "all-field-controls-create",
 		},
 		entities: {
+			"all-field-controls": { createRoute: "/all-field-controls/new" },
 			move: { listPresentation: "move-row", gridPresentation: "move-card" },
 			pokemon: {
 				detailPage: "pokemon-detail",
@@ -133,70 +197,14 @@ export const fixturePlugin = definePlugin({
 				entry: "client/pokemon-detail.tsx",
 				automaticEntityPresentations: false,
 			},
+			"all-field-controls-create": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/all-field-controls-create.tsx",
+			},
 		},
 	},
-	entitySchemas: [
-		{
-			slug: "pokemon",
-			name: "Pokemon",
-			icon: "sparkles",
-			eventSchemas: [],
-			browse: {
-				fields: [
-					{
-						key: "height",
-						kind: "value",
-						type: "number",
-						label: "Height",
-						expression: castNumber(
-							jsonPath(column(table("entity", "subject"), "properties"), "height"),
-						),
-					},
-				],
-			},
-			propertiesSchema: {
-				fields: {
-					types: stringArrayField("Types", "Elemental types of this Pokémon"),
-					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
-					height: integerField("Height", "Height of this Pokémon in decimetres"),
-					weight: integerField("Weight", "Weight of this Pokémon in hectograms"),
-					pokedexNumber: integerField("Pokedex Number", "National Pokédex number"),
-					abilities: stringArrayField("Abilities", "Abilities this Pokémon can have"),
-					baseExperience: integerField(
-						"Base Experience",
-						"Base experience gained for defeating this Pokémon",
-					),
-					images: {
-						type: "array",
-						label: "Images",
-						items: managedAssetItemSchema,
-						description: "Official artwork for this Pokémon",
-					},
-				},
-			},
-		},
-		{
-			icon: "zap",
-			slug: "move",
-			name: "Move",
-			eventSchemas: [],
-			propertiesSchema: {
-				fields: {
-					power: integerField("Power", "Base power of this move"),
-					target: stringField("Target", "What this move targets"),
-					pp: integerField("PP", "Base power points of this move"),
-					type: stringField("Type", "Elemental type of this move"),
-					effect: stringField("Effect", "Short English effect description"),
-					sourceUrl: stringField("Source Url", "Link to the PokeAPI resource"),
-					accuracy: integerField("Accuracy", "Accuracy percentage of this move"),
-					priority: integerField("Priority", "Turn priority bracket of this move"),
-					generation: stringField("Generation", "Generation this move was introduced in"),
-					damageClass: stringField("Damage Class", "Physical, special, or status damage class"),
-				},
-			},
-		},
-		allFieldControlsSchema,
-	],
 });
 
 export default fixturePlugin;
