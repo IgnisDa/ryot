@@ -170,11 +170,8 @@ These are not carried over:
 - Share links.
 - Saved filters.
 - Past import reports.
-- Calendar and activity history.
 - Notification history.
 - Visibility settings and comments on reviews.
-- Watch provider display settings.
-- Photos attached to measurements.
 
 These features have been removed:
 
