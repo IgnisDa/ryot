@@ -49,7 +49,8 @@ import {
 } from "~/fixtures/plugins/media/history-correction";
 import { seedShow } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
-import { describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 import { nowIso } from "~/support/time";
 
 const reportNow = Date.parse("2026-01-05T12:00:00.000Z");
@@ -317,13 +318,31 @@ describe("Media consumption basis retention", () => {
 			expect(freshReport.current.types.filter(({ mediaType }) => mediaType === "show")).toEqual([]);
 		}),
 	);
+});
+
+// Restored streams are admitted by the frequent reconciler, so this server runs it every minute.
+describe("Media consumption restore", () => {
+	let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
+
+	beforeAll(() =>
+		runPromise(
+			Effect.gen(function* () {
+				harness = yield* startIsolatedHarness("Media Consumption Restore", {
+					SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE: "every minute",
+				});
+			}),
+		),
+	);
+
+	afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 	it.live(
 		"restores custom Book consumption into remapped IDs and rebuilds its canonical report",
 		() =>
 			Effect.gen(function* () {
-				const source = yield* createAuthenticatedClient();
-				const target = yield* createAuthenticatedClient();
+				const server = requirePresent(harness, "Restore harness is missing").target;
+				const source = yield* createAuthenticatedClient(server);
+				const target = yield* createAuthenticatedClient(server);
 				const { schema: sourceBookSchema } = yield* findMediaEntitySchema(source.client, "book");
 				const bookName = `Custom consumption backup ${yield* randomUuid}`;
 				const book = yield* createEntity(source.client, {
@@ -409,12 +428,12 @@ describe("Media consumption basis retention", () => {
 					source.client,
 					restoredHistoryRevisionRecipe({ entityId: book.id, reference: sourceReference }),
 				);
-				const sourceCorrection = requirePresent(
-					sourceRevisions.checkpoint,
-					"Source history correction checkpoint is missing",
-				);
+				expect(sourceRevisions.checkpoint).toMatchObject({ phase: "done" });
 				const { bytes } = yield* exportAndDownloadBackup(source.client);
 				const archivedEvents = yield* readBackupSection(bytes, "events.ndjson");
+				expect(
+					archivedEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "history-correction"),
+				).toBe(false);
 				const archivedBookEvents = archivedEvents.filter((event) => event["entityId"] === book.id);
 				expect(archivedBookEvents).toHaveLength(sourceEvents.length);
 				expect(
@@ -433,7 +452,7 @@ describe("Media consumption basis retention", () => {
 					),
 				).toBe(true);
 
-				yield* deleteUserAndWait(source.userId);
+				yield* deleteUserAndWait(source.userId, server);
 				const restored = yield* restoreBackup(target.client, bytes);
 				assertCompleted(restored.run, "Media consumption restore");
 				const { schema: targetBookSchema } = yield* findMediaEntitySchema(target.client, "book");
@@ -453,15 +472,7 @@ describe("Media consumption basis retention", () => {
 					target.client,
 					restoredHistoryRevisionRecipe({ entityId: restoredBookId, reference: targetReference }),
 				);
-				const sourceRevision = revisions.scope;
-				expect(sourceRevision).toBe(0);
-				const correction = requirePresent(
-					revisions.checkpoint,
-					"Restored history correction checkpoint is missing",
-				);
-				expect(correction).toMatchObject({ phase: "done", sourceRevision });
-				expect(correction.requestKey).toMatch(/^event-input-repair-/);
-				expect(correction.requestKey).not.toBe(sourceCorrection.requestKey);
+				expect(revisions).toEqual({ scope: 0, checkpoint: undefined });
 
 				const restoredEvents = yield* historyEventsFor(target.client, restoredBookId);
 				const normalizeEvents = (events: typeof sourceEvents) =>

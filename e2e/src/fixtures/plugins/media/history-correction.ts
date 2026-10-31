@@ -65,10 +65,13 @@ export const historyEventsFor = (client: Client, entityId: string) =>
 	listEventsForEntity(client, entityId, undefined, 100);
 
 export const settledHistoryCorrection = (client: Client, userId: string) =>
-	pollTerminalAutomationRuns({
-		executionUserId: UserId.make(userId),
-		hookSlug: AutomationHookSlug.make("media.reconcile-history"),
-	}).pipe(
+	pollTerminalAutomationRuns(
+		{
+			executionUserId: UserId.make(userId),
+			hookSlug: AutomationHookSlug.make("media.reconcile-history"),
+		},
+		client.target,
+	).pipe(
 		Effect.tap((runs) =>
 			Effect.sync(() => expect(runs.map((run) => run.status)).toEqual(runs.map(() => "succeeded"))),
 		),
