@@ -175,10 +175,6 @@ describe("Exercises E2E", () => {
 				"presentationImage",
 				"presentationLatestValue",
 				"presentationLatestAt",
-				"levelValue",
-				"forceValue",
-				"mechanicValue",
-				"kindValue",
 			]);
 		}),
 	);
