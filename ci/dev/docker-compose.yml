@@ -2,6 +2,7 @@ name: ryot
 
 services:
   ryot-db:
+    shm_size: "512m"
     restart: unless-stopped
     image: postgres:18-alpine
     ports:
