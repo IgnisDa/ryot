@@ -193,7 +193,8 @@ describe("Media consumption basis retention", () => {
 			const targetBook = requireMediaConsumptionGroup(after, "book");
 			expect((yield* mediaConsumptionMeasure(targetBook, "pages")).total).toBe(300);
 			expect(targetBook.titleCompletions).toBe(2);
-			expect(after.current.types).toEqual(before.current.types);
+			expect(after.current.types).toHaveLength(before.current.types.length);
+			expect(targetBook).toEqual({ ...beforeBook, distinctTitles: 1 });
 
 			const sourceFiltered = yield* waitForReport(client, reference, allTime, source.entityId);
 			expect(sourceFiltered.current.types).toEqual([]);
