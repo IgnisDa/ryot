@@ -51,14 +51,14 @@ pub async fn upload_file_handler(
     Ok(Json(serde_json::json!(res)))
 }
 
-async fn read_webhook_payload(request: Request) -> StdResult<String, StatusCode> {
+async fn read_webhook_payload(request: Request, limit: usize) -> StdResult<String, StatusCode> {
     let is_multipart = request
         .headers()
         .get(CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .is_some_and(|v| v.starts_with("multipart/form-data"));
     if !is_multipart {
-        let bytes = axum::body::to_bytes(request.into_body(), usize::MAX)
+        let bytes = axum::body::to_bytes(request.into_body(), limit)
             .await
             .map_err(|_| StatusCode::BAD_REQUEST)?;
         return String::from_utf8(bytes.to_vec()).map_err(|_| StatusCode::BAD_REQUEST);
@@ -83,7 +83,8 @@ pub async fn integration_webhook_handler(
     Extension(ss): Extension<Arc<SupportingService>>,
     request: Request,
 ) -> StdResult<(StatusCode, String), StatusCode> {
-    let payload = read_webhook_payload(request).await?;
+    let limit = 1024 * 1024 * ss.config.server.max_file_size_mb;
+    let payload = read_webhook_payload(request, limit).await?;
     ss.perform_application_job(ApplicationJob::Single(
         SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
     ))
