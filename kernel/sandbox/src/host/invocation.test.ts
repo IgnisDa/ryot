@@ -3,10 +3,10 @@ import { describe, expect, it } from "bun:test";
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
-import { Effect, PlatformError } from "effect";
+import { Effect, PlatformError, Schema } from "effect";
 
 import { selectSandboxHostFunctions } from "./executor";
-import { sandboxPlatformFailureKind } from "./invocation";
+import { sandboxPlatformFailureKind, toSandboxHostError } from "./invocation";
 import { automationRunSubject, makeSubjectRunInput } from "./run-input.test-support";
 
 describe("selectSandboxHostFunctions", () => {
@@ -122,5 +122,19 @@ describe("sandboxPlatformFailureKind", () => {
 			"infrastructure",
 		);
 		expect(sandboxPlatformFailureKind(new Error("boom"))).toBe("infrastructure");
+	});
+});
+
+class MessagelessFailure extends Schema.TaggedError<
+	MessagelessFailure,
+	{ readonly brand: unique symbol }
+>()("MessagelessFailure", { code: Schema.Literal("policy-execution-failed") }) {}
+
+it("names a host failure without a message by its tag and code", () => {
+	expect(
+		toSandboxHostError(new MessagelessFailure({ code: "policy-execution-failed" })),
+	).toMatchObject({ message: "MessagelessFailure: policy-execution-failed" });
+	expect(toSandboxHostError({ code: "ignored", message: "denied" })).toMatchObject({
+		message: "denied",
 	});
 });

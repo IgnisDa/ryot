@@ -65,10 +65,14 @@ export const toSandboxHostError = (error: unknown): SandboxHostError => {
 		};
 	}
 	if (isObjectRecord(error) && typeof error["message"] === "string") {
-		return { ...error, message: error["message"] };
+		return { ...error, message: error["message"] || errorIdentity(error) };
 	}
 	return { message: unknownToMessage(error) };
 };
+
+// Tagged errors without a message field still name what failed.
+const errorIdentity = (error: Record<string, unknown>) =>
+	[error["_tag"], error["code"]].filter((part) => typeof part === "string").join(": ");
 
 export const sandboxHostFailure = (
 	message: string,

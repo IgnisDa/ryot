@@ -19,10 +19,15 @@ import { PersistedQueue } from "effect/persistence";
 import { recordDurableQueueDispatch } from "../observability/runtime-metrics";
 import { RedisService } from "../redis";
 
+/** Within a flow, items that unblock admitted work run before fresh work, in this order. */
+export const FairQueueUrgency = Schema.Literals(["awaited", "continuation", "fresh"]);
+export type FairQueueUrgency = typeof FairQueueUrgency.Type;
+
 export const FairQueueFlow = Schema.Struct({
 	lane: ExecutionLane,
 	tenant: Schema.String,
 	plugin: Schema.String,
+	urgency: FairQueueUrgency,
 });
 export type FairQueueFlow = typeof FairQueueFlow.Type;
 
@@ -65,8 +70,16 @@ const decodeTakeResponse = Schema.decodeUnknownEffect(TakeResponse);
 const luaPrelude = `
 local function tenants_key(base, lane) return base .. ":tenants:" .. lane end
 local function plugins_key(base, lane, tenant) return base .. ":plugins:" .. lane .. ":" .. tenant end
-local function flow_key(base, lane, tenant, plugin)
-  return base .. ":flow:" .. lane .. ":" .. tenant .. ":" .. plugin .. ":fifo"
+local urgencies = { ${FairQueueUrgency.literals.map((urgency) => `"${urgency}"`).join(", ")} }
+local function flow_key(base, lane, tenant, plugin, urgency)
+  return base .. ":flow:" .. lane .. ":" .. tenant .. ":" .. plugin .. ":" .. urgency
+end
+local function flow_length(base, lane, tenant, plugin)
+  local length = 0
+  for _, urgency in ipairs(urgencies) do
+    length = length + redis.call("LLEN", flow_key(base, lane, tenant, plugin, urgency))
+  end
+  return length
 end
 local function lock_key(base, id) return base .. ":" .. id .. ":lock" end
 
@@ -81,14 +94,13 @@ end
 
 -- A plugin is in its tenant's ring, and a tenant in its lane's ring, exactly while it has ready items.
 local function enqueue(base, flow, id, at_head)
-  local key = flow_key(base, flow.lane, flow.tenant, flow.plugin)
-  local length
+  local key = flow_key(base, flow.lane, flow.tenant, flow.plugin, flow.urgency)
   if at_head then
-    length = redis.call("LPUSH", key, id)
+    redis.call("LPUSH", key, id)
   else
-    length = redis.call("RPUSH", key, id)
+    redis.call("RPUSH", key, id)
   end
-  if length == 1 then
+  if flow_length(base, flow.lane, flow.tenant, flow.plugin) == 1 then
     if redis.call("RPUSH", plugins_key(base, flow.lane, flow.tenant), flow.plugin) == 1 then
       redis.call("RPUSH", tenants_key(base, flow.lane), flow.tenant)
     end
@@ -103,9 +115,14 @@ local function pop(base, lane)
   end
   local plugins = plugins_key(base, lane, tenant)
   local plugin = redis.call("LPOP", plugins)
-  local fifo = flow_key(base, lane, tenant, plugin)
-  local id = redis.call("LPOP", fifo)
-  if redis.call("LLEN", fifo) > 0 then
+  local id
+  for _, urgency in ipairs(urgencies) do
+    id = redis.call("LPOP", flow_key(base, lane, tenant, plugin, urgency))
+    if id then
+      break
+    end
+  end
+  if flow_length(base, lane, tenant, plugin) > 0 then
     redis.call("RPUSH", plugins, plugin)
   end
   if redis.call("LLEN", plugins) > 0 then

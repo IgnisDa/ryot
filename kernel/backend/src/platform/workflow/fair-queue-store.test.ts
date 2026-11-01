@@ -15,6 +15,7 @@ import {
 	FairQueueFlow,
 	fairQueueKeys,
 	type FairQueueOptions,
+	type FairQueueUrgency,
 	makeFairQueueStore,
 } from "./fair-queue-store";
 
@@ -31,7 +32,8 @@ const entry = (
 	tenant: string,
 	plugin: string,
 	n = 0,
-) => ({ n, lane, tenant, plugin });
+	urgency: FairQueueUrgency = "fresh",
+) => ({ n, lane, tenant, plugin, urgency });
 
 const takeOptions = (maxAttempts = 5) => ({
 	maxAttempts,
@@ -131,6 +133,7 @@ const decodeEntry = Schema.decodeUnknownEffect(
 		n: Schema.Int,
 		tenant: Schema.String,
 		plugin: Schema.String,
+		urgency: FairQueueFlow.fields.urgency,
 		lane: Schema.Literals([interactive, background]),
 	}),
 );
@@ -196,6 +199,25 @@ layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
 				expect(
 					threePlugins.filter((item) => item.tenant === "user:b").map((item) => item.n),
 				).toEqual(Array.from({ length: 20 }, (_, n) => n));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"a flow runs awaited, then continuing, then fresh work without changing tenant turns",
+		() =>
+			Effect.gen(function* () {
+				const { store } = yield* makeTestStore();
+				yield* offerAll(store, [
+					entry(interactive, "user:a", "p", 0),
+					entry(interactive, "user:a", "p", 1, "continuation"),
+					entry(interactive, "user:a", "p", 2),
+					entry(interactive, "user:a", "p", 3, "awaited"),
+					entry(interactive, "user:b", "p", 4),
+					entry(interactive, "user:a", "p", 5, "continuation"),
+				]);
+				const order = yield* interactiveFlowOrder(store, 6);
+				expect(order.map((item) => item.n)).toEqual([3, 4, 1, 5, 0, 2]);
 			}),
 		testTimeout,
 	);

@@ -11,13 +11,17 @@ import {
 } from "#modules/scripts/authorization/principal";
 import type { FairQueueFlow } from "#platform/workflow/fair-queue-store";
 
+const SchedulingPrincipal = Schema.Struct({
+	subject: ScriptExecutionPrincipal.fields.subject,
+	pluginRevision: Schema.NullOr(Schema.Struct({ id: ScriptPluginRevision.fields.id })),
+});
+
 const QueueElementScheduling = Schema.Struct({
 	payload: Schema.Struct({
 		lane: ExecutionLane,
-		principal: Schema.Struct({
-			subject: ScriptExecutionPrincipal.fields.subject,
-			pluginRevision: Schema.NullOr(Schema.Struct({ id: ScriptPluginRevision.fields.id })),
-		}),
+		journalLength: Schema.Int,
+		principal: SchedulingPrincipal,
+		recoveryAttempt: Schema.optional(Schema.Int),
 	}),
 });
 const decodeQueueElementScheduling = Schema.decodeUnknownEffect(QueueElementScheduling);
@@ -28,14 +32,35 @@ const schedulingTenant = (subject: SandboxExecutionSubject) => {
 };
 
 /**
- * Orders sandbox admission by the trusted principal the backend wrote into the queue payload: the
- * execution user (or the system) is the tenant and the pinned plugin the flow within it.
+ * Identifies sandbox work by the trusted principal the backend pinned: the execution user (or the
+ * system) is the tenant and the pinned plugin the flow within it.
  */
+export const sandboxSchedulingIdentity = (input: {
+	readonly lane: ExecutionLane;
+	readonly principal: typeof SchedulingPrincipal.Type;
+}) => ({
+	lane: input.lane,
+	tenant: schedulingTenant(input.principal.subject),
+	plugin: input.principal.pluginRevision?.id ?? "kernel",
+});
+
+// A policy or required hook blocks the write that awaits it under a deadline; a replay or recovery
+// continues a run that already holds admitted work.
+const schedulingUrgency = (
+	payload: typeof QueueElementScheduling.Type.payload,
+): FairQueueFlow["urgency"] => {
+	const { subject } = payload.principal;
+	if (subject.type === "automation-run" && subject.delivery !== "async") {
+		return "awaited";
+	}
+	return payload.journalLength > 0 || (payload.recoveryAttempt ?? 0) > 0 ? "continuation" : "fresh";
+};
+
+/** Orders sandbox queue admission by scheduling identity, then by urgency within a flow. */
 export const sandboxSchedulingKey = (
 	element: unknown,
 ): Effect.Effect<FairQueueFlow, Schema.SchemaError> =>
 	Effect.map(decodeQueueElementScheduling(element), ({ payload }) => ({
-		lane: payload.lane,
-		tenant: schedulingTenant(payload.principal.subject),
-		plugin: payload.principal.pluginRevision?.id ?? "kernel",
+		...sandboxSchedulingIdentity(payload),
+		urgency: schedulingUrgency(payload),
 	}));

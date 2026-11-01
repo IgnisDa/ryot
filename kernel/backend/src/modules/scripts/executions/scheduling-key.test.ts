@@ -27,11 +27,12 @@ const userSubject = { type: "user", userId: "user-1", accountGeneration };
 const automationSubject = (
 	executionUserId: null | string,
 	plugin: null | Pick<typeof userPlugin, "id" | "revisionId" | "configRevisionId">,
+	delivery: "async" | "policy" | "required" = "async",
 ) => ({
+	delivery,
 	runId: "run-1",
 	stage: "after",
 	executionUserId,
-	delivery: "required",
 	type: "automation-run",
 	triggerId: "trigger-1",
 	pluginId: plugin?.id ?? null,
@@ -55,6 +56,7 @@ const encodeQueueElement = (
 	pluginRevision: unknown,
 	lane: "background" | "interactive",
 	kernelScript?: true,
+	progress: { readonly journalLength?: number; readonly recoveryAttempt?: number } = {},
 ) =>
 	Effect.gen(function* () {
 		const principal = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)({
@@ -73,7 +75,10 @@ const encodeQueueElement = (
 			lane,
 			principal,
 			context: {},
-			journalLength: 0,
+			journalLength: progress.journalLength ?? 0,
+			...(progress.recoveryAttempt === undefined
+				? {}
+				: { recoveryAttempt: progress.recoveryAttempt }),
 			executionId: "execution-1",
 			workflowExecutionId: "workflow-1",
 			startedAt: "2026-01-01T00:00:00.000Z",
@@ -89,34 +94,62 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			expect(yield* keyOf(userSubject, userPlugin, "interactive")).toEqual({
+			urgency: "fresh",
 				plugin: "plugin-1",
 				lane: "interactive",
 				tenant: "user:user-1",
 			});
 			expect(
 				yield* keyOf(automationSubject("user-1", userPlugin), userPlugin, "background"),
-			).toEqual({ lane: "background", plugin: "plugin-1", tenant: "user:user-1" });
+			).toEqual({ urgency: "fresh", lane: "background", plugin: "plugin-1", tenant: "user:user-1" });
 			expect(
 				yield* keyOf(automationSubject("user-1", systemPlugin), systemPlugin, "background"),
-			).toEqual({ lane: "background", tenant: "user:user-1", plugin: "system-plugin" });
+			).toEqual({ urgency: "fresh", lane: "background", tenant: "user:user-1", plugin: "system-plugin" });
 			expect(
 				yield* keyOf(automationSubject(null, systemPlugin), systemPlugin, "background"),
-			).toEqual({ tenant: "system", lane: "background", plugin: "system-plugin" });
+			).toEqual({ urgency: "fresh", tenant: "system", lane: "background", plugin: "system-plugin" });
 			expect(yield* keyOf({ type: "system" }, systemPlugin, "background")).toEqual({
+				urgency: "fresh",
 				tenant: "system",
 				lane: "background",
 				plugin: "system-plugin",
 			});
 			expect(yield* keyOf(userSubject, null, "interactive")).toEqual({
+			urgency: "fresh",
 				plugin: "kernel",
 				lane: "interactive",
 				tenant: "user:user-1",
 			});
 			expect(yield* keyOf({ type: "system" }, null, "background", true)).toEqual({
+			urgency: "fresh",
 				tenant: "system",
 				plugin: "kernel",
 				lane: "background",
 			});
 		}),
 	testTimeout,
+);
+
+const urgency = (...input: Parameters<typeof encodeQueueElement>) =>
+	Effect.map(keyOf(...input), (key) => key.urgency);
+const awaitedSubject = (delivery: "policy" | "required") =>
+	automationSubject("user-1", userPlugin, delivery);
+
+it.effect("awaited hooks schedule before continuing runs, and both before fresh runs", () =>
+	Effect.gen(function* () {
+		expect(yield* urgency(awaitedSubject("policy"), userPlugin, "background")).toBe("awaited");
+		expect(
+			yield* urgency(awaitedSubject("required"), userPlugin, "background", undefined, {
+				journalLength: 2,
+			}),
+		).toBe("awaited");
+		expect(
+			yield* urgency(userSubject, userPlugin, "interactive", undefined, { journalLength: 1 }),
+		).toBe("continuation");
+		expect(
+			yield* urgency(automationSubject("user-1", userPlugin), userPlugin, "background", undefined, {
+				recoveryAttempt: 1,
+			}),
+		).toBe("continuation");
+	}),
 );

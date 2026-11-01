@@ -1,4 +1,4 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
@@ -18,7 +18,7 @@ import {
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { sandboxSchedulingKey } from "#modules/scripts/executions/scheduling-key";
+import { sandboxSchedulingIdentity } from "#modules/scripts/executions/scheduling-key";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import type { ScriptExecutionWorkflowPayload } from "#modules/scripts/executions/workflow-payload";
 import {
@@ -385,14 +385,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 			}
 			return undefined;
 		});
-		const scheduling = yield* sandboxSchedulingKey({
-			payload: { principal, lane: payload.lane },
-		}).pipe(
-			Effect.mapError(
-				(error) =>
-					new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-			),
-		);
+		const scheduling = sandboxSchedulingIdentity({ principal, lane: payload.lane });
 
 		const coordinateDurably = coordinator(executionId, (backoffMs) =>
 			inline
