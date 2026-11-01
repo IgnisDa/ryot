@@ -58,6 +58,7 @@ import {
 	entityIdentitySelection,
 	entitySyncSelection,
 	libraryLinkExists,
+	mediaLibrarySelection,
 	propertyBoolean,
 	propertyJson,
 	propertyNumber,
@@ -185,10 +186,7 @@ export const mediaEntitySummarySelection = (entity: Table, provider: Table) => (
 		libraryLinkExists(entity, "monitoringMediaLibrary", "media-monitoring"),
 		Schema.Boolean,
 	),
-	isInMediaLibrary: selectedField(
-		libraryLinkExists(entity, "mediaLibraryLibrary", "in-media-library"),
-		Schema.Boolean,
-	),
+	...mediaLibrarySelection(entity),
 	isCustom: selectedField(
 		conditional(
 			and(isNotNull(column(entity, "userId")), isNull(column(entity, "providerId"))),
@@ -287,6 +285,7 @@ export const creditSelection = (credit: Table, relationship: Table) => ({
 		Schema.NullOr(Schema.Array(Schema.String)),
 	),
 	...entitySyncSelection(credit),
+	...mediaLibrarySelection(credit),
 });
 
 export const creditCharacterSelection = (relationship: Table) => ({
@@ -456,6 +455,7 @@ export const mediaOverviewQueries = (input: {
 				name: selectedField(column(suggested, "name"), Schema.String),
 				images: selectedField(propertyJson(suggested, "images"), MediaImageListSchema),
 				...entitySyncSelection(suggested),
+				...mediaLibrarySelection(suggested),
 			},
 		}),
 	};
@@ -511,6 +511,7 @@ export const mediaGroupQuery = (input: {
 					name: selectedField(column(member, "name"), Schema.String),
 					images: selectedField(propertyJson(member, "images"), MediaImageListSchema),
 					...entitySyncSelection(member),
+					...mediaLibrarySelection(member),
 				},
 				where: and(
 					entitySchemaPredicate(member, input.memberSlug, input.reference),

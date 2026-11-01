@@ -25,6 +25,7 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { preferredMediaImageExpression, selectedPresentationSource } from "./entity-presentations";
 import {
 	entityIdentitySelection,
+	mediaLibrarySelection,
 	propertyNumber,
 	propertyText,
 	type Table,
@@ -207,18 +208,19 @@ export const mediaGroupRecipes = <
 							ascending(column(member, "name")),
 							ascending(column(member, "id")),
 						],
-						selection: {
-							...config.member.presentationSelection(member, `${config.alias}Member`),
-							position: selectedField(
-								propertyNumber(relationship, "order"),
-								Schema.NullOr(Schema.Finite),
-							),
-						},
 						where: and(
 							entitySchemaPredicate(member, memberSlug, query.reference),
 							eq(column(relationship, "sourceEntityId"), literal(query.groupId)),
 							relationshipSchemaPredicate(relationship, relationshipSlug, query.reference),
 						),
+						selection: {
+							...config.member.presentationSelection(member, `${config.alias}Member`),
+							...mediaLibrarySelection(member),
+							position: selectedField(
+								propertyNumber(relationship, "order"),
+								Schema.NullOr(Schema.Finite),
+							),
+						},
 					}),
 				},
 			};

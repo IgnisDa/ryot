@@ -73,3 +73,10 @@ export const libraryLinkExists = (entity: Table, alias: string, slug: string) =>
 		),
 	});
 };
+
+export const mediaLibrarySelection = (entity: Table) => ({
+	isInMediaLibrary: selectedField(
+		libraryLinkExists(entity, "mediaLibraryLibrary", "in-media-library"),
+		Schema.Boolean,
+	),
+});

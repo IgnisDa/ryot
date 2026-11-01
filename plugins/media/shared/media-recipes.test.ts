@@ -415,6 +415,7 @@ describe("media flat recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
+			"isInMediaLibrary",
 		]);
 	});
 

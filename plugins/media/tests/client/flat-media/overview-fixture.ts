@@ -22,6 +22,7 @@ export const flatPersonRow = {
 	id: "person-1",
 	roles: ["Actor"],
 	name: "Edward Norton",
+	isInMediaLibrary: false,
 	character: "The Narrator",
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
@@ -32,6 +33,7 @@ export const flatPersonRow = {
 export const flatCompanyRow = {
 	order: 1,
 	id: "company-1",
+	isInMediaLibrary: false,
 	name: "Fox 2000 Pictures",
 	roles: ["Production Company"],
 	translationStatus: { state: "idle", availability: "none" },
@@ -43,6 +45,7 @@ export const flatCompanyRow = {
 export const flatRecommendationRow = {
 	id: "media-2",
 	name: "Se7en",
+	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
@@ -52,6 +55,7 @@ export const flatRecommendationRow = {
 export const flatGroupMemberRow = {
 	id: "media-3",
 	name: "Fight Club 2",
+	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	images: [{ type: "s3", purpose: "cover", key: "fc2-cover" }],
 	populationStatus: { state: "succeeded", availability: "complete" },

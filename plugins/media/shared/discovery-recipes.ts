@@ -31,6 +31,7 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import {
 	entityIdentitySelection,
 	libraryLinkExists,
+	mediaLibrarySelection,
 	propertyBoolean,
 	propertyJson,
 	propertyNumber,
@@ -184,6 +185,7 @@ export const trendingLatestMediaRecipe = defineRecipe(
 					],
 					selection: {
 						...discoveredMediaSelection(target),
+						...mediaLibrarySelection(target),
 						rank: selectedField(rank, Schema.Finite),
 						fetchedAt: selectedField(fetchedAt, IsoDateString),
 					},

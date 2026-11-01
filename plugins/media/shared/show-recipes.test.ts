@@ -1012,6 +1012,7 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
+			"isInMediaLibrary",
 			"character",
 		]);
 		expect(companies.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
@@ -1023,6 +1024,7 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
+			"isInMediaLibrary",
 		]);
 	});
 
@@ -1101,6 +1103,7 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
+			"isInMediaLibrary",
 		]);
 	});
 
@@ -1112,6 +1115,7 @@ describe("media show query recipes", () => {
 						{
 							id: "show-2",
 							name: "Bad Girls",
+							isInMediaLibrary: false,
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							images: [{ type: "local", purpose: "cover", key: "bad-girls-cover" }],
@@ -1123,6 +1127,7 @@ describe("media show query recipes", () => {
 							order: 1,
 							id: "company-1",
 							name: "Warp Films",
+							isInMediaLibrary: false,
 							roles: ["Production Company"],
 							translationStatus: { state: "idle", availability: "none" },
 							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
@@ -1137,6 +1142,7 @@ describe("media show query recipes", () => {
 							roles: ["Creator"],
 							name: "Jack Thorne",
 							character: "Narrator",
+							isInMediaLibrary: false,
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
@@ -1193,6 +1199,7 @@ describe("media show query recipes", () => {
 							images: null,
 							id: "show-2",
 							name: "Bad Girls",
+							isInMediaLibrary: false,
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
@@ -1206,6 +1213,7 @@ describe("media show query recipes", () => {
 							id: "person-1",
 							character: null,
 							name: "Jo Johnson",
+							isInMediaLibrary: false,
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },

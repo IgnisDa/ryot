@@ -181,6 +181,7 @@ describe("media creator recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
+			"isInMediaLibrary",
 			"character",
 		]);
 		expect(creditKeys(OVERVIEW_RECIPE, "music-group")).not.toContain("character");

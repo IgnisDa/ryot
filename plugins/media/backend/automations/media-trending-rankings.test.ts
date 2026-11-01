@@ -17,6 +17,7 @@ const mediaRow = (id: string, rank: number, fetchedAt: string) => ({
 	images: null,
 	schemaSlug: "show",
 	name: `Media ${id}`,
+	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

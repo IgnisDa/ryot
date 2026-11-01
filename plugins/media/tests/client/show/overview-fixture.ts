@@ -16,6 +16,7 @@ export const showPersonRow = {
 	id: "person-1",
 	character: "Jamie",
 	name: "Owen Cooper",
+	isInMediaLibrary: false,
 	roles: ["Actor", "Guest Star"],
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
@@ -27,6 +28,7 @@ export const showCompanyRow = {
 	order: 1,
 	id: "company-1",
 	name: "Warp Films",
+	isInMediaLibrary: false,
 	roles: ["Production Company"],
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
@@ -37,6 +39,7 @@ export const showCompanyRow = {
 export const showRecommendationRow = {
 	id: "show-2",
 	name: "Bad Girls",
+	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },

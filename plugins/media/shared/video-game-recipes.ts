@@ -13,6 +13,7 @@ import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entitySyncSelection,
+	mediaLibrarySelection,
 	propertyJson,
 	propertyNumber,
 	propertyText,
@@ -41,6 +42,7 @@ const relatedSelection = (entity: Table, edge: Table) => ({
 	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
 	kind: selectedField(propertyText(edge, "kind"), Schema.NullOr(Schema.String)),
 	...entitySyncSelection(entity),
+	...mediaLibrarySelection(entity),
 });
 
 const videoGameRelatedOverviewQueries = (input: MediaFlatOverviewInput) => {
