@@ -140,3 +140,15 @@
     load-dependent.
 - Slice 4, steps 1 and 2 (commits `5bcbc86538`, `543fb1bed2`): every write runs in its host-call
   workflow and settles inline unless that workflow suspends. See `design-run-once.md`.
+- `full4`, the whole suite at `4b4e530c18` with `OOMPolicy=continue`, hit the 90-minute wall cap
+  with 720 tests passed and 132 failed in 73 files:
+  - The kernel killed a sandbox daemon 30 times, in bursts at 12:54–12:58 and 13:18–13:20 UTC. The
+    unit kept running, but each kill freed only 30–60 MB, so pressure stayed and the kills
+    cascaded. After the second burst nearly every file failed with 120 s hook timeouts; those are
+    collapse, not distinct bugs.
+  - Memory at the bursts, on a 4-vCPU, 7.7 GB VM without swap: six vitest workers grew from about
+    270 MB to 600 MB each (3.6–3.9 GB together), the shared server held about 1 GB, each isolated
+    per-file server 300 MB with its own PostgreSQL, Redis and object-storage containers, Docker
+    containers 0.6–1 GB, and the vitest parent 0.4 GB.
+  - The suite therefore cannot finish on this VM with six workers. `full5` reruns it with
+    `--maxWorkers=4`, matching the CPU count, to separate memory collapse from load failures.
