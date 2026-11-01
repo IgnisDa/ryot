@@ -240,3 +240,29 @@
     machines).
   - Servers a file starts get `oom_score_adj` 500 on Linux, so memory pressure costs that file
     rather than the shared backend and every file after it.
+- `full8`, the whole suite at `0e0c86d004` with four workers: 68.3 min, 921 passed, 26 failed in 15
+  files, 9 skipped. The shared server survived, but memory still ran out at 19:19–19:23 and
+  20:07: the kernel killed 35 sandbox daemons (`oom_score_adj` 1000, about 60 MB each). Five
+  per-file servers (0.3–0.74 GB each) were up beside the shared one (0.84 GB), four workers
+  (1.5 GB) and containers (1.6 GB).
+  - Product bug: one failed sidecar start disabled that sidecar for the life of the process. The
+    supervisor set `startupFailed` on any start failure, and every later run failed at once with
+    "Sandbox sidecar startup failed". The replacement for a killed daemon started while memory was
+    still short, failed once, and `lifecycle-query-recipes`'s server lost its sandbox for the next
+    14 minutes (eight failures, including account bootstrap). A failed start now backs off like a
+    crashed generation, up to 30 s, logs its cause and records a `restart` event with reason
+    `startup`.
+  - `PlaywrightError` carries no message, so Vitest reported five unrelated browser failures under
+    the first one's call log. The e2e runtime now fails with Playwright's own error.
+  - `fitness-exercise` read the old note text right after saving an edit. `getByText` also matches
+    the open editor's textarea, so the new text was "visible" before the save; the row then showed
+    the old text until its refetch. The test now waits for the editor and the old text to go.
+  - The entity-provider and translation files that timed out at 180 s pass alone in about 20 s
+    each (`tri1`), so they depend on the shared server's state late in the run. Not yet explained.
+  - CPU over the run, from per-process deltas in `ps.log`: API servers 45%, PostgreSQL 18%,
+    workers 15%, Docker 8%, sandbox daemons 7.5%. System time is 23% of all CPU. The samplers ran
+    `docker exec` about once a second; they now use the host's `psql` through the mapped port, and
+    `pg_stat_statements` is copied once a minute instead of every 5 s.
+  - The heaviest statement is the event stream binding sweep (`bindingDeclarations`): 393 calls,
+    0.94 s each, 370 s in all. It runs in the 5-minute cron and lists about 2,800 unbound
+    declarations per run, mostly new users' projected event schemas, which have no streams.

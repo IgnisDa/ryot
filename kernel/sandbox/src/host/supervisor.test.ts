@@ -916,6 +916,63 @@ supervisorTest("keeps restart backoff across short-lived generations", () =>
 	),
 );
 
+supervisorTest(
+	"restarts a resident sidecar with backoff after its replacement fails to start",
+	() =>
+		Effect.gen(function* () {
+			const harness = yield* SupervisorTestHarness;
+			let refuseStart = false;
+			const client: SandboxSidecarClient["Service"] = {
+				connect: (settings) =>
+					harness
+						.connect(settings)
+						.pipe(
+							Effect.map((connection) => ({
+								...connection,
+								next: connection.next.pipe(
+									Effect.map((frame) =>
+										refuseStart && frame.type === "ready"
+											? {
+													...frame,
+													heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes + 1,
+												}
+											: frame,
+									),
+								),
+							})),
+						),
+			};
+			yield* withSupervisor(({ supervisor }) =>
+				Effect.gen(function* () {
+					const first = getConnection(harness, "user/core");
+					refuseStart = true;
+					yield* harness.emit(first.generation, {
+						type: "fatal",
+						handle: "unknown-handle",
+						generation: first.generation,
+						reason: "termination-ignored",
+					});
+					yield* Deferred.await(first.exitConfirmed);
+					yield* TestClock.adjust("1 second");
+					const refused = yield* awaitConnection(harness, "user/core", first.generation);
+					yield* Deferred.await(refused.exitConfirmed);
+					refuseStart = false;
+
+					const fiber = yield* startRun(supervisor, harness).pipe(
+						Effect.forkScoped({ startImmediately: true }),
+					);
+					yield* TestClock.adjust("1999 millis");
+					expect(userCoreConnections(harness)).toHaveLength(2);
+					yield* TestClock.adjust("1 millis");
+					const replacement = yield* awaitConnection(harness, "user/core", refused.generation);
+					expect(replacement.connectedAt - refused.connectedAt).toBe(2000);
+					yield* harness.complete(replacement, yield* Queue.take(replacement.nextRun));
+					yield* Fiber.join(fiber);
+				}),
+			).pipe(Effect.provideService(SandboxSidecarClient, client));
+		}),
+);
+
 supervisorTest("does not cancel or kill a generation when cancelled before prepare completes", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {

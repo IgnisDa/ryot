@@ -93,6 +93,17 @@ type RunResult = {
 	readonly inline: ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly pendingInline: ReadonlyArray<SandboxInlineProgress>;
 };
+type Instance = {
+	waiting: number;
+	failures: number;
+	nextStartAt: number;
+	readonly key: ProcessKey;
+	current: undefined | Generation;
+	healthyEpoch: string | undefined;
+	recovery: undefined | RecoveryRound;
+	readonly starts: Semaphore.Semaphore;
+};
+
 type Generation = {
 	closing: boolean;
 	draining: boolean;
@@ -102,18 +113,6 @@ type Generation = {
 	readonly scope: Scope.Closeable;
 	readonly runs: Map<string, ActiveRun>;
 	readonly stopped: Deferred.Deferred<void>;
-};
-
-type Instance = {
-	waiting: number;
-	failures: number;
-	nextStartAt: number;
-	startupFailed: boolean;
-	readonly key: ProcessKey;
-	current: undefined | Generation;
-	healthyEpoch: string | undefined;
-	recovery: undefined | RecoveryRound;
-	readonly starts: Semaphore.Semaphore;
 };
 
 type ActiveRun = {
@@ -230,7 +229,6 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 					nextStartAt: 0,
 					current: undefined,
 					recovery: undefined,
-					startupFailed: false,
 					healthyEpoch: undefined,
 					starts: yield* Semaphore.make(1),
 				};
@@ -538,7 +536,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			): Effect.fn.Return<Generation, SandboxRunError> {
 				return yield* entry.starts.withPermits(1)(
 					Effect.gen(function* () {
-						if (shuttingDown || poisoned || entry.startupFailed) {
+						if (shuttingDown || poisoned) {
 							return yield* startupError();
 						}
 						const previous = entry.current;
@@ -607,7 +605,18 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								if (Exit.isFailure(attempt)) {
 									yield* Scope.close(scope, Exit.void);
 									if (!Cause.hasInterrupts(attempt.cause)) {
-										entry.startupFailed = true;
+										const failedAt = yield* Clock.currentTimeMillis;
+										entry.failures++;
+										entry.nextStartAt =
+											failedAt +
+											exponentialBackoffMs(entry.failures, SANDBOX_LIMITS.sidecar.restartBackoffMs);
+										yield* Effect.logWarning("Sandbox sidecar start failed", attempt.cause);
+										yield* recordSandboxSidecarEvent({
+											...entry.key,
+											event: "restart",
+											reason: "startup",
+											durationMs: entry.nextStartAt - failedAt,
+										});
 									}
 								}
 								return attempt;

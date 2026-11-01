@@ -64,8 +64,13 @@ it.live("shows exercise history and manages private notes", () =>
 		yield* detail.getByRole("button", { exact: true, name: "Edit note" }).click();
 		yield* detail.getByLabel("Edit note", { exact: true }).fill(`Wrist neutral ${id}`);
 		yield* detail.getByRole("button", { exact: true, name: "Save" }).click();
+		yield* detail
+			.getByRole("textbox", { exact: true, name: "Edit note" })
+			.waitFor({ state: "detached" });
+		yield* detail
+			.getByText(`Keep elbows tucked ${id}`, { exact: true })
+			.waitFor({ state: "detached" });
 		yield* visible(detail.getByText(`Wrist neutral ${id}`, { exact: true }));
-		expect(yield* detail.getByText(`Keep elbows tucked ${id}`, { exact: true }).count).toBe(0);
 
 		yield* detail.getByRole("button", { exact: true, name: "Delete note" }).click();
 		yield* detail.getByRole("button", { exact: true, name: "Delete note" }).last().click();
