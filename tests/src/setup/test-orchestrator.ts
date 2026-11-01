@@ -251,7 +251,7 @@ export async function startAllServices() {
 			.withNetwork(network)
 			.withNetworkAliases("rustfs")
 			.withExposedPorts(9000)
-			.withWaitStrategy(Wait.forHttp("/health", 9000))
+			.withWaitStrategy(Wait.forHttp("/health/ready", 9000))
 			.start(),
 	]);
 	console.log("[Orchestrator] PostgreSQL and RustFS containers started.");
