@@ -29,6 +29,7 @@ const createReview = defineOperationRecipe({
 const DatabaseRow = Schema.Struct({ xacts: Schema.FiniteFromString });
 const StatementsRow = Schema.Struct({ calls: Schema.Finite, execMs: Schema.Finite });
 const TableRows = Schema.Array(Schema.Struct({ writes: Schema.Finite, relname: Schema.String }));
+const CountRows = Schema.Array(Schema.Struct({ n: Schema.Finite, key: Schema.String }));
 
 type Snapshot = {
 	at: number;
@@ -37,6 +38,7 @@ type Snapshot = {
 	execMs: number;
 	cpuTicks: number;
 	tables: ReadonlyMap<string, number>;
+	counts: ReadonlyMap<string, number>;
 };
 
 const sql = RUN_FLOW_PROBES
@@ -98,12 +100,20 @@ const snapshot = Effect.gen(function* () {
 		(client) =>
 			client`select relname, (n_tup_ins + n_tup_upd + n_tup_del)::float8 as writes from pg_stat_user_tables`,
 	);
+	const counts = yield* query(
+		CountRows,
+		(client) =>
+			client`select 'workflow:' || workflow_name as key, count(*)::float8 as n from workflow_execution group by 1
+				union all select 'hook:' || hook_slug, count(*)::float8 from automation_run group by 1
+				union all select 'background:' || purpose, count(*)::float8 from background_work group by 1`,
+	);
 	return {
 		at: performance.now(),
 		xacts: database?.xacts ?? 0,
 		calls: statements?.calls ?? 0,
 		execMs: statements?.execMs ?? 0,
 		cpuTicks: yield* processTreeTicks,
+		counts: new Map(counts.map(({ n, key }) => [key, n])),
 		tables: new Map(tables.map(({ writes, relname }) => [relname, writes])),
 	} satisfies Snapshot;
 });
@@ -116,7 +126,15 @@ const diff = (before: Snapshot, after: Snapshot) => {
 			tableWrites[name] = delta;
 		}
 	}
+	const created: Record<string, number> = {};
+	for (const [name, value] of after.counts) {
+		const delta = value - (before.counts.get(name) ?? 0);
+		if (delta > 0) {
+			created[name] = delta;
+		}
+	}
 	return {
+		created,
 		tableWrites,
 		xacts: after.xacts - before.xacts,
 		ms: Math.round(after.at - before.at),
