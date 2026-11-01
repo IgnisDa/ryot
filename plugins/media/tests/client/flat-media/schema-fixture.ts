@@ -48,9 +48,13 @@ const defineFixtureSchema = (overviewRails?: () => readonly MediaOverviewRail[])
 
 export const fixtureSchema = defineFixtureSchema();
 
-export const railItem = (id: string, name: string): MediaPresentationSubject => ({
+export const railItem = (
+	id: string,
+	name: string,
+): MediaPresentationSubject & { readonly isInMediaLibrary: boolean } => ({
 	id,
 	name,
+	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	images: [{ type: "s3", purpose: "cover", key: `${id}-cover` }],
 	populationStatus: { state: "succeeded", availability: "complete" },

@@ -12,6 +12,7 @@ import { MediaEntityRailSection } from "./entity-rail";
 import type { MediaGalleryImage, MediaImageAsset } from "./image";
 import { MediaImageGallery } from "./image-gallery";
 import { galleryImages } from "./image-gallery-state";
+import { MediaLibraryTitle } from "./library-title";
 import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 import {
 	mediaCharacterLabel,
@@ -347,6 +348,7 @@ export function MediaCompaniesSection(props: {
 							key={company.id}
 							aria-label={`Open ${company.name}`}
 							to={{ kind: "entity", entityId: company.id }}
+							aria-description={company.isInMediaLibrary ? "In your library" : undefined}
 							className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
 						>
 							<ManagedAssetImage
@@ -356,9 +358,11 @@ export function MediaCompaniesSection(props: {
 								state={fieldSyncState(mediaCompanyAsset(company), company)}
 							/>
 							<div className="flex min-w-0 flex-1 flex-col">
-								<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
-									{company.name}
-								</p>
+								<MediaLibraryTitle
+									name={company.name}
+									isInMediaLibrary={company.isInMediaLibrary}
+									className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5"
+								/>
 								{roles === undefined ? null : (
 									<p className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
 										{roles}
@@ -418,6 +422,7 @@ export function MediaPeopleSection(props: {
 							key={person.id}
 							aria-label={`Open ${person.name}`}
 							to={{ kind: "entity", entityId: person.id }}
+							aria-description={person.isInMediaLibrary ? "In your library" : undefined}
 							className={clsx(
 								"flex flex-col gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
 								props.compact ? "w-24" : "w-28",
@@ -431,9 +436,11 @@ export function MediaPeopleSection(props: {
 								state={fieldSyncState(mediaPersonAsset(person), person)}
 							/>
 							<div className="flex flex-col gap-1">
-								<p className="line-clamp-2 text-center font-ui font-medium text-[13px] leading-4.5 text-text">
-									{person.name}
-								</p>
+								<MediaLibraryTitle
+									name={person.name}
+									isInMediaLibrary={person.isInMediaLibrary}
+									className="line-clamp-2 text-center font-ui font-medium text-[13px] leading-4.5"
+								/>
 								{roles === undefined ? null : (
 									<p className="line-clamp-1 text-center font-ui text-[11px] leading-3.75 text-text-subtle">
 										{roles}

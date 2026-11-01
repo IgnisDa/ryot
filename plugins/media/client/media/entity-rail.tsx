@@ -11,6 +11,7 @@ import {
 	mediaRailWidthClass,
 } from "./entity-presentation";
 import type { MediaImageAsset } from "./image";
+import { MediaLibraryTitle } from "./library-title";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaOverviewSection, mediaShelfIcons } from "./primitives";
 import { mediaPosterAsset } from "./summary-state";
@@ -81,7 +82,9 @@ export function MediaSectionFrame(
 	);
 }
 
-export function MediaEntityRailSection<Item extends MediaPresentationSubject>(props: {
+export function MediaEntityRailSection<
+	Item extends MediaPresentationSubject & { readonly isInMediaLibrary: boolean },
+>(props: {
 	readonly title: string;
 	readonly compact: boolean;
 	readonly action?: ReactNode;
@@ -107,6 +110,7 @@ export function MediaEntityRailSection<Item extends MediaPresentationSubject>(pr
 					compact={props.compact}
 					aspect={props.aspect(item)}
 					lines={props.lines?.(item)}
+					isInMediaLibrary={item.isInMediaLibrary}
 				/>
 			))}
 		</MediaRailFrame>
@@ -119,6 +123,7 @@ export function MediaEntityTile(props: {
 	readonly aspect: MediaArtworkAspect;
 	readonly item: MediaPresentationSubject;
 	readonly art?: undefined | MediaImageAsset;
+	readonly isInMediaLibrary?: boolean | undefined;
 	readonly lines?: undefined | readonly (string | undefined)[];
 }) {
 	const { item } = props;
@@ -127,6 +132,7 @@ export function MediaEntityTile(props: {
 		<PluginLink
 			aria-label={`Open ${item.name}`}
 			to={{ kind: "entity", entityId: item.id }}
+			aria-description={props.isInMediaLibrary ? "In your library" : undefined}
 			className={clsx(
 				"group flex flex-col gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-accent",
 				mediaRailWidthClass({ aspect: props.aspect, compact: props.compact }),
@@ -146,7 +152,11 @@ export function MediaEntityTile(props: {
 					<div className="pointer-events-none absolute inset-0">{props.overlay}</div>
 				)}
 			</div>
-			<p className="line-clamp-2 text-[13px] leading-[18px] font-medium text-text">{item.name}</p>
+			<MediaLibraryTitle
+				name={item.name}
+				isInMediaLibrary={props.isInMediaLibrary ?? false}
+				className="line-clamp-2 text-[13px] leading-[18px] font-medium"
+			/>
 			{(props.lines ?? []).map((line) =>
 				line === undefined ? null : (
 					<p key={line} className="line-clamp-1 text-xs text-text-muted">

@@ -70,6 +70,30 @@ afterEach(() => {
 });
 
 describe("MediaOverview", () => {
+	it("marks saved people, companies and recommendations without marking other titles", () => {
+		const overview = decodeShowOverview({
+			people: [{ ...showPersonRow, isInMediaLibrary: true }],
+			companies: [{ ...showCompanyRow, isInMediaLibrary: true }],
+			recommendations: [
+				{ ...showRecommendationRow, isInMediaLibrary: true },
+				{ ...showRecommendationRow, id: "show-3", name: "Not saved", isInMediaLibrary: false },
+			],
+		});
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			overviewScreen({ overview: { overview, status: "ready" } }),
+		);
+		for (const id of [showPersonRow.id, showCompanyRow.id, showRecommendationRow.id]) {
+			expect(
+				container.querySelector(`a[href="/e/${id}"] [aria-label="In your library"]`),
+			).not.toBeNull();
+		}
+		expect(
+			container.querySelector('a[href="/e/show-3"] [aria-label="In your library"]'),
+		).toBeNull();
+		unmount();
+	});
+
 	it("renders the gallery, cast, companies and recommendations from a ready overview", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,

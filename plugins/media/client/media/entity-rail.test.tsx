@@ -8,9 +8,13 @@ import { MediaEntityRailSection, MediaEntityTile, MediaRailFrame } from "./entit
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 
-const subject = (id: string, name: string): MediaPresentationSubject => ({
+const subject = (
+	id: string,
+	name: string,
+): MediaPresentationSubject & { readonly isInMediaLibrary: boolean } => ({
 	id,
 	name,
+	isInMediaLibrary: false,
 	translationStatus: { state: "idle", availability: "none" },
 	populationStatus: { state: "succeeded", availability: "complete" },
 	images: [{ type: "remote", purpose: "cover", url: `https://images.test/${id}-cover.jpg` }],
@@ -29,6 +33,24 @@ afterEach(() => {
 });
 
 describe("MediaEntityTile", () => {
+	it.each([false, true])("marks library membership (%s) without changing navigation", (member) => {
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<MediaEntityTile
+				compact
+				aspect="poster"
+				isInMediaLibrary={member}
+				item={subject("movie-1", "Heat")}
+			/>,
+		);
+		const link = tileLink(container, "Heat");
+		expect(link.getAttribute("aria-description")).toBe(member ? "In your library" : null);
+		expect(link.querySelector('[aria-label="In your library"]') !== null).toBe(member);
+		expect(link.querySelector(".text-warning") !== null).toBe(member);
+		expect(link.textContent).toBe("Heat");
+		unmount();
+	});
+
 	it("draws the art override instead of the item's own poster", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,

@@ -13,6 +13,7 @@ export type HomeTile = {
 	readonly aspect: MediaArtworkAspect;
 	readonly item: MediaPresentationSubject;
 	readonly art?: undefined | MediaImageAsset;
+	readonly isInMediaLibrary?: boolean | undefined;
 	readonly lines?: undefined | readonly (string | undefined)[];
 };
 
@@ -68,6 +69,7 @@ export function HomeRail<Data>(props: {
 						aspect={tile.aspect}
 						overlay={tile.overlay}
 						compact={props.compact}
+						isInMediaLibrary={tile.isInMediaLibrary}
 					/>
 				))}
 			</MediaRailFrame>

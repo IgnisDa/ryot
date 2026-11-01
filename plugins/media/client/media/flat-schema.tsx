@@ -102,7 +102,7 @@ export type MediaFlatSchemaActivityView<Extra = unknown> = MediaFlatActivityView
 export type MediaOverviewRail = {
 	readonly key: string;
 	readonly title: string;
-	readonly items: readonly MediaPresentationSubject[];
+	readonly items: readonly (MediaPresentationSubject & { readonly isInMediaLibrary: boolean })[];
 };
 
 export type MediaFlatActivityResult<Extra = unknown> = {
@@ -558,6 +558,7 @@ export const defineFlatMediaSchema = <
 		readonly compact: boolean;
 		readonly entityId: string;
 		readonly position?: string | undefined;
+		readonly isInMediaLibrary?: boolean | undefined;
 		readonly data: MediaPresentationViewData<Presentation>;
 	}) {
 		return (
@@ -567,6 +568,7 @@ export const defineFlatMediaSchema = <
 				entityId={props.entityId}
 				position={props.position}
 				aspect={descriptor.aspect}
+				isInMediaLibrary={props.isInMediaLibrary}
 				facts={<Facts data={props.data} compact={props.compact} />}
 			/>
 		);

@@ -97,8 +97,8 @@ const upcomingData = (input: {
 const tileLines = (container: HTMLElement) =>
 	Array.from(container.querySelectorAll("a[aria-label]"), (tile) => [
 		tile.getAttribute("aria-label"),
-		...Array.from(tile.querySelectorAll("p"), (line) => line.textContent),
-		...Array.from(tile.querySelectorAll("span"), (badge) => badge.textContent),
+		...Array.from(tile.querySelectorAll(":scope > span, :scope > p"), (line) => line.textContent),
+		...Array.from(tile.querySelectorAll(":scope > div span"), (badge) => badge.textContent),
 	]);
 
 afterEach(() => {
@@ -163,6 +163,7 @@ describe("ContinueRail", () => {
 			["Open Heat", "Heat", "42%"],
 			["Open The Rest Is History", "The Rest Is History", "The Fall of Rome", "Ep 71"],
 		]);
+		expect(view.container.querySelector('[aria-label="In your library"]')).toBeNull();
 		view.unmount();
 	});
 
@@ -448,6 +449,7 @@ const respondWith =
 const trending = (id: string, name: string, schemaSlug: string, rank: number) => ({
 	...mediaIdentity(id, name, schemaSlug),
 	rank,
+	isInMediaLibrary: false,
 	fetchedAt: "2026-09-25T00:00:00.000Z",
 });
 
@@ -526,7 +528,7 @@ describe("lazily queried rails", () => {
 				respondingAdapter(
 					respondWith({
 						"trending.trending": rows([
-							trending("movie-1", "Heat", "movie", 1),
+							{ ...trending("movie-1", "Heat", "movie", 1), isInMediaLibrary: true },
 							trending("show-1", "Severance", "show", 1),
 							trending("movie-2", "Collateral", "movie", 2),
 						]),
@@ -543,6 +545,10 @@ describe("lazily queried rails", () => {
 					]),
 				),
 			);
+			expect(view.container.querySelectorAll('[aria-label="In your library"]')).toHaveLength(1);
+			expect(
+				getByRole(view.container, "link", { name: "Open Heat" }).querySelector(".text-warning"),
+			).not.toBeNull();
 			view.unmount();
 		}),
 	);

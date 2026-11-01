@@ -23,6 +23,7 @@ import {
 	mediaPresentationSourceRecipe,
 } from "../../shared/entity-presentations";
 import { collectManagedAssetLocators, type MediaImageAsset, type MediaImages } from "./image";
+import { MediaLibraryTitle } from "./library-title";
 import { ManagedAssetImage } from "./managed-assets";
 
 export type MediaArtworkAspect = "still" | "poster" | "square";
@@ -212,6 +213,7 @@ export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(
 	readonly aspect: MediaArtworkAspect;
 	readonly position?: string | undefined;
 	readonly data: MediaPresentationViewData<Data>;
+	readonly isInMediaLibrary?: boolean | undefined;
 }) {
 	return (
 		<ManagedAssetProvider assets={props.data.batchAssets}>
@@ -245,6 +247,7 @@ export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(
 					facts={props.facts}
 					compact={props.compact}
 					entityId={props.entityId}
+					isInMediaLibrary={props.isInMediaLibrary}
 				/>
 			</article>
 		</ManagedAssetProvider>
@@ -256,20 +259,21 @@ function MediaPresentationTitle(props: {
 	readonly entityId: string;
 	readonly facts: ReactNode;
 	readonly layout: "grid" | "list";
+	readonly isInMediaLibrary?: boolean | undefined;
 	readonly data: MediaSavedViewPresentationSubject;
 }) {
 	return (
 		<div className={clsx("flex min-w-0 flex-col", props.layout === "grid" ? "gap-1.5" : "gap-1")}>
 			<span className="flex min-w-0 items-baseline gap-1.5">
 				<PluginLink className="block min-w-0" to={{ kind: "entity", entityId: props.entityId }}>
-					<span
+					<MediaLibraryTitle
+						name={props.data.name}
+						isInMediaLibrary={props.isInMediaLibrary ?? false}
 						className={clsx(
-							"line-clamp-2 font-semibold text-text",
+							"line-clamp-2 font-semibold",
 							props.layout === "grid" ? "font-display leading-5" : "text-sm",
 						)}
-					>
-						{props.data.name}
-					</span>
+					/>
 				</PluginLink>
 				{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
 			</span>

@@ -19,6 +19,11 @@ entity schema, while saved views reference client renderers rather than sandbox 
 
 Descriptors supply vocabulary, facts, artwork, and extra sections, not engine copies. Engine tests
 live in `client/media/` and shared recipe tests; schema tests cover descriptor output.
+Related rails, credit lists, series members, and trending tiles use
+`mediaLibrarySelection` to read the current user's `in-media-library` membership. Member titles
+use a theme-aware amber tint and a small check mark labelled "In your library"; activity,
+monitoring, and collection membership alone do not set this indicator.
+Library-only saved views and home rails keep their normal titles.
 `shared/media-schema-slugs.ts` owns builtin/group slug sets. `client/media/activity-copy.ts` owns
 activity and progress verbs.
 

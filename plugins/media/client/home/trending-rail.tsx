@@ -27,6 +27,7 @@ export function TrendingRail(props: { readonly compact: boolean }) {
 					item,
 					key: item.id,
 					aspect: mediaAspectOf(item.schemaSlug),
+					isInMediaLibrary: item.isInMediaLibrary,
 					overlay: <HomeTileBadge label={String(item.rank)} />,
 				}))
 			}

@@ -811,6 +811,34 @@ describe("flat media activity tab", () => {
 });
 
 describe("flat media entity presentations", () => {
+	it.each([false, true])("uses membership, not lifecycle state, to mark titles (%s)", (member) => {
+		const data = presentationData({ state: "complete" });
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<fixtureSchema.RowContent compact data={data} entityId="media-1" isInMediaLibrary={member} />,
+		);
+		expect(container.querySelectorAll('[aria-label="In your library"]')).toHaveLength(
+			member ? 1 : 0,
+		);
+		expect(container.querySelectorAll(".text-warning")).toHaveLength(member ? 1 : 0);
+		expect(container.textContent).toContain("Complete");
+		unmount();
+	});
+
+	it("keeps library-only saved-view cards and rows free of membership indicators", () => {
+		const data = presentationData({ state: "complete" });
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<>
+				<fixtureSchema.RowContent compact data={data} entityId="media-1" />
+				<fixtureSchema.CardContent compact data={data} entityId="media-1" />
+			</>,
+		);
+		expect(container.querySelector('[aria-label="In your library"]')).toBeNull();
+		expect(container.querySelector(".text-warning")).toBeNull();
+		unmount();
+	});
+
 	it("shows the year and lifecycle state on the row", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,

@@ -243,6 +243,7 @@ describe("home gate", () => {
 								{
 									...mediaIdentity("arrival", "Arrival", "movie"),
 									rank: 1,
+									isInMediaLibrary: false,
 									fetchedAt: "2026-09-24T10:00:00.000Z",
 								},
 							]),

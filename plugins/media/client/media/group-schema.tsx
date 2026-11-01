@@ -76,6 +76,7 @@ export type MediaGroupSchemaDescriptor<
 			readonly compact: boolean;
 			readonly entityId: string;
 			readonly position?: string | undefined;
+			readonly isInMediaLibrary?: boolean | undefined;
 			readonly data: MediaPresentationViewData<NoInfer<Member>>;
 		}) => ReactNode;
 	};
@@ -102,8 +103,6 @@ type GroupTabKey = "members" | "overview" | "activity";
 
 type GroupPresentation = GroupProgress & MediaSavedViewPresentationSubject;
 
-type GroupMember = MediaSavedViewPresentationSubject & { readonly position: null | number };
-
 type GroupSummaryResult<Summary> = {
 	readonly summary: null | Summary;
 	readonly entitySchemaSlug: null | string;
@@ -113,6 +112,11 @@ type GroupProgress = {
 	readonly memberCount: number;
 	readonly parts: null | number;
 	readonly completedMemberCount: number;
+};
+
+type GroupMember = MediaSavedViewPresentationSubject & {
+	readonly position: null | number;
+	readonly isInMediaLibrary: boolean;
 };
 
 type GroupCredits = {
@@ -295,6 +299,7 @@ export const defineGroupMediaSchema = <
 										entityId={item.id}
 										compact={props.compact}
 										data={{ ...item, batchAssets }}
+										isInMediaLibrary={item.isInMediaLibrary}
 										position={item.position === null ? undefined : String(item.position)}
 									/>
 								))}

@@ -49,7 +49,7 @@ describe("credit lists", () => {
 									[
 										next
 											? { ...showPersonRow, id: "person-2", character: null, name: "Second Person" }
-											: { ...showPersonRow, character: "Jamie / Narrator" },
+											: { ...showPersonRow, isInMediaLibrary: true, character: "Jamie / Narrator" },
 									],
 									{ limit: 30, hasMore: !next, nextCursor: next ? null : "cursor-1" },
 								),
@@ -72,6 +72,11 @@ describe("credit lists", () => {
 			expect(dialog.textContent).toContain("Actor");
 			expect(dialog.textContent).toContain("as Jamie / Narrator");
 			expect(dialog.textContent).toContain("Unlinked Writer");
+			expect(
+				getByRole(dialog, "link", { name: "Open Owen Cooper" }).querySelector(
+					'[aria-label="In your library"]',
+				),
+			).not.toBeNull();
 			expect(getByRole(dialog, "link", { name: "Open Owen Cooper" }).getAttribute("href")).toBe(
 				"/e/person-1",
 			);
@@ -81,6 +86,11 @@ describe("credit lists", () => {
 				waitFor(() => expect(dialog.textContent).toContain("Second Person")),
 			);
 			expect(dialog.textContent).toContain("Owen Cooper");
+			expect(
+				getByRole(dialog, "link", { name: "Open Second Person" }).querySelector(
+					'[aria-label="In your library"]',
+				),
+			).toBeNull();
 			expect(getByRole(dialog, "link", { name: "Open Second Person" }).textContent).not.toContain(
 				"as ",
 			);

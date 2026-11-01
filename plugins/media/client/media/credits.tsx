@@ -11,6 +11,7 @@ import { MediaCursorPages } from "./cursor-pages";
 import { MediaDetailModalButton } from "./detail-modal";
 import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
 import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
+import { MediaLibraryTitle } from "./library-title";
 import { ManagedAssetImage } from "./managed-assets";
 import { mediaCharacterLabel, mediaRolesLabel, type MediaUnlinkedCreator } from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
@@ -119,6 +120,7 @@ function CreditRow(props: {
 		<PluginLink
 			aria-label={`Open ${credit.name}`}
 			to={{ kind: "entity", entityId: credit.id }}
+			aria-description={credit.isInMediaLibrary ? "In your library" : undefined}
 			className="flex items-center gap-3 rounded-lg py-3 focus-visible:outline-2 focus-visible:outline-accent"
 		>
 			<ManagedAssetImage
@@ -128,7 +130,11 @@ function CreditRow(props: {
 				className={clsx("w-12 shrink-0", mediaAspectClass(props.aspect))}
 			/>
 			<div className="flex min-w-0 flex-col gap-1">
-				<p className="font-ui font-medium text-sm text-text">{credit.name}</p>
+				<MediaLibraryTitle
+					name={credit.name}
+					className="font-ui font-medium text-sm"
+					isInMediaLibrary={credit.isInMediaLibrary}
+				/>
 				{Object.entries(lines).map(([key, line]) =>
 					line === undefined ? null : (
 						<p key={key} className="font-ui text-xs text-text-muted">

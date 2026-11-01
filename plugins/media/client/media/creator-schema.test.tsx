@@ -156,7 +156,7 @@ describe("creator credit rails", () => {
 		const { unmount, container } = renderBody();
 
 		const lines = (id: string) =>
-			Array.from(container.querySelectorAll(`a[href="/e/${id}"] > p`)).map(
+			Array.from(container.querySelectorAll(`a[href="/e/${id}"] > :is(span, p)`)).map(
 				({ textContent }) => textContent,
 			);
 

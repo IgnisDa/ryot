@@ -62,7 +62,12 @@ const pagingAdapter = () => {
 					: groupMemberPageData({
 							nextCursor: "cursor-1",
 							members: [
-								groupMemberRow({ position: 1, id: "member-1", name: "The Matrix" }),
+								groupMemberRow({
+									position: 1,
+									id: "member-1",
+									name: "The Matrix",
+									isInMediaLibrary: true,
+								}),
 								groupMemberRow({ position: null, id: "member-2", name: "Reloaded" }),
 							],
 						}),
@@ -169,6 +174,8 @@ describe("group members tab", () => {
 			expect(
 				articles.map((article) => article.querySelector(":scope > span")?.textContent ?? null),
 			).toEqual(["1", null]);
+			expect(articles[0]?.querySelector('[aria-label="In your library"]')).not.toBeNull();
+			expect(articles[1]?.querySelector('[aria-label="In your library"]')).toBeNull();
 			view.unmount();
 		}),
 	);
