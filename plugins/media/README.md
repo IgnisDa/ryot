@@ -64,6 +64,10 @@ scopes; container counts come from aggregates rather than loaded pages. Show epi
 podcast episodes are newest first. Next-up resolves server-side
 independently of loaded pages.
 
+Show season selectors also use cursor pages. The activity logger's context includes one default
+season, then its selector loads the full season list independently. Season totals and the next season
+number come from aggregates, not the loaded season page.
+
 Show episode orders affect presentation only. A device-local `episode-order:<entityId>` preference
 selects an order by external ID; default or missing orders clear the preference. Alternate orders
 regroup and page episode IDs while retaining their original episode labels. Lifecycle, coverage,
@@ -93,8 +97,8 @@ group omit both `groupSlug` and group descriptor copy. Unlinked credits appear a
 creator tiles and do not contribute sync marks.
 
 Games use `video-game-to-video-game` from original to derivative. IGDB `version_parent` takes
-precedence over `parent_game`; Bundle edges are omitted. Reverse lookups write outgoing groups
-authoritatively unless their page cap truncates the result, in which case writes are additive.
+precedence over `parent_game`; Bundle edges are omitted. Reverse lookups page outgoing groups
+through durable continuations and reconcile authoritatively only after complete coverage.
 Incoming groups remain authoritative. Overview rails group derivatives by relationship kind;
 bounded ordering favors ports/remakes/remasters over mods/DLC. Game type is shown unless Main Game.
 Time-to-beat fields may be absent; only platform names are guaranteed across providers.
@@ -118,13 +122,20 @@ the named-query limit. Rails are ordered/titled by `client/creator/credit-sectio
 sort by descending year, then name/ID, and yearless group credits by name/ID. Only person-to-media
 credits select characters. Rails are bounded and expose View all when more results exist. View all
 opens a cursor-paged credits modal. Media and group overviews use the same modal for their full
-people lists, including unlinked contributors. Credit pages preserve overview ordering, roles, and
-declared character fields. The credits and image gallery share the detail modal frame.
+people and company lists, including unlinked contributors. Credit pages preserve overview ordering,
+roles, and declared character fields. Movie and show people lists filter cast, crew, guest appearances,
+and uncredited appearances before cursor pagination; unknown classifications remain unknown. All
+credits are included by default. The credits and image gallery share the detail modal frame.
 
 Creators have no lifecycle, ownership toggle, or Log activity action. Activity combines reviews and
 collection changes. Person facts use provider birth/death data without inventing ages for partial or
 future dates. Person art is portrait; company logos are square and contain-fit. Only HTTP(S) links
 are rendered.
+
+All People lists explicitly saved people and people credited on the current user's saved media or
+credit-bearing groups. Credit-based inclusion does not save the person or change their library badge.
+Credits on another user's library alone do not include a person. Other saved views retain their
+explicit library-membership scope.
 
 ### Home And Refresh
 
@@ -236,25 +247,70 @@ and recommendations at `full`; `base` returns no credit or recommendation groups
 separate `/images` call without a language. Show seasons are fetched through `/tv/{id}` appends,
 at most 20 seasons per request.
 
+Title-side incoming creator inventories own authoritative credit metadata. Person and company
+catalogs discover links additively, preserving richer title-owned roles, characters, and billing order.
+Spotify artist-to-album associations are an exception: the complete artist catalog owns those links,
+including appearances, while an album's primary artist list is additive discovery. It cannot remove
+guest-artist associations that are absent from the primary artist list.
+Population stays one hop deep: discovering related entities does not populate their inventories.
+TMDB and TVDB retain every returned credit rather than a fixed cast preview. TMDB keeps all crew
+jobs and billing order, including multiple roles for the same person. Show aggregate credits cover
+all episodes; guest and uncredited flags are recorded only when supported by source evidence.
+
 TMDB Show `episodeOrders` contains external IDs, descriptions, and ordered groups of episode IDs.
 Positions belong to the alternate order, so stored episodes join by provider external ID, not season
-and episode number. Unknown order types are dropped; an empty list clears removed orders. Fetches
-use only the HTTP budget left after the show, images and season-append calls and drop excess orders rather than failing
-population.
+and episode number. Unknown order types are dropped; an empty list clears removed orders. Every
+listed supported order is fetched. Exceeding the sandbox budget fails population instead of silently
+dropping orders.
 
 TMDB companies return the first discover page of movies and shows from `details` with a
 `{ page, totalPages }` continuation. The company `related` script fetches up to 40 further pages per
 run, five at a time, and ends at the last page or TMDB's page 500.
+
+Provider relationship pages declare complete, more, or source-limited coverage through the backend
+SDK. Source-limited inventories fail visibly rather than deleting links or claiming full population.
+Recommendations are curated selections, separate from exhaustive credits, group members, and
+catalogs. Metron arc suggestions select the first three arcs and twenty issues per arc; TMDB trending
+selects three pages. Execution limits are safety boundaries, not successful inventory truncation.
+
+Metron series issues follow validated source next-page links through durable continuations and keep
+global issue order across pages. IGDB reverse game lookups also use durable pages, without a fixed
+total child-game cap. Company and collection game lists use complete embedded source arrays; the
+top-level IGDB result limit does not bound those arrays.
+
+iTunes episode lookup can return fewer episodes than the podcast's reported count, even when the
+requested limit matches that count. Such a response fails before replacing child entities. Listen
+Notes also fails if a known episode total is not reached before its page cursor stops advancing.
+Unknown provider-search totals remain absent rather than being fabricated from a preview page.
+Podcast base imports return root metadata without enumerating episodes or recommendations. Full
+population validates the episode inventory before replacing children; an unknown iTunes total that
+fills its two-hundred-episode lookup ceiling is incomplete, not proof of exhaustion.
+
+MusicBrainz artist recordings and release groups use browse continuations. Album membership scans
+all release candidates before loading the representative release's complete track list; root part
+counts remain unknown until membership is available. Spotify artist catalogs include albums, singles,
+appearances, and compilations in ten-item source pages. Artist tracks are discovered from those
+albums rather than the top-tracks selection, and album tracks use fifty-item source pages. Related
+runs batch bounded source requests and return continuations when work remains. Denied catalog
+access is source-limited, never an authoritative empty inventory.
 
 Provider refresh emits authoritative empty relationship groups where supported so removed links can
 be deleted. YouTube Music artist credits use parsed item types, not section headings: songs and
 videos become track credits, while albums (including singles and EPs) become album credits. List
 and carousel item titles use their parsed string or text value; repeated releases are deduplicated, and
 artist recommendations, playlists, and navigation items do not become credits.
-Artist song and video credits follow their playlist endpoints through every continuation page. Album,
-single, and EP carousels follow their full discography endpoints, including params and every
-continuation page. Fetch failures fail the refresh instead of publishing a partial authoritative
-inventory.
+Artist song and video credits follow their playlist endpoints through durable related pages. Album,
+single, and EP carousels follow full discography endpoints, preserving endpoint params. Album members
+come from the album's playlist endpoint rather than its initial shelf. Related pages replay from the
+playlist root to retain each track's first global order, including non-adjacent duplicates, without
+storing the inventory in a cursor. Replay fails beyond forty source pages. Known album track totals
+must match before completion. Without a playlist endpoint, only a matching explicit track total proves
+complete membership. Fetch failures fail the refresh instead of claiming complete coverage.
+YouTube Music search follows continuation pages through bounded numeric-page replay. Sources without
+an exact search total omit it; exceeding the forty-page replay budget fails explicitly.
+AniList person and studio catalogs use durable twenty-five-item pages. Studios attached to an anime
+are an unpaged source list. Airing schedules exhaust their pages or fail at the request budget;
+anime and manga recommendations select the top twenty-five by rating.
 TMDB and TVDB cast credits and AniList staff voice credits preserve character names in
 the person-to-media relationship's `character` field, separately from roles. Multiple names for one
 credit are deduplicated and joined with `/`; missing names stay absent. Detail credit lists display

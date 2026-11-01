@@ -82,6 +82,9 @@ The path is the provider slug with `/` replacing `.`, and the basename is `detai
 `search-options`, `related`, `resolve`, or `translate`. Other sandbox basenames in a provider directory are
 provider-associated ordinary scripts.
 
+Search results return `details.nextPage` independently of an optional `details.totalItems`. Omit the
+total when the source does not provide it; a continuation does not prove an exact catalog count.
+
 ### Population levels
 
 `details` receives `{ externalId, level? }`. `level` is `"base"` or `"full"`;
@@ -92,14 +95,22 @@ properties to `details` or preserve omitted old property keys when provider data
 
 ### Paged related groups
 
-A `details` related-entity group may carry a `continuation` (JSON, at most 4 KiB encoded) when more
-entities exist than one run can fetch. The provider must then declare a `related` script. It receives
-`{ externalId, relationshipSchemaSlug, direction, continuation }` and returns
-`{ entities, continuation }`; a `null` continuation ends the group. Each run is its own sandbox
-execution with its own host-call budget. The kernel writes each page as it arrives, so a page must be
-self-contained, and it removes stale relationships of an `authoritative` group only after the final
-page succeeds. A full population waits for all related pages and authoritative sweeps before marking
-related data complete; root data is published earlier and pages remain visible while partial. See the
+Every `details` related-entity group and `related` result declares `coverage`:
+
+- `{ status: "complete" }` means the declared inventory is exhausted, including an empty inventory.
+- `{ status: "more", continuation }` carries the next page's JSON cursor, at most 4 KiB encoded.
+- `{ status: "source-limited", reason }` means the source cannot supply the declared inventory.
+
+A group with more pages requires a `related` script. It receives
+`{ externalId, relationshipSchemaSlug, direction, continuation }` and returns `{ entities, coverage }`.
+Each run is its own sandbox execution with its own host-call budget. The kernel writes each page as
+it arrives, so a page must be self-contained. Only complete coverage permits an `authoritative` sweep;
+a source-limited result fails explicitly without writing that page, deleting stale relationships, or
+marking related data complete. Repeated cursors and exhausted execution/page budgets also fail.
+Curated selections must have a defined scope: completing a recommendation selection does not imply
+that a source's entire catalog was fetched. Do not disguise an arbitrary inventory cap as a selection.
+A full population waits for all related pages and authoritative sweeps before marking related data
+complete; root data is published earlier and pages remain visible while partial. See the
 [provider population](../../kernel/backend/src/modules/entities/providers/README.md#paged-related-groups).
 
 Each `translate` provider script declares `translationInputs`, a map from supported entity-schema

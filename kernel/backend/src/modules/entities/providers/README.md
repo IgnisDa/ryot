@@ -84,7 +84,8 @@ keys stay within the workflow store's limit. All callers share population admiss
 
 ### Paged related groups
 
-A related-entity group whose `details` result carries a `continuation` is written in pages. The
+Every related-entity group and related-page result declares `coverage`: `complete`, `more` with a
+continuation, or `source-limited` with a reason. A group whose coverage is `more` is written in pages. The
 first page is written after the base stamp like any other group; the group's current generation
 (the population execution ID) is claimed first in `relationship_sync_generation`, and every written
 relationship is stamped with it in `relationship.sync_generation`. `ProviderRelatedPagesWorkflow`
@@ -104,10 +105,11 @@ and writes each page in one transaction:
 - Every page write and the sweep take a transaction advisory lock on the group key and return an
   explicit superseded outcome unless the stored generation is still their own. A newer population of the same group
   therefore supersedes an older one without interleaved writes.
-- After the last page, an authoritative group is swept: relationships of the group whose stamp
+- After a page declares complete coverage, an authoritative group is swept: relationships whose stamp
   differs from the generation are deleted through the normal planned-reconciliation delete path
   (triggers, receipts, change evidence). Additive groups are never swept.
-- A failed page or reaching the 200-page limit fails the page workflow and skips its sweep. A
+- A source-limited page fails with its reason before that page is written. A failed page, repeated
+  continuation, or reaching the 200-page limit fails the page workflow and skips its sweep. A
   superseded run also skips its sweep and cannot complete the related level. The parent collects
   every group's outcome, so one failed group does not prevent successful sibling groups from
   finishing. Enqueue and page failures are not swallowed.
@@ -115,7 +117,7 @@ and writes each page in one transaction:
   from a population that later fails. The final related stamp checks every group generation again
   under transaction locks before it publishes the related-level update.
 
-A `details` result that returns a continuation for a provider with no `related` script fails the
+A `details` result that declares more coverage for a provider with no `related` script fails the
 population before anything is written.
 
 ### Durable requests and attempts
