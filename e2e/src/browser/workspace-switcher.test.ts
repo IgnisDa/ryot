@@ -19,7 +19,9 @@ it.live("opens the desktop workspace switcher with its keyboard shortcut", () =>
 		const primaryModifier = yield* page.evaluate(() =>
 			/Mac|iPhone|iPad/.test(navigator.platform) ? "Meta" : "Control",
 		);
-		expect(yield* trigger.getByText("Space", { exact: true }).isVisible()).toBe(true);
+		const keycap = trigger.locator("kbd");
+		expect(yield* keycap.isVisible()).toBe(true);
+		expect(yield* keycap.textContent()).toBe(primaryModifier === "Meta" ? "Space" : "CtrlSpace");
 		if (primaryModifier === "Meta") {
 			expect(yield* trigger.locator('[data-app-icon="command"]').isVisible()).toBe(true);
 		} else {

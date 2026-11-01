@@ -13,18 +13,25 @@ import {
 import {
 	and,
 	column,
+	defineRecipe,
 	descending,
 	document,
 	eq,
 	field,
 	literal,
 	rows,
+	selectedAggregate,
 	table,
 } from "@ryot-app/ryotql";
+import {
+	projectionProcessingState,
+	projectionStatusMeasures,
+} from "@ryot-app/ryotql-recipes/projection-status";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import { requireObjectRecord } from "~/support/assertions";
+import { expect } from "~/support/effect-test";
 
 import type { Client } from "./auth";
 import { createEntity } from "./entities";
@@ -33,12 +40,32 @@ import { createEventSchema } from "./event-schemas";
 import { pollUntil } from "./polling";
 import {
 	executeRyotQL,
+	executeRyotQLRecipe,
 	requireRows,
 	requireRyotQLDate,
 	requireRyotQLText,
 	requireRyotQLValue,
 } from "./ryotql";
 import { testPluginEntitySchema } from "./test-plugin";
+
+const eventProjectionsRecipe = defineRecipe(() => {
+	const stream = table("eventStream", "settledStream");
+	return {
+		map: ({ processing }) => Result.succeed(projectionProcessingState(processing)),
+		queries: {
+			processing: selectedAggregate(stream, { measures: projectionStatusMeasures(stream) }),
+		},
+	};
+});
+
+/** Event projections settle after their writes; readers of projected values wait for them. */
+export const waitForEventProjections = (client: Client) =>
+	pollUntil(
+		"event projections settled",
+		executeRyotQLRecipe(client, eventProjectionsRecipe()).pipe(
+			Effect.map((state) => (state === "pending" ? null : state)),
+		),
+	).pipe(Effect.tap((state) => Effect.sync(() => expect(state).toBe("ready"))));
 
 export const waitForEventCount = (client: Client, entityId: string, expectedCount: number) =>
 	pollUntil(

@@ -14,6 +14,7 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
+	waitForEventProjections,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
@@ -96,6 +97,7 @@ describe("Media activity recipe", () => {
 			yield* book.log("complete", "2026-01-12T12:00:00.000Z", { ...COMPLETE, timeSpent: 30 });
 			yield* episode.log("complete", "2026-01-12T13:00:00.000Z", COMPLETE);
 			yield* book.log("complete", "2025-12-31T12:00:00.000Z", { ...COMPLETE, timeSpent: 999 });
+			yield* waitForEventProjections(client);
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
@@ -128,6 +130,7 @@ describe("Media activity recipe", () => {
 
 			yield* movie.log("complete", "2026-01-10T03:00:00.000Z", COMPLETE);
 			yield* book.log("complete", "2026-01-12T12:00:00.000Z", { timeSpent: 30, dateUnknown: true });
+			yield* waitForEventProjections(client);
 
 			const activity = yield* executeRyotQLRecipe(
 				client,

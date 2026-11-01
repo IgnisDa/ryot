@@ -27,6 +27,7 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
+	waitForEventProjections,
 } from "~/fixtures/kernel";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import {
@@ -886,6 +887,7 @@ describe("Media RyotQL query recipe results", () => {
 			] as const;
 			const assertPodcastState = (expectedState: (typeof lifecycleStates)[number]) =>
 				Effect.gen(function* () {
+					yield* waitForEventProjections(client);
 					yield* waitForLibrarySummary(client, seeded.podcast.id);
 					const responses = yield* Effect.all(
 						lifecycleStates.map((state) =>
@@ -1119,6 +1121,7 @@ describe("Media RyotQL query recipe results", () => {
 				});
 			}
 
+			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.activityRecipe({
@@ -1155,6 +1158,7 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.episodeEvents.complete,
 			});
 
+			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.activityRecipe({
@@ -1194,6 +1198,7 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.episodeEvents.complete,
 			});
 
+			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.activityRecipe({
@@ -1226,6 +1231,7 @@ describe("Media RyotQL query recipe results", () => {
 				});
 			}
 
+			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.activityRecipe({

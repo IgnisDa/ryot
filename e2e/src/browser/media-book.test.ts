@@ -188,7 +188,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		const record = media.getByRole("list", { name: "Reading record" });
 		yield* record.waitFor({ state: "visible" });
 		expect(yield* record.getByText("Finished the book", { exact: true }).count).toBe(2);
-		expect(yield* body.getByText("Reads", { exact: true }).count).toBe(1);
+		yield* body.getByText("Reads", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("640", { exact: true }).waitFor({ state: "visible" });
 		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Listens", { exact: true }).count).toBe(0);

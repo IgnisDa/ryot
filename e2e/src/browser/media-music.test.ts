@@ -162,7 +162,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		yield* record.waitFor({ state: "visible" });
 		expect(yield* record.getByText("Finished the track", { exact: true }).count).toBe(2);
 		expect(yield* body.getByText("Coverage", { exact: true }).count).toBe(0);
-		expect(yield* body.getByText("Listens", { exact: true }).count).toBe(1);
+		yield* body.getByText("Listens", { exact: true }).waitFor({ state: "visible" });
 		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

@@ -437,13 +437,11 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			mediaAnalyticsRankingRecipe(mediaAnalyticsInput(input)),
 		);
 		expect(ranking.pageInfo.hasMore).toBe(false);
-		const tiedEntities = [fixture.entities.book, fixture.entities.movie].sort((a, b) =>
-			a.id.localeCompare(b.id),
-		);
+		const tiedIds = [fixture.entities.book.id, fixture.entities.movie.id].sort();
 		expect(
 			ranking.items.map(({ entityId, activeObservations }) => ({ entityId, activeObservations })),
 		).toEqual([
-			...tiedEntities.map(({ id }) => ({ entityId: id, activeObservations: 2 })),
+			...tiedIds.map((id) => ({ entityId: id, activeObservations: 2 })),
 			{ activeObservations: 1, entityId: fixture.entities.anime.id },
 		]);
 		const records = yield* executeRyotQLRecipe(

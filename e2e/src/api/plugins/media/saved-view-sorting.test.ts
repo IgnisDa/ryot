@@ -61,6 +61,18 @@ const savedViewIds = (
 		);
 	});
 
+// Activity reaches the view through the library membership projection, which settles after the write.
+const savedViewOrder = (
+	client: Client,
+	pluginId: PluginSavedViewReference["pluginId"],
+	slug: string,
+	first: string,
+) =>
+	pollUntil(
+		`${slug} lists ${first} first`,
+		savedViewIds(client, pluginId, slug).pipe(Effect.map((ids) => (ids[0] === first ? ids : null))),
+	);
+
 describe("Media saved-view sorting", () => {
 	it.live("orders media by lifecycle activity, ignoring reviews and another user's activity", () =>
 		Effect.gen(function* () {
@@ -70,22 +82,24 @@ describe("Media saved-view sorting", () => {
 			const newer = yield* seed(client, "book", "Zulu");
 			yield* insertLibraryMembership(client, { mediaEntityId: older.id });
 			yield* insertLibraryMembership(client, { mediaEntityId: newer.id });
-			expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
-				newer.id,
-				older.id,
-			]);
 
 			const { schema: bookSchema } = yield* findMediaEntitySchema(client, "book");
 			const schemas = yield* listEventSchemas(client, bookSchema.reference);
 			const review = requireEventSchemaBySlug(schemas, "review");
 			const progress = requireEventSchemaBySlug(schemas, "progress");
 			yield* createEventFixture(client, {
+				entityId: newer.id,
+				eventSchemaSlug: progress.id,
+				properties: { progressPercent: 20 },
+				occurredAt: "2020-01-01T00:00:00.000Z",
+			});
+			yield* createEventFixture(client, {
 				entityId: older.id,
 				eventSchemaSlug: review.id,
 				properties: { rating: 80 },
-				occurredAt: "2020-01-01T00:00:00.000Z",
+				occurredAt: "2021-01-01T00:00:00.000Z",
 			});
-			expect(yield* savedViewIds(client, older.pluginId, "all-books")).toEqual([
+			expect(yield* savedViewOrder(client, older.pluginId, "all-books", newer.id)).toEqual([
 				newer.id,
 				older.id,
 			]);
@@ -94,14 +108,10 @@ describe("Media saved-view sorting", () => {
 				eventSchemaSlug: progress.id,
 				properties: { progressPercent: 40 },
 			});
-			expect(
-				yield* pollUntil(
-					"progress moves the older book first",
-					savedViewIds(client, older.pluginId, "all-books").pipe(
-						Effect.map((ids) => (ids[0] === older.id ? ids : null)),
-					),
-				),
-			).toEqual([older.id, newer.id]);
+			expect(yield* savedViewOrder(client, older.pluginId, "all-books", older.id)).toEqual([
+				older.id,
+				newer.id,
+			]);
 			yield* createEventFixture(otherClient, {
 				entityId: newer.id,
 				eventSchemaSlug: progress.id,
@@ -119,41 +129,54 @@ describe("Media saved-view sorting", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const older = yield* seed(client, "podcast", "Alpha");
 			const newer = yield* seed(client, "podcast", "Zulu");
-			const episode = yield* seed(client, "podcast-episode", "Episode", { episodeNumber: 1 });
 			const relationships = yield* listRelationshipSchemas(client, {
 				owner: older.reference.owner,
 				slugs: ["podcast-to-podcast-episode"],
 			});
-			yield* insertGlobalRelationship({
-				sourceEntityId: older.id,
-				targetEntityId: episode.id,
-				relationshipSchema: requireRelationshipSchemaBySlug(
-					relationships,
-					"podcast-to-podcast-episode",
-					older.reference.owner,
-				).reference,
-			});
+			const episodeOf = (podcast: typeof older) =>
+				Effect.gen(function* () {
+					const episode = yield* seed(client, "podcast-episode", "Episode", { episodeNumber: 1 });
+					yield* insertGlobalRelationship({
+						sourceEntityId: podcast.id,
+						targetEntityId: episode.id,
+						relationshipSchema: requireRelationshipSchemaBySlug(
+							relationships,
+							"podcast-to-podcast-episode",
+							older.reference.owner,
+						).reference,
+					});
+					return episode;
+				});
+			const olderEpisode = yield* episodeOf(older);
+			const newerEpisode = yield* episodeOf(newer);
 			yield* insertLibraryMembership(client, { mediaEntityId: older.id });
 			yield* insertLibraryMembership(client, { mediaEntityId: newer.id });
-			const podcastIds = yield* savedViewIds(client, older.pluginId, "all-podcasts");
-			expect(podcastIds).toHaveLength(2);
-			expect(podcastIds).toEqual<unknown>(expect.arrayContaining([newer.id, older.id]));
 			const { schema: episodeSchema } = yield* findMediaEntitySchema(client, "podcast-episode");
-			const events = yield* listEventSchemas(client, episodeSchema.reference);
+			const progress = requireEventSchemaBySlug(
+				yield* listEventSchemas(client, episodeSchema.reference),
+				"progress",
+			);
 			yield* createEventFixture(client, {
-				entityId: episode.id,
-				sessionEntityId: older.id,
-				properties: { progressPercent: 50 },
-				eventSchemaSlug: requireEventSchemaBySlug(events, "progress").id,
+				entityId: newerEpisode.id,
+				sessionEntityId: newer.id,
+				eventSchemaSlug: progress.id,
+				properties: { progressPercent: 20 },
+				occurredAt: "2020-01-01T00:00:00.000Z",
 			});
-			expect(
-				yield* pollUntil(
-					"episode progress moves the older podcast first",
-					savedViewIds(client, older.pluginId, "all-podcasts").pipe(
-						Effect.map((ids) => (ids[0] === older.id ? ids : null)),
-					),
-				),
-			).toEqual([older.id, newer.id]);
+			expect(yield* savedViewOrder(client, older.pluginId, "all-podcasts", newer.id)).toEqual([
+				newer.id,
+				older.id,
+			]);
+			yield* createEventFixture(client, {
+				entityId: olderEpisode.id,
+				sessionEntityId: older.id,
+				eventSchemaSlug: progress.id,
+				properties: { progressPercent: 50 },
+			});
+			expect(yield* savedViewOrder(client, older.pluginId, "all-podcasts", older.id)).toEqual([
+				older.id,
+				newer.id,
+			]);
 		}),
 	);
 
