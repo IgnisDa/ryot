@@ -15,7 +15,6 @@ import { DeleteFitnessEntity } from "../entity-delete";
 import { supersetColorVariable, supersetName } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { WorkoutMediaViewer } from "../media-viewer";
-import { FitnessRemindersButton } from "../reminders";
 import { setLabels, setLots } from "../set-lots";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import { formatClock, formatExerciseMeta, formatSetMain } from "../workout/format";
@@ -213,8 +212,8 @@ function TemplateDetails(props: { readonly entityId: string }) {
 							<Button variant="secondary" onClick={() => action("edit")}>
 								Edit template{context.data.proAvailable ? "" : " (Pro)"}
 							</Button>
-							<FitnessRemindersButton entityId={props.entityId} />
 							<HeaderActionsMenu
+								entityId={props.entityId}
 								label="More template actions"
 								items={[
 									{

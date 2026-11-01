@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 
 import {
 	decodeFlatSummary,
@@ -23,6 +23,7 @@ it.live(
 			});
 			const mounted = mountRyotClient(
 				{
+					manageReminders: () => Effect.succeed({ kind: "cancelled" }),
 					openExternalLink: ({ url }) =>
 						Effect.sync(() => {
 							opened.push(url);
@@ -44,6 +45,10 @@ it.live(
 				/>,
 			);
 			try {
+				expect(queryByRole(mounted.container, "button", { name: "Reminders" })).toBeNull();
+				clickRyotElement(getByRole(mounted.container, "button", { name: "Your data" }));
+				expect(getByRole(document.body, "menuitem", { name: "Reminders" })).toBeDefined();
+				clickRyotElement(getByRole(document.body, "menuitem", { name: "Reminders" }));
 				const preview = mounted.container.querySelector(".line-clamp-3");
 				expect(preview?.textContent).toBe("Readable summary source.");
 				expect(mounted.container.textContent).not.toContain("Hidden ending");

@@ -1,13 +1,17 @@
 import { expect, it } from "@effect/vitest";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { getByRole, waitFor } from "@testing-library/dom";
+import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 
+import {
+	decodeFlatSummary,
+	fixtureSummaryRecipe,
+} from "../../tests/client/flat-media/summary-fixture";
 import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
-import { MediaRemindersControl } from "./reminders";
+import { MediaUserDataControl } from "./user-data";
 
-it.live("opens reminders for an entity and parent while the screen is pending", () =>
+it.live("opens reminders from the menu and disables the item while the screen is pending", () =>
 	Effect.gen(function* () {
 		const release = yield* Deferred.make<void>();
 		const requests: unknown[] = [];
@@ -20,18 +24,36 @@ it.live("opens reminders for an entity and parent while the screen is pending", 
 						return { kind: "cancelled" };
 					}),
 			},
-			<MediaRemindersControl entityId="episode-1" parentEntityId="media-1" />,
+			<MediaUserDataControl
+				media={decodeFlatSummary(fixtureSummaryRecipe, { id: "media-1", schemaSlug: "movie" })}
+			/>,
 		);
 		try {
-			const button = getByRole(mounted.container, "button", { name: "Reminders" });
-			clickRyotElement(button);
+			expect(queryByRole(mounted.container, "button", { name: "Reminders" })).toBeNull();
+			const trigger = getByRole(mounted.container, "button", { name: "Your data" });
+			clickRyotElement(trigger);
+			clickRyotElement(getByRole(document.body, "menuitem", { name: "Reminders" }));
+			clickRyotElement(trigger);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(button.hasAttribute("disabled")).toBe(true)),
+				waitFor(() =>
+					expect(
+						getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
+					).toBe(true),
+				),
 			);
-			expect(requests).toEqual([{ entityId: "episode-1", parentEntityId: "media-1" }]);
+			expect(
+				getByRole(document.body, "menuitem", { name: "Remove from library" }).hasAttribute(
+					"disabled",
+				),
+			).toBe(false);
+			expect(requests).toEqual([{ entityId: "media-1" }]);
 			yield* Deferred.succeed(release, undefined);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(button.hasAttribute("disabled")).toBe(false)),
+				waitFor(() =>
+					expect(
+						getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
+					).toBe(false),
+				),
 			);
 		} finally {
 			mounted.unmount();
@@ -39,7 +61,7 @@ it.live("opens reminders for an entity and parent while the screen is pending", 
 	}),
 );
 
-it.live("omits the parent ID and reports a reminder screen failure", () =>
+it.live("keeps reminders available without library actions and reports a screen failure", () =>
 	Effect.gen(function* () {
 		const requests: unknown[] = [];
 		const mounted = mountRyotClient(
@@ -49,11 +71,16 @@ it.live("omits the parent ID and reports a reminder screen failure", () =>
 						Effect.andThen(Effect.fail(new RyotClientError({ reason: "transport" }))),
 					),
 			},
-			<MediaRemindersControl entityId="media-1" />,
+			<MediaUserDataControl
+				media={decodeFlatSummary(fixtureSummaryRecipe, { id: "media-1", schemaSlug: "fixture" })}
+			/>,
 		);
 		try {
-			const button = getByRole(mounted.container, "button", { name: "Reminders" });
-			clickRyotElement(button);
+			const trigger = getByRole(mounted.container, "button", { name: "Your data" });
+			clickRyotElement(trigger);
+			expect(queryByRole(document.body, "menuitem", { name: "Remove from library" })).toBeNull();
+			expect(queryByRole(document.body, "menuitem", { name: "Merge my data into…" })).toBeNull();
+			clickRyotElement(getByRole(document.body, "menuitem", { name: "Reminders" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(getByRole(mounted.container, "alert").textContent).toBe(
@@ -62,7 +89,10 @@ it.live("omits the parent ID and reports a reminder screen failure", () =>
 				),
 			);
 			expect(requests).toEqual([{ entityId: "media-1" }]);
-			expect(button.hasAttribute("disabled")).toBe(false);
+			clickRyotElement(trigger);
+			expect(
+				getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
+			).toBe(false);
 		} finally {
 			mounted.unmount();
 		}

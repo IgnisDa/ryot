@@ -55,14 +55,16 @@ it.live("manages entity reminders from media and fitness pages", () =>
 		yield* visible(
 			mediaFrame.getByRole("heading", { level: 1, exact: true, name: media.movie.name }),
 		);
-		yield* mediaFrame.getByRole("button", { exact: true, name: "Reminders" }).click();
+		yield* mediaFrame.getByRole("button", { exact: true, name: "Your data" }).click();
+		yield* mediaFrame.getByRole("menuitem", { exact: true, name: "Reminders" }).click();
 		const mediaHost = page.getByRole("dialog", { exact: true, name: "Reminders" });
 		yield* visible(mediaHost.getByRole("button", { exact: true, name: "Close reminders" }));
 		expect(yield* mediaIframe.getAttribute("inert")).not.toBeNull();
 		yield* mediaHost.getByRole("button", { exact: true, name: "Close reminders" }).click();
 		yield* mediaHost.waitFor({ state: "hidden" });
 		expect(yield* mediaIframe.getAttribute("inert")).toBeNull();
-		yield* mediaFrame.getByRole("button", { exact: true, name: "Reminders" }).click();
+		yield* mediaFrame.getByRole("button", { exact: true, name: "Your data" }).click();
+		yield* mediaFrame.getByRole("menuitem", { exact: true, name: "Reminders" }).click();
 		yield* visible(mediaHost);
 		yield* mediaHost.getByRole("button", { exact: true, name: "Close reminders" }).click();
 		yield* mediaHost.waitFor({ state: "hidden" });
@@ -77,7 +79,8 @@ it.live("manages entity reminders from media and fitness pages", () =>
 				name: `Reminder exercise ${suffix}`,
 			}),
 		);
-		yield* fitnessFrame.getByRole("button", { exact: true, name: "Reminders" }).click();
+		yield* fitnessFrame.getByRole("button", { exact: true, name: "More exercise actions" }).click();
+		yield* fitnessFrame.getByRole("menuitem", { exact: true, name: "Reminders" }).click();
 		const host = page.getByRole("dialog", { exact: true, name: "Reminders" });
 		yield* visible(host.getByRole("button", { exact: true, name: "Close reminders" }));
 		expect(yield* fitnessIframe.getAttribute("inert")).not.toBeNull();
@@ -118,7 +121,8 @@ it.live("manages entity reminders from media and fitness pages", () =>
 		yield* host.getByRole("button", { exact: true, name: "Close reminders" }).click();
 		yield* host.waitFor({ state: "hidden" });
 		expect(yield* fitnessIframe.getAttribute("inert")).toBeNull();
-		yield* fitnessFrame.getByRole("button", { exact: true, name: "Reminders" }).click();
+		yield* fitnessFrame.getByRole("button", { exact: true, name: "More exercise actions" }).click();
+		yield* fitnessFrame.getByRole("menuitem", { exact: true, name: "Reminders" }).click();
 		yield* visible(host);
 		yield* host.getByRole("button", { exact: true, name: "Close reminders" }).click();
 		yield* host.waitFor({ state: "hidden" });

@@ -21,6 +21,7 @@ import {
 } from "../../shared/media-user-data-operations";
 import { mediaUserDataDestinationRecipe } from "../../shared/media-user-data-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { useMediaReminders } from "./reminders";
 import type { MediaEntitySummaryValue } from "./summary-state";
 
 type MergeAction = Extract<MediaUserDataAction, { readonly action: "merge" }>;
@@ -68,6 +69,7 @@ const submissionErrorMessage = (error: null | Error) => {
 
 export function MediaUserDataControl(props: { readonly media: MediaEntitySummaryValue }) {
 	const { media } = props;
+	const reminders = useMediaReminders({ entityId: media.id });
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
 	const schedule = useRyotSchedule();
@@ -94,15 +96,17 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		client.mutationCompleted.hint();
 	}, [client, confirmation, submission.data]);
 
-	if (!isMediaLibraryMemberSchemaSlug(media.schemaSlug)) {
-		return null;
-	}
-	const entitySchemaSlug = media.schemaSlug;
+	const entitySchemaSlug = isMediaLibraryMemberSchemaSlug(media.schemaSlug)
+		? media.schemaSlug
+		: undefined;
 	const resetSubmission = () => {
 		submission.abandon();
 		submission.reset();
 	};
 	const beginRemove = () => {
+		if (entitySchemaSlug === undefined) {
+			return;
+		}
 		resetSubmission();
 		setPickerError(undefined);
 		setConfirmation({
@@ -111,6 +115,9 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 		});
 	};
 	const beginMerge = () => {
+		if (entitySchemaSlug === undefined) {
+			return;
+		}
 		setPickerError(undefined);
 		setIsPicking(true);
 		schedule.run(
@@ -209,8 +216,18 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 				label="Your data"
 				disabled={isPicking}
 				items={[
-					{ key: "remove", destructive: true, onSelect: beginRemove, label: "Remove from library" },
-					{ key: "merge", onSelect: beginMerge, label: "Merge my data into…" },
+					reminders.item,
+					...(entitySchemaSlug === undefined
+						? []
+						: [
+								{
+									key: "remove",
+									destructive: true,
+									onSelect: beginRemove,
+									label: "Remove from library",
+								},
+								{ key: "merge", onSelect: beginMerge, label: "Merge my data into…" },
+							]),
 				]}
 				renderTrigger={(trigger) => (
 					<IconButton
@@ -229,6 +246,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 					</IconButton>
 				)}
 			/>
+			{reminders.error}
 			{pickerError === undefined ? null : (
 				<span role="alert" className="text-xs text-danger">
 					{pickerError}

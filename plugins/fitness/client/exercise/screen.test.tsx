@@ -353,6 +353,7 @@ describe("exercise details view", () => {
 				);
 				openMenu();
 				expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+					"Reminders",
 					"Preferences",
 					"Post a review",
 					"Duplicate",

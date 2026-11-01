@@ -3,12 +3,12 @@ import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
-import { getByRole, waitFor } from "@testing-library/dom";
+import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { Deferred } from "effect";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 
-import { FitnessRemindersButton } from "./reminders";
+import { HeaderActionsMenu } from "./header-actions-menu";
 
 declare global {
 	var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -32,7 +32,7 @@ const mount = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	};
 };
 
-it.live("opens reminders for the exercise and disables the button while pending", () =>
+it.live("opens reminders from the menu and disables only that item while pending", () =>
 	Effect.gen(function* () {
 		const release = yield* Deferred.make<void>();
 		const requests: unknown[] = [];
@@ -45,18 +45,36 @@ it.live("opens reminders for the exercise and disables the button while pending"
 						return { kind: "cancelled" };
 					}),
 			},
-			<FitnessRemindersButton entityId="exercise-1" />,
+			<HeaderActionsMenu
+				entityId="exercise-1"
+				label="More exercise actions"
+				items={[{ key: "other", label: "Other action", onSelect: () => undefined }]}
+			/>,
 		);
 		try {
-			const button = getByRole(mounted.container, "button", { name: "Reminders" });
-			act(() => button.click());
+			expect(queryByRole(mounted.container, "button", { name: "Reminders" })).toBeNull();
+			const trigger = getByRole(mounted.container, "button", { name: "More exercise actions" });
+			act(() => trigger.click());
+			act(() => getByRole(document.body, "menuitem", { name: "Reminders" }).click());
+			act(() => trigger.click());
 			yield* Effect.promise(() =>
-				waitFor(() => expect(button.hasAttribute("disabled")).toBe(true)),
+				waitFor(() =>
+					expect(
+						getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
+					).toBe(true),
+				),
 			);
+			expect(
+				getByRole(document.body, "menuitem", { name: "Other action" }).hasAttribute("disabled"),
+			).toBe(false);
 			expect(requests).toEqual([{ entityId: "exercise-1" }]);
 			yield* Deferred.succeed(release, undefined);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(button.hasAttribute("disabled")).toBe(false)),
+				waitFor(() =>
+					expect(
+						getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
+					).toBe(false),
+				),
 			);
 		} finally {
 			mounted.unmount();
@@ -74,10 +92,11 @@ it.live("reports a reminder screen failure", () =>
 						Effect.andThen(Effect.fail(new RyotClientError({ reason: "transport" }))),
 					),
 			},
-			<FitnessRemindersButton entityId="workout-1" />,
+			<HeaderActionsMenu items={[]} entityId="workout-1" label="More workout actions" />,
 		);
 		try {
-			act(() => getByRole(mounted.container, "button", { name: "Reminders" }).click());
+			act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());
+			act(() => getByRole(document.body, "menuitem", { name: "Reminders" }).click());
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(getByRole(mounted.container, "alert").textContent).toBe(
@@ -86,8 +105,9 @@ it.live("reports a reminder screen failure", () =>
 				),
 			);
 			expect(requests).toEqual([{ entityId: "workout-1" }]);
+			act(() => getByRole(mounted.container, "button", { name: "More workout actions" }).click());
 			expect(
-				getByRole(mounted.container, "button", { name: "Reminders" }).hasAttribute("disabled"),
+				getByRole(document.body, "menuitem", { name: "Reminders" }).hasAttribute("disabled"),
 			).toBe(false);
 		} finally {
 			mounted.unmount();

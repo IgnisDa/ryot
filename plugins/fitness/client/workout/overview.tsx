@@ -11,7 +11,6 @@ import { displayMeasure, type EnergyUnit } from "../../shared/workout-units";
 import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
-import { FitnessRemindersButton } from "../reminders";
 import { ProcessingNote } from "../workout-processing";
 import { AdjustWorkoutTime } from "./adjust-time";
 import type { TimelineSegment, WorkoutSummary, WorkoutTimeline } from "./details-model";
@@ -128,8 +127,8 @@ function WorkoutActions(props: {
 			<Button variant="secondary" onClick={openEditor("edit")}>
 				Edit
 			</Button>
-			<FitnessRemindersButton entityId={props.entityId} />
 			<HeaderActionsMenu
+				entityId={props.entityId}
 				label="More workout actions"
 				items={[
 					{ key: "adjust-time", label: "Adjust time", onSelect: () => setAdjustingTime(true) },

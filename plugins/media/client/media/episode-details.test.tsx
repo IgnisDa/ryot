@@ -49,9 +49,15 @@ describe("episode details", () => {
 			() =>
 				Effect.gen(function* () {
 					const documents: unknown[] = [];
+					const reminders: unknown[] = [];
 					const view = mountRyotClient(
 						{
 							watchEntities,
+							manageReminders: (request) =>
+								Effect.sync(() => {
+									reminders.push(request);
+									return { kind: "cancelled" };
+								}),
 							query: (document) => {
 								if (!JSON.stringify(document).includes("fixtureEpisode")) {
 									return contextQuery(document);
@@ -101,6 +107,16 @@ describe("episode details", () => {
 					expect(dialog.textContent).toContain("52 min");
 					expect(dialog.textContent).toContain("Played");
 					expect(documents).toHaveLength(1);
+					expect(queryByRole(dialog, "button", { name: "Reminders" })).toBeNull();
+					clickRyotElement(getByRole(dialog, "button", { name: "More episode actions" }));
+					clickRyotElement(getByRole(document.body, "menuitem", { name: "Reminders" }));
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(reminders).toEqual([
+								{ entityId: "episode-1", parentEntityId: EPISODIC_FIXTURE_LOG.parentEntityId },
+							]),
+						),
+					);
 					clickRyotElement(getByRole(dialog, "button", { name: "Close episode details" }));
 					expect(queryByRole(document.body, "dialog")).toBeNull();
 					yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));

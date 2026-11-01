@@ -10,7 +10,6 @@ import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { AssetArtWell } from "../asset-urls";
 import { useAddToCollection } from "../collections";
 import { HeaderActionsMenu } from "../header-actions-menu";
-import { FitnessRemindersButton } from "../reminders";
 import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
 import { type ActiveEditorDraft, addToDraftLabel } from "./active-draft";
 import {
@@ -285,8 +284,8 @@ function ExerciseActions(props: {
 			<Button variant="secondary" onClick={() => addToCollection(exercise.id)}>
 				Add to collection
 			</Button>
-			<FitnessRemindersButton entityId={exercise.id} />
 			<HeaderActionsMenu
+				entityId={exercise.id}
 				label="More exercise actions"
 				items={[
 					{

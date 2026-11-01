@@ -1,5 +1,6 @@
 import { localDay, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, MenuButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { RefObject } from "react";
@@ -18,7 +19,7 @@ import {
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMarkdown } from "./primitives";
-import { MediaRemindersControl } from "./reminders";
+import { useMediaReminders } from "./reminders";
 
 export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly episode: Episode;
@@ -32,6 +33,10 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const { render, episode, compact } = props;
+	const reminders = useMediaReminders({
+		entityId: episode.id,
+		parentEntityId: props.log.parentEntityId,
+	});
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
 	const state = mediaEpisodeStateLabel(episode.state, render.stateLabels);
@@ -80,11 +85,13 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					)}
 					<div className="flex flex-wrap items-center gap-2">
 						<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
-						<MediaRemindersControl
-							entityId={episode.id}
-							parentEntityId={props.log.parentEntityId}
+						<MenuButton
+							items={[reminders.item]}
+							label="More episode actions"
+							icon={<AppIcon size={16} name="more-horizontal" />}
 						/>
 					</div>
+					{reminders.error}
 					{props.editable ? (
 						<div className="flex">
 							<MediaEntityEditAction
