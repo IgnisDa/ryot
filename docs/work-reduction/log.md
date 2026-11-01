@@ -29,3 +29,33 @@
   `playwright-core@1.63.0`, which is what launches Chromium (needs headless-shell build 1243). A fresh
   machine that installs browsers with the pinned CLI fails every browser test at launch. Baseline
   `base1` browser results before 05:17 are invalid for this reason.
+- Baseline `base1` (whole standard suite, revision `71620fab90`) was stopped after about 30 minutes and
+  34 files. Its browser results are invalid (Playwright build mismatch), so a clean rerun follows. Even
+  the partial run shows:
+  - Heavy files take minutes under load: `lifecycle-query-recipes` 1,058 s for 20 tests,
+    `activity-log` 1,000 s for 13, `query-recipes-results` 847 s, `user-data` 705 s,
+    `measurements` 464 s, `workout-occurrences` 339 s.
+  - Every non-browser failure is a 180 s test timeout in a cascade-heavy test: show-tree clear, history
+    merge, journaling an episode, paging 100 readings. None is a logic failure.
+  - 1.54 M statements and 1,156 s of database execution; 34% of the statements hit `cluster_*`.
+  - Database time under load goes mostly to waiting on locks:
+
+    | Statement | Calls | Exec time |
+    | --- | ---: | ---: |
+    | `pg_advisory_xact_lock_shared(hashtext($))` | 74 k | 295 s |
+    | Reply-path `FOR UPDATE` of the root `workflow_execution` (`lockRequestRoot`) | 58 k | 172 s |
+    | `cluster_messages` insert, including the fence trigger | 76 k | 104 s |
+    | Storage poll (`UPDATE cluster_messages … last_read`) | 39 k | 90 s |
+    | Fence trigger's root `expired_at` lookup | 39 k | 79 s |
+    | `pg_advisory_xact_lock` (exclusive) | 11 k | 34 s |
+
+  - The shared lock is mostly the global `ryot-plugin-ingestion` key
+    (`modules/plugins/packages/ingestion-fence.ts`). Sixteen sites take it shared: planning, sandbox
+    pinning, workflow references, operations, saved views, reminders, background work, settings.
+    Every private-plugin install, uninstall and settings change takes it exclusive
+    (`installations/service.ts`, `ingestion-lock.ts`, `ingestion-service.ts`).
+  - PostgreSQL queues new shared requests behind a waiting exclusive one. So one test installing a
+    plugin first waits for every in-flight transaction in the server, then stalls every new one until
+    it commits. This lock couples unrelated tests and fits "fails in the suite, passes alone".
+  - Other hot reads: `select account_generation from "user" … for share`, 80 k calls (account
+    admission); `user_lifecycle_operation` status check, 63 k.
