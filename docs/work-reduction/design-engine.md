@@ -7,19 +7,20 @@ keeps using `Workflow`, `Activity` (`makeActivity`), `DurableDeferred`, `Durable
 
 ## What the kernel relies on today
 
-| Feature | Use in `kernel/backend/src` (non-test) |
-| --- | --- |
-| `execute` | Mostly `discard: true` (75 sites); child workflows awaited inside parents |
-| Activities | 131 `makeActivity` sites |
-| `DurableClock` | 12 sites: retry backoff, durable sleeps, recovery waits, script `sleep` |
-| `DurableDeferred` | Interrupt signal (`platform/workflow/interruption.ts`), sandbox requests, required-hook races (`DurableDeferred.raceAll`) |
-| `DurableQueue` | Sandbox execution queue on the kernel's Redis fair-queue store; needs only `deferredDone` from the engine |
-| `poll`, `interrupt`, `interruptUnsafe`, `resume` | 13, 8, 1, 1 sites |
-| `Workflow.addFinalizer` | 7 sites |
+| Feature                                          | Use in `kernel/backend/src` (non-test)                                                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `execute`                                        | Mostly `discard: true` (75 sites); child workflows awaited inside parents                                                 |
+| Activities                                       | 131 `makeActivity` sites                                                                                                  |
+| `DurableClock`                                   | 12 sites: retry backoff, durable sleeps, recovery waits, script `sleep`                                                   |
+| `DurableDeferred`                                | Interrupt signal (`platform/workflow/interruption.ts`), sandbox requests, required-hook races (`DurableDeferred.raceAll`) |
+| `DurableQueue`                                   | Sandbox execution queue on the kernel's Redis fair-queue store; needs only `deferredDone` from the engine                 |
+| `poll`, `interrupt`, `interruptUnsafe`, `resume` | 13, 8, 1, 1 sites                                                                                                         |
+| `Workflow.addFinalizer`                          | 7 sites                                                                                                                   |
 
 Kernel semantics layered on Cluster storage
 (`modules/garbage-collection/workflow-storage.ts`, `workflow-repository.ts`,
 `platform/db/workflow-message-fence.ts`):
+
 - **Admission.** A `run` request inserts the `workflow_execution` row, inheriting the parent's root
   from the payload's parent key.
 - **Expiry fence.** Any message (activity, deferred, clock) for a tree whose root has expired dies
@@ -30,6 +31,7 @@ Kernel semantics layered on Cluster storage
   of its messages is unprocessed; `WorkflowGarbageCollector` then clears its storage.
 
 Cluster costs that disappear:
+
 - Per message: an insert with the fence trigger (a root `FOR SHARE`), a reply insert, a processed
   update, and a reply transaction with a root `FOR UPDATE`.
 - Per process: 300-shard lock refresh, runner heartbeat, and storage polling every 10 s.
@@ -37,15 +39,18 @@ Cluster costs that disappear:
 ## Storage
 
 - **`workflow_execution`** (existing) gains:
-  - `payload jsonb`, the encoded payload, so a recovery can rerun the body;
+  - `payload json`, the encoded payload, so a recovery can rerun the body;
   - `parent_workflow_name` and `parent_execution_id`, for parent wake-ups;
-  - `result jsonb`, the encoded final `Workflow.Result`;
-  - `interrupted boolean`.
+  - `result json`, the encoded final `Workflow.Result`;
+  - `suspension` (`waiting` or `failed`), so a takeover knows whether to replay;
+  - `owner`, the process that runs it.
   - `shard_id` goes away.
-- **`workflow_step`** (new): `(workflow_name, execution_id, kind, name, attempt, exit jsonb,
-  created_at)`, primary key `(workflow_name, execution_id, kind, name, attempt)`.
+- **`workflow_step`** (new): `(workflow_name, execution_id, kind, name, attempt, exit json,
+fire_at)`, primary key `(workflow_name, execution_id, kind, name, attempt)`.
   - `kind` is `activity`, `deferred` or `clock`.
   - A `clock` row carries `fire_at` and has a null `exit` until it fires.
+- Encoded values use `json`, not `jsonb`. `jsonb` reorders object keys, and the sandbox journal
+  compares replayed entries byte for byte, so a replay after a restart would diverge.
 - **Dropped:** `cluster_messages`, `cluster_replies`, `cluster_locks`, `cluster_runners` and the
   `ryot_cluster_message_fence` trigger.
 
@@ -70,27 +75,29 @@ The state machine is Effect's `layerMemory` engine (`WorkflowEngine.ts`, about 2
 execution a fiber, wake modes, safe and unsafe interrupts, a scope per run so replays rebuild
 finalizers, and parent wake-up on child completion. Persistence is added at these points:
 
-| Operation | Persistence |
-| --- | --- |
-| `execute` | Insert the execution row (`on conflict do nothing`) with root and parent. Inserting under an expired parent root dies. A completed row returns its stored result. Otherwise start the run if it isn't already running in this process. |
-| run start | First run: no reads. Resume after a restart: one query loads all step exits of the execution into memory. |
-| `activityExecute` | Look up the in-memory step cache. On a miss, execute, then insert the step (fenced). A crash between the activity's side effects and the insert reruns the activity, which is today's at-least-once activity semantics. |
-| `deferredDone` | Insert the deferred step (fenced, idempotent on conflict), then wake the execution (in memory, or start a resume if it isn't loaded). |
-| `scheduleClock` | Insert the `clock` step with `fire_at`, then arm an in-memory timer. On fire: set its `exit` and run `deferredDone`. Clocks under `inMemoryThreshold` never reach the engine, as today. |
-| completion | One update: status, `completed_at`, `result`. Wake the parent, then publish the notification. |
-| `interrupt` | Set `interrupted`, then wake, following `layerMemory`'s semantics. |
-| `poll` | In-memory state; else the row's `result`. |
+| Operation         | Persistence                                                                                                                                                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `execute`         | Insert the execution row (`on conflict do nothing`) with root and parent. Inserting under an expired parent root dies. A completed row returns its stored result. Otherwise start the run if it isn't already running in this process. |
+| run start         | First run: no reads. Resume after a restart: one query loads all step exits of the execution into memory.                                                                                                                              |
+| `activityExecute` | Look up the in-memory step cache. On a miss, execute, then insert the step (fenced). A crash between the activity's side effects and the insert reruns the activity, which is today's at-least-once activity semantics.                |
+| `deferredDone`    | Insert the deferred step (fenced, idempotent on conflict), then wake the execution (in memory, or start a resume if it isn't loaded).                                                                                                  |
+| `scheduleClock`   | Insert the `clock` step with `fire_at`, then arm an in-memory timer. On fire: set its `exit` and run `deferredDone`. Clocks under `inMemoryThreshold` never reach the engine, as today.                                                |
+| completion        | One update: status, `completed_at`, `result`. Wake the parent, then publish the notification.                                                                                                                                          |
+| `interrupt`       | Write the `Workflow/InterruptSignal` deferred step, then wake, following `layerMemory`'s semantics.                                                                                                                                    |
+| `poll`            | In-memory state; else the row's `result`.                                                                                                                                                                                              |
 
 Ownership and recovery:
+
 - Several API processes can share one database. `e2e/src/api/kernel/sandbox/global-provider-rate-limiting.test.ts`
   runs two concurrently. The restart tests (history-correction recovery, reminder recovery, import
   durability) need a new process to take over a dead one's executions.
-- Each `workflow_execution` row gets `owner` (a per-process id) and `lease_until`. A process runs only
-  executions it owns. It claims a new execution at insert. It renews all its leases with one heartbeat
-  statement every few seconds.
-- A sweep, at boot and periodically, claims active executions whose lease has expired, then resumes
-  them and arms their unfired clocks. An expired lease plays the role that shard-lock expiry plays
-  today.
+- Each process has a `workflow_runner` row `(id, lease_until)` that it renews every 3 s (10 s
+  lease). Each `workflow_execution` row names its `owner`. A process runs only executions it owns
+  and claims a new execution at insert. Renewal is one single-row update however many executions
+  wait; per-execution leases would rewrite every waiting row each period.
+- A sweep, at boot and every 5 s, claims active executions with no owner or a lapsed owner, then
+  resumes them and arms their unfired clocks. A lapsed runner lease plays the role that shard-lock
+  expiry plays today. Shutdown lapses its own lease so another process takes over at once.
 - **Cross-process wake.** When a process writes a step or a child result for an execution it does
   not own, the same statement calls `pg_notify('ryot_workflow', <identity>)`. Each process listens on
   one dedicated connection and wakes the executions it owns. When the owner is local, the wake is
@@ -98,17 +105,18 @@ Ownership and recovery:
   every 10 s, so this is not a regression.
 
 GC:
+
 - `expireTrees` checks for "no unfired clock step and no active member" instead of unprocessed
   cluster messages.
 - Clearing deletes the tree's `workflow_step` rows and clears `payload`/`result`.
 
 ## Expected cost per step
 
-| | Today (Cluster) | New engine |
-| --- | --- | --- |
-| Activity | ≈6–8 statements over 2–3 transactions, plus a root `FOR UPDATE` | 1 insert (in the caller's connection; no extra transaction) |
-| Workflow start / finish | Message, reply and fence rows, a shard lookup, polling | 1 insert / 1 update |
-| Idle process | ≈11 transactions/s (shard locks, heartbeat, polling) | One lease renewal every few seconds |
+|                         | Today (Cluster)                                                 | New engine                                                  |
+| ----------------------- | --------------------------------------------------------------- | ----------------------------------------------------------- |
+| Activity                | ≈6–8 statements over 2–3 transactions, plus a root `FOR UPDATE` | 1 insert (in the caller's connection; no extra transaction) |
+| Workflow start / finish | Message, reply and fence rows, a shard lookup, polling          | 1 insert / 1 update                                         |
+| Idle process            | ≈11 transactions/s (shard locks, heartbeat, polling)            | One lease renewal every few seconds                         |
 
 ## Testing
 

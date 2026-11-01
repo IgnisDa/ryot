@@ -36,7 +36,8 @@ commit. Provider population composes the import workflow, and external event cre
 before-stage policies before committing pinned after hooks.
 
 Activities and workflows use `makeActivity` and `implementWorkflow` from
-`src/platform/workflow/scope.ts`. `LifecycleExecution.after` and `executePolicy` fail inside activity
+`src/platform/workflow/scope.ts` and run on the kernel's
+[PostgreSQL workflow engine](src/platform/workflow/README.md). `LifecycleExecution.after` and `executePolicy` fail inside activity
 bodies. Public and service-owned event creates await `EventCreateWorkflow`; callers selecting
 `discard: true` poll its result.
 

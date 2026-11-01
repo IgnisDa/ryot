@@ -417,7 +417,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 					},
 				]);
 				expect(yield* fake.healthUpdates).toEqual([
-					{ health: "ready", healthReason: null, id: installationId },
+					{ userId, health: "ready", healthReason: null, id: installationId },
 				]);
 			}),
 		testTimeout,
@@ -511,7 +511,7 @@ layer(
 					},
 				]);
 				expect(yield* fake.healthUpdates).toEqual([
-					{ health: "ready", healthReason: null, id: installationId },
+					{ userId, health: "ready", healthReason: null, id: installationId },
 				]);
 			}),
 		testTimeout,
@@ -632,6 +632,7 @@ layer(workflowLayer({ bootstrap: resolved({ entries: [{ slug: "first", scriptId:
 					expect(yield* fake.executions).toEqual([]);
 					expect(yield* fake.healthUpdates).toEqual([
 						{
+							userId,
 							health: "failed",
 							id: installationId,
 							healthReason: "Plugin installation could not be started",
@@ -661,6 +662,7 @@ layer(
 				const healthUpdates = yield* fake.healthUpdates;
 				expect(healthUpdates).toEqual([
 					{
+						userId,
 						health: "failed",
 						id: installationId,
 						healthReason: "Plugin installation bootstrap failed: first",

@@ -3,8 +3,9 @@ import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { awaitWorkflowSettled } from "./execution-notifications";
+import { makeWorkflowCodecs, WorkflowCodecs } from "./scope";
 
-// The cluster engine records `interrupt` under this deferred and applies it only once a run
+// The engine records `interrupt` under this deferred and applies it only once a run
 // suspends, so work that never suspends must look for it.
 const interruptSignal = DurableDeferred.make("Workflow/InterruptSignal");
 
@@ -12,14 +13,17 @@ export const workflowInterruptRequested = Effect.flatMap(WorkflowEngine, (engine
 	engine.deferredResult(interruptSignal),
 ).pipe(Effect.map(Option.isSome));
 
-const completionWorkflow = (workflow: Workflow.Any, executionId: string) =>
-	Workflow.make(workflow._tag, {
+// Reads only the completion state, so it decodes without the workflow being registered here.
+const completionWorkflow = (workflow: Workflow.Any, executionId: string) => {
+	const completion = Workflow.make(workflow._tag, {
 		error: Schema.Unknown,
 		success: Schema.Unknown,
 		payload: Schema.Struct({}),
 		annotations: workflow.annotations,
 		idempotencyKey: () => executionId,
 	});
+	return completion.annotate(WorkflowCodecs, makeWorkflowCodecs(completion));
+};
 
 export const isWorkflowSettled = Effect.fn("workflow.isSettled")(function* (
 	workflow: Workflow.Any,

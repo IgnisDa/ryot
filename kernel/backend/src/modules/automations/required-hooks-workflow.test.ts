@@ -12,7 +12,7 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { implementWorkflow } from "#platform/workflow/scope";
-import { makeSqlClusterWorkflowEngine } from "#testing/effect";
+import { postgresWorkflowEngineTestLayer } from "#testing/workflow-engine";
 
 import { LifecycleExecutionLive } from "./execution";
 import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
@@ -57,10 +57,9 @@ it.layer(
 	Layer.provideMerge(Layer.merge(BunServices.layer, Reactivity.layer), BunCrypto.layerSecureRandom),
 	{ excludeTestServices: true },
 )((test) => {
-	test.effect("resumes a waiting workflow on the cluster engine when its hooks complete", () =>
+	test.effect("resumes a waiting workflow on the PostgreSQL engine when its hooks complete", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
-				const engineLayer = yield* makeSqlClusterWorkflowEngine();
 				const context = yield* Layer.build(
 					Layer.mergeAll(waitingParentLive, runWorkflowLive).pipe(
 						Layer.provideMerge(
@@ -71,7 +70,7 @@ it.layer(
 						),
 						Layer.provideMerge(WorkflowExecutionNotifications.layer),
 						Layer.provideMerge(operationsLive),
-						Layer.provideMerge(engineLayer),
+						Layer.provideMerge(postgresWorkflowEngineTestLayer),
 						Layer.provideMerge(runControlLayer(1_200)),
 					),
 				);

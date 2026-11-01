@@ -912,7 +912,7 @@ layer(
 						payload: { webhookToken: "webhook-token-1" },
 					}),
 				).toBe("ok");
-				expect(yield* fake.events).toEqual(["lock", "lock", "dispatch"]);
+				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 			}),
 		testTimeout,
 	);

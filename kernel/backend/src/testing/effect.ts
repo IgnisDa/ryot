@@ -1,10 +1,8 @@
-import { BunCrypto, BunServices } from "@effect/platform-bun";
+import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { partialFake } from "@ryot-app/testing/fakes";
-import { randomUuid } from "@ryot-app/testing/random";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
-import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { Workflow } from "effect/workflow";
 import {
 	layerMemory as workflowEngineMemoryLayer,
@@ -12,7 +10,6 @@ import {
 	WorkflowInstance,
 } from "effect/workflow/WorkflowEngine";
 
-import { shardingConfig } from "#boot/workflow-engine";
 import { AppConfig, type AppConfigValue } from "#platform/config/service";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import {
@@ -92,21 +89,6 @@ export const makeWorkflowEngine = (
 	);
 
 export const workflowEngineTestLayer = workflowEngineMemoryLayer;
-
-// The cluster engine persists its messages in a schema private to the calling scope.
-export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
-	const url = Redacted.make(yield* testDatabaseUrl);
-	const admin = yield* PgClient.make({ url });
-	const schemaName = `workflow_${(yield* randomUuid).replaceAll("-", "")}`;
-	yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
-		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
-	);
-	return ClusterWorkflowEngine.layer.pipe(
-		Layer.provide(SingleRunner.layer({ shardingConfig, runnerStorage: "sql" })),
-		Layer.provide(PgClient.layer({ url, startupParameters: { search_path: schemaName } })),
-		Layer.provide(Layer.merge(BunServices.layer, BunCrypto.layerDigest)),
-	);
-});
 
 export const makeRedisService = (
 	overrides: Partial<RedisService["Service"]> = {},

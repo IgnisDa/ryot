@@ -6,3 +6,8 @@ export const WorkflowIdentity = Schema.Struct({
 });
 
 export type WorkflowIdentity = typeof WorkflowIdentity.Type;
+
+export class WorkflowExecutionExpired extends Schema.TaggedError<
+	WorkflowExecutionExpired,
+	{ readonly brand: unique symbol }
+>()("WorkflowExecutionExpired", WorkflowIdentity.fields) {}

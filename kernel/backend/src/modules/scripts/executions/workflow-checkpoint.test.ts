@@ -42,11 +42,8 @@ import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import { RedisService } from "#platform/redis";
 import { implementWorkflow } from "#platform/workflow/scope";
 import { user } from "#schema/tables/auth";
-import {
-	fakeDatabaseSession,
-	makeRedisService,
-	makeSqlClusterWorkflowEngine,
-} from "#testing/effect";
+import { fakeDatabaseSession, makeRedisService } from "#testing/effect";
+import { postgresWorkflowEngineTestLayer } from "#testing/workflow-engine";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import type { ScriptInlineProgress } from "../host/http-progress";
@@ -934,11 +931,10 @@ it.layer(
 	{ excludeTestServices: true },
 )((test) => {
 	test.effect(
-		"reuses a partially settled request through SQL workflow messages and parent resume",
+		"reuses a partially settled request through persisted workflow steps and parent resume",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const engineLayer = yield* makeSqlClusterWorkflowEngine();
 					const h = makeHarness();
 					const dispatches: number[] = [];
 					const resumed = yield* Deferred.make<void>();
@@ -1000,9 +996,9 @@ it.layer(
 						}),
 					);
 					const workflows = Layer.mergeAll(parentLayer, childLayer).pipe(
-						Layer.provide(references.pipe(Layer.provide(engineLayer))),
+						Layer.provide(references.pipe(Layer.provide(postgresWorkflowEngineTestLayer))),
 						Layer.provide(h.dependencies),
-						Layer.provideMerge(engineLayer),
+						Layer.provideMerge(postgresWorkflowEngineTestLayer),
 					);
 					yield* Layer.build(workflows).pipe(
 						Effect.flatMap((context) =>
@@ -1061,7 +1057,6 @@ it.layer(
 	])("keeps only necessary app body activations for $kind", ({ child, checkpointCount }) =>
 		Effect.scoped(
 			Effect.gen(function* () {
-				const engineLayer = yield* makeSqlClusterWorkflowEngine();
 				const h = makeHarness();
 				const signal = DurableDeferred.make("checkpoint-test-release", { success: Schema.Void });
 				const checkpointsReady = yield* Deferred.make<void>();
@@ -1125,7 +1120,7 @@ it.layer(
 				const workflows = Layer.merge(parent, childWorkflow).pipe(
 					Layer.provide(dispatcher),
 					Layer.provide(h.dependencies),
-					Layer.provideMerge(engineLayer),
+					Layer.provideMerge(postgresWorkflowEngineTestLayer),
 				);
 				const context = yield* Layer.build(workflows);
 				yield* Effect.gen(function* () {
