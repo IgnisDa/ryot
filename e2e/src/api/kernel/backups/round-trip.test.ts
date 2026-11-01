@@ -711,7 +711,7 @@ describe("backup export and restore round trip", () => {
 
 			const builtinView = yield* findBuiltinSavedView(source.client, {
 				kind: "plugin",
-				slug: "all-persons",
+				slug: "all-people",
 				pluginId: sourceMediaInstallation.pluginId,
 			});
 			const targetMediaInstallation = yield* findPluginInstallationByPackage(target.client, {

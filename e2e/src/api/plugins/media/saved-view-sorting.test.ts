@@ -191,7 +191,7 @@ describe("Media saved-view sorting", () => {
 					yield* savedViewIds(
 						client,
 						fewer.pluginId,
-						slug === "person" ? "all-persons" : "all-companies",
+						slug === "person" ? "all-people" : "all-companies",
 					),
 				).toEqual([more.id, fewer.id]);
 			}),

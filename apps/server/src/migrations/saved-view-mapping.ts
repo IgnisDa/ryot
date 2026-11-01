@@ -38,7 +38,7 @@ export const legacySavedViewTargets = {
 	kernel: ["collections", "calendar"],
 	fitness: ["all-exercises", "all-workouts", "all-workout-templates", "all-measurements"],
 	media: [
-		"all-persons",
+		"all-people",
 		"all-companies",
 		...mediaViewMappings.map(({ savedViewSlug }) => savedViewSlug),
 		...mediaGroupSavedViewSlugs,
@@ -48,7 +48,7 @@ export const legacySavedViewTargets = {
 const hiddenExpressionBySlug = new Map<string, string>([
 	["calendar", `NOT ${featurePreference("others,calendar")}`],
 	["collections", `NOT ${featurePreference("others,collections")}`],
-	["all-persons", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
+	["all-people", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
 	["all-companies", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
 	...mediaGroupSavedViewSlugs.map(
 		(slug) => [slug, `NOT (${mediaEnabled} AND ${featurePreference("media,groups")})`] as const,
