@@ -5,7 +5,7 @@ use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use axum::{
     Extension, Json,
     body::Body,
-    extract::{Multipart, Path},
+    extract::{FromRequest, Multipart, Path, Request},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE, PRAGMA},
@@ -51,11 +51,39 @@ pub async fn upload_file_handler(
     Ok(Json(serde_json::json!(res)))
 }
 
+async fn read_webhook_payload(request: Request) -> StdResult<String, StatusCode> {
+    let is_multipart = request
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("multipart/form-data"));
+    if !is_multipart {
+        let bytes = axum::body::to_bytes(request.into_body(), usize::MAX)
+            .await
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        return String::from_utf8(bytes.to_vec()).map_err(|_| StatusCode::BAD_REQUEST);
+    }
+    let mut multipart = Multipart::from_request(request, &())
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+    {
+        if field.name() == Some("payload") {
+            return field.text().await.map_err(|_| StatusCode::BAD_REQUEST);
+        }
+    }
+    Err(StatusCode::BAD_REQUEST)
+}
+
 pub async fn integration_webhook_handler(
     Path(integration_slug): Path<String>,
     Extension(ss): Extension<Arc<SupportingService>>,
-    payload: String,
+    request: Request,
 ) -> StdResult<(StatusCode, String), StatusCode> {
+    let payload = read_webhook_payload(request).await?;
     ss.perform_application_job(ApplicationJob::Single(
         SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
     ))
