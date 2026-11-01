@@ -151,6 +151,28 @@ pub async fn commit_import_seen_item(
         return Ok(());
     }
 
+    let is_finished = input.progress.is_some_and(|p| p >= dec!(100));
+    if in_progress_cache.is_none() && is_finished {
+        metadata_progress_update(
+            user_id,
+            ss,
+            MetadataProgressUpdateInput {
+                metadata_id: metadata_id.to_owned(),
+                change: MetadataProgressUpdateChange::CreateNewCompleted(
+                    MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common),
+                ),
+            },
+        )
+        .await?;
+        cache_service::set_key(
+            ss,
+            completed_cache_key,
+            ApplicationCacheValue::MetadataProgressUpdateCompletedCache(EmptyCacheValue::default()),
+        )
+        .await?;
+        return Ok(());
+    }
+
     if in_progress_cache.is_none() {
         ryot_log!(
             debug,
@@ -185,14 +207,16 @@ pub async fn commit_import_seen_item(
             metadata_id
         );
 
-        cache_service::set_key(ss, in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
+        cache_service::set_key(ss, in_progress_cache_key.clone(), ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
         ryot_log!(
             debug,
             "[1611 SEEN {}] Completed commit_import_seen_item for: {}",
             seen_execution_id,
             metadata_id
         );
-        return Ok(());
+        if input.progress.is_none_or(|p| p <= dec!(0)) {
+            return Ok(());
+        }
     }
 
     if let Some(progress) = input.progress {
