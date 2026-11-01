@@ -45,6 +45,13 @@ nothing. Observe with `systemctl status` / `journalctl -u`.
 4. **Redesign slices.** Each slice states the expected effect, is measured before/after with the
    same probes, and keeps product behavior.
 
+## Findings and plan
+
+- [`strategy.md`](strategy.md): diagnosis, target design, ordered slices.
+- [`probes.md`](probes.md): per-flow measurements and the backend CPU profile.
+- [`durability-requirements.md`](durability-requirements.md): guarantees the product tests.
+- [`reading-event-create.md`](reading-event-create.md), [`reading-import-population.md`](reading-import-population.md): code readings.
+
 ## Log
 
 See [`log.md`](log.md).
