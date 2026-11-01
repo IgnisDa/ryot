@@ -27,6 +27,8 @@ describe("Plex sink webhook", () => {
 			{
 				input: {
 					name: "Plex sink",
+					minimumProgress: "0",
+					maximumProgress: "100",
 					provider: IntegrationProvider.PlexSink,
 					extraSettings: { disableOnContinuousErrors: false },
 					providerSpecifics: { plexSinkUsername: "plex-test-user" },
@@ -57,7 +59,7 @@ describe("Plex sink webhook", () => {
 		});
 
 	const postWebhook = (integrationId: string, body: FormData) =>
-		fetch(`${url}/webhooks/integrations/${integrationId}`, {
+		fetch(`${url}/backend/webhooks/integrations/${integrationId}`, {
 			body,
 			method: "POST",
 		});
@@ -104,17 +106,20 @@ describe("Plex sink webhook", () => {
 		expect(response.status).toBe(400);
 	});
 
-	it("completes an item when a scrobble is the only event that succeeds", async () => {
-		const { apiKey, integrationId } = await setupUser();
-		const form = new FormData();
-		form.append("payload", buildPayload("media.scrobble"));
-		const response = await postWebhook(integrationId, form);
-		expect(response.status).toBe(202);
+	it.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
+		"completes an item when a scrobble is the only event that succeeds",
+		async () => {
+			const { apiKey, integrationId } = await setupUser();
+			const form = new FormData();
+			form.append("payload", buildPayload("media.scrobble"));
+			const response = await postWebhook(integrationId, form);
+			expect(response.status).toBe(202);
 
-		const items = await waitForCompletedHistory(apiKey);
-		expect(items.inProgress ?? null).toBeNull();
-		expect(items.history).toHaveLength(1);
-		expect(items.history[0].state).toBe(SeenState.Completed);
-		expect(items.history[0].progress).toBe("100");
-	});
+			const items = await waitForCompletedHistory(apiKey);
+			expect(items.inProgress ?? null).toBeNull();
+			expect(items.history).toHaveLength(1);
+			expect(items.history[0].state).toBe(SeenState.Completed);
+			expect(items.history[0].progress).toBe("100");
+		},
+	);
 });
