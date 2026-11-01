@@ -288,6 +288,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 					userId: payload.userId,
 					references: prepared.references,
 					items: yield* eventPolicyItems(prepared),
+					propertiesSchemas: prepared.propertiesSchemas,
 				}).pipe(
 					Effect.catchTag(
 						"PolicyBatchBlocked",

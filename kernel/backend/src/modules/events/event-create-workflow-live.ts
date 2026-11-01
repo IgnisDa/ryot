@@ -158,13 +158,14 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 				resource: "event",
 				userId: payload.userId,
 				references: prepared.references,
+				propertiesSchemas: prepared.propertiesSchemas,
 				command: {
 					...payload.command,
 					itemIdentity: `${payload.command.itemIdentity}:policies:${first}`,
 				},
 				items: prepared.items.map((item) => ({
 					itemIdentity: item.change.itemIdentity,
-					propertiesSchema: item.propertiesSchema,
+					schemaKey: item.schemaFingerprint.digest,
 					request: {
 						draft: item.draft,
 						resource: "event" as const,

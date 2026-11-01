@@ -51,7 +51,6 @@ export const PreparedEventChange = Schema.Struct({
 	position: Schema.Int,
 	change: EventMutationChange,
 	draft: AutomationEventDraft,
-	propertiesSchema: AppSchema,
 	receipt: MutationReceiptIdentity,
 	schemaFingerprint: CatalogDefinitionFingerprint,
 	source: Schema.NullOr(Schema.Struct({ revision: Schema.Int, snapshot: AutomationEventSnapshot })),
@@ -69,6 +68,7 @@ export const PreparedEventChange = Schema.Struct({
 export const PreparedEventChanges = Schema.Struct({
 	items: Schema.Array(PreparedEventChange),
 	references: Schema.Record(EntityId, AutomationEntityDraft),
+	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
 	failures: Schema.Array(
 		Schema.Struct({ itemIdentity: Schema.String, reason: EventCreateFailureReason }),
 	),
@@ -118,7 +118,7 @@ export const eventPolicyItems = Effect.fnUntraced(function* (prepared: PreparedE
 		Effect.gen(function* () {
 			const common = {
 				itemIdentity: item.change.itemIdentity,
-				propertiesSchema: item.propertiesSchema,
+				schemaKey: item.schemaFingerprint.digest,
 			};
 			if (item.change.kind === "create") {
 				return {
@@ -403,10 +403,13 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					}).pipe(Effect.result),
 				);
 				const items: Array<typeof PreparedEventChange.Type> = [];
+				const propertiesSchemas: Record<string, AppSchema> = {};
 				const failures: Array<(typeof PreparedEventChanges.Type.failures)[number]> = [];
 				for (const [index, result] of prepared.entries()) {
 					if (result._tag === "Success") {
-						items.push(result.success);
+						const { propertiesSchema, ...item } = result.success;
+						items.push(item);
+						propertiesSchemas[item.schemaFingerprint.digest] = propertiesSchema;
 						continue;
 					}
 					const error = result.failure;
@@ -423,7 +426,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							error._tag === "EventCreateItemError" ? error.reason : { code: "invalid-properties" },
 					});
 				}
-				return { items, failures, references: scopes.references };
+				return { items, failures, propertiesSchemas, references: scopes.references };
 			});
 			const persist = Effect.fn("EventMutations.persist")(function* (input: {
 				userId: UserId;

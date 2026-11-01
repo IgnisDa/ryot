@@ -24,7 +24,7 @@ import { LifecyclePlannedPolicy, LifecyclePlanner } from "./planning";
 import { applyLifecyclePolicyPatch, canonicalLifecyclePolicyPatch } from "./policy-patch";
 
 export const PolicyBatchItem = Schema.Struct({
-	propertiesSchema: AppSchema,
+	schemaKey: Schema.String,
 	request: AutomationRequestPayload,
 	itemIdentity: Schema.NonEmptyString,
 });
@@ -62,6 +62,7 @@ export const PolicyBatchPayload = Schema.Struct({
 	command: DomainLifecycleCommand,
 	items: Schema.Array(PolicyBatchItem),
 	references: Schema.Record(EntityId, AutomationEntityDraft),
+	propertiesSchemas: Schema.Record(Schema.String, AppSchema),
 	resource: Schema.Literals(["entity", "event", "relationship"]),
 });
 export const PolicyBatchWorkflow = Workflow.make("PolicyBatchWorkflow", {
@@ -136,6 +137,12 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 			rejected: null,
 		})),
 	};
+	const propertiesSchemaOf = (item: typeof PolicyBatchItem.Type) => {
+		const schema = input.propertiesSchemas[item.schemaKey];
+		return schema === undefined
+			? Effect.fail(new DbError({ message: "Policy batch item schema is unavailable" }))
+			: Effect.succeed(schema);
+	};
 	const ordered = [...plan.policies].sort((left, right) => {
 		const a = plan.runs.find((run) => run.id === left.runId);
 		const b = plan.runs.find((run) => run.id === right.runId);
@@ -189,13 +196,12 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 						if (!patched.ok || patched.request.operation === "delete") {
 							return { ...item, processed, error: { code: "invalid-policy-transform" as const } };
 						}
+						const propertiesSchema = yield* propertiesSchemaOf(item);
 						const properties = yield* parseAppSchemaProperties({
 							kind: "Mutation",
-							propertiesSchema: item.propertiesSchema,
+							propertiesSchema,
 							properties: patched.request.draft.properties,
-							allowedMissingRequiredPaths: Object.keys(item.propertiesSchema.fields).map((key) => [
-								key,
-							]),
+							allowedMissingRequiredPaths: Object.keys(propertiesSchema.fields).map((key) => [key]),
 						}).pipe(Effect.result);
 						if (properties._tag === "Failure") {
 							return { ...item, processed, error: { code: "invalid-properties" as const } };
@@ -279,8 +285,8 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 					}
 					const parsed = yield* parseAppSchemaProperties({
 						kind: "Mutation",
-						propertiesSchema: item.propertiesSchema,
 						properties: item.request.draft.properties,
+						propertiesSchema: yield* propertiesSchemaOf(item),
 					}).pipe(Effect.result);
 					return parsed._tag === "Failure"
 						? { ...item, error: { code: "invalid-properties" as const } }
