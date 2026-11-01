@@ -150,8 +150,8 @@ impl UserManagementMutationResolver {
         gql_ctx: &Context<'_>,
         access_link_id: String,
     ) -> Result<bool> {
-        let (service, _) = self.dependency_and_user(gql_ctx).await?;
-        Ok(authentication_operations::revoke_access_link(service, access_link_id).await?)
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(authentication_operations::revoke_access_link(service, &user_id, access_link_id).await?)
     }
 
     /// Generate a user impersonation link. Requires admin access token.

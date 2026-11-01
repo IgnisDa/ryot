@@ -28,5 +28,5 @@
 In development, both servers are started independently running on `:3000` and `:5000`
 respectively and reverse proxied at `:8000`.
 
-If you want to work on exporting, then you need to also have [Minio](https://min.io/)
+If you want to work on exporting, then you need to also have [RustFS](https://rustfs.com/)
 installed and running on `localhost:9000`.

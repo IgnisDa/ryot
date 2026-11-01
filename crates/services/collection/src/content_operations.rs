@@ -12,6 +12,7 @@ use database_models::{
     review, seen, user_to_entity, workout, workout_template,
 };
 use database_utils::{apply_columns_search, extract_pagination_params, item_reviews, user_by_id};
+use dependent_collection_utils::is_collection_member;
 use dependent_models::{
     ApplicationCacheKey, ApplicationCacheValue, BasicUserDetails, CachedResponse,
     CollectionContents, CollectionContentsInput, CollectionContentsResponse, SearchResults,
@@ -145,6 +146,9 @@ pub async fn collection_contents(
             let Some(details) = maybe_collection else {
                 bail!("Collection not found");
             };
+            if !is_collection_member(user_id, &details.id, ss).await? {
+                bail!("Collection not found");
+            }
             if let Some(entity_lot) = filter.entity_lot
                 && matches!(
                     entity_lot,

@@ -26,7 +26,7 @@ use media_models::CreateOrUpdateCollectionInput;
 use rust_decimal::{Decimal, dec};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, FromQueryResult, IntoActiveModel,
-    Iterable, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
+    Iterable, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect, TransactionTrait, prelude::Expr,
     sea_query::OnConflict,
 };
 use supporting_service::SupportingService;
@@ -37,6 +37,19 @@ struct CollectionEntityRank {
     id: Uuid,
     rank: Decimal,
     entity_id: String,
+}
+
+pub async fn is_collection_member(
+    user_id: &str,
+    collection_id: &str,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let count = UserToEntity::find()
+        .filter(user_to_entity::Column::UserId.eq(user_id))
+        .filter(user_to_entity::Column::CollectionId.eq(collection_id))
+        .count(&ss.db)
+        .await?;
+    Ok(count > 0)
 }
 
 async fn add_single_entity_to_collection(
@@ -154,7 +167,13 @@ pub async fn create_or_update_collection(
             let id = match input.update_id {
                 None => ActiveValue::NotSet,
                 Some(i) => {
-                    let already = Collection::find_by_id(i.clone()).one(&txn).await?.unwrap();
+                    let Some(already) = Collection::find_by_id(i.clone())
+                        .filter(collection::Column::UserId.eq(user_id))
+                        .one(&txn)
+                        .await?
+                    else {
+                        bail!("Collection not found");
+                    };
                     if DefaultCollection::iter()
                         .map(|s| s.to_string())
                         .collect_vec()
@@ -236,13 +255,17 @@ async fn remove_single_entity_from_collection(
     creator_user_id: &String,
     ss: &Arc<SupportingService>,
 ) -> Result<bool> {
-    let collect = Collection::find()
-        .left_join(UserToEntity)
+    let Some(collect) = Collection::find()
         .filter(collection::Column::Name.eq(collection_name))
-        .filter(user_to_entity::Column::UserId.eq(creator_user_id))
+        .filter(collection::Column::UserId.eq(creator_user_id))
         .one(&ss.db)
         .await?
-        .unwrap();
+    else {
+        bail!("Collection not found");
+    };
+    if !is_collection_member(user_id, &collect.id, ss).await? {
+        bail!("Collection not found");
+    }
     CollectionToEntity::delete_many()
         .filter(collection_to_entity::Column::CollectionId.eq(collect.id.clone()))
         .filter(collection_to_entity::Column::EntityId.eq(entity.entity_id.clone()))

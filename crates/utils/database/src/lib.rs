@@ -45,6 +45,21 @@ pub async fn revoke_access_link(
     Ok(true)
 }
 
+pub async fn revoke_user_access_link(
+    user_id: &str,
+    access_link_id: String,
+    ss: &Arc<SupportingService>,
+) -> Result<bool> {
+    let Some(link) = AccessLink::find_by_id(access_link_id)
+        .filter(access_link::Column::UserId.eq(user_id))
+        .one(&ss.db)
+        .await?
+    else {
+        bail!("Access link not found");
+    };
+    revoke_access_link(link.id, ss).await
+}
+
 pub fn apply_columns_search<D>(
     value: &str,
     query: Select<D>,

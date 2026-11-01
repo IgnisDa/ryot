@@ -29,6 +29,43 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
+fn completed_change(
+    started_on: Option<DateTimeUtc>,
+    ended_on: Option<DateTimeUtc>,
+    common: MetadataProgressUpdateCommonInput,
+) -> MetadataProgressUpdateChangeCreateNewCompletedInput {
+    match (started_on, ended_on) {
+        (Some(started_on), Some(finished_on)) => {
+            MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
+                MetadataProgressUpdateStartedAndFinishedOnDateInput {
+                    started_on,
+                    data: MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                        common,
+                        timestamp: finished_on,
+                    },
+                },
+            )
+        }
+        (Some(started_on), None) => {
+            MetadataProgressUpdateChangeCreateNewCompletedInput::StartedOnDate(
+                MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                    common,
+                    timestamp: started_on,
+                },
+            )
+        }
+        (None, Some(finished_on)) => {
+            MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
+                MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                    common,
+                    timestamp: finished_on,
+                },
+            )
+        }
+        (None, None) => MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common),
+    }
+}
+
 // TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
 pub async fn commit_import_seen_item(
     is_import: bool,
@@ -56,38 +93,7 @@ pub async fn commit_import_seen_item(
         podcast_episode_number: input.podcast_episode_number,
     };
     if is_import {
-        let change_inner = match (input.started_on, input.ended_on) {
-            (Some(started_on), Some(finished_on)) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
-                    MetadataProgressUpdateStartedAndFinishedOnDateInput {
-                        started_on,
-                        data: MetadataProgressUpdateStartedOrFinishedOnDateInput {
-                            common,
-                            timestamp: finished_on,
-                        },
-                    },
-                )
-            }
-            (Some(started_on), None) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedOnDate(
-                    MetadataProgressUpdateStartedOrFinishedOnDateInput {
-                        common,
-                        timestamp: started_on,
-                    },
-                )
-            }
-            (None, Some(finished_on)) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
-                    MetadataProgressUpdateStartedOrFinishedOnDateInput {
-                        common,
-                        timestamp: finished_on,
-                    },
-                )
-            }
-            (None, None) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common)
-            }
-        };
+        let change_inner = completed_change(input.started_on, input.ended_on, common);
         let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
         ryot_log!(
             debug,
@@ -151,6 +157,30 @@ pub async fn commit_import_seen_item(
         return Ok(());
     }
 
+    let is_finished = input.progress.is_some_and(|p| p >= dec!(100));
+    if in_progress_cache.is_none() && is_finished {
+        metadata_progress_update(
+            user_id,
+            ss,
+            MetadataProgressUpdateInput {
+                metadata_id: metadata_id.to_owned(),
+                change: MetadataProgressUpdateChange::CreateNewCompleted(completed_change(
+                    input.started_on,
+                    input.ended_on,
+                    common,
+                )),
+            },
+        )
+        .await?;
+        cache_service::set_key(
+            ss,
+            completed_cache_key,
+            ApplicationCacheValue::MetadataProgressUpdateCompletedCache(EmptyCacheValue::default()),
+        )
+        .await?;
+        return Ok(());
+    }
+
     if in_progress_cache.is_none() {
         ryot_log!(
             debug,
@@ -185,14 +215,16 @@ pub async fn commit_import_seen_item(
             metadata_id
         );
 
-        cache_service::set_key(ss, in_progress_cache_key, ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
+        cache_service::set_key(ss, in_progress_cache_key.clone(), ApplicationCacheValue::MetadataProgressUpdateInProgressCache(EmptyCacheValue::default())).await?;
         ryot_log!(
             debug,
             "[1611 SEEN {}] Completed commit_import_seen_item for: {}",
             seen_execution_id,
             metadata_id
         );
-        return Ok(());
+        if input.progress.is_none_or(|p| p <= dec!(0)) {
+            return Ok(());
+        }
     }
 
     if let Some(progress) = input.progress {
