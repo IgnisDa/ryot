@@ -18,6 +18,8 @@ export const createSha256Hasher = () => createHasher("sha256");
 
 export const sha256Hex = (value: HashInput) => createSha256Hasher().update(value).digest("hex");
 
+export const sha1Hex = (value: HashInput) => createHasher("sha1").update(value).digest("hex");
+
 export const sha256Base64Url = (value: HashInput) =>
 	createSha256Hasher().update(value).digest("base64url");
 

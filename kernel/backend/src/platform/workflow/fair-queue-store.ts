@@ -1,4 +1,5 @@
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { sha1Hex } from "@ryot-app/ts-utils/crypto";
 import {
 	Cause,
 	Clock,
@@ -38,6 +39,8 @@ const LOCK_EXPIRATION_MS = 90_000;
 const LOCK_RENEWAL_INTERVAL_MS = 30_000;
 const LOCK_SWEEP_INTERVAL_MS = 30_000;
 const DISPATCHER_RETRY_SPACING_MS = 500;
+// Local offers wake the dispatcher, so polling only finds remote offers and due retries.
+const IDLE_POLL_MAX_MS = 1_000;
 const interactive = "interactive" satisfies ExecutionLane;
 const background = "background" satisfies ExecutionLane;
 // Mirrors the tag the persisted queue factory puts on a take that fails to decode its element.
@@ -364,6 +367,7 @@ type Taker = { item: Taken | undefined; readonly deferred: Deferred.Deferred<Tak
 
 type QueueState = {
 	starved: number;
+	idlePolls: number;
 	maxAttempts: number;
 	readonly kick: Latch.Latch;
 	readonly takers: Array<Taker>;
@@ -385,11 +389,21 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 	const states = new Map<string, QueueState>();
 	const activeLocks = new Set<string>();
 
+	const shas = new Map<string, string>();
 	const command = (
 		script: string,
 		keys: ReadonlyArray<string>,
 		args: ReadonlyArray<string | number>,
-	) => redisCall(() => client.eval(script, keys.length, ...keys, ...args));
+	) => {
+		const sha = shas.get(script) ?? sha1Hex(script);
+		shas.set(script, sha);
+		return redisCall(() => client.evalsha(sha, keys.length, ...keys, ...args)).pipe(
+			Effect.catchIf(
+				(error) => error.cause instanceof Error && error.cause.message.startsWith("NOSCRIPT"),
+				() => redisCall(() => client.eval(script, keys.length, ...keys, ...args)),
+			),
+		);
+	};
 
 	const resilient = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		effect.pipe(
@@ -463,9 +477,15 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 		);
 		const taken = yield* decodeTaken(response);
 		if (taken === null) {
-			yield* Effect.race(Effect.sleep(pollInterval), state.kick.await);
+			const delay = Math.min(
+				Duration.toMillis(pollInterval) * 2 ** state.idlePolls,
+				IDLE_POLL_MAX_MS,
+			);
+			state.idlePolls = Math.min(state.idlePolls + 1, 16);
+			yield* Effect.race(Effect.sleep(Duration.millis(delay)), state.kick.await);
 			return;
 		}
+		state.idlePolls = 0;
 		yield* handOff(name, state, taken);
 	});
 
@@ -490,6 +510,7 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 				starved: 0,
 				takers: [],
 				maxAttempts,
+				idlePolls: 0,
 				kick: Latch.makeUnsafe(false),
 				inflight: { background: 0, interactive: 0 },
 			};
