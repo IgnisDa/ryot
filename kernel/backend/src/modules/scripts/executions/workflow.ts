@@ -23,7 +23,7 @@ import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { sanitizeSandboxExecutionSegment } from "@ryot-app/sandbox/host/filesystem-grants";
 import { sandboxMetricKind } from "@ryot-app/sandbox/host/metrics";
 import { SANDBOX_LIMITS, sandboxWorkflowJournalByteError } from "@ryot-app/sandbox/protocol/limits";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { jsonValueEquals, stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
@@ -387,7 +387,7 @@ const sameRequestIdentity = (
 	recorded.index === requested.index &&
 	recorded.kind === requested.kind &&
 	recorded.name === requested.name &&
-	hashWorkflowCallArgs(recorded.args) === hashWorkflowCallArgs(requested.args);
+	jsonValueEquals(recorded.args, requested.args);
 
 /**
  * `inline` holds the entries the replay settled after the journal it loaded; the envelope must

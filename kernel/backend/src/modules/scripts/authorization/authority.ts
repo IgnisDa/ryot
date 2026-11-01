@@ -1,7 +1,7 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { jsonValueEquals } from "@ryot-app/ts-utils/json";
 import { Effect, Layer, Schema } from "effect";
 
 import { SandboxRepository } from "../registry/repository";
@@ -19,12 +19,21 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 	SandboxExecutionAuthority,
 	Effect.gen(function* () {
 		const repository = yield* SandboxRepository;
+		// Decoding is pure, and a run passes the same principal object to each of its host calls.
+		const decoded = new WeakMap<SandboxPrincipal, ScriptExecutionPrincipal>();
+		const decode = (principal: SandboxPrincipal) => {
+			const known = decoded.get(principal);
+			return known
+				? Effect.succeed(known)
+				: Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
+						Effect.tap((validated) => Effect.sync(() => decoded.set(principal, validated))),
+						Effect.mapError(invalidPin),
+					);
+		};
 		const resolve = Effect.fn("SandboxExecutionAuthority.resolve")(function* (
 			principal: SandboxPrincipal,
 		) {
-			const validated = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
-				Effect.mapError(invalidPin),
-			);
+			const validated = yield* decode(principal);
 			const pinned = yield* repository
 				.getScriptPin(
 					validated.scriptId,
@@ -40,7 +49,7 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 				...pinned,
 				subject: validated.subject,
 			}).pipe(Effect.mapError(invalidPin));
-			if (stableStringify(stored) !== stableStringify(validated)) {
+			if (!jsonValueEquals(stored, validated)) {
 				return yield* invalidPin();
 			}
 			if (validated.pluginRevision !== null) {

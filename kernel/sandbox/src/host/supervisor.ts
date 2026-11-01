@@ -3,7 +3,7 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { exponentialBackoffMs } from "@ryot-app/ts-utils/backoff";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import { jsonValueEquals } from "@ryot-app/ts-utils/json";
 import {
 	Cause,
 	Clock,
@@ -179,9 +179,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			const protections = new WeakMap<
 				SandboxAdmissionLease["Service"],
 				{
-					readonly principal: string;
 					readonly lane: ExecutionLane;
 					readonly protection: Protection;
+					readonly principal: SandboxPrincipal;
 				}
 			>();
 			const parent = yield* Effect.scope;
@@ -877,7 +877,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							}),
 						)
 					: reservation;
-				protections.set(lease, { lane, protection, principal: stableStringify(principal) });
+				protections.set(lease, { lane, principal, protection });
 				return lease;
 			});
 
@@ -890,7 +890,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				if (
 					protectedLease === undefined ||
 					protectedLease.lane !== options.lane ||
-					protectedLease.principal !== stableStringify(options.principal)
+					!jsonValueEquals(protectedLease.principal, options.principal)
 				) {
 					return yield* new SandboxRunError({
 						kind: "invalid-input",
