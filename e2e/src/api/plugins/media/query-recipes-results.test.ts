@@ -443,7 +443,7 @@ describe("Media RyotQL query recipe results", () => {
 		}),
 	);
 
-	it.live("reconstructs show overview credits, companies and outgoing suggestions", () =>
+	it.live("reads overview credits and suggestions with per-user library membership", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
@@ -564,21 +564,28 @@ describe("Media RyotQL query recipe results", () => {
 				}),
 			]);
 
-			const overview = yield* executeRyotQLRecipe(
-				client,
-				showRecipes.overviewRecipe({
-					reference,
-					peopleLimit: 12,
-					companyLimit: 6,
-					entityId: show.id,
-					recommendationLimit: 12,
-				}),
-			);
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			yield* Effect.all([
+				insertLibraryMembership(client, { mediaEntityId: lead.id }),
+				insertLibraryMembership(client, { mediaEntityId: studio.id }),
+				insertLibraryMembership(client, { mediaEntityId: suggestedFirst.id }),
+				insertLibraryMembership(otherClient, { mediaEntityId: suggestedSecond.id }),
+			]);
+
+			const overviewRecipe = showRecipes.overviewRecipe({
+				reference,
+				peopleLimit: 12,
+				companyLimit: 6,
+				entityId: show.id,
+				recommendationLimit: 12,
+			});
+			const overview = yield* executeRyotQLRecipe(client, overviewRecipe);
 
 			expect(overview.people.items.map((person) => person.name)).toEqual([lead.name, writer.name]);
 			const leadCredit = overview.people.items[0];
 			assertPresent(leadCredit, "Expected the lead credit");
 			expect(leadCredit.order).toBe(1);
+			expect(leadCredit.isInMediaLibrary).toBe(true);
 			expect(leadCredit.character).toBe("Jamie");
 			expect(leadCredit.roles).toEqual(["Actor"]);
 			expect(leadCredit.images).toEqual([
@@ -587,6 +594,7 @@ describe("Media RyotQL query recipe results", () => {
 			const writerCredit = overview.people.items[1];
 			assertPresent(writerCredit, "Expected the writer credit");
 			expect(writerCredit.character).toBeNull();
+			expect(writerCredit.isInMediaLibrary).toBe(false);
 			expect(writerCredit.roles).toEqual(["Writer", "Creator"]);
 			expect(overview.companies.items.map((company) => company.name)).toEqual([
 				studio.name,
@@ -595,6 +603,7 @@ describe("Media RyotQL query recipe results", () => {
 			const studioCredit = overview.companies.items[0];
 			assertPresent(studioCredit, "Expected the studio credit");
 			expect(studioCredit.roles).toEqual(["Production Company"]);
+			expect(overview.companies.items.map((item) => item.isInMediaLibrary)).toEqual([true, false]);
 			expect(studioCredit.images).toEqual([
 				{ type: "remote", purpose: "logo", url: "https://images.test/studio-logo.png" },
 			]);
@@ -609,6 +618,23 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(suggestedA, "Expected the first suggestion");
 			expect(suggestedA.images).toEqual([
 				{ type: "remote", purpose: "cover", url: "https://images.test/suggested-a.jpg" },
+			]);
+			expect(overview.recommendations.items.map((item) => item.isInMediaLibrary)).toEqual([
+				true,
+				false,
+			]);
+			const otherOverview = yield* executeRyotQLRecipe(otherClient, overviewRecipe);
+			expect(otherOverview.people.items.map((item) => item.isInMediaLibrary)).toEqual([
+				false,
+				false,
+			]);
+			expect(otherOverview.companies.items.map((item) => item.isInMediaLibrary)).toEqual([
+				false,
+				false,
+			]);
+			expect(otherOverview.recommendations.items.map((item) => item.isInMediaLibrary)).toEqual([
+				false,
+				true,
 			]);
 		}),
 	);
