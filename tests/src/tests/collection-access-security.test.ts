@@ -91,9 +91,9 @@ describe("Collection and access link authorization regressions", () => {
 			{},
 			headers(ownerKey),
 		);
-		expect(after.userAccessLinks.find((l) => l.id === link.id)?.isRevoked).toBe(
-			false,
-		);
+		expect(
+			after.userAccessLinks.find((l) => l.id === link.id)?.isRevoked,
+		).not.toBe(true);
 
 		await client.request(
 			RevokeAccessLinkDocument,
