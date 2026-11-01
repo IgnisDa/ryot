@@ -90,8 +90,8 @@ const fakeLayer = Layer.unwrap(
 				manifest: fixtureManifest(packageId),
 				installationId: "install-sandbox-user",
 				pluginRevisionId: installed.pluginRevision.revisionId,
-				compiledHashes: installed.pluginRevision.compiledHashes,
 				pluginConfigRevisionId: installed.pluginRevision.configRevisionId,
+				compiledHashes: { [installed.compiled.manifest.slug]: installed.contentHash },
 			},
 		};
 		return Layer.mergeAll(

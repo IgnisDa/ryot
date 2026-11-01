@@ -28,6 +28,8 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
+import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
@@ -75,6 +77,7 @@ const applyCase = (
 	chunk: GenericImportChunk,
 	cancelled = false,
 	pluginRevision: ScriptPluginRevision = ingestionTestSource.pluginRevision,
+	entitySchemaSlugs: ReadonlyArray<string> = [],
 ) =>
 	Effect.gen(function* () {
 		const batches = new Map<string, IngestionBatch>();
@@ -180,6 +183,9 @@ const applyCase = (
 			Layer.mock(EntitiesRepository)({}),
 			Layer.mock(RelationshipsService)({}),
 			Layer.mock(CollectionsService)({}),
+			Layer.mock(SandboxRepository)({
+				getSchemaScope: () => Effect.succeed({ ...emptySchemaScope, entitySchemaSlugs }),
+			}),
 		);
 		const payload = {
 			...ingestionTestScope,
@@ -293,13 +299,8 @@ it.effect(
 					],
 				},
 				false,
-				{
-					...ingestionTestSource.pluginRevision,
-					schemaScope: {
-						...ingestionTestSource.pluginRevision.schemaScope,
-						entitySchemaSlugs: ["collection"],
-					},
-				},
+			ingestionTestSource.pluginRevision,
+			["collection"],
 			);
 			expect(result.first.confirmed).toEqual([]);
 			expect(result.first.summary).toEqual([
@@ -344,15 +345,8 @@ it.effect(
 					],
 				},
 				false,
-				{
-					...ingestionTestSource.pluginRevision,
-					scope: "user",
-					ownerId: ingestionTestScope.userId,
-					schemaScope: {
-						...ingestionTestSource.pluginRevision.schemaScope,
-						entitySchemaSlugs: ["collection"],
-					},
-				},
+			{ ...ingestionTestSource.pluginRevision, scope: "user", ownerId: ingestionTestScope.userId },
+			["collection"],
 			);
 			expect(result.first.confirmed).toEqual([]);
 			expect(result.first.summary).toEqual([

@@ -21,6 +21,7 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining } from "@ryot-app/testing/matchers";
@@ -311,6 +312,7 @@ const makeLayer = (input: {
 					SandboxRepository,
 					SandboxRepository.of({
 						getScript: () => Effect.die("Operation admission only reads verified pins"),
+						getSchemaScope: () => Effect.die("Operation admission does not read schema scope"),
 						isPluginScript: () => Effect.die("Operation admission requires an exact plugin target"),
 						resolveWorkflowCallScript: () =>
 							Effect.die("Operations do not resolve child scripts at admission"),
@@ -336,16 +338,10 @@ const makeLayer = (input: {
 										packageId: plugin.packageId,
 										ownerId: plugin.ownerUserId,
 										userBootstrapScriptSlugs: [],
-										compiledHashes: plugin.compiledHashes,
 										configSchema: plugin.manifest.configSchema,
+										scriptsDigest: scriptsDigestOf(plugin.compiledHashes),
 										revisionId: PluginRevisionId.make(plugin.pluginRevisionId),
 										configRevisionId: PluginConfigRevisionId.make(plugin.pluginConfigRevisionId),
-										schemaScope: {
-											eventSchemas: [],
-											entitySchemaSlugs: [],
-											signalSchemaSlugs: [],
-											relationshipSchemaSlugs: [],
-										},
 									},
 								};
 							}),

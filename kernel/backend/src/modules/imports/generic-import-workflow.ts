@@ -66,6 +66,7 @@ import {
 	sameRevisionPin,
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommandWorkflow } from "#modules/user-commands/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
@@ -443,10 +444,13 @@ const validateGenericItem = (
 		success: Schema.Literals(["grouped", "standalone"]),
 		execute: Effect.gen(function* () {
 			const entitiesRepository = yield* EntitiesRepository;
+			const scope = yield* (yield* SandboxRepository)
+				.getSchemaScope(pluginRevision.revisionId)
+				.pipe(Effect.mapError((error) => new ImportRunError({ message: error.message })));
 			const owner = definitionOwner(pluginRevision.id);
 			for (const entity of item.entities) {
 				if (
-					!pluginRevision.schemaScope.entitySchemaSlugs.includes(entity.entitySchemaSlug) ||
+					!scope.entitySchemaSlugs.includes(entity.entitySchemaSlug) ||
 					(pluginRevision.scope === "user" && entity.scope === "global")
 				) {
 					return yield* new ImportRunError({

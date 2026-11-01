@@ -5,7 +5,10 @@ import { sql } from "drizzle-orm";
 
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { ingestionReadinessMetadataSql } from "#modules/plugins/catalog/readiness-projection";
-import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
+import type {
+	PluginSchemaScope,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 
@@ -64,7 +67,7 @@ type CatalogFieldContext = {
 	readonly language: null | string;
 };
 
-type PluginExecutionScope = ScriptPluginRevision["schemaScope"] & {
+type PluginExecutionScope = PluginSchemaScope & {
 	readonly type: "plugin";
 	readonly pluginId: ScriptPluginRevision["id"];
 	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];

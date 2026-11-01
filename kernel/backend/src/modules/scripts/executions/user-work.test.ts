@@ -110,6 +110,7 @@ type UserWorkFixtureValue = {
 	readonly pluginId: PluginId;
 	readonly targetSlug: string;
 	readonly subject: UserSubject;
+	readonly targetContentHash: string;
 	readonly targetScriptId: SandboxScriptId;
 	readonly principal: ScriptExecutionPrincipalType;
 	readonly accountGeneration: UserSubject["accountGeneration"];
@@ -127,7 +128,11 @@ const userWorkDatabaseLayer = () =>
 			const session = yield* DatabaseSession;
 			const scripts = yield* session.run((db) =>
 				db
-					.select({ id: tables.sandboxScript.id, slug: tables.sandboxScript.slug })
+					.select({
+						id: tables.sandboxScript.id,
+						slug: tables.sandboxScript.slug,
+						contentHash: tables.sandboxScript.contentHash,
+					})
 					.from(tables.sandboxScript)
 					.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
 			);
@@ -150,6 +155,7 @@ const userWorkDatabaseLayer = () =>
 				principal,
 				targetSlug,
 				accountGeneration,
+				targetContentHash: target.contentHash,
 				pluginId: PluginId.make(installed.pluginId),
 				targetScriptId: SandboxScriptId.make(target.id),
 			};
@@ -203,17 +209,13 @@ const backgroundWorkInput = (
 		readonly input: JsonValue;
 	},
 ) => {
-	const pluginRevision = fixture.principal.pluginRevision;
-	assert(pluginRevision);
-	const contentHash = pluginRevision.compiledHashes[targetSlug];
-	assert(contentHash);
 	return {
-		contentHash,
 		id: input.id,
 		key: input.key,
 		scope: input.scope,
 		featureInput: null,
 		purpose: "user-script" as const,
+		contentHash: fixture.targetContentHash,
 		accountGeneration: fixture.accountGeneration,
 		execution: scriptExecution(fixture, input.id, input.input),
 	};
@@ -600,15 +602,15 @@ layer(userWorkHostLayer())((test) => {
 					featureInput: null,
 					scope: request.scope,
 					purpose: "user-script",
+					contentHash: fixture.targetContentHash,
 					accountGeneration: fixture.accountGeneration,
 					execution: { executionId: `${first.workId}-script` },
-					contentHash: fixture.principal.pluginRevision?.compiledHashes[targetSlug],
 				});
 				expect(yield* references.listReferences(fixture.pluginId)).toMatchObject([
 					{
 						pluginId: fixture.pluginId,
 						scriptId: fixture.targetScriptId,
-						contentHash: fixture.principal.pluginRevision?.compiledHashes[targetSlug],
+						contentHash: fixture.targetContentHash,
 					},
 				]);
 				expect(yield* calls.dispatches).toEqual([

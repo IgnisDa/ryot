@@ -10,7 +10,10 @@ import { ConfigProvider, Effect, Layer, Schema } from "effect";
 
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import { makeUserRunInput } from "#modules/scripts/authorization/principal.test-support";
+import {
+	emptyScriptsDigest,
+	makeUserRunInput,
+} from "#modules/scripts/authorization/principal.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -67,20 +70,14 @@ layer(hostLayer)((test) => {
 				const revision = yield* Schema.decodeEffect(ScriptPluginRevision)({
 					ownerId: null,
 					scope: "system",
-					compiledHashes: {},
 					workflowScripts: {},
 					id: installed.pluginId,
 					userBootstrapScriptSlugs: [],
 					configRevisionId: admittedPin,
 					revisionId: installed.revisionId,
+				scriptsDigest: emptyScriptsDigest,
 					configSchema: plugin.manifest.configSchema,
 					packageId: plugin.manifest.metadata.packageId,
-					schemaScope: {
-						eventSchemas: [],
-						entitySchemaSlugs: [],
-						signalSchemaSlugs: [],
-						relationshipSchemaSlugs: [],
-					},
 				});
 				const input = makeUserRunInput({
 					lane: "background",

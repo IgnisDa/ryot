@@ -22,7 +22,10 @@ import { TestClock } from "effect/testing";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import { makeUserRunInput } from "#modules/scripts/authorization/principal.test-support";
+import {
+	emptyScriptsDigest,
+	makeUserRunInput,
+} from "#modules/scripts/authorization/principal.test-support";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
 import { RedisService } from "#platform/redis";
@@ -57,20 +60,14 @@ const pluginInput = makeUserRunInput({
 		pluginRevision: ScriptPluginRevision.make({
 			ownerId: null,
 			scope: "system",
-			compiledHashes: {},
 			workflowScripts: {},
 			configSchema: { fields: {} },
 			userBootstrapScriptSlugs: [],
 			id: PluginId.make("plugin-a"),
+			scriptsDigest: emptyScriptsDigest,
 			revisionId: PluginRevisionId.make("revision-1"),
 			packageId: fixtureManifest().metadata.packageId,
 			configRevisionId: PluginConfigRevisionId.make("config-1"),
-			schemaScope: {
-				eventSchemas: [],
-				entitySchemaSlugs: [],
-				signalSchemaSlugs: [],
-				relationshipSchemaSlugs: [],
-			},
 		}),
 	},
 });

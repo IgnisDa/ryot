@@ -82,7 +82,14 @@ import type {
 	AdditionalScriptHostImplementationMap,
 	ScriptRunInput,
 } from "#modules/scripts/authorization/capabilities";
-import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import type {
+	PluginSchemaScope,
+	ScriptExecutionPrincipal,
+} from "#modules/scripts/authorization/principal";
+import {
+	emptySchemaScope,
+	emptyScriptsDigest,
+} from "#modules/scripts/authorization/principal.test-support";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommands } from "#modules/user-commands/service";
@@ -286,29 +293,32 @@ const ryotqlResponse = {
 	},
 };
 
-const systemPluginScope = {
+const systemPluginScope: PluginSchemaScope = {
 	eventSchemas: [],
+	signalSchemaSlugs: [],
 	entitySchemaSlugs: ["example"],
 	relationshipSchemaSlugs: ["example-monitoring"],
 };
 
 const systemPluginRevision = {
 	ownerId: null,
-	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
 	userBootstrapScriptSlugs: [],
 	id: PluginId.make("plugin-id"),
+	scriptsDigest: emptyScriptsDigest,
 	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision-1"),
 	configRevisionId: PluginConfigRevisionId.make("config-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
-	schemaScope: {
-		signalSchemaSlugs: [],
-		eventSchemas: systemPluginScope.eventSchemas,
-		entitySchemaSlugs: systemPluginScope.entitySchemaSlugs,
-		relationshipSchemaSlugs: systemPluginScope.relationshipSchemaSlugs,
-	},
+};
+const workspacePluginRevision = {
+	...systemPluginRevision,
+	revisionId: PluginRevisionId.make("revision-workspace"),
+};
+const schemaScopesByRevisionId: Record<string, PluginSchemaScope> = {
+	[systemPluginRevision.revisionId]: systemPluginScope,
+	[workspacePluginRevision.revisionId]: { ...systemPluginScope, entitySchemaSlugs: ["workspace"] },
 };
 
 type EntityScope = {
@@ -460,6 +470,8 @@ const hostFunctionsLayer = (
 				Layer.mock(SandboxRepository)({
 					resolveWorkflowCallScript:
 						options.resolveWorkflowCallScript ?? (() => Effect.succeed(null)),
+					getSchemaScope: (revisionId) =>
+						Effect.succeed(schemaScopesByRevisionId[revisionId] ?? emptySchemaScope),
 				}),
 				Layer.succeed(HostFunctionCalls, {
 					lookupOrder: Ref.get(lookupOrder),
@@ -787,7 +799,11 @@ describe("requestEventStreamWork", () => {
 				Effect.sync(() => requests.push(input)).pipe(Effect.as("event-stream-work-id")),
 			resolveWorkflowCallScript: (pluginPin, request) =>
 				Effect.sync(() => resolvedTargets.push({ request, pluginPin })).pipe(
-					Effect.as({ kind: "script", scriptId: SandboxScriptId.make("processor-script") }),
+					Effect.as({
+						kind: "script",
+						contentHash: "processor-hash",
+						scriptId: SandboxScriptId.make("processor-script"),
+					}),
 				),
 		}),
 	)((test) => {
@@ -1807,25 +1823,14 @@ const runExecuteRyotql = (input: ScriptRunInput, document: RyotQLDocument = ryot
 describe("executeRyotql", () => {
 	layer(hostFunctionsLayer())((test) => {
 		test.effect(
-			"keeps pinned schema scope after the active manifest changes",
+			"executes with the schema scope of the pinned revision",
 			() =>
 				Effect.gen(function* () {
-					const activeManifest = { schemaScope: systemPluginRevision.schemaScope };
-					const pinnedRevision = {
-						...systemPluginRevision,
-						schemaScope: activeManifest.schemaScope,
-					};
-					activeManifest.schemaScope = {
-						eventSchemas: [],
-						signalSchemaSlugs: [],
-						relationshipSchemaSlugs: [],
-						entitySchemaSlugs: ["replacement"],
-					};
 					const result = yield* runExecuteRyotql({
 						...runInput({ type: "system" }),
 						principal: {
 							...runInput({ type: "system" }).principal,
-							pluginRevision: pinnedRevision,
+						pluginRevision: systemPluginRevision,
 							metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
 						},
 					});
@@ -2119,9 +2124,9 @@ const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) 
 
 const runEnsureUserEntities = (options: {
 	caller: true | null;
+	outsidePinnedScope?: true;
 	subject: SandboxExecutionSubject;
 	allowedHostFunctions?: readonly string[];
-	pinnedEntitySchemaSlugs?: readonly string[];
 }) =>
 	makeAdditionalScriptHostFunctions.pipe(
 		Effect.flatMap((functions) =>
@@ -2130,12 +2135,8 @@ const runEnsureUserEntities = (options: {
 					runInput(options.subject, options.allowedHostFunctions, {
 						pluginRevision: options.caller
 							? {
-									...systemPluginRevision,
+									...(options.outsidePinnedScope ? systemPluginRevision : workspacePluginRevision),
 									userBootstrapScriptSlugs: ["script"],
-									schemaScope: {
-										...systemPluginRevision.schemaScope,
-										entitySchemaSlugs: options.pinnedEntitySchemaSlugs ?? ["workspace"],
-									},
 								}
 							: null,
 					}),
@@ -2159,15 +2160,7 @@ const runCreateUserEntity = (
 						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 					},
 					["createUserEntity"],
-					{
-						pluginRevision: {
-							...systemPluginRevision,
-							schemaScope: {
-								...systemPluginRevision.schemaScope,
-								entitySchemaSlugs: ["workspace"],
-							},
-						},
-					},
+					{ pluginRevision: workspacePluginRevision },
 				),
 				...overrides,
 			};
@@ -2223,10 +2216,7 @@ describe("createUserEntity", () => {
 						userId: UserId.make("trusted-user"),
 						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 					} as const;
-					const pinned = {
-						...systemPluginRevision,
-						schemaScope: { ...systemPluginRevision.schemaScope, entitySchemaSlugs: ["workspace"] },
-					};
+					const pinned = workspacePluginRevision;
 					for (const principal of [
 						runInput(subject, [], { pluginRevision: pinned }).principal,
 						runInput({ type: "system" }, ["createUserEntity"], { pluginRevision: pinned })
@@ -2286,15 +2276,7 @@ const runMergeUserEntityData = (
 							accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 						},
 						["mergeUserEntityData"],
-						{
-							pluginRevision: {
-								...systemPluginRevision,
-								schemaScope: {
-									...systemPluginRevision.schemaScope,
-									entitySchemaSlugs: ["workspace"],
-								},
-							},
-						},
+						{ pluginRevision: workspacePluginRevision },
 					),
 					...overrides,
 				},
@@ -2317,15 +2299,7 @@ describe("mergeUserEntityData", () => {
 							accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 						},
 						["mergeUserEntityData"],
-						{
-							pluginRevision: {
-								...systemPluginRevision,
-								schemaScope: {
-									...systemPluginRevision.schemaScope,
-									entitySchemaSlugs: ["workspace"],
-								},
-							},
-						},
+					{ pluginRevision: workspacePluginRevision },
 					);
 					expect(
 						yield* functions.mergeUserEntityData(input, {
@@ -2356,10 +2330,7 @@ describe("mergeUserEntityData", () => {
 						userId: UserId.make("trusted-user"),
 						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 					} as const;
-					const pinned = {
-						...systemPluginRevision,
-						schemaScope: { ...systemPluginRevision.schemaScope, entitySchemaSlugs: ["workspace"] },
-					};
+				const pinned = workspacePluginRevision;
 					for (const principal of [
 						runInput(subject, [], { pluginRevision: pinned }).principal,
 						runInput({ type: "system" }, ["mergeUserEntityData"], { pluginRevision: pinned })
@@ -2421,15 +2392,7 @@ const runClearUserEntityData = (
 							accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 						},
 						["clearUserEntityData"],
-						{
-							pluginRevision: {
-								...systemPluginRevision,
-								schemaScope: {
-									...systemPluginRevision.schemaScope,
-									entitySchemaSlugs: ["workspace"],
-								},
-							},
-						},
+						{ pluginRevision: workspacePluginRevision },
 					),
 					...overrides,
 				},
@@ -2450,15 +2413,7 @@ describe("clearUserEntityData", () => {
 					const input = runInput(
 						{ userId, type: "user", accountGeneration: testAccountGeneration(userId) },
 						["clearUserEntityData"],
-						{
-							pluginRevision: {
-								...systemPluginRevision,
-								schemaScope: {
-									...systemPluginRevision.schemaScope,
-									entitySchemaSlugs: ["workspace"],
-								},
-							},
-						},
+					{ pluginRevision: workspacePluginRevision },
 					);
 					const submittedAt = DateTime.formatIso(yield* DateTime.now);
 					expect(
@@ -2494,10 +2449,7 @@ describe("clearUserEntityData", () => {
 						userId: UserId.make("trusted-user"),
 						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 					} as const;
-					const pinned = {
-						...systemPluginRevision,
-						schemaScope: { ...systemPluginRevision.schemaScope, entitySchemaSlugs: ["workspace"] },
-					};
+				const pinned = workspacePluginRevision;
 					for (const principal of [
 						runInput(subject, [], { pluginRevision: pinned }).principal,
 						runInput({ type: "system" }, ["clearUserEntityData"], { pluginRevision: pinned })
@@ -2659,7 +2611,7 @@ describe("ensureUserEntities", () => {
 				Effect.gen(function* () {
 					const result = yield* runEnsureUserEntities({
 						caller: true,
-						pinnedEntitySchemaSlugs: [],
+					outsidePinnedScope: true,
 						subject: {
 							type: "user",
 							userId: UserId.make("user-1"),

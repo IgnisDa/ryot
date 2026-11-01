@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
@@ -23,15 +24,9 @@ const principal = {
 		revisionId: "revision-1",
 		configRevisionId: "config-1",
 		userBootstrapScriptSlugs: [],
-		compiledHashes: { script: "hash-1" },
 		packageId: PluginPackageId.make("test/principal"),
 		configSchema: { fields: {}, unknownKeys: "strict" },
-		schemaScope: {
-			eventSchemas: [],
-			signalSchemaSlugs: [],
-			entitySchemaSlugs: [],
-			relationshipSchemaSlugs: [],
-		},
+		scriptsDigest: scriptsDigestOf({ script: "hash-1" }),
 	},
 	subject: {
 		runId: "run-1",

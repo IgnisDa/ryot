@@ -26,6 +26,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
@@ -2009,15 +2010,9 @@ const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 		userBootstrapScriptSlugs: [],
 		revisionId: "revoked-revision",
 		configRevisionId: "revoked-config",
-		compiledHashes: { script: "hash" },
 		packageId: PluginPackageId.make("test/revoked"),
+		scriptsDigest: scriptsDigestOf({ script: "hash" }),
 		configSchema: { fields: {}, unknownKeys: "strict" },
-		schemaScope: {
-			eventSchemas: [],
-			signalSchemaSlugs: [],
-			entitySchemaSlugs: [],
-			relationshipSchemaSlugs: [],
-		},
 	},
 	subject: {
 		runId: "run",

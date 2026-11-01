@@ -40,6 +40,7 @@ const repositoryLayer = (getScript: SandboxRepository["Service"]["getScript"]) =
 		SandboxRepository.of({
 			getScript,
 			getScriptPin: () => Effect.die("script pins are unused"),
+			getSchemaScope: () => Effect.die("schema scopes are unused"),
 			isPluginScript: () => Effect.die("plugin script checks are unused"),
 			resolveWorkflowCallScript: () => Effect.die("workflow call resolution is unused"),
 		}),

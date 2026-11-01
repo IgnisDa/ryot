@@ -14,6 +14,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -744,7 +745,7 @@ describe("single-statement script pin resolution", () => {
 										configRevisionId:
 											mode.exact === "pinned" ? expected.configRevisionId : configRevisionId,
 									});
-									expect(pin.pluginRevision?.compiledHashes).toEqual(hashes);
+								expect(pin.pluginRevision?.scriptsDigest).toBe(scriptsDigestOf(hashes));
 								},
 							}),
 						};
@@ -851,7 +852,10 @@ describe("single-statement script pin resolution", () => {
 					const subject = userSubject(world.userId);
 					const pin = yield* repository.getScriptPin(world.scripts.task, undefined, subject);
 					assert(pin?.pluginRevision);
-					expect(Object.keys(pin.pluginRevision.compiledHashes)).toHaveLength(5);
+				expect(Object.keys(yield* revisionHashes(world.revisionId))).toHaveLength(5);
+				expect(pin.pluginRevision.scriptsDigest).toBe(
+					scriptsDigestOf(yield* revisionHashes(world.revisionId)),
+				);
 					const principal = yield* principalFor(pin, subject);
 					expect(yield* authority.resolve(principal)).toBe("user");
 					yield* mutations.siblingsDeleted(world);
@@ -861,10 +865,12 @@ describe("single-statement script pin resolution", () => {
 						pin.pluginRevision,
 						subject,
 					);
-					expect(shrunk?.pluginRevision?.compiledHashes).toEqual({
+				expect(shrunk?.pluginRevision?.scriptsDigest).toBe(
+					scriptsDigestOf({
 						[`${world.slug}.task`]: `${world.slug}.task-v1`,
 						[`${world.slug}.details`]: `${world.slug}.details-v1`,
-					});
+					}),
+				);
 					yield* deleteScripts(world, ["details"]);
 					expect(
 						yield* repository.getScriptPin(world.scripts.details, pin.pluginRevision, subject),

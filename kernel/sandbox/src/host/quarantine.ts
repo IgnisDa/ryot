@@ -1,14 +1,12 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import type { SandboxTrust } from "./authority";
 import { SandboxCrashStore } from "./crash-store";
 import type { SandboxPrincipal } from "./principal";
 
-const encodeHashes = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
 const hashPattern = /^[0-9a-f]{64}$/;
 const unavailable = () =>
 	new SandboxRunError({
@@ -33,17 +31,14 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 	if (revision === null) {
 		return yield* unavailable();
 	}
-	const hashes = Object.values(revision.compiledHashes).sort();
 	if (
 		revision.ownerId === null ||
 		revision.scope === "system" ||
-		!hashes.includes(principal.contentHash) ||
-		hashes.some((hash) => !hashPattern.test(hash))
+		!hashPattern.test(revision.scriptsDigest)
 	) {
 		return yield* unavailable();
 	}
-	const content = sha256Hex(yield* encodeHashes(hashes).pipe(Effect.mapError(unavailable)));
-	return [`user:owner:${revision.ownerId}`, `user:content:${content}`];
+	return [`user:owner:${revision.ownerId}`, `user:content:${revision.scriptsDigest}`];
 });
 
 export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuarantine>()(

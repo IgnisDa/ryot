@@ -217,6 +217,7 @@ const makeHeadroomLayer = Layer.provideMerge(
 				isPluginScript: () => Effect.succeed(false),
 				resolveWorkflowCallScript: () => Effect.succeed(null),
 				getScriptPin: () => Effect.die("Sandbox script pinning is unused"),
+				getSchemaScope: () => Effect.die("Sandbox schema scope is unused"),
 				getScript: (scriptId) =>
 					Effect.suspend(() => {
 						const fixture = controlFactory.fixture;

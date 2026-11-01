@@ -5,6 +5,7 @@ import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/s
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { column, field, rows as queryRows, table } from "@ryot-app/ryotql";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { nativeRecoveryLayer } from "@ryot-app/sandbox/host/recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assert } from "@ryot-app/testing/assert";
@@ -239,10 +240,12 @@ describe("sandbox execution authority", () => {
 					expect(pin.pluginRevision.revisionId).toBe<unknown>(installed.revisionId);
 					expect(pin.pluginRevision).toMatchObject({
 						userBootstrapScriptSlugs: [],
-						schemaScope: expectedSandboxAuthority.schemaScope,
 						configSchema: expectedSandboxAuthority.configSchema,
 						workflowScripts: expectedSandboxAuthority.workflowScripts,
 					});
+					expect(yield* sandbox.getSchemaScope(installed.revisionId)).toEqual(
+						expectedSandboxAuthority.schemaScope,
+					);
 					const principal = yield* principalFor(pin);
 					expect(yield* authority.resolve(principal)).toBe("user");
 					yield* assertRejected(authority, [
@@ -258,7 +261,10 @@ describe("sandbox execution authority", () => {
 							...principal,
 							pluginRevision: { ...pin.pluginRevision, ownerId: null, scope: "system" as const },
 						},
-						{ ...principal, pluginRevision: { ...pin.pluginRevision, compiledHashes: {} } },
+						{
+							...principal,
+							pluginRevision: { ...pin.pluginRevision, scriptsDigest: scriptsDigestOf({}) },
+						},
 						{
 							...principal,
 							metadata: {

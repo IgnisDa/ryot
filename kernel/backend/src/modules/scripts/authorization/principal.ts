@@ -18,25 +18,30 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
 import { Effect, Schema } from "effect";
 
+export const PluginSchemaScope = Schema.Struct({
+	signalSchemaSlugs: Schema.Array(Schema.String),
+	entitySchemaSlugs: Schema.Array(Schema.String),
+	relationshipSchemaSlugs: Schema.Array(Schema.String),
+	eventSchemas: Schema.Array(
+		Schema.Struct({ eventSchemaSlug: Schema.String, entitySchemaSlug: Schema.String }),
+	),
+});
+
+export type PluginSchemaScope = typeof PluginSchemaScope.Type;
+
+// `scriptsDigest` hashes the revision's compiled script hashes, so a revision that lost scripts no
+// longer matches its pins. The scripts and schema scope themselves are read by revision ID.
 export const ScriptPluginRevision = Schema.Struct({
 	id: PluginId,
 	configSchema: AppSchema,
 	packageId: PluginPackageId,
+	scriptsDigest: Schema.String,
 	revisionId: PluginRevisionId,
 	ownerId: Schema.NullOr(UserId),
 	configRevisionId: PluginConfigRevisionId,
 	scope: Schema.Literals(["system", "user"]),
 	userBootstrapScriptSlugs: Schema.Array(Schema.String),
-	compiledHashes: Schema.Record(Schema.String, Schema.String),
 	workflowScripts: Schema.Record(Schema.String, Schema.String),
-	schemaScope: Schema.Struct({
-		signalSchemaSlugs: Schema.Array(Schema.String),
-		entitySchemaSlugs: Schema.Array(Schema.String),
-		relationshipSchemaSlugs: Schema.Array(Schema.String),
-		eventSchemas: Schema.Array(
-			Schema.Struct({ eventSchemaSlug: Schema.String, entitySchemaSlug: Schema.String }),
-		),
-	}),
 });
 
 export type ScriptPluginRevision = Schema.Schema.Type<typeof ScriptPluginRevision>;

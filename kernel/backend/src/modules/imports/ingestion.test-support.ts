@@ -11,6 +11,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
 import { fakeDatabaseSession } from "#testing/effect";
@@ -51,21 +52,15 @@ export const ingestionTestRun = (overrides: Partial<IngestionRun> = {}): Ingesti
 });
 export const ingestionTestRevision = {
 	ownerId: null,
-	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
 	configSchema: { fields: {} },
 	userBootstrapScriptSlugs: [],
 	id: PluginId.make("plugin-1"),
+	scriptsDigest: emptyScriptsDigest,
 	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision-1"),
 	configRevisionId: PluginConfigRevisionId.make("config-1"),
-	schemaScope: {
-		eventSchemas: [],
-		signalSchemaSlugs: [],
-		entitySchemaSlugs: [],
-		relationshipSchemaSlugs: [],
-	},
 };
 export const ingestionTestSource = {
 	source: "fixture",

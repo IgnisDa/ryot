@@ -11,6 +11,7 @@ import {
 	sandboxDefinitionReadContext,
 	sandboxRunUserId,
 } from "#modules/scripts/host/execution-context";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { RyotQLService } from "./service";
 
@@ -18,6 +19,7 @@ const decodeRyotQLDocument = Schema.decodeUnknownEffect(Schema.toType(RyotQLDocu
 
 export const makeRyotQLScriptHost = Effect.gen(function* () {
 	const ryotqlService = yield* RyotQLService;
+	const scripts = yield* SandboxRepository;
 
 	return {
 		executeRyotql: (rawInput, query) =>
@@ -42,7 +44,7 @@ export const makeRyotQLScriptHost = Effect.gen(function* () {
 									{
 										pluginId: revision.id,
 										pluginRevisionId: revision.revisionId,
-										...revision.schemaScope,
+										...(yield* scripts.getSchemaScope(revision.revisionId)),
 									},
 									document,
 									SANDBOX_LIMITS.ryotqlResultBytes,

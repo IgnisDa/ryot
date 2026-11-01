@@ -14,6 +14,8 @@ exact pinned plugin revision when first observed and retain that target for thei
 Every invocation reloads persisted authority and verifies compiled SHA-256 and package identity
 across manifest, plugin row, and authority projection. Historical pins preserve code/config/definitions,
 not expired authority: fresh host calls still enforce current account and installation access.
+A plugin pin carries the revision's identity and a digest of its script hashes, so a revision that
+lost scripts no longer matches; the revision's scripts and schema scope are read by revision ID.
 System authority requires verified kernel/system ownership; user plugins execute as their owner.
 Kernel children preserve the caller's lifecycle principal, not unrestricted kernel write authority.
 The bounded compiled-module cache stores code/format only; failed loads and authority are not cached.

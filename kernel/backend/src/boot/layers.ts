@@ -346,6 +346,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 						IngestionCaptures.layer,
 						IntegrationsRepository.layer,
 						PluginRuntimeResolverLive,
+						SandboxRepository.layer,
 						SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),
 					),
 				),

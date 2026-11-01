@@ -59,6 +59,7 @@ import {
 	type ScriptExecutionPrincipal,
 } from "#modules/scripts/authorization/principal";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
@@ -137,6 +138,15 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const executionAuthority = yield* SandboxExecutionAuthority;
+		const sandboxRepository = yield* SandboxRepository;
+		const callerSchemaScope = (revisionId: string) =>
+			sandboxRepository
+				.getSchemaScope(revisionId)
+				.pipe(
+					Effect.mapError(
+						(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+					),
+				);
 
 		const validateAttribution = (input: {
 			userId: UserId;
@@ -220,6 +230,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									}),
 							),
 						);
+						const callerScope = yield* callerSchemaScope(callerPlugin.revisionId);
 						const ownedItems = yield* Effect.forEach(decoded.items, (item) =>
 							(userId === null
 								? pluginRuntime
@@ -247,7 +258,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									provider &&
 									provider.pluginId === callerPlugin.id &&
 									provider.rootEntitySchemaSlug === item.entitySchemaSlug &&
-									callerPlugin.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug)
+									callerScope.entitySchemaSlugs.includes(item.entitySchemaSlug)
 										? Effect.succeed({ item, provider })
 										: Effect.fail(
 												new SandboxRunError({
@@ -532,6 +543,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								message: "Provider import requires a pinned plugin caller",
 							});
 						}
+						const callerScope = yield* callerSchemaScope(callerPlugin.revisionId);
 						const rawInput = isObjectRecord(input) ? input : {};
 						const providerSlug = Reflect.get(rawInput, "providerSlug");
 						const resolvedProvider =
@@ -551,9 +563,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 												onSuccess: (provider) =>
 													provider &&
 													provider.pluginId === callerPlugin.id &&
-													callerPlugin.schemaScope.entitySchemaSlugs.includes(
-														provider.rootEntitySchemaSlug,
-													)
+													callerScope.entitySchemaSlugs.includes(provider.rootEntitySchemaSlug)
 														? {
 																provider,
 																entitySchemaSlug: EntitySchemaSlug.make(

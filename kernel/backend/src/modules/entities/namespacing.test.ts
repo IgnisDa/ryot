@@ -311,6 +311,7 @@ layer(
 								SandboxSubmissionCommands.make,
 							),
 							Effect.provideServiceEffect(EntityUserDataService, userDataService),
+							Effect.provideServiceEffect(SandboxRepository, SandboxRepository.make),
 						)),
 					},
 				};

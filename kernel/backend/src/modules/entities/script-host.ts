@@ -34,6 +34,7 @@ import {
 	userLifecycleSource,
 } from "#modules/scripts/host/lifecycle-host";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import {
 	EntitiesService,
@@ -130,6 +131,7 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	const definitions = yield* DefinitionRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
 	const submissions = yield* SandboxSubmissionCommands;
+	const scripts = yield* SandboxRepository;
 	const lifecycle = entityLifecycleHostSteps(entities);
 	const findForeignEntitySchemaSlug = Effect.fn(function* (
 		input: UserSandboxRunInput,
@@ -137,13 +139,14 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	) {
 		const revision = input.principal.pluginRevision;
 		const schemas = yield* readScriptEntitySchemas(definitions, input, slugs);
+		const scope = revision ? yield* scripts.getSchemaScope(revision.revisionId) : null;
 		return slugs.find((slug) => {
 			const definition =
 				schemas[definitionKey("entity", definitionOwner(revision?.id ?? null), slug)];
 			return (
-				!revision?.schemaScope.entitySchemaSlugs.includes(slug) ||
+				!scope?.entitySchemaSlugs.includes(slug) ||
 				!definition ||
-				definition.pluginId !== revision.id
+				definition.pluginId !== revision?.id
 			);
 		});
 	});

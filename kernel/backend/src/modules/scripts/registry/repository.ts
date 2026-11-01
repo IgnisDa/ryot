@@ -1,4 +1,4 @@
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	type SandboxExecutionSubject,
 	sandboxSubjectUserId,
@@ -15,7 +15,7 @@ import {
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { Context, Effect, Layer, Option, Schema } from "effect";
+import { Cache, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 
 import { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import type {
@@ -45,11 +45,44 @@ export const isWorkflowCallTargetKind = (
 	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
 	(request.kind === "activity" && kind === "script");
 
+// The script, by slug and content, belongs to the pinned plugin revision.
+export const pinnedRevisionScript = (revisionId: string) =>
+	sql`exists (select 1 from ${schema.sandboxScript} s where s.plugin_revision_id = ${revisionId}
+		and s.slug = ${schema.sandboxScript.slug} and s.content_hash = ${schema.sandboxScript.contentHash})`;
+
 export class SandboxRepository extends Context.Service<SandboxRepository>()(
 	"@ryot-app/kernel-backend/modules/scripts/registry/repository/SandboxRepository",
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			// A plugin revision's sandbox authority is written once, with the revision.
+			const authorities = yield* Cache.makeWith(
+				Effect.fn("SandboxRepository.loadAuthority")(function* (revisionId: string) {
+					const [row] = yield* database.run((db) =>
+						db
+							.select({ authority: schema.pluginRevision.sandboxAuthority })
+							.from(schema.pluginRevision)
+							.where(eq(schema.pluginRevision.id, revisionId))
+							.limit(1),
+					);
+					return row ? Schema.decodeOption(PluginSandboxAuthority)(row.authority) : Option.none();
+				}),
+				{
+					capacity: 256,
+					timeToLive: (exit) => (Exit.isFailure(exit) ? Duration.zero : Duration.infinity),
+				},
+			);
+			const getSchemaScope = Effect.fn("SandboxRepository.getSchemaScope")(function* (
+				revisionId: string,
+			) {
+				const authority = yield* Cache.get(authorities, revisionId);
+				if (Option.isNone(authority)) {
+					return yield* new DbError({
+						message: `Plugin revision ${revisionId} has no sandbox authority`,
+					});
+				}
+				return authority.value.schemaScope;
+			});
 			const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 				scriptId: SandboxScriptId,
 			) {
@@ -122,7 +155,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 							installationDisabledAt: installationUser.disabledAt,
 							installationHealth: schema.pluginInstallation.health,
 							pluginRevisionId: schema.sandboxScript.pluginRevisionId,
-							sandboxAuthority: schema.pluginRevision.sandboxAuthority,
 							installationIsHidden: schema.pluginInstallation.isHidden,
 							configOwnerUserId: schema.pluginConfigRevision.ownerUserId,
 							installationIsInitialized: schema.pluginInstallation.isInitialized,
@@ -133,9 +165,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 							installationIncompatibilityReason: schema.pluginInstallation.incompatibilityReason,
 							installationActiveConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
 							configPayloadPresent: sql<boolean>`${schema.pluginConfigRevision.encryptedPayload} is not null`,
-							compiledHashes: sql<
-								Record<string, string>
-							>`coalesce((select jsonb_object_agg(s.slug, s.content_hash) from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.sandboxScript.pluginRevisionId}), '{}'::jsonb)`,
+							scriptsDigest: sql<string>`encode(sha256(convert_to(coalesce((select string_agg(s.content_hash, ',' order by s.content_hash collate "C") from ${schema.sandboxScript} s where s.plugin_revision_id = ${schema.sandboxScript.pluginRevisionId}), ''), 'UTF8')), 'hex')`,
 						})
 						.from(schema.sandboxScript)
 						.leftJoin(
@@ -205,9 +235,9 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 							})
 						: null;
 				}
-				const decodedAuthority = Schema.decodeUnknownOption(PluginSandboxAuthority)(
-					row.sandboxAuthority,
-				);
+				const decodedAuthority = row.pluginRevisionId
+					? yield* Cache.get(authorities, row.pluginRevisionId)
+					: Option.none();
 				if (Option.isNone(decodedAuthority)) {
 					return null;
 				}
@@ -309,8 +339,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 					pluginRevision: {
 						scope: pluginScope,
 						id: PluginId.make(row.pluginId),
-						schemaScope: authority.schemaScope,
-						compiledHashes: row.compiledHashes,
+						scriptsDigest: row.scriptsDigest,
 						configSchema: authority.configSchema,
 						workflowScripts: authority.workflowScripts,
 						packageId: PluginPackageId.make(authority.packageId),
@@ -342,19 +371,18 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 					if (!scriptSlug) {
 						return null;
 					}
-					const contentHash = revision.compiledHashes[scriptSlug];
-					if (!contentHash) {
-						return null;
-					}
 					const [target] = yield* database.run((db) =>
 						db
-							.select({ id: schema.sandboxScript.id, metadata: schema.sandboxScript.metadata })
+							.select({
+								id: schema.sandboxScript.id,
+								metadata: schema.sandboxScript.metadata,
+								contentHash: schema.sandboxScript.contentHash,
+							})
 							.from(schema.sandboxScript)
 							.where(
 								and(
 									eq(schema.sandboxScript.slug, scriptSlug),
 									eq(schema.sandboxScript.pluginRevisionId, revision.revisionId),
-									eq(schema.sandboxScript.contentHash, contentHash),
 								),
 							)
 							.limit(1),
@@ -362,11 +390,15 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 					if (!target || !isWorkflowCallTargetKind(request, target.metadata.kind)) {
 						return null;
 					}
-					return { kind: target.metadata.kind, scriptId: SandboxScriptId.make(target.id) };
+					return {
+						kind: target.metadata.kind,
+						contentHash: target.contentHash,
+						scriptId: SandboxScriptId.make(target.id),
+					};
 				},
 			);
 
-			return { getScript, getScriptPin, isPluginScript, resolveWorkflowCallScript };
+			return { getScript, getScriptPin, getSchemaScope, isPluginScript, resolveWorkflowCallScript };
 		}),
 	},
 ) {

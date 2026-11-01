@@ -9,6 +9,7 @@ import {
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -24,6 +25,7 @@ import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -150,8 +152,8 @@ const makeServiceLayer = (
 				},
 			});
 			const sandboxAuthority = {
+				schemaScope: emptySchemaScope,
 				packageId: execution.principal.pluginRevision.packageId,
-				schemaScope: execution.principal.pluginRevision.schemaScope,
 				configSchema: execution.principal.pluginRevision.configSchema,
 				workflowScripts: execution.principal.pluginRevision.workflowScripts,
 				scriptKinds: { [execution.principal.scriptSlug]: execution.principal.metadata.kind },
@@ -169,7 +171,6 @@ const makeServiceLayer = (
 								return [
 									{
 										kernelSlug: null,
-										sandboxAuthority,
 										sourcePresent: true,
 										pluginStatus: "active",
 										accountDisabledAt: null,
@@ -203,14 +204,14 @@ const makeServiceLayer = (
 										installationIncompatibilityReason: quarantine
 											? "package-identity-conflict"
 											: null,
-										compiledHashes: {
+										scriptsDigest: scriptsDigestOf({
 											[execution.principal.scriptSlug]: execution.principal.contentHash,
-										},
+										}),
 									},
 								];
 							}
 							if (table === tables.pluginRevision) {
-								return [{ id: principal.pluginRevision.revisionId }];
+								return [{ authority: sandboxAuthority, id: principal.pluginRevision.revisionId }];
 							}
 							if (table === tables.pluginInstallation) {
 								return [

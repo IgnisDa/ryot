@@ -39,6 +39,7 @@ import {
 	ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
+import { pinnedRevisionScript } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
@@ -157,14 +158,16 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				}
 				const [target] = yield* session.run((db) =>
 					db
-						.select({
-							slug: tables.sandboxScript.slug,
-							contentHash: tables.sandboxScript.contentHash,
-						})
+						.select({ contentHash: tables.sandboxScript.contentHash })
 						.from(tables.sandboxScript)
-						.where(eq(tables.sandboxScript.id, resolved.record.processorScriptId)),
+						.where(
+							and(
+								eq(tables.sandboxScript.id, resolved.record.processorScriptId),
+								pinnedRevisionScript(resolved.pluginPin.revisionId),
+							),
+						),
 				);
-				if (!target || resolved.pluginPin.compiledHashes[target.slug] !== target.contentHash) {
+				if (!target) {
 					return yield* new DbError({ message: "Projection executable pin is unavailable" });
 				}
 				const id = `event-projection-${generateId()}`;
@@ -276,11 +279,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 								)
 								.limit(1),
 						);
-						if (
-							!target ||
-							input.pluginPin.compiledHashes[target.slug] !== target.contentHash ||
-							target.slug !== projection.scriptSlug
-						) {
+						if (!target || target.slug !== projection.scriptSlug) {
 							return yield* new DbError({
 								message:
 									"Event stream processor does not belong to the exact admitted plugin revision",

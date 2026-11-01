@@ -37,7 +37,10 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { makeUserPrincipal } from "#modules/scripts/authorization/principal.test-support";
+import {
+	emptyScriptsDigest,
+	makeUserPrincipal,
+} from "#modules/scripts/authorization/principal.test-support";
 import { appendWorkflowJournalWithRedis } from "#modules/scripts/replay/journal";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { RedisService } from "#platform/redis";
@@ -90,21 +93,15 @@ const recoveryIdentity = (executionId: string) => ({
 
 const pluginRevision = {
 	ownerId: null,
-	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
 	id: PluginId.make("plugin"),
 	userBootstrapScriptSlugs: [],
+	scriptsDigest: emptyScriptsDigest,
 	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision-1"),
 	configRevisionId: PluginConfigRevisionId.make("config-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
-	schemaScope: {
-		eventSchemas: [],
-		entitySchemaSlugs: [],
-		signalSchemaSlugs: [],
-		relationshipSchemaSlugs: [],
-	},
 };
 
 const automationSubject = {
@@ -1738,7 +1735,11 @@ layer(
 					}),
 					Layer.mock(SandboxRepository)({
 						resolveWorkflowCallScript: () =>
-							Effect.succeed({ kind: "script" as const, scriptId: batchedActivityScriptId }),
+							Effect.succeed({
+								kind: "script" as const,
+								contentHash: "activity-hash",
+								scriptId: batchedActivityScriptId,
+							}),
 						getScriptPin: () =>
 							Effect.succeed({
 								providerId: null,

@@ -49,8 +49,7 @@ export const makeUserWorkScriptHost = Effect.gen(function* () {
 					return yield* Effect.fail("User work target is not a declared dependency");
 				}
 				const target = yield* scripts.resolveWorkflowCallScript(pin, dependency);
-				const contentHash = pin.compiledHashes[reference.scriptSlug];
-				if (target?.kind !== "script" || !contentHash) {
+				if (target?.kind !== "script") {
 					return yield* Effect.fail("User work target is unavailable");
 				}
 				const id = `user-work-${sha256Hex(stableStringify([account, pin.id, target.scriptId, request.key]))}`;
@@ -75,12 +74,12 @@ export const makeUserWorkScriptHost = Effect.gen(function* () {
 						yield* work.admit({
 							id,
 							execution,
-							contentHash,
 							key: request.key,
 							featureInput: null,
 							scope: request.scope,
 							purpose: "user-script",
 							accountGeneration: account,
+							contentHash: target.contentHash,
 						});
 					}),
 				);

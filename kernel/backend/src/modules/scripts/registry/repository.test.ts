@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -12,6 +13,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import type { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
+import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
@@ -64,9 +66,9 @@ const environmentConfigRevisionId = (): null | string => "config-1";
 const sandboxAuthority = {
 	packageId,
 	configSchema: manifest.configSchema,
-	scriptKinds: { "plugin.script": "script" },
 	userBootstrapScriptSlugs: ["plugin.script"],
 	workflowScripts: { "plugin-workflow": "plugin.workflow" },
+	scriptKinds: { "plugin.job": "workflow", "plugin.script": "script" },
 	schemaScope: {
 		eventSchemas: [],
 		entitySchemaSlugs: [],
@@ -88,9 +90,9 @@ const pluginPinRow = {
 	providerPluginId: "plugin-id",
 	pluginRevisionId: "revision-1",
 	activeRevisionId: "revision-1",
-	compiledHashes: { "plugin.script": "current-hash" },
 	metadata: { runtimeImports: [], kind: "script" as const },
 	environmentConfigRevisionId: environmentConfigRevisionId(),
+	scriptsDigest: scriptsDigestOf({ "plugin.script": "current-hash" }),
 };
 
 const config = {
@@ -142,6 +144,13 @@ const joinedPinRow = (
 type SQLCondition = { getSQL: () => SQL };
 type PinRows = (table: unknown, condition?: SQLCondition) => readonly unknown[];
 
+const authorityRow = (row: unknown) => ({
+	authority:
+		typeof row === "object" && row !== null && "sandboxAuthority" in row
+			? row.sandboxAuthority
+			: null,
+});
+
 class PinDatabase extends Context.Service<
 	PinDatabase,
 	{
@@ -159,6 +168,9 @@ const pinDatabaseLayer = (rows: PinRows) =>
 				Ref.update(conditions, (all) => [...all, condition]).pipe(
 					Effect.andThen(Ref.get(response)),
 					Effect.map((current) => current(table, condition)),
+					Effect.map((found) =>
+						table === tables.pluginRevision ? found.map(authorityRow) : found,
+					),
 				);
 			const database = {
 				select: () => ({
@@ -290,10 +302,6 @@ layer(pinRepositoryLayer)((test) => {
 					slug: "plugin.job",
 					pluginOwnerId: userId,
 					metadata: { runtimeImports: [], kind: "workflow" as const },
-					sandboxAuthority: {
-						...sandboxAuthority,
-						scriptKinds: { ...sandboxAuthority.scriptKinds, "plugin.job": "workflow" as const },
-					},
 				};
 				const installation = {
 					health: "ready",
@@ -492,6 +500,10 @@ layer(pinRepositoryLayer)((test) => {
 
 const dialect = new PgDialect();
 const rootId = SandboxScriptId.make("workflow-script-id");
+const rootScriptsDigest = scriptsDigestOf({
+	"plugin.child": "child-v1",
+	"plugin.workflow": "workflow-v1",
+});
 const root = {
 	...pluginPinRow,
 	id: rootId,
@@ -499,8 +511,8 @@ const root = {
 	providerPluginId: null,
 	slug: "plugin.workflow",
 	contentHash: "workflow-v1",
+	scriptsDigest: rootScriptsDigest,
 	metadata: { kind: "workflow" as const },
-	compiledHashes: { "plugin.child": "child-v1", "plugin.workflow": "workflow-v1" },
 	sandboxAuthority: {
 		...sandboxAuthority,
 		scriptKinds: { "plugin.child": "workflow", "plugin.workflow": "workflow" },
@@ -539,7 +551,9 @@ const workflowRows =
 	(_table, condition) => {
 		const params = condition ? dialect.sqlToQuery(condition.getSQL()).params : [];
 		if (params.includes("plugin.child")) {
-			return [{ id: "child-v1-id", metadata: { kind: "workflow" as const } }];
+			return [
+				{ id: "child-v1-id", contentHash: "child-v1", metadata: { kind: "workflow" as const } },
+			];
 		}
 		return [joinedPinRow(selectedPinRow, null, null, config)];
 	};
@@ -556,7 +570,10 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 					expect(pin?.pluginRevision).not.toBeNull();
 
 					yield* database.respondWith(workflowRows(replacedRoot));
-					expect(pin?.pluginRevision?.schemaScope.entitySchemaSlugs).toEqual(["original-entity"]);
+				expect(
+					(yield* repository.getSchemaScope(pin?.pluginRevision?.revisionId ?? ""))
+						.entitySchemaSlugs,
+				).toEqual(["original-entity"]);
 
 					expect(
 						yield* repository.resolveWorkflowCallScript(pin?.pluginRevision ?? null, {
@@ -565,13 +582,13 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 							kind: "child",
 							args: { input: {}, workflowSlug: "child" },
 						}),
-					).toEqual<unknown>({ kind: "workflow", scriptId: "child-v1-id" });
+					).toEqual<unknown>({ kind: "workflow", contentHash: "child-v1", scriptId: "child-v1-id" });
 					const condition = (yield* database.conditions).find(isChildTarget);
 					if (condition === undefined) {
 						throw new Error("Expected workflow target condition");
 					}
 					expect(dialect.sqlToQuery(condition.getSQL()).params).toEqual<unknown>(
-						arrayContaining(["revision-1", "plugin.child", "child-v1"]),
+						arrayContaining(["revision-1", "plugin.child"]),
 					);
 
 					yield* database.respondWith(
@@ -590,7 +607,7 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 					).toMatchObject({
 						scriptId: "child-v1-id",
 						contentHash: "child-v1",
-						pluginRevision: { compiledHashes: { "plugin.child": "child-v1" } },
+					pluginRevision: { scriptsDigest: rootScriptsDigest },
 					});
 				}),
 			testTimeout,

@@ -11,7 +11,10 @@ import { PersistedQueue } from "effect/persistence";
 import { Reactivity } from "effect/reactivity";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
+import {
+	emptySchemaScope,
+	makeUserPluginRevision,
+} from "#modules/scripts/authorization/principal.test-support";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import {
@@ -113,6 +116,7 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 			const repository = Layer.succeed(SandboxRepository, {
 				isPluginScript: () => Effect.succeed(true),
 				resolveWorkflowCallScript: () => Effect.succeed(null),
+				getSchemaScope: () => Effect.succeed(emptySchemaScope),
 				getScriptPin: (scriptId) =>
 					Ref.get(installed).pipe(
 						Effect.map((scripts) => {

@@ -11,7 +11,7 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -23,6 +23,7 @@ import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { sameRevisionPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ProjectionBindings } from "#modules/scripts/executions/projection-bindings";
+import { pinnedRevisionScript } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
@@ -136,14 +137,16 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				);
 				const [target] = yield* session.run((db) =>
 					db
-						.select({
-							slug: tables.sandboxScript.slug,
-							contentHash: tables.sandboxScript.contentHash,
-						})
+						.select({ contentHash: tables.sandboxScript.contentHash })
 						.from(tables.sandboxScript)
-						.where(eq(tables.sandboxScript.id, work.processorScriptId)),
+						.where(
+							and(
+								eq(tables.sandboxScript.id, work.processorScriptId),
+								pinnedRevisionScript(pin.revisionId),
+							),
+						),
 				);
-				if (!target || pin.compiledHashes[target.slug] !== target.contentHash) {
+				if (!target) {
 					return yield* new DbError({ message: "Projection executable pin is unavailable" });
 				}
 				yield* background.admit({

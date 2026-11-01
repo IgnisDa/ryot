@@ -18,6 +18,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import {
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
@@ -451,21 +452,15 @@ layer(makeServiceLayer({ repository: mockRepository({}) }))((test) => {
 
 const originalRevision = {
 	ownerId: null,
-	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
 	id: PluginId.make("fixture"),
 	userBootstrapScriptSlugs: [],
+	scriptsDigest: emptyScriptsDigest,
 	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("fixture-revision-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
 	configRevisionId: PluginConfigRevisionId.make("fixture-config-1"),
-	schemaScope: {
-		eventSchemas: [],
-		entitySchemaSlugs: [],
-		signalSchemaSlugs: [],
-		relationshipSchemaSlugs: [],
-	},
 };
 const replacementRevision = {
 	...originalRevision,
@@ -569,21 +564,15 @@ const pluginWorkflowPin = {
 	contentHash: storedScript.contentHash,
 	pluginRevision: {
 		ownerId: null,
-		compiledHashes: {},
 		workflowScripts: {},
 		scope: "system" as const,
 		id: PluginId.make("fixture"),
 		userBootstrapScriptSlugs: [],
+		scriptsDigest: emptyScriptsDigest,
 		packageId: fixtureManifest().metadata.packageId,
 		revisionId: PluginRevisionId.make("fixture-revision"),
 		configSchema: { fields: {}, unknownKeys: "strict" as const },
 		configRevisionId: PluginConfigRevisionId.make("fixture-config"),
-		schemaScope: {
-			eventSchemas: [],
-			entitySchemaSlugs: [],
-			signalSchemaSlugs: [],
-			relationshipSchemaSlugs: [],
-		},
 	},
 };
 const pluginWorkflowOptions = {

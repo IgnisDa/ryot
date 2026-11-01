@@ -53,6 +53,7 @@ import {
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import {
 	SandboxDurableHostDispatcher,
@@ -153,21 +154,15 @@ const principal = {
 	contentHash: script.contentHash,
 	pluginRevision: {
 		ownerId: null,
-		compiledHashes: {},
 		workflowScripts: {},
 		id: subject.pluginId,
 		scope: "system" as const,
 		userBootstrapScriptSlugs: [],
+		scriptsDigest: emptyScriptsDigest,
 		revisionId: subject.pluginRevisionId,
 		packageId: fixtureManifest().metadata.packageId,
 		configRevisionId: subject.pluginConfigRevisionId,
 		configSchema: { fields: {}, unknownKeys: "strict" as const },
-		schemaScope: {
-			eventSchemas: [],
-			entitySchemaSlugs: [],
-			signalSchemaSlugs: [],
-			relationshipSchemaSlugs: [],
-		},
 	},
 };
 

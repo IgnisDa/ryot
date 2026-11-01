@@ -12,10 +12,24 @@ import {
 	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 
 import type { ScriptRunInput } from "./capabilities";
-import type { ScriptExecutionPrincipal, ScriptPluginRevision } from "./principal";
+import type {
+	PluginSchemaScope,
+	ScriptExecutionPrincipal,
+	ScriptPluginRevision,
+} from "./principal";
+
+export const emptyScriptsDigest = scriptsDigestOf({});
+
+export const emptySchemaScope: PluginSchemaScope = {
+	eventSchemas: [],
+	entitySchemaSlugs: [],
+	signalSchemaSlugs: [],
+	relationshipSchemaSlugs: [],
+};
 
 export const makeUserPluginRevision = (input: {
 	readonly slug: string;
@@ -27,17 +41,11 @@ export const makeUserPluginRevision = (input: {
 	ownerId: input.ownerId,
 	userBootstrapScriptSlugs: [],
 	id: PluginId.make(input.slug),
-	compiledHashes: input.compiledHashes,
 	packageId: PluginPackageId.make("test/fixture"),
 	configSchema: { fields: {}, unknownKeys: "strict" },
+	scriptsDigest: scriptsDigestOf(input.compiledHashes),
 	revisionId: PluginRevisionId.make(`${input.slug}-revision`),
 	configRevisionId: PluginConfigRevisionId.make(`${input.slug}-config`),
-	schemaScope: {
-		eventSchemas: [],
-		entitySchemaSlugs: [],
-		signalSchemaSlugs: [],
-		relationshipSchemaSlugs: [],
-	},
 });
 
 export const makeUserPrincipal = (

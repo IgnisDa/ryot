@@ -5,6 +5,7 @@ import {
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -51,8 +52,8 @@ const operationsLayer = Layer.unwrap(
 				metadata: { ...translationExecution.principal.metadata, translationInputs: { record: [] } },
 				pluginRevision: {
 					...translationExecution.principal.pluginRevision,
-					compiledHashes: { translate: "upgraded-content" },
 					configRevisionId: PluginConfigRevisionId.make("upgraded-config"),
+					scriptsDigest: scriptsDigestOf({ translate: "upgraded-content" }),
 					revisionId: PluginRevisionId.make("compatible-additive-revision"),
 				},
 			},

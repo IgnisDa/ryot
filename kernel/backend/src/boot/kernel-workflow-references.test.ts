@@ -33,7 +33,9 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
@@ -45,11 +47,8 @@ const callerAuthority = (subject: SandboxExecutionSubject) =>
 		scriptId: "caller-script",
 		contentHash: "caller-hash",
 		scriptSlug: "caller-script",
+		pluginRevision: ingestionTestRevision,
 		metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
-		pluginRevision: {
-			...ingestionTestRevision,
-			schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record", "group"] },
-		},
 	}).pipe(Effect.orDie);
 const populationAuthority = (subject: SandboxExecutionSubject) =>
 	Effect.flatMap(callerAuthority(subject), (caller) =>
@@ -58,10 +57,21 @@ const populationAuthority = (subject: SandboxExecutionSubject) =>
 			pluginRevision: {
 				...ingestionTestRevision,
 				id: "provider-owner",
-				schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record"] },
+				revisionId: "provider-owner-revision",
 			},
 		}),
 	).pipe(Effect.orDie);
+const entitySchemaSlugsByRevision: Record<string, ReadonlyArray<string>> = {
+	"provider-owner-revision": ["record"],
+	[ingestionTestRevision.revisionId]: ["record", "group"],
+};
+const sandboxRepositoryLayer = Layer.mock(SandboxRepository)({
+	getSchemaScope: (revisionId) =>
+		Effect.succeed({
+			...emptySchemaScope,
+			entitySchemaSlugs: entitySchemaSlugsByRevision[revisionId] ?? [],
+		}),
+});
 const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (principal) =>
 		Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
@@ -76,6 +86,7 @@ const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const captureDependencies = Layer.mergeAll(
 	executionAuthorityLayer,
+	sandboxRepositoryLayer,
 	Layer.mock(IngestionCaptures)({}),
 	Layer.mock(ExecutionFileStore)({}),
 	BunFileSystem.layer,
@@ -225,6 +236,7 @@ layer(
 				mutationAdmissionTestLayer,
 				BunFileSystem.layer,
 				executionAuthorityLayer,
+				sandboxRepositoryLayer,
 				unusedEngineLayer,
 				Layer.mock(PluginRuntimeResolver)({}),
 				mockIntegrationsRepository({}),

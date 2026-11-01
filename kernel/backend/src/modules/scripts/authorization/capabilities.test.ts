@@ -16,25 +16,19 @@ import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-supp
 import { Effect } from "effect";
 
 import { isSandboxCapabilityAllowed, requireSandboxCapabilityInput } from "./capabilities";
-import { makeSubjectRunInput } from "./principal.test-support";
+import { emptyScriptsDigest, makeSubjectRunInput } from "./principal.test-support";
 
 const pluginRevision = (isUserBootstrap = false) => ({
 	ownerId: null,
-	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
 	id: PluginId.make("plugin_1"),
+	scriptsDigest: emptyScriptsDigest,
 	packageId: PluginPackageId.make("test/fixture"),
 	revisionId: PluginRevisionId.make("revision_1"),
 	configRevisionId: PluginConfigRevisionId.make("config_1"),
 	userBootstrapScriptSlugs: isUserBootstrap ? ["script"] : [],
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
-	schemaScope: {
-		eventSchemas: [],
-		entitySchemaSlugs: [],
-		signalSchemaSlugs: [],
-		relationshipSchemaSlugs: [],
-	},
 });
 
 describe("requireSandboxCapabilityInput", () => {

@@ -35,6 +35,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -391,17 +392,11 @@ const sandboxWriteContext = {
 		configSchema: { fields: {} },
 		userBootstrapScriptSlugs: [],
 		id: PluginId.make("collection-plugin"),
-		compiledHashes: { collection: "collection-hash" },
 		workflowScripts: { collection: "collection-hash" },
 		packageId: PluginPackageId.make("test/collections"),
 		revisionId: PluginRevisionId.make("collection-revision"),
+		scriptsDigest: scriptsDigestOf({ collection: "collection-hash" }),
 		configRevisionId: PluginConfigRevisionId.make("collection-config"),
-		schemaScope: {
-			eventSchemas: [],
-			signalSchemaSlugs: [],
-			entitySchemaSlugs: [],
-			relationshipSchemaSlugs: [],
-		},
 	},
 } satisfies ScriptExecutionPrincipal;
 
