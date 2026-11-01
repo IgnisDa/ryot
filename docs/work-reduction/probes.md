@@ -115,10 +115,13 @@ Hot frames:
 - `stableStringify`: 0.5 s.
 - Effect `Context` map rebuilding: 0.6 s.
 
-Frames attributable to logging account for ≈17%. The e2e server runs with `SERVER_LOG_LEVEL: "all"`
-(`e2e/src/support/provisioning.ts`), and every span end forks a fiber that writes a "span completed"
-debug line (`platform/observability/observability.ts`): 40,544 of the 40,839 lines in this run's
-server log. The fork happens even when the level filters the line.
+Frames attributable to logging account for ≈17%, and OTLP span serialization for more. Both are
+artifacts of this run's instrumentation. The harness set `OTEL_EXPORTER_OTLP_ENDPOINT`, and with an
+endpoint plus a log level at or below debug the server decorates its tracer: every span end forks a
+fiber that writes a "span completed" line (`platform/observability/observability.ts`). Those were
+40,544 of the 40,839 server-log lines. Normal e2e runs set no endpoint, so they pay neither cost;
+`vm-e2e.sh` now exports to the collector only with `OTEL=1`. Without them the busy time is ≈40 s,
+and the shares below shift up accordingly.
 
 There is no algorithmic hotspot. CPU is spread evenly across the runtime, proportional to the number
 of operations (statements, fibers, spans, durable messages). Removing operations is the lever;

@@ -59,3 +59,6 @@
     it commits. This lock couples unrelated tests and fits "fails in the suite, passes alone".
   - Other hot reads: `select account_generation from "user" … for share`, 80 k calls (account
     admission); `user_lifecycle_operation` status check, 63 k.
+- Correction: `probes3`'s logging and OTLP cost came from the harness setting an OTLP endpoint, which
+  turns on per-span debug logging. OTLP export is now opt-in (`OTEL=1`). `base2` was restarted without
+  it so the baseline matches normal e2e configuration. The owner keeps log level `all`.

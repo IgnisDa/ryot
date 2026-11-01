@@ -33,7 +33,6 @@ guarantees any redesign must keep are in [`durability-requirements.md`](durabili
 5. **Fixed overhead per test.**
    - About 926 of 944 tests sign up a fresh user. Each signup costs ≈1 s of backend CPU (two
      one-entity bootstrap scripts through 5 workflows), ≈15 minutes of CPU per suite run.
-   - The e2e server logs at level `all`, writing a line for every span.
 
 ## Target design
 
@@ -80,7 +79,6 @@ Product behavior and the e2e suite stay green at every step.
 
 | # | Slice | Expected effect | Size |
 | --- | --- | --- | --- |
-| 0 | Harness hygiene: e2e server log level `info`; stop forking a fiber per span end | ≈10–15% less backend CPU in e2e; much smaller logs | S |
 | 1 | Scope the plugin-ingestion lock (per package / owner) | Removes the largest cross-test stall; fewer suite-only timeouts | S |
 | 2 | Run-once sandbox executions: inline host calls with journal append; replay only on recovery | Removes ≈3.4× script replays and one workflow per write call; largest per-flow win in hook cascades | L |
 | 3 | Job table and runner; move after-hooks (`AutomationRunWorkflow`), `BackgroundWorkWorkflow`, notifications onto it | Removes most remaining cluster traffic for cascades | L |
@@ -91,7 +89,7 @@ Product behavior and the e2e suite stay green at every step.
 | 8 | Pool and lane sizing re-derived after 2–6; operational gates re-measured | Gates within budget | S |
 
 Order rationale:
-- 0 and 1 are cheap and test whether coupling, not raw cost, causes the suite-only failures.
+- 1 is cheap and tests whether coupling, not raw cost, causes the suite-only failures.
 - 2 comes before 3 and 4 because every cascade hop pays the replay multiplier, and because the
   run-once host makes the later job and command code simpler.
 - 5 can run in parallel with 3 and 4.
@@ -113,5 +111,7 @@ Order rationale:
     recovery.
   - The sandbox protocol changes: host calls are answered inline instead of by
     suspend-and-replay.
+- The e2e server keeps `SERVER_LOG_LEVEL: "all"` (the owner debugs from it). Without an OTLP
+  endpoint it adds only a few hundred lines per few minutes, so there is no logging slice.
 - The harness could reuse pre-created users where a test is not about signup. That cuts suite time
   further, but it changes test isolation, so it should wait until the product-side fixes land.

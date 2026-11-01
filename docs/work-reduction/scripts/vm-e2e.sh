@@ -35,9 +35,14 @@ sh "$here/lockwatch.sh" "$out/locks.log" & lw=$!
 prof=""
 if [ "${PROFILE:-}" = 1 ]; then mkdir -p "$out/prof"; chown 1001:1001 "$out/prof"; prof="BUN_OPTIONS='--cpu-prof --cpu-prof-md --cpu-prof-dir=$out/prof'"; fi
 
+# OTEL=1: export spans, logs and metrics to the local collector. Off by default because an OTLP
+# endpoint also turns on per-span debug logging in the server, which normal e2e runs never pay.
+otel=""
+[ "${OTEL:-}" = 1 ] && otel="OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318"
+
 start=$(date +%s)
 # Fail fast: hard wall cap (MAX_WALL_S) and a stall watchdog (no vitest output for STALL_S).
-timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "cd $src/e2e && env $prof TMPDIR=$out/tmp OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 \
+timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "cd $src/e2e && env $prof $otel TMPDIR=$out/tmp \
 	RUN_LIVE_PROVIDER_TESTS= RUN_OPERATIONAL_GATES=${RUN_OPERATIONAL_GATES:-} RUN_FLOW_PROBES=${RUN_FLOW_PROBES:-} FLOW_PROBE_OUT=$out/flow-probes.json \
 	bun --bun run vitest run --reporter=default --reporter=json --outputFile.json=$out/vitest.json $*" \
 	> "$out/vitest.out" 2>&1 & vt=$!
