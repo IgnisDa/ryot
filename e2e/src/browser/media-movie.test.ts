@@ -188,8 +188,8 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		expect(yield* record.getByText("Finished the movie", { exact: true }).count).toBe(2);
 		expect(yield* record.locator("p").filter({ hasText: /^Watch 2 · / }).count).toBe(1);
 		expect(yield* record.locator("p").filter({ hasText: /^Watch 1 · / }).count).toBe(1);
+		yield* body.getByText("Watches", { exact: true }).waitFor({ state: "visible" });
 		expect(yield* body.getByText("Coverage", { exact: true }).count).toBe(0);
-		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(1);
 
 		const mediaInstallation = yield* findPluginInstallationByPackage(client, {
 			scope: "system",

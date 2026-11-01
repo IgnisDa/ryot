@@ -300,3 +300,13 @@
     the shared background lane is busy; not yet addressed.
   - `tri2`, those eleven files together: all passed in 271 s, with the page group done before the
     API group started.
+- `full10`, the whole suite at `d8b8a9ad88`: 58.5 min, 941 passed, 7 failed in 4 files, 8 skipped.
+  The entity-provider, translation and page-freshness failures are gone. Database execution time
+  totals 1,019 s; the binding sweep fell from 249 s to 0.21 s (11 calls).
+  - `history-correction-liveness` (4) and `analytics-recipes` (1) still time out at 180 s.
+  - `media-movie` counted the activity summary's "Watches" figure without waiting: while the
+    projection is pending the summary shows "Updating" instead. `media-show` waited for the Log
+    activity submit button to read "Mark S1·E4 watched", which it does only until the earlier
+    unwatched episodes load; with backfill on it then reads "Mark 3 episodes watched". When the
+    episode choices loaded after them, the first label never appeared. Both tests now wait for the
+    settled state.

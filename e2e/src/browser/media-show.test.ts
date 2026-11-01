@@ -101,7 +101,10 @@ it.live("opens the Log activity sheet from episode details with that episode sel
 		const sheet = media.getByRole("dialog", { name: "Log activity" });
 		yield* sheet.waitFor({ state: "visible" });
 		yield* sheet
-			.getByRole("button", { exact: true, name: "Mark S1·E4 watched" })
+			.getByRole("switch", { exact: true, name: "Also mark 2 earlier unwatched episodes" })
+			.waitFor({ state: "visible" });
+		yield* sheet
+			.getByRole("button", { exact: true, name: "Mark 3 episodes watched" })
 			.waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
