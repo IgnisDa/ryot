@@ -62,6 +62,18 @@ describe("media saved views", () => {
 		}
 	});
 
+	it("uses credit membership only for All People", () => {
+		for (const view of mediaSavedViews()) {
+			const dataSources = JSON.stringify(view.dataSources);
+			if (view.name === "All People") {
+				expect(dataSources).toContain('"value":"person-to-book"');
+				expect(dataSources).toContain('"value":"person-to-music-group"');
+			} else {
+				expect(dataSources).not.toContain('"value":"person-to-book"');
+			}
+		}
+	});
+
 	it("orders titles by recent activity, creators by credits and groups by parts", () => {
 		const order = (name: string) => JSON.stringify(source(name).view.dataSources);
 		expect(order("All Movies")).toContain('"path":["lastActivityAt"]');

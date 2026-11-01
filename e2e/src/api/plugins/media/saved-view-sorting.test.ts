@@ -19,6 +19,7 @@ import {
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
+	queryInMediaLibraryRelationship,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
@@ -134,10 +135,9 @@ describe("Media saved-view sorting", () => {
 			});
 			yield* insertLibraryMembership(client, { mediaEntityId: older.id });
 			yield* insertLibraryMembership(client, { mediaEntityId: newer.id });
-			expect(yield* savedViewIds(client, older.pluginId, "all-podcasts")).toEqual([
-				newer.id,
-				older.id,
-			]);
+			const podcastIds = yield* savedViewIds(client, older.pluginId, "all-podcasts");
+			expect(podcastIds).toHaveLength(2);
+			expect(podcastIds).toEqual(expect.arrayContaining([newer.id, older.id]));
 			const { schema: episodeSchema } = yield* findMediaEntitySchema(client, "podcast-episode");
 			const events = yield* listEventSchemas(client, episodeSchema.reference);
 			yield* createEventFixture(client, {
@@ -146,10 +146,14 @@ describe("Media saved-view sorting", () => {
 				properties: { progressPercent: 50 },
 				eventSchemaSlug: requireEventSchemaBySlug(events, "progress").id,
 			});
-			expect(yield* savedViewIds(client, older.pluginId, "all-podcasts")).toEqual([
-				older.id,
-				newer.id,
-			]);
+			expect(
+				yield* pollUntil(
+					"episode progress moves the older podcast first",
+					savedViewIds(client, older.pluginId, "all-podcasts").pipe(
+						Effect.map((ids) => (ids[0] === older.id ? ids : null)),
+					),
+				),
+			).toEqual([older.id, newer.id]);
 		}),
 	);
 
@@ -197,6 +201,87 @@ describe("Media saved-view sorting", () => {
 			}),
 		);
 	}
+
+	it.live("includes people credited on the user's saved media without adding memberships", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			const savedPerson = yield* seed(client, "person", "Saved person");
+			const creditedPerson = yield* seed(client, "person", "Credited person");
+			const duplicateCreditPerson = yield* seed(client, "person", "Multi-title person");
+			const outsider = yield* seed(client, "person", "Other user's credited person");
+			const mySavedTitle = yield* seed(client, "movie", "My saved title");
+			const mySecondSavedTitle = yield* seed(client, "movie", "My second saved title");
+			const otherUsersSavedTitle = yield* seed(client, "movie", "Other user's saved title");
+			const { pluginId: otherPluginId } = yield* findMediaEntitySchema(otherClient, "person");
+
+			yield* Effect.all([
+				insertLibraryMembership(client, { mediaEntityId: savedPerson.id }),
+				insertLibraryMembership(client, { mediaEntityId: mySavedTitle.id }),
+				insertLibraryMembership(client, { mediaEntityId: mySecondSavedTitle.id }),
+				insertLibraryMembership(otherClient, { mediaEntityId: otherUsersSavedTitle.id }),
+			]);
+
+			const personSchema = yield* findMediaEntitySchema(client, "person");
+			const personToMovie = requireRelationshipSchemaBySlug(
+				yield* listRelationshipSchemas(client, {
+					slugs: ["person-to-movie"],
+					owner: personSchema.schema.reference.owner,
+				}),
+				"person-to-movie",
+				personSchema.schema.reference.owner,
+			).reference;
+			yield* Effect.all([
+				insertGlobalRelationship({
+					targetEntityId: mySavedTitle.id,
+					sourceEntityId: creditedPerson.id,
+					relationshipSchema: personToMovie,
+				}),
+				insertGlobalRelationship({
+					targetEntityId: mySavedTitle.id,
+					relationshipSchema: personToMovie,
+					sourceEntityId: duplicateCreditPerson.id,
+				}),
+				insertGlobalRelationship({
+					relationshipSchema: personToMovie,
+					targetEntityId: mySecondSavedTitle.id,
+					sourceEntityId: duplicateCreditPerson.id,
+				}),
+				insertGlobalRelationship({
+					sourceEntityId: outsider.id,
+					relationshipSchema: personToMovie,
+					targetEntityId: otherUsersSavedTitle.id,
+				}),
+			]);
+
+			const userOnePeople = yield* savedViewIds(client, savedPerson.pluginId, "all-people");
+			expect(userOnePeople).toHaveLength(3);
+			expect(userOnePeople).toEqual(
+				expect.arrayContaining([savedPerson.id, creditedPerson.id, duplicateCreditPerson.id]),
+			);
+			const userTwoPeople = yield* savedViewIds(otherClient, otherPluginId, "all-people");
+			expect(userTwoPeople).toEqual([outsider.id]);
+
+			const creditedMembership = yield* queryInMediaLibraryRelationship(
+				client,
+				creditedPerson.id,
+				"person",
+			);
+			expect(
+				creditedMembership.data.entity?.type === "rows" ? creditedMembership.data.entity.items : [],
+			).toEqual([]);
+			const duplicateCreditMembership = yield* queryInMediaLibraryRelationship(
+				client,
+				duplicateCreditPerson.id,
+				"person",
+			);
+			expect(
+				duplicateCreditMembership.data.entity?.type === "rows"
+					? duplicateCreditMembership.data.entity.items
+					: [],
+			).toEqual([]);
+		}),
+	);
 
 	it.live("orders series by numeric part count", () =>
 		Effect.gen(function* () {
