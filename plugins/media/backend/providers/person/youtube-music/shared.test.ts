@@ -15,6 +15,10 @@ describe("person.youtube-music sandbox script", () => {
 				const error = yield* Effect.flip(
 					buildArtistDetails(
 						{
+							actions: {
+								execute: (): Promise<never> =>
+									Promise.reject(new Error("Unexpected browse request")),
+							},
 							music: {
 								getPlaylist: () =>
 									stage === "playlist"
@@ -47,6 +51,9 @@ describe("person.youtube-music sandbox script", () => {
 	it.live("classifies artist credits by item type rather than section titles", () =>
 		Effect.gen(function* () {
 			const client = {
+				actions: {
+					execute: (): Promise<never> => Promise.reject(new Error("Unexpected browse request")),
+				},
 				music: {
 					getPlaylist: () => Promise.reject(new Error("Unexpected playlist request")),
 					getArtist: () =>
@@ -131,6 +138,9 @@ describe("person.youtube-music sandbox script", () => {
 		Effect.gen(function* () {
 			const details = yield* buildArtistDetails(
 				{
+					actions: {
+						execute: (): Promise<never> => Promise.reject(new Error("Unexpected browse request")),
+					},
 					music: {
 						getPlaylist: () => Promise.reject(new Error("Unexpected playlist request")),
 						getArtist: () =>

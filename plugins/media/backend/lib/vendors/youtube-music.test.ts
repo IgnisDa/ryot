@@ -5,9 +5,15 @@ import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 import {
 	albumResponse,
+	artistDiscographyContinuationResponse,
+	artistDiscographyResponse,
+	artistInventoryResponse,
 	artistResponse,
+	artistSinglesResponse,
 	artistSongsContinuationResponse,
 	artistSongsResponse,
+	artistVideosContinuationResponse,
+	artistVideosResponse,
 	queueResponse,
 	searchResponse,
 } from "../../../tests/backend/youtube-music-fixtures";
@@ -46,6 +52,9 @@ const recordedClient = (path: string, responses: readonly unknown[], language = 
 				requests.push(request);
 				if (request.path !== `/youtubei/v1/${path}` || response === undefined) {
 					return yield* Effect.die(`Unexpected YouTube Music request: ${request.path}`);
+				}
+				if (response instanceof Error) {
+					return yield* Effect.fail({ message: response.message });
 				}
 				return {
 					status: 200,
@@ -308,6 +317,78 @@ it.live.each(["token", "endpoint"] as const)(
 			expect(requests).toHaveLength(3);
 			expect(requests[2]).toMatchObject({ body: { continuation: "page-2" } });
 		}),
+);
+
+it.live.each([
+	{ format: "grid", continuation: "token" },
+	{ format: "action", continuation: "endpoint" },
+] as const)(
+	"fetches full artist albums, singles and videos with $continuation/$format pagination",
+	({ format, continuation }) =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", [
+				artistInventoryResponse(),
+				artistDiscographyResponse(continuation),
+				artistDiscographyContinuationResponse(format),
+				artistSinglesResponse,
+				artistVideosResponse,
+				artistVideosContinuationResponse,
+			]);
+			const details = yield* buildArtistDetails(client, "UCartist");
+			expect(details.relatedEntityGroups[0]?.entities.map(({ externalId }) => externalId)).toEqual([
+				"track",
+				"video",
+				"video-2",
+				"video-3",
+			]);
+			expect(details.relatedEntityGroups[1]?.entities.map(({ externalId }) => externalId)).toEqual([
+				"MPRalbum",
+				"MPRsingle",
+				"MPRsecond",
+				"MPRthird",
+				"MPRep",
+			]);
+			expect(requests.map(({ body }) => body)).toMatchObject([
+				{ browseId: "UCartist" },
+				{ params: "albums", browseId: "MPADartist" },
+				{ continuation: "albums-page-2" },
+				{ params: "singles", browseId: "MPADartist" },
+				{ browseId: "VLartist-videos" },
+				{ continuation: "videos-page-2" },
+			]);
+		}),
+);
+
+it.live.each([
+	{ request: 1, stage: "album list" },
+	{ request: 2, stage: "album continuation" },
+	{ request: 3, stage: "single list" },
+	{ request: 4, stage: "video list" },
+	{ request: 5, stage: "video continuation" },
+])("fails artist refresh instead of publishing partial credits when $stage fails", ({ request }) =>
+	Effect.gen(function* () {
+		const responses: unknown[] = [
+			artistInventoryResponse(),
+			artistDiscographyResponse("token"),
+			artistDiscographyContinuationResponse("grid"),
+			artistSinglesResponse,
+			artistVideosResponse,
+			artistVideosContinuationResponse,
+		];
+		responses[request] = new Error("Inventory unavailable");
+		const { client, requests } = yield* recordedClient("browse", responses);
+		const error = yield* Effect.flip(buildArtistDetails(client, "UCartist"));
+		expect(error.message).toContain("500");
+		expect(requests).toHaveLength(request + 1);
+	}),
+);
+
+it.live("fails artist refresh when the discography response has no inventory", () =>
+	Effect.gen(function* () {
+		const { client } = yield* recordedClient("browse", [artistInventoryResponse(), {}]);
+		const error = yield* Effect.flip(buildArtistDetails(client, "UCartist"));
+		expect(error.message).toBe("YouTube Music artist discography is missing its items");
+	}),
 );
 
 it.live("preserves the requested language for all three translations", () =>

@@ -1,7 +1,9 @@
 import { withApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { GridContinuation, YTNodes } from "@ryot-app/plugin-backend-sdk/youtubei";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { stringValue, type UnknownRecord } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
@@ -19,41 +21,111 @@ const getArtistName = (artist: null | UnknownRecord) => {
 	return coerceTrimmed(raw);
 };
 
-const collectArtistSongs = Effect.fn(function* (
+const collectArtistPlaylist = Effect.fn(function* (client: ArtistClient, playlistId: string) {
+	let page = yield* tryYoutubeMusic(() => client.music.getPlaylist(playlistId));
+	const items: unknown[] = [...page.items];
+	while (page.has_continuation) {
+		page = yield* tryYoutubeMusic(() =>
+			withApprovedDependencyRuntime(() => page.getContinuation()),
+		);
+		items.push(...page.items);
+	}
+	return items;
+});
+
+const collectArtistDiscography = Effect.fn(function* (
+	client: ArtistClient,
+	browseId: string,
+	params: null | string,
+) {
+	let page = yield* tryYoutubeMusic(() =>
+		client.actions.execute("/browse", {
+			browseId,
+			client: "YTMUSIC",
+			...(params === null ? {} : { params }),
+			parse: true,
+		}),
+	);
+	const items: unknown[] = [];
+	for (;;) {
+		const grid = page.contents_memo?.getType(YTNodes.Grid)[0];
+		const continuedGrid = page.continuation_contents?.is(GridContinuation)
+			? page.continuation_contents
+			: undefined;
+		const contents =
+			grid?.items ??
+			continuedGrid?.items ??
+			page.on_response_received_actions?.firstOfType(YTNodes.AppendContinuationItemsAction)
+				?.contents;
+		if (!contents) {
+			return yield* new MediaSandboxError({
+				message: "YouTube Music artist discography is missing its items",
+			});
+		}
+		items.push(...contents);
+		const continuation =
+			grid?.continuation ??
+			continuedGrid?.continuation ??
+			stringValue(
+				asRecord(contents.firstOfType(YTNodes.ContinuationItem)?.endpoint.payload)?.["token"],
+			);
+		if (!continuation) {
+			return items;
+		}
+		page = yield* tryYoutubeMusic(() =>
+			client.actions.execute("/browse", { parse: true, continuation, client: "YTMUSIC" }),
+		);
+	}
+});
+
+const collectArtistInventories = Effect.fn(function* (
 	client: ArtistClient,
 	artist: null | UnknownRecord,
 ) {
+	const items: unknown[] = [];
 	for (const section of asArray(artist?.["sections"])) {
 		const record = asRecord(section);
-		if (record?.["type"] !== "MusicShelf") {
-			continue;
-		}
-		const playlistId = stringValue(
-			asRecord(asRecord(record["endpoint"])?.["payload"])?.["browseId"],
-		);
-		if (!playlistId) {
-			continue;
-		}
-		let page = yield* tryYoutubeMusic(() => client.music.getPlaylist(playlistId));
-		const songs: unknown[] = [...page.items];
-		while (page.has_continuation) {
-			page = yield* tryYoutubeMusic(() =>
-				withApprovedDependencyRuntime(() => page.getContinuation()),
+		if (record?.["type"] === "MusicShelf") {
+			const playlistId = stringValue(
+				asRecord(asRecord(record["endpoint"])?.["payload"])?.["browseId"],
 			);
-			songs.push(...page.items);
+			if (playlistId) {
+				items.push(...(yield* collectArtistPlaylist(client, playlistId)));
+			}
+		} else if (record?.["type"] === "MusicCarouselShelf") {
+			const more = asRecord(asRecord(record["header"])?.["more_content"]);
+			const payload = asRecord(asRecord(more?.["endpoint"])?.["payload"]);
+			const browseId = stringValue(payload?.["browseId"]);
+			if (!browseId) {
+				continue;
+			}
+			const pageType = asRecord(
+				asRecord(payload?.["browseEndpointContextSupportedConfigs"])?.[
+					"browseEndpointContextMusicConfig"
+				],
+			)?.["pageType"];
+			if (pageType === "MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY") {
+				items.push(
+					...(yield* collectArtistDiscography(client, browseId, stringValue(payload?.["params"]))),
+				);
+			} else if (
+				pageType === "MUSIC_PAGE_TYPE_PLAYLIST" &&
+				asArray(record["contents"]).some((item) => asRecord(item)?.["item_type"] === "video")
+			) {
+				items.push(...(yield* collectArtistPlaylist(client, browseId)));
+			}
 		}
-		return songs;
 	}
-	return [];
+	return items;
 });
 
-const collectArtistEntities = (artist: null | UnknownRecord, songs: readonly unknown[]) => {
+const collectArtistEntities = (artist: null | UnknownRecord, inventory: readonly unknown[]) => {
 	const media = createRoleAccumulator();
 	const groups = createRoleAccumulator();
 	const items = asArray(artist?.["sections"]).flatMap((section) =>
 		asArray(asRecord(section)?.["contents"]),
 	);
-	for (const item of [...items, ...songs]) {
+	for (const item of [...items, ...inventory]) {
 		const itemRecord = asRecord(item);
 		const itemType = itemRecord?.["item_type"];
 		if (itemType !== "album" && itemType !== "song" && itemType !== "video") {
@@ -116,8 +188,8 @@ export const buildArtistDetails = (client: ArtistClient, externalId: string) =>
 		const header = asRecord(artistRecord?.["header"]);
 		const descriptionValue = asRecord(header?.["description"])?.["text"];
 		const description = normalizePlainDescription(descriptionValue);
-		const songs = yield* collectArtistSongs(client, artistRecord);
-		const { media, groups } = collectArtistEntities(artistRecord, songs);
+		const inventory = yield* collectArtistInventories(client, artistRecord);
+		const { media, groups } = collectArtistEntities(artistRecord, inventory);
 
 		return {
 			name,

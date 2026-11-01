@@ -2,16 +2,17 @@ const text = (value: string) => ({ runs: [{ text: value }] });
 const thumbnail = {
 	thumbnails: [{ width: 600, height: 600, url: "https://example.com/cover.jpg" }],
 };
-const browse = (id: string, pageType: string) => ({
+const browse = (id: string, pageType: string, params?: string) => ({
 	navigationEndpoint: {
 		browseEndpoint: {
 			browseId: id,
+			...(params === undefined ? {} : { params }),
 			browseEndpointContextSupportedConfigs: { browseEndpointContextMusicConfig: { pageType } },
 		},
 	},
 });
 
-const song = (id: string, title: string) => ({
+const song = (id: string, title: string, musicVideoType = "MUSIC_VIDEO_TYPE_ATV") => ({
 	musicResponsiveListItemRenderer: {
 		playlistItemData: { videoId: id },
 		thumbnail: { musicThumbnailRenderer: { thumbnail } },
@@ -26,7 +27,7 @@ const song = (id: string, title: string) => ({
 									watchEndpoint: {
 										videoId: id,
 										watchEndpointMusicSupportedConfigs: {
-											watchEndpointMusicConfig: { musicVideoType: "MUSIC_VIDEO_TYPE_ATV" },
+											watchEndpointMusicConfig: { musicVideoType },
 										},
 									},
 								},
@@ -67,10 +68,21 @@ const twoRowItem = (id: string, title: string, pageType: string) => ({
 	},
 });
 
-const carousel = (title: string, contents: readonly unknown[]) => ({
+const carousel = (
+	title: string,
+	contents: readonly unknown[],
+	endpoint?: ReturnType<typeof browse>["navigationEndpoint"],
+) => ({
 	musicCarouselShelfRenderer: {
 		contents,
-		header: { musicCarouselShelfBasicHeaderRenderer: { title: text(title) } },
+		header: {
+			musicCarouselShelfBasicHeaderRenderer: {
+				title: text(title),
+				...(endpoint === undefined
+					? {}
+					: { moreContentButton: { buttonRenderer: { navigationEndpoint: endpoint } } }),
+			},
+		},
 	},
 });
 
@@ -139,21 +151,7 @@ export const artistSongsResponse = (continuation?: "token" | "endpoint") => ({
 						contents: [
 							song("track", "Track"),
 							song("second", "Second Track"),
-							...(continuation === "endpoint"
-								? [
-										{
-											continuationItemRenderer: {
-												trigger: "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
-												continuationEndpoint: {
-													continuationCommand: {
-														token: "page-2",
-														request: "CONTINUATION_REQUEST_TYPE_BROWSE",
-													},
-												},
-											},
-										},
-									]
-								: []),
+							...(continuation === "endpoint" ? [continuationItem("page-2")] : []),
 						],
 						...(continuation === "token"
 							? { continuations: [{ nextContinuationData: { continuation: "page-2" } }] }
@@ -169,6 +167,132 @@ export const artistSongsContinuationResponse = {
 	continuationContents: {
 		musicPlaylistShelfContinuation: {
 			contents: [song("second", "Second Track"), song("third", "Third Track")],
+		},
+	},
+};
+
+export const artistInventoryResponse = () => {
+	const response = artistResponse("Artist");
+	return {
+		...response,
+		contents: {
+			sectionListRenderer: {
+				contents: [
+					...response.contents.sectionListRenderer.contents,
+					carousel(
+						"Álbumes",
+						[twoRowItem("MPRalbum", "Album", "MUSIC_PAGE_TYPE_ALBUM")],
+						browse("MPADartist", "MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY", "albums").navigationEndpoint,
+					),
+					carousel(
+						"Singles y EPs",
+						[twoRowItem("MPRsingle", "Single", "MUSIC_PAGE_TYPE_ALBUM")],
+						browse("MPADartist", "MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY", "singles")
+							.navigationEndpoint,
+					),
+					carousel(
+						"Vídeos",
+						[song("video", "Preview video", "MUSIC_VIDEO_TYPE_OMV")],
+						browse("VLartist-videos", "MUSIC_PAGE_TYPE_PLAYLIST").navigationEndpoint,
+					),
+					carousel(
+						"Featured on",
+						[twoRowItem("VLfeatured", "Featured playlist", "MUSIC_PAGE_TYPE_PLAYLIST")],
+						browse("VLfeatured", "MUSIC_PAGE_TYPE_PLAYLIST").navigationEndpoint,
+					),
+				],
+			},
+		},
+	};
+};
+
+export const artistDiscographyResponse = (continuation: "token" | "endpoint") => ({
+	contents: {
+		sectionListRenderer: {
+			contents: [
+				{
+					gridRenderer: {
+						items: [
+							twoRowItem("MPRalbum", "Album", "MUSIC_PAGE_TYPE_ALBUM"),
+							twoRowItem("MPRsecond", "Second album", "MUSIC_PAGE_TYPE_ALBUM"),
+							...(continuation === "endpoint" ? [continuationItem("albums-page-2")] : []),
+						],
+						...(continuation === "token"
+							? { continuations: [{ nextContinuationData: { continuation: "albums-page-2" } }] }
+							: {}),
+					},
+				},
+			],
+		},
+	},
+});
+
+const continuationItem = (token: string) => ({
+	continuationItemRenderer: {
+		trigger: "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+		continuationEndpoint: {
+			continuationCommand: { token, request: "CONTINUATION_REQUEST_TYPE_BROWSE" },
+		},
+	},
+});
+
+export const artistDiscographyContinuationResponse = (format: "grid" | "action") => {
+	const items = [
+		twoRowItem("MPRsecond", "Second album", "MUSIC_PAGE_TYPE_ALBUM"),
+		twoRowItem("MPRthird", "Third album", "MUSIC_PAGE_TYPE_ALBUM"),
+	];
+	return format === "grid"
+		? { continuationContents: { gridContinuation: { items } } }
+		: {
+				onResponseReceivedActions: [
+					{ appendContinuationItemsAction: { continuationItems: items } },
+				],
+			};
+};
+
+export const artistSinglesResponse = {
+	contents: {
+		sectionListRenderer: {
+			contents: [
+				{
+					gridRenderer: {
+						items: [
+							twoRowItem("MPRsingle", "Single", "MUSIC_PAGE_TYPE_ALBUM"),
+							twoRowItem("MPRep", "EP beyond preview", "MUSIC_PAGE_TYPE_ALBUM"),
+						],
+					},
+				},
+			],
+		},
+	},
+};
+
+export const artistVideosResponse = {
+	contents: {
+		sectionListRenderer: {
+			contents: [
+				{
+					musicPlaylistShelfRenderer: {
+						playlistId: "artist-videos",
+						contents: [
+							song("video", "Preview video", "MUSIC_VIDEO_TYPE_OMV"),
+							song("video-2", "Video beyond preview", "MUSIC_VIDEO_TYPE_OMV"),
+							continuationItem("videos-page-2"),
+						],
+					},
+				},
+			],
+		},
+	},
+};
+
+export const artistVideosContinuationResponse = {
+	continuationContents: {
+		musicPlaylistShelfContinuation: {
+			contents: [
+				song("video-2", "Video beyond preview", "MUSIC_VIDEO_TYPE_OMV"),
+				song("video-3", "Video continuation", "MUSIC_VIDEO_TYPE_OMV"),
+			],
 		},
 	},
 };

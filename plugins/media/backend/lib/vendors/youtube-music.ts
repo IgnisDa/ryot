@@ -1,6 +1,6 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
-import type { YoutubeiHost, YTMusic } from "@ryot-app/plugin-backend-sdk/youtubei";
+import type { Innertube, YoutubeiHost, YTMusic } from "@ryot-app/plugin-backend-sdk/youtubei";
 import {
 	createYoutubeHistoryClient as createSdkYoutubeHistoryClient,
 	createYoutubeMusicClient as createSdkYoutubeMusicClient,
@@ -29,6 +29,7 @@ export type MusicSearchClient = {
 };
 
 export type ArtistClient = {
+	actions: Pick<Innertube["actions"], "execute">;
 	music: {
 		getArtist: (artistId: string) => Promise<unknown>;
 		getPlaylist: (
