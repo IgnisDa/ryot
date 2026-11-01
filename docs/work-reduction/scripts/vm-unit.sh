@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs on the VM as root. Runs one package's tests (default @ryot-app/kernel-backend) through Turbo,
 # or the given vitest files inside that package, and writes /opt/ryot/results/ID/.
-#   systemd-run --unit=ryot-unit-ID --collect -E SRC=/opt/ryot/engine bash vm-unit.sh ID [files...]
+#   systemd-run --unit=ryot-unit-ID --collect -p OOMPolicy=continue -E SRC=/opt/ryot/engine bash vm-unit.sh ID [files...]
 # Fails fast: hard wall cap (MAX_WALL_S) and a stall watchdog (no output for STALL_S).
 set -uo pipefail
 id="$1"; shift

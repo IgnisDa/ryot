@@ -30,8 +30,10 @@ outside it, in the kernel's durability, planning, and bookkeeping layers.
 | `cpuprofile.py` | local | Attribute a Bun `.cpuprofile` by package, function and marker. |
 | `pgwatch.sh`, `analyze.py`, `otel/collector.yml` | VM / local | Adopted from the earlier perf audit (`tmp/perf-audit`). |
 
-Long jobs always run as `systemd-run --unit=ryot-<name> --collect …` so a dropped SSH session loses
-nothing. Observe with `systemctl status` / `journalctl -u`.
+Long jobs always run as `systemd-run --unit=ryot-<name> --collect -p OOMPolicy=continue …` so a
+dropped SSH session loses nothing. Observe with `systemctl status` / `journalctl -u`. The OOM policy
+matters: the kernel kills a sandbox daemon first (`oom_score_adj` 1000) and the supervisor recovers
+it, but systemd's default `OOMPolicy=stop` would stop the whole run on that kill.
 
 ## Strategy
 

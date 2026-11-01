@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs on the VM as root. Measures one e2e run and writes /opt/ryot/results/ID/.
-#   systemd-run --unit=ryot-e2e-ID --collect bash vm-e2e.sh ID [vitest args / files...]
+#   systemd-run --unit=ryot-e2e-ID --collect -p OOMPolicy=continue bash vm-e2e.sh ID [vitest args / files...]
 # With no files, runs the whole standard suite (opt-in gates and live smoke stay disabled unless
 # RUN_OPERATIONAL_GATES=1 is passed via `systemd-run -E`).
 #

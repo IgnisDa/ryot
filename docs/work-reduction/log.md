@@ -125,3 +125,18 @@
 
   So the 18 executions of an event create cost under 20 ms of its roughly 1 s of API CPU. What
   remains is the work inside them, not the engine.
+- `full3`, the whole suite after principal slimming (`1760dc4d7a`), ended at 27 minutes with 407
+  tests reported, 15 of them failed:
+  - The kernel ran out of memory and killed a sandbox daemon, its intended first victim. systemd's
+    default `OOMPolicy=stop` then stopped the whole unit, vitest included. The unit peaked at
+    5.8 GB, with the test containers outside it, on the 8 GB VM; an earlier run hit the same OOM.
+    Runs now launch with `-p OOMPolicy=continue`. The memory pressure itself is a slice 6 finding.
+  - Seven failures are 180 s timeouts in the known slow files: `history-correction-liveness`,
+    the media merge and clear tests, the reading-log and ranking pagination tests, and the
+    private-package claim test.
+  - The other eight failed in 27–66 s: optional event properties, special-episode activity, Movie
+    detail rail, offline ranking retention, competing historical edit, lost-response workout retry
+    and two package-quarantine tests. None were run alone; the next full run decides which are
+    load-dependent.
+- Slice 4, steps 1 and 2 (commits `5bcbc86538`, `543fb1bed2`): every write runs in its host-call
+  workflow and settles inline unless that workflow suspends. See `design-run-once.md`.
