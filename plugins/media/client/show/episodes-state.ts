@@ -29,7 +29,9 @@ export type ShowSeasonsState = MappedRyotQueryState<
 	| { readonly status: "empty" }
 	| {
 			readonly status: "ready";
+			readonly seasonTotal: number;
 			readonly seasons: ShowSeasonList;
+			readonly lastSeasonNumber: null | number;
 			readonly episodeOrders: ShowSeasons["episodeOrders"];
 	  }
 >;
@@ -69,7 +71,13 @@ export const mapShowSeasons = (result: RyotQueryResult<ShowSeasonsResult>): Show
 	const [first, ...rest] = orderShowSeasons(state.value?.seasons.items ?? []);
 	return first === undefined || state.value === null
 		? { status: "empty" }
-		: { status: "ready", seasons: [first, ...rest], episodeOrders: state.value.episodeOrders };
+		: {
+				status: "ready",
+				seasons: [first, ...rest],
+				seasonTotal: state.value.seasonTotal,
+				episodeOrders: state.value.episodeOrders,
+				lastSeasonNumber: state.value.lastSeasonNumber,
+			};
 };
 
 export const showSeasonsError = (state: ShowSeasonsFailure) => ({

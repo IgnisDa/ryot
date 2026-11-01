@@ -83,6 +83,7 @@ import {
 	mediaActivityParentSlugs,
 	mediaCollectionActivityEvents,
 	mediaCollectionEventsQuery,
+	mediaCompanyRecipe,
 	mediaEntityEventsQuery,
 	mediaEventSnapshotSelection,
 	type MediaExtraQueries,
@@ -707,6 +708,7 @@ export const mediaEpisodicRecipes = <
 	readonly slug: string;
 	readonly alias: string;
 	readonly config: EpisodicKindConfig;
+	readonly personCreditFilters?: boolean;
 	readonly orderProperties: readonly string[];
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly episodeFields: (episode: Table) => EpisodeFields;
@@ -1029,5 +1031,6 @@ export const mediaEpisodicRecipes = <
 		overviewRecipe,
 		activityRecipe,
 		presentationSource,
+		companiesRecipe: mediaCompanyRecipe(config),
 	};
 };

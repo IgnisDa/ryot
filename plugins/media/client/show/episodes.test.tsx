@@ -108,6 +108,15 @@ const showAdapter = (input: {
 		query: (document) => {
 			const serialized = JSON.stringify(document);
 			input.queries?.push(serialized);
+			if (serialized.includes('"logSeasonChoice"')) {
+				return Effect.succeed({
+					data: {
+						seasons: rows(
+							Object.keys(input.activity?.seasons ?? {}).map((number) => seasonRow(Number(number))),
+						),
+					},
+				});
+			}
 			if (
 				input.activity !== undefined &&
 				["logEntity", "choiceEpisode", "earlierEpisode"].some((alias) =>
@@ -137,15 +146,25 @@ const showAdapter = (input: {
 					data: { episodes: rows(input.episodes?.(seasonId) ?? [showEpisodeRow]) },
 				});
 			}
+			const seasons = input.seasons ?? [showSeasonRow];
+			const page = Number(/"after":"seasons-(\d+)"/.exec(serialized)?.[1] ?? 0);
+			const nextOffset = (page + 1) * 40;
+			const hasMore = nextOffset < seasons.length;
 			return Effect.succeed({
 				data: {
+					seasons: rowsResult(seasons.slice(page * 40, nextOffset), {
+						hasMore,
+						limit: 40,
+						nextCursor: hasMore ? `seasons-${page + 1}` : null,
+					}),
 					show: rows([
 						{
 							id: "show-1",
 							schemaSlug: "show",
 							name: "Adolescence",
+							seasonTotal: seasons.length,
 							episodeOrders: input.episodeOrders ?? null,
-							seasons: rows(input.seasons ?? [showSeasonRow]),
+							lastSeasonNumber: seasons.at(-1)?.seasonNumber ?? null,
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
@@ -227,6 +246,46 @@ afterEach(() => {
 });
 
 describe("show season browser", () => {
+	it.live(
+		"pages beyond forty seasons and selects the final season without changing aggregate totals",
+		() =>
+			Effect.gen(function* () {
+				const queries: string[] = [];
+				const view = renderTab(
+					showAdapter({
+						queries,
+						seasons: Array.from({ length: 85 }, (_, index) => ({
+							...showSeasonRow,
+							seasonNumber: index + 1,
+							id: `season-${index + 1}`,
+							name: `Season ${index + 1}`,
+						})),
+					}),
+				);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(radioLabels(view.container, "Season")).toHaveLength(40)),
+				);
+				expect(view.container.textContent).toContain("85 seasons");
+				for (const count of [80, 85]) {
+					yield* Effect.promise(() =>
+						click(getByRole(view.container, "button", { name: "Load more seasons" })),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(radioLabels(view.container, "Season")).toHaveLength(count)),
+					);
+					expect(view.container.textContent).toContain("85 seasons");
+				}
+				yield* Effect.promise(() => click(radio(view.container, "Season 85")));
+				yield* Effect.promise(() => waitFor(() => expect(queries.at(-1)).toContain("season-85")));
+				expect(
+					getByRole(view.container, "radio", { name: "Season 85" }).getAttribute("aria-checked"),
+				).toBe("true");
+				expect(queries.filter((query) => query.includes('"coverageSeason"'))).toHaveLength(0);
+				view.unmount();
+			}),
+	);
+
 	it.live("uses a two-line plain season preview without exposing spoilers or markup", () =>
 		Effect.gen(function* () {
 			const view = renderTab(

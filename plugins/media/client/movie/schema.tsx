@@ -1,5 +1,6 @@
 import type { MediaPresentationDataOf, MediaSummaryOf } from "../../shared/media-recipes";
 import { movieRecipes } from "../../shared/movie-recipes";
+import { screenCreditFilters } from "../creator/credit-filters";
 import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
@@ -25,6 +26,7 @@ export const movieSchema = defineFlatMediaSchema({
 	recipes: movieRecipes,
 	facts: movieSummaryFacts,
 	aspect: mediaSchemaAspects.movie,
+	creditFilters: screenCreditFilters,
 	presentationFacts: moviePresentationFacts,
 	nouns: { title: "Movie", plural: "movies", singular: "movie" },
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },

@@ -11,6 +11,7 @@ import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import {
 	episodicEarlierUnwatchedRecipe,
 	mediaActivityLogContextRecipe,
+	showSeasonChoicesRecipe,
 	showSeasonEpisodeChoicesRecipe,
 } from "./activity-log-recipes";
 
@@ -67,6 +68,14 @@ const valid = (recipe: { readonly document: Parameters<typeof validateRyotQLDocu
 	expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 
 describe("media activity log context recipe", () => {
+	it("selects only one default seed season rather than a capped season inventory", () => {
+		const target = mediaActivityLogContextRecipe({ reference, entityId: "show-1" }).document
+			.queries["target"];
+		if (target?.output.type !== "rows") {
+			throw new Error("Expected context rows");
+		}
+		expect(target.output.include?.find((include) => include.key === "seasons")?.limit).toBe(1);
+	});
 	it("validates the document", () => {
 		valid(mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }));
 	});
@@ -135,6 +144,29 @@ describe("media activity log context recipe", () => {
 
 	it("has no next-up episode for flat media", () => {
 		expect(Result.getOrThrow(decodeContext(targetRow()))?.nextUp).toBeNull();
+	});
+});
+
+describe("activity season choices", () => {
+	it("pages a top-level ordered season query instead of increasing an include limit", () => {
+		for (const after of [undefined, "seasons-1", "seasons-2", "seasons-3"]) {
+			const recipe = showSeasonChoicesRecipe({ after, reference, limit: 40, entityId: "show-1" });
+			const seasons = recipe.document.queries["seasons"];
+			if (seasons?.output.type !== "rows") {
+				throw new Error("Expected season choice rows");
+			}
+			expect(seasons.output.pagination).toEqual({
+				limit: 40,
+				...(after === undefined ? {} : { after }),
+			});
+			expect(seasons.output.include).toBeUndefined();
+			expect(JSON.stringify(seasons.where)).toContain("show-to-show-season");
+			expect(JSON.stringify(seasons.where)).toContain("show-1");
+			expect(seasons.output.orderBy).toMatchObject([
+				{ direction: "asc", expr: { type: "cast", expr: { path: ["seasonNumber"] } } },
+				{ direction: "asc", expr: { field: "id" } },
+			]);
+		}
 	});
 });
 

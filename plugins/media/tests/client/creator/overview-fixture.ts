@@ -17,8 +17,12 @@ export const creatorOverviewRecipe = creatorFixtureRecipes.overviewRecipe({
 export const creatorMovieCreditRow = {
 	order: 1,
 	id: "movie-1",
+	isGuest: null,
 	roles: ["Actor"],
+	creditKinds: null,
+	departments: null,
 	name: "Fight Club",
+	isUncredited: null,
 	isInMediaLibrary: false,
 	character: "The Narrator",
 	translationStatus: { state: "idle", availability: "none" },

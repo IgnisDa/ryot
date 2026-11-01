@@ -27,7 +27,12 @@ import {
 	MediaActivityRecord,
 } from "./activity-tab";
 import { mergeActivityRuns } from "./activity-timeline";
-import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
+import {
+	createMediaCreditsQuery,
+	type MediaCreditFilterControls,
+	MediaCreditsButton,
+	type MediaCreditsRecipe,
+} from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -122,6 +127,7 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
 	readonly logActivity: MediaActivityLogger;
+	readonly creditFilters?: MediaCreditFilterControls;
 	readonly episodeOrigin: (episode: Origin) => string;
 	readonly episodeOrder: (episode: Origin) => readonly number[];
 	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
@@ -147,6 +153,7 @@ export type MediaEpisodicSchemaDescriptor<
 	}) => ReactNode;
 	readonly recipes: {
 		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly companiesRecipe: MediaCreditsRecipe;
 		readonly presentationSource: MediaPresentationSource<Presentation>;
 		readonly overviewRecipe: (input: EpisodicOverviewInput) => PreparedRecipe<Overview>;
 		readonly activityRecipe: (input: EpisodicActivityInput) => PreparedRecipe<Activity>;
@@ -205,6 +212,7 @@ export const defineEpisodicMediaSchema = <
 		nextUp === null ? [] : [nextUp.id],
 	);
 	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
+	const companiesQuery = createMediaCreditsQuery(recipes.companiesRecipe);
 
 	const overviewQuery = createMediaEntityQuery(
 		(input) =>
@@ -359,6 +367,20 @@ export const defineEpisodicMediaSchema = <
 			aspect={descriptor.aspect}
 			copy={descriptor.creditCopy}
 			unlinked={mediaUnlinkedCreators(overview)}
+			companiesAction={
+				<MediaCreditsButton
+					fit="contain"
+					purpose="logo"
+					aspect="square"
+					compact={compact}
+					input={{ entityId }}
+					query={companiesQuery}
+					safeAreaTop={safeAreaTop}
+					label="View all companies"
+					title={descriptor.creditCopy.companies}
+					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).companies}
+				/>
+			}
 			peopleAction={
 				<MediaCreditsButton
 					aspect="square"
@@ -368,6 +390,7 @@ export const defineEpisodicMediaSchema = <
 					input={{ entityId }}
 					label="View all people"
 					safeAreaTop={safeAreaTop}
+					filters={descriptor.creditFilters}
 					title={descriptor.creditCopy.people}
 					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).people}
 				/>

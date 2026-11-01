@@ -2,17 +2,19 @@ import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
+	nextPageCursor,
 	type PluginStorageState,
 	usePluginIdentity,
 	usePluginStorage,
+	useRyotInfiniteQuery,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { ChipRadioGroup, Select } from "@ryot-app/plugin-ui-sdk";
+import { ChipRadioGroup, LoadMoreButton, Select } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { ShowEpisodeOrder } from "../../shared/show-episode-order";
@@ -65,12 +67,16 @@ export const SHOW_SEASON_LIMIT = 40;
 
 export const SHOW_EPISODE_PAGE_LIMIT = 60;
 
-export const showSeasonsQuery = createRyotQuery<{ readonly entityId: string }, ShowSeasonsResult>(
+export const showSeasonsQuery = createRyotQuery<
+	{ readonly entityId: string; readonly after: null | string },
+	ShowSeasonsResult
+>(
 	({ input, client }) =>
 		client.data.query(
 			showSeasonsRecipe({
 				entityId: input.entityId,
 				seasonLimit: SHOW_SEASON_LIMIT,
+				after: input.after ?? undefined,
 				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		),
@@ -210,6 +216,7 @@ export function ShowEpisodes(props: {
 	readonly editable: boolean;
 	readonly safeAreaTop: number;
 	readonly refresh: () => void;
+	readonly pagination?: ReactNode;
 	readonly state: ShowSeasonsState;
 	readonly selectedId: null | string;
 	readonly nextUp: null | ShowEpisode;
@@ -237,7 +244,7 @@ export function ShowEpisodes(props: {
 					title="No episodes yet"
 					detail="This show has no seasons or episodes recorded yet."
 				/>
-				{props.editable ? <ShowAddSeasonAction seasons={[]} entityId={props.entityId} /> : null}
+				{props.editable ? <ShowAddSeasonAction entityId={props.entityId} /> : null}
 			</div>
 		);
 	}
@@ -257,8 +264,11 @@ export function ShowEpisodes(props: {
 					editable={props.editable}
 					entityId={props.entityId}
 					onSelect={props.onSelect}
+					pagination={props.pagination}
 					selectedId={props.selectedId}
+					seasonTotal={state.seasonTotal}
 					safeAreaTop={props.safeAreaTop}
+					lastSeasonNumber={state.lastSeasonNumber}
 				/>
 			) : (
 				<ShowOrderBrowser
@@ -276,7 +286,7 @@ export function ShowEpisodes(props: {
 
 function ShowAddSeasonAction(props: {
 	readonly entityId: string;
-	readonly seasons: readonly [] | ShowSeasonList;
+	readonly lastSeasonNumber?: null | number;
 }) {
 	return (
 		<div className="flex">
@@ -284,9 +294,7 @@ function ShowAddSeasonAction(props: {
 				label="Add season"
 				childSchemaSlug="show-season"
 				parentEntityId={props.entityId}
-				initialProperties={{
-					seasonNumber: Math.max(0, ...props.seasons.map(({ seasonNumber }) => seasonNumber)) + 1,
-				}}
+				initialProperties={{ seasonNumber: (props.lastSeasonNumber ?? 0) + 1 }}
 			/>
 		</div>
 	);
@@ -403,16 +411,20 @@ function ShowSeasonBrowser(props: {
 	readonly entityId: string;
 	readonly editable: boolean;
 	readonly safeAreaTop: number;
+	readonly seasonTotal: number;
+	readonly pagination?: ReactNode;
 	readonly seasons: ShowSeasonList;
 	readonly selectedId: null | string;
 	readonly nextUp: null | ShowEpisode;
 	readonly logger: MediaActivityLogger;
+	readonly lastSeasonNumber: null | number;
 	readonly onSelect: (seasonId: string) => void;
 }) {
 	const { nextUp } = props;
 	const season = selectedShowSeason(props.seasons, props.selectedId);
 	return (
 		<ManagedAssetProvider assets={showSeasonsManagedAssets(props.seasons)}>
+			<p className="font-ui text-xs text-text-muted">{props.seasonTotal} seasons</p>
 			{props.seasons.length === 1 ? null : (
 				<ChipRadioGroup
 					label="Season"
@@ -425,8 +437,9 @@ function ShowSeasonBrowser(props: {
 					}))}
 				/>
 			)}
+			{props.pagination}
 			{props.editable ? (
-				<ShowAddSeasonAction seasons={props.seasons} entityId={props.entityId} />
+				<ShowAddSeasonAction entityId={props.entityId} lastSeasonNumber={props.lastSeasonNumber} />
 			) : null}
 			<ShowSeasonHeader season={season} compact={props.compact} editable={props.editable} />
 			<MediaEpisodePages
@@ -556,8 +569,29 @@ function ShowEpisodesWithOrder(props: {
 }) {
 	const { storage } = props;
 	const [selectedId, setSelectedId] = useState<null | string>(null);
-	const result = useRyotQuery(showSeasonsQuery, { entityId: props.entityId });
-	const state = mapShowSeasons(result);
+	const result = useRyotInfiniteQuery(
+		showSeasonsQuery,
+		{ entityId: props.entityId },
+		{
+			initialPageParam: null,
+			getPageInput: (input, after: null | string) => ({ ...input, after }),
+			getNextPageParam: (page) => (page === null ? null : nextPageCursor(page.seasons)),
+		},
+	);
+	const first = result.pages[0];
+	const state = mapShowSeasons({
+		...result,
+		data:
+			first === undefined || first === null
+				? first
+				: {
+						...first,
+						seasons: {
+							...first.seasons,
+							items: result.pages.flatMap((page) => page?.seasons.items ?? []),
+						},
+					},
+	});
 	const resolved =
 		state.status === "ready" ? resolveShowEpisodeOrder(state.episodeOrders, storage.value) : null;
 	const stale = resolved?.stale === true;
@@ -567,15 +601,34 @@ function ShowEpisodesWithOrder(props: {
 			persistOrder(remove());
 		}
 	}, [stale, remove]);
+	let pagination: ReactNode = null;
+	if (result.isError && result.errorOperation === "append") {
+		pagination = (
+			<MediaStatusMessage
+				{...showSeasonsError({ status: "transport-error" })}
+				onRetry={result.retry}
+			/>
+		);
+	} else if (result.hasNextPage) {
+		pagination = (
+			<LoadMoreButton
+				label="Load more seasons"
+				disabled={result.isFetching}
+				onClick={result.fetchNextPage}
+				isFetchingNextPage={result.isFetchingNextPage}
+			/>
+		);
+	}
 	return (
 		<>
-			<MediaRefreshStatus result={result} />
+			{result.errorOperation === "refresh" ? <MediaRefreshStatus result={result} /> : null}
 			<ShowEpisodes
 				state={state}
 				logger={props.logger}
 				nextUp={props.nextUp}
 				selectedId={selectedId}
 				compact={props.compact}
+				pagination={pagination}
 				onSelect={setSelectedId}
 				refresh={result.refetch}
 				editable={props.editable}

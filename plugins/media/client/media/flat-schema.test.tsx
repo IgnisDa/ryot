@@ -473,6 +473,7 @@ describe("flat media overview", () => {
 		expect(pending.container.textContent).toContain("Loading details...");
 		expect(pending.container.textContent).toContain("Fetching the credits for this item.");
 		expect(pending.container.textContent).toContain(flatPersonRow.name);
+		expect(getByRole(pending.container, "button", { name: "View all companies" })).toBeDefined();
 		expect(pending.container.textContent).toContain(`Part of ${flatGroupRow.name}`);
 		pending.unmount();
 

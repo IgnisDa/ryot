@@ -269,17 +269,21 @@ describe("media show query recipes", () => {
 		).toBe("Failure");
 	});
 
-	it("builds show seasons without nested episodes", () => {
+	it("pages seasons without nested episodes and selects aggregate metadata separately", () => {
 		const recipe = showSeasonsRecipe({
 			seasonLimit: 4,
 			entityId: "show-id",
+			after: "seasons-page-2",
 			reference: { kind: "self" },
 		});
 		const show = recipe.document.queries["show"];
 		if (show?.output.type !== "rows") {
 			throw new Error("Expected show rows query");
 		}
-		const seasons = show.output.include?.[0];
+		const seasons = recipe.document.queries["seasons"];
+		if (seasons?.output.type !== "rows") {
+			throw new Error("Expected paged seasons");
+		}
 
 		expect(show.where).toMatchObject({ type: "and" });
 		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
@@ -289,15 +293,16 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 			"relatedPopulationStatus",
+			"seasonTotal",
+			"lastSeasonNumber",
 			"episodeOrders",
 		]);
-		expect(seasons).toMatchObject({ limit: 4, key: "seasons" });
-		expect(seasons?.include).toBeUndefined();
-		expect(
-			seasons && "fields" in seasons
-				? seasons.fields.map((field) => ("key" in field ? field.key : null))
-				: [],
-		).toEqual([
+		expect(show.output.include).toBeUndefined();
+		expect(JSON.stringify(show.output.fields)).toContain('"function":"count"');
+		expect(JSON.stringify(show.output.fields)).toContain('"function":"maximum"');
+		expect(seasons.output.pagination).toEqual({ limit: 4, after: "seasons-page-2" });
+		expect(seasons.output.include).toBeUndefined();
+		expect(seasons.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
@@ -332,14 +337,16 @@ describe("media show query recipes", () => {
 		const decode = (orders: unknown) =>
 			recipe.decode({
 				data: {
+					seasons: rowsResult([], { limit: 4, hasMore: false, nextCursor: null }),
 					show: showRows([
 						{
 							id: "show-1",
+							seasonTotal: 0,
 							name: "Firefly",
 							schemaSlug: "show",
 							episodeOrders: orders,
+							lastSeasonNumber: null,
 							translationStatus: { state: "idle", availability: "none" },
-							seasons: { items: [], pageInfo: { limit: 4, hasMore: false } },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 						},
@@ -1014,6 +1021,10 @@ describe("media show query recipes", () => {
 			"relatedPopulationStatus",
 			"isInMediaLibrary",
 			"character",
+			"isGuest",
+			"isUncredited",
+			"creditKinds",
+			"departments",
 		]);
 		expect(companies.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
@@ -1047,6 +1058,7 @@ describe("media show query recipes", () => {
 				expr: { type: "cast", target: "number", expr: { path: ["order"], type: "jsonPath" } },
 			},
 			{ direction: "asc", expr: { field: "name", tableAlias: "person" } },
+			{ direction: "asc", expr: { field: "id", tableAlias: "person" } },
 		]);
 	});
 
@@ -1138,11 +1150,15 @@ describe("media show query recipes", () => {
 					people: showRows([
 						{
 							order: 1,
+							isGuest: null,
 							id: "person-1",
 							roles: ["Creator"],
 							name: "Jack Thorne",
+							isUncredited: false,
 							character: "Narrator",
+							creditKinds: ["crew"],
 							isInMediaLibrary: false,
+							departments: ["Writing"],
 							translationStatus: { state: "idle", availability: "none" },
 							populationStatus: { state: "succeeded", availability: "complete" },
 							relatedPopulationStatus: { state: "succeeded", availability: "complete" },
@@ -1210,8 +1226,12 @@ describe("media show query recipes", () => {
 							order: null,
 							roles: null,
 							images: null,
+							isGuest: null,
 							id: "person-1",
 							character: null,
+							creditKinds: null,
+							departments: null,
+							isUncredited: null,
 							name: "Jo Johnson",
 							isInMediaLibrary: false,
 							translationStatus: { state: "idle", availability: "none" },

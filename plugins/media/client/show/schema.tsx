@@ -4,6 +4,7 @@ import type {
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
 import { showRecipes } from "../../shared/show-recipes";
+import { screenCreditFilters } from "../creator/credit-filters";
 import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
 	type MediaEpisodicCoverage,
@@ -95,6 +96,7 @@ export const showSchema = defineEpisodicMediaSchema({
 	EpisodesTab: ShowEpisodesTab,
 	coverage: showActivityCoverage,
 	aspect: mediaSchemaAspects.show,
+	creditFilters: screenCreditFilters,
 	episodeOrigin: showEpisodeOriginLabel,
 	presentationFacts: showPresentationFacts,
 	presentationDetail: showPresentationDetail,

@@ -7,6 +7,7 @@ import {
 	castText,
 	column,
 	conditional,
+	contains,
 	count,
 	defineRecipe,
 	descending,
@@ -290,7 +291,47 @@ export const creditSelection = (credit: Table, relationship: Table) => ({
 
 export const creditCharacterSelection = (relationship: Table) => ({
 	character: selectedField(propertyText(relationship, "character"), Schema.NullOr(Schema.String)),
+	isGuest: selectedField(propertyBoolean(relationship, "isGuest"), Schema.NullOr(Schema.Boolean)),
+	isUncredited: selectedField(
+		propertyBoolean(relationship, "isUncredited"),
+		Schema.NullOr(Schema.Boolean),
+	),
+	creditKinds: selectedField(
+		propertyJson(relationship, "creditKinds"),
+		Schema.NullOr(Schema.Array(Schema.String)),
+	),
+	departments: selectedField(
+		propertyJson(relationship, "departments"),
+		Schema.NullOr(Schema.Array(Schema.String)),
+	),
 });
+
+export type MediaCreditFilters = {
+	readonly kind: "all" | "cast" | "crew";
+	readonly guest: "all" | "only" | "exclude";
+	readonly uncredited: "all" | "only" | "exclude";
+};
+
+const creditFilterPredicate = (relationship: Table, filters: undefined | MediaCreditFilters) => {
+	const keys: readonly ("guest" | "uncredited")[] = ["guest", "uncredited"];
+	const flags = keys.flatMap((key) => {
+		const value = filters?.[key] ?? "all";
+		const field = propertyBoolean(relationship, key === "guest" ? "isGuest" : "isUncredited");
+		return value === "all"
+			? []
+			: [
+					value === "only"
+						? eq(field, literal(true))
+						: or(isNull(field), eq(field, literal(false))),
+				];
+	});
+	return and(
+		...flags,
+		...(filters === undefined || filters.kind === "all"
+			? []
+			: [contains(propertyJson(relationship, "creditKinds"), literal([filters.kind]))]),
+	);
+};
 
 /** Rows of `relationship` joining `related` on `relatedSide`, anchored to the entity on the other side. */
 export const relatedRows = (input: {
@@ -352,30 +393,26 @@ export const mediaCreditQueries = <const PersonFields extends SelectedSelection>
 	const companyRelationship = table("relationship", "companyRelationship");
 	return {
 		companies: selectedRows(companyRelationship, {
-			...relatedRows({
+			...incomingCreditRows({
+				slug: input.slug,
 				related: company,
+				creator: "company",
 				entityId: input.entityId,
 				limit: input.companyLimit,
 				reference: input.reference,
-				relatedSchemaSlug: "company",
-				relatedSide: "sourceEntityId",
 				relationship: companyRelationship,
-				relationshipSchemaSlug: `company-to-${input.slug}`,
-				orderBy: creditOrder(company, companyRelationship),
 			}),
 			selection: creditSelection(company, companyRelationship),
 		}),
 		people: selectedRows(personRelationship, {
-			...relatedRows({
+			...incomingCreditRows({
 				related: person,
+				slug: input.slug,
+				creator: "person",
 				entityId: input.entityId,
 				limit: input.peopleLimit,
 				reference: input.reference,
-				relatedSchemaSlug: "person",
-				relatedSide: "sourceEntityId",
 				relationship: personRelationship,
-				orderBy: creditOrder(person, personRelationship),
-				relationshipSchemaSlug: `person-to-${input.slug}`,
 			}),
 			selection: {
 				...creditSelection(person, personRelationship),
@@ -391,6 +428,7 @@ export type MediaCreditRows<PersonFields extends SelectedSelection> = SelectedQu
 
 export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config: {
 	readonly slug: string;
+	readonly personCreditFilters?: boolean;
 	readonly personFields: (relationship: Table) => Fields;
 }) =>
 	defineRecipe(
@@ -399,6 +437,7 @@ export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config
 			readonly entityId: string;
 			readonly after?: string | undefined;
 			readonly reference: PluginIdentityReference;
+			readonly filters?: undefined | MediaCreditFilters;
 		}) => {
 			const person = table("entity", "person");
 			const relationship = table("relationship", "personRelationship");
@@ -406,20 +445,77 @@ export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config
 				map: ({ people }) => Result.succeed(people),
 				queries: {
 					people: selectedRows(relationship, {
-						...relatedRows({
+						...incomingCreditRows({
 							...input,
 							relationship,
 							related: person,
-							relatedSchemaSlug: "person",
-							relatedSide: "sourceEntityId",
-							relationshipSchemaSlug: `person-to-${config.slug}`,
-							orderBy: [...creditOrder(person, relationship), ascending(column(person, "id"))],
+							creator: "person",
+							slug: config.slug,
+							filters: config.personCreditFilters ? input.filters : undefined,
 						}),
 						...(input.after === undefined ? {} : { after: input.after }),
 						selection: {
 							...creditSelection(person, relationship),
 							...config.personFields(relationship),
 						},
+					}),
+				},
+			};
+		},
+	);
+
+const incomingCreditRows = (input: {
+	readonly slug: string;
+	readonly limit: number;
+	readonly related: Table;
+	readonly entityId: string;
+	readonly relationship: Table;
+	readonly creator: "person" | "company";
+	readonly reference: PluginIdentityReference;
+	readonly filters?: undefined | MediaCreditFilters;
+}) => {
+	const rows = relatedRows({
+		...input,
+		relatedSide: "sourceEntityId",
+		relatedSchemaSlug: input.creator,
+		relationshipSchemaSlug: `${input.creator}-to-${input.slug}`,
+		orderBy: [
+			...creditOrder(input.related, input.relationship),
+			ascending(column(input.related, "id")),
+		],
+	});
+	return {
+		...rows,
+		where:
+			input.filters === undefined
+				? rows.where
+				: and(rows.where, creditFilterPredicate(input.relationship, input.filters)),
+	};
+};
+
+export const mediaCompanyRecipe = (config: { readonly slug: string }) =>
+	defineRecipe(
+		(input: {
+			readonly limit: number;
+			readonly entityId: string;
+			readonly after?: string | undefined;
+			readonly reference: PluginIdentityReference;
+		}) => {
+			const company = table("entity", "company");
+			const relationship = table("relationship", "companyRelationship");
+			return {
+				map: ({ companies }) => Result.succeed(companies),
+				queries: {
+					companies: selectedRows(relationship, {
+						...incomingCreditRows({
+							...input,
+							relationship,
+							related: company,
+							slug: config.slug,
+							creator: "company",
+						}),
+						...(input.after === undefined ? {} : { after: input.after }),
+						selection: creditSelection(company, relationship),
 					}),
 				},
 			};
@@ -969,6 +1065,7 @@ export const mediaFlatRecipes = <
 	readonly slug: string;
 	readonly alias: string;
 	readonly groupSlug?: string;
+	readonly personCreditFilters?: boolean;
 	readonly consumptionUnit: ConsumptionMeasureUnit;
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
@@ -1106,5 +1203,6 @@ export const mediaFlatRecipes = <
 		activityRecipe,
 		presentationSource,
 		presentationSelection,
+		companiesRecipe: mediaCompanyRecipe(config),
 	};
 };

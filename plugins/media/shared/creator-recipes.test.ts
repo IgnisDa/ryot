@@ -183,6 +183,10 @@ describe("media creator recipes", () => {
 			"relatedPopulationStatus",
 			"isInMediaLibrary",
 			"character",
+			"isGuest",
+			"isUncredited",
+			"creditKinds",
+			"departments",
 		]);
 		expect(creditKeys(OVERVIEW_RECIPE, "music-group")).not.toContain("character");
 		expect(

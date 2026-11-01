@@ -22,6 +22,7 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { entityId, propertyJson, propertyNumber, type Table } from "./entity-selections";
 import {
+	type creditCharacterSelection,
 	creditSelection,
 	mediaEntityHistoryRecipe,
 	mediaEntitySummarySelection,
@@ -112,7 +113,8 @@ export type MediaCreatorOverviewOf<Recipes extends { readonly overviewRecipe: un
 	Recipe.Success<Recipes["overviewRecipe"]>;
 
 export type MediaCreatorCredit = SelectedRow<ReturnType<typeof creditSelection>> & {
-	readonly character?: null | string | undefined;
+	readonly [Key in keyof SelectedRow<ReturnType<typeof creditCharacterSelection>>]?:
+		undefined | SelectedRow<ReturnType<typeof creditCharacterSelection>>[Key];
 };
 
 export const mediaCreatorRecipes = <

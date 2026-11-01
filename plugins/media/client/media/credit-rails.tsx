@@ -36,6 +36,7 @@ export const mediaCreditRailsManagedAssets = <Slug extends string>(
 const creditLines = (credit: MediaCreatorCredit) => [
 	mediaRolesLabel(credit.roles),
 	mediaCharacterLabel(credit.character ?? null),
+	mediaRolesLabel(credit.departments ?? null),
 ];
 
 export function MediaCreditRails<Slug extends string>(props: {

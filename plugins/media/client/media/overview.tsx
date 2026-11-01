@@ -208,6 +208,7 @@ export function MediaOverviewRelations(props: {
 	readonly copy: MediaCreditCopy;
 	readonly peopleAction: ReactNode;
 	readonly aspect: MediaArtworkAspect;
+	readonly companiesAction?: ReactNode;
 	readonly overview: MediaOverviewRows;
 	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
 }) {
@@ -221,6 +222,7 @@ export function MediaOverviewRelations(props: {
 				unlinked={props.unlinked}
 				companies={companies.items}
 				peopleAction={props.peopleAction}
+				companiesAction={props.companiesAction}
 			/>
 			<MediaRecommendationsSection
 				aspect={props.aspect}
@@ -236,6 +238,7 @@ export function MediaCreditColumns(props: {
 	readonly compact: boolean;
 	readonly copy: MediaCreditCopy;
 	readonly peopleAction: ReactNode;
+	readonly companiesAction?: ReactNode;
 	readonly companies: readonly MediaCompany[];
 	readonly people: readonly MediaCreditPerson[];
 	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
@@ -264,6 +267,7 @@ export function MediaCreditColumns(props: {
 				companies={props.companies}
 				title={props.copy.companies}
 				unlinked={unlinked.companies}
+				action={props.companiesAction}
 			/>
 		</div>
 	);
@@ -327,6 +331,7 @@ export function MediaOverview<Overview>(props: {
 export function MediaCompaniesSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
+	readonly action?: ReactNode;
 	readonly companies: readonly MediaCompany[];
 	readonly unlinked?: undefined | readonly MediaUnlinkedCreator[];
 }) {
@@ -337,6 +342,7 @@ export function MediaCompaniesSection(props: {
 	return (
 		<MediaOverviewSection
 			title={props.title}
+			action={props.action}
 			sync={mediaSyncCounts(props.companies, mediaCompanyAsset)}
 			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 		>
@@ -352,6 +358,7 @@ export function MediaCompaniesSection(props: {
 							className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
 						>
 							<ManagedAssetImage
+								fit="contain"
 								monogram={company.name}
 								className="h-9 w-9 shrink-0"
 								asset={mediaCompanyAsset(company)}
@@ -416,6 +423,7 @@ export function MediaPeopleSection(props: {
 			<Shelf label={props.title} compact={props.compact} icons={mediaShelfIcons}>
 				{props.people.map((person) => {
 					const roles = mediaRolesLabel(person.roles);
+					const departments = mediaRolesLabel(person.departments ?? null);
 					const character = mediaCharacterLabel(person.character ?? null);
 					return (
 						<PluginLink
@@ -449,6 +457,11 @@ export function MediaPeopleSection(props: {
 								{character === undefined ? null : (
 									<p className="line-clamp-1 text-center font-ui text-[11px] leading-3.75 text-text-muted">
 										{character}
+									</p>
+								)}
+								{departments === undefined ? null : (
+									<p className="line-clamp-1 text-center font-ui text-[11px] text-text-muted">
+										{departments}
 									</p>
 								)}
 							</div>

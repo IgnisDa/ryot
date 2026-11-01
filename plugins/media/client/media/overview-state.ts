@@ -1,14 +1,12 @@
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
-import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
-import type {
-	creditSelection,
-	MediaOverviewRows,
-	MediaUnlinkedCreatorsOverview,
-} from "../../shared/media-recipes";
+import type { MediaCreatorCredit } from "../../shared/creator-recipes";
+import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 import { mediaPosterAsset } from "./summary-state";
+
+export type MediaCreditPerson = MediaCreatorCredit;
 
 export type MediaPerson = MediaOverviewRows["people"]["items"][number];
 
@@ -17,10 +15,6 @@ export type MediaCompany = MediaOverviewRows["companies"]["items"][number];
 export type MediaUnlinkedCreator = { readonly name: string; readonly role: string };
 
 export type MediaRecommendation = MediaOverviewRows["recommendations"]["items"][number];
-
-export type MediaCreditPerson = SelectedRow<ReturnType<typeof creditSelection>> & {
-	readonly character?: null | string | undefined;
-};
 
 export const mediaUnlinkedCreators = (overview: MediaUnlinkedCreatorsOverview) =>
 	overview.creators?.unlinkedCreators ?? [];

@@ -490,6 +490,9 @@ describe("episodes and copy", () => {
 		];
 		const nextUp = { id: "e", name: "E", seasonNumber: 2, episodeNumber: 5 };
 		expect(defaultSeasonNumber({ nextUp, seasons })).toBe(2);
+		expect(
+			defaultSeasonNumber({ seasons: seasons.slice(1, 2), nextUp: { seasonNumber: 125 } }),
+		).toBe(125);
 		expect(defaultSeasonNumber({ seasons, nextUp: null })).toBe(1);
 		expect(defaultSeasonNumber({ nextUp: null, seasons: seasons.slice(0, 1) })).toBe(0);
 		expect(defaultSeasonNumber({ seasons: [], nextUp: null })).toBeUndefined();

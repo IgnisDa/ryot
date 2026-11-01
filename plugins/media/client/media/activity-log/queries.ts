@@ -3,12 +3,14 @@ import {
 	createRyotQuery,
 	type RyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import {
 	type EpisodicEarlierUnwatched,
 	episodicEarlierUnwatchedRecipe,
 	type MediaActivityLogContext,
 	mediaActivityLogContextRecipe,
+	showSeasonChoicesRecipe,
 	type ShowSeasonEpisodeChoices,
 	showSeasonEpisodeChoicesRecipe,
 } from "../../../shared/activity-log-recipes";
@@ -49,6 +51,20 @@ export const showSeasonChoicesQuery = createRyotQuery<
 			seasonNumber: input.seasonNumber,
 			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			...(input.after === null ? {} : { after: input.after }),
+		}),
+	),
+);
+
+export const activityLogSeasonsQuery = createRyotQuery<
+	{ readonly entityId: string; readonly after: null | string },
+	Recipe.Success<typeof showSeasonChoicesRecipe>
+>(({ input, client }) =>
+	client.data.query(
+		showSeasonChoicesRecipe({
+			...input,
+			limit: 40,
+			after: input.after ?? undefined,
+			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 		}),
 	),
 );

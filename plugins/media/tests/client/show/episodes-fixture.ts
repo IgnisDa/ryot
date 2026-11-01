@@ -52,6 +52,11 @@ export const decodeShowSeasonsResult = (input: {
 	readonly seasons?: readonly Record<string, unknown>[];
 }) => {
 	const seasons = input.seasons ?? [showSeasonRow];
+	const seasonNumbers = seasons.flatMap((season) =>
+		typeof season.seasonNumber === "number" && Number.isFinite(season.seasonNumber)
+			? [season.seasonNumber]
+			: [],
+	);
 	const show =
 		input.show === null
 			? []
@@ -61,16 +66,20 @@ export const decodeShowSeasonsResult = (input: {
 						schemaSlug: "show",
 						name: "Adolescence",
 						episodeOrders: null,
+						seasonTotal: seasons.length,
 						translationStatus: { state: "idle", availability: "none" },
 						populationStatus: { state: "succeeded", availability: "complete" },
 						relatedPopulationStatus: { state: "succeeded", availability: "complete" },
+						lastSeasonNumber: seasonNumbers.length === 0 ? null : Math.max(...seasonNumbers),
 						...input.show,
-						seasons: { items: seasons, pageInfo: { limit: 40, hasMore: false } },
 					},
 				];
 	return Result.getOrThrow(
 		showSeasonsFixtureRecipe.decode({
-			data: { show: rowsResult(show, { limit: 1, hasMore: false, nextCursor: null }) },
+			data: {
+				show: rowsResult(show, { limit: 1, hasMore: false, nextCursor: null }),
+				seasons: rowsResult(seasons, { limit: 40, hasMore: false, nextCursor: null }),
+			},
 		}),
 	);
 };

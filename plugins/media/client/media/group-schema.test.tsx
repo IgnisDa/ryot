@@ -152,6 +152,7 @@ describe("group detail screen", () => {
 
 		expect(container.textContent).toContain("Artists");
 		expect(container.textContent).toContain("Nina Simone");
+		expect(getByRole(container, "button", { name: "View all companies" })).toBeDefined();
 		expect(container.textContent).not.toContain("Nothing more to show");
 		unmount();
 	});

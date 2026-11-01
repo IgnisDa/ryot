@@ -13,8 +13,12 @@ export const showOverviewFixtureRecipe = showRecipes.overviewRecipe({
 
 export const showPersonRow = {
 	order: 1,
+	isGuest: null,
 	id: "person-1",
+	creditKinds: null,
+	departments: null,
 	character: "Jamie",
+	isUncredited: null,
 	name: "Owen Cooper",
 	isInMediaLibrary: false,
 	roles: ["Actor", "Guest Star"],

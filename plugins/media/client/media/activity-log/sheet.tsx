@@ -36,6 +36,7 @@ import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { podcastEpisodesQuery } from "../../podcast/episodes-query";
 import {
 	activityLogContextQuery,
+	activityLogSeasonsQuery,
 	earlierEpisodesQuery,
 	logActivitySubmission,
 	showSeasonChoicesQuery,
@@ -296,6 +297,68 @@ export function PositionProgress(props: {
 			) : (
 				<FieldMessage>{props.error}</FieldMessage>
 			)}
+		</div>
+	);
+}
+
+export function ActivitySeasonSelector(props: {
+	readonly entityId: string;
+	readonly seasonNumber: number | undefined;
+	readonly onSeason: (seasonNumber: number) => void;
+}) {
+	const query = useRyotInfiniteQuery(
+		activityLogSeasonsQuery,
+		{ entityId: props.entityId },
+		{
+			initialPageParam: FIRST_PAGE,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after) => ({ ...input, after }),
+		},
+	);
+	const seasons = paginationItems(
+		query.pages,
+		(page) => page.items,
+		(season) => season.id,
+	);
+	const choices = seasons.map((season) => ({
+		value: String(season.seasonNumber),
+		label: seasonLabel(season.seasonNumber),
+	}));
+	if (
+		props.seasonNumber !== undefined &&
+		!seasons.some((season) => season.seasonNumber === props.seasonNumber)
+	) {
+		choices.push({ value: String(props.seasonNumber), label: seasonLabel(props.seasonNumber) });
+	}
+	return (
+		<div className="flex flex-col gap-2">
+			<Field label="Season">
+				{(control) => (
+					<Select
+						label="Season"
+						id={control.id}
+						choices={choices}
+						value={String(props.seasonNumber ?? "")}
+						checkIcon={<AppIcon size={16} name="check" />}
+						onChange={(value) => props.onSeason(Number(value))}
+						chevronIcon={<AppIcon size={16} name="chevron-down" />}
+					/>
+				)}
+			</Field>
+			{query.isPending ? <StatusMessage tone="pending">Loading seasons…</StatusMessage> : null}
+			{query.isError ? (
+				<StatusMessage tone="error" action={{ label: "Try again", onClick: query.retry }}>
+					Unable to load seasons.
+				</StatusMessage>
+			) : null}
+			{query.hasNextPage ? (
+				<LoadMoreButton
+					label="Load more seasons"
+					disabled={query.isFetching}
+					onClick={query.fetchNextPage}
+					isFetchingNextPage={query.isFetchingNextPage}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -653,6 +716,78 @@ function StatusPicker(props: {
 	);
 }
 
+function EpisodeStep(props: Body) {
+	const { pager, logger, context, earlier, selected } = props;
+	const special = logger.family === "show" && selected?.seasonNumber === 0;
+	const summary =
+		earlier.status === "ready" && earlier.episodes.length > 0
+			? backfillSummary(logger, earlier.episodes)
+			: undefined;
+	return (
+		<div className="flex flex-col gap-3">
+			{logger.family === "show" ? (
+				<ActivitySeasonSelector
+					entityId={context.id}
+					onSeason={props.onSeason}
+					seasonNumber={props.seasonNumber}
+				/>
+			) : null}
+			{pager === undefined ? (
+				<p className="text-text-muted">This show has no episodes to log yet.</p>
+			) : (
+				<EpisodeList
+					pager={pager}
+					logger={logger}
+					onSelect={props.onSelect}
+					selectedId={selected?.id}
+					nextUpId={context.nextUp?.id}
+				/>
+			)}
+			{selected?.state === "complete" ? (
+				<p className="text-text-muted">
+					You've already {logger.copy.participle} this one. It will be logged as a rewatch.
+				</p>
+			) : null}
+			{earlier.status === "error" ? (
+				<StatusMessage tone="error" action={{ label: "Try again", onClick: earlier.retry }}>
+					Unable to check earlier episodes.
+				</StatusMessage>
+			) : null}
+			{earlier.status === "loading" ? (
+				<StatusMessage tone="pending">Checking earlier episodes…</StatusMessage>
+			) : null}
+			{earlier.status === "ready" && earlier.tooMany && !special ? (
+				<Row
+					title="Also mark earlier episodes"
+					description={`More than ${BACKFILL_LIMIT} earlier episodes are unwatched, so none can be marked together. Mark them in smaller steps.`}
+					trailing={
+						<Switch
+							disabled
+							checked={false}
+							onChange={() => undefined}
+							label="Mark earlier episodes"
+						/>
+					}
+				/>
+			) : null}
+			{summary === undefined || earlier.status !== "ready" || earlier.tooMany ? null : (
+				<Row
+					title={summary.label}
+					description={summary.detail}
+					trailing={
+						<Switch
+							label={summary.label}
+							disabled={props.locked}
+							checked={props.backfill}
+							onChange={props.onBackfill}
+						/>
+					}
+				/>
+			)}
+		</div>
+	);
+}
+
 function EpisodeList(props: {
 	readonly pager: EpisodePager;
 	readonly logger: MediaActivityLogger;
@@ -718,89 +853,6 @@ function EpisodeList(props: {
 					isFetchingNextPage={pager.isFetchingNextPage}
 				/>
 			) : null}
-		</div>
-	);
-}
-
-function EpisodeStep(props: Body) {
-	const { pager, logger, context, earlier, selected } = props;
-	const special = logger.family === "show" && selected?.seasonNumber === 0;
-	const summary =
-		earlier.status === "ready" && earlier.episodes.length > 0
-			? backfillSummary(logger, earlier.episodes)
-			: undefined;
-	return (
-		<div className="flex flex-col gap-3">
-			{logger.family === "show" ? (
-				<Field label="Season">
-					{(control) => (
-						<Select
-							label="Season"
-							id={control.id}
-							value={String(props.seasonNumber ?? "")}
-							checkIcon={<AppIcon size={16} name="check" />}
-							onChange={(value) => props.onSeason(Number(value))}
-							chevronIcon={<AppIcon size={16} name="chevron-down" />}
-							choices={context.seasons.map((season) => ({
-								value: String(season.seasonNumber),
-								label: seasonLabel(season.seasonNumber),
-							}))}
-						/>
-					)}
-				</Field>
-			) : null}
-			{pager === undefined ? (
-				<p className="text-text-muted">This show has no episodes to log yet.</p>
-			) : (
-				<EpisodeList
-					pager={pager}
-					logger={logger}
-					onSelect={props.onSelect}
-					selectedId={selected?.id}
-					nextUpId={context.nextUp?.id}
-				/>
-			)}
-			{selected?.state === "complete" ? (
-				<p className="text-text-muted">
-					You've already {logger.copy.participle} this one. It will be logged as a rewatch.
-				</p>
-			) : null}
-			{earlier.status === "error" ? (
-				<StatusMessage tone="error" action={{ label: "Try again", onClick: earlier.retry }}>
-					Unable to check earlier episodes.
-				</StatusMessage>
-			) : null}
-			{earlier.status === "loading" ? (
-				<StatusMessage tone="pending">Checking earlier episodes…</StatusMessage>
-			) : null}
-			{earlier.status === "ready" && earlier.tooMany && !special ? (
-				<Row
-					title="Also mark earlier episodes"
-					description={`More than ${BACKFILL_LIMIT} earlier episodes are unwatched, so none can be marked together. Mark them in smaller steps.`}
-					trailing={
-						<Switch
-							disabled
-							checked={false}
-							onChange={() => undefined}
-							label="Mark earlier episodes"
-						/>
-					}
-				/>
-			) : null}
-			{summary === undefined || earlier.status !== "ready" || earlier.tooMany ? null : (
-				<Row
-					title={summary.label}
-					description={summary.detail}
-					trailing={
-						<Switch
-							label={summary.label}
-							disabled={props.locked}
-							checked={props.backfill}
-							onChange={props.onBackfill}
-						/>
-					}
-				/>
-			)}
 		</div>
 	);
 }

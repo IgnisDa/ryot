@@ -139,6 +139,7 @@ type MediaGroupOverviewRecipe<Overview> = (input: {
 
 type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 	readonly peopleRecipe: MediaCreditsRecipe;
+	readonly companiesRecipe: MediaCreditsRecipe;
 	readonly presentationSource: MediaPresentationSource<Presentation>;
 	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	readonly summaryRecipe: (input: {
@@ -192,6 +193,7 @@ export const defineGroupMediaSchema = <
 	const creditCopy = descriptor.creditCopy;
 	const overviewRecipe = recipes.overviewRecipe;
 	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
+	const companiesQuery = createMediaCreditsQuery(recipes.companiesRecipe);
 
 	const tabs: readonly TabOption<GroupTabKey>[] = [
 		{ value: "members", label: members.tab },
@@ -333,6 +335,19 @@ export const defineGroupMediaSchema = <
 						label="View all people"
 						title={creditCopy.people}
 						safeAreaTop={safeAreaTop}
+					/>
+				}
+				companiesAction={
+					<MediaCreditsButton
+						fit="contain"
+						purpose="logo"
+						aspect="square"
+						compact={compact}
+						input={{ entityId }}
+						query={companiesQuery}
+						safeAreaTop={safeAreaTop}
+						label="View all companies"
+						title={creditCopy.companies}
 					/>
 				}
 			/>

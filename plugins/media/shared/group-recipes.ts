@@ -33,6 +33,7 @@ import {
 import type { MediaImage } from "./media-image";
 import { MediaImageAssetSchema, MediaImageListSchema } from "./media-image";
 import {
+	mediaCompanyRecipe,
 	mediaCreditQueries,
 	mediaEntityHistoryRecipe,
 	mediaEntitySummarySelection,
@@ -278,6 +279,7 @@ export const mediaGroupRecipes = <
 		historyRecipe,
 		activityRecipe,
 		presentationSource,
+		companiesRecipe: mediaCompanyRecipe(config),
 	};
 
 	type Credits = Slug extends CreditGroupSlug

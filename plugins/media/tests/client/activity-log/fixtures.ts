@@ -70,6 +70,7 @@ export const podcastRow = (episodeNumber: number, state = "untracked") =>
 
 export type ActivityLogFake = {
 	readonly podcast?: Pages;
+	readonly seasonChoices?: Pages;
 	readonly target?: Row | undefined;
 	readonly recent?: readonly string[];
 	readonly consumedOn?: readonly string[];
@@ -117,6 +118,20 @@ export const activityLogQuery =
 					}),
 				},
 			});
+		}
+		if (text.includes('"logSeasonChoice"')) {
+			requests.push("seasonChoices");
+			const targetSeasons = fake.target?.seasons;
+			const items =
+				typeof targetSeasons === "object" &&
+				targetSeasons !== null &&
+				"items" in targetSeasons &&
+				Array.isArray(targetSeasons.items)
+					? targetSeasons.items.filter(
+							(row): row is Row => typeof row === "object" && row !== null && !Array.isArray(row),
+						)
+					: [];
+			return Effect.succeed({ data: { seasons: pagedRows(fake.seasonChoices ?? [items], text) } });
 		}
 		if (text.includes('"choiceEpisode"')) {
 			requests.push("choices");

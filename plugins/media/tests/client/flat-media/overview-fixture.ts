@@ -19,8 +19,12 @@ export const fixtureOverviewRecipe = flatFixtureRecipes.overviewRecipe(FLAT_OVER
 
 export const flatPersonRow = {
 	order: 1,
+	isGuest: null,
 	id: "person-1",
 	roles: ["Actor"],
+	creditKinds: null,
+	departments: null,
+	isUncredited: null,
 	name: "Edward Norton",
 	isInMediaLibrary: false,
 	character: "The Narrator",

@@ -453,7 +453,7 @@ export const defaultSeasonNumber = (context: {
 }) => {
 	const seasons = context.seasons.map(({ seasonNumber }) => seasonNumber);
 	const next = context.nextUp?.seasonNumber;
-	if (next !== null && next !== undefined && seasons.includes(next)) {
+	if (next !== null && next !== undefined) {
 		return next;
 	}
 	return seasons.find((number) => number > 0) ?? seasons[0];

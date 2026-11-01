@@ -25,7 +25,12 @@ import {
 } from "./activity-rows";
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { decimalLabel, mediaCollectionRowLabel, mergeActivityRuns } from "./activity-timeline";
-import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
+import {
+	createMediaCreditsQuery,
+	type MediaCreditFilterControls,
+	MediaCreditsButton,
+	type MediaCreditsRecipe,
+} from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -124,6 +129,7 @@ export type MediaFlatSchemaDescriptor<
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
 	readonly logActivity: MediaActivityLogger;
+	readonly creditFilters?: MediaCreditFilterControls;
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
 	readonly overviewRails?: (overview: Overview) => readonly MediaOverviewRail[];
@@ -159,6 +165,7 @@ export type MediaFlatSchemaDescriptor<
 	};
 	readonly recipes: {
 		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly companiesRecipe: MediaCreditsRecipe;
 		readonly presentationSource: MediaPresentationSource<Presentation>;
 		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
 		readonly summaryRecipe: (input: {
@@ -226,6 +233,7 @@ export const defineFlatMediaSchema = <
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
 	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
+	const companiesQuery = createMediaCreditsQuery(recipes.companiesRecipe);
 
 	const railsOf = (overview: Overview) => descriptor.overviewRails?.(overview) ?? [];
 
@@ -411,6 +419,20 @@ export const defineFlatMediaSchema = <
 				unlinked={unlinked}
 				aspect={descriptor.aspect}
 				copy={descriptor.creditCopy}
+				companiesAction={
+					<MediaCreditsButton
+						fit="contain"
+						purpose="logo"
+						aspect="square"
+						compact={compact}
+						input={{ entityId }}
+						query={companiesQuery}
+						safeAreaTop={safeAreaTop}
+						label="View all companies"
+						title={descriptor.creditCopy.companies}
+						unlinked={mediaUnlinkedCredits(unlinked).companies}
+					/>
+				}
 				peopleAction={
 					<MediaCreditsButton
 						aspect="square"
@@ -420,6 +442,7 @@ export const defineFlatMediaSchema = <
 						input={{ entityId }}
 						label="View all people"
 						safeAreaTop={safeAreaTop}
+						filters={descriptor.creditFilters}
 						title={descriptor.creditCopy.people}
 						unlinked={mediaUnlinkedCredits(unlinked).people}
 					/>

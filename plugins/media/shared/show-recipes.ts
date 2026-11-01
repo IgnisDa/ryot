@@ -10,9 +10,9 @@ import {
 	inArray,
 	join,
 	literal,
+	maximum,
 	relationshipSchemaPredicate,
 	selectedField,
-	selectedInclude,
 	selectedOptionalRow,
 	selectedRows,
 	table,
@@ -53,10 +53,11 @@ const showSeasonNumber = (entity: Table) => ({
 	seasonNumber: selectedField(propertyNumber(entity, "seasonNumber"), Schema.Finite),
 });
 
-const showSeasonCount = (show: Table) => {
+const showSeasonScope = (show: Table) => {
 	const season = table("entity", "presentationSeason");
 	const relationship = table("relationship", "presentationShowSeason");
-	return count(season, {
+	return {
+		season,
 		joins: [
 			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(season, "id"))),
 		],
@@ -67,7 +68,23 @@ const showSeasonCount = (show: Table) => {
 			eq(column(relationship, "sourceEntityId"), column(show, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("show-to-show-season")),
 		),
-	});
+	};
+};
+
+const showSeasonCount = (show: Table) => {
+	const scope = showSeasonScope(show);
+	return count(scope.season, scope);
+};
+
+const showSeasonMetadata = (show: Table) => {
+	const scope = showSeasonScope(show);
+	return {
+		seasonTotal: selectedField(count(scope.season, scope), Schema.Finite),
+		lastSeasonNumber: selectedField(
+			maximum(scope.season, propertyNumber(scope.season, "seasonNumber"), scope),
+			Schema.NullOr(Schema.Finite),
+		),
+	};
 };
 
 const showSeasonCoverageQuery = (input: {
@@ -107,6 +124,7 @@ const showSeasonCoverageQuery = (input: {
 export const showRecipes = mediaEpisodicRecipes({
 	slug: "show",
 	alias: "show",
+	personCreditFilters: true,
 	config: showEpisodicKindConfig,
 	episodeFields: showSeasonNumber,
 	extraOverviewQueries: () => ({}),
@@ -140,25 +158,33 @@ export const showSeasonEpisodesRecipe = episodicEpisodesRecipe({
 	parentRelationshipSlug: SHOW_SEASON_RELATIONSHIP,
 });
 
-const showSeasonInclude = (show: Table, seasonLimit: number) => {
+const showSeasonRows = (input: {
+	readonly entityId: string;
+	readonly seasonLimit: number;
+	readonly after?: string | undefined;
+	readonly reference: PluginIdentityReference;
+}) => {
+	const show = table("entity", "seasonShow");
 	const season = table("entity", "season");
 	const seasonNumber = propertyNumber(season, "seasonNumber");
 	const seasonRelationship = table("relationship", "seasonRelationship");
 
-	return selectedInclude(season, {
-		limit: seasonLimit,
-		orderBy: [ascending(seasonNumber)],
+	return selectedRows(season, {
+		limit: input.seasonLimit,
+		...(input.after === undefined ? {} : { after: input.after }),
+		orderBy: [ascending(seasonNumber), ascending(column(season, "id"))],
+		where: and(
+			entitySchemaPredicate(season, "show-season", input.reference),
+			relationshipConnects(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
+		),
 		joins: [
+			join("inner", show, entityId(show, input.entityId)),
 			join(
 				"inner",
 				seasonRelationship,
 				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 			),
 		],
-		where: and(
-			entitySchemaIs(season, "show-season"),
-			relationshipConnects(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
-		),
 		selection: {
 			...entityIdentitySelection(season),
 			seasonNumber: selectedField(seasonNumber, Schema.Finite),
@@ -180,21 +206,23 @@ export const showSeasonsRecipe = defineRecipe(
 	(input: {
 		readonly entityId: string;
 		readonly seasonLimit: number;
+		readonly after?: string | undefined;
 		readonly reference: PluginIdentityReference;
 	}) => {
 		const entity = table("entity", "entity");
 		return {
-			map: ({ show }) => Result.succeed(show ?? null),
+			map: ({ show, seasons }) => Result.succeed(show === undefined ? null : { ...show, seasons }),
 			queries: {
+				seasons: showSeasonRows(input),
 				show: selectedOptionalRow(entity, {
 					orderBy: [ascending(column(entity, "id"))],
-					include: { seasons: showSeasonInclude(entity, input.seasonLimit) },
 					where: and(
 						entitySchemaPredicate(entity, "show", input.reference),
 						entityId(entity, input.entityId),
 					),
 					selection: {
 						...entityIdentitySelection(entity),
+						...showSeasonMetadata(entity),
 						episodeOrders: selectedField(
 							propertyJson(entity, "episodeOrders"),
 							ShowEpisodeOrderListSchema,

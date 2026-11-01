@@ -56,7 +56,6 @@ import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 
 const NextUpSeasonNumber = Schema.NullOr(Schema.Finite);
 
-const SEASON_LIMIT = 100;
 const ENTITY_CONSUMED_ON_LIMIT = 10;
 const RECENT_CONSUMED_ON_LIMIT = 5;
 
@@ -216,8 +215,7 @@ export const mediaActivityLogContextRecipe = defineRecipe(
 							"logPodcastNextUp",
 						),
 						seasons: selectedInclude(season, {
-							limit: SEASON_LIMIT,
-							orderBy: [ascending(propertyNumber(season, "seasonNumber"))],
+							limit: 1,
 							joins: [
 								join(
 									"inner",
@@ -230,6 +228,17 @@ export const mediaActivityLogContextRecipe = defineRecipe(
 								name: selectedField(column(season, "name"), Schema.String),
 								seasonNumber: selectedField(propertyNumber(season, "seasonNumber"), Schema.Finite),
 							},
+							orderBy: [
+								ascending(
+									conditional(
+										eq(propertyNumber(season, "seasonNumber"), literal(0)),
+										literal(1),
+										literal(0),
+									),
+								),
+								ascending(propertyNumber(season, "seasonNumber")),
+								ascending(column(season, "id")),
+							],
 							where: and(
 								entitySchemaIs(season, "show-season"),
 								sameSchemaOwner(season, "entitySchemaPluginId", entity),
@@ -251,6 +260,48 @@ export const mediaActivityLogContextRecipe = defineRecipe(
 export type MediaActivityLogContext = NonNullable<
 	Recipe.Success<typeof mediaActivityLogContextRecipe>
 >;
+
+export const showSeasonChoicesRecipe = defineRecipe(
+	(input: {
+		readonly limit: number;
+		readonly entityId: string;
+		readonly after?: string | undefined;
+		readonly reference: PluginIdentityReference;
+	}) => {
+		const season = table("entity", "logSeasonChoice");
+		const relationship = table("relationship", "logSeasonChoiceRelationship");
+		return {
+			map: ({ seasons }) => Result.succeed(seasons),
+			queries: {
+				seasons: selectedRows(season, {
+					limit: input.limit,
+					...(input.after === undefined ? {} : { after: input.after }),
+					orderBy: [
+						ascending(propertyNumber(season, "seasonNumber")),
+						ascending(column(season, "id")),
+					],
+					joins: [
+						join(
+							"inner",
+							relationship,
+							eq(column(relationship, "targetEntityId"), column(season, "id")),
+						),
+					],
+					selection: {
+						id: selectedField(column(season, "id"), EntityId),
+						name: selectedField(column(season, "name"), Schema.String),
+						seasonNumber: selectedField(propertyNumber(season, "seasonNumber"), Schema.Finite),
+					},
+					where: and(
+						entitySchemaPredicate(season, "show-season", input.reference),
+						relationshipSchemaPredicate(relationship, "show-to-show-season", input.reference),
+						eq(column(relationship, "sourceEntityId"), literal(input.entityId)),
+					),
+				}),
+			},
+		};
+	},
+);
 
 /** One page of a show season's episodes, specials and unaired included, in episode order with their display state. */
 export const showSeasonEpisodeChoicesRecipe = defineRecipe(
