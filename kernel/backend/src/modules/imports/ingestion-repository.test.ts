@@ -407,8 +407,11 @@ layer(
 					expect((yield* repository.getIngestionRun(scope))?.blockDeadline).toBe(
 						deadline.toISOString(),
 					);
+					const run = { runId: scope.runId, userId: scope.userId };
+					const settled = yield* repository.getRunById(run);
 					expect(yield* repository.releaseIngestionPins(scope)).toBe(true);
 					expect(yield* repository.getPreparedRelease(scope)).toBeNull();
+					expect((yield* repository.getRunById(run))?.updatedAt).toBe(settled?.updatedAt);
 				}
 			}),
 		testTimeout,

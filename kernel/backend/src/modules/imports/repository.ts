@@ -1968,7 +1968,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				const rows = yield* database.run((db) =>
 					db
 						.update(schema.importRun)
-						.set({ pins: null, preparedRelease: null })
+						.set({
+							pins: null,
+							preparedRelease: null,
+							updatedAt: sql`${schema.importRun.updatedAt}`,
+						})
 						.where(
 							and(
 								owned(scope),

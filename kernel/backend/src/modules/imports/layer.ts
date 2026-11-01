@@ -13,6 +13,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { IngestionArtifactStagingLive } from "./artifact-staging";
 import { IngestionCaptures } from "./capture-service";
@@ -151,6 +152,7 @@ export const ProcessGenericImportChunksWorkflowDefinitionsProvidedLive =
 				PluginRuntimeResolverLive,
 				IngestionCaptures.layer,
 				ImportsRepository.layer,
+				SandboxRepository.layer,
 				ImportSourceStateStore.layer,
 			),
 		),

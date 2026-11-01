@@ -21,6 +21,7 @@ import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxSidecarClient } from "@ryot-app/sandbox/host/client";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { ExecutionFiles } from "@ryot-app/sandbox/host/file-access";
 import { SandboxHostCallGate } from "@ryot-app/sandbox/host/host-call-gate";
 import { SandboxHostFunctions } from "@ryot-app/sandbox/host/host-functions";
@@ -295,16 +296,10 @@ const smoke = Effect.gen(function* () {
 								userBootstrapScriptSlugs: [],
 								id: PluginId.make("production-runtime-smoke"),
 								configSchema: { fields: {}, unknownKeys: "strict" },
-								compiledHashes: { [smokeSourceManifest.slug]: contentHash },
 								packageId: PluginPackageId.make("ryot/production-runtime-smoke"),
 								revisionId: PluginRevisionId.make("production-runtime-smoke-revision"),
+								scriptsDigest: scriptsDigestOf({ [smokeSourceManifest.slug]: contentHash }),
 								configRevisionId: PluginConfigRevisionId.make("production-runtime-smoke-config"),
-								schemaScope: {
-									eventSchemas: [],
-									entitySchemaSlugs: [],
-									signalSchemaSlugs: [],
-									relationshipSchemaSlugs: [],
-								},
 							},
 						}),
 			}).pipe(
