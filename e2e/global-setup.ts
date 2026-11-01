@@ -92,7 +92,10 @@ export default Effect.gen(function* () {
 					s3Endpoint: coreInfrastructure.s3Endpoint,
 					extraEnv: { ...harnessApiEnv, SERVER_LOG_FILE: path.join(logDirectory, "ryot.log") },
 				});
-				const apiProcess = yield* startApiProcess(apiEnv, "E2E Setup", serverCwd);
+				const apiProcess = yield* startApiProcess(apiEnv, "E2E Setup", {
+					shared: true,
+					cwd: serverCwd,
+				});
 				yield* waitForFrontend(apiProcess, frontendUrl);
 
 				return {

@@ -230,3 +230,13 @@
   column's update hook moved its user-visible `updatedAt` about 90 ms after the run read as
   complete, and a run compared before and after an unrelated quarantine looked changed. The
   release now keeps `updatedAt`.
+- `full7`, the whole suite at `26d6f6212e`, collapsed after 27 minutes: 513 tests failed, almost all
+  with `ECONNREFUSED`. At 18:45:54 the kernel killed the shared API server (1.1 GB,
+  `oom_score_adj` 0) after 62 sandbox daemons. Four per-file servers were up beside it, each with
+  its own PostgreSQL, Redis and object storage, and the 12 Bun processes held about 4.6 GB. Moving
+  seven more files onto their own servers made such overlaps common.
+  - Six workers bought no time on four vCPUs: `full5` with four took 58.6 minutes and `full6` with
+    six 59.6. Vitest now uses at most the machine's available parallelism (still six on larger
+    machines).
+  - Servers a file starts get `oom_score_adj` 500 on Linux, so memory pressure costs that file
+    rather than the shared backend and every file after it.

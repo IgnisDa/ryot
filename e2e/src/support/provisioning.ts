@@ -190,12 +190,21 @@ const waitForHealthCheck = (
 		throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
 	});
 
+// Under memory pressure the kernel kills a server one file owns before the backend every file shares.
+const preferForOutOfMemoryKill = (pid: number) =>
+	process.platform === "linux"
+		? Effect.tryPromise(() => Bun.write(`/proc/${pid}/oom_score_adj`, "500")).pipe(Effect.ignore)
+		: Effect.void;
+
 export const startApiProcess = Effect.fn("startApiProcess")(function* (
 	env: NodeJS.ProcessEnv,
 	label: string,
-	cwd?: string,
+	options: { readonly cwd?: string; readonly shared?: boolean } = {},
 ) {
-	const apiProcess = yield* spawnApiProcess(env, cwd ?? "../apps/server");
+	const apiProcess = yield* spawnApiProcess(env, options.cwd ?? "../apps/server");
+	if (options.shared !== true) {
+		yield* preferForOutOfMemoryKill(apiProcess.pid);
+	}
 	yield* waitForHealthCheck(`http://127.0.0.1:${env.PORT}/api/system/health`, label, apiProcess);
 	return apiProcess;
 });

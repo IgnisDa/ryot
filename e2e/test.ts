@@ -11,7 +11,8 @@ BunRuntime.runMain(
 				return yield* Effect.die(new Error("Select specific e2e .test.ts files"));
 			}
 			const env = yield* setup;
-			return yield* runTests({ env, workers: 6, timeout: 180_000 });
+			return yield* runTests({ env, workers: Math.min(6, availableParallelism()), timeout: 180_000 });
 		}),
 	),
 );
+import { availableParallelism } from "node:os";
