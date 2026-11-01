@@ -11,6 +11,9 @@ apt-get install -y --no-install-recommends \
 	ca-certificates curl git unzip xz-utils rsync jq build-essential python3 pkg-config sudo \
 	docker.io sysstat htop postgresql-client redis-tools
 systemctl enable --now docker
+# Unattended upgrades re-execute systemd, which restarts running measurement units.
+systemctl disable --now apt-daily.timer apt-daily-upgrade.timer unattended-upgrades.service
+systemctl mask apt-daily.service apt-daily-upgrade.service
 
 getent group 1001 >/dev/null || groupadd --gid 1001 ryot-backend
 getent passwd 1001 >/dev/null || useradd --uid 1001 --gid 1001 --create-home --home-dir /var/lib/ryot-backend --shell /bin/bash ryot-backend

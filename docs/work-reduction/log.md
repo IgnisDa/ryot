@@ -62,3 +62,15 @@
 - Correction: `probes3`'s logging and OTLP cost came from the harness setting an OTLP endpoint, which
   turns on per-span debug logging. OTLP export is now opt-in (`OTEL=1`). `base2` was restarted without
   it so the baseline matches normal e2e configuration. The owner keeps log level `all`.
+- `base2` (revision `f3c8ce8f77`, before slice 1, no OTLP): the kernel OOM killer stopped it after
+  63 min (unit memory peak 6.2 GB of the VM's 7.7 GB). By then 99 files and 693 tests had run, and
+  28 tests had failed:
+  - 23 of the failures are 180 s timeouts in cascade-heavy tests, the same files as `base1`:
+    `history-correction-liveness` 4, `history-correction` 3, `user-data` 3,
+    `plugin-package-conflicts` 3, `integrations` 4, `episodic-lifecycle` 2.
+  - Three are browser tests (45 s timeouts).
+  - Lock waits over 1 s were all on `ryot-plugin-ingestion`; slice 1 targets this.
+  - The shared API server grew from 0.2 GB to 1.2 GB RSS over the run. Each per-file server holds about
+    0.5 GB, plus Chromium and the test PostgreSQL connections. A full run on this VM therefore also
+    needs less memory per server. The growth of the long-lived server is a follow-up to measure after
+    the engine change, which drops Cluster's in-memory mailboxes.
