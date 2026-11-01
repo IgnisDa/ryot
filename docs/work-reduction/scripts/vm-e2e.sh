@@ -29,6 +29,7 @@ vmstat -t 5 > "$out/vmstat.log" & vm=$!
 ( while true; do docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}' | sed "s/^/$(date +%T) /"; sleep 15; done ) > "$out/docker-stats.log" 2>/dev/null & ds=$!
 ( while true; do ps -eo pid,pcpu,rss,etime,args --sort=-pcpu | head -15 | sed "s/^/$(date +%T) /"; echo; sleep 15; done ) > "$out/ps.log" 2>/dev/null & pss=$!
 bash "$here/pgwatch.sh" "$out/pgss.csv" 2> "$out/pgwatch.log" & pw=$!
+sh "$here/lockwatch.sh" "$out/locks.log" & lw=$!
 
 # PROFILE=1: every Bun process (API servers included) writes a CPU profile on exit.
 prof=""
@@ -58,6 +59,7 @@ kill $vm $ds $pss 2>/dev/null
 # pgwatch exits when its container disappears; stop it if vitest never started one.
 for _ in $(seq 1 12); do kill -0 $pw 2>/dev/null || break; sleep 5; done
 pkill -P $pw 2>/dev/null; kill $pw 2>/dev/null
+pkill -P $lw 2>/dev/null; kill $lw 2>/dev/null
 log=$(ls -d "$out"/tmp/ryot-e2e-server-logs-* 2>/dev/null | head -1)
 [ -n "$log" ] && cp "$log/ryot.log" "$out/server.log"
 pg=$(ls -S "$out"/tmp/ryot-*-postgres-*.log 2>/dev/null | head -1)
