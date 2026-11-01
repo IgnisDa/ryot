@@ -29,6 +29,43 @@ use sea_orm::{
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
+fn completed_change(
+    started_on: Option<DateTimeUtc>,
+    ended_on: Option<DateTimeUtc>,
+    common: MetadataProgressUpdateCommonInput,
+) -> MetadataProgressUpdateChangeCreateNewCompletedInput {
+    match (started_on, ended_on) {
+        (Some(started_on), Some(finished_on)) => {
+            MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
+                MetadataProgressUpdateStartedAndFinishedOnDateInput {
+                    started_on,
+                    data: MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                        common,
+                        timestamp: finished_on,
+                    },
+                },
+            )
+        }
+        (Some(started_on), None) => {
+            MetadataProgressUpdateChangeCreateNewCompletedInput::StartedOnDate(
+                MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                    common,
+                    timestamp: started_on,
+                },
+            )
+        }
+        (None, Some(finished_on)) => {
+            MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
+                MetadataProgressUpdateStartedOrFinishedOnDateInput {
+                    common,
+                    timestamp: finished_on,
+                },
+            )
+        }
+        (None, None) => MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common),
+    }
+}
+
 // TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
 pub async fn commit_import_seen_item(
     is_import: bool,
@@ -56,38 +93,7 @@ pub async fn commit_import_seen_item(
         podcast_episode_number: input.podcast_episode_number,
     };
     if is_import {
-        let change_inner = match (input.started_on, input.ended_on) {
-            (Some(started_on), Some(finished_on)) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedAndFinishedOnDate(
-                    MetadataProgressUpdateStartedAndFinishedOnDateInput {
-                        started_on,
-                        data: MetadataProgressUpdateStartedOrFinishedOnDateInput {
-                            common,
-                            timestamp: finished_on,
-                        },
-                    },
-                )
-            }
-            (Some(started_on), None) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::StartedOnDate(
-                    MetadataProgressUpdateStartedOrFinishedOnDateInput {
-                        common,
-                        timestamp: started_on,
-                    },
-                )
-            }
-            (None, Some(finished_on)) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::FinishedOnDate(
-                    MetadataProgressUpdateStartedOrFinishedOnDateInput {
-                        common,
-                        timestamp: finished_on,
-                    },
-                )
-            }
-            (None, None) => {
-                MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common)
-            }
-        };
+        let change_inner = completed_change(input.started_on, input.ended_on, common);
         let change = MetadataProgressUpdateChange::CreateNewCompleted(change_inner);
         ryot_log!(
             debug,
@@ -158,9 +164,11 @@ pub async fn commit_import_seen_item(
             ss,
             MetadataProgressUpdateInput {
                 metadata_id: metadata_id.to_owned(),
-                change: MetadataProgressUpdateChange::CreateNewCompleted(
-                    MetadataProgressUpdateChangeCreateNewCompletedInput::WithoutDates(common),
-                ),
+                change: MetadataProgressUpdateChange::CreateNewCompleted(completed_change(
+                    input.started_on,
+                    input.ended_on,
+                    common,
+                )),
             },
         )
         .await?;
