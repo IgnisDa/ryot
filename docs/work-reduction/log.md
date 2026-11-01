@@ -25,3 +25,7 @@
   lookup). Idle background: runner heartbeat, shard-lock refresh, and storage poll each ≈15
   statements/s. Total database execution time was only 14 s of a 90 s run, so latency here is round
   trips and waits, not database saturation.
+- Repo finding: `e2e` pins `playwright@1.62.1` but `effect-playwright@0.8.0` resolves
+  `playwright-core@1.63.0`, which is what launches Chromium (needs headless-shell build 1243). A fresh
+  machine that installs browsers with the pinned CLI fails every browser test at launch. Baseline
+  `base1` browser results before 05:17 are invalid for this reason.

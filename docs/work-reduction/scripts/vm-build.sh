@@ -17,6 +17,10 @@ if [ "$first" != "$second" ]; then
 	exit 1
 fi
 bash kernel/sandbox/native/provision.sh "$dist/ryot-sandbox-launcher" "$dist/ryot-sandboxd" "$dist/snapshots"
-sudo -u ryot-backend -H bash -lc "cd $src/e2e && bunx playwright install chromium >/dev/null"
-[ -f /var/lib/ryot-backend/.cache/ms-playwright/.deps-installed ] || { (cd "$src/e2e" && /opt/bun/bin/bunx playwright install-deps chromium) && touch /var/lib/ryot-backend/.cache/ms-playwright/.deps-installed; }
+# effect-playwright resolves its own playwright-core (newer than e2e's pinned playwright); install
+# browsers for every playwright-core in the tree.
+for cli in "$src"/node_modules/.bun/playwright-core@*/node_modules/playwright-core/cli.js; do
+	sudo -u ryot-backend -H bash -lc "cd $src && node $cli install chromium chromium-headless-shell >/dev/null"
+done
+[ -f /var/lib/ryot-backend/.cache/ms-playwright/.deps-installed ] || { (cd "$src/e2e" && ./node_modules/.bin/playwright install-deps chromium) && touch /var/lib/ryot-backend/.cache/ms-playwright/.deps-installed; }
 echo built
