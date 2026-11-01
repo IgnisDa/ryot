@@ -16,7 +16,6 @@ import {
 	workflowHostRequestSchema,
 	type WorkflowInlineRequest,
 } from "@ryot-app/plugin-backend-sdk/workflow";
-import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import {
 	bindSandboxHostFunctions,
 	decodeSandboxHostArguments,
@@ -32,7 +31,7 @@ import type { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http
 import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
-import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
+import type { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import {
 	executeSandboxHttp,
@@ -381,27 +380,17 @@ export const SandboxDurableHostServiceWorkflow = Workflow.make(
 	},
 );
 
-export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHostServiceWorkflow")(
-	function* (payload: typeof SandboxDurableHostServiceWorkflowPayload.Type) {
-		yield* (yield* SandboxExecutionAuthority).resolve(payload.principal);
-		return yield* dispatchSandboxHostActivity(
-			yield* ScriptHostImplementations,
-			payload.request,
-			hostCallScopeOf(
-				payload.sandbox,
-				payload.principal,
-				payload.parentExecutionId,
-				payload.startedAt,
-			),
-		);
-	},
-);
-
 type SandboxDurableHostDispatcherValue = {
 	readonly cancelInline: (
 		executionId: string,
 		progress: ReadonlyArray<SandboxInlineProgress>,
 	) => Effect.Effect<void>;
+	readonly write: (
+		request: HostRequest,
+		payload: PinnedScriptExecutionWorkflowPayload,
+		principal: ScriptExecutionPrincipal,
+		executionId: string,
+	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	readonly dispatch: (
 		request: HostRequest,
 		payload: PinnedScriptExecutionWorkflowPayload,

@@ -152,20 +152,20 @@ export const RuntimeSandboxExecutorLive = SandboxExecutor.layer.pipe(
 	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
 );
 
-export const SandboxDurableHostServicesLive = Layer.mergeAll(
-	SandboxDurableHostDispatcherLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				ScriptHostImplementationsLive,
-				NotificationsServiceLive,
-				SandboxSubmissionCommands.layer,
-				PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
-				ProviderHttpAdmissionService.layer,
+export const SandboxDurableHostServicesLive = SandboxDurableHostServiceWorkflowLive.pipe(
+	Layer.provideMerge(
+		SandboxDurableHostDispatcherLive.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					ScriptHostImplementationsLive,
+					NotificationsServiceLive,
+					SandboxSubmissionCommands.layer,
+					PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
+					ProviderHttpAdmissionService.layer,
+				),
 			),
 		),
 	),
-	SandboxDurableHostServiceWorkflowLive.pipe(Layer.provide(ScriptHostImplementationsLive)),
-).pipe(
 	Layer.provide(SandboxExecutionAuthorityLive),
 	Layer.provide(SandboxRepository.layer),
 	Layer.provide(LifecycleServicesLive),

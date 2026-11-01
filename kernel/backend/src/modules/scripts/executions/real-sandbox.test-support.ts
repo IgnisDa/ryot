@@ -152,6 +152,7 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 			});
 			const dispatcher = Layer.succeed(SandboxDurableHostDispatcher, {
 				cancelInline: () => Effect.void,
+				write: () => Effect.die("durable write is not expected"),
 				dispatch: () =>
 					options.hostResult
 						? Effect.succeed(options.hostResult)

@@ -279,7 +279,7 @@ const childOwnerDispatchLayer = Layer.unwrap(
 
 layer(childOwnerDispatchLayer)((test) => {
 	test.effect(
-		"dispatches workflow-owned capabilities through their deterministic child owners",
+		"dispatches writes through their deterministic host-call workflows",
 		() =>
 			Effect.gen(function* () {
 				const executionId = childOwnerExecutionId;
@@ -324,25 +324,30 @@ layer(childOwnerDispatchLayer)((test) => {
 						executionId,
 					),
 				).toEqual({ state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } });
-				expect(
-					yield* dispatcher.dispatch(
-						{
-							index: 1,
-							kind: "host",
-							name: "sendNotification",
-							args: { args: ["Ready"], capability: "sendNotification" },
-						},
-						payload,
-						principal,
-						executionId,
-					),
-				).toEqual({ value: null, state: "success" });
+				const notification = {
+					index: 1,
+					kind: "host" as const,
+					name: "sendNotification",
+					args: { args: ["Ready"], capability: "sendNotification" as const },
+				};
+				yield* dispatcher.dispatch(notification, payload, principal, executionId);
 				expect(yield* (yield* RecordedWorkflowExecutions).executions).toMatchObject([
 					{
 						workflow: SandboxDurableHostServiceWorkflow,
-						options: { executionId: "sandbox-parent-host-service-0" },
+						options: {
+							executionId: "sandbox-parent-host-service-0",
+							payload: { request: { index: 0 }, parentExecutionId: executionId },
+						},
+					},
+					{
+						workflow: SandboxDurableHostServiceWorkflow,
+						options: { executionId: "sandbox-parent-host-service-1" },
 					},
 				]);
+				expect(yield* dispatcher.write(notification, payload, principal, executionId)).toEqual({
+					value: null,
+					state: "success",
+				});
 				expect(yield* (yield* RecordedNotificationMessages).messages).toEqual([
 					{
 						message: "Ready",
@@ -1969,13 +1974,13 @@ const lifecycleDispatchLayer = (options: {
 		}),
 	);
 
-const runLifecycleDispatch = (options: {
+const runLifecycleWrite = (options: {
 	readonly args: ReadonlyArray<JsonValue>;
 	readonly principal?: ScriptExecutionPrincipal;
 	readonly capability: (typeof lifecycleCapabilities)[number];
 }) =>
 	Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
-		dispatcher.dispatch(
+		dispatcher.write(
 			{
 				index: 4,
 				kind: "host",
@@ -2049,7 +2054,7 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const harness = yield* LifecycleDispatchHarness;
-				const result = yield* runLifecycleDispatch({
+			const result = yield* runLifecycleWrite({
 					args: [[batch, batch]],
 					capability: "changeUserRelationships",
 				});
@@ -2124,7 +2129,7 @@ layer(
 					providerId: SandboxProviderId.make("provider-1"),
 					metadata: { ...lifecycleScript.metadata, kind: "script" as const },
 				};
-				const result = yield* runLifecycleDispatch({
+			const result = yield* runLifecycleWrite({
 					args: [[]],
 					principal: providerPrincipal,
 					capability: "upsertGlobalEntities",
@@ -2161,7 +2166,7 @@ layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) =>
 				};
 
 				expect(
-					yield* runLifecycleDispatch({ args: [], capability: "changeUserRelationships" }),
+					yield* runLifecycleWrite({ args: [], capability: "changeUserRelationships" }),
 				).toEqual({
 					state: "failure",
 					error: { message: "changeUserRelationships received an invalid number of arguments" },
@@ -2176,7 +2181,7 @@ layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) =>
 					}),
 				);
 				expect(
-					yield* runLifecycleDispatch({ args: [[batch]], capability: "changeUserRelationships" }),
+					yield* runLifecycleWrite({ args: [[batch]], capability: "changeUserRelationships" }),
 				).toEqual({
 					state: "failure",
 					error: { message: "changeUserRelationships exceeds 500 changes" },
@@ -2198,7 +2203,7 @@ layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) =>
 					}),
 				);
 				expect(
-					yield* runLifecycleDispatch({ args: [[batch]], capability: "changeUserRelationships" }),
+					yield* runLifecycleWrite({ args: [[batch]], capability: "changeUserRelationships" }),
 				).toEqual({ state: "failure", error: { message: "policy-rejected" } });
 			}),
 		testTimeout,

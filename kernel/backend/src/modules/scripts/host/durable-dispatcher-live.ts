@@ -37,7 +37,6 @@ import {
 	prepareSandboxCreateEvents,
 	prepareSandboxLifecycleHostInput,
 	prepareSandboxSendNotification,
-	runSandboxDurableHostServiceWorkflow,
 	SandboxDurableHostDispatcher,
 	SandboxDurableHostServiceWorkflow,
 } from "#modules/scripts/host/durable-dispatcher";
@@ -75,9 +74,23 @@ const lifecycleHostSuccessSchemas = {
 	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
 };
 
+const isHostWrite = (strategy: string) =>
+	strategy === "service-workflow" ||
+	strategy === "event-workflow" ||
+	strategy === "lifecycle-workflow" ||
+	strategy === "notification-workflow";
+
 export const SandboxDurableHostServiceWorkflowLive = implementWorkflow(
 	SandboxDurableHostServiceWorkflow,
-	(payload) => runSandboxDurableHostServiceWorkflow(payload),
+	Effect.fn("SandboxDurableHostServiceWorkflow")(function* (payload) {
+		yield* (yield* SandboxExecutionAuthority).resolve(payload.principal);
+		return yield* (yield* SandboxDurableHostDispatcher).write(
+			payload.request,
+			{ ...payload.sandbox, startedAt: payload.startedAt },
+			payload.principal,
+			payload.parentExecutionId,
+		);
+	}),
 );
 
 const failureOrRethrow = (cause: Cause.Cause<unknown>) =>
@@ -221,69 +234,28 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				return { value, state: "success" } satisfies WorkflowDurableResult;
 			});
 
-		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
+		const writeHostCall: SandboxDurableHostDispatcher["Service"]["write"] = (
 			request,
 			payload,
 			principal,
 			executionId,
-			progress,
 		) => {
 			const { startedAt } = payload;
 			const scope = hostCallScopeOf(payload, principal, executionId, startedAt);
 			const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
-			if (!strategy) {
+			if (strategy === null || !isHostWrite(strategy)) {
 				return Effect.fail(
 					new SandboxRunError({
 						kind: "script-failure",
-						message: `Sandbox durable host capability is not dispatchable: ${request.args.capability}`,
+						message: `Sandbox durable host capability is not a write: ${request.args.capability}`,
 					}),
-				);
-			}
-			if (strategy === "diagnostic") {
-				return Effect.fail(
-					new SandboxRunError({
-						kind: "script-failure",
-						message: `Sandbox diagnostic capability must not enter the durable journal: ${request.args.capability}`,
-					}),
-				);
-			}
-			if (request.args.capability === "httpCall") {
-				return httpDispatcher.dispatch(
-					request,
-					payload,
-					principal,
-					executionId,
-					startedAt,
-					progress,
 				);
 			}
 			if (strategy === "lifecycle-workflow") {
 				return dispatchLifecycleHost(request, scope);
 			}
-			if (strategy === "activity") {
-				return makeActivity({
-					error: SandboxRunError,
-					success: workflowDurableResultSchema,
-					name: `sandbox-host-${request.index}-${request.args.capability}`,
-					execute: dispatchSandboxHostActivity(implementations, request, scope),
-				});
-			}
 			if (strategy === "service-workflow") {
-				return dispatchAdmittedWorkflow(
-					engine,
-					SandboxDurableHostServiceWorkflow,
-					principal.subject.type === "system" ? null : principal.subject.accountGeneration,
-					{
-						executionId: `${executionId}-host-service-${request.index}`,
-						payload: {
-							request,
-							startedAt,
-							principal,
-							sandbox: payload,
-							parentExecutionId: executionId,
-						},
-					},
-				).pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
+				return dispatchSandboxHostActivity(implementations, request, scope);
 			}
 
 			if (strategy === "event-workflow") {
@@ -341,17 +313,71 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			});
 		};
 
+		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
+			request,
+			payload,
+			principal,
+			executionId,
+			progress,
+		) => {
+			const { startedAt } = payload;
+			const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
+			if (strategy === null || strategy === "diagnostic") {
+				return Effect.fail(
+					new SandboxRunError({
+						kind: "script-failure",
+						message:
+							strategy === null
+								? `Sandbox durable host capability is not dispatchable: ${request.args.capability}`
+								: `Sandbox diagnostic capability must not enter the durable journal: ${request.args.capability}`,
+					}),
+				);
+			}
+			if (isHostWrite(strategy)) {
+				return dispatchAdmittedWorkflow(
+					engine,
+					SandboxDurableHostServiceWorkflow,
+					principal.subject.type === "system" ? null : principal.subject.accountGeneration,
+					{
+						executionId: `${executionId}-host-service-${request.index}`,
+						payload: {
+							request,
+							startedAt,
+							principal,
+							sandbox: payload,
+							parentExecutionId: executionId,
+						},
+					},
+				).pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
+			}
+			const resolved = authority.resolve(principal);
+			if (request.args.capability === "httpCall") {
+				return Effect.andThen(
+					resolved,
+					httpDispatcher.dispatch(request, payload, principal, executionId, startedAt, progress),
+				);
+			}
+			return Effect.andThen(
+				resolved,
+				makeActivity({
+					error: SandboxRunError,
+					success: workflowDurableResultSchema,
+					name: `sandbox-host-${request.index}-${request.args.capability}`,
+					execute: dispatchSandboxHostActivity(
+						implementations,
+						request,
+						hostCallScopeOf(payload, principal, executionId, startedAt),
+					),
+				}),
+			);
+		};
+
 		return {
+			write: writeHostCall,
 			dispatch: (request, payload, principal, executionId, progress) =>
 				recordHostCall(
 					request,
-					authority
-						.resolve(principal)
-						.pipe(
-							Effect.andThen(
-								dispatchDurableHostCall(request, payload, principal, executionId, progress),
-							),
-						),
+					dispatchDurableHostCall(request, payload, principal, executionId, progress),
 				),
 			cancelInline: (executionId, progress) =>
 				Effect.forEach(
