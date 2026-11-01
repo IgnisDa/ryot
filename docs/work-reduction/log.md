@@ -16,3 +16,12 @@
   - Harness (from the survey): about 27 non-opt-in files start extra API processes or whole stacks
     (about 45 processes and 30 container trios) alongside the 6 workers. Every browser test launches
     a fresh Chromium. The suite also contains fixed sleeps (61 s, 31 s, 20 s, …).
+- Harness fixes from the first runs: e2e global setup replays a turbo-cached sandbox `dist/` that must
+  match the root-installed copy (`vm-build.sh` now builds twice and fails on digest drift); runs have a
+  wall cap and a stall watchdog; sync streams `git ls-files` as tar because macOS openrsync hung.
+- Smoke run (`reviews.test.ts`, 3 tests, idle VM): 7.5–9.2 s per test for create/edit/delete of a
+  rating. The shared database saw 34,410 statements, 41% on `cluster_*` tables (≈2,000 message
+  inserts, each with a fence check, a reply insert, a processed update, and an execution/root
+  lookup). Idle background: runner heartbeat, shard-lock refresh, and storage poll each ≈15
+  statements/s. Total database execution time was only 14 s of a 90 s run, so latency here is round
+  trips and waits, not database saturation.
