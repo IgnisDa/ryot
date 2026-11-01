@@ -181,8 +181,6 @@ pub async fn sink_progress(
         }
     };
 
-    let identifier = get_tmdb_identifier(&payload.metadata.guids)?;
-    let (identifier, lot) = get_media_info(identifier, ss, &payload.metadata).await?;
     let Some(progress) = calculate_progress(&payload) else {
         ryot_log!(
             debug,
@@ -191,6 +189,8 @@ pub async fn sink_progress(
         );
         return Ok(None);
     };
+    let identifier = get_tmdb_identifier(&payload.metadata.guids)?;
+    let (identifier, lot) = get_media_info(identifier, ss, &payload.metadata).await?;
 
     Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
