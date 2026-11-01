@@ -1,6 +1,8 @@
 import { Effect } from "effect";
 import getPort from "get-port";
 
+import { afterAll, beforeAll, runPromise } from "./effect-test";
+import { setFileHarnessTarget } from "./harness-target";
 import {
 	buildApiEnv,
 	harnessApiEnv,
@@ -40,4 +42,22 @@ export const startIsolatedHarness = (
 	return resources
 		.run(startIsolatedApiServer({ label, extraEnv }))
 		.pipe(Effect.map((server) => ({ target: server.target, stop: resources.close })));
+};
+
+/**
+ * Runs the calling file against its own server. Files that change instance-wide state, such as
+ * system plugins, use it so pages open in other files never see those changes.
+ */
+export const runFileOnIsolatedServer = (label: string) => {
+	const resources = makeTestResourceScope();
+	beforeAll(() =>
+		runPromise(
+			resources.run(
+				startIsolatedApiServer({ label }).pipe(
+					Effect.tap((server) => Effect.sync(() => setFileHarnessTarget(server.target))),
+				),
+			),
+		),
+	);
+	afterAll(() => runPromise(resources.close));
 };

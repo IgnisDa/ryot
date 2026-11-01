@@ -11,6 +11,7 @@ import {
 	pluginPackageSegments,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import {
 	and,
 	ascending,
@@ -1007,7 +1008,7 @@ export const updateNamespacePackage = (
 	installed: Pick<NamespaceInstallResult, "id"> & {
 		readonly installation: { readonly contentHash: string };
 	},
-	pluginPackage: PluginPackageInput,
+	pluginPackage: PluginPackageInput | PluginArchivePackage,
 	config?: ContractPayload<"plugins", "update">["config"],
 ) =>
 	Effect.gen(function* () {

@@ -37,6 +37,9 @@ import {
 	requireObjectRecord,
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Plugins");
 
 type PluginScript = TestPluginScript & { readonly entry: string };
 

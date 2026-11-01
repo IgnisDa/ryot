@@ -13,6 +13,9 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Sandbox Short Wait Replay");
 
 const workflowSource = (input: {
 	name: string;

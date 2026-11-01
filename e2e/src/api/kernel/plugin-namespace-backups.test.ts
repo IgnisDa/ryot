@@ -54,7 +54,9 @@ import {
 } from "~/fixtures/kernel";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { startIsolatedApiServer } from "~/support/isolated-harness";
+import { runFileOnIsolatedServer, startIsolatedApiServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Plugin Namespace Backups");
 
 describe("plugin namespace backups", () => {
 	it.live(

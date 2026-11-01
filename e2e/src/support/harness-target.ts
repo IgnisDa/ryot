@@ -40,6 +40,11 @@ export const getSharedHarnessTarget = () => {
 	return sharedTarget;
 };
 
+/** Points every fixture default in this file's worker at another server. */
+export const setFileHarnessTarget = (target: HarnessTarget) => {
+	sharedTarget = target;
+};
+
 export const getApiUrl = () => getSharedHarnessTarget().apiUrl;
 export const getFrontendUrl = () => getSharedHarnessTarget().frontendUrl;
 export const getAdminAccessToken = () => getSharedHarnessTarget().adminAccessToken;

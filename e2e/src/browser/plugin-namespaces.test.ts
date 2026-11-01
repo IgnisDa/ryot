@@ -17,6 +17,9 @@ import {
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { assert, describe, expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Plugin Namespaces Browser");
 
 describe("Whiskey namespace workspaces", () => {
 	for (const viewport of [

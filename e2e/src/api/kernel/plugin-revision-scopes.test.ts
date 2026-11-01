@@ -22,9 +22,13 @@ import {
 	updateNamespacePackage,
 	updateTestSupportSystemPlugin,
 } from "~/fixtures/kernel";
+import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Plugin Revision Scopes");
 
 describe("plugin revision scopes", () => {
 	it.live(
@@ -57,13 +61,14 @@ describe("plugin revision scopes", () => {
 					),
 					"Pinned retained writer missing",
 				);
+				const update = yield* compilePluginPackage(packages.a2);
 				const admitted = yield* enqueueSandboxScript(userId, {
 					lane: "interactive",
 					scriptId: script.id,
 					context: { entityId: bottle.id, gateUrl: upstream.url },
 				});
 				yield* Deferred.await(entered);
-				yield* updateNamespacePackage(client, a, packages.a2, { writerMarker: "after" });
+				yield* updateNamespacePackage(client, a, update, { writerMarker: "after" });
 				yield* Deferred.succeed(release, undefined);
 				const completed = requireCompletedSandboxValue(
 					yield* pollSandboxResult(userId, admitted.jobId),

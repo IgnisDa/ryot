@@ -23,9 +23,13 @@ import {
 	pollSandboxResult,
 	pollUntil,
 } from "~/fixtures/kernel";
+import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Plugin Package Conflicts");
 
 describe("plugin package conflicts", () => {
 	it.live(
@@ -44,6 +48,7 @@ describe("plugin package conflicts", () => {
 					checkpointUrl: upstream.url,
 				});
 				const b = yield* installNamespacePackage(client, packages.b);
+				const claim = yield* compilePluginPackage(packages.claim);
 				const completed = yield* client.call((contract) =>
 					contract.imports.createRun({
 						payload: {
@@ -85,7 +90,7 @@ describe("plugin package conflicts", () => {
 				expect(evidence.request.runId).toBe(hung.id);
 				expect(evidence.request.command.causation.importRunId).toBe<unknown>(hung.id);
 				expect(evidence.config.writerMarker).toBe("admitted");
-				const system = yield* installTestSupportSystemPlugin(packages.claim);
+				const system = yield* installTestSupportSystemPlugin(claim);
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
 						.adminCall((contract) =>
@@ -143,13 +148,14 @@ describe("plugin package conflicts", () => {
 					}),
 				);
 				yield* Effect.addFinalizer(() => Deferred.succeed(release, undefined));
+				const claim = yield* compilePluginPackage(packages.claim);
 				const installed = yield* installPrivatePluginPackage({
 					client,
 					pluginPackage: packages.a,
 					config: { bootstrapGateUrl: upstream.url },
 				});
 				yield* Deferred.await(entered);
-				const system = yield* installTestSupportSystemPlugin(packages.claim);
+				const system = yield* installTestSupportSystemPlugin(claim);
 				let removed = false;
 				yield* Effect.addFinalizer(() =>
 					removed
@@ -244,13 +250,14 @@ describe("plugin package conflicts", () => {
 					),
 					"Historical writer missing",
 				);
+				const claim = yield* compilePluginPackage(packages.claim);
 				const admitted = yield* enqueueSandboxScript(userId, {
 					lane: "interactive",
 					scriptId: script.id,
 					context: { entityId: bottle.id, gateUrl: upstream.url },
 				});
 				yield* Deferred.await(entered);
-				const system = yield* installTestSupportSystemPlugin(packages.claim);
+				const system = yield* installTestSupportSystemPlugin(claim);
 				yield* Effect.addFinalizer(() =>
 					getApiClient()
 						.adminCall((contract) =>

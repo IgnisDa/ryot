@@ -183,3 +183,50 @@
   maps and heap growth no longer accumulate. `pro-key` starts each scenario's API only for its own
   test instead of keeping eight up for the whole file. `iso1` (four files, including `pro-key` and
   a browser file) passes with workers peaking at 291 MB.
+- `full6`, the whole suite at `6d5ab4c8f7` with isolation and six workers: 59.6 min, 922 passed,
+  26 failed in 17 files, 8 skipped.
+  - No sandbox daemon was killed. Workers peaked at 752 MB; module imports cost 403 s of worker
+    time over the run. The shared server still grew to 1.67 GB, so its growth is its own.
+  - The VM is CPU-bound in both `full5` and `full6`: about seven runnable processes on four
+    vCPUs, 80% busy. PostgreSQL is not the bottleneck (its busiest statement totals 46 s); the
+    shared server is, at about 22 requests a second.
+  - Eleven of the failures are 180 s timeouts in the heavy history, integration and user-data
+    files, which passed with four workers: six workers give each heavy test less CPU.
+  - The rest fail in 12–75 s in both `full5` and `full6`. Most read Media consumption values
+    (finished, minutes, watch days, episode-activity ordering, Reads/Listens) right after
+    `createEventFixture`, which waits for the event to be listed but not for its background
+    projection.
+- `alone1` ran the fast-failing files alone at `6d5ab4c8f7`. Six of seven still failed, so they
+  are not load failures. `basealone` ran them at the baseline `f3c8ce8f77`: `workspace-switcher`
+  and two `saved-view-sorting` tests fail there too; the Media activity and detail tests pass.
+  - Bisect (`bis1`–`bis3`): `activity-recipes` passes at `5bcbc86538` and fails from `543fb1bed2`,
+    which settles script writes inline. A database probe (`probe2`) shows why: event projections
+    settle one to two seconds after each write, and RyotQL reads a pending projection as absent by
+    design. Faster writes left the tests reading before their projections. The tests read
+    projected values (finished, minutes, watch days, Reads, Listens) without waiting; they now
+    wait with `waitForEventProjections`, or for the rendered value.
+  - Older test bugs: on Linux the workspace keycap's text is "CtrlSpace", so an exact "Space"
+    match never held; titles without lifecycle activity tie and sort by ID, so "newest first" was
+    arbitrary; `media-analytics` ordered tied IDs with `localeCompare`, while PostgreSQL orders them
+    by code unit.
+  - The server type check, which the VM runs never execute, found two misses in `1760dc4d7a`: the
+    generic-import chunk workflow used `SandboxRepository` without its layer providing it, so
+    grouped generic imports would fail at runtime; and the production sandbox smoke still built
+    principals with `compiledHashes`.
+- `fix1` and `fix2` run the corrected files alone; all Media files pass. Two further older bugs,
+  both failing at the baseline (`basescope`):
+  - `plugin-revision-scopes` and `plugin-package-conflicts` hold a sandbox writer's `httpCall`
+    open, then compile a plugin package in the test worker before releasing it. Under load the
+    compile alone outlasts the 8 s `httpCall` deadline, so the writer fails with a timeout
+    (`external-uncertain`) instead of the outcome under test. The tests now compile first.
+  - A browser page's identity records every ready plugin the user can reach, so a system plugin
+    install, update or removal makes every open page stale and shows the update prompt, which is
+    correct for a deploy. Six test files changed system plugins on the shared backend, and
+    concurrent browser files (`media-analytics`, `media-reviews`) had their clicks blocked by the
+    prompt; in `fix1` the prompt followed a system plugin update by 30 ms. Those six files now run
+    on their own server through `runFileOnIsolatedServer`.
+- `iso3`: with the compile moved out of the gate, the quarantine outcome holds, and one older
+  product bug surfaces. Releasing a terminal import run's internal pins rewrote the row, so the
+  column's update hook moved its user-visible `updatedAt` about 90 ms after the run read as
+  complete, and a run compared before and after an unrelated quarantine looked changed. The
+  release now keeps `updatedAt`.
