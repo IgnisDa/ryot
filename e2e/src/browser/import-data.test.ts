@@ -159,6 +159,7 @@ it.live("starts, follows and deletes an import from settings", () =>
 				).count,
 			).toBe(1);
 			yield* page.getByRole("heading", { name: "Record issues" }).waitFor({ state: "hidden" });
+			yield* page.getByRole("button", { name: "Download issues" }).waitFor({ state: "hidden" });
 
 			yield* page.getByRole("button", { name: "Import actions" }).click();
 			yield* page.getByRole("menuitem", { name: "Delete record" }).click();

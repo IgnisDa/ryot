@@ -52,23 +52,24 @@ export function ImportRunView(props: ImportRunViewProps) {
 				key={run.id}
 				runId={run.id}
 				revision={`${run.status}:${run.activities.map(({ id, lastAdvancedAt }) => `${id}:${lastAdvancedAt}`).join(";")}`}
-			/>
-			<Button
-				type="button"
-				variant="secondary"
-				aria-label="Download issues"
-				onClick={props.onDownloadIssues}
-				disabled={props.isDownloadingIssues}
-				className="flex min-h-9 self-start items-center gap-1.5 px-3 py-1.5 text-sm"
 			>
-				<AppIcon size={15} name="download" className="text-text-muted" />
-				{props.isDownloadingIssues ? "Preparing download..." : "Download issues"}
-			</Button>
-			{props.downloadIssuesFailed ? (
-				<p role="alert" className="text-sm text-danger">
-					Could not download these issues. Try again.
-				</p>
-			) : null}
+				<Button
+					type="button"
+					variant="secondary"
+					aria-label="Download issues"
+					onClick={props.onDownloadIssues}
+					disabled={props.isDownloadingIssues}
+					className="flex min-h-9 self-start items-center gap-1.5 px-3 py-1.5 text-sm"
+				>
+					<AppIcon size={15} name="download" className="text-text-muted" />
+					{props.isDownloadingIssues ? "Preparing download..." : "Download issues"}
+				</Button>
+				{props.downloadIssuesFailed ? (
+					<p role="alert" className="text-sm text-danger">
+						Could not download these issues. Try again.
+					</p>
+				) : null}
+			</IngestionIssues>
 			{run.status === "running" || run.status === "pending" || run.status === "cancelling" ? (
 				<p className="text-xs text-text-muted">
 					This keeps running on your server, even if you close Ryot or the server restarts.

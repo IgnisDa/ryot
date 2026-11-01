@@ -933,7 +933,21 @@ describe("import run detail", () => {
 		}),
 	);
 
-	it.live("downloads issues without an old failure count and retries download errors", () =>
+	it.live("hides the issue download when the import has no issues", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([makeRun()])) }),
+			);
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			);
+			expect(screen.queryByRole("button", { name: "Download issues" })).toBeNull();
+		}),
+	);
+
+	it.live("downloads warning issues with no unsuccessful records and retries download errors", () =>
 		Effect.gen(function* () {
 			const downloads: string[] = [];
 			mountView(
@@ -947,12 +961,22 @@ describe("import run detail", () => {
 					},
 				}),
 				makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([makeRun()])) }),
+				[alphaSource],
+				[
+					{
+						id: "issue-1",
+						attribution: null,
+						severity: "warning",
+						recordKind: "session",
+						operationId: "write-1",
+						reason: { key: null, code: "provider-unavailable" },
+					},
+				],
 			);
 
-			yield* Effect.promise(() =>
-				screen.findByRole("heading", { level: 1, name: "Alpha Service" }),
+			const downloadButton = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Download issues" }),
 			);
-			const downloadButton = screen.getByRole("button", { name: "Download issues" });
 			fireEvent.click(downloadButton);
 			yield* Effect.promise(() => screen.findByRole("alert"));
 			expect(screen.getByRole("alert").textContent).toBe(
