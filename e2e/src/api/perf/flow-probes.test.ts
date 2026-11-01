@@ -126,7 +126,11 @@ const diff = (before: Snapshot, after: Snapshot) => {
 	};
 };
 
-// Each snapshot itself costs about three transactions, so a window with five or fewer is idle.
+type Rates = { xacts: number; dbExecMs: number; statements: number; serverCpuMs: number };
+const idle: Rates = { xacts: 0, dbExecMs: 0, statements: 0, serverCpuMs: 0 };
+
+// The server never goes fully quiet (runner heartbeat, shard locks, storage polls, the probe's own
+// snapshots), so a window counts as settled when it is within the calibrated idle rate.
 const settle = Effect.gen(function* () {
 	let previous = yield* snapshot;
 	const deadline = previous.at + SETTLE_MAX_MS;
@@ -134,12 +138,44 @@ const settle = Effect.gen(function* () {
 	do {
 		yield* Effect.sleep(Duration.millis(SETTLE_WINDOW_MS));
 		current = yield* snapshot;
-		if (current.xacts - previous.xacts <= 5) {
+		const allowed = idle.xacts * (current.at - previous.at) * 1.5 + 4;
+		if (current.xacts - previous.xacts <= allowed) {
 			break;
 		}
 		previous = current;
 	} while (current.at <= deadline);
 	return current;
+});
+
+const calibrate = Effect.gen(function* () {
+	const windows: Array<Rates> = [];
+	for (let index = 0; index < 4; index++) {
+		const before = yield* snapshot;
+		yield* Effect.sleep(Duration.seconds(5));
+		const delta = diff(before, yield* snapshot);
+		windows.push({
+			xacts: delta.xacts / delta.ms,
+			dbExecMs: delta.dbExecMs / delta.ms,
+			statements: delta.statements / delta.ms,
+			serverCpuMs: delta.serverCpuMs / delta.ms,
+		});
+	}
+	for (const key of ["xacts", "statements", "dbExecMs", "serverCpuMs"] as const) {
+		idle[key] = Math.min(...windows.map((window) => window[key]));
+	}
+	yield* Effect.logInfo("flow probe idle rates per second", {
+		xacts: idle.xacts * 1000,
+		dbExecMs: idle.dbExecMs * 1000,
+		statements: idle.statements * 1000,
+		serverCpuMs: idle.serverCpuMs * 1000,
+	});
+});
+
+const net = (delta: ReturnType<typeof diff>) => ({
+	netXacts: Math.round(delta.xacts - idle.xacts * delta.ms),
+	netDbExecMs: Math.round(delta.dbExecMs - idle.dbExecMs * delta.ms),
+	netStatements: Math.round(delta.statements - idle.statements * delta.ms),
+	netServerCpuMs: Math.round(delta.serverCpuMs - idle.serverCpuMs * delta.ms),
 });
 
 const ProbeResults = Schema.fromJsonString(Schema.Unknown);
@@ -152,9 +188,11 @@ const probe = <A, E, R>(name: string, flow: Effect.Effect<A, E, R>) =>
 		const value = yield* flow;
 		const returned = yield* snapshot;
 		const settled = yield* settle;
+		const delta = diff(before, settled);
 		const row = {
 			name,
-			...diff(before, settled),
+			...delta,
+			...net(delta),
 			callerMs: Math.round(returned.at - before.at),
 			settleMs: Math.round(settled.at - returned.at - SETTLE_WINDOW_MS),
 		};
@@ -183,6 +221,8 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 		"measures per-flow cost on an otherwise idle server",
 		() =>
 			Effect.gen(function* () {
+				yield* createAuthenticatedClient();
+				yield* calibrate;
 				yield* repeat("signup", 5, () => createAuthenticatedClient());
 
 				const { client } = yield* createAuthenticatedClient();
