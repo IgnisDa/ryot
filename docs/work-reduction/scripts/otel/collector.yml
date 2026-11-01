@@ -1,0 +1,42 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  transform/normalize:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          - replace_pattern(name, "\\([^)]*\\)", "(*)")
+          - replace_pattern(name, "[A-Za-z]*[0-9][A-Za-z]*[0-9][A-Za-z]*[0-9][A-Za-z0-9]*", "<id>")
+          - replace_pattern(name, "[A-Za-z0-9_-]*<id>[A-Za-z0-9_<>-]*", "<id>")
+          - replace_pattern(name, ":[0-9]+:", ":<n>:")
+
+connectors:
+  spanmetrics:
+    histogram:
+      explicit:
+        buckets: [1ms, 5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s, 10s, 30s, 60s]
+    dimensions: []
+    exclude_dimensions: [status.code, span.kind]
+    metrics_flush_interval: 5s
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [transform/normalize]
+      exporters: [spanmetrics]
+    metrics:
+      receivers: [otlp]
+      exporters: [prometheus]
+    metrics/spans:
+      receivers: [spanmetrics]
+      exporters: [prometheus]
