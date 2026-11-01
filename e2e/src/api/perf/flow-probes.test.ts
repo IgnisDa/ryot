@@ -16,6 +16,7 @@ import { describe, it } from "~/support/effect-test";
 
 const RUN_FLOW_PROBES = process.env.RUN_FLOW_PROBES === "1";
 const FLOW_PROBE_OUT = process.env.FLOW_PROBE_OUT;
+const FLOW_PROBE_FOCUS = Number(process.env.FLOW_PROBE_FOCUS ?? "0");
 const SETTLE_WINDOW_MS = 1500;
 const SETTLE_MAX_MS = 120_000;
 
@@ -109,6 +110,8 @@ const snapshot = Effect.gen(function* () {
 		CountRows,
 		(client) =>
 			client`select 'workflow:' || workflow_name as key, count(*)::float8 as n from workflow_execution group by 1
+				union all select 'payload-bytes:' || workflow_name, sum(octet_length(payload::text))::float8 from workflow_execution group by 1
+				union all select 'step-bytes:' || kind || ':' || regexp_replace(name, '[0-9A-Za-z_]*[0-9][0-9A-Za-z_]*', 'N', 'g'), sum(octet_length(coalesce(exit::text, '')))::float8 from workflow_step group by 1
 				union all select 'hook:' || hook_slug, count(*)::float8 from automation_run group by 1
 				union all select 'background:' || purpose, count(*)::float8 from background_work group by 1
 				union all select 'step:' || kind || ':' || regexp_replace(name, '[0-9A-Za-z_]*[0-9][0-9A-Za-z_]*', 'N', 'g'), count(*)::float8
@@ -264,16 +267,16 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 			Effect.gen(function* () {
 				yield* createAuthenticatedClient();
 				yield* calibrate;
-				yield* repeat("signup", 5, () => createAuthenticatedClient());
+				yield* repeat("signup", FLOW_PROBE_FOCUS > 0 ? 1 : 5, () => createAuthenticatedClient());
 
 				const { client } = yield* createAuthenticatedClient();
-				yield* repeat("media-movie-fixture", 3, () =>
+				yield* repeat("media-movie-fixture", FLOW_PROBE_FOCUS > 0 ? 1 : 3, () =>
 					createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "movie" }),
 				);
 				const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
 					entitySchemaSlug: "movie",
 				});
-				yield* repeat("event-create-backlog", 5, () =>
+				yield* repeat("event-create-backlog", FLOW_PROBE_FOCUS || 5, () =>
 					client.call((c) =>
 						c.events.create({
 							payload: [
@@ -286,6 +289,9 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 						}),
 					),
 				);
+				if (FLOW_PROBE_FOCUS > 0) {
+					return;
+				}
 				yield* repeat("operation-review-create", 3, () =>
 					Effect.gen(function* () {
 						const movie = yield* createBuiltinMediaLifecycleFixture(client, {

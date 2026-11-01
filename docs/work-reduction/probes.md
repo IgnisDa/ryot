@@ -215,3 +215,76 @@ costs about 1.4 s more API CPU than the event create, which is roughly 80 ms for
 - **Boot-only costs.** Stored manifest decoding (0.49 s) and plugin archive normalization (1.7 s)
   happen only in the first 10 s, while boot synchronizes the system plugins. They are not
   per-signup costs.
+
+## Runs `focus1`, `probes6`, `bytes2` (principal comparison and payload sizes)
+
+`FLOW_PROBE_FOCUS=N` runs one signup, one fixture and N event creates, so a CPU profile covers only
+that flow.
+
+`focus1` profiles 30 event creates (API process, 22 s busy). Two findings:
+
+- **Authority resolution was 9.1% of API CPU, inclusive.** It ran on every host call and
+  stringified both the stored and the presented principal to compare them.
+  - Commit `73ba14bcde` memoizes the decode of the presented principal and compares decoded values
+    with `jsonValueEquals`. The check itself is unchanged.
+  - `probes6` measures the effect on API CPU:
+
+    | Flow | Before | After |
+    | --- | ---: | ---: |
+    | Event create | 1.04 s | 0.83 s |
+    | Review operation | 2.44 s | 1.93 s |
+    | Workout, 25 sets | 1.52 s | 1.18 s |
+    | Signup | 0.86 s | 0.72 s |
+
+- **PostgreSQL socket writes took 11% of API CPU, scaling with bytes rather than statements.**
+  Parsing JSON from rows took another 4.8%.
+
+`bytes2` measures what one event create writes into the workflow tables: about 790 KB of JSON.
+
+| Rows | Bytes |
+| --- | ---: |
+| `pin-sandbox-workflow-script` results (5) | 169 KB |
+| `SandboxDurableHostServiceWorkflow` payloads (3) | 142 KB |
+| Background work `start` results (2) | 101 KB |
+| `prepare-projection` result | 67 KB |
+| `ScriptExecutionWorkflow` payloads (5) | 73 KB |
+| Sandbox queue results (9) | 56 KB |
+| `PolicyBatchWorkflow` payloads (2) | 40 KB |
+| `UserCommandWorkflow` payload | 36 KB |
+| `UserEntityPreparationWorkflow` payload | 36 KB |
+| `changeUserRelationships` input | 35 KB |
+
+Most of it is copies of the script principal, about 33 KB for a media script:
+
+- `compiledHashes`, about 20 KB: slug and hash of all 214 scripts in the revision.
+- `schemaScope`, about 9 KB: 24 entity, 110 event, 51 relationship and 15 signal schemas.
+
+Both are fixed by the plugin revision, yet every pin result, payload and lifecycle command carries
+them. Every host call also rebuilds `compiledHashes` in SQL with `jsonb_object_agg` to detect
+garbage-collected scripts.
+
+## Run `probes7` (slim principals, commit `1760dc4d7a`)
+
+Pins carry a digest of the revision's script hashes. The schema scope and the sandbox authority are
+read by revision ID. Medians, `probes6` → `probes7`; bytes are the JSON written to workflow
+payloads and step results per flow.
+
+| Flow | Bytes | API CPU | DB exec | Caller |
+| --- | ---: | ---: | ---: | ---: |
+| Event create, `backlog` | 790 → 205 KB | 0.83 → 0.79 s | 232 → 184 ms | 0.66 → 0.60 s |
+| Review operation | → 500 KB | 1.93 → 1.52 s | 790 → 615 ms | 2.40 → 2.04 s |
+| Workout, 1 set | → 116 KB | 0.76 → 0.68 s | 198 → 250 ms | 1.16 → 1.14 s |
+| Workout, 25 sets | → 605 KB | 1.18 → 1.06 s | 309 → 370 ms | 1.60 → 1.59 s |
+
+`probes6` recorded no byte counts. The event-create figure before the change comes from `bytes2`,
+which ran on the revision before this one.
+
+What still writes the most:
+
+- **Sandbox queue results, about 6 KB per run:** logs, value, timing and inline journal entries.
+  An event create has 9 runs (54 KB) and a review 25 (131 KB).
+- **The event drafts of a workout, persisted about five times.** A 25-set workout stores the same
+  ~75 KB draft list in four steps (`prepare-events`, `validate-final-drafts` and two `apply` steps)
+  and in the `PolicyBatchWorkflow` payload.
+- **Pins and host-service payloads, 4–8 KB each.** Most of what remains is the config schema and
+  script metadata.
