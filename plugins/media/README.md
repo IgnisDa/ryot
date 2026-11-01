@@ -456,6 +456,9 @@ rejected at ingress, not retained as recoverable source work.
   resolved through TVDB's episode endpoint, or TMDB's IMDb/TVDB episode lookup followed by a
   series-name search verified against the season's episode IDs. Lookups are cached for one day;
   external-ID-only misses are retried on the next event. Unofficial payload handling is unchanged.
+- **Plex:** accepts JSON or the multipart `payload` field, ignoring thumbnail parts. Scrobble always
+  reports 100%, even with an offset. Play without an offset reports zero; stop, pause, and resume
+  without an offset are skipped before provider lookups. Shared admission filters zero progress.
 - **Komga:** requests authenticate with `X-API-Key`. A partly read manga chapter N writes position
   N-1 when N is an integer above 1 and nothing otherwise; a fully read chapter writes N. Manga never
   receive a chapter's own percent; other books keep whole-book percent. Metadata links can identify manga through AniList, MyAnimeList, and MangaUpdates, or books through

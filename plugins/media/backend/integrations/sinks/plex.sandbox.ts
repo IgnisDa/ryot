@@ -27,12 +27,15 @@ export const manifest = defineManifest({
 });
 
 const multipartPayload = (rawBody: string, contentType: string) => {
+	if (contentType.split(";")[0]?.trim().toLowerCase() !== "multipart/form-data") {
+		return rawBody;
+	}
 	const boundary = contentType
 		.match(/boundary=(?:"([^"]+)"|([^;]+))/i)
 		?.slice(1)
 		.find(Boolean)
 		?.trim();
-	if (!contentType.toLowerCase().startsWith("multipart/form-data") || !boundary) {
+	if (!boundary) {
 		throw new Error("invalid multipart");
 	}
 	for (const section of rawBody.split(`--${boundary}`)) {
@@ -95,6 +98,9 @@ export default defineScript({
 				if (!["play", "stop", "pause", "resume", "scrobble"].includes(event)) {
 					return emptyResult();
 				}
+				if (metadata["viewOffset"] == null && !["play", "scrobble"].includes(event)) {
+					return emptyResult();
+				}
 				let lot: null | "show" | "movie" = null;
 				if (metadata["type"] === "episode" || metadata["librarySectionType"] === "show") {
 					lot = "show";
@@ -105,9 +111,12 @@ export default defineScript({
 				if (!lot) {
 					return failureResult("Plex webhook payload has an unsupported media type");
 				}
-				const percent =
-					progressPercent(Number(metadata["viewOffset"]), Number(metadata["duration"])) ??
-					(event === "scrobble" ? 100 : undefined);
+				let percent = progressPercent(Number(metadata["viewOffset"]), Number(metadata["duration"]));
+				if (event === "scrobble") {
+					percent = 100;
+				} else if (event === "play" && metadata["viewOffset"] == null) {
+					percent = 0;
+				}
 				if (percent === undefined) {
 					return failureResult("Plex webhook payload is missing playback timing data");
 				}

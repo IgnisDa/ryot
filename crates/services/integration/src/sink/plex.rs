@@ -135,11 +135,14 @@ async fn get_media_info<'a>(
     }
 }
 
-fn calculate_progress(payload: &models::PlexWebhookPayload) -> Result<Decimal> {
+fn calculate_progress(payload: &models::PlexWebhookPayload) -> Option<Decimal> {
+    if payload.event_type == "media.scrobble" {
+        return Some(dec!(100));
+    }
     match payload.metadata.view_offset {
-        Some(offset) => Ok(offset / payload.metadata.duration * dec!(100)),
-        None if payload.event_type == "media.scrobble" => Ok(dec!(100)),
-        None => bail!("No position associated with this media"),
+        Some(offset) => Some(offset / payload.metadata.duration * dec!(100)),
+        None if payload.event_type == "media.play" => Some(dec!(0)),
+        None => None,
     }
 }
 
@@ -178,9 +181,16 @@ pub async fn sink_progress(
         }
     };
 
+    let Some(progress) = calculate_progress(&payload) else {
+        ryot_log!(
+            debug,
+            "Ignoring Plex {:?} event without a position",
+            payload.event_type
+        );
+        return Ok(None);
+    };
     let identifier = get_tmdb_identifier(&payload.metadata.guids)?;
     let (identifier, lot) = get_media_info(identifier, ss, &payload.metadata).await?;
-    let progress = calculate_progress(&payload)?;
 
     Ok(Some(ImportResult {
         completed: vec![ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
@@ -224,5 +234,50 @@ mod tests {
             id: "tmdb://5221957".to_owned(),
         }];
         assert!(get_episode_external_ids(&guids).is_empty());
+    }
+
+    fn payload_for(event: &str, view_offset: Option<u32>) -> models::PlexWebhookPayload {
+        let offset = view_offset
+            .map(|o| format!(r#""viewOffset":{o},"#))
+            .unwrap_or_default();
+        let raw = format!(
+            r#"{{"event":"{event}","user":true,"owner":false,"Account":{{"title":"alice"}},"Metadata":{{"type":"episode",{offset}"duration":1000,"Guid":[]}}}}"#
+        );
+        parse_payload(&raw).unwrap()
+    }
+
+    #[test]
+    fn scrobble_is_always_complete() {
+        assert_eq!(
+            calculate_progress(&payload_for("media.scrobble", None)),
+            Some(dec!(100))
+        );
+        assert_eq!(
+            calculate_progress(&payload_for("media.scrobble", Some(900))),
+            Some(dec!(100))
+        );
+    }
+
+    #[test]
+    fn play_without_offset_starts_at_zero() {
+        assert_eq!(
+            calculate_progress(&payload_for("media.play", None)),
+            Some(dec!(0))
+        );
+    }
+
+    #[test]
+    fn offset_is_converted_to_percentage() {
+        assert_eq!(
+            calculate_progress(&payload_for("media.pause", Some(250))),
+            Some(dec!(25))
+        );
+    }
+
+    #[test]
+    fn stop_pause_resume_without_offset_are_ignored() {
+        for event in ["media.stop", "media.pause", "media.resume"] {
+            assert_eq!(calculate_progress(&payload_for(event, None)), None);
+        }
     }
 }

@@ -5,7 +5,7 @@ use async_graphql::http::{GraphQLPlaygroundConfig, playground_source};
 use axum::{
     Extension, Json,
     body::Body,
-    extract::{Multipart, Path},
+    extract::{FromRequest, Multipart, Path, Request},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{CACHE_CONTROL, CONTENT_DISPOSITION, CONTENT_LENGTH, CONTENT_TYPE, PRAGMA},
@@ -51,11 +51,48 @@ pub async fn upload_file_handler(
     Ok(Json(serde_json::json!(res)))
 }
 
+fn is_multipart_content_type(value: &str) -> bool {
+    value.split(';').next().is_some_and(|media_type| {
+        media_type
+            .trim()
+            .eq_ignore_ascii_case("multipart/form-data")
+    })
+}
+
+async fn read_webhook_payload(request: Request, limit: usize) -> StdResult<String, StatusCode> {
+    let is_multipart = request
+        .headers()
+        .get(CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(is_multipart_content_type);
+    if !is_multipart {
+        let bytes = axum::body::to_bytes(request.into_body(), limit)
+            .await
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        return String::from_utf8(bytes.to_vec()).map_err(|_| StatusCode::BAD_REQUEST);
+    }
+    let mut multipart = Multipart::from_request(request, &())
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|_| StatusCode::BAD_REQUEST)?
+    {
+        if field.name() == Some("payload") {
+            return field.text().await.map_err(|_| StatusCode::BAD_REQUEST);
+        }
+    }
+    Err(StatusCode::BAD_REQUEST)
+}
+
 pub async fn integration_webhook_handler(
     Path(integration_slug): Path<String>,
     Extension(ss): Extension<Arc<SupportingService>>,
-    payload: String,
+    request: Request,
 ) -> StdResult<(StatusCode, String), StatusCode> {
+    let limit = 1024 * 1024 * ss.config.server.max_file_size_mb;
+    let payload = read_webhook_payload(request, limit).await?;
     ss.perform_application_job(ApplicationJob::Single(
         SingleApplicationJob::ProcessIntegrationWebhook(integration_slug, payload),
     ))
@@ -108,4 +145,25 @@ pub async fn download_logs_handler(
     );
 
     Ok((headers, body))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multipart_content_type_is_matched_case_insensitively() {
+        assert!(is_multipart_content_type("multipart/form-data; boundary=x"));
+        assert!(is_multipart_content_type("Multipart/Form-Data; boundary=x"));
+        assert!(is_multipart_content_type(" multipart/form-data "));
+    }
+
+    #[test]
+    fn other_content_types_are_not_multipart() {
+        assert!(!is_multipart_content_type("application/json"));
+        assert!(!is_multipart_content_type("multipart/mixed; boundary=x"));
+        assert!(!is_multipart_content_type(
+            "text/plain; note=multipart/form-data"
+        ));
+    }
 }

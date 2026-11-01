@@ -601,6 +601,7 @@ const runPlex = (
 	payload: unknown,
 	options: {
 		username?: string;
+		contentType?: string;
 		routes?: Record<string, Route>;
 		cache?: Map<string, JsonValue>;
 	} = {},
@@ -610,7 +611,7 @@ const runPlex = (
 		Effect.flatMap((body) =>
 			runIntegrationTestScript(
 				plexDefinition,
-				sinkInput(body, "multipart/form-data; boundary=abc"),
+				sinkInput(body, options.contentType ?? "multipart/form-data; boundary=abc"),
 				defineSandboxTestHost(plexManifest, {
 					httpCall: tmdbRoutes(options.routes ?? {}),
 					getCachedValue: (key) => hostSuccess(cache.get(key) ?? null),
@@ -649,17 +650,93 @@ const plexEpisode = (Guid: Array<{ id: string }>) => ({
 });
 
 describe("Plex sink", () => {
-	it.live("maps a Plex scrobble multipart webhook to a movie ref", () =>
+	it.live.each([undefined, 90])("treats scrobble with offset %s as complete", (viewOffset) =>
+		Effect.gen(function* () {
+			const result = yield* runPlex(
+				{
+					event: "media.scrobble",
+					Metadata: { viewOffset, type: "movie", duration: 100, Guid: [{ id: "tmdb://27205" }] },
+				},
+				{ contentType: "Multipart/Form-Data; boundary=abc" },
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
+				consumedOn: "Plex",
+				progressPercent: 100,
+			});
+		}),
+	);
+
+	it.live("starts play without an offset at zero", () =>
 		Effect.gen(function* () {
 			const result = yield* runPlex({
-				event: "media.scrobble",
-				Metadata: { type: "movie", title: "Inception", Guid: [{ id: "tmdb://27205" }] },
+				event: "media.play",
+				Metadata: { type: "movie", Guid: [{ id: "tmdb://27205" }] },
 			});
 			expect(result.failures).toEqual([]);
-			expect(result.entityGroups[0]).toMatchObject({
-				events: [{ properties: { consumedOn: "Plex", progressPercent: 100 } }],
-				entityRef: { externalId: "27205", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
+			expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
+				consumedOn: "Plex",
+				progressPercent: 0,
 			});
+		}),
+	);
+
+	it.live.each(["stop", "pause", "resume"])(
+		"skips %s without an offset before looking up an episode",
+		(event) =>
+			Effect.gen(function* () {
+				const episode = plexEpisode([{ id: "tmdb://5221957" }]);
+				const result = yield* runPlex({
+					event: `media.${event}`,
+					Metadata: { ...episode.Metadata, viewOffset: null },
+				});
+				expect(result).toEqual({ failures: [], entityGroups: [] });
+			}),
+	);
+
+	it.live("accepts a JSON webhook without multipart framing", () =>
+		Effect.gen(function* () {
+			const result = yield* runIntegrationTestScript(
+				plexDefinition,
+				sinkInput(
+					yield* encodeJson({
+						event: "media.pause",
+						Metadata: {
+							type: "movie",
+							duration: 100,
+							viewOffset: 25,
+							Guid: [{ id: "tmdb://27205" }],
+						},
+					}),
+				),
+				defineSandboxTestHost(plexManifest, {
+					getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "plex_sink" })),
+				}),
+				execution,
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
+				consumedOn: "Plex",
+				progressPercent: 25,
+			});
+		}),
+	);
+
+	it.live("reports multipart bodies without a payload field", () =>
+		Effect.gen(function* () {
+			const result = yield* runIntegrationTestScript(
+				plexDefinition,
+				sinkInput(
+					'--abc\r\nContent-Disposition: form-data; name="thumb"\r\n\r\nimage\r\n--abc--',
+					"multipart/form-data; boundary=abc",
+				),
+				defineSandboxTestHost(plexManifest, {
+					getCurrentIntegration: () => hostSuccess(integrationRecord({ provider: "plex_sink" })),
+				}),
+				execution,
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures[0]?.stage).toBe("input_transformation");
 		}),
 	);
 

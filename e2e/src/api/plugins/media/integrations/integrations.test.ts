@@ -27,14 +27,25 @@ import { describe, expect, it } from "~/support/effect-test";
 import { webRequest } from "~/support/web-request";
 
 const plexMultipartBody = (boundary: string, payload: unknown) =>
-	[
-		`--${boundary}`,
-		'Content-Disposition: form-data; name="payload"',
-		"",
-		JSON.stringify(payload),
-		`--${boundary}--`,
-		"",
-	].join("\r\n");
+	new Blob([
+		[
+			`--${boundary}`,
+			'Content-Disposition: form-data; name="thumb"; filename="thumb.jpg"',
+			"Content-Type: image/jpeg",
+			"",
+			"",
+		].join("\r\n"),
+		new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x80, 0xff, 0xd9]),
+		[
+			"",
+			`--${boundary}`,
+			'Content-Disposition: form-data; name="payload"',
+			"",
+			JSON.stringify(payload),
+			`--${boundary}--`,
+			"",
+		].join("\r\n"),
+	]);
 
 describe("Webhook routes", () => {
 	it.live("uses Emby series IDs instead of episode IDs for show progress", () =>
@@ -103,7 +114,7 @@ describe("Webhook routes", () => {
 			}),
 	);
 
-	it.live("POST /_i/{validPlexWebhookToken} parses the multipart body Plex actually sends", () =>
+	it.live("completes a first Plex scrobble sent with a binary multipart thumbnail", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const integration = yield* createIntegration(client, {
@@ -146,6 +157,8 @@ describe("Webhook routes", () => {
 					event: "media.scrobble",
 					Metadata: {
 						type: "movie",
+						duration: 1000,
+						viewOffset: 900,
 						Guid: [{ id: `tmdb://${tmdbId}` }],
 						title: "Plex Multipart Sink Movie",
 					},
@@ -164,7 +177,49 @@ describe("Webhook routes", () => {
 
 			expect(run).toMatchObject({ status: "completed", failureReason: null });
 			expect(run.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
-			expect(yield* waitForEventSlugs(client, movie.id, "progress")).toContain("progress");
+			const completion = yield* waitForEventWithSchema(client, movie.id, "complete");
+			const progress = yield* listEventsForEntity(client, movie.id, undefined, 20, {
+				eventSchemaSlug: "progress",
+			});
+			expect(progress).toHaveLength(1);
+			expect(progress[0]?.properties).toMatchObject({ consumedOn: "Plex", progressPercent: 100 });
+			expect(completion.occurredAt).toBe(progress[0]?.occurredAt);
+		}),
+	);
+
+	it.live("completes a first Jellyfin episode stop without playback ticks", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const integration = yield* createIntegration(client, {
+				providerSpecifics: { kind: "jellyfin_sink" },
+				provider: {
+					slug: "jellyfin_sink",
+					owner: definitionOwner((yield* mediaFixtureInstallation(client.target)).id),
+				},
+			});
+			const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+				showName: "Jellyfin Completion Show",
+			});
+			const { run } = yield* postIntegrationWebhookAndWait(client, integration, {
+				SeasonNumber: 1,
+				EpisodeNumber: 2,
+				ItemType: "Episode",
+				PlayedToCompletion: true,
+				SeriesProvider_tmdb: tmdbId,
+				NotificationType: "PlaybackStop",
+			});
+			expect(run).toMatchObject({ status: "completed", failureReason: null });
+			expect(run.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
+			const completion = yield* waitForEventWithSchema(client, episodeId, "complete");
+			const progress = yield* listEventsForEntity(client, episodeId, undefined, 20, {
+				eventSchemaSlug: "progress",
+			});
+			expect(progress).toHaveLength(1);
+			expect(progress[0]?.properties).toMatchObject({
+				progressPercent: 100,
+				consumedOn: "Jellyfin",
+			});
+			expect(completion.occurredAt).toBe(progress[0]?.occurredAt);
 		}),
 	);
 });

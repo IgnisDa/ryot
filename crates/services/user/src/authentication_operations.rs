@@ -5,7 +5,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{prelude::User, user};
-use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
+use database_utils::{revoke_user_access_link as db_revoke_user_access_link, user_by_id};
 use dependent_models::{UserDetails, UserDetailsResult};
 use media_models::{ApiKeyResponse, AuthUserInput, LoginError, LoginErrorVariant, LoginResult};
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
@@ -21,9 +21,10 @@ pub async fn generate_auth_token(ss: &Arc<SupportingService>, user_id: String) -
 
 pub async fn revoke_access_link(
     ss: &Arc<SupportingService>,
+    user_id: &str,
     access_link_id: String,
 ) -> Result<bool> {
-    db_revoke_access_link(access_link_id, ss).await
+    db_revoke_user_access_link(user_id, access_link_id, ss).await
 }
 
 pub async fn user_details(
