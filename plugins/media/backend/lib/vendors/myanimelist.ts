@@ -183,14 +183,7 @@ export const searchMal = (
 							},
 						];
 					});
-					const minimumTotalItems = (input.page - 1) * input.pageSize + items.length;
-					return {
-						items,
-						details: {
-							nextPage: hasNextPage ? input.page + 1 : null,
-							totalItems: hasNextPage ? minimumTotalItems + 1 : minimumTotalItems,
-						},
-					};
+					return { items, details: { nextPage: hasNextPage ? input.page + 1 : null } };
 				}),
 			);
 		}),

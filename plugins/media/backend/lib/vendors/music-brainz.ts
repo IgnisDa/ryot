@@ -2,6 +2,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { MediaSandboxError } from "../failures";
 import { decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
 
 export type MusicBrainzHost = Pick<ScriptHost, "httpCall">;
@@ -24,6 +25,68 @@ export const mbGet = (
 		})),
 		Effect.flatMap((response) => decodeJsonResponse(response.body, "MusicBrainz")),
 	);
+};
+
+export const mbBrowsePage = Effect.fnUntraced(function* (
+	host: MusicBrainzHost,
+	entity: "release" | "recording" | "release-group",
+	params: Readonly<Record<string, string>>,
+	offset: number,
+	expectedTotal: null | number,
+) {
+	return yield* mbGet(host, entity, { ...params, limit: "100", offset: String(offset) }).pipe(
+		Effect.flatMap((value) => {
+			const data = asRecord(value);
+			const values = data?.[`${entity}s`];
+			const count = data?.[`${entity}-count`];
+			const returnedOffset = data?.[`${entity}-offset`];
+			const total = typeof count === "number" ? count : expectedTotal;
+			if (
+				!Array.isArray(values) ||
+				values.length > 100 ||
+				(count !== undefined &&
+					(typeof count !== "number" || !Number.isSafeInteger(count) || count < 0)) ||
+				(returnedOffset !== undefined && returnedOffset !== offset) ||
+				(expectedTotal !== null && total !== expectedTotal) ||
+				(total !== null &&
+					(offset + values.length > total || (values.length === 0 && offset < total)))
+			) {
+				return Effect.fail(
+					new MediaSandboxError({
+						message: `Invalid MusicBrainz ${entity} browse page at ${offset}`,
+					}),
+				);
+			}
+			const items: Record<string, unknown>[] = [];
+			for (const itemValue of values) {
+				const item = asRecord(itemValue);
+				const id = stringValue(item?.["id"]);
+				if (!item || !id || id.length > 256) {
+					return Effect.fail(
+						new MediaSandboxError({
+							message: `MusicBrainz ${entity} browse item is missing a valid ID`,
+						}),
+					);
+				}
+				items.push(item);
+			}
+			const hasMore = total === null ? items.length > 0 : offset + items.length < total;
+			return Effect.succeed({ items, total, nextOffset: hasMore ? offset + items.length : null });
+		}),
+	);
+});
+
+export const mbOffsetCursor = (value: unknown) => {
+	const record = asRecord(value);
+	const offset = record?.["offset"];
+	const total = record?.["total"];
+	return typeof offset === "number" &&
+		Number.isSafeInteger(offset) &&
+		offset >= 0 &&
+		(total === null ||
+			(typeof total === "number" && Number.isSafeInteger(total) && total >= offset))
+		? Effect.succeed({ total, offset })
+		: Effect.fail(new MediaSandboxError({ message: "Invalid MusicBrainz inventory continuation" }));
 };
 
 export const fetchCoverArtUrl = (

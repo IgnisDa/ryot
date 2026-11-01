@@ -63,6 +63,32 @@ const buildCreditRelationshipSchemas = (input: {
 								type: "string" as const,
 								description: input.characterDescription,
 							},
+							isGuest: {
+								type: "boolean" as const,
+								label: "Guest appearance",
+								description: "Whether all known cast appearances are guest appearances",
+							},
+							isUncredited: {
+								type: "boolean" as const,
+								label: "Uncredited appearance",
+								description: "Whether all known named cast appearances are uncredited",
+							},
+							creditKinds: {
+								label: "Credit kinds",
+								type: "array" as const,
+								description: "Kinds of credit held by this person in this production",
+								items: { label: "Kind", type: "string" as const, description: "Cast or crew" },
+							},
+							departments: {
+								label: "Departments",
+								type: "array" as const,
+								description: "Production departments associated with this person's credits",
+								items: {
+									label: "Department",
+									type: "string" as const,
+									description: "A production department name",
+								},
+							},
 						}
 					: {}),
 				order: { label: "Order", type: "number" as const, description: input.orderDescription },

@@ -905,6 +905,7 @@ const namespacePackage = (input: {
 					relatedEntityGroups: [
 						{
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "bottled-by",
 							entities: [

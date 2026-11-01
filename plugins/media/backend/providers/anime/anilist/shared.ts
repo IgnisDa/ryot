@@ -13,6 +13,7 @@ import { mediaGenreGroups } from "../../../lib/media-genres";
 import { numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
 import {
+	anilistConnection,
 	anilistGraphql,
 	bcp47ToAnilistMode,
 	collectGenres,
@@ -54,9 +55,17 @@ query MediaDetailsQuery($id: Int!) {
     coverImage { extraLarge }
     nextAiringEpisode { episode airingAt }
     title { english romaji native userPreferred }
-    airingSchedule { nodes { episode airingAt } }
+    airingSchedule(page: 1, perPage: 25) { pageInfo { hasNextPage } nodes { episode airingAt } }
     studios { nodes { id name } }
-    recommendations { nodes { mediaRecommendation { id type title { english romaji native userPreferred } } } }
+    recommendations(page: 1, perPage: 25, sort: RATING_DESC) { nodes { mediaRecommendation { id type title { english romaji native userPreferred } } } }
+  }
+}
+`;
+
+const AIRING_SCHEDULE_QUERY = `
+query AiringScheduleQuery($id: Int!, $page: Int!) {
+  Media(id: $id) {
+    airingSchedule(page: $page, perPage: 25) { pageInfo { hasNextPage } nodes { episode airingAt } }
   }
 }
 `;
@@ -113,16 +122,19 @@ const collectStudios = (studios: unknown) => {
 	const entities: ProviderDetailsRelatedEntity[] = [];
 	const seenStudios = new Set<number>();
 	const nodes = asRecord(studios)?.["nodes"];
+	if (!Array.isArray(nodes)) {
+		throw new MediaSandboxError({ message: "AniList studios connection is malformed" });
+	}
 	for (const studio of asArray(nodes)) {
 		const record = asRecord(studio);
 		if (!record) {
-			continue;
+			throw new MediaSandboxError({ message: "AniList studio identity is malformed" });
 		}
 		const idValue = numberValue(record["id"]);
-		if (idValue === null) {
-			continue;
+		if (idValue === null || !Number.isSafeInteger(idValue) || idValue <= 0) {
+			throw new MediaSandboxError({ message: "AniList studio identity is malformed" });
 		}
-		const studioId = Math.trunc(idValue);
+		const studioId = idValue;
 		if (seenStudios.has(studioId)) {
 			continue;
 		}
@@ -166,18 +178,39 @@ export const details = defineProvider({
 				try: () => collectGenres(media["genres"]),
 				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 			});
+			const studios = yield* Effect.try({
+				try: () => collectStudios(media["studios"]),
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+			});
+			let airing = anilistConnection(media["airingSchedule"], "nodes");
+			const airingNodes = [...airing.items];
+			for (let page = 2; airing.hasNextPage; page += 1) {
+				if (page > 40) {
+					return yield* new MediaSandboxError({
+						message: "AniList airing schedule exceeds the request budget",
+					});
+				}
+				const scheduleData = yield* anilistGraphql(host, "airing schedule", AIRING_SCHEDULE_QUERY, {
+					page,
+					id: mediaId,
+				});
+				airing = anilistConnection(asRecord(scheduleData?.["Media"])?.["airingSchedule"], "nodes");
+				airingNodes.push(...airing.items);
+			}
 			return {
 				name: title,
 				relatedEntityGroups: [
 					{
+						entities: studios,
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
+						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "company-to-anime",
-						entities: collectStudios(media["studios"]),
 					},
 					{
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 						entities: collectSuggestions(media["recommendations"], titleLanguage),
 					},
@@ -191,7 +224,7 @@ export const details = defineProvider({
 					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
 					episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
 					sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
-					airingSchedule: parseAiringSchedule(media["airingSchedule"], media["nextAiringEpisode"]),
+					airingSchedule: parseAiringSchedule({ nodes: airingNodes }, media["nextAiringEpisode"]),
 					description: yield* normalizeAnilistDescription(
 						media["description"],
 						"https://anilist.co",

@@ -282,8 +282,45 @@ export const details = defineProvider({
 				return yield* new MediaSandboxError({ message: "Podcast is missing title" });
 			}
 			const totalEpisodes = positiveInt(firstPage?.["total_episodes"]);
+			const publisher = stringValue(firstPage?.["publisher"]);
+			const image = stringValue(firstPage?.["image"]);
+			const explicit = firstPage?.["explicit_content"];
+			const genres = yield* collectGenres(firstPage?.["genre_ids"], genresById);
+			const rootMetadata = {
+				name: title,
+				relatedEntityGroups: mediaGenreGroups("podcast", genres),
+				properties: {
+					...(totalEpisodes === null ? {} : { totalEpisodes }),
+					sourceUrl: getSourceUrl(title, input.externalId),
+					isNsfw: typeof explicit === "boolean" ? explicit : null,
+					providerRating: numberValue(firstPage?.["listen_score"]),
+					publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
+					unlinkedCreators: publisher ? [{ name: publisher, role: "Publisher" }] : [],
+					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
+					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
+					description: yield* normalizeRichDescription(
+						firstPage?.["description"],
+						"https://www.listennotes.com",
+					),
+				},
+			};
+			if (input.level === "base") {
+				return rootMetadata;
+			}
 			const episodes: MappedEpisode[] = [];
 			const seenEpisodeIds = new Set<string>();
+			const incompleteInventory = () =>
+				Effect.fail(
+					new MediaSandboxError({
+						message: `Listen Notes episode inventory is incomplete: expected ${totalEpisodes} episodes, received ${episodes.length}`,
+					}),
+				);
+			const repeatedCursor = () =>
+				Effect.fail(
+					new MediaSandboxError({
+						message: `Listen Notes episode inventory is incomplete: cursor repeated after ${episodes.length} unique episodes`,
+					}),
+				);
 			const collectPage = (
 				currentPodcast: null | UnknownRecord,
 				episodeNumberOffset: number,
@@ -305,15 +342,18 @@ export const details = defineProvider({
 				}
 				episodes.push(...pageEpisodes);
 				const nextOffset = episodeNumberOffset + pageEpisodes.length;
-				if (totalEpisodes === null || episodes.length >= totalEpisodes) {
+				if (totalEpisodes !== null && episodes.length >= totalEpisodes) {
 					return Effect.succeed(firstPage);
 				}
 				if (pageEpisodes.length === 0) {
-					return Effect.succeed(firstPage);
+					return totalEpisodes === null ? Effect.succeed(firstPage) : incompleteInventory();
 				}
 				const nextEpisodePubDate = truncInt(currentPodcast?.["next_episode_pub_date"]);
-				if (nextEpisodePubDate === null || nextEpisodePubDate === previousEpisodePubDate) {
-					return Effect.succeed(firstPage);
+				if (nextEpisodePubDate === null) {
+					return totalEpisodes === null ? Effect.succeed(firstPage) : incompleteInventory();
+				}
+				if (nextEpisodePubDate === previousEpisodePubDate) {
+					return repeatedCursor();
 				}
 				return fetchPodcastDetails(host, input.externalId, nextEpisodePubDate).pipe(
 					Effect.flatMap((nextPodcast) => collectPage(nextPodcast, nextOffset, nextEpisodePubDate)),
@@ -321,10 +361,6 @@ export const details = defineProvider({
 			};
 			yield* collectPage(firstPage, 0, null);
 			const recommendations = yield* fetchRecommendations(host, input.externalId);
-			const publisher = stringValue(firstPage?.["publisher"]);
-			const image = stringValue(firstPage?.["image"]);
-			const explicit = firstPage?.["explicit_content"];
-			const genres = yield* collectGenres(firstPage?.["genre_ids"], genresById);
 			const childEntities = yield* Effect.forEach(episodes, (episode) =>
 				Effect.gen(function* () {
 					return {
@@ -347,7 +383,10 @@ export const details = defineProvider({
 				}),
 			);
 			return {
-				name: title,
+				...rootMetadata,
+				...(totalEpisodes === null
+					? { properties: { ...rootMetadata.properties, totalEpisodes: episodes.length } }
+					: {}),
 				childEntities,
 				expectedChildEntitySchemaSlug: "podcast-episode",
 				relatedEntityGroups: [
@@ -355,24 +394,11 @@ export const details = defineProvider({
 						entities: recommendations,
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 					},
-					...mediaGenreGroups("podcast", genres),
+					...rootMetadata.relatedEntityGroups,
 				],
-				properties: {
-					totalEpisodes: totalEpisodes ?? episodes.length,
-					sourceUrl: getSourceUrl(title, input.externalId),
-					isNsfw: typeof explicit === "boolean" ? explicit : null,
-					providerRating: numberValue(firstPage?.["listen_score"]),
-					publishDate: getIsoDateFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
-					unlinkedCreators: publisher ? [{ name: publisher, role: "Publisher" }] : [],
-					publishYear: getPublishYearFromTimestamp(firstPage?.["earliest_pub_date_ms"]),
-					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
-					description: yield* normalizeRichDescription(
-						firstPage?.["description"],
-						"https://www.listennotes.com",
-					),
-				},
 			};
 		}),
 });

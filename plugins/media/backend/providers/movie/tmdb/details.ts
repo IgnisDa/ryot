@@ -31,6 +31,9 @@ const buildDetailsResult = (
 	const creditsData = asRecord(movieData["credits"]) ?? {};
 	const recommendationsData = asRecord(movieData["recommendations"]) ?? {};
 	const watchProvidersData = asRecord(movieData["watch/providers"]) ?? {};
+	const hasCompleteCredits =
+		Array.isArray(creditsData["cast"]) && Array.isArray(creditsData["crew"]);
+	const hasCompleteCompanies = Array.isArray(movieData["production_companies"]);
 	const title = stringValue(movieData["title"]);
 	if (!title) {
 		throw new Error("TMDB returned no title for this movie");
@@ -52,7 +55,7 @@ const buildDetailsResult = (
 				},
 			]
 		: [];
-	const people = collectPeople(creditsData["cast"], creditsData["crew"]);
+	const people = hasCompleteCredits ? collectPeople(creditsData["cast"], creditsData["crew"]) : [];
 	const genres = collectGenres(movieData["genres"]);
 	return {
 		name: title,
@@ -76,23 +79,42 @@ const buildDetailsResult = (
 			...(full
 				? [
 						{
-							entities: people,
 							direction: "incoming" as const,
-							synchronization: "additive" as const,
+							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "person-to-movie",
+							entities: hasCompleteCredits ? people : [],
+							coverage: hasCompleteCredits
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason: "TMDB movie credits did not include cast and crew arrays",
+									},
+						},
+					]
+				: []),
+			...(full
+				? [
+						{
+							direction: "incoming" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "company-to-movie",
+							entities: hasCompleteCompanies
+								? collectCompanies([[movieData["production_companies"], "Production Company"]])
+								: [],
+							coverage: hasCompleteCompanies
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason: "TMDB movie production companies inventory was missing or malformed",
+									},
 						},
 					]
 				: []),
 			{
-				direction: "incoming",
-				synchronization: "additive",
-				relationshipSchemaSlug: "company-to-movie",
-				entities: collectCompanies([[movieData["production_companies"], "Production Company"]]),
-			},
-			{
 				entities: groups,
 				direction: "incoming",
 				synchronization: "additive",
+				coverage: { status: "complete" },
 				relationshipSchemaSlug: "movie-group-to-movie",
 			},
 			...(full
@@ -100,6 +122,7 @@ const buildDetailsResult = (
 						{
 							direction: "outgoing" as const,
 							synchronization: "authoritative" as const,
+							coverage: { status: "complete" as const },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: collectSuggestions(recommendationsData["results"], {
 								providerSlug: "movie.tmdb",

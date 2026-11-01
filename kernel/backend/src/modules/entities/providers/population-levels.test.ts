@@ -101,6 +101,7 @@ const details = (input: {
 	relatedEntityGroups: [
 		{
 			direction: "outgoing",
+			coverage: { status: "complete" },
 			synchronization: "authoritative",
 			relationshipSchemaSlug: input.relationshipSchemaSlug ?? "credits",
 			entities: [

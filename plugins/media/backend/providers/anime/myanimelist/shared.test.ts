@@ -84,6 +84,7 @@ describe("anime.myanimelist sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "3", name: "Related Anime", providerSlug: "anime.myanimelist" },
@@ -95,6 +96,7 @@ describe("anime.myanimelist sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "anime-to-genre",
 						},
 					]);
@@ -140,6 +142,7 @@ describe("anime.myanimelist sandbox script", () => {
 					expect(result.relatedEntityGroups?.[1]).toEqual({
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "anime-to-genre",
 						entities: [
 							{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },
@@ -232,8 +235,19 @@ describe("anime.myanimelist sandbox script", () => {
 					expect(result.items).toEqual([
 						{ title: "Found", externalId: "5", metadata: [2021], imageUrl: "https://img/5.jpg" },
 					]);
-					expect(result.details).toEqual({ nextPage: 2, totalItems: 2 });
+					expect(result.details).toEqual({ nextPage: 2 });
 					return undefined;
+				}),
+			),
+		);
+	});
+	it("does not report a fabricated total when paging ends", () => {
+		const host = makeHost(() => httpSuccess({ data: [], paging: {} }));
+		return Effect.runPromise(
+			runSandboxTestScript(search, { page: 3, pageSize: 20, query: "found" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.details).toEqual({ nextPage: null });
+					expect(result.details).not.toHaveProperty("totalItems");
 				}),
 			),
 		);

@@ -67,6 +67,7 @@ beforeAll(() =>
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-movie",
 							entities: [
 								{
@@ -182,6 +183,7 @@ describe("dual-writer canonical identity", () => {
 							{
 								direction: "outgoing",
 								synchronization: "authoritative",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "person-to-movie",
 								entities: [
 									{
@@ -204,6 +206,7 @@ describe("dual-writer canonical identity", () => {
 							{
 								direction: "incoming",
 								synchronization: "additive",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "person-to-movie",
 								entities: [
 									{
@@ -288,6 +291,7 @@ describe("association lifecycle via cron refresh", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-movie",
 							entities: [
 								{
@@ -315,6 +319,7 @@ describe("association lifecycle via cron refresh", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-movie",
 							entities: [
 								{
@@ -409,6 +414,7 @@ describe("association lifecycle via cron refresh", () => {
 								entities,
 								direction: "outgoing",
 								synchronization: "authoritative",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "person-to-movie",
 							},
 						],
@@ -429,6 +435,7 @@ describe("association lifecycle via cron refresh", () => {
 								direction: "outgoing",
 								entities: [movieRelatedEntity],
 								synchronization: "authoritative",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "person-to-movie",
 							},
 						],

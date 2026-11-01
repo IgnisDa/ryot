@@ -6,13 +6,21 @@ import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
-import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../../../lib/vendors/music-brainz";
+import {
+	buildLuceneQuery,
+	fetchCoverArtUrl,
+	mbBrowsePage,
+	mbGet,
+	mbOffsetCursor,
+} from "../../../lib/vendors/music-brainz";
 
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
 	slug: "music-group.music-brainz",
 });
+
+const RELATED_BROWSE_PAGE_BATCH_SIZE = 10;
 
 type OrderedRelatedEntity = {
 	name: string;
@@ -56,36 +64,34 @@ const parseDate = (value: unknown) => {
 		return null;
 	}
 	const parsed = new Date(trimmed);
-	return Number.isNaN(parsed.getTime()) ? null : parsed;
+	return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
 };
 
-const chooseRelease = (releases: readonly unknown[]): null | UnknownRecord => {
-	const records = releases.flatMap((release) => {
-		const record = asRecord(release);
-		return record ? [record] : [];
-	});
-	if (records.length === 0) {
-		return null;
-	}
-	const official = records.filter((record) => record["status"] === "Official");
-	const candidates = official.length > 0 ? official : records;
-	let best: null | UnknownRecord = null;
-	for (const release of candidates) {
-		if (!best) {
-			best = release;
+type ReleaseCandidate = { id: string; official: boolean; date: null | number };
+
+const chooseRelease = (best: null | ReleaseCandidate, releases: readonly UnknownRecord[]) => {
+	let candidateBest = best;
+	for (const release of releases) {
+		const id = stringValue(release["id"]);
+		if (!id) {
 			continue;
 		}
-		const bestDate = parseDate(best["date"]);
-		const releaseDate = parseDate(release["date"]);
-		if (bestDate && releaseDate) {
-			best = releaseDate.getTime() < bestDate.getTime() ? release : best;
-			continue;
-		}
-		if (releaseDate && !bestDate) {
-			best = release;
+		const candidate = {
+			id,
+			date: parseDate(release["date"]),
+			official: release["status"] === "Official",
+		};
+		if (
+			!candidateBest ||
+			(candidate.official && !candidateBest.official) ||
+			(candidate.official === candidateBest.official &&
+				candidate.date !== null &&
+				(candidateBest.date === null || candidate.date < candidateBest.date))
+		) {
+			candidateBest = candidate;
 		}
 	}
-	return best;
+	return candidateBest;
 };
 
 export const search = defineProvider({
@@ -128,41 +134,45 @@ export const search = defineProvider({
 	},
 });
 
-const collectTrackEntities = (media: unknown): OrderedRelatedEntity[] => {
+const collectTrackEntities = Effect.fnUntraced(function* (media: unknown) {
+	if (!Array.isArray(media)) {
+		return yield* new MediaSandboxError({ message: "MusicBrainz release is missing media" });
+	}
 	const entities: OrderedRelatedEntity[] = [];
+	const seen = new Set<string>();
 	let trackIdx = 0;
-	for (const medium of asArray(media)) {
-		const tracks = asRecord(medium)?.["tracks"];
-		for (const track of asArray(tracks)) {
+	for (const medium of media) {
+		const record = asRecord(medium);
+		const tracks = record?.["tracks"];
+		const count = record?.["track-count"];
+		if (!Array.isArray(tracks) || (count !== undefined && count !== tracks.length)) {
+			return yield* new MediaSandboxError({
+				message: "MusicBrainz release has an incomplete track list",
+			});
+		}
+		for (const track of tracks) {
 			const trackRecord = asRecord(track);
 			const recording = asRecord(trackRecord?.["recording"]) ?? trackRecord;
 			const memberId = stringValue(recording?.["id"]);
 			if (!memberId) {
-				trackIdx++;
-				continue;
+				return yield* new MediaSandboxError({
+					message: "MusicBrainz release track is missing a recording ID",
+				});
 			}
-			entities.push({
-				externalId: memberId,
-				providerSlug: "music.music-brainz",
-				relationshipProperties: { order: trackIdx + 1 },
-				name: stringValue(recording?.["title"]) ?? "Loading...",
-			});
+			if (!seen.has(memberId)) {
+				entities.push({
+					externalId: memberId,
+					providerSlug: "music.music-brainz",
+					relationshipProperties: { order: trackIdx + 1 },
+					name: stringValue(recording?.["title"]) ?? "Loading...",
+				});
+			}
+			seen.add(memberId);
 			trackIdx++;
 		}
 	}
 	return entities;
-};
-
-const countTracks = (media: unknown) => {
-	let trackCount = 0;
-	for (const medium of asArray(media)) {
-		const tracks = asRecord(medium)?.["tracks"];
-		if (Array.isArray(tracks)) {
-			trackCount += tracks.length;
-		}
-	}
-	return trackCount;
-};
+});
 
 export const details = defineProvider({
 	manifest,
@@ -170,7 +180,7 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const releaseGroupValue = yield* mbGet(host, `release-group/${input.externalId}`, {
-				inc: "artists",
+				inc: "artist-credits",
 			});
 			const releaseGroup = asRecord(releaseGroupValue);
 			if (!releaseGroup) {
@@ -186,48 +196,123 @@ export const details = defineProvider({
 			}
 			const description = normalizePlainDescription(releaseGroupDescription(releaseGroup));
 
-			const browseValue = yield* mbGet(host, "release", {
-				limit: "10",
-				"release-group": input.externalId,
-			});
-			const releases = asRecord(browseValue)?.["releases"];
-			const bestRelease = chooseRelease(asArray(releases));
-			const bestReleaseId = bestRelease ? stringValue(bestRelease["id"]) : null;
-
-			const [releaseCover, releaseDetailsValue] = yield* bestReleaseId
-				? Effect.all(
-						[
-							fetchCoverArtUrl(host, "release", bestReleaseId),
-							mbGet(host, `release/${bestReleaseId}`, { inc: "recordings" }),
-						],
-						{ concurrency: "unbounded" },
-					)
-				: Effect.succeed([null, null] as const);
-			const media = asRecord(releaseDetailsValue)?.["media"];
-			const trackCount = countTracks(media);
-			const relatedEntities = collectTrackEntities(media);
-
-			const coverUrl =
-				releaseCover ?? (yield* fetchCoverArtUrl(host, "release-group", input.externalId));
+			const coverUrl = yield* fetchCoverArtUrl(host, "release-group", input.externalId);
 
 			return {
 				name: title,
-				relatedEntityGroups: [
-					{
-						entities: relatedEntities,
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "music-group-to-music",
-					},
-				],
 				properties: {
 					description,
-					parts: trackCount > 0 ? trackCount : null,
+					parts: null,
 					sourceUrl: `https://musicbrainz.org/release-group/${input.externalId}`,
 					images: coverUrl
 						? [{ url: coverUrl, type: "remote" as const, purpose: "cover" as const }]
 						: [],
 				},
+				relatedEntityGroups: [
+					{
+						entities: [],
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "music-group-to-music",
+						coverage: {
+							status: "more" as const,
+							continuation: { offset: 0, best: null, total: null },
+						},
+					},
+					{
+						direction: "incoming" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "person-to-music-group",
+						coverage:
+							Array.isArray(releaseGroup["artist-credit"]) &&
+							releaseGroup["artist-credit"].every((credit) =>
+								stringValue(asRecord(asRecord(credit)?.["artist"])?.["id"]),
+							)
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason: "MusicBrainz release group did not include artist credits",
+									},
+						entities: asArray(releaseGroup["artist-credit"]).flatMap((credit) => {
+							const artist = asRecord(asRecord(credit)?.["artist"]);
+							const externalId = stringValue(artist?.["id"]);
+							return externalId
+								? [
+										{
+											externalId,
+											providerSlug: "person.music-brainz",
+											relationshipProperties: { roles: ["Artist"] },
+											name: stringValue(artist?.["name"]) ?? externalId,
+										},
+									]
+								: [];
+						}),
+					},
+				],
+			};
+		}),
+});
+
+const releaseCursor = Effect.fnUntraced(function* (value: unknown) {
+	const offset = yield* mbOffsetCursor(value);
+	const candidate = asRecord(value)?.["best"];
+	if (candidate === null) {
+		return { ...offset, best: null };
+	}
+	const record = asRecord(candidate);
+	const id = record?.["id"];
+	const official = record?.["official"];
+	const date = record?.["date"];
+	if (
+		typeof id !== "string" ||
+		!id ||
+		id.length > 256 ||
+		typeof official !== "boolean" ||
+		(date !== null && (typeof date !== "number" || !Number.isFinite(date)))
+	) {
+		return yield* new MediaSandboxError({
+			message: "Invalid MusicBrainz release selection continuation",
+		});
+	}
+	return { ...offset, best: { id, date, official } };
+});
+
+export const related = defineProvider({
+	manifest,
+	operation: "related",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			if (
+				input.relationshipSchemaSlug !== "music-group-to-music" ||
+				input.direction !== "outgoing"
+			) {
+				return yield* new MediaSandboxError({
+					message: "Unsupported MusicBrainz release-group inventory",
+				});
+			}
+			let { best, total, offset } = yield* releaseCursor(input.continuation);
+			for (let calls = 0; calls < RELATED_BROWSE_PAGE_BATCH_SIZE; calls++) {
+				const page = yield* mbBrowsePage(
+					host,
+					"release",
+					{ "release-group": input.externalId },
+					offset,
+					total,
+				);
+				best = chooseRelease(best, page.items);
+				if (page.nextOffset === null) {
+					const release = best
+						? yield* mbGet(host, `release/${best.id}`, { inc: "recordings" })
+						: null;
+					const entities = best ? yield* collectTrackEntities(asRecord(release)?.["media"]) : [];
+					return { entities, coverage: { status: "complete" as const } };
+				}
+				offset = page.nextOffset;
+				total = page.total;
+			}
+			return {
+				entities: [],
+				coverage: { status: "more" as const, continuation: { best, total, offset } },
 			};
 		}),
 });

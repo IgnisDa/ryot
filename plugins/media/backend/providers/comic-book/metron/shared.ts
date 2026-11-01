@@ -213,6 +213,7 @@ export const details = defineProvider({
 					{
 						entities: people,
 						direction: "incoming" as const,
+						coverage: { status: "complete" as const },
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "person-to-comic-book",
 					},
@@ -220,11 +221,13 @@ export const details = defineProvider({
 						direction: "incoming" as const,
 						entities: groupRelatedEntities,
 						synchronization: "additive" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "comic-book-group-to-comic-book",
 					},
 					{
 						entities: suggestions,
 						direction: "outgoing" as const,
+						coverage: { status: "complete" as const },
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "media-suggestion",
 					},

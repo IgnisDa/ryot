@@ -63,17 +63,20 @@ describe("audiobook.audible sandbox script", () => {
 							entities: [],
 							direction: "incoming",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-audiobook",
 						},
 						{
 							entities: [],
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "audiobook-group-to-audiobook",
 						},
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ name: "Series Pick", externalId: "book-2", providerSlug: "audiobook.audible" },
@@ -84,6 +87,7 @@ describe("audiobook.audible sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "audiobook-to-genre",
 						},
 					]);
@@ -128,6 +132,7 @@ describe("audiobook.audible sandbox script", () => {
 					expect(result.relatedEntityGroups?.[0]).toEqual({
 						direction: "incoming",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-audiobook",
 						entities: [
 							{
@@ -160,6 +165,7 @@ describe("audiobook.audible sandbox script", () => {
 					expect(result.relatedEntityGroups?.[3]).toEqual({
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "audiobook-to-genre",
 						entities: [
 							{

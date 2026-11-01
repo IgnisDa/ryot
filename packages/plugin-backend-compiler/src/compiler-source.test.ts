@@ -300,7 +300,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 	test.effect("rejects a provider operation given as a constant identifier", () =>
 		Effect.gen(function* () {
 			const definition =
-				"{ manifest, operation: OP, run: () => Effect.succeed({ entities: [], continuation: null }) }";
+				'{ manifest, operation: OP, run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }) }';
 			const source = [
 				'import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";',
 				'import { Effect } from "@ryot-app/plugin-backend-sdk/effect";',

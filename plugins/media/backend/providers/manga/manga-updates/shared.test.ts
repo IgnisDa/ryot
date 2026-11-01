@@ -47,6 +47,7 @@ describe("manga.manga-updates sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "2", name: "Recommendation", providerSlug: "manga.manga-updates" },
@@ -57,6 +58,7 @@ describe("manga.manga-updates sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "manga-to-genre",
 						},
 					]);
@@ -100,6 +102,7 @@ describe("manga.manga-updates sandbox script", () => {
 					expect(result.relatedEntityGroups?.[1]).toEqual({
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "manga-to-genre",
 						entities: [
 							{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },

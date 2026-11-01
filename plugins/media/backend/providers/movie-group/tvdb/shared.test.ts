@@ -80,6 +80,7 @@ describe("movie-group.tvdb sandbox script", () => {
 							{
 								direction: "outgoing",
 								synchronization: "authoritative",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "movie-group-to-movie",
 								entities: [
 									{

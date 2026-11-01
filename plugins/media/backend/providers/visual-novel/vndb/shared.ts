@@ -181,6 +181,7 @@ export const details = defineProvider({
 						entities: relatedEntities,
 						direction: "incoming" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "person-to-visual-novel",
 					},
 					...mediaGenreGroups("visual-novel", genres),

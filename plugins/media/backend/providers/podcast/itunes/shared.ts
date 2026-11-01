@@ -166,7 +166,8 @@ export const search = defineProvider({
 		).pipe(
 			Effect.map((payload) => {
 				const results = resultsArray(payload);
-				const totalItems = results.length;
+				const hasMore = results.length === resultLimit && resultLimit < 200;
+				const exhausted = results.length < resultLimit;
 				const pagedResults = results.slice(
 					(input.page - 1) * input.pageSize,
 					input.page * input.pageSize,
@@ -192,8 +193,8 @@ export const search = defineProvider({
 				return {
 					items,
 					details: {
-						totalItems,
-						nextPage: input.page * input.pageSize < totalItems ? input.page + 1 : null,
+						...(exhausted ? { totalItems: results.length } : {}),
+						nextPage: hasMore ? input.page + 1 : null,
 					},
 				};
 			}),
@@ -232,25 +233,44 @@ export const details = defineProvider({
 					}
 					const totalEpisodes = positiveInt(podcast["trackCount"]);
 					const genres = yield* collectGenres(podcast);
+					const artistName = trimmedString(podcast["artistName"]);
+					const rootMetadata = {
+						name: title,
+						properties: {
+							publishDate: getIsoDate(podcast["releaseDate"]),
+							unlinkedCreators: artistName ? [{ role: "Artist", name: artistName }] : [],
+							...(totalEpisodes === null ? {} : { totalEpisodes }),
+							sourceUrl: buildSourceUrl(input.externalId, title),
+							publishYear: getPublishYear(podcast["releaseDate"]),
+							description: yield* normalizeRichDescription(
+								podcast["description"],
+								"https://podcasts.apple.com",
+							),
+							images: collectImages(podcast).map((url) => ({
+								url,
+								type: "remote" as const,
+								purpose: "cover" as const,
+							})),
+						},
+						...(genres === null
+							? {}
+							: { relatedEntityGroups: mediaGenreGroups("podcast", genres) }),
+					};
+					if (input.level === "base") {
+						return rootMetadata;
+					}
 					const episodeLookup: Record<string, string> = {
 						lang: language,
 						media: "podcast",
 						id: input.externalId,
 						entity: "podcastEpisode",
 					};
-					if (totalEpisodes !== null) {
-						episodeLookup["limit"] = String(totalEpisodes);
-					}
+					episodeLookup["limit"] = String(totalEpisodes ?? 200);
 					return yield* lookup(host, episodeLookup).pipe(
 						Effect.flatMap((episodesPayload) =>
 							Effect.gen(function* () {
-								const unlinkedCreators: Array<{ role: string; name: string }> = [];
-								const artistName = trimmedString(podcast["artistName"]);
-								if (artistName) {
-									unlinkedCreators.push({ role: "Artist", name: artistName });
-								}
-								const episodes = resultsArray(episodesPayload)
-									.flatMap((raw): MappedEpisode[] => {
+								const mappedEpisodes = resultsArray(episodesPayload).flatMap(
+									(raw): MappedEpisode[] => {
 										const episode = asRecord(raw);
 										const id = idString(episode?.["trackId"]);
 										const episodeTitle = trimmedString(episode?.["trackName"]);
@@ -277,7 +297,26 @@ export const details = defineProvider({
 													stringValue(episode["artworkUrl30"]),
 											},
 										];
-									})
+									},
+								);
+								const uniqueEpisodes = new Map<string, MappedEpisode>();
+								for (const episode of mappedEpisodes) {
+									if (!uniqueEpisodes.has(episode.id)) {
+										uniqueEpisodes.set(episode.id, episode);
+									}
+								}
+								if (totalEpisodes !== null && uniqueEpisodes.size < totalEpisodes) {
+									return yield* new MediaSandboxError({
+										message: `iTunes episode inventory is incomplete: expected ${totalEpisodes} unique episodes, received ${uniqueEpisodes.size}`,
+									});
+								}
+								if (totalEpisodes === null && uniqueEpisodes.size >= 200) {
+									return yield* new MediaSandboxError({
+										message:
+											"iTunes episode inventory is incomplete: unknown total reached the 200-episode source limit",
+									});
+								}
+								const episodes = [...uniqueEpisodes.values()]
 									.sort((left, right) => {
 										const publishDateDiff = left.publishDate.localeCompare(right.publishDate);
 										return publishDateDiff !== 0
@@ -315,28 +354,12 @@ export const details = defineProvider({
 									}),
 								);
 								return {
-									name: title,
+									...rootMetadata,
+									...(totalEpisodes === null
+										? { properties: { ...rootMetadata.properties, totalEpisodes: episodes.length } }
+										: {}),
 									childEntities,
 									expectedChildEntitySchemaSlug: "podcast-episode",
-									properties: {
-										unlinkedCreators,
-										publishDate: getIsoDate(podcast["releaseDate"]),
-										totalEpisodes: totalEpisodes ?? episodes.length,
-										sourceUrl: buildSourceUrl(input.externalId, title),
-										publishYear: getPublishYear(podcast["releaseDate"]),
-										description: yield* normalizeRichDescription(
-											podcast["description"],
-											"https://podcasts.apple.com",
-										),
-										images: collectImages(podcast).map((url) => ({
-											url,
-											type: "remote" as const,
-											purpose: "cover" as const,
-										})),
-									},
-									...(genres === null
-										? {}
-										: { relatedEntityGroups: mediaGenreGroups("podcast", genres) }),
 								};
 							}),
 						),

@@ -75,7 +75,8 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 	const addMedia = (
 		media: UnknownRecord,
 		fallbackRole: string,
-		character: null | string = null,
+		character: null | string,
+		creditKind: "cast" | "crew",
 	) => {
 		const id = numberValue(media["id"]);
 		const mediaType = stringValue(media["media_type"]);
@@ -89,20 +90,33 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 			return;
 		}
 		const externalId = String(Math.trunc(id));
-		const role = stringValue(media["job"]) ?? fallbackRole;
+		const role = creditKind === "cast" ? "Acting" : (stringValue(media["job"]) ?? fallbackRole);
+		const department = creditKind === "cast" ? "Acting" : stringValue(media["department"]);
+		const normalizedCharacter = stringValue(character);
+		const order = numberValue(media["order"]);
 		related.add({
 			externalId,
 			providerSlug,
 			name: stringValue(media["title"]) ?? stringValue(media["name"]) ?? "Loading...",
-			relationshipProperties: { roles: [role], ...(character === null ? {} : { character }) },
+			relationshipProperties: {
+				roles: [role],
+				...(normalizedCharacter === null ? {} : { character: normalizedCharacter }),
+				...(order === null ? {} : { order: Math.trunc(order) }),
+				creditKinds: [creditKind],
+				...(department === null ? {} : { departments: [department] }),
+				...(creditKind === "cast" && providerSlug === "movie.tmdb" ? { isGuest: false } : {}),
+				...(normalizedCharacter === null
+					? {}
+					: { isUncredited: /\(uncredited\)\s*$/i.test(normalizedCharacter) }),
+			},
 		});
 	};
 
 	for (const media of recordsValue(combinedCredits["cast"])) {
-		addMedia(media, "Actor", stringValue(media["character"]));
+		addMedia(media, "Acting", stringValue(media["character"]), "cast");
 	}
 	for (const media of recordsValue(combinedCredits["crew"])) {
-		addMedia(media, "Production");
+		addMedia(media, "Production", null, "crew");
 	}
 	return related.entities;
 };
@@ -166,20 +180,6 @@ export const details = defineProvider({
 				const relatedEntities = collectCredits(combinedCredits);
 				return {
 					name,
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "person-to-movie",
-							entities: relatedEntities.filter(({ providerSlug }) => providerSlug === "movie.tmdb"),
-						},
-						{
-							direction: "outgoing" as const,
-							relationshipSchemaSlug: "person-to-show",
-							synchronization: "authoritative" as const,
-							entities: relatedEntities.filter(({ providerSlug }) => providerSlug === "show.tmdb"),
-						},
-					],
 					properties: {
 						gender,
 						alternateNames,
@@ -195,6 +195,22 @@ export const details = defineProvider({
 							purpose: "profile" as const,
 						})),
 					},
+					relatedEntityGroups: [
+						{
+							direction: "outgoing" as const,
+							synchronization: "additive" as const,
+							coverage: { status: "complete" as const },
+							relationshipSchemaSlug: "person-to-movie",
+							entities: relatedEntities.filter(({ providerSlug }) => providerSlug === "movie.tmdb"),
+						},
+						{
+							direction: "outgoing" as const,
+							synchronization: "additive" as const,
+							relationshipSchemaSlug: "person-to-show",
+							coverage: { status: "complete" as const },
+							entities: relatedEntities.filter(({ providerSlug }) => providerSlug === "show.tmdb"),
+						},
+					],
 				};
 			}),
 		);

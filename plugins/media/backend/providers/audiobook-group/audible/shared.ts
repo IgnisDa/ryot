@@ -81,6 +81,7 @@ export const details = defineProvider({
 						entities: relatedEntities,
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "audiobook-group-to-audiobook",
 					},
 				],

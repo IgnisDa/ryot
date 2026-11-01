@@ -170,6 +170,7 @@ describe("book.google-books sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "book-to-genre",
 							entities: [
 								{ name: "Fiction", externalId: "fiction", providerSlug: "genre.media-catalog" },

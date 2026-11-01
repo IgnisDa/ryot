@@ -32,7 +32,7 @@ const detailsHost = (person: unknown, translation: unknown = { data: {} }) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("person.tvdb sandbox script", () => {
-	it("splits characters into outgoing authoritative movie and show groups", () => {
+	it("splits person-side characters into additive movie and show groups", () => {
 		const host = detailsHost({
 			name: "Person Name",
 			characters: [
@@ -52,7 +52,8 @@ describe("person.tvdb sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-movie",
 						entities: [
 							{
@@ -60,15 +61,18 @@ describe("person.tvdb sandbox script", () => {
 								externalId: "10",
 								providerSlug: "movie.tvdb",
 								relationshipProperties: {
+									isUncredited: false,
 									character: "Hero / Villain",
 									roles: ["Actor", "Director"],
+									creditKinds: ["cast", "crew"],
 								},
 							},
 						],
 					},
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-show",
 						entities: [
 							{
@@ -76,6 +80,7 @@ describe("person.tvdb sandbox script", () => {
 								externalId: "20",
 								providerSlug: "show.tvdb",
 								relationshipProperties: {
+									creditKinds: ["crew"],
 									character: "Hero / Villain",
 									roles: ["Writer", "Producer"],
 								},
@@ -84,13 +89,13 @@ describe("person.tvdb sandbox script", () => {
 								externalId: "30",
 								name: "Loading...",
 								providerSlug: "show.tvdb",
-								relationshipProperties: { roles: ["Actor"] },
+								relationshipProperties: { roles: [] },
 							},
 							{
 								externalId: "40",
 								name: "Loading...",
 								providerSlug: "show.tvdb",
-								relationshipProperties: { roles: ["Actor"] },
+								relationshipProperties: { roles: ["Actor"], creditKinds: ["cast"] },
 							},
 						],
 					},

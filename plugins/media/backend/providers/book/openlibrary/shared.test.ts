@@ -84,6 +84,7 @@ describe("book.openlibrary sandbox script", () => {
 						{
 							direction: "incoming",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-book",
 							entities: [
 								{
@@ -97,6 +98,7 @@ describe("book.openlibrary sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "book-to-genre",
 							entities: [
 								{ name: "Fiction", externalId: "fiction", providerSlug: "genre.media-catalog" },

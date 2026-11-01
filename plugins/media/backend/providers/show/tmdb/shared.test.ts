@@ -102,6 +102,7 @@ describe("show.tmdb sandbox script", () => {
 			appended: {
 				credits: { cast: [], crew: [] },
 				"watch/providers": { results: {} },
+				aggregate_credits: { cast: [], crew: [] },
 				recommendations: {
 					results: [
 						{ id: 2, name: "Pick One", title: "Pick One" },
@@ -136,18 +137,21 @@ describe("show.tmdb sandbox script", () => {
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-show",
 						},
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-show",
 						},
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "2", name: "Pick One", providerSlug: "show.tmdb" },
@@ -158,6 +162,7 @@ describe("show.tmdb sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "show-to-genre",
 						},
 					]);
@@ -166,6 +171,62 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
+	it.each([
+		{
+			appended: {},
+			label: "missing inventories",
+			show: { id: 1, seasons: [], name: "Source" },
+			companyCoverage: {
+				status: "source-limited",
+				reason: "TMDB show companies inventory was missing or malformed",
+			},
+			peopleCoverage: {
+				status: "source-limited",
+				reason: "TMDB show aggregate credits did not include cast and crew arrays",
+			},
+		},
+		{
+			label: "explicit empty inventories",
+			peopleCoverage: { status: "complete" },
+			companyCoverage: { status: "complete" },
+			appended: { aggregate_credits: { cast: [], crew: [] } },
+			show: { id: 1, seasons: [], networks: [], name: "Source", production_companies: [] },
+		},
+	])(
+		"reports full show credit coverage for $label",
+		({ show, appended, peopleCoverage, companyCoverage }) => {
+			const host = makeTvHost("1", { show, appended });
+			return Effect.runPromise(
+				runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+					Effect.map((result) => {
+						const groups = result.relatedEntityGroups ?? [];
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "person-to-show",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: peopleCoverage,
+							synchronization: "authoritative",
+						});
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "company-to-show",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: companyCoverage,
+							synchronization: "authoritative",
+						});
+						return undefined;
+					}),
+				),
+			);
+		},
+	);
 
 	it("appends only watch providers and episode groups to the show request at base level", () => {
 		const requests: URL[] = [];
@@ -195,14 +256,14 @@ describe("show.tmdb sandbox script", () => {
 					]);
 					expect(
 						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
-					).toEqual(["company-to-show"]);
+					).toEqual([]);
 					return undefined;
 				}),
 			),
 		);
 	});
 
-	it("appends credits and recommendations to the show request at full level and by default", () => {
+	it("appends aggregate credits, credits, and recommendations only at full level", () => {
 		const requests: URL[] = [];
 		const host = makeTvHost("1", { show: { id: 1, seasons: [], name: "Source" } }, requests);
 		return Effect.runPromise(
@@ -214,9 +275,9 @@ describe("show.tmdb sandbox script", () => {
 					expect(
 						requests.map(({ searchParams }) => searchParams.get("append_to_response")),
 					).toEqual([
-						"watch/providers,episode_groups,credits,recommendations",
+						"watch/providers,episode_groups,credits,aggregate_credits,recommendations",
 						null,
-						"watch/providers,episode_groups,credits,recommendations",
+						"watch/providers,episode_groups,credits,aggregate_credits,recommendations",
 						null,
 					]);
 					return undefined;
@@ -264,6 +325,75 @@ describe("show.tmdb sandbox script", () => {
 					expect(result.childEntities?.map(({ name, externalId }) => [name, externalId])).toEqual(
 						Array.from({ length: 25 }, (_, index) => [`Season ${index}`, String(100 + index)]),
 					);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("fails when a requested season is absent from the appended response", () => {
+		const host = makeTvHost("1", {
+			appended: { "season/1": { episodes: [] } },
+			show: {
+				id: 1,
+				name: "Source",
+				seasons: [
+					{ id: 101, season_number: 1 },
+					{ id: 102, season_number: 2 },
+				],
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) => {
+					expect(error.message).toBe("TMDB returned no object for season 2");
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("fails when a requested season has no episodes array", () => {
+		const host = makeTvHost("1", {
+			appended: { "season/1": { episodes: null } },
+			show: { id: 1, name: "Source", seasons: [{ id: 101, season_number: 1 }] },
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) => {
+					expect(error.message).toBe("TMDB returned no episodes array for season 1");
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("accepts explicit empty episode arrays for every listed season", () => {
+		const host = makeTvHost("1", {
+			appended: { "season/1": { episodes: [] }, "season/2": { episodes: [] } },
+			show: {
+				id: 1,
+				name: "Source",
+				seasons: [
+					{ id: 101, season_number: 1 },
+					{ id: 102, season_number: 2 },
+				],
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(
+						result.childEntities?.map(({ externalId, childEntities }) => [
+							externalId,
+							childEntities,
+						]),
+					).toEqual([
+						["101", []],
+						["102", []],
+					]);
 					return undefined;
 				}),
 			),
@@ -514,16 +644,13 @@ describe("show.tmdb sandbox script", () => {
 		);
 	});
 
-	it("fetches only the episode orders the sandbox HTTP call limit leaves after seasons", () => {
+	it("fetches every listed episode order without silently applying a local HTTP budget", () => {
 		const requests: URL[] = [];
 		const host = makeTvHost(
 			"456",
 			{
 				other: () => ({ groups: [] }),
-				show: {
-					name: "The Simpsons",
-					seasons: Array.from({ length: 43 }, (_, index) => ({ season_number: index })),
-				},
+				show: { seasons: [], name: "Order source" },
 				appended: {
 					episode_groups: {
 						results: Array.from({ length: 60 }, (_, index) => ({
@@ -539,11 +666,118 @@ describe("show.tmdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "456" }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(requests).toHaveLength(50);
+					expect(requests).toHaveLength(62);
 					expect(result.properties).toMatchObject({
-						episodeOrders: Array.from({ length: 45 }, (_, index) => ({
+						episodeOrders: Array.from({ length: 60 }, (_, index) => ({
 							externalId: `order-${index}`,
 						})),
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("uses aggregate credits for all jobs and classifies guests from episode guest-star lists", () => {
+		const host = makeTvHost("1", {
+			show: {
+				id: 1,
+				networks: [],
+				name: "Series",
+				production_companies: [],
+				seasons: [{ id: 101, season_number: 1 }],
+				created_by: [{ id: 13, name: "Creator" }],
+			},
+			appended: {
+				credits: { crew: [], cast: [{ id: 11, name: "Regular" }] },
+				"season/1": {
+					season_number: 1,
+					episodes: [
+						{
+							id: 1011,
+							episode_number: 1,
+							guest_stars: [{ id: 9 }, { id: 10 }, { id: 10 }, { id: 11 }],
+						},
+						{ id: 1012, episode_number: 2, guest_stars: [{ id: 10 }, { id: 11 }] },
+						{ id: 1013, episode_number: 3, guest_stars: [{ id: 11 }] },
+					],
+				},
+				aggregate_credits: {
+					crew: [
+						{
+							id: 12,
+							name: "Crew",
+							department: "Production",
+							jobs: [
+								{ episode_count: 3, job: "Executive Producer" },
+								{ job: "Producer", episode_count: 3 },
+							],
+						},
+					],
+					cast: [
+						{
+							id: 9,
+							order: 4,
+							name: "Older Credit",
+							total_episode_count: 8,
+							known_for_department: "Acting",
+							roles: [
+								{ episode_count: 7, character: "Older Role" },
+								{ episode_count: 1, character: "Second Role" },
+							],
+						},
+						{
+							id: 10,
+							order: 5,
+							name: "Guest",
+							total_episode_count: 2,
+							known_for_department: "Acting",
+							roles: [{ episode_count: 2, character: "Guest Role" }],
+						},
+						{
+							id: 11,
+							name: "Regular",
+							total_episode_count: 3,
+							known_for_department: "Acting",
+							roles: [{ episode_count: 3, character: "Regular Role" }],
+						},
+					],
+				},
+			},
+		});
+
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					const group = result.relatedEntityGroups?.find(
+						({ relationshipSchemaSlug }) => relationshipSchemaSlug === "person-to-show",
+					);
+					expect(group).toMatchObject({
+						coverage: { status: "complete" },
+						synchronization: "authoritative",
+					});
+					expect(group?.entities.find(({ externalId }) => externalId === "9")).toMatchObject({
+						relationshipProperties: {
+							order: 4,
+							isGuest: false,
+							character: "Older Role / Second Role",
+						},
+					});
+					expect(group?.entities.find(({ externalId }) => externalId === "10")).toMatchObject({
+						relationshipProperties: { isGuest: true, character: "Guest Role" },
+					});
+					expect(group?.entities.find(({ externalId }) => externalId === "11")).toMatchObject({
+						relationshipProperties: { isGuest: false },
+					});
+					expect(group?.entities.find(({ externalId }) => externalId === "12")).toMatchObject({
+						relationshipProperties: {
+							creditKinds: ["crew"],
+							departments: ["Production"],
+							roles: ["Executive Producer", "Producer"],
+						},
+					});
+					expect(group?.entities.find(({ externalId }) => externalId === "13")).toMatchObject({
+						relationshipProperties: { roles: ["Creator"], creditKinds: ["crew"] },
 					});
 					return undefined;
 				}),

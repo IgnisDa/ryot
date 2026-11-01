@@ -71,7 +71,8 @@ describe("person.manga-updates sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-manga",
 						entities: [
 							{

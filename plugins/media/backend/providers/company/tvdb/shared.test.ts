@@ -41,7 +41,8 @@ describe("company.tvdb sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "company-to-movie",
 						entities: [
 							{
@@ -66,7 +67,8 @@ describe("company.tvdb sandbox script", () => {
 					},
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "company-to-show",
 						entities: [
 							{

@@ -16,6 +16,8 @@ export default defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		createYoutubeMusicClient(host).pipe(
-			Effect.flatMap((client) => buildArtistSearch(client, input.query)),
+			Effect.flatMap((client) =>
+				buildArtistSearch(client, input.query, input.pageSize, input.page),
+			),
 		),
 });

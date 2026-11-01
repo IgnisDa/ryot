@@ -256,6 +256,7 @@ export const details = defineProvider({
 						direction: "incoming" as const,
 						relationshipSchemaSlug: "person-to-book",
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 					},
 					...mediaGenreGroups("book", genres),
 				],

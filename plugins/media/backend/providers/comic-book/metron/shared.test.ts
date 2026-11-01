@@ -101,12 +101,14 @@ describe("comic-book.metron sandbox script", () => {
 						{
 							entities: [],
 							direction: "incoming",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "person-to-comic-book",
 						},
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "comic-book-group-to-comic-book",
 							entities: [
 								{
@@ -119,6 +121,7 @@ describe("comic-book.metron sandbox script", () => {
 						},
 						{
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [{ name: "Saga #2", externalId: "2", providerSlug: "comic-book.metron" }],
@@ -126,11 +129,55 @@ describe("comic-book.metron sandbox script", () => {
 						{
 							entities: [],
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "comic-book-to-genre",
 						},
 					]);
 					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("marks the first three arcs and their first 20 issues as the complete curated set", () => {
+		const requestedArcIds: string[] = [];
+		const host = makeHost((_method, url) => {
+			if (url.includes("/issue/1/")) {
+				return httpSuccess({
+					id: 1,
+					number: "1",
+					credits: [],
+					arcs: [{ id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }],
+				});
+			}
+			const requestUrl = new URL(url);
+			const arcId = requestUrl.pathname.match(/\/arc\/(\d+)\//)?.[1];
+			if (arcId) {
+				requestedArcIds.push(arcId);
+				expect(requestUrl.searchParams.get("page_size")).toBe("20");
+				return httpSuccess({
+					count: 100,
+					next: "https://metron.cloud/api/arc/1/issue_list/?page=2",
+					results: Array.from({ length: 20 }, (_, index) => ({
+						number: String(index + 1),
+						id: Number(arcId) * 100 + index,
+						series: { name: `Series ${arcId}` },
+					})),
+				});
+			}
+			return httpSuccess({});
+		});
+
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					const suggestions = result.relatedEntityGroups?.find(
+						(group) => group.relationshipSchemaSlug === "media-suggestion",
+					);
+					expect(requestedArcIds).toEqual(["1", "2", "3"]);
+					expect(suggestions?.coverage).toEqual({ status: "complete" });
+					expect(suggestions?.entities).toHaveLength(60);
 				}),
 			),
 		);
@@ -200,6 +247,7 @@ describe("comic-book.metron sandbox script", () => {
 						),
 					).toEqual({
 						direction: "incoming",
+						coverage: { status: "complete" },
 						synchronization: "authoritative",
 						relationshipSchemaSlug: "person-to-comic-book",
 						entities: [
@@ -308,6 +356,7 @@ describe("comic-book.metron sandbox script", () => {
 					).toEqual({
 						entities: [],
 						direction: "incoming",
+						coverage: { status: "complete" },
 						synchronization: "authoritative",
 						relationshipSchemaSlug: "person-to-comic-book",
 					});

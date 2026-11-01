@@ -51,7 +51,8 @@ describe("company.tmdb sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "company-to-movie",
 						entities: [
 							{
@@ -64,7 +65,8 @@ describe("company.tmdb sandbox script", () => {
 					},
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "company-to-show",
 						entities: [
 							{
@@ -108,15 +110,15 @@ describe("company.tmdb sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					objectContaining({
 						relationshipSchemaSlug: "company-to-movie",
-						continuation: { page: 2, totalPages: 500 },
 						entities: [objectContaining({ externalId: "2" })],
+						coverage: { status: "more", continuation: { page: 2, totalPages: 900 } },
 					}),
 					objectContaining({
 						relationshipSchemaSlug: "company-to-show",
 						entities: [objectContaining({ externalId: "3" })],
 					}),
 				]);
-				expect(result.relatedEntityGroups?.[1]).not.toHaveProperty("continuation");
+				expect(result.relatedEntityGroups?.[1]?.coverage).toEqual({ status: "complete" });
 				return undefined;
 			}),
 			Effect.runPromise,
@@ -163,7 +165,10 @@ describe("company.tmdb related script", () => {
 			Effect.map((result) => {
 				expect(sortBy(pages)).toEqual(Array.from({ length: 40 }, (_, index) => index + 2));
 				expect(maxInFlight).toBeLessThanOrEqual(5);
-				expect(result.continuation).toEqual({ page: 42, totalPages: 100 });
+				expect(result.coverage).toEqual({
+					status: "more",
+					continuation: { page: 42, totalPages: 100 },
+				});
 				expect(result.entities).toHaveLength(40);
 				expect(result.entities[0]).toEqual({
 					name: "Show 2",
@@ -195,7 +200,10 @@ describe("company.tmdb related script", () => {
 			Effect.map((result) => {
 				expect(Math.max(...pages)).toBe(500);
 				expect(pages).toHaveLength(11);
-				expect(result.continuation).toBeNull();
+				expect(result.coverage).toEqual({
+					status: "source-limited",
+					reason: "TMDB discover is capped at 500 pages",
+				});
 				return undefined;
 			}),
 			Effect.runPromise,

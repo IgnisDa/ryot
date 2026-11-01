@@ -226,7 +226,12 @@ describe("rich provider descriptions", () => {
 		],
 		[
 			spotifyGroupDetails,
-			{ name: "Album", description: "<p><strong>Story</strong></p>\n\n*More*" },
+			{
+				artists: [],
+				name: "Album",
+				description: "<p><strong>Story</strong></p>\n\n*More*",
+				tracks: { total: 0, items: [], offset: 0, next: null },
+			},
 		],
 	] as const) {
 		it(`${provider.manifest.slug} normalizes mixed description prose`, () => {
@@ -248,7 +253,9 @@ describe("rich provider descriptions", () => {
 				data: {
 					Media: {
 						type: "ANIME",
+						studios: { nodes: [] },
 						title: { english: "Anime" },
+						airingSchedule: { nodes: [], pageInfo: { hasNextPage: false } },
 						description:
 							'<p><strong>Story</strong></p>\n\n<span class="markdown_spoiler"><em>ending</em></span>\n\n<span class="markdown_spoiler">Secret</span>\n\n~!**raw**!~',
 					},
@@ -274,6 +281,8 @@ describe("rich provider descriptions", () => {
 				data: {
 					Staff: {
 						name: { full: "Person" },
+						staffMedia: { edges: [], pageInfo: { hasNextPage: false } },
+						characterMedia: { edges: [], pageInfo: { hasNextPage: false } },
 						description:
 							'<p><strong>Story</strong></p>\n\n<span class="markdown_spoiler"><em>ending</em></span>\n\n<span class="markdown_spoiler">Secret</span>\n\n~!**raw**!~',
 					},

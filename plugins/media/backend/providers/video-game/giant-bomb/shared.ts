@@ -195,20 +195,23 @@ export const details = defineProvider({
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
 						entities: companyAccumulator.entities,
+						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "company-to-video-game",
 					},
 					{
 						direction: "incoming" as const,
 						entities: groupAccumulator.entities,
 						synchronization: "additive" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "video-game-group-to-video-game",
 					},
 					{
 						direction: "outgoing" as const,
 						entities: [...suggestionByKey.values()],
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 					},
 					...mediaGenreGroups("video-game", genres),

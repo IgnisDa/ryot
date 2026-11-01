@@ -58,7 +58,10 @@ describe("related population progress", () => {
 				[relatedPageKey({ page: 3 })]: { count: 1, url: `${upstream.url}/page-3` },
 			};
 			const firstPages = {
-				[relatedPageKey({ page: 2 })]: { entities: [related(2)], continuation: { page: 3 } },
+				[relatedPageKey({ page: 2 })]: {
+					entities: [related(2)],
+					coverage: { status: "more" as const, continuation: { page: 3 } },
+				},
 			};
 			const providers = yield* Effect.acquireRelease(
 				installTestProviders({
@@ -91,9 +94,9 @@ describe("related population progress", () => {
 									{
 										direction: "outgoing",
 										entities: [related(1)],
-										continuation: { page: 2 },
 										synchronization: "authoritative",
 										relationshipSchemaSlug: "record-to-related",
+										coverage: { status: "more", continuation: { page: 2 } },
 									},
 								],
 							}),
@@ -196,7 +199,10 @@ describe("related population progress", () => {
 					slug: `${providers.root.providerSlug}.related`,
 					result: {
 						...firstPages,
-						[relatedPageKey({ page: 3 })]: { continuation: null, entities: [related(3)] },
+						[relatedPageKey({ page: 3 })]: {
+							entities: [related(3)],
+							coverage: { status: "complete" },
+						},
 					},
 				}),
 			);

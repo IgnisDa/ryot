@@ -280,6 +280,7 @@ export const details = defineProvider({
 					{
 						direction: "incoming" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "person-to-audiobook",
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "person.audible",
@@ -288,6 +289,7 @@ export const details = defineProvider({
 					{
 						direction: "incoming" as const,
 						synchronization: "additive" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "audiobook-group-to-audiobook",
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "audiobook-group.audible",
@@ -297,6 +299,7 @@ export const details = defineProvider({
 						entities: suggestions,
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 					},
 					...mediaGenreGroups("audiobook", genres),

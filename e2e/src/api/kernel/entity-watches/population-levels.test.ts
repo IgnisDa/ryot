@@ -57,6 +57,7 @@ beforeAll(() =>
 								{
 									direction: "incoming",
 									synchronization: "additive",
+									coverage: { status: "complete" },
 									relationshipSchemaSlug: COMPANY_TO_ANIME,
 									entities: [
 										{

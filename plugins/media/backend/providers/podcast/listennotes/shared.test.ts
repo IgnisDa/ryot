@@ -97,6 +97,54 @@ describe("podcast.listennotes sandbox script", () => {
 		);
 	});
 
+	it("returns base podcast metadata without episode pages or recommendations", () => {
+		const requests: URL[] = [];
+		const host = makeHost(
+			(_method, url) => {
+				requests.push(new URL(url));
+				return httpSuccess({
+					genre_ids: [67],
+					title: "Podcast",
+					description: "A show.",
+					next_episode_pub_date: 2,
+				});
+			},
+			{ getCachedValue: () => Effect.succeed({ "67": "Comedy" }) },
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "pod-1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Podcast");
+					expect(result.properties).toMatchObject({
+						description: "A show.",
+						sourceUrl: "https://www.listennotes.com/podcasts/Podcast-pod-1",
+					});
+					expect(result.properties).not.toHaveProperty("totalEpisodes");
+					expect(result.relatedEntityGroups).toEqual([
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
+							relationshipSchemaSlug: "podcast-to-genre",
+							entities: [
+								{ name: "Comedy", externalId: "comedy", providerSlug: "genre.media-catalog" },
+							],
+						},
+					]);
+					expect(result).not.toHaveProperty("childEntities");
+					expect(result).not.toHaveProperty("expectedChildEntitySchemaSlug");
+					expect(
+						requests.map(({ pathname, searchParams }) => [
+							pathname,
+							searchParams.get("next_episode_pub_date"),
+						]),
+					).toEqual([["/api/v2/podcasts/pod-1", "null"]]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("loads the API key and sends it in the Listen Notes auth header", () => {
 		const configKeys: string[] = [];
 		const host = defineSandboxTestHost(manifest, {
@@ -153,6 +201,122 @@ describe("podcast.listennotes sandbox script", () => {
 					]);
 					expect(result.details).toEqual({ nextPage: 2, totalItems: 42 });
 					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("fails a known episode inventory when its first page has no cursor", () => {
+		const host = makeHost((_method, url) =>
+			url.endsWith("/genres")
+				? httpSuccess({ genres: [] })
+				: httpSuccess({
+						title: "Podcast",
+						total_episodes: 3,
+						episodes: [{ id: "e1", title: "Episode 1", pub_date_ms: 1577836800000 }],
+					}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain(
+						"Listen Notes episode inventory is incomplete: expected 3 episodes, received 1",
+					),
+				),
+			),
+		);
+	});
+
+	it("fails a known episode inventory when the cursor repeats", () => {
+		const host = makeHost((_method, url) => {
+			if (url.endsWith("/genres")) {
+				return httpSuccess({ genres: [] });
+			}
+			const cursor = new URL(url).searchParams.get("next_episode_pub_date");
+			return httpSuccess({
+				title: "Podcast",
+				next_episode_pub_date: 2,
+				total_episodes: cursor === "null" ? 3 : undefined,
+				episodes: [
+					{
+						id: cursor === "null" ? "e1" : "e2",
+						title: cursor === "null" ? "Episode 1" : "Episode 2",
+						pub_date_ms: cursor === "null" ? 1577836800000 : 1577923200000,
+					},
+				],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain(
+						"Listen Notes episode inventory is incomplete: cursor repeated after 2 unique episodes",
+					),
+				),
+			),
+		);
+	});
+
+	it("fails a known episode inventory when the next page is empty", () => {
+		const host = makeHost((_method, url) => {
+			if (url.endsWith("/genres")) {
+				return httpSuccess({ genres: [] });
+			}
+			const cursor = new URL(url).searchParams.get("next_episode_pub_date");
+			return httpSuccess({
+				title: "Podcast",
+				next_episode_pub_date: cursor === "null" ? 2 : 3,
+				total_episodes: cursor === "null" ? 3 : undefined,
+				episodes:
+					cursor === "null" ? [{ id: "e1", title: "Episode 1", pub_date_ms: 1577836800000 }] : [],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain(
+						"Listen Notes episode inventory is incomplete: expected 3 episodes, received 1",
+					),
+				),
+			),
+		);
+	});
+
+	it("follows valid episode cursors when the total is unknown", () => {
+		const cursors: Array<null | string> = [];
+		const host = makeHost(
+			(_method, url) => {
+				if (url.endsWith("/recommendations")) {
+					return httpSuccess({ recommendations: [] });
+				}
+				if (url.endsWith("/genres")) {
+					return httpSuccess({ genres: [] });
+				}
+				const cursor = new URL(url).searchParams.get("next_episode_pub_date");
+				cursors.push(cursor);
+				return httpSuccess({
+					title: "Podcast",
+					next_episode_pub_date: cursor === "null" ? 2 : undefined,
+					episodes: [
+						{
+							id: cursor === "null" ? "e1" : "e2",
+							title: cursor === "null" ? "Episode 1" : "Episode 2",
+							pub_date_ms: cursor === "null" ? 1577836800000 : 1577923200000,
+						},
+					],
+				});
+			},
+			{ getCachedValue: () => Effect.succeed({}) },
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(cursors).toEqual(["null", "2"]);
+					expect(result.childEntities?.map(({ externalId }) => externalId)).toEqual(["e1", "e2"]);
+					expect(result.properties).toMatchObject({ totalEpisodes: 2 });
 				}),
 			),
 		);
@@ -217,6 +381,7 @@ describe("podcast.listennotes sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{
@@ -229,6 +394,7 @@ describe("podcast.listennotes sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "podcast-to-genre",
 							entities: [
 								{ name: "Comedy", externalId: "comedy", providerSlug: "genre.media-catalog" },

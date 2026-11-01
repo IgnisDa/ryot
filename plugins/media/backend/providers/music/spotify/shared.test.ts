@@ -122,7 +122,8 @@ describe("music.spotify sandbox script", () => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-music",
 							entities: [
 								{
@@ -143,6 +144,11 @@ describe("music.spotify sandbox script", () => {
 							direction: "incoming",
 							synchronization: "additive",
 							relationshipSchemaSlug: "music-group-to-music",
+							coverage: {
+								status: "source-limited",
+								reason:
+									"Spotify track metadata identifies one album, not every album containing this recording",
+							},
 							entities: [
 								{
 									name: "The Album",
@@ -156,6 +162,7 @@ describe("music.spotify sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "music-to-genre",
 						},
 					]);

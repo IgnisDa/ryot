@@ -63,6 +63,7 @@ describe("manga.anilist sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "2", name: "Anime Pick", providerSlug: "anime.anilist" },
@@ -73,6 +74,7 @@ describe("manga.anilist sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "manga-to-genre",
 						},
 					]);

@@ -31,9 +31,9 @@ describe("person.tmdb sandbox script", () => {
 						{ id: 3, name: "Show", job: "Director", media_type: "tv" },
 					],
 					cast: [
-						{ id: 2, title: "Film", media_type: "movie", character: " Hero " },
-						{ id: 2, title: "Film", media_type: "movie", character: "Villain" },
-						{ id: 2, title: "Film", character: "Hero", media_type: "movie" },
+						{ id: 2, order: 3, title: "Film", media_type: "movie", character: " Hero " },
+						{ id: 2, order: 0, title: "Film", media_type: "movie", character: "Villain" },
+						{ id: 2, order: 1, title: "Film", character: "Hero", media_type: "movie" },
 						{ id: 3, name: "Show", character: " ", media_type: "tv" },
 					],
 				});
@@ -68,27 +68,41 @@ describe("person.tmdb sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-movie",
 						entities: [
 							{
 								name: "Film",
 								externalId: "2",
 								providerSlug: "movie.tmdb",
-								relationshipProperties: { roles: ["Actor", "Writer"], character: "Hero / Villain" },
+								relationshipProperties: {
+									order: 0,
+									isGuest: false,
+									isUncredited: false,
+									departments: ["Acting"],
+									roles: ["Acting", "Writer"],
+									character: "Hero / Villain",
+									creditKinds: ["cast", "crew"],
+								},
 							},
 						],
 					},
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-show",
 						entities: [
 							{
 								name: "Show",
 								externalId: "3",
 								providerSlug: "show.tmdb",
-								relationshipProperties: { roles: ["Actor", "Director"] },
+								relationshipProperties: {
+									departments: ["Acting"],
+									roles: ["Acting", "Director"],
+									creditKinds: ["cast", "crew"],
+								},
 							},
 						],
 					},

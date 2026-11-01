@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord, strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
@@ -79,26 +80,37 @@ const buildPlatformReleases = (releaseDates: unknown) => {
 	return releases;
 };
 const collectCompanies = (involvedCompanies: unknown) => {
-	const accumulator = createRoleAccumulator();
-	for (const ic of asArray(involvedCompanies)) {
-		const record = asRecord(ic);
+	if (involvedCompanies === null || involvedCompanies === undefined) {
+		return [];
+	}
+	if (!Array.isArray(involvedCompanies)) {
+		throw new MediaSandboxError({ message: "IGDB involved companies list is malformed" });
+	}
+	const validCompanies: Array<{
+		readonly id: number;
+		readonly company: Record<string, unknown>;
+		readonly involvedCompany: Record<string, unknown>;
+	}> = [];
+	for (const involvedCompany of involvedCompanies) {
+		const record = asRecord(involvedCompany);
 		const company = asRecord(record?.["company"]);
-		if (!company) {
-			continue;
+		const id = numberValue(company?.["id"]);
+		if (!record || !company || id === null || !Number.isSafeInteger(id) || id <= 0) {
+			throw new MediaSandboxError({ message: "IGDB involved company identity is malformed" });
 		}
-		const id = numberValue(company["id"]);
-		if (id === null) {
-			continue;
-		}
+		validCompanies.push({ id, company, involvedCompany: record });
+	}
+	const accumulator = createRoleAccumulator();
+	for (const { id, company, involvedCompany } of validCompanies) {
 		const name = stringValue(company["name"]) ?? "Loading...";
 		let role = "Developer";
-		if (record?.["developer"]) {
+		if (involvedCompany["developer"]) {
 			role = "Developer";
-		} else if (record?.["publisher"]) {
+		} else if (involvedCompany["publisher"]) {
 			role = "Publisher";
-		} else if (record?.["porting"]) {
+		} else if (involvedCompany["porting"]) {
 			role = "Porting";
-		} else if (record?.["supporting"]) {
+		} else if (involvedCompany["supporting"]) {
 			role = "Supporting";
 		}
 		accumulator.add({
@@ -146,7 +158,6 @@ const BUNDLE_TYPE = "Bundle";
 const EDITION_KIND = "Edition";
 const RELATED_KIND = "Related";
 const CHILD_PAGE_SIZE = 500;
-const CHILD_MAX_PAGES = 4;
 const gameTypeName = (game: null | Record<string, unknown>) =>
 	stringValue(asRecord(game?.["game_type"])?.["type"]);
 const gameId = (value: unknown) => {
@@ -208,25 +219,48 @@ const collectParents = (game: null | Record<string, unknown>) => {
 	}
 	return [...entities.values()];
 };
-const loadChildren = (host: IgdbHost, externalId: string) =>
-	Effect.gen(function* () {
-		const rows: unknown[] = [];
-		for (let page = 0; page < CHILD_MAX_PAGES; page += 1) {
-			const body = [
-				"fields id, name, game_type.type, parent_game, version_parent;",
-				`where parent_game = ${externalId} | version_parent = ${externalId};`,
-				"sort id asc;",
-				`limit ${CHILD_PAGE_SIZE};`,
-				`offset ${page * CHILD_PAGE_SIZE};`,
-			].join("\n");
-			const { data } = yield* makeIgdbRequest(host, "games", body);
-			rows.push(...data);
-			if (data.length < CHILD_PAGE_SIZE) {
-				return { rows, complete: true };
-			}
-		}
-		return { rows, complete: false };
-	});
+const readChildPage = (host: IgdbHost, externalId: string, offset: number) => {
+	const body = [
+		"fields id, name, game_type.type, parent_game, version_parent;",
+		`where parent_game = ${externalId} | version_parent = ${externalId};`,
+		"sort id asc;",
+		`limit ${CHILD_PAGE_SIZE};`,
+		`offset ${offset};`,
+	].join("\n");
+	return makeIgdbRequest(host, "games", body);
+};
+const childPageHasMore = (
+	headers: Readonly<Record<string, string>>,
+	rows: readonly unknown[],
+	offset: number,
+) => {
+	const rawCount = headers["x-count"];
+	const count = typeof rawCount === "string" ? Number(rawCount) : Number.NaN;
+	return Number.isSafeInteger(count)
+		? offset + rows.length < count
+		: rows.length === CHILD_PAGE_SIZE;
+};
+const childContinuation = (offset: number, parentType: null | string) => ({ offset, parentType });
+const childPageCoverage = (
+	headers: Readonly<Record<string, string>>,
+	rows: readonly unknown[],
+	offset: number,
+	parentType: null | string,
+) =>
+	childPageHasMore(headers, rows, offset)
+		? { status: "more" as const, continuation: childContinuation(offset + rows.length, parentType) }
+		: { status: "complete" as const };
+const readChildContinuation = (value: unknown) => {
+	const record = asRecord(value);
+	const offset = numberValue(record?.["offset"]);
+	const parentType = record?.["parentType"];
+	return offset !== null &&
+		Number.isSafeInteger(offset) &&
+		offset >= 0 &&
+		(parentType === null || typeof parentType === "string")
+		? Effect.succeed({ offset, parentType })
+		: Effect.fail(new MediaSandboxError({ message: "Invalid IGDB game child continuation" }));
+};
 const SEARCH_FIELDS = "id, name, cover.image_id, first_release_date, game_type.type";
 const DETAIL_FIELDS = [
 	"id",
@@ -407,9 +441,9 @@ export const details = defineProvider({
 		return Effect.all([
 			makeIgdbRequest(host, "games", gameBody),
 			makeIgdbRequest(host, "game_time_to_beats", ttbBody),
-			loadChildren(host, input.externalId),
+			readChildPage(host, input.externalId, 0),
 		]).pipe(
-			Effect.flatMap(([gameResult, ttbResult, children]) =>
+			Effect.flatMap(([gameResult, ttbResult, childPage]) =>
 				Effect.gen(function* () {
 					const gameList = gameResult.data;
 					if (gameList.length === 0) {
@@ -418,6 +452,11 @@ export const details = defineProvider({
 						});
 					}
 					const game = asRecord(gameList[0]);
+					const parentType = gameTypeName(game);
+					const companies = yield* Effect.try({
+						try: () => collectCompanies(game?.["involved_companies"]),
+						catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+					});
 					const name = stringValue(game?.["name"]);
 					if (!name) {
 						return yield* new MediaSandboxError({ message: "IGDB game payload is missing name" });
@@ -477,34 +516,37 @@ export const details = defineProvider({
 						},
 						relatedEntityGroups: [
 							{
+								entities: companies,
 								direction: "incoming" as const,
-								synchronization: "additive" as const,
+								coverage: { status: "complete" as const },
+								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "company-to-video-game",
-								entities: collectCompanies(game?.["involved_companies"]),
 							},
 							{
 								direction: "incoming" as const,
-								synchronization: "additive" as const,
+								coverage: { status: "complete" as const },
+								synchronization: "authoritative" as const,
 								entities: collectGroups(game?.["collections"]),
 								relationshipSchemaSlug: "video-game-group-to-video-game",
 							},
 							{
 								direction: "outgoing" as const,
+								coverage: { status: "complete" as const },
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "media-suggestion",
 								entities: collectSuggestions(game?.["similar_games"]),
 							},
 							{
 								direction: "outgoing" as const,
-								entities: collectChildren(game, children.rows),
+								synchronization: "authoritative" as const,
+								entities: collectChildren(game, childPage.data),
 								relationshipSchemaSlug: "video-game-to-video-game",
-								synchronization: children.complete
-									? ("authoritative" as const)
-									: ("additive" as const),
+								coverage: childPageCoverage(childPage.headers, childPage.data, 0, parentType),
 							},
 							{
 								direction: "incoming" as const,
 								entities: collectParents(game),
+								coverage: { status: "complete" as const },
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "video-game-to-video-game",
 							},
@@ -515,4 +557,35 @@ export const details = defineProvider({
 			),
 		);
 	},
+});
+
+export const related = defineProvider({
+	manifest,
+	operation: "related",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			if (!/^\d+$/.test(input.externalId)) {
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric IGDB game ID",
+				});
+			}
+			if (
+				input.relationshipSchemaSlug !== "video-game-to-video-game" ||
+				input.direction !== "outgoing"
+			) {
+				return yield* new MediaSandboxError({
+					message: `Unsupported IGDB game relationship: ${input.relationshipSchemaSlug}`,
+				});
+			}
+			const { offset, parentType } = yield* readChildContinuation(input.continuation);
+			const { data, headers } = yield* readChildPage(host, input.externalId, offset);
+			const parent = {
+				id: Number(input.externalId),
+				game_type: parentType === null ? null : { type: parentType },
+			};
+			return {
+				entities: collectChildren(parent, data),
+				coverage: childPageCoverage(headers, data, offset, parentType),
+			};
+		}),
 });

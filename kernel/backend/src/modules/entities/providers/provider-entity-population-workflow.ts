@@ -345,7 +345,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	entityId: EntityId,
-	group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">,
+	group: Omit<ProviderDetailsRelatedEntityGroup, "coverage">,
 	index: number,
 	population: AutomationPopulationContext,
 	paging: { pageIndex: number; generation: string },
@@ -645,8 +645,11 @@ const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(functio
 	const engine = yield* WorkflowEngine;
 	const receipts = yield* MutationReceipts.make;
 	const executionId = `related-${entity.id}-${groupIndex}-${generation}`;
-	if (group.continuation === undefined) {
-		return "complete" as const;
+	if (group.coverage.status !== "more") {
+		return yield* new SandboxRunError({
+			kind: "invalid-output",
+			message: "Related page workflow requires more inventory coverage",
+		});
 	}
 	return yield* dispatchAdmittedWorkflow(
 		receipts,
@@ -667,8 +670,8 @@ const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(functio
 				providerId: payload.providerId,
 				externalId: payload.externalId,
 				entityScope: payload.entityScope,
-				continuation: group.continuation,
 				requestAttempt: payload.requestAttempt,
+				continuation: group.coverage.continuation,
 				entitySchemaSlug: payload.entitySchemaSlug,
 				group: {
 					direction: group.direction,
@@ -777,7 +780,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 
 	const details = yield* validateEntityDetails(sandboxResult.value);
 	const relatedEntityGroups = options.level === "full" ? details.relatedEntityGroups : [];
-	if (relatedEntityGroups.some(({ continuation }) => continuation !== undefined)) {
+	if (relatedEntityGroups.some(({ coverage }) => coverage.status === "more")) {
 		yield* operations.requireRelatedScript(payload);
 	}
 	const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
@@ -818,6 +821,12 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	}
 	const outcomes = yield* Effect.forEach(relatedEntityGroups, (group, index) =>
 		Effect.gen(function* () {
+			if (group.coverage.status === "source-limited") {
+				return yield* new SandboxRunError({
+					kind: "invalid-output",
+					message: `Provider inventory ${group.relationshipSchemaSlug} is source-limited: ${group.coverage.reason}`,
+				});
+			}
 			yield* claimRelatedGroupGenerationScope(
 				payload,
 				definitions,
@@ -839,7 +848,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 				yield* logSupersededRelatedGroup(entity.id, group, index, 0);
 				return "superseded" as const;
 			}
-			if (group.continuation === undefined) {
+			if (group.coverage.status === "complete") {
 				return group.synchronization === "authoritative"
 					? yield* sweepRelatedGroupScope(
 							{
@@ -1359,6 +1368,12 @@ const processRelatedPage = Effect.fn("processRelatedPage")(function* (
 		});
 	}
 	const page = yield* validateRelatedPage(sandboxResult.value, payload.groupIndex, pageIndex);
+	if (page.coverage.status === "source-limited") {
+		return yield* new SandboxRunError({
+			kind: "invalid-output",
+			message: `Provider inventory ${payload.group.relationshipSchemaSlug} is source-limited: ${page.coverage.reason}`,
+		});
+	}
 	const synchronized = yield* syncRelatedEntityGroupScope(
 		payload,
 		definitions,
@@ -1377,9 +1392,9 @@ const processRelatedPage = Effect.fn("processRelatedPage")(function* (
 		);
 		return { continuation: null, outcome: "superseded" } as const;
 	}
-	return page.continuation === null
+	return page.coverage.status === "complete"
 		? ({ continuation: null, outcome: "complete" } as const)
-		: ({ outcome: "next", continuation: page.continuation } as const);
+		: ({ outcome: "next", continuation: page.coverage.continuation } as const);
 });
 
 // Exported for unit testing only. Production callers must dispatch
@@ -1423,7 +1438,16 @@ export const runProviderRelatedPagesWorkflow = Effect.fn("ProviderRelatedPagesWo
 		);
 		let outcome: RelatedPageOutcome = "next";
 		let continuation: JsonValue = payload.continuation;
+		const seenContinuations = new Set<string>();
 		for (let pageIndex = 1; pageIndex < RELATED_PAGES_MAX_PAGES; pageIndex += 1) {
+			const continuationKey = stableStringify(continuation);
+			if (seenContinuations.has(continuationKey)) {
+				return yield* new SandboxRunError({
+					kind: "invalid-output",
+					message: "Related entity pages repeated a continuation without completing",
+				});
+			}
+			seenContinuations.add(continuationKey);
 			const step = yield* processRelatedPage(
 				payload,
 				definitions,

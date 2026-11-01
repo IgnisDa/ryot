@@ -254,6 +254,7 @@ describe("Delete user automation data cleanup", () => {
 							{
 								direction: "incoming",
 								synchronization: "additive",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "person-to-movie",
 								entities: [
 									{

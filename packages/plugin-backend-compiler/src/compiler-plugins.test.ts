@@ -497,7 +497,7 @@ export const manifest = defineManifest({
 export default defineProvider({
 	manifest,
 	operation: "related",
-	run: () => Effect.succeed({ entities: [], continuation: null }),
+	run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }),
 });
 `;
 			const compiled = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [

@@ -12,6 +12,7 @@ import {
 	providerSearchResultSchema,
 	providerTranslateResultSchema,
 } from "@ryot-app/plugin-backend-sdk/provider";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
@@ -103,13 +104,14 @@ describe("provider related pages", () => {
 	const group = {
 		entities: [],
 		direction: "outgoing" as const,
+		coverage: { status: "complete" },
 		synchronization: "authoritative" as const,
 		relationshipSchemaSlug: "company-to-record",
 	};
 	const details = (continuation: unknown) => ({
 		properties: {},
 		name: "Company",
-		relatedEntityGroups: [{ ...group, continuation }],
+		relatedEntityGroups: [{ ...group, coverage: { continuation, status: "more" as const } }],
 	});
 
 	it.effect("selects the related operation contract", () =>
@@ -117,7 +119,7 @@ describe("provider related pages", () => {
 			const definition = defineProvider({
 				manifest,
 				operation: "related",
-				run: () => Effect.succeed({ entities: [], continuation: null }),
+				run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }),
 			});
 
 			expect(definition.input).toBe(providerRelatedInputSchema);
@@ -135,13 +137,20 @@ describe("provider related pages", () => {
 				continuation: { page: 2 },
 				relationshipSchemaSlug: "company-to-record",
 			});
+			const host = defineSandboxTestHost(manifest, {});
 			expect(
-				yield* Schema.decodeEffect(providerRelatedResultSchema)({
-					entities: [],
-					continuation: null,
-				}),
-			).toEqual({ entities: [], continuation: null });
-			yield* Effect.flip(Schema.decodeUnknownEffect(providerRelatedResultSchema)({ entities: [] }));
+				yield* runSandboxTestScript(
+					definition,
+					{
+						direction: "outgoing",
+						externalId: "company-1",
+						continuation: { page: 2 },
+						relationshipSchemaSlug: "company-to-record",
+					},
+					host,
+					{ metadata: {}, sandboxScriptId: "provider-related" },
+				),
+			).toEqual({ entities: [], coverage: { status: "complete" } });
 		}),
 	);
 
@@ -150,7 +159,9 @@ describe("provider related pages", () => {
 			const fits = { cursor: "a".repeat(4 * 1024 - '{"cursor":""}'.length) };
 			expect(
 				yield* Schema.decodeUnknownEffect(providerDetailsResultSchema)(details(fits)),
-			).toMatchObject({ relatedEntityGroups: [{ continuation: fits }] });
+			).toMatchObject({
+				relatedEntityGroups: [{ coverage: { status: "more", continuation: fits } }],
+			});
 			expect(
 				(yield* Effect.flip(
 					Schema.decodeUnknownEffect(providerDetailsResultSchema)(
@@ -162,7 +173,7 @@ describe("provider related pages", () => {
 				(yield* Effect.flip(
 					Schema.decodeEffect(providerRelatedResultSchema)({
 						entities: [],
-						continuation: { cursor: "a".repeat(4 * 1024) },
+						coverage: { status: "more", continuation: { cursor: "a".repeat(4 * 1024) } },
 					}),
 				)).message,
 			).toContain("at most 4096 bytes");
@@ -246,6 +257,7 @@ describe("provider result contracts", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-show",
 							entities: [{ name: "Creator", externalId: "person-1", providerSlug: "person.test" }],
 						},

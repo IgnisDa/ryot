@@ -156,11 +156,19 @@ export const details = defineProvider({
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
+						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "person-to-music",
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "person.spotify",
 						),
+						coverage:
+							Array.isArray(track?.["artists"]) &&
+							artists.every((artist) => stringValue(asRecord(artist)?.["id"]))
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason: "Spotify track response did not include complete artist credits",
+									},
 					},
 					{
 						direction: "incoming" as const,
@@ -169,6 +177,11 @@ export const details = defineProvider({
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "music-group.spotify",
 						),
+						coverage: {
+							status: "source-limited" as const,
+							reason:
+								"Spotify track metadata identifies one album, not every album containing this recording",
+						},
 					},
 					...mediaGenreGroups("music", []),
 				],

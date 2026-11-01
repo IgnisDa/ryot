@@ -449,6 +449,7 @@ export const getExerciseDetails = (
 				{
 					direction: "outgoing" as const,
 					synchronization: "authoritative" as const,
+					coverage: { status: "complete" as const },
 					relationshipSchemaSlug: "exercise-targets",
 					entities: exerciseTargetCatalog
 						.filter(
@@ -468,6 +469,7 @@ export const getExerciseDetails = (
 				{
 					direction: "outgoing" as const,
 					synchronization: "authoritative" as const,
+					coverage: { status: "complete" as const },
 					relationshipSchemaSlug: "exercise-uses-equipment",
 					entities: exerciseEquipmentCatalog
 						.filter(({ externalId }) => externalId === row.equipment)

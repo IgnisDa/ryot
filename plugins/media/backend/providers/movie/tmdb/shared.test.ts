@@ -144,24 +144,28 @@ describe("movie.tmdb sandbox script", () => {
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-movie",
 						},
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-movie",
 						},
 						{
 							entities: [],
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "movie-group-to-movie",
 						},
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "2", name: "Pick One", providerSlug: "movie.tmdb" },
@@ -172,6 +176,7 @@ describe("movie.tmdb sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "movie-to-genre",
 						},
 					]);
@@ -180,6 +185,92 @@ describe("movie.tmdb sandbox script", () => {
 			),
 		);
 	});
+
+	it("keeps the full cast and explicit first-billed order from full credits", () => {
+		const cast = Array.from({ length: 25 }, (_, index) => ({
+			known_for_department: "Acting",
+			id: index === 24 ? 2227 : index + 1,
+			order: index === 24 ? 0 : index + 1,
+			character: `Character ${index + 1}`,
+			name: index === 24 ? "Nicole Kidman" : `Cast member ${index + 1}`,
+		}));
+		const host = makeMovieHost({
+			movie: { id: 1, title: "Source", production_companies: [] },
+			appended: { credits: { cast, crew: [] }, "watch/providers": { results: {} } },
+		});
+
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					const people = result.relatedEntityGroups?.find(
+						({ relationshipSchemaSlug }) => relationshipSchemaSlug === "person-to-movie",
+					)?.entities;
+					expect(people).toHaveLength(25);
+					expect(people?.find(({ externalId }) => externalId === "2227")).toMatchObject({
+						name: "Nicole Kidman",
+						relationshipProperties: { order: 0, isGuest: false, creditKinds: ["cast"] },
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it.each([
+		{
+			appended: {},
+			label: "missing inventories",
+			movie: { id: 1, title: "Source" },
+			peopleCoverage: {
+				status: "source-limited",
+				reason: "TMDB movie credits did not include cast and crew arrays",
+			},
+			companyCoverage: {
+				status: "source-limited",
+				reason: "TMDB movie production companies inventory was missing or malformed",
+			},
+		},
+		{
+			label: "explicit empty inventories",
+			peopleCoverage: { status: "complete" },
+			companyCoverage: { status: "complete" },
+			appended: { credits: { cast: [], crew: [] } },
+			movie: { id: 1, title: "Source", production_companies: [] },
+		},
+	])(
+		"reports full movie credit coverage for $label",
+		({ movie, appended, peopleCoverage, companyCoverage }) => {
+			const host = makeMovieHost({ movie, appended });
+			return Effect.runPromise(
+				runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+					Effect.map((result) => {
+						const groups = result.relatedEntityGroups ?? [];
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "person-to-movie",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: peopleCoverage,
+							synchronization: "authoritative",
+						});
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "company-to-movie",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: companyCoverage,
+							synchronization: "authoritative",
+						});
+						return undefined;
+					}),
+				),
+			);
+		},
+	);
 
 	it("appends only watch providers to the movie request at base level and omits credit and recommendation groups", () => {
 		const requests: URL[] = [];
@@ -208,7 +299,7 @@ describe("movie.tmdb sandbox script", () => {
 					]);
 					expect(
 						result.relatedEntityGroups?.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug),
-					).toEqual(["company-to-movie", "movie-group-to-movie"]);
+					).toEqual(["movie-group-to-movie"]);
 					return undefined;
 				}),
 			),

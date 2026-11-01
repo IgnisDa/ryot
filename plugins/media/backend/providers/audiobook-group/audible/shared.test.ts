@@ -38,6 +38,7 @@ describe("audiobook-group.audible sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "audiobook-group-to-audiobook",
 							entities: [
 								{

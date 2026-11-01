@@ -4,7 +4,7 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-ba
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { describe, expect, it } from "vitest";
 
-import { details, manifest } from "./shared";
+import { details, manifest, related } from "./shared";
 
 type AnilistPersonHost = Pick<ScriptHost, "httpCall">;
 
@@ -17,7 +17,101 @@ const makeHost = (httpCall: AnilistPersonHost["httpCall"]) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("person.anilist sandbox script", () => {
-	it("emits authoritative anime and manga credit groups", () => {
+	it.each([
+		{},
+		{ node: { type: "ANIME" } },
+		{ node: { id: 0, type: "ANIME" } },
+		{ node: { type: "ANIME", id: Number.MAX_SAFE_INTEGER + 1 } },
+		{ node: { id: 2, type: "NOVEL" } },
+	])("fails a malformed resumed terminal staff edge %#", (edge) => {
+		const host = makeHost(() =>
+			httpSuccess({
+				data: {
+					Staff: {
+						staffMedia: { edges: [], pageInfo: { hasNextPage: false } },
+						characterMedia: { edges: [edge], pageInfo: { hasNextPage: false } },
+					},
+				},
+			}),
+		);
+		return expect(
+			Effect.runPromise(
+				runSandboxTestScript(
+					related,
+					{
+						externalId: "1",
+						direction: "outgoing",
+						continuation: { page: 2 },
+						relationshipSchemaSlug: "person-to-anime",
+					},
+					host,
+					execution,
+				),
+			),
+		).rejects.toThrow("AniList staff inventory media edge is malformed");
+	});
+	it("completes an empty resumed terminal staff page", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				data: {
+					Staff: {
+						staffMedia: { edges: [], pageInfo: { hasNextPage: false } },
+						characterMedia: { edges: [], pageInfo: { hasNextPage: false } },
+					},
+				},
+			}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(
+				related,
+				{
+					externalId: "1",
+					direction: "outgoing",
+					continuation: { page: 2 },
+					relationshipSchemaSlug: "person-to-anime",
+				},
+				host,
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ entities: [], coverage: { status: "complete" } });
+				}),
+			),
+		);
+	});
+	it.each(["malformed", "failure"])(
+		"fails a %s resumed staff page without publishing success",
+		(kind) => {
+			const host = makeHost(() =>
+				kind === "failure"
+					? Effect.fail({ message: "Staff page unavailable" })
+					: httpSuccess({
+							data: {
+								Staff: {
+									staffMedia: { edges: [] },
+									characterMedia: { edges: [], pageInfo: { hasNextPage: false } },
+								},
+							},
+						}),
+			);
+			return expect(
+				Effect.runPromise(
+					runSandboxTestScript(
+						related,
+						{
+							externalId: "1",
+							direction: "outgoing",
+							continuation: { page: 2 },
+							relationshipSchemaSlug: "person-to-anime",
+						},
+						host,
+						execution,
+					),
+				),
+			).rejects.toThrow(kind === "failure" ? "Staff page unavailable" : "connection is malformed");
+		},
+	);
+	it("emits additive anime and manga credit discoveries", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				data: {
@@ -30,15 +124,6 @@ describe("person.anilist sandbox script", () => {
 						description: null,
 						image: { large: null },
 						name: { full: "Creator" },
-						staffMedia: {
-							pageInfo: { hasNextPage: false },
-							edges: [
-								{
-									staffRole: "Writer",
-									node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
-								},
-							],
-						},
 						characterMedia: {
 							pageInfo: { hasNextPage: false },
 							edges: [
@@ -52,6 +137,19 @@ describe("person.anilist sandbox script", () => {
 								},
 							],
 						},
+						staffMedia: {
+							pageInfo: { hasNextPage: false },
+							edges: [
+								{
+									staffRole: "Writer",
+									node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
+								},
+								{
+									staffRole: "Illustrator",
+									node: { id: 3, type: "MANGA", title: { userPreferred: "Manga Credit" } },
+								},
+							],
+						},
 					},
 				},
 			}),
@@ -62,7 +160,8 @@ describe("person.anilist sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-anime",
 						entities: [
 							{
@@ -75,14 +174,15 @@ describe("person.anilist sandbox script", () => {
 					},
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-manga",
 						entities: [
 							{
 								externalId: "3",
 								name: "Manga Credit",
 								providerSlug: "manga.anilist",
-								relationshipProperties: { roles: ["Writer"] },
+								relationshipProperties: { roles: ["Writer", "Illustrator"] },
 							},
 						],
 					},
@@ -93,7 +193,7 @@ describe("person.anilist sandbox script", () => {
 		);
 	});
 
-	it("collects every character and staff media page", () => {
+	it("resumes three character and staff media pages without recursive population", () => {
 		const requestedPages: number[] = [];
 
 		const host = makeHost((_method, _url, options) => {
@@ -112,7 +212,7 @@ describe("person.anilist sandbox script", () => {
 						image: { large: null },
 						name: { full: "Creator" },
 						staffMedia: {
-							pageInfo: { hasNextPage: page === 1 },
+							pageInfo: { hasNextPage: page < 3 },
 							edges:
 								page === 1
 									? []
@@ -124,7 +224,7 @@ describe("person.anilist sandbox script", () => {
 										],
 						},
 						characterMedia: {
-							pageInfo: { hasNextPage: page === 1 },
+							pageInfo: { hasNextPage: page < 3 },
 							edges:
 								page === 1
 									? [
@@ -141,13 +241,48 @@ describe("person.anilist sandbox script", () => {
 		});
 
 		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+			Effect.flatMap((result) => {
+				expect(requestedPages).toEqual([1]);
+				expect(result.relatedEntityGroups?.[0]).toEqual(
+					objectContaining({
+						entities: [objectContaining({ externalId: "2" })],
+						coverage: { status: "more", continuation: { page: 2 } },
+					}),
+				);
+				return runSandboxTestScript(
+					related,
+					{
+						externalId: "1",
+						direction: "outgoing",
+						continuation: { page: 2 },
+						relationshipSchemaSlug: "person-to-manga",
+					},
+					host,
+					execution,
+				);
+			}),
+			Effect.flatMap((result) => {
+				expect(result).toEqual({
+					coverage: { status: "more", continuation: { page: 3 } },
+					entities: [
+						objectContaining({ externalId: "3", relationshipProperties: { roles: ["Writer"] } }),
+					],
+				});
+				return runSandboxTestScript(
+					related,
+					{
+						externalId: "1",
+						direction: "outgoing",
+						continuation: { page: 3 },
+						relationshipSchemaSlug: "person-to-manga",
+					},
+					host,
+					execution,
+				);
+			}),
 			Effect.map((result) => {
-				expect(requestedPages).toEqual([1, 2]);
-				expect(result.relatedEntityGroups).toEqual([
-					objectContaining({ entities: [objectContaining({ externalId: "2" })] }),
-					objectContaining({ entities: [objectContaining({ externalId: "3" })] }),
-				]);
-				return undefined;
+				expect(requestedPages).toEqual([1, 2, 3]);
+				expect(result.coverage).toEqual({ status: "complete" });
 			}),
 			Effect.runPromise,
 		);

@@ -17,6 +17,87 @@ const TOKEN_CACHE_KEY = "spotify_access_token";
 
 export const SPOTIFY_SEARCH_PAGE_SIZE = 10;
 
+export const spotifyPage = (
+	value: unknown,
+	offset: number,
+	expectedTotal: null | number,
+): Effect.Effect<
+	{ total: number; nextOffset: null | number; items: Record<string, unknown>[] },
+	MediaSandboxError
+> => {
+	const page = asRecord(value);
+	const values = page?.["items"];
+	const total = page?.["total"];
+	const returnedOffset = page?.["offset"];
+	const next = page?.["next"];
+	if (
+		!Array.isArray(values) ||
+		values.length > 50 ||
+		typeof total !== "number" ||
+		!Number.isSafeInteger(total) ||
+		total < 0 ||
+		(returnedOffset !== undefined && returnedOffset !== offset) ||
+		(expectedTotal !== null && total !== expectedTotal) ||
+		offset + values.length > total ||
+		(values.length === 0 && offset < total) ||
+		(next === null && offset + values.length < total) ||
+		(typeof next === "string" && offset + values.length >= total) ||
+		(next !== undefined && next !== null && typeof next !== "string")
+	) {
+		return Effect.fail(
+			new MediaSandboxError({ message: `Invalid Spotify inventory page at ${offset}` }),
+		);
+	}
+	if (typeof next === "string") {
+		let validNext = false;
+		try {
+			const url = new URL(next);
+			validNext =
+				url.origin === new URL(SPOTIFY_API_URL).origin &&
+				url.searchParams.get("offset") === String(offset + values.length);
+		} catch {
+			validNext = false;
+		}
+		if (!validNext) {
+			return Effect.fail(
+				new MediaSandboxError({ message: `Inconsistent Spotify next page at ${offset}` }),
+			);
+		}
+	}
+	const items: Record<string, unknown>[] = [];
+	for (const itemValue of values) {
+		const item = asRecord(itemValue);
+		const id = stringValue(item?.["id"]);
+		if (!item || !id || !/^[a-zA-Z0-9]{1,64}$/.test(id)) {
+			return Effect.fail(
+				new MediaSandboxError({ message: "Spotify inventory item is missing a valid ID" }),
+			);
+		}
+		items.push(item);
+	}
+	return Effect.succeed({
+		items,
+		total,
+		nextOffset: offset + items.length < total ? offset + items.length : null,
+	});
+};
+
+export const spotifyOffsetCursor = (value: unknown) => {
+	const record = asRecord(value);
+	const offset = record?.["offset"];
+	const total = record?.["total"];
+	return typeof offset === "number" &&
+		Number.isSafeInteger(offset) &&
+		offset >= 0 &&
+		typeof total === "number" &&
+		Number.isSafeInteger(total) &&
+		total >= offset
+		? Effect.succeed({ total, offset })
+		: Effect.fail(new MediaSandboxError({ message: "Invalid Spotify inventory continuation" }));
+};
+
+export const spotifyInventoryLimit = (error: unknown) => getSpotifyErrorStatus(error) === 403;
+
 const getHttpFailureDetails = (error: unknown): null | { body: string; status: number } => {
 	const data = asRecord(asRecord(error)?.["data"]);
 	const status = numberValue(data?.["status"]);

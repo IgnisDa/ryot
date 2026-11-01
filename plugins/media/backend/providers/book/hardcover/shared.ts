@@ -291,16 +291,18 @@ query GetHardcoverBookDetails($id: Int!) {
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
 						relationshipSchemaSlug: "person-to-book",
+						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "person.hardcover",
 						),
 					},
 					{
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
+						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "company-to-book",
+						coverage: { status: "complete" as const },
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "company.hardcover",
 						),
@@ -308,6 +310,7 @@ query GetHardcoverBookDetails($id: Int!) {
 					{
 						direction: "incoming" as const,
 						synchronization: "additive" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "book-group-to-book",
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "book-group.hardcover",

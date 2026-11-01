@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, it } from "vitest";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
@@ -41,6 +42,40 @@ describe("podcast.itunes sandbox script", () => {
 							},
 						},
 					]);
+				}),
+			),
+		);
+	});
+	it("returns base podcast metadata without looking up episodes", () => {
+		const requests: URL[] = [];
+		const host = makeHost((_method, url) => {
+			requests.push(new URL(url));
+			return httpSuccess({
+				results: [
+					{
+						artistName: "Artist",
+						description: "A show.",
+						genres: ["Technology"],
+						collectionName: "Podcast",
+					},
+				],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { level: "base", externalId: "p1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.name).toBe("Podcast");
+					expect(result.properties).toMatchObject({
+						description: "A show.",
+						unlinkedCreators: [{ role: "Artist", name: "Artist" }],
+					});
+					expect(result.properties).not.toHaveProperty("totalEpisodes");
+					expect(result.relatedEntityGroups?.[0]?.relationshipSchemaSlug).toBe("podcast-to-genre");
+					expect(result).not.toHaveProperty("childEntities");
+					expect(result).not.toHaveProperty("expectedChildEntitySchemaSlug");
+					expect(requests).toHaveLength(1);
+					expect(requests[0]?.searchParams.get("entity")).toBe("podcast");
+					return undefined;
 				}),
 			),
 		);
@@ -110,7 +145,7 @@ describe("podcast.itunes sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { page: 1, pageSize: 1, query: "tech" }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 2, query: "tech" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -120,8 +155,142 @@ describe("podcast.itunes sandbox script", () => {
 							imageUrl: "https://img/600.jpg",
 						},
 					]);
-					expect(result.details).toEqual({ nextPage: 2, totalItems: 2 });
+					expect(result.details).toEqual({ nextPage: 2 });
 					return undefined;
+				}),
+			),
+		);
+	});
+	it("paginates a full response and reports the exact total when the next request is short", () => {
+		const limits: Array<null | string> = [];
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			const limit = requestUrl.searchParams.get("limit");
+			limits.push(limit);
+			const ids = limit === "2" ? ["1", "2"] : ["1", "2", "3"];
+			return httpSuccess({
+				results: ids.map((collectionId) => ({
+					collectionId,
+					collectionName: `Podcast ${collectionId}`,
+				})),
+			});
+		});
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const first = yield* runSandboxTestScript(
+					search,
+					{ page: 1, pageSize: 2, query: "news" },
+					host,
+					execution,
+				);
+				const second = yield* runSandboxTestScript(
+					search,
+					{ page: 2, pageSize: 2, query: "news" },
+					host,
+					execution,
+				);
+				expect(first.items.map(({ externalId }) => externalId)).toEqual(["1", "2"]);
+				expect(first.details).toEqual({ nextPage: 2 });
+				expect(second.items.map(({ externalId }) => externalId)).toEqual(["3"]);
+				expect(second.details).toEqual({ totalItems: 3, nextPage: null });
+				expect(limits).toEqual(["2", "4"]);
+			}),
+		);
+	});
+	it("fails when the returned episode inventory is shorter than iTunes trackCount", () => {
+		const episodes = Array.from({ length: 200 }, (_, index) => ({
+			trackId: index + 1,
+			trackName: `Episode ${index + 1}`,
+			releaseDate: "2024-01-01T00:00:00Z",
+		}));
+		const host = makeHost((_method, url) =>
+			httpSuccess(
+				url.includes("entity=podcastEpisode")
+					? { results: episodes }
+					: { results: [{ trackCount: 766, collectionName: "Sleep With Me" }] },
+			),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "740675898" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain(
+						"iTunes episode inventory is incomplete: expected 766 unique episodes, received 200",
+					),
+				),
+			),
+		);
+	});
+	it("counts unique valid episode IDs against the known total", () => {
+		const host = makeHost((_method, url) =>
+			httpSuccess(
+				url.includes("entity=podcastEpisode")
+					? {
+							results: [
+								{ trackId: 1, trackName: "Repeated episode", releaseDate: "2024-01-01T00:00:00Z" },
+								{ trackId: 1, trackName: "Repeated episode", releaseDate: "2024-01-01T00:00:00Z" },
+							],
+						}
+					: { results: [{ trackCount: 2, collectionName: "Podcast" }] },
+			),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain(
+						"iTunes episode inventory is incomplete: expected 2 unique episodes, received 1",
+					),
+				),
+			),
+		);
+	});
+	it("fails when an unknown episode total reaches the 200-episode source limit", () => {
+		const episodeLimits: Array<null | string> = [];
+		const host = makeHost((_method, url) => {
+			const requestUrl = new URL(url);
+			if (requestUrl.searchParams.get("entity") === "podcastEpisode") {
+				episodeLimits.push(requestUrl.searchParams.get("limit"));
+				return httpSuccess({
+					results: Array.from({ length: 200 }, (_, index) => ({
+						trackId: index + 1,
+						trackName: `Episode ${index + 1}`,
+						releaseDate: "2024-01-01T00:00:00Z",
+					})),
+				});
+			}
+			return httpSuccess({ results: [{ collectionName: "Podcast" }] });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) => {
+					expect(mediaFailureMessage(error)).toContain(
+						"iTunes episode inventory is incomplete: unknown total reached the 200-episode source limit",
+					);
+					expect(episodeLimits).toEqual(["200"]);
+				}),
+			),
+		);
+	});
+	it("stops at the 200-result source ceiling without reporting an exact total", () => {
+		const limits: Array<null | string> = [];
+		const host = makeHost((_method, url) => {
+			const limit = new URL(url).searchParams.get("limit");
+			limits.push(limit);
+			return httpSuccess({
+				results: Array.from({ length: 200 }, (_, index) => ({
+					collectionId: index + 1,
+					collectionName: `Podcast ${index + 1}`,
+				})),
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { page: 100, pageSize: 2, query: "news" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.items.map(({ externalId }) => externalId)).toEqual(["199", "200"]);
+					expect(result.details).toEqual({ nextPage: null });
+					expect(limits).toEqual(["200"]);
 				}),
 			),
 		);
@@ -203,6 +372,7 @@ describe("podcast.itunes sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "podcast-to-genre",
 							entities: [
 								{

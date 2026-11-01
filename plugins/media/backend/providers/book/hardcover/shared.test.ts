@@ -108,7 +108,8 @@ describe("book.hardcover sandbox script", () => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-book",
 							entities: [
 								{
@@ -121,7 +122,8 @@ describe("book.hardcover sandbox script", () => {
 						},
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-book",
 							entities: [
 								{
@@ -135,6 +137,7 @@ describe("book.hardcover sandbox script", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "book-group-to-book",
 							entities: [
 								{
@@ -148,6 +151,7 @@ describe("book.hardcover sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "book-to-genre",
 							entities: [
 								{

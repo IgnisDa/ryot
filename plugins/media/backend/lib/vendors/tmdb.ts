@@ -205,37 +205,102 @@ export const collectSuggestions = (
 	return [...suggestions.values()];
 };
 
-export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown) => {
+export const collectPeople = (
+	cast: unknown,
+	crew: unknown,
+	createdBy?: unknown,
+	options: {
+		readonly guestStarInventoryComplete?: boolean;
+		readonly currentRegularCast?: ReadonlySet<string>;
+		readonly guestStarAppearances?: ReadonlyMap<string, number>;
+	} = {},
+) => {
 	const related = createRoleAccumulator();
-	const addPerson = (person: UnknownRecord, role: string, character: null | string = null) => {
+	const addPerson = (
+		person: UnknownRecord,
+		role: string,
+		creditOptions: {
+			readonly isGuest?: boolean;
+			readonly order?: null | number;
+			readonly character?: null | string;
+			readonly department?: null | string;
+			readonly creditKind?: "cast" | "crew";
+		} = {},
+	) => {
 		const name = stringValue(person["name"]) ?? "Loading...";
 		const id = numberValue(person["id"]);
 		if (id === null) {
 			return;
 		}
+		const character = stringValue(creditOptions.character);
+		const externalId = String(Math.trunc(id));
 		related.add({
 			name,
+			externalId,
 			providerSlug: "person.tmdb",
-			externalId: String(Math.trunc(id)),
-			relationshipProperties: { roles: [role], ...(character === null ? {} : { character }) },
+			relationshipProperties: {
+				roles: [role],
+				...(character === null ? {} : { character }),
+				...(creditOptions.order === null || creditOptions.order === undefined
+					? {}
+					: { order: Math.trunc(creditOptions.order) }),
+				...(creditOptions.creditKind === undefined
+					? {}
+					: { creditKinds: [creditOptions.creditKind] }),
+				...(creditOptions.department ? { departments: [creditOptions.department] } : {}),
+				...(creditOptions.isGuest === undefined ? {} : { isGuest: creditOptions.isGuest }),
+				...(character === null ? {} : { isUncredited: /\(uncredited\)\s*$/i.test(character) }),
+			},
 		});
 	};
 
 	for (const creator of recordsValue(createdBy)) {
-		addPerson(creator, "Creator");
+		addPerson(creator, "Creator", { creditKind: "crew" });
 	}
-	for (const member of recordsValue(cast).slice(0, 15)) {
-		addPerson(
-			member,
-			stringValue(member["known_for_department"]) ?? "Acting",
-			stringValue(member["character"]),
-		);
+	for (const [index, member] of recordsValue(cast).entries()) {
+		const id = numberValue(member["id"]);
+		const externalId = id === null ? null : String(Math.trunc(id));
+		const order = numberValue(member["order"]);
+		const aggregateRoles = recordsValue(member["roles"]);
+		const roles = aggregateRoles.length > 0 ? aggregateRoles : [member];
+		for (const castRole of roles) {
+			const character = stringValue(castRole["character"]) ?? stringValue(member["character"]);
+			const totalEpisodeCount = numberValue(member["total_episode_count"]);
+			const guestCount = externalId
+				? (options.guestStarAppearances?.get(externalId) ??
+					(options.guestStarInventoryComplete ? 0 : undefined))
+				: undefined;
+			const isRegular = externalId ? options.currentRegularCast?.has(externalId) === true : false;
+			let isGuest: boolean | undefined;
+			if (isRegular) {
+				isGuest = false;
+			} else if (totalEpisodeCount !== null && totalEpisodeCount > 0 && guestCount !== undefined) {
+				if (guestCount >= totalEpisodeCount) {
+					isGuest = true;
+				} else if (options.guestStarInventoryComplete) {
+					isGuest = false;
+				}
+			}
+			const guestClassification =
+				isGuest ?? (externalId && options.guestStarAppearances === undefined ? false : undefined);
+			addPerson(member, "Acting", {
+				character,
+				creditKind: "cast",
+				department: "Acting",
+				order: order ?? index,
+				...(guestClassification === undefined ? {} : { isGuest: guestClassification }),
+			});
+		}
 	}
-	const notableJobs = new Set(["Story", "Writer", "Director", "Producer", "Screenplay"]);
 	for (const member of recordsValue(crew)) {
-		const job = stringValue(member["job"]);
-		if (job && notableJobs.has(job)) {
-			addPerson(member, job);
+		const listedJobs = recordsValue(member["jobs"]);
+		const jobs = listedJobs.length > 0 ? listedJobs : [member];
+		for (const crewJob of jobs) {
+			const job = stringValue(crewJob["job"]) ?? "Crew";
+			addPerson(member, job, {
+				creditKind: "crew",
+				department: stringValue(member["department"]) ?? stringValue(crewJob["department"]),
+			});
 		}
 	}
 	return related.entities;

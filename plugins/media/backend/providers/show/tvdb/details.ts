@@ -88,6 +88,7 @@ export const getTvdbShowDetails = (
 	host: TvdbHost,
 	canonicalLanguage: string,
 ) => {
+	const full = input.level !== "base";
 	if (!/^\d+$/.test(input.externalId)) {
 		return Effect.fail(
 			new MediaSandboxError({ message: "externalId must be a numeric TVDB series ID" }),
@@ -121,6 +122,18 @@ export const getTvdbShowDetails = (
 			providerSlug: entity.providerSlug,
 			relationshipProperties: entity.relationshipProperties,
 		}));
+		const hasPeopleInventory = Array.isArray(show["characters"]);
+		const companiesInventory = show["companies"];
+		const hasCompaniesInventory =
+			Array.isArray(companiesInventory) || asRecord(companiesInventory) !== null;
+		const companies = hasCompaniesInventory
+			? collectCompanies(companiesInventory, companyTypes).map((entity) => ({
+					name: entity.name,
+					externalId: entity.externalId,
+					providerSlug: entity.providerSlug,
+					relationshipProperties: entity.relationshipProperties,
+				}))
+			: [];
 		const firstAired = stringValue(show["firstAired"]);
 		const publishYear = parsePublishYear(show["year"]) ?? parsePublishYear(firstAired);
 
@@ -181,27 +194,43 @@ export const getTvdbShowDetails = (
 				description: normalizePlainDescription(translation.description ?? show["overview"]),
 			},
 			relatedEntityGroups: [
-				{
-					entities: relatedEntities,
-					direction: "incoming" as const,
-					synchronization: "additive" as const,
-					relationshipSchemaSlug: "person-to-show",
-				},
-				{
-					direction: "incoming" as const,
-					synchronization: "additive" as const,
-					relationshipSchemaSlug: "company-to-show",
-					entities: collectCompanies(show["companies"], companyTypes).map((entity) => ({
-						name: entity.name,
-						externalId: entity.externalId,
-						providerSlug: entity.providerSlug,
-						relationshipProperties: entity.relationshipProperties,
-					})),
-				},
+				...(full || hasPeopleInventory
+					? [
+							{
+								direction: "incoming" as const,
+								relationshipSchemaSlug: "person-to-show",
+								synchronization: "authoritative" as const,
+								entities: hasPeopleInventory ? relatedEntities : [],
+								coverage: hasPeopleInventory
+									? { status: "complete" as const }
+									: {
+											status: "source-limited" as const,
+											reason: "TVDB show characters inventory was missing or malformed",
+										},
+							},
+						]
+					: []),
+				...(full || hasCompaniesInventory
+					? [
+							{
+								entities: companies,
+								direction: "incoming" as const,
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "company-to-show",
+								coverage: hasCompaniesInventory
+									? { status: "complete" as const }
+									: {
+											status: "source-limited" as const,
+											reason: "TVDB show companies inventory was missing or malformed",
+										},
+							},
+						]
+					: []),
 				{
 					entities: [],
 					direction: "outgoing" as const,
 					synchronization: "authoritative" as const,
+					coverage: { status: "complete" as const },
 					relationshipSchemaSlug: "media-suggestion",
 				},
 				...mediaGenreGroups("show", genres),

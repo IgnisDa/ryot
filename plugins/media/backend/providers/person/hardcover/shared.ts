@@ -163,8 +163,9 @@ query GetHardcoverAuthorDetails($id: Int!) {
 							{
 								entities: mediaEntities,
 								direction: "outgoing" as const,
+								synchronization: "additive" as const,
 								relationshipSchemaSlug: "person-to-book",
-								synchronization: "authoritative" as const,
+								coverage: { status: "complete" as const },
 							},
 						],
 						properties: {

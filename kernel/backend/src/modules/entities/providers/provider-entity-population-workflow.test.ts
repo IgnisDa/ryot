@@ -147,6 +147,7 @@ const sandboxResult = {
 		relatedEntityGroups: [
 			{
 				direction: "outgoing" as const,
+				coverage: { status: "complete" },
 				relationshipSchemaSlug: "credits",
 				synchronization: "additive" as const,
 				entities: [{ name: "Person", externalId: "person-1", providerSlug: "person.provider" }],

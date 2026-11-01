@@ -7,45 +7,36 @@ import { buildArtistDetails } from "./shared";
 configureApprovedDependencyRuntime((operation) => operation());
 
 describe("person.youtube-music sandbox script", () => {
-	it.live.each(["playlist", "continuation"])(
-		"fails the artist refresh when the song %s request fails",
-		(stage) =>
-			Effect.gen(function* () {
-				const failure = new Error("Song inventory unavailable");
-				const error = yield* Effect.flip(
-					buildArtistDetails(
-						{
-							actions: {
-								execute: (): Promise<never> =>
-									Promise.reject(new Error("Unexpected browse request")),
-							},
-							music: {
-								getPlaylist: () =>
-									stage === "playlist"
-										? Promise.reject(failure)
-										: Promise.resolve({
-												items: [],
-												has_continuation: true,
-												getContinuation: () => Promise.reject(failure),
-											}),
-								getArtist: () =>
-									Promise.resolve({
-										header: { title: { text: "Artist" } },
-										sections: [
-											{
-												type: "MusicShelf",
-												endpoint: { payload: { browseId: "VLsongs" } },
-												contents: [{ id: "preview", title: "Preview", item_type: "song" }],
-											},
-										],
-									}),
-							},
-						},
-						"UCartist",
-					),
-				);
-				expect(error.message).toBe("Song inventory unavailable");
-			}),
+	it.live("defers song inventory requests to durable related work", () =>
+		Effect.gen(function* () {
+			const failure = new Error("Song inventory unavailable");
+			const details = yield* buildArtistDetails(
+				{
+					actions: {
+						execute: (): Promise<never> => Promise.reject(new Error("Unexpected browse request")),
+					},
+					music: {
+						getPlaylist: () => Promise.reject(failure),
+						getArtist: () =>
+							Promise.resolve({
+								header: { title: { text: "Artist" } },
+								sections: [
+									{
+										type: "MusicShelf",
+										endpoint: { payload: { browseId: "VLsongs" } },
+										contents: [{ id: "preview", title: "Preview", item_type: "song" }],
+									},
+								],
+							}),
+					},
+				},
+				"UCartist",
+			);
+			expect(details.relatedEntityGroups[0]?.coverage).toEqual({
+				status: "more",
+				continuation: { source: 0 },
+			});
+		}),
 	);
 
 	it.live("classifies artist credits by item type rather than section titles", () =>
@@ -100,8 +91,12 @@ describe("person.youtube-music sandbox script", () => {
 			expect(details.relatedEntityGroups).toEqual([
 				{
 					direction: "outgoing",
-					synchronization: "authoritative",
+					synchronization: "additive",
 					relationshipSchemaSlug: "person-to-music",
+					coverage: {
+						status: "source-limited",
+						reason: "Artist page exposes no complete inventory endpoint",
+					},
 					entities: [
 						{
 							name: "Song One",
@@ -119,8 +114,12 @@ describe("person.youtube-music sandbox script", () => {
 				},
 				{
 					direction: "outgoing",
-					synchronization: "authoritative",
+					synchronization: "additive",
 					relationshipSchemaSlug: "person-to-music-group",
+					coverage: {
+						status: "source-limited",
+						reason: "Artist page exposes no complete inventory endpoint",
+					},
 					entities: [
 						{
 							name: "Album One",
@@ -134,7 +133,7 @@ describe("person.youtube-music sandbox script", () => {
 		}),
 	);
 
-	it.live("omits unsupported and incomplete items from authoritative artist credits", () =>
+	it.live("omits unsupported and incomplete items from artist discoveries", () =>
 		Effect.gen(function* () {
 			const details = yield* buildArtistDetails(
 				{
@@ -170,14 +169,22 @@ describe("person.youtube-music sandbox script", () => {
 				{
 					entities: [],
 					direction: "outgoing",
-					synchronization: "authoritative",
+					synchronization: "additive",
 					relationshipSchemaSlug: "person-to-music",
+					coverage: {
+						status: "source-limited",
+						reason: "Artist page exposes no complete inventory endpoint",
+					},
 				},
 				{
 					entities: [],
 					direction: "outgoing",
-					synchronization: "authoritative",
+					synchronization: "additive",
 					relationshipSchemaSlug: "person-to-music-group",
+					coverage: {
+						status: "source-limited",
+						reason: "Artist page exposes no complete inventory endpoint",
+					},
 				},
 			]);
 		}),

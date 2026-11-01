@@ -99,6 +99,7 @@ describe("book-group.hardcover sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "book-group-to-book",
 							entities: [
 								{

@@ -87,18 +87,21 @@ describe("video-game.giant-bomb sandbox script", () => {
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-video-game",
 						},
 						{
 							entities: [],
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "video-game-group-to-video-game",
 						},
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ name: "Pick One", externalId: "3030-2", providerSlug: "video-game.giant-bomb" },
@@ -107,6 +110,7 @@ describe("video-game.giant-bomb sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "video-game-to-genre",
 							entities: [
 								{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },

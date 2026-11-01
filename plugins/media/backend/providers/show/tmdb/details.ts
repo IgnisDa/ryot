@@ -73,9 +73,7 @@ const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"
 		}),
 	);
 
-const HTTP_CALL_LIMIT = 50;
 const SEASON_APPEND_LIMIT = 20;
-const FIXED_HTTP_CALLS = 2;
 
 const buildSeason = (
 	parentShowExternalId: string,
@@ -144,6 +142,7 @@ const buildDetailsResult = (
 ): ProviderDetailsResult => {
 	const full = input.level !== "base";
 	const creditsData = asRecord(showData["credits"]) ?? {};
+	const aggregateCreditsData = asRecord(showData["aggregate_credits"]) ?? {};
 	const recommendationsData = asRecord(showData["recommendations"]) ?? {};
 	const watchProvidersData = asRecord(showData["watch/providers"]) ?? {};
 	const title = stringValue(showData["name"]);
@@ -160,7 +159,45 @@ const buildDetailsResult = (
 	);
 	const voteAverage = numberValue(showData["vote_average"]);
 	const providerRating = voteAverage !== null && voteAverage > 0 ? voteAverage * 10 : null;
-	const people = collectPeople(creditsData["cast"], creditsData["crew"], showData["created_by"]);
+	const currentRegularCast = new Set(
+		recordsValue(creditsData["cast"]).flatMap((person) => {
+			const id = numberValue(person["id"]);
+			return id === null ? [] : [String(Math.trunc(id))];
+		}),
+	);
+	const episodes = seasonDataList.flatMap((season) => recordsValue(season["episodes"]));
+	const guestStarAppearances = new Map<string, number>();
+	for (const episode of episodes) {
+		const episodeGuestStars = new Set(
+			recordsValue(episode["guest_stars"]).flatMap((person) => {
+				const id = numberValue(person["id"]);
+				return id === null ? [] : [String(Math.trunc(id))];
+			}),
+		);
+		for (const id of episodeGuestStars) {
+			guestStarAppearances.set(id, (guestStarAppearances.get(id) ?? 0) + 1);
+		}
+	}
+	const guestStarInventoryComplete =
+		episodes.length > 0 && episodes.every((episode) => Array.isArray(episode["guest_stars"]));
+	const hasCompleteAggregateCredits =
+		Array.isArray(aggregateCreditsData["cast"]) && Array.isArray(aggregateCreditsData["crew"]);
+	const people = hasCompleteAggregateCredits
+		? collectPeople(
+				aggregateCreditsData["cast"],
+				aggregateCreditsData["crew"],
+				showData["created_by"],
+				{ currentRegularCast, guestStarAppearances, guestStarInventoryComplete },
+			)
+		: [];
+	const hasCompleteCompanies =
+		Array.isArray(showData["networks"]) && Array.isArray(showData["production_companies"]);
+	const companies = hasCompleteCompanies
+		? collectCompanies([
+				[showData["networks"], "Network"],
+				[showData["production_companies"], "Production Company"],
+			])
+		: [];
 	const genres = collectGenres(showData["genres"]);
 	return {
 		name: title,
@@ -188,27 +225,41 @@ const buildDetailsResult = (
 			...(full
 				? [
 						{
-							entities: people,
 							direction: "incoming" as const,
-							synchronization: "additive" as const,
 							relationshipSchemaSlug: "person-to-show",
+							synchronization: "authoritative" as const,
+							entities: hasCompleteAggregateCredits ? people : [],
+							coverage: hasCompleteAggregateCredits
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason: "TMDB show aggregate credits did not include cast and crew arrays",
+									},
 						},
 					]
 				: []),
-			{
-				direction: "incoming",
-				synchronization: "additive",
-				relationshipSchemaSlug: "company-to-show",
-				entities: collectCompanies([
-					[showData["networks"], "Network"],
-					[showData["production_companies"], "Production Company"],
-				]),
-			},
+			...(full || hasCompleteCompanies
+				? [
+						{
+							entities: companies,
+							direction: "incoming" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "company-to-show",
+							coverage: hasCompleteCompanies
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason: "TMDB show companies inventory was missing or malformed",
+									},
+						},
+					]
+				: []),
 			...(full
 				? [
 						{
 							direction: "outgoing" as const,
 							synchronization: "authoritative" as const,
+							coverage: { status: "complete" as const },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: collectSuggestions(recommendationsData["results"], {
 								providerSlug: "show.tmdb",
@@ -237,7 +288,7 @@ export const getTmdbShowDetails = (
 		const appended =
 			input.level === "base"
 				? "watch/providers,episode_groups"
-				: "watch/providers,episode_groups,credits,recommendations";
+				: "watch/providers,episode_groups,credits,aggregate_credits,recommendations";
 		const [showData, imagesData] = yield* Effect.all([
 			tmdbGet(host, `/tv/${input.externalId}`, { language, append_to_response: appended }, token),
 			tmdbGet(host, `/tv/${input.externalId}/images`, {}, token),
@@ -255,11 +306,23 @@ export const getTmdbShowDetails = (
 				{ language, append_to_response: seasons.map(({ number }) => `season/${number}`).join(",") },
 				token,
 			).pipe(
-				Effect.map((chunkData) =>
-					seasons.flatMap(({ id, number }) => {
+				Effect.flatMap((chunkData) =>
+					Effect.forEach(seasons, ({ id, number }) => {
 						const seasonData = asRecord(chunkData[`season/${number}`]);
-						// Appended seasons omit their TMDB id, which only the show's season list carries.
-						return seasonData ? [{ ...seasonData, id }] : [];
+						if (!seasonData) {
+							return Effect.fail(
+								new MediaSandboxError({ message: `TMDB returned no object for season ${number}` }),
+							);
+						}
+						if (!Array.isArray(seasonData["episodes"])) {
+							return Effect.fail(
+								new MediaSandboxError({
+									message: `TMDB returned no episodes array for season ${number}`,
+								}),
+							);
+						}
+						// The root season list supplies the ID omitted from appended season responses.
+						return Effect.succeed({ ...seasonData, id });
 					}),
 				),
 			),
@@ -268,19 +331,13 @@ export const getTmdbShowDetails = (
 			const header = episodeOrderHeader(entry);
 			return header ? [header] : [];
 		});
-		const episodeOrderBudget = Math.max(
-			0,
-			HTTP_CALL_LIMIT - FIXED_HTTP_CALLS - seasonChunks.length,
-		);
-		const episodeOrders = yield* Effect.forEach(
-			episodeOrderHeaders.slice(0, episodeOrderBudget),
-			(header) =>
-				tmdbGet(
-					host,
-					`/tv/episode_group/${encodeURIComponent(header.externalId)}`,
-					{ language },
-					token,
-				).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
+		const episodeOrders = yield* Effect.forEach(episodeOrderHeaders, (header) =>
+			tmdbGet(
+				host,
+				`/tv/episode_group/${encodeURIComponent(header.externalId)}`,
+				{ language },
+				token,
+			).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
 		);
 		return yield* Effect.try({
 			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),

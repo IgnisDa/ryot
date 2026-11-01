@@ -10,6 +10,7 @@ import {
 	bcp47ToTvdb,
 	buildTranslationResult,
 	getTranslationFields,
+	getTvdbCreditRelationshipProperties,
 	searchTvdb,
 	tvdbGet,
 	tvdbGetOptional,
@@ -67,22 +68,15 @@ export const details = defineProvider({
 				const movies = createRoleAccumulator();
 				const shows = createRoleAccumulator();
 				for (const character of recordsValue(person["characters"])) {
-					const role =
-						stringValue(character["peopleType"]) ??
-						stringValue(character["people_type"]) ??
-						"Actor";
-					const characterName = stringValue(character["name"]);
+					const relationshipProperties = getTvdbCreditRelationshipProperties(character);
 					const movieExternalId = toExternalId(character["movieId"] ?? character["movie_id"]);
 					if (movieExternalId !== null) {
 						const movieName = stringValue(asRecord(character["movie"])?.["name"]) ?? "Loading...";
 						movies.add({
 							name: movieName,
+							relationshipProperties,
 							providerSlug: "movie.tvdb",
 							externalId: movieExternalId,
-							relationshipProperties: {
-								roles: [role],
-								...(characterName === null ? {} : { character: characterName }),
-							},
 						});
 					}
 					const seriesExternalId = toExternalId(character["seriesId"] ?? character["series_id"]);
@@ -90,31 +84,14 @@ export const details = defineProvider({
 						const showName = stringValue(asRecord(character["series"])?.["name"]) ?? "Loading...";
 						shows.add({
 							name: showName,
+							relationshipProperties,
 							providerSlug: "show.tvdb",
 							externalId: seriesExternalId,
-							relationshipProperties: {
-								roles: [role],
-								...(characterName === null ? {} : { character: characterName }),
-							},
 						});
 					}
 				}
 				return {
 					name,
-					relatedEntityGroups: [
-						{
-							entities: movies.entities,
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "person-to-movie",
-						},
-						{
-							entities: shows.entities,
-							direction: "outgoing" as const,
-							relationshipSchemaSlug: "person-to-show",
-							synchronization: "authoritative" as const,
-						},
-					],
 					properties: {
 						gender,
 						description,
@@ -129,6 +106,22 @@ export const details = defineProvider({
 							? `https://www.thetvdb.com/people/${slug}`
 							: `https://www.thetvdb.com/people/${input.externalId}`,
 					},
+					relatedEntityGroups: [
+						{
+							entities: movies.entities,
+							direction: "outgoing" as const,
+							synchronization: "additive" as const,
+							coverage: { status: "complete" as const },
+							relationshipSchemaSlug: "person-to-movie",
+						},
+						{
+							entities: shows.entities,
+							direction: "outgoing" as const,
+							synchronization: "additive" as const,
+							relationshipSchemaSlug: "person-to-show",
+							coverage: { status: "complete" as const },
+						},
+					],
 				};
 			}),
 		);

@@ -160,7 +160,8 @@ export const details = defineProvider({
 							{
 								direction: "outgoing" as const,
 								entities: accumulator.entities,
-								synchronization: "authoritative" as const,
+								synchronization: "additive" as const,
+								coverage: { status: "complete" as const },
 								relationshipSchemaSlug: "company-to-video-game",
 							},
 						],

@@ -1,17 +1,29 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import {
+	defineProvider,
+	type ProviderDetailsRelatedEntity,
+	type ProviderRelatedResult,
+} from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { normalizePlainDescription } from "../../../lib/plain-description";
-import { numberValue, stringValue, trimmedString } from "../../../lib/records";
-import { buildLuceneQuery, mbGet } from "../../../lib/vendors/music-brainz";
+import { numberValue, stringValue } from "../../../lib/records";
+import {
+	buildLuceneQuery,
+	mbBrowsePage,
+	mbGet,
+	mbOffsetCursor,
+} from "../../../lib/vendors/music-brainz";
 
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
 	slug: "person.music-brainz",
 });
+
+const RELATED_BROWSE_PAGE_BATCH_SIZE = 10;
 
 const buildArtistDescription = (artist: Record<string, unknown>) => {
 	const parts: string[] = [];
@@ -86,18 +98,54 @@ export const search = defineProvider({
 	},
 });
 
+const inventories = {
+	"person-to-music": { entity: "recording", providerSlug: "music.music-brainz" },
+	"person-to-music-group": { entity: "release-group", providerSlug: "music-group.music-brainz" },
+} as const;
+
+const inventoryEntities = (items: readonly Record<string, unknown>[], providerSlug: string) => {
+	const entities = new Map<string, ProviderDetailsRelatedEntity>();
+	for (const item of items) {
+		const externalId = stringValue(item["id"]);
+		if (externalId && !entities.has(externalId)) {
+			entities.set(externalId, {
+				externalId,
+				providerSlug,
+				relationshipProperties: { roles: ["Artist"] },
+				name: stringValue(item["title"]) ?? externalId,
+			});
+		}
+	}
+	return [...entities.values()];
+};
+
+const inventoryCoverage = (page: {
+	total: null | number;
+	nextOffset: null | number;
+}): ProviderRelatedResult["coverage"] =>
+	page.nextOffset === null
+		? { status: "complete" }
+		: { status: "more", continuation: { total: page.total, offset: page.nextOffset } };
+
 export const details = defineProvider({
 	manifest,
 	operation: "details",
 	run: (input, host) =>
 		Effect.all(
 			[
-				mbGet(host, `artist/${input.externalId}`, { inc: "aliases release-groups" }),
-				mbGet(host, "recording", { limit: "100", artist: input.externalId }),
+				mbGet(host, `artist/${input.externalId}`, { inc: "aliases" }),
+				mbBrowsePage(host, "recording", { artist: input.externalId }, 0, null),
+				mbBrowsePage(
+					host,
+					"release-group",
+					{ artist: input.externalId, "release-group-status": "all" },
+					0,
+					null,
+				),
 			],
 			{ concurrency: "unbounded" },
 		).pipe(
-			Effect.map(([artistValue, recordingsValue]) => {
+			Effect.map(([artistValue, recordings, releaseGroups]) => {
 				const artist = asRecord(artistValue);
 				if (!artist) {
 					throw new Error(`MusicBrainz artist not found: ${input.externalId}`);
@@ -123,37 +171,6 @@ export const details = defineProvider({
 					return aliasName !== null && aliasName !== name ? [aliasName] : [];
 				});
 
-				const releaseGroups = Array.isArray(artist["release-groups"])
-					? artist["release-groups"]
-					: [];
-				const groupEntities = releaseGroups.map((group) => {
-					const record = asRecord(group);
-					const groupId = trimmedString(record?.["id"]);
-					return {
-						externalId: groupId,
-						providerSlug: "music-group.music-brainz",
-						relationshipProperties: { roles: ["Artist"] },
-						name: stringValue(record?.["title"]) ?? groupId,
-					};
-				});
-
-				const recordings = asRecord(recordingsValue)?.["recordings"];
-				const mediaEntities = asArray(recordings).flatMap((recording) => {
-					const record = asRecord(recording);
-					const recordingId = stringValue(record?.["id"]);
-					if (!recordingId) {
-						return [];
-					}
-					return [
-						{
-							externalId: recordingId,
-							providerSlug: "music.music-brainz",
-							relationshipProperties: { roles: ["Artist"] },
-							name: stringValue(record?.["title"]) ?? recordingId,
-						},
-					];
-				});
-
 				return {
 					name,
 					properties: {
@@ -167,19 +184,66 @@ export const details = defineProvider({
 					},
 					relatedEntityGroups: [
 						{
-							entities: mediaEntities,
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
+							synchronization: "additive" as const,
+							coverage: inventoryCoverage(recordings),
 							relationshipSchemaSlug: "person-to-music",
+							entities: inventoryEntities(recordings.items, "music.music-brainz"),
 						},
 						{
-							entities: groupEntities,
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
+							synchronization: "additive" as const,
+							coverage: inventoryCoverage(releaseGroups),
 							relationshipSchemaSlug: "person-to-music-group",
+							entities: inventoryEntities(releaseGroups.items, "music-group.music-brainz"),
 						},
 					],
 				};
 			}),
 		),
+});
+
+export const related = defineProvider({
+	manifest,
+	operation: "related",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const config =
+				input.relationshipSchemaSlug === "person-to-music" ||
+				input.relationshipSchemaSlug === "person-to-music-group"
+					? inventories[input.relationshipSchemaSlug]
+					: null;
+			if (!config || input.direction !== "outgoing") {
+				return yield* new MediaSandboxError({
+					message: "Unsupported MusicBrainz artist inventory",
+				});
+			}
+			let { total, offset } = yield* mbOffsetCursor(input.continuation);
+			const items: Record<string, unknown>[] = [];
+			for (let calls = 0; calls < RELATED_BROWSE_PAGE_BATCH_SIZE; calls++) {
+				const page = yield* mbBrowsePage(
+					host,
+					config.entity,
+					{
+						artist: input.externalId,
+						...(config.entity === "release-group" ? { "release-group-status": "all" } : {}),
+					},
+					offset,
+					total,
+				);
+				items.push(...page.items);
+				if (page.nextOffset === null) {
+					return {
+						coverage: { status: "complete" as const },
+						entities: inventoryEntities(items, config.providerSlug),
+					};
+				}
+				offset = page.nextOffset;
+				total = page.total;
+			}
+			return {
+				entities: inventoryEntities(items, config.providerSlug),
+				coverage: { status: "more" as const, continuation: { total, offset } },
+			};
+		}),
 });

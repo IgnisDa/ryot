@@ -126,6 +126,7 @@ export const details = defineProvider({
 					{
 						entities: relatedEntities,
 						direction: "outgoing" as const,
+						coverage: { status: "complete" as const },
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "video-game-group-to-video-game",
 					},

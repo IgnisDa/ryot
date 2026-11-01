@@ -1,14 +1,21 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import {
+	defineProvider,
+	type ProviderDetailsRelatedEntity,
+} from "@ryot-app/plugin-backend-sdk/provider";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
+import { mediaFailureMessage } from "../../../lib/error-message";
+import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
+	anilistConnection,
 	anilistGraphql,
 	type AnilistHost,
+	anilistRelatedPage,
 	mediaScriptSlug,
 	parseAnilistId,
 	pickPreferredMediaName,
@@ -134,8 +141,6 @@ const formatFuzzyDate = (value: unknown) => {
 	return DateTime.formatIsoDateUtc(dt);
 };
 
-type StaffPages = { staffEdges: unknown[]; staffData: UnknownRecord; characterEdges: unknown[] };
-
 const getStaffPage = (host: AnilistHost, staffId: number, page: number) =>
 	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { page, id: staffId }).pipe(
 		Effect.map((data) => {
@@ -147,88 +152,103 @@ const getStaffPage = (host: AnilistHost, staffId: number, page: number) =>
 		}),
 	);
 
-const collectStaffPages = (
-	host: AnilistHost,
-	staffId: number,
-	page: number,
-	collected: Omit<StaffPages, "staffData"> & { staffData: null | UnknownRecord },
-): Effect.Effect<StaffPages, Effect.Error<ReturnType<typeof getStaffPage>>> =>
-	getStaffPage(host, staffId, page).pipe(
-		Effect.flatMap((staffPage) => {
-			const staffData = collected.staffData ?? staffPage;
-			const staffMedia = asRecord(staffPage["staffMedia"]);
-			const characterMedia = asRecord(staffPage["characterMedia"]);
-			collected.staffEdges.push(...asArray(staffMedia?.["edges"]));
-			collected.characterEdges.push(...asArray(characterMedia?.["edges"]));
-			const hasNextPage =
-				asRecord(characterMedia?.["pageInfo"])?.["hasNextPage"] === true ||
-				asRecord(staffMedia?.["pageInfo"])?.["hasNextPage"] === true;
-			if (hasNextPage) {
-				return collectStaffPages(host, staffId, page + 1, { ...collected, staffData });
-			}
-			return Effect.succeed({
-				staffData,
-				staffEdges: collected.staffEdges,
-				characterEdges: collected.characterEdges,
-			});
-		}),
+const staffInventory = (staffData: UnknownRecord, page: number) => {
+	const staffMedia = anilistConnection(staffData["staffMedia"], "edges");
+	const characterMedia = anilistConnection(staffData["characterMedia"], "edges");
+	const related = createRoleAccumulator();
+	const addMedia = (media: unknown, role: string, character: null | string = null) => {
+		const record = asRecord(media);
+		const idValue = numberValue(record?.["id"]);
+		const providerSlug = mediaScriptSlug(record?.["type"]);
+		if (
+			!record ||
+			idValue === null ||
+			!Number.isSafeInteger(idValue) ||
+			idValue <= 0 ||
+			!providerSlug
+		) {
+			throw new MediaSandboxError({ message: "AniList staff inventory media edge is malformed" });
+		}
+		related.add({
+			providerSlug,
+			externalId: String(Math.trunc(idValue)),
+			name: pickPreferredMediaName(record["title"]),
+			relationshipProperties: { roles: [role], ...(character === null ? {} : { character }) },
+		});
+	};
+	for (const edge of characterMedia.items) {
+		const record = asRecord(edge);
+		const names = asArray(record?.["characters"]).flatMap((character) => {
+			const name = stringValue(asRecord(asRecord(character)?.["name"])?.["full"]);
+			return name ? [name] : [];
+		});
+		for (const name of names.length ? names : [null]) {
+			addMedia(record?.["node"], "Voicing", name);
+		}
+	}
+	for (const edge of staffMedia.items) {
+		const record = asRecord(edge);
+		addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
+	}
+	return {
+		entities: related.entities,
+		coverage:
+			staffMedia.hasNextPage || characterMedia.hasNextPage
+				? { status: "more" as const, continuation: { page: page + 1 } }
+				: { status: "complete" as const },
+	};
+};
+
+const mediaEntities = (entities: readonly ProviderDetailsRelatedEntity[], slug: string) =>
+	entities.filter(
+		(entity) =>
+			entity.providerSlug === (slug === "person-to-anime" ? "anime.anilist" : "manga.anilist"),
 	);
+
+export const related = defineProvider({
+	manifest,
+	operation: "related",
+	run: (input, host) => {
+		if (
+			input.direction !== "outgoing" ||
+			!["person-to-anime", "person-to-manga"].includes(input.relationshipSchemaSlug)
+		) {
+			throw new Error("Unsupported AniList staff inventory");
+		}
+		const page = anilistRelatedPage(input.continuation);
+		return getStaffPage(host, parseAnilistId(input.externalId, "staff"), page).pipe(
+			Effect.flatMap((staff) =>
+				Effect.try({
+					try: () => staffInventory(staff, page),
+					catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+				}).pipe(
+					Effect.map((inventory) => ({
+						coverage: inventory.coverage,
+						entities: mediaEntities(inventory.entities, input.relationshipSchemaSlug),
+					})),
+				),
+			),
+		);
+	},
+});
 
 export const details = defineProvider({
 	manifest,
 	operation: "details",
 	run: (input, host) => {
 		const staffId = parseAnilistId(input.externalId, "staff");
-		return collectStaffPages(host, staffId, 1, {
-			staffEdges: [],
-			staffData: null,
-			characterEdges: [],
-		}).pipe(
-			Effect.flatMap(({ staffData, staffEdges, characterEdges }) =>
+		return getStaffPage(host, staffId, 1).pipe(
+			Effect.flatMap((staffData) =>
 				Effect.gen(function* () {
 					const name = stringValue(asRecord(staffData["name"])?.["full"]);
 					if (!name) {
 						throw new Error("Anilist staff data is missing name");
 					}
 
-					const related = createRoleAccumulator();
-					const addMedia = (media: unknown, role: string, character: null | string = null) => {
-						const record = asRecord(media);
-						if (!record) {
-							return;
-						}
-						const idValue = numberValue(record["id"]);
-						const providerSlug = mediaScriptSlug(record["type"]);
-						if (idValue === null || !providerSlug) {
-							return;
-						}
-						const externalId = String(Math.trunc(idValue));
-						related.add({
-							externalId,
-							providerSlug,
-							name: pickPreferredMediaName(record["title"]),
-							relationshipProperties: {
-								roles: [role],
-								...(character === null ? {} : { character }),
-							},
-						});
-					};
-
-					for (const edge of characterEdges) {
-						const record = asRecord(edge);
-						const characters = record?.["characters"];
-						const characterNames = asArray(characters).flatMap((character) => {
-							const characterName = stringValue(asRecord(asRecord(character)?.["name"])?.["full"]);
-							return characterName ? [characterName] : [];
-						});
-						for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
-							addMedia(record?.["node"], "Voicing", characterName);
-						}
-					}
-					for (const edge of staffEdges) {
-						const record = asRecord(edge);
-						addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
-					}
+					const inventory = yield* Effect.try({
+						try: () => staffInventory(staffData, 1),
+						catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+					});
 					const image = stringValue(asRecord(staffData["image"])?.["large"]);
 
 					return {
@@ -250,18 +270,20 @@ export const details = defineProvider({
 						},
 						relatedEntityGroups: [
 							{
+								coverage: inventory.coverage,
 								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
+								synchronization: "additive" as const,
 								relationshipSchemaSlug: "person-to-anime",
-								entities: related.entities.filter(
+								entities: inventory.entities.filter(
 									(entity) => entity.providerSlug === "anime.anilist",
 								),
 							},
 							{
+								coverage: inventory.coverage,
 								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
+								synchronization: "additive" as const,
 								relationshipSchemaSlug: "person-to-manga",
-								entities: related.entities.filter(
+								entities: inventory.entities.filter(
 									(entity) => entity.providerSlug === "manga.anilist",
 								),
 							},

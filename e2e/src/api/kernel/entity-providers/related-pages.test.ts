@@ -51,10 +51,10 @@ const studioDetails = (
 		relatedEntityGroups: [
 			{
 				entities,
-				continuation,
 				direction: "outgoing",
 				synchronization: "authoritative",
 				relationshipSchemaSlug: COMPANY_TO_MOVIE,
+				coverage: { continuation, status: "more" },
 			},
 		],
 	});
@@ -65,7 +65,13 @@ const pages = (
 	Object.fromEntries(
 		entries.map(([continuation, externalId, next]) => [
 			relatedPageKey(continuation),
-			{ continuation: next, entities: [movie(externalId)] },
+			{
+				entities: [movie(externalId)],
+				coverage:
+					next === null
+						? { status: "complete" as const }
+						: { continuation: next, status: "more" as const },
+			},
 		]),
 	);
 

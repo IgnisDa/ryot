@@ -127,8 +127,9 @@ export const details = defineProvider({
 								{
 									entities: mediaEntities,
 									direction: "outgoing" as const,
-									synchronization: "authoritative" as const,
+									synchronization: "additive" as const,
 									relationshipSchemaSlug: "person-to-manga",
+									coverage: { status: "complete" as const },
 								},
 							],
 							properties: {

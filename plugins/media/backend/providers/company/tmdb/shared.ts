@@ -1,6 +1,6 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { defineProvider, type ProviderRelatedResult } from "@ryot-app/plugin-backend-sdk/provider";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
@@ -67,10 +67,7 @@ const discoverPage = (
 
 const lastDiscoverPage = (page: UnknownRecord) => {
 	const totalPages = numberValue(page["total_pages"]);
-	return Math.min(
-		totalPages === null ? 1 : Math.max(1, Math.trunc(totalPages)),
-		TMDB_DISCOVER_MAX_PAGE,
-	);
+	return totalPages === null ? 1 : Math.max(1, Math.trunc(totalPages));
 };
 
 const productionEntities = (
@@ -94,13 +91,16 @@ const productionEntities = (
 
 const productionGroup = (slug: keyof typeof productionGroups, firstPage: UnknownRecord) => {
 	const config = productionGroups[slug];
-	const lastPage = lastDiscoverPage(firstPage);
+	const totalPages = lastDiscoverPage(firstPage);
 	return {
 		relationshipSchemaSlug: slug,
 		direction: "outgoing" as const,
-		synchronization: "authoritative" as const,
+		synchronization: "additive" as const,
 		entities: productionEntities(recordsValue(firstPage["results"]), config),
-		...(lastPage > 1 ? { continuation: { page: 2, totalPages: lastPage } } : {}),
+		coverage:
+			totalPages > 1
+				? { status: "more" as const, continuation: { page: 2, totalPages } }
+				: { status: "complete" as const },
 	};
 };
 
@@ -167,7 +167,7 @@ const decodeContinuation = (continuation: unknown) => {
 	const page = record === null ? null : numberValue(record["page"]);
 	const totalPages = record === null ? null : numberValue(record["totalPages"]);
 	return page !== null && totalPages !== null && Number.isInteger(page) && page >= 2
-		? Effect.succeed({ page, totalPages: Math.min(Math.trunc(totalPages), TMDB_DISCOVER_MAX_PAGE) })
+		? Effect.succeed({ page, totalPages: Math.max(1, Math.trunc(totalPages)) })
 		: Effect.fail(new MediaSandboxError({ message: "Invalid TMDB company continuation" }));
 };
 
@@ -192,15 +192,25 @@ export const related = defineProvider({
 		}
 		return Effect.all([getTmdbAccessToken(host), decodeContinuation(input.continuation)]).pipe(
 			Effect.flatMap(([token, { page, totalPages }]) => {
-				const lastPage = Math.min(page + RELATED_PAGES_PER_RUN - 1, totalPages);
+				const lastPage = Math.min(
+					page + RELATED_PAGES_PER_RUN - 1,
+					totalPages,
+					TMDB_DISCOVER_MAX_PAGE,
+				);
 				const pageNumbers = Array.from({ length: lastPage - page + 1 }, (_, index) => page + index);
+				let coverage: ProviderRelatedResult["coverage"] = { status: "complete" };
+				if (lastPage < Math.min(totalPages, TMDB_DISCOVER_MAX_PAGE)) {
+					coverage = { status: "more", continuation: { totalPages, page: lastPage + 1 } };
+				} else if (totalPages > TMDB_DISCOVER_MAX_PAGE) {
+					coverage = { status: "source-limited", reason: "TMDB discover is capped at 500 pages" };
+				}
 				return Effect.forEach(
 					pageNumbers,
 					(number) => discoverPage(host, config.path, input.externalId, number, token),
 					{ concurrency: RELATED_PAGE_CONCURRENCY },
 				).pipe(
 					Effect.map((pages) => ({
-						continuation: lastPage < totalPages ? { totalPages, page: lastPage + 1 } : null,
+						coverage,
 						entities: productionEntities(
 							pages.flatMap((result) => recordsValue(result["results"])),
 							config,

@@ -8,10 +8,10 @@ import { numberValue, stringValue, type UnknownRecord } from "../../../lib/recor
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	coerceTrimmed,
-	getBestThumbnailUrl,
 	getThumbnailUrls,
 	type HistoryClient,
 	type MusicSearchClient,
+	searchYoutubeMusic,
 	type TrackQueueClient,
 	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
@@ -62,35 +62,12 @@ const collectSuggestions = (
 	return [...byKey.values()];
 };
 
-export const buildTrackSearch = (client: MusicSearchClient, query: string, pageSize: number) =>
-	tryYoutubeMusic(() => client.music.search(query, { type: "song" })).pipe(
-		Effect.map((results) => {
-			const shelves = asRecord(results)?.["contents"];
-			const allItems = asArray(shelves).flatMap((shelf) => {
-				const tracks = asRecord(shelf)?.["contents"];
-				return asArray(tracks).flatMap((track) => {
-					const record = asRecord(track);
-					const id = record?.["id"];
-					if (!id) {
-						return [];
-					}
-					const title = record["title"] ?? id;
-					const year = record["year"] ?? null;
-					const thumb = getBestThumbnailUrl(record["thumbnail"]);
-					return [
-						{
-							title: coerceTrimmed(title),
-							externalId: coerceTrimmed(id),
-							...(thumb === null ? {} : { imageUrl: thumb }),
-							...(year === null ? {} : { metadata: [Number(year)] as const }),
-						},
-					];
-				});
-			});
-			const items = allItems.slice(0, pageSize);
-			return { items, details: { nextPage: null, totalItems: items.length } };
-		}),
-	);
+export const buildTrackSearch = (
+	client: MusicSearchClient,
+	query: string,
+	pageSize: number,
+	page = 1,
+) => searchYoutubeMusic(client, query, "song", pageSize, page);
 
 export const buildTrackDetails = (client: TrackQueueClient, externalId: string) =>
 	tryYoutubeMusic(() => client.music.getUpNext(externalId)).pipe(
@@ -118,17 +95,24 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					: null;
 				const accumulator = createRoleAccumulator();
 				const artists = trackRecord["artists"];
-				for (const artist of asArray(artists)) {
+				if (!Array.isArray(artists)) {
+					return yield* new MediaSandboxError({
+						message: "YouTube Music track artists are malformed",
+					});
+				}
+				for (const artist of artists) {
 					const artistRecord = asRecord(artist);
 					const artistId = stringValue(artistRecord?.["channel_id"]);
-					if (!artistId) {
-						continue;
+					if (!artistRecord || !artistId) {
+						return yield* new MediaSandboxError({
+							message: "YouTube Music track artist is malformed",
+						});
 					}
 					accumulator.add({
 						externalId: artistId,
 						providerSlug: "person.youtube-music",
 						relationshipProperties: { roles: ["Artist"] },
-						name: stringValue(artistRecord?.["name"]) ?? "Loading...",
+						name: stringValue(artistRecord["name"]) ?? "Loading...",
 					});
 				}
 				const artistCount = accumulator.entities.length;
@@ -160,7 +144,8 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					relatedEntityGroups: [
 						{
 							direction: "incoming" as const,
-							synchronization: "additive" as const,
+							coverage: { status: "complete" as const },
+							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "person-to-music",
 							entities: accumulator.entities.filter(
 								(entity) => entity.providerSlug === "person.youtube-music",
@@ -169,6 +154,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 						{
 							direction: "incoming" as const,
 							synchronization: "additive" as const,
+							coverage: { status: "complete" as const },
 							relationshipSchemaSlug: "music-group-to-music",
 							entities: accumulator.entities.filter(
 								(entity) => entity.providerSlug === "music-group.youtube-music",
@@ -177,6 +163,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 						{
 							entities: suggestions,
 							direction: "outgoing" as const,
+							coverage: { status: "complete" as const },
 							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "media-suggestion",
 						},

@@ -15,6 +15,24 @@ export type AnilistMediaType = "ANIME" | "MANGA";
 
 export type AnilistHost = Pick<ScriptHost, "httpCall">;
 
+export const anilistConnection = (value: unknown, field: "edges" | "nodes") => {
+	const connection = asRecord(value);
+	const items = connection?.[field];
+	const hasNextPage = asRecord(connection?.["pageInfo"])?.["hasNextPage"];
+	if (!Array.isArray(items) || typeof hasNextPage !== "boolean") {
+		throw new MediaSandboxError({ message: `AniList ${field} connection is malformed` });
+	}
+	return { hasNextPage, items: asArray(items) };
+};
+
+export const anilistRelatedPage = (continuation: unknown) => {
+	const page = asRecord(continuation)?.["page"];
+	if (typeof page !== "number" || !Number.isSafeInteger(page) || page < 2) {
+		throw new MediaSandboxError({ message: "Invalid AniList related continuation" });
+	}
+	return page;
+};
+
 export type AnilistTitleLanguage = "native" | "romaji" | "english";
 
 export type AnilistUserHost = Pick<ScriptHost, "httpCall" | "getUserSettings">;

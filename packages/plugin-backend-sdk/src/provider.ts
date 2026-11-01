@@ -88,7 +88,10 @@ export const providerSearchResultItemSchema = strictStruct({
 export const providerSearchResultSchema = strictStruct({
 	items: Schema.Array(providerSearchResultItemSchema),
 	details: Schema.optional(
-		strictStruct({ totalItems: Schema.Finite, nextPage: Schema.NullOr(Schema.Finite) }),
+		strictStruct({
+			nextPage: Schema.NullOr(Schema.Finite),
+			totalItems: Schema.optional(Schema.Finite),
+		}),
 	),
 });
 export const providerSearchOptionsInputSchema = strictStruct({});
@@ -121,10 +124,15 @@ const providerContinuationSchema = jsonValueSchema.pipe(
 		),
 	),
 );
+export const providerInventoryCoverageSchema = Schema.Union([
+	strictStruct({ status: Schema.Literal("complete") }),
+	strictStruct({ status: Schema.Literal("more"), continuation: providerContinuationSchema }),
+	strictStruct({ reason: trimmedNonEmptyString, status: Schema.Literal("source-limited") }),
+]);
 export const providerDetailsRelatedEntityGroupSchema = strictStruct({
 	relationshipSchemaSlug: Schema.String,
+	coverage: providerInventoryCoverageSchema,
 	direction: Schema.Literals(["incoming", "outgoing"]),
-	continuation: Schema.optional(providerContinuationSchema),
 	entities: Schema.Array(providerDetailsRelatedEntitySchema),
 	synchronization: Schema.Literals(["authoritative", "additive"]),
 });
@@ -135,7 +143,7 @@ export const providerRelatedInputSchema = strictStruct({
 	direction: Schema.Literals(["incoming", "outgoing"]),
 });
 export const providerRelatedResultSchema = strictStruct({
-	continuation: Schema.NullOr(providerContinuationSchema),
+	coverage: providerInventoryCoverageSchema,
 	entities: Schema.Array(providerDetailsRelatedEntitySchema),
 });
 

@@ -294,7 +294,8 @@ describe("show.tvdb sandbox script", () => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-show",
 							entities: [
 								{
@@ -302,27 +303,30 @@ describe("show.tvdb sandbox script", () => {
 									externalId: "5",
 									providerSlug: "person.tvdb",
 									relationshipProperties: {
+										isUncredited: false,
 										character: "Hero / Villain",
 										roles: ["Actor", "Director"],
+										creditKinds: ["cast", "crew"],
 									},
 								},
 								{
 									externalId: "6",
 									name: "Blank Character",
 									providerSlug: "person.tvdb",
-									relationshipProperties: { roles: ["Actor"] },
+									relationshipProperties: { roles: ["Actor"], creditKinds: ["cast"] },
 								},
 								{
 									externalId: "7",
 									name: "Missing Character",
 									providerSlug: "person.tvdb",
-									relationshipProperties: { roles: ["Actor"] },
+									relationshipProperties: { roles: ["Actor"], creditKinds: ["cast"] },
 								},
 							],
 						},
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-show",
 							entities: [
 								{
@@ -343,6 +347,7 @@ describe("show.tvdb sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 						},
 					]);
@@ -351,6 +356,70 @@ describe("show.tvdb sandbox script", () => {
 			),
 		);
 	});
+
+	it.each([
+		{
+			inventories: {},
+			label: "missing inventories",
+			peopleCoverage: {
+				status: "source-limited",
+				reason: "TVDB show characters inventory was missing or malformed",
+			},
+			companyCoverage: {
+				status: "source-limited",
+				reason: "TVDB show companies inventory was missing or malformed",
+			},
+		},
+		{
+			label: "explicit empty inventories",
+			peopleCoverage: { status: "complete" },
+			companyCoverage: { status: "complete" },
+			inventories: { companies: {}, characters: [] },
+		},
+	])(
+		"reports full show credit coverage for $label",
+		({ inventories, peopleCoverage, companyCoverage }) => {
+			const host = makeHost((_method, url) => {
+				const { pathname } = new URL(url);
+				if (pathname.endsWith("/companies/types")) {
+					return httpSuccess({ data: [] });
+				}
+				if (pathname.includes("/translations/")) {
+					return httpSuccess({ data: {} });
+				}
+				return httpSuccess({ data: { seasons: [], name: "Show", ...inventories } });
+			});
+			return Effect.runPromise(
+				runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+					Effect.map((result) => {
+						const groups = result.relatedEntityGroups ?? [];
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "person-to-show",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: peopleCoverage,
+							synchronization: "authoritative",
+						});
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "company-to-show",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: companyCoverage,
+							synchronization: "authoritative",
+						});
+						return undefined;
+					}),
+				),
+			);
+		},
+	);
+
 	it("derives season and episode translation paths from the parent show id", () => {
 		const requested: Array<{ path: string; method: string }> = [];
 		const host = makeHost((method, url) => {

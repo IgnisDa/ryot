@@ -116,6 +116,7 @@ describe("visual-novel.vndb sandbox script", () => {
 						{
 							direction: "incoming",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-visual-novel",
 							entities: [
 								{
@@ -129,6 +130,7 @@ describe("visual-novel.vndb sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "visual-novel-to-genre",
 							entities: [
 								{ name: "Mystery", externalId: "mystery", providerSlug: "genre.media-catalog" },

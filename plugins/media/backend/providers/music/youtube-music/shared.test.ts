@@ -1,9 +1,12 @@
+import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { describe, expect, it } from "vitest";
 
 import type { YoutubeMusicHost } from "../../../lib/vendors/youtube-music";
 import { runHistory } from "./history.sandbox";
 import { buildHistory, buildTrackDetails } from "./shared";
+
+configureApprovedDependencyRuntime((operation) => operation());
 
 const historyItem = (videoId: string, title: string) => ({
 	musicResponsiveListItemRenderer: {
@@ -24,6 +27,15 @@ const historyResponse = (contents: readonly unknown[]) => ({
 
 const historyShelf = (title: string, contents: readonly unknown[]) => ({
 	musicShelfRenderer: { contents, title: { runs: [{ text: title }] } },
+});
+
+const trackDetailsClient = (track: Record<string, unknown>) => ({
+	music: {
+		getUpNext: () =>
+			Effect.runPromise(
+				Effect.succeed({ contents: [{ title: "Source", video_id: "track-1", ...track }] }),
+			),
+	},
 });
 
 describe("music.youtube-music sandbox script", () => {
@@ -64,7 +76,8 @@ describe("music.youtube-music sandbox script", () => {
 					expect(details.relatedEntityGroups).toEqual([
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-music",
 							entities: [
 								{
@@ -78,6 +91,7 @@ describe("music.youtube-music sandbox script", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "music-group-to-music",
 							entities: [
 								{
@@ -91,6 +105,7 @@ describe("music.youtube-music sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ name: "Pick One", externalId: "track-2", providerSlug: "music.youtube-music" },
@@ -101,9 +116,76 @@ describe("music.youtube-music sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "music-to-genre",
 						},
 					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+	it.each([
+		{},
+		{ artists: null },
+		{ artists: [null] },
+		{ artists: [{ name: "Artist" }] },
+		{ artists: [{ name: "Artist", channel_id: "  " }] },
+		{ artists: [{ name: "Artist", channel_id: "artist-1" }, {}] },
+	])("rejects malformed YouTube Music artist inventory %#", (track) =>
+		expect(
+			Effect.runPromise(buildTrackDetails(trackDetailsClient(track), "track-1")),
+		).rejects.toThrow("YouTube Music track artist"),
+	);
+	it("keeps artist name fallback and merges duplicate artists", () => {
+		const client = trackDetailsClient({
+			artists: [
+				{ channel_id: "artist-1" },
+				{ name: "Artist", channel_id: "artist-1" },
+				{ channel_id: "artist-2" },
+			],
+		});
+		return Effect.runPromise(
+			buildTrackDetails(client, "track-1").pipe(
+				Effect.map((details) => {
+					expect(details.relatedEntityGroups[0]).toEqual({
+						direction: "incoming",
+						coverage: { status: "complete" },
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-music",
+						entities: [
+							{
+								name: "Artist",
+								externalId: "artist-1",
+								providerSlug: "person.youtube-music",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+							{
+								name: "Loading...",
+								externalId: "artist-2",
+								providerSlug: "person.youtube-music",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
+					});
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("accepts an explicit empty artist inventory as complete", () => {
+		const client = trackDetailsClient({ artists: [] });
+		return Effect.runPromise(
+			buildTrackDetails(client, "track-1").pipe(
+				Effect.map((details) => {
+					expect(details.properties.byVariousArtists).toBeNull();
+					expect(details.relatedEntityGroups[0]).toEqual({
+						entities: [],
+						direction: "incoming",
+						coverage: { status: "complete" },
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-music",
+					});
 					return undefined;
 				}),
 			),

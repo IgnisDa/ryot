@@ -85,7 +85,8 @@ describe("person.giant-bomb sandbox script", () => {
 				expect(result.relatedEntityGroups).toEqual([
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-video-game",
 						entities: [
 							{
@@ -98,7 +99,8 @@ describe("person.giant-bomb sandbox script", () => {
 					},
 					{
 						direction: "outgoing",
-						synchronization: "authoritative",
+						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-video-game-group",
 						entities: [
 							{

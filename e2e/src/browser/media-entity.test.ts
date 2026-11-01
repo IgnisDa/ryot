@@ -178,6 +178,7 @@ it.live("opens a base-populated Media Movie and shows its credits once they arri
 					{
 						direction: "incoming",
 						synchronization: "additive",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "person-to-movie",
 						entities: [
 							{

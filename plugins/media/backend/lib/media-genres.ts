@@ -19,6 +19,7 @@ export const mediaGenreGroups = (
 		{
 			direction: "outgoing",
 			synchronization: "authoritative",
+			coverage: { status: "complete" as const },
 			relationshipSchemaSlug: `${slug}-to-genre`,
 			entities: [...genres.values()].map((genre) =>
 				Object.assign(genre, { providerSlug: mediaGenreProviderSlug }),

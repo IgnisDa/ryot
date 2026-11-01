@@ -104,6 +104,7 @@ describe("video-game-group.igdb sandbox script", () => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-group-to-video-game",
 							entities: [

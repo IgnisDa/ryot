@@ -5,9 +5,10 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-ba
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
+import relatedScript, { manifest as relatedManifest } from "./related.sandbox";
 import searchOptions, { manifest as searchOptionsManifest } from "./search-options.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
-import { manifest } from "./shared";
+import { manifest, related } from "./shared";
 
 type IgdbVideoGameHost = Pick<
 	ScriptHost,
@@ -38,10 +39,12 @@ describe("video-game.igdb sandbox script", () => {
 		expect([
 			[searchManifest.slug, search.operation],
 			[detailsManifest.slug, details.operation],
+			[relatedManifest.slug, relatedScript.operation],
 			[searchOptionsManifest.slug, searchOptions.operation],
 		]).toEqual([
 			["video-game.igdb.search", "search"],
 			["video-game.igdb.details", "details"],
+			["video-game.igdb.related", "related"],
 			["video-game.igdb.search-options", "search-options"],
 		]);
 	});
@@ -440,17 +443,20 @@ describe("video-game.igdb sandbox script", () => {
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							coverage: { status: "complete" },
+							synchronization: "authoritative",
 							relationshipSchemaSlug: "company-to-video-game",
 						},
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							coverage: { status: "complete" },
+							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-group-to-video-game",
 						},
 						{
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [{ externalId: "2", name: "Pick One", providerSlug: "video-game.igdb" }],
@@ -458,23 +464,116 @@ describe("video-game.igdb sandbox script", () => {
 						{
 							entities: [],
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-to-video-game",
 						},
 						{
 							entities: [],
 							direction: "incoming",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-to-video-game",
 						},
 						{
 							entities: [],
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-to-genre",
 						},
 					]);
 					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("fails a malformed involved-companies list", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				const body = typeof options?.body === "string" ? options.body : "";
+				return url.endsWith("/games") && body.includes("where id = 1;")
+					? httpSuccess([{ id: 1, name: "Source", involved_companies: { invalid: true } }])
+					: httpSuccess([]);
+			},
+		});
+
+		return Effect.runPromise(
+			Effect.flip(runSandboxTestScript(details, { externalId: "1" }, host, execution)).pipe(
+				Effect.map((error) =>
+					expect(error).toMatchObject({ message: "IGDB involved companies list is malformed" }),
+				),
+			),
+		);
+	});
+
+	it("fails a partially valid involved-companies array with a missing company ID", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				const body = typeof options?.body === "string" ? options.body : "";
+				return url.endsWith("/games") && body.includes("where id = 1;")
+					? httpSuccess([
+							{
+								id: 1,
+								name: "Source",
+								involved_companies: [
+									{ developer: true, company: { id: 7, name: "Studio" } },
+									{ publisher: true, company: { name: "Missing ID" } },
+								],
+							},
+						])
+					: httpSuccess([]);
+			},
+		});
+
+		return Effect.runPromise(
+			Effect.flip(runSandboxTestScript(details, { externalId: "1" }, host, execution)).pipe(
+				Effect.map((error) =>
+					expect(error).toMatchObject({ message: "IGDB involved company identity is malformed" }),
+				),
+			),
+		);
+	});
+
+	it("retains publisher-only involved companies", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				const body = typeof options?.body === "string" ? options.body : "";
+				return url.endsWith("/games") && body.includes("where id = 1;")
+					? httpSuccess([
+							{
+								id: 1,
+								name: "Source",
+								involved_companies: [
+									{ publisher: true, developer: false, company: { id: 7, name: "Publisher" } },
+								],
+							},
+						])
+					: httpSuccess([]);
+			},
+		});
+
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.relatedEntityGroups?.[0]?.entities).toEqual([
+						{
+							externalId: "7",
+							name: "Publisher",
+							providerSlug: "company.igdb",
+							relationshipProperties: { roles: ["Publisher"] },
+						},
+					]);
 				}),
 			),
 		);
@@ -537,6 +636,7 @@ const runDetails = (
 	routes: {
 		readonly game: Record<string, unknown>;
 		readonly pages?: ReadonlyArray<ReadonlyArray<unknown>>;
+		readonly childHeaders?: Readonly<Record<string, string>>;
 	},
 ) => {
 	const childBodies: Array<string> = [];
@@ -551,7 +651,9 @@ const runDetails = (
 			}
 			if (url.endsWith("/games")) {
 				childBodies.push(body);
-				return httpSuccess(routes.pages?.[childBodies.length - 1] ?? []);
+				return httpSuccess(routes.pages?.[childBodies.length - 1] ?? [], {
+					...routes.childHeaders,
+				});
 			}
 			return httpSuccess([]);
 		},
@@ -559,6 +661,35 @@ const runDetails = (
 	return runSandboxTestScript(details, { externalId }, host, execution).pipe(
 		Effect.map((result) => ({ result, childBodies })),
 	);
+};
+
+const runRelated = (
+	externalId: string,
+	continuation: JsonValue,
+	page: ReadonlyArray<unknown>,
+	headers: Record<string, string> = {},
+) => {
+	const childBodies: Array<string> = [];
+	const host = makeHost({
+		httpCall: (_method, url, options) => {
+			if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+				return tokenResponse();
+			}
+			childBodies.push(typeof options?.body === "string" ? options.body : "");
+			return httpSuccess(page, headers);
+		},
+	});
+	return runSandboxTestScript(
+		related,
+		{
+			externalId,
+			continuation,
+			direction: "outgoing",
+			relationshipSchemaSlug: "video-game-to-video-game",
+		},
+		host,
+		execution,
+	).pipe(Effect.map((result) => ({ result, childBodies })));
 };
 
 type DetailsResult = Effect.Success<ReturnType<typeof runDetails>>["result"];
@@ -603,6 +734,7 @@ describe("video-game.igdb game relationships", () => {
 						{
 							entities: [],
 							direction: "incoming",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "video-game-to-video-game",
 						},
@@ -682,32 +814,94 @@ describe("video-game.igdb game relationships", () => {
 			expect(videoGameGroups(memberOfBundle.result, "incoming")[0]).toMatchObject({ entities: [] });
 		}).pipe(Effect.runPromise));
 
-	it("pages the reverse lookup and stays authoritative once a page is short", () => {
-		return Effect.runPromise(
-			runDetails("472", { game: skyrim, pages: [modPage(1000), skyrimChildren] }).pipe(
-				Effect.map(({ result, childBodies }) => {
-					expect(childBodies).toHaveLength(2);
-					expect(childBodies[1]).toContain("offset 500;");
-					const [outgoing] = videoGameGroups(result, "outgoing");
-					expect(outgoing).toMatchObject({ synchronization: "authoritative" });
-					expect(outgoing?.entities).toHaveLength(506);
-					return undefined;
-				}),
-			),
-		);
-	});
+	it("starts with 500 children and durably follows every reverse page beyond 2,000", () =>
+		Effect.gen(function* () {
+			const countHeader = { "x-count": "2501" };
+			const first = yield* runDetails("472", {
+				game: skyrim,
+				pages: [modPage(1000)],
+				childHeaders: countHeader,
+			});
+			const [outgoing] = videoGameGroups(first.result, "outgoing");
+			expect(first.childBodies).toHaveLength(1);
+			expect(first.childBodies[0]).toContain("limit 500;");
+			expect(first.childBodies[0]).toContain("offset 0;");
+			expect(outgoing).toMatchObject({
+				synchronization: "authoritative",
+				coverage: { status: "more", continuation: { offset: 500, parentType: "Main Game" } },
+			});
+			const allEntities = [...(outgoing?.entities ?? [])];
+			let coverage = outgoing?.coverage;
+			const pages = [
+				modPage(1500),
+				modPage(2000),
+				modPage(2500),
+				modPage(3000),
+				[{ id: 3500, name: "Mod 3500", parent_game: SKYRIM_ID, game_type: { type: "Mod" } }],
+			];
+			const offsets: number[] = [];
+			for (const page of pages) {
+				if (coverage?.status !== "more") {
+					throw new Error("Expected IGDB child continuation");
+				}
+				const { result, childBodies } = yield* runRelated(
+					"472",
+					coverage.continuation,
+					page,
+					countHeader,
+				);
+				offsets.push(Number(childBodies[0]?.match(/offset (\d+);/)?.[1]));
+				allEntities.push(...result.entities);
+				coverage = result.coverage;
+			}
+			expect(offsets).toEqual([500, 1000, 1500, 2000, 2500]);
+			expect(coverage).toEqual({ status: "complete" });
+			expect(allEntities).toHaveLength(2501);
+			expect(allEntities[0]?.externalId).toBe("1000");
+			expect(allEntities[500]?.externalId).toBe("1500");
+			expect(allEntities.at(-1)?.externalId).toBe("3500");
+		}).pipe(Effect.runPromise));
 
-	it("degrades to additive and stops after four full pages", () => {
-		return Effect.runPromise(
-			runDetails("472", { game: skyrim, pages: [1000, 2000, 3000, 4000, 5000].map(modPage) }).pipe(
-				Effect.map(({ result, childBodies }) => {
-					expect(childBodies).toHaveLength(4);
+	it("deduplicates child IDs returned more than once in a page", () =>
+		Effect.runPromise(
+			runDetails("472", {
+				game: skyrim,
+				pages: [
+					[
+						{ id: 5, name: "First", parent_game: SKYRIM_ID, game_type: { type: "Port" } },
+						{ id: 5, name: "Duplicate", parent_game: SKYRIM_ID, game_type: { type: "DLC" } },
+						{ id: 6, name: "Second", parent_game: SKYRIM_ID, game_type: { type: "Expansion" } },
+					],
+				],
+			}).pipe(
+				Effect.map(({ result }) => {
 					const [outgoing] = videoGameGroups(result, "outgoing");
-					expect(outgoing).toMatchObject({ synchronization: "additive" });
-					expect(outgoing?.entities).toHaveLength(2000);
-					return undefined;
+					expect(outgoing?.entities.map(({ externalId }) => externalId)).toEqual(["5", "6"]);
 				}),
 			),
-		);
-	});
+		));
+
+	it("fails a related page request instead of treating a partial inventory as complete", () =>
+		Effect.gen(function* () {
+			const host = makeHost({
+				httpCall: (_method, url) =>
+					url.startsWith("https://id.twitch.tv/oauth2/token")
+						? tokenResponse()
+						: Effect.fail({ message: "IGDB unavailable" }),
+			});
+			const error = yield* Effect.flip(
+				runSandboxTestScript(
+					related,
+					{
+						externalId: "472",
+						direction: "outgoing",
+						relationshipSchemaSlug: "video-game-to-video-game",
+						continuation: { offset: 500, parentType: "Main Game" },
+					},
+					host,
+					execution,
+				),
+			);
+			expect(error).toMatchObject({ message: "IGDB unavailable" });
+		}).pipe(Effect.runPromise));
 });

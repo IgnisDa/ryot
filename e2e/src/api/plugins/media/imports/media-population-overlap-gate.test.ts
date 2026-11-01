@@ -53,6 +53,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 							{
 								direction: "incoming",
 								synchronization: "additive",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "person-to-music",
 								entities: [
 									{
@@ -72,6 +73,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 							{
 								direction: "incoming",
 								synchronization: "additive",
+								coverage: { status: "complete" },
 								relationshipSchemaSlug: "music-group-to-music",
 								entities: [
 									{

@@ -102,6 +102,11 @@ export const details = defineProvider({
 				providerSlug: entity.providerSlug,
 				relationshipProperties: entity.relationshipProperties,
 			}));
+			const hasPeopleInventory = Array.isArray(movie["characters"]);
+			const companiesInventory = movie["companies"];
+			const hasCompaniesInventory =
+				Array.isArray(companiesInventory) || asRecord(companiesInventory) !== null;
+			const full = input.level !== "base";
 
 			return {
 				name: title,
@@ -113,22 +118,43 @@ export const details = defineProvider({
 					description: normalizePlainDescription(translation.description ?? movie["overview"]),
 				},
 				relatedEntityGroups: [
-					{
-						direction: "incoming",
-						entities: relatedEntities,
-						synchronization: "additive",
-						relationshipSchemaSlug: "person-to-movie",
-					},
-					{
-						entities: companies,
-						direction: "incoming",
-						synchronization: "additive",
-						relationshipSchemaSlug: "company-to-movie",
-					},
+					...(full || hasPeopleInventory
+						? [
+								{
+									direction: "incoming" as const,
+									synchronization: "authoritative" as const,
+									relationshipSchemaSlug: "person-to-movie",
+									entities: hasPeopleInventory ? relatedEntities : [],
+									coverage: hasPeopleInventory
+										? { status: "complete" as const }
+										: {
+												status: "source-limited" as const,
+												reason: "TVDB movie characters inventory was missing or malformed",
+											},
+								},
+							]
+						: []),
+					...(full || hasCompaniesInventory
+						? [
+								{
+									direction: "incoming" as const,
+									synchronization: "authoritative" as const,
+									relationshipSchemaSlug: "company-to-movie",
+									entities: hasCompaniesInventory ? companies : [],
+									coverage: hasCompaniesInventory
+										? { status: "complete" as const }
+										: {
+												status: "source-limited" as const,
+												reason: "TVDB movie companies inventory was missing or malformed",
+											},
+								},
+							]
+						: []),
 					{
 						direction: "incoming",
 						synchronization: "additive",
 						entities: groupRelatedEntities,
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "movie-group-to-movie",
 					},
 					...mediaGenreGroups("movie", genres),

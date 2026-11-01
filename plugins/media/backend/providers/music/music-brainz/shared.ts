@@ -73,7 +73,7 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const dataValue = yield* mbGet(host, `recording/${input.externalId}`, {
-				inc: "artists+releases+release-groups",
+				inc: "artist-credits+releases+release-groups",
 			});
 			const data = asRecord(dataValue);
 			if (!data) {
@@ -139,11 +139,22 @@ export const details = defineProvider({
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
-						synchronization: "additive" as const,
+						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "person-to-music",
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "person.music-brainz",
 						),
+						coverage:
+							Array.isArray(data["artist-credit"]) &&
+							artistCredit.every((credit) =>
+								stringValue(asRecord(asRecord(credit)?.["artist"])?.["id"]),
+							)
+								? { status: "complete" as const }
+								: {
+										status: "source-limited" as const,
+										reason:
+											"MusicBrainz recording response did not include complete artist credits",
+									},
 					},
 					{
 						direction: "incoming" as const,
@@ -152,6 +163,11 @@ export const details = defineProvider({
 						entities: accumulator.entities.filter(
 							(entity) => entity.providerSlug === "music-group.music-brainz",
 						),
+						coverage: {
+							status: "source-limited" as const,
+							reason:
+								"MusicBrainz recording lookups include at most 25 linked releases, not a complete release-group inventory",
+						},
 					},
 					...mediaGenreGroups("music", []),
 				],

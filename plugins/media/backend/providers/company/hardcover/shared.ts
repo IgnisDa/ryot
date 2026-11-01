@@ -145,8 +145,9 @@ query GetHardcoverPublisherDetails($id: Int!) {
 						{
 							entities: mediaEntities,
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
+							synchronization: "additive" as const,
 							relationshipSchemaSlug: "company-to-book",
+							coverage: { status: "complete" as const },
 						},
 					],
 				};

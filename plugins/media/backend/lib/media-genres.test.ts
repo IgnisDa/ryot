@@ -7,6 +7,7 @@ it("deduplicates genre aliases into shared provider identities", () => {
 		{
 			direction: "outgoing",
 			synchronization: "authoritative",
+			coverage: { status: "complete" },
 			relationshipSchemaSlug: "movie-to-genre",
 			entities: [
 				{
@@ -26,6 +27,7 @@ it("emits an authoritative empty group for successful empty genres", () => {
 			entities: [],
 			direction: "outgoing",
 			synchronization: "authoritative",
+			coverage: { status: "complete" },
 			relationshipSchemaSlug: "book-to-genre",
 		},
 	]);

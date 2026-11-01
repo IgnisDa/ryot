@@ -138,6 +138,7 @@ beforeAll(() =>
 								{
 									direction: "outgoing",
 									synchronization: "authoritative",
+									coverage: { status: "complete" },
 									relationshipSchemaSlug: RELATIONSHIP_SCHEMA_SLUG,
 									entities: [
 										{

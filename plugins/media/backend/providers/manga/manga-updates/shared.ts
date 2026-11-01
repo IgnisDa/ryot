@@ -203,6 +203,7 @@ export const details = defineProvider({
 						entities: suggestions,
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 					},
 					...mediaGenreGroups("manga", genres),

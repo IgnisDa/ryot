@@ -181,13 +181,15 @@ export const details = defineProvider({
 						relatedEntityGroups: [
 							{
 								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
+								synchronization: "additive" as const,
+								coverage: { status: "complete" as const },
 								relationshipSchemaSlug: "person-to-video-game",
 								entities: collectRelated(person["games"], "video-game.giant-bomb"),
 							},
 							{
 								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
+								synchronization: "additive" as const,
+								coverage: { status: "complete" as const },
 								relationshipSchemaSlug: "person-to-video-game-group",
 								entities: collectRelated(person["franchises"], "video-game-group.giant-bomb"),
 							},

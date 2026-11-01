@@ -70,7 +70,8 @@ describe("movie.tvdb sandbox script", () => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-movie",
 							entities: [
 								{
@@ -78,27 +79,30 @@ describe("movie.tvdb sandbox script", () => {
 									externalId: "1",
 									providerSlug: "person.tvdb",
 									relationshipProperties: {
+										isUncredited: false,
 										character: "Hero / Villain",
 										roles: ["Actor", "Director"],
+										creditKinds: ["cast", "crew"],
 									},
 								},
 								{
 									name: "Actor B",
 									externalId: "2",
 									providerSlug: "person.tvdb",
-									relationshipProperties: { roles: ["Writer"] },
+									relationshipProperties: { roles: ["Writer"], creditKinds: ["crew"] },
 								},
 								{
 									name: "Actor C",
 									externalId: "3",
 									providerSlug: "person.tvdb",
-									relationshipProperties: { roles: ["Cast"] },
+									relationshipProperties: { roles: [] },
 								},
 							],
 						},
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-movie",
 							entities: [
 								{
@@ -112,6 +116,7 @@ describe("movie.tvdb sandbox script", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "movie-group-to-movie",
 							entities: [
 								{
@@ -135,6 +140,64 @@ describe("movie.tvdb sandbox script", () => {
 			),
 		);
 	});
+
+	it.each([
+		{
+			inventories: {},
+			label: "missing inventories",
+			peopleCoverage: {
+				status: "source-limited",
+				reason: "TVDB movie characters inventory was missing or malformed",
+			},
+			companyCoverage: {
+				status: "source-limited",
+				reason: "TVDB movie companies inventory was missing or malformed",
+			},
+		},
+		{
+			label: "explicit empty inventories",
+			peopleCoverage: { status: "complete" },
+			companyCoverage: { status: "complete" },
+			inventories: { companies: {}, characters: [] },
+		},
+	])(
+		"reports full movie credit coverage for $label",
+		({ inventories, peopleCoverage, companyCoverage }) => {
+			const host = makeHost((_method, url) =>
+				url.includes("/translations/")
+					? httpSuccess({})
+					: httpSuccess({ data: { name: "Movie", ...inventories } }),
+			);
+			return Effect.runPromise(
+				runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+					Effect.map((result) => {
+						const groups = result.relatedEntityGroups ?? [];
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "person-to-movie",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: peopleCoverage,
+							synchronization: "authoritative",
+						});
+						expect(
+							groups.find(
+								({ relationshipSchemaSlug }) => relationshipSchemaSlug === "company-to-movie",
+							),
+						).toMatchObject({
+							entities: [],
+							direction: "incoming",
+							coverage: companyCoverage,
+							synchronization: "authoritative",
+						});
+						return undefined;
+					}),
+				),
+			);
+		},
+	);
 	it("applies translation name and description over the base movie fields", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations/")

@@ -1783,6 +1783,7 @@ layer(
 					relatedEntityGroups: [
 						{
 							direction: "outgoing",
+							coverage: { status: "complete" },
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "credits",
 							entities: [

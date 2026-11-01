@@ -21,6 +21,54 @@ const searchResponse = () =>
 	httpSuccess({ data: { Page: { media: [], pageInfo: { total: 41 } } } });
 
 describe("anime.anilist sandbox script", () => {
+	it("fetches all three airing schedule pages and keeps the unpaged studios inventory", () => {
+		const bodies: string[] = [];
+		const host = makeHost((_method, _url, options) => {
+			bodies.push(options?.body ?? "");
+			const page = bodies.length;
+			return httpSuccess({
+				data: {
+					Media: {
+						id: 1,
+						genres: [],
+						type: "ANIME",
+						description: null,
+						title: { english: "Source" },
+						recommendations: { nodes: [] },
+						studios: { nodes: [{ id: 5, name: "Studio" }] },
+						airingSchedule: {
+							pageInfo: { hasNextPage: page < 3 },
+							nodes: [
+								{ episode: page, airingAt: 1700000000 + page * 60 },
+								{ episode: page, airingAt: 1700000000 + page * 60 },
+							],
+						},
+					},
+				},
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(bodies).toHaveLength(3);
+					expect(bodies[0]).toContain("recommendations(page: 1, perPage: 25, sort: RATING_DESC)");
+					expect(bodies[1]).toContain('"page":2');
+					expect(bodies[2]).toContain('"page":3');
+					expect(result.properties).toMatchObject({
+						airingSchedule: [
+							{ episode: 1, airingAt: "2023-11-14T22:14:20.000Z" },
+							{ episode: 2, airingAt: "2023-11-14T22:15:20.000Z" },
+							{ episode: 3, airingAt: "2023-11-14T22:16:20.000Z" },
+						],
+					});
+					expect(result.relatedEntityGroups?.[0]).toMatchObject({
+						synchronization: "authoritative",
+						coverage: { status: "complete" },
+					});
+				}),
+			),
+		);
+	});
 	it("declares one script per operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],
@@ -45,9 +93,11 @@ describe("anime.anilist sandbox script", () => {
 						description: null,
 						bannerImage: null,
 						status: "FINISHED",
+						studios: { nodes: [] },
 						startDate: { year: 2020 },
 						title: { english: "Source" },
 						coverImage: { extraLarge: null },
+						airingSchedule: { nodes: [], pageInfo: { hasNextPage: false } },
 						recommendations: {
 							nodes: [
 								{ mediaRecommendation: { id: 2, type: "ANIME", title: { english: "Anime Pick" } } },
@@ -65,12 +115,14 @@ describe("anime.anilist sandbox script", () => {
 						{
 							entities: [],
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-anime",
 						},
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "2", name: "Anime Pick", providerSlug: "anime.anilist" },
@@ -81,6 +133,7 @@ describe("anime.anilist sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "anime-to-genre",
 						},
 					]);
@@ -89,6 +142,34 @@ describe("anime.anilist sandbox script", () => {
 			),
 		);
 	});
+
+	it("fails when an AniList studio has an invalid identity", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				data: {
+					Media: {
+						id: 1,
+						genres: [],
+						type: "ANIME",
+						description: null,
+						studios: { nodes: [{}] },
+						title: { english: "Source" },
+						recommendations: { nodes: [] },
+						airingSchedule: { nodes: [], pageInfo: { hasNextPage: false } },
+					},
+				},
+			}),
+		);
+
+		return Effect.runPromise(
+			Effect.flip(runSandboxTestScript(details, { externalId: "1" }, host, execution)).pipe(
+				Effect.map((error) =>
+					expect(error).toMatchObject({ message: "AniList studio identity is malformed" }),
+				),
+			),
+		);
+	});
+
 	it("preserves description formatting, title-cases status, and orders the airing schedule", () => {
 		const host = makeHost(() =>
 			httpSuccess({
@@ -116,6 +197,7 @@ describe("anime.anilist sandbox script", () => {
 							],
 						},
 						airingSchedule: {
+							pageInfo: { hasNextPage: false },
 							nodes: [
 								{ episode: 2, airingAt: 1700000600 },
 								{ episode: 1, airingAt: 1700000000 },
@@ -157,6 +239,7 @@ describe("anime.anilist sandbox script", () => {
 					expect(result.relatedEntityGroups?.[2]).toEqual({
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "anime-to-genre",
 						entities: [
 							{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },

@@ -171,6 +171,7 @@ describe("exercise.free-exercise-db sandbox script", () => {
 					{
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "exercise-targets",
 						entities: [
 							{
@@ -192,6 +193,7 @@ describe("exercise.free-exercise-db sandbox script", () => {
 					{
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "exercise-uses-equipment",
 						entities: [
 							{
@@ -256,12 +258,14 @@ describe("exercise.free-exercise-db sandbox script", () => {
 						entities: [],
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "exercise-targets",
 					},
 					{
 						entities: [],
 						direction: "outgoing",
 						synchronization: "authoritative",
+						coverage: { status: "complete" },
 						relationshipSchemaSlug: "exercise-uses-equipment",
 					},
 				]);

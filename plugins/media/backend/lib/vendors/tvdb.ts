@@ -361,26 +361,74 @@ export const collectCompanies = (
 	return [...companyByKey.values()];
 };
 
+const tvdbCastTypes = new Set(["cast", "actor", "actress", "guest star", "voice actor"]);
+const tvdbCrewTypes = new Set([
+	"crew",
+	"editor",
+	"writer",
+	"creator",
+	"composer",
+	"director",
+	"producer",
+	"cinematographer",
+	"executive producer",
+	"production designer",
+]);
+
+export const getTvdbCreditRelationshipProperties = (credit: UnknownRecord) => {
+	const role = stringValue(credit["peopleType"]) ?? stringValue(credit["people_type"]);
+	const characterName = stringValue(credit["name"]);
+	const normalizedRole = role?.trim().toLowerCase();
+	let creditKind: "cast" | "crew" | undefined;
+	if (normalizedRole && tvdbCastTypes.has(normalizedRole)) {
+		creditKind = "cast";
+	} else if (normalizedRole && tvdbCrewTypes.has(normalizedRole)) {
+		creditKind = "crew";
+	}
+	const order = ["sort", "sortOrder", "sort_order", "order"]
+		.map((key) => numberValue(credit[key]))
+		.find((value) => value !== null);
+	const department = stringValue(credit["department"]);
+	let isGuest: boolean | undefined;
+	if (typeof credit["isGuest"] === "boolean") {
+		isGuest = credit["isGuest"];
+	} else if (typeof credit["is_guest"] === "boolean") {
+		isGuest = credit["is_guest"];
+	} else if (normalizedRole === "guest star") {
+		isGuest = true;
+	}
+	let isUncredited: boolean | undefined;
+	if (typeof credit["isUncredited"] === "boolean") {
+		isUncredited = credit["isUncredited"];
+	} else if (typeof credit["is_uncredited"] === "boolean") {
+		isUncredited = credit["is_uncredited"];
+	} else if (creditKind !== "crew" && characterName !== null) {
+		isUncredited = /\(uncredited\)\s*$/i.test(characterName);
+	}
+
+	return {
+		roles: role ? [role] : [],
+		...(characterName === null ? {} : { character: characterName }),
+		...(order === undefined ? {} : { order: Math.trunc(order) }),
+		...(creditKind === undefined ? {} : { creditKinds: [creditKind] }),
+		...(department === null ? {} : { departments: [department] }),
+		...(isGuest === undefined ? {} : { isGuest }),
+		...(isUncredited === undefined ? {} : { isUncredited }),
+	};
+};
+
 export const collectPeople = (characters: unknown) => {
 	const related = createRoleAccumulator();
-	const characterRecords = recordsValue(asArray(characters).slice(0, 20));
-	for (const character of characterRecords) {
-		const name = stringValue(character["personName"]) ?? "Loading...";
-		const role = stringValue(character["peopleType"]) ?? "Cast";
-		const characterName = stringValue(character["name"]);
+	for (const character of recordsValue(asArray(characters))) {
 		const peopleId = numberValue(character["peopleId"]);
 		if (peopleId === null) {
 			continue;
 		}
-
 		related.add({
-			name,
 			providerSlug: "person.tvdb",
 			externalId: String(Math.trunc(peopleId)),
-			relationshipProperties: {
-				roles: [role],
-				...(characterName === null ? {} : { character: characterName }),
-			},
+			name: stringValue(character["personName"]) ?? "Loading...",
+			relationshipProperties: getTvdbCreditRelationshipProperties(character),
 		});
 	}
 

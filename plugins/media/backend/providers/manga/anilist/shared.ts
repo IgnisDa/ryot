@@ -50,7 +50,7 @@ query MediaDetailsQuery($id: Int!) {
     startDate { year }
     title { english romaji native userPreferred }
     coverImage { extraLarge }
-    recommendations { nodes { mediaRecommendation { id type title { english romaji native userPreferred } } } }
+    recommendations(page: 1, perPage: 25, sort: RATING_DESC) { nodes { mediaRecommendation { id type title { english romaji native userPreferred } } } }
   }
 }
 `;
@@ -90,6 +90,7 @@ export const details = defineProvider({
 					{
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 						entities: collectSuggestions(media["recommendations"], titleLanguage),
 					},

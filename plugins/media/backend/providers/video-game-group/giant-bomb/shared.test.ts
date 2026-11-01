@@ -67,6 +67,7 @@ describe("video-game-group.giant-bomb sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "video-game-group-to-video-game",
 							entities: [
 								{

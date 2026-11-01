@@ -54,6 +54,7 @@ describe("manga.myanimelist sandbox script", () => {
 						{
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ externalId: "3", name: "Related Anime", providerSlug: "anime.myanimelist" },
@@ -65,6 +66,7 @@ describe("manga.myanimelist sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "manga-to-genre",
 						},
 					]);

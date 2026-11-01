@@ -198,7 +198,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		primaryEntitySchemaSlug: EntitySchemaSlug;
 		definitions: EntityRelationshipDefinitions;
 		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		group: Omit<ProviderDetailsRelatedEntityGroup, "continuation">;
+		group: Omit<ProviderDetailsRelatedEntityGroup, "coverage">;
 	},
 ) {
 	const session = yield* DatabaseSession;

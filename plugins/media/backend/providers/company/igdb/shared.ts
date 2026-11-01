@@ -112,14 +112,6 @@ export const details = defineProvider({
 
 				return {
 					name,
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							entities: accumulator.entities,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "company-to-video-game",
-						},
-					],
 					properties: {
 						images,
 						website,
@@ -128,6 +120,15 @@ export const details = defineProvider({
 						sourceUrl: `https://www.igdb.com/companies/${input.externalId}`,
 						description: normalizePlainDescription(company?.["description"]),
 					},
+					relatedEntityGroups: [
+						{
+							direction: "outgoing" as const,
+							entities: accumulator.entities,
+							synchronization: "additive" as const,
+							coverage: { status: "complete" as const },
+							relationshipSchemaSlug: "company-to-video-game",
+						},
+					],
 				};
 			}),
 		);

@@ -76,14 +76,16 @@ export const details = defineProvider({
 						{
 							entities: movieEntities,
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
+							synchronization: "additive" as const,
+							coverage: { status: "complete" as const },
 							relationshipSchemaSlug: "company-to-movie",
 						},
 						{
 							entities: showEntities,
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
+							synchronization: "additive" as const,
 							relationshipSchemaSlug: "company-to-show",
+							coverage: { status: "complete" as const },
 						},
 					],
 				};

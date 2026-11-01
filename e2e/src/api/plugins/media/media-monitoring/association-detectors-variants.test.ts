@@ -88,6 +88,7 @@ describe("company and media-group association variants", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-movie",
 							entities: [
 								{
@@ -171,6 +172,7 @@ describe("company and media-group association variants", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-music-group",
 							entities: [
 								{
@@ -184,6 +186,7 @@ describe("company and media-group association variants", () => {
 						{
 							direction: "incoming",
 							synchronization: "additive",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "company-to-music-group",
 							entities: [
 								{

@@ -79,6 +79,7 @@ export const details = defineProvider({
 					{
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
+						coverage: { status: "complete" as const },
 						relationshipSchemaSlug: "media-suggestion",
 						entities: [
 							...collectProviderSuggestions(payload?.["related_anime"], "anime.myanimelist"),

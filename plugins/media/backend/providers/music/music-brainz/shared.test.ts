@@ -77,7 +77,8 @@ describe("music.music-brainz sandbox script", () => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
 							direction: "incoming",
-							synchronization: "additive",
+							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "person-to-music",
 							entities: [
 								{
@@ -98,6 +99,11 @@ describe("music.music-brainz sandbox script", () => {
 							direction: "incoming",
 							synchronization: "additive",
 							relationshipSchemaSlug: "music-group-to-music",
+							coverage: {
+								status: "source-limited",
+								reason:
+									"MusicBrainz recording lookups include at most 25 linked releases, not a complete release-group inventory",
+							},
 							entities: [
 								{
 									externalId: "g1",
@@ -111,6 +117,7 @@ describe("music.music-brainz sandbox script", () => {
 							entities: [],
 							direction: "outgoing",
 							synchronization: "authoritative",
+							coverage: { status: "complete" },
 							relationshipSchemaSlug: "music-to-genre",
 						},
 					]);
