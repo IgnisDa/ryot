@@ -288,3 +288,31 @@ What still writes the most:
   and in the `PolicyBatchWorkflow` payload.
 - **Pins and host-service payloads, 4–8 KB each.** Most of what remains is the config schema and
   script metadata.
+
+## Runs `probes8`, `probes9` (inline writes and per-batch schemas, `912380c69b`)
+
+Two runs of the same revision, against `probes7`. Server CPU, transactions and statements are net
+of the calibrated idle rate; `probes7 → probes8 / probes9`, medians.
+
+| Flow | Sandbox runs | Net server CPU | Statements | Bytes | Caller |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Signup | 4 → 2 | 736 → 622 / 629 ms | 473 → 453 / 457 | 19 → 16 KB | 905 → 682 / 691 ms |
+| Event create, `backlog` | 9 → 6 | 1072 → 805 / 783 ms | 1061 → 1046 / 1051 | 209 → 193 KB | 599 → 528 / 527 ms |
+| Review operation | 25 → 19 | 2395 → 2257 / 2013 ms | 2505 → 2435 / 2437 | 512 → 561 / 520 KB | 2044 → 2027 / 1971 ms |
+| Workout, 1 set | 5 → 4 | 778 → 740 / 772 ms | 763 → 750 / 754 | 119 → 105 KB | 1140 → 1066 / 1214 ms |
+| Workout, 10 sets | 5 → 4 | 893 → 1071 / 993 ms | 1128 → 1121 / 1119 | 305 → 192 KB | 1368 → 1388 / 1568 ms |
+| Workout, 25 sets | 5 → 4 | 1197 → 1378 / 1188 ms | 1760 → 1760 / 1757 | 619 → 341 KB | 1588 → 1879 / 1707 ms |
+
+- **Inline writes** remove a third of the replays where no nested sandbox run is involved. Event create
+  keeps 6 of its 9 runs because its `createEvents` starts policy runs, which defer the write (step 3
+  of `design-run-once.md`).
+- **One schema copy per batch** halves a workout's bytes: the 25-set workout's policy batch payload
+  drops from 75 KB to under 20 KB, and `prepare-events`, the `apply` steps and
+  `validate-final-drafts` shrink alike.
+- **Workouts** run one replay fewer but show no CPU change beyond noise. Each workout size ran once
+  per run, and the 10-set flow's +100–180 ms sits within the spread between the two runs.
+- **Settle times** take the values 0.13 s, 1.7 s or 3.3 s in every run. They measure the settle
+  window, not the flow, so the raw `ms` figures cannot be compared.
+- **Background work:** two of the three review samples in `probes8` ran an extra relationship
+  projection and an extra user script. The faster write path changes when coalescing requests
+  arrive, so a request can now land after the first run has started.
