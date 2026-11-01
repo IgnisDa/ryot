@@ -87,3 +87,14 @@
     environment to the API servers, and the VM runs never had the owner's `RYOT_PLUGIN__*` provider
     configuration. Several "suite-only" failures in the baselines may therefore be missing
     configuration, not load. `vm-e2e.sh` now loads those keys from a VM-only file (never committed).
+- `solo2`: the six failing files, run one at a time with provider configuration. Five pass in full:
+  - `integrations` 20/20 in 38 s (740 s and 4 timeouts without configuration)
+  - `episodic-lifecycle` 6/6
+  - `history-correction` 6/6
+  - `user-data` 4/4
+  - `plugin-package-conflicts` 5/5
+
+  `history-correction-liveness` fails 3 of 5 at 180 s, and its passing test takes 149 s. Work does
+  not stall during these tests: the engine completes 750–1,170 workflow executions per minute, about
+  2,700 per test. They are slow because of the sheer number of operations, which is what slices 3–4
+  remove.

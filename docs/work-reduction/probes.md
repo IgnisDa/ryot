@@ -126,3 +126,29 @@ remains.
 There is no algorithmic hotspot. CPU is spread evenly across the runtime, proportional to the number
 of operations (statements, fibers, spans, durable messages). Removing operations is the lever;
 micro-optimizing any one function is not.
+
+## Run `probes-eng` (revision `6692634b13`: slices 1–2, idle VM)
+
+The same probes on the PostgreSQL workflow engine. Medians of repeats, `probes3` → `probes-eng`.
+`probes3` ran with `PROFILE=1`, which matched `probes2` within noise.
+
+| Flow | Statements | Transactions | DB exec | Server CPU | Caller |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Signup | 920 → 568 | 256 → 227 | 161 → 135 ms | 1.00 → 0.81 s | 1.13 → 0.89 s |
+| Media movie fixture | 267 → 155 | 169 → 109 | 71 → 70 ms | 0.28 → 0.25 s | 0.57 → 0.42 s |
+| Event create, `backlog` | 2,434 → 1,310 | 912 → 459 | 983 → 247 ms | 1.75 → 1.27 s | 1.26 → 0.70 s |
+| Review operation | 6,018 → 3,037 | 2,717 → 982 | 3.23 → 0.80 s | 4.34 → 2.92 s | 4.33 → 2.52 s |
+| Workout, 1 set | 1,728 → 902 | 572 → 430 | 286 → 215 ms | 1.10 → 0.95 s | 1.59 → 1.21 s |
+| Workout, 10 sets | 2,148 → 1,302 | 686 → 230 | 359 → 269 ms | 2.02 → 1.11 s | 1.94 → 1.50 s |
+| Workout, 25 sets | 2,845 → 1,993 | 798 → 266 | 419 → 284 ms | 1.61 → 1.21 s | 2.25 → 1.52 s |
+
+- Statements fall by 35–50% and database time by up to 75%, which matches the Cluster share of the
+  statements measured in `base1`.
+- Server CPU falls by only 15–35%. The remaining cost is the cascade itself: the backlog create still
+  starts the same 36 workflows and 9 sandbox scripts and writes 85 mutation receipts. Slices 3–4
+  target those.
+- Idle backend CPU halved, from 89 to 46 ms/s. Idle transactions are dominated by the probe's own
+  snapshots.
+- Writes behind one backlog create: `mutation_receipt` 85, `workflow_step` 77,
+  `workflow_execution` 57, `automation_run` 15, `sandbox_workflow_reference` 14. The 663
+  `cluster_*` rows are gone.
