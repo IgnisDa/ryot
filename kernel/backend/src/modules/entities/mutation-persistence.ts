@@ -31,6 +31,7 @@ import {
 	MutationReceiptIdentity,
 	MutationReceiptIdentityConflict,
 	type MutationReceipts,
+	mutationUserIds,
 } from "#modules/mutations/receipts";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { isUniqueConstraintError } from "#platform/db/errors";
@@ -403,7 +404,7 @@ export const makePersistMutation = <E, R, Result>({
 		input: PreparedMutation,
 		batch?: PersistBatch & { readonly index: number },
 	) {
-		yield* repository.lockSchemaCatalog();
+		yield* repository.lockSchemaCatalog(mutationUserIds(input.lifecycle, input.scopeUserId));
 		yield* authorizeMutation(input);
 		const replay = yield* receipts
 			.lookup(input.receipt, resultCodec)

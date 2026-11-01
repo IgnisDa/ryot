@@ -96,7 +96,7 @@ const testLayer = Layer.unwrap(
 				Layer.mergeAll(
 					SavedViewsRepository.layer,
 					Layer.mock(PluginRepository)({
-						lockIngestionShared: () => lockPluginIngestionShared(session),
+						lockIngestionShared: (userIds) => lockPluginIngestionShared(session, userIds),
 					}),
 					Layer.mock(PluginInstallationRepository)({}),
 					Layer.mock(PluginRuntimeResolver)({

@@ -65,7 +65,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 					});
 				}
 				yield* admitWorkflow(receipts, BackgroundWorkWorkflow, account, input.id);
-				yield* references.lockIngestionShared();
+				yield* references.lockIngestionShared([account.userId]);
 				const payload = yield* Schema.encodeUnknownEffect(JsonValue)(input).pipe(
 					Effect.mapError(() => new DbError({ message: "Invalid background input" })),
 				);

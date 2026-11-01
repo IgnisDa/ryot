@@ -132,7 +132,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				}) {
 					yield* database.requireTransaction;
 					if (input.pluginInstallationId !== null) {
-						yield* lockPluginIngestionShared(database);
+						yield* lockPluginIngestionShared(database, [input.userId]);
 					}
 					yield* database.acquireUserWriteLock(input.userId);
 					const integrationId = input.integrationId;
@@ -238,7 +238,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					inputSummary: Record<string, unknown>;
 				}) {
 					yield* database.requireTransaction;
-					yield* lockPluginIngestionShared(database);
+					yield* lockPluginIngestionShared(database, [input.userId]);
 					yield* database.acquireUserWriteLock(input.userId);
 					const [user] = yield* database.run((db) =>
 						db
@@ -490,7 +490,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				scope: IngestionScope,
 			) {
 				yield* database.requireTransaction;
-				yield* lockPluginIngestionShared(database);
+				yield* lockPluginIngestionShared(database, [scope.userId]);
 				const [owner] = yield* database.run((db) =>
 					db
 						.select({

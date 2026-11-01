@@ -16,7 +16,11 @@ import {
 	mutationReceiptRecord,
 } from "#modules/entities/mutation-persistence";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { mutationReceiptIdentity, mutationReceiptOwner } from "#modules/mutations/receipts";
+import {
+	mutationReceiptIdentity,
+	mutationReceiptOwner,
+	mutationUserIds,
+} from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
@@ -91,7 +95,7 @@ export const makePlannedRelationshipReconciliation = (
 				dispatch: recorded.flatMap((entry) => entry.dispatch),
 			} satisfies CommittedLifecycleWork<PlannedRelationshipReconciliationResult>;
 		}
-		yield* runtime.lockCatalog();
+		yield* runtime.lockCatalog(mutationUserIds(command, scopeUserId));
 		const references = groups.map((group) => group.relationshipSchema);
 		const schemas =
 			scope.scope === "user"

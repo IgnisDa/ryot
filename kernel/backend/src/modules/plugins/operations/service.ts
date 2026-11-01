@@ -156,6 +156,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				});
 				const contentHash = input.contentHash;
 				const resolveOperation = Effect.fn(function* (userId: UserId) {
+					yield* repository.lockIngestionShared([userId]);
 					const selected = yield* runtime.resolveUserPackage(userId, input.packageId);
 					if (selected.kind === "absent") {
 						return null;
@@ -426,12 +427,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					});
 				const authorized = yield* mapDatabaseErrors(
 					database
-						.transaction(
-							Effect.gen(function* () {
-								yield* repository.lockIngestionShared();
-								return yield* resolveAuthorized();
-							}),
-						)
+						.transaction(resolveAuthorized())
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				);
 				const resultIdentity =

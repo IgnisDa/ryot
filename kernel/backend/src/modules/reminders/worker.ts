@@ -51,7 +51,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 			const lockCandidate = Effect.fnUntraced(function* (captured: ReminderRecord) {
 				const userId = UserId.make(captured.userId);
 				yield* receipts.admitAccount({ userId, token: captured.accountGeneration });
-				yield* plugins.lockIngestionShared();
+				yield* plugins.lockIngestionShared([userId]);
 				yield* entities.lockUserDataReferences(
 					[captured.entityId, captured.parentEntityId]
 						.filter((id) => id !== null)

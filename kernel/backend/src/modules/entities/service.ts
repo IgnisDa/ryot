@@ -57,6 +57,7 @@ import {
 	MutationReceiptIdentityConflict,
 	mutationReceiptOwner,
 	MutationReceipts,
+	mutationUserIds,
 } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { principalOwner } from "#modules/scripts/authorization/principal";
@@ -397,6 +398,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			);
 			const admitted = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
+				userIds: ReadonlyArray<UserId>,
 				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>>,
 			) =>
 				Effect.gen(function* () {
@@ -405,22 +407,23 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					)) {
 						yield* receipts.admitAccount(account);
 					}
-					yield* repository.lockSchemaCatalog();
+					yield* repository.lockSchemaCatalog([
+						...userIds,
+						...accounts.map((account) => account.userId),
+					]);
 					return yield* work;
 				});
-			const transaction = <A, E, R>(
-				work: Effect.Effect<A, E, R>,
-				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>> = [],
-			) =>
-				runRootTransaction(session, admitted(work, accounts)).pipe(
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
+				runRootTransaction(session, admitted(work, userIds, [])).pipe(
 					Effect.catchTag("DatabaseSessionStateError", () => Effect.fail(enclosingTransaction())),
 				);
 			const eventTransaction = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
+				userIds: ReadonlyArray<UserId>,
 				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>>,
 			) =>
 				events
-					.transaction(admitted(work, accounts))
+					.transaction(admitted(work, userIds, accounts))
 					.pipe(
 						Effect.catchTag("DatabaseSessionStateError", () => Effect.fail(enclosingTransaction())),
 					);
@@ -480,6 +483,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							yield* receipts.insert({ result, identity, dispatch: [] });
 							return { result, dispatch: [], _tag: "Committed" as const };
 						}),
+						mutationUserIds(input.lifecycle, input.userId),
 					);
 				},
 			);
@@ -704,7 +708,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return pending;
 			});
 			const planMutation = (input: Parameters<typeof planMutationInTransaction>[0]) =>
-				transaction(planMutationInTransaction(input)).pipe(
+				transaction(
+					planMutationInTransaction(input),
+					mutationUserIds(input.lifecycle, input.scopeUserId),
+				).pipe(
 					Effect.filterOrFail(
 						(planned): planned is PendingEntityMutation => "request" in planned,
 						() => bad("automation-limit", "Entity request exceeds automation limits"),
@@ -876,7 +883,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				} satisfies LifecycleCommittedStep<EntitySnapshotResult>;
 			});
 			const commitMutation = Effect.fn("EntitiesService.commitMutation")(
-				(pending: PendingEntityMutation) => transaction(persistAndBatch(pending)),
+				(pending: PendingEntityMutation) =>
+					transaction(
+						persistAndBatch(pending),
+						mutationUserIds(pending.lifecycle, pending.scopeUserId),
+					),
 			);
 			const assertUserEditable = Effect.fnUntraced(function* (prepared: PreparedMutation) {
 				if (prepared.operation !== "update") {
@@ -967,6 +978,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 										? ((yield* repository.getMutationEntity(entity.id, true))?.entity ?? null)
 										: null;
 								}),
+								mutationUserIds(input.lifecycle, scopeUserId),
 							)
 						: null;
 				if (existing) {
@@ -1013,6 +1025,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				if (replay) {
 					const batch = yield* transaction(
 						entityBatchPlans({ identity: ["batch"], command: input.lifecycle }),
+						mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
 					);
 					return {
 						_tag: "Committed",
@@ -1052,6 +1065,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							yield* planner.planBatch({ ...batchScope, resource: "entity" });
 							return { result, dispatch: [], _tag: "Committed" as const };
 						}),
+						mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
 					);
 				}
 				return yield* transaction(
@@ -1064,6 +1078,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							? { pending, _tag: "PoliciesRequired" as const }
 							: yield* persistAndBatch(pending);
 					}),
+					mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
 				).pipe(
 					Effect.filterOrFail(
 						(step) => step._tag !== "Blocked",
@@ -1123,7 +1138,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					({ identity }) => providerEntityMutationLockKey(identity),
 					({ receipt }) => receipt,
 				);
-				yield* repository.lockSchemaCatalog();
+				yield* repository.lockSchemaCatalog(
+					items.flatMap(({ item, scopeUserId }) => mutationUserIds(item.lifecycle, scopeUserId)),
+				);
 				const decision = yield* planner.prepareBatch({
 					...input.batch,
 					resource: "entity",
@@ -1326,6 +1343,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					if (recorded) {
 						const batch = yield* transaction(
 							entityBatchPlans({ identity: ["batch"], command: input.lifecycle }),
+							mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
 						);
 						return {
 							entity: recorded.result.entity,
@@ -1397,13 +1415,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								? { pending, _tag: "PoliciesRequired" as const }
 								: yield* persistCheckedUpdate(pending, input.requireUserOwned === true);
 						}),
+						mutationUserIds(input.lifecycle, current.userId),
 					).pipe(
 						Effect.filterOrFail(
 							(step) => step._tag !== "Blocked",
 							() => bad("automation-limit", "Entity request exceeds automation limits"),
 						),
 					),
-					(pending) => transaction(persistCheckedUpdate(pending, input.requireUserOwned === true)),
+					(pending) =>
+						transaction(
+							persistCheckedUpdate(pending, input.requireUserOwned === true),
+							mutationUserIds(pending.lifecycle, pending.scopeUserId),
+						),
 				);
 				return { entity, warnings };
 			});
@@ -1808,6 +1831,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							});
 							return { dispatch, deletedCount };
 						}),
+						[
+							...mutationUserIds(lifecycle, null),
+							...prepared.flatMap((item) =>
+								item === null ? [] : mutationUserIds(lifecycle, item.scopeUserId),
+							),
+						],
 						[...accounts.values()],
 					);
 					const warnings = yield* execution.dispatch(committed.dispatch);
@@ -2043,6 +2072,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						});
 						return result;
 					}),
+					mutationUserIds(lifecycle, userId),
 				);
 				return yield* Effect.forEach(committed, (item) =>
 					Effect.gen(function* () {
@@ -2243,6 +2273,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							_tag: "Committed" as const,
 						} satisfies LifecycleCommittedStep<GlobalEntityUpsertResults>;
 					}),
+					mutationUserIds(lifecycle, null),
 				);
 			});
 			const prepareUpsertGlobalEntitiesStep = Effect.fn(

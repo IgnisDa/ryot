@@ -236,7 +236,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							assetLocators.set(`s3:${sha256}`, staged.locator);
 						}
 						const restoreTransaction = Effect.fnUntraced(function* () {
-							yield* pluginRestore.lockIngestion;
+							yield* pluginRestore.lockIngestionForUser(payload.userId);
 							yield* database.acquireUserWriteLock(payload.userId);
 							const currentRun = yield* repository.getRunById(payload);
 							if (currentRun?.status === "completed") {

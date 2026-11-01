@@ -66,7 +66,7 @@ const makeLayer = (input?: { readonly definitions?: DefinitionSnapshot }) => {
 			return Context.make(
 				PluginRepository,
 				partialFake<PluginRepository["Service"]>({
-					lockIngestion: () => Effect.void,
+					lockIngestionForUser: () => Effect.void,
 					listPortablePluginMetadata: () => Effect.succeed([]),
 					persist: () => Ref.update(persists, (count) => count + 1).pipe(Effect.as("plugin-id")),
 				}),

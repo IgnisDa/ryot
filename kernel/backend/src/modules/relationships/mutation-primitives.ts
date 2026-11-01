@@ -32,7 +32,7 @@ import {
 	type DomainWritePin,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
-import { MutationReceiptIdentityConflict } from "#modules/mutations/receipts";
+import { MutationReceiptIdentityConflict, mutationUserIds } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import { isCollectionMember } from "./collection-order";
@@ -604,7 +604,11 @@ export const makeRelationshipMutationPrimitives = ({
 			mutations.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
 		);
 		yield* repository.lockRelationshipMutations(mutations.map(({ input }) => input));
-		yield* runtime.lockCatalog();
+		yield* runtime.lockCatalog(
+			mutations.flatMap(({ input, command }) =>
+				mutationUserIds(command, input.scope === "user" ? input.userId : null),
+			),
+		);
 	});
 	return {
 		planChange,

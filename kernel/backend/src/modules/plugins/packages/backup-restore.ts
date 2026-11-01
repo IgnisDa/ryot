@@ -89,7 +89,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				prepared: ReadonlyArray<PreparedBackupPrivatePlugin>,
 			) {
 				const pluginIdByKey = new Map<string, string>();
-				yield* plugins.lockIngestion();
+				yield* plugins.lockIngestionForUser(userId);
 				for (const item of prepared) {
 					const pluginId = yield* plugins.persist(item.normalized, {
 						scope: "user",
@@ -120,7 +120,12 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				});
 			});
 
-			return { persist, prepare, buildDefinitions, lockIngestion: plugins.lockIngestion() };
+			return {
+				persist,
+				prepare,
+				buildDefinitions,
+				lockIngestionForUser: plugins.lockIngestionForUser,
+			};
 		}),
 	},
 ) {

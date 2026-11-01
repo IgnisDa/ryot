@@ -29,6 +29,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { revisionDefinitions } from "#modules/definitions/source";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import {
+	lockPluginIngestionForUser,
 	lockPluginIngestionShared,
 	PLUGIN_INGESTION_ADVISORY_LOCK_KEY,
 } from "#modules/plugins/packages/ingestion-fence";
@@ -237,8 +238,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 				},
 			);
 
-			const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(() =>
-				lockPluginIngestionShared(database),
+			const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(
+				(userIds: ReadonlyArray<string>) => lockPluginIngestionShared(database, userIds),
+			);
+			const lockIngestionForUser = Effect.fn("PluginRepository.lockIngestionForUser")(
+				(userId: string) => lockPluginIngestionForUser(database, userId),
 			);
 
 			const toStoredPlugins = Effect.fn(function* (rows: ReadonlyArray<PluginPointerRow>) {
@@ -1276,7 +1280,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 					readonly expectedActivationId: string;
 				}) {
 					yield* database.requireTransaction;
-					yield* lockIngestion();
+					yield* lockIngestionForUser(input.ownerId);
 					yield* configs.lock(input.pluginId);
 					const [updated] = yield* database.run((db) =>
 						db
@@ -1487,6 +1491,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 				lockIngestionShared,
 				persistKernelScript,
 				hasEntityReferences,
+				lockIngestionForUser,
 				findUninstallReceipt,
 				recordUninstallReceipt,
 				resolveProviderBySlugs,

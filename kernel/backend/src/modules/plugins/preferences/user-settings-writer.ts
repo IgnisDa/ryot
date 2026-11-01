@@ -108,7 +108,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 					transaction(
 						userId,
 						Effect.gen(function* () {
-							yield* plugins.lockIngestion();
+							yield* plugins.lockIngestionForUser(userId);
 							const row = yield* installations.findUserSettings(userId, installationId);
 							if (!row?.userSettingsSchema) {
 								return yield* new PluginNotFoundError({
@@ -143,7 +143,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 					transaction(
 						input.userId,
 						Effect.gen(function* () {
-							yield* plugins.lockIngestionShared();
+							yield* plugins.lockIngestionShared([input.userId]);
 							yield* database.acquireUserWriteLock(input.userId);
 							if (input.accountGeneration.userId !== input.userId) {
 								return yield* new DbError({

@@ -158,7 +158,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				const outcome = yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* runtime.lockCatalog();
+							yield* runtime.lockCatalog([input.userId]);
 							const provider = yield* checks.checkProvider(
 								input.payload.providerId,
 								definitionOwner(input.payload.pluginId),

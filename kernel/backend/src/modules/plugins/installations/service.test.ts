@@ -320,6 +320,21 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 		Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			const { receipts, recordings, systemPlugins, ingestionLocked } = yield* InstallationFakeState;
+			const lockIngestion = () => {
+				const packageId = options.systemPackageIdAddedOnLock;
+				return Ref.set(ingestionLocked, true).pipe(
+					Effect.andThen(
+						packageId === undefined
+							? Effect.void
+							: Ref.update(systemPlugins, (plugins) => [
+									...plugins,
+									systemEntry(
+										privateManifest({ metadata: { ...privateManifest().metadata, packageId } }),
+									),
+								]),
+					),
+				);
+			};
 			const transactionScope = Effect.map(database.isTransactionActive, (active) =>
 				active ? ("transaction" as const) : ("root" as const),
 			);
@@ -358,6 +373,8 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 					user: (ownerId) => record(recordings, "invalidatedUsers", ownerId),
 				}),
 				Layer.mock(PluginRepository)({
+					lockIngestion,
+					lockIngestionForUser: lockIngestion,
 					findReferencedRemovedDeclarations: () => Effect.succeed([]),
 					listPrivateForUser: () => Effect.succeed([...privatePlugins]),
 					deactivate: (pluginId) => record(recordings, "deactivated", pluginId),
@@ -417,21 +434,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 								installationId: receipt.installationId ?? null,
 							},
 						]),
-					lockIngestion: () => {
-						const packageId = options.systemPackageIdAddedOnLock;
-						return Ref.set(ingestionLocked, true).pipe(
-							Effect.andThen(
-								packageId === undefined
-									? Effect.void
-									: Ref.update(systemPlugins, (plugins) => [
-											...plugins,
-											systemEntry(
-												privateManifest({ metadata: { ...privateManifest().metadata, packageId } }),
-											),
-										]),
-							),
-						);
-					},
 					findPrivateByIdForUser: (pluginId) =>
 						Effect.gen(function* () {
 							if (

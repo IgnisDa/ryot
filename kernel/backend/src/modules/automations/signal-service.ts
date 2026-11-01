@@ -68,7 +68,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 				const definitionContext = pinnedPlugin
 					? { pluginId: pinnedPlugin.id, pluginRevisionId: pinnedPlugin.revisionId }
 					: undefined;
-				yield* plugins.lockIngestionShared();
+				yield* plugins.lockIngestionShared(actorUserId === null ? [] : [actorUserId]);
 				const snapshot = definitionContext
 					? yield* definitions.getSnapshotForContext(definitionContext, actorUserId)
 					: null;

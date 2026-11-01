@@ -117,62 +117,68 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 
 		const begin = (installationId: string, activationId: string) =>
 			asInternal(
-				database.transaction(
-					runtime.lockCatalog().pipe(
-						Effect.andThen(
-							Effect.gen(function* () {
-								const resolved = yield* runtime.resolveInstallationBootstrap(installationId);
-								if (resolved?.health !== "installing" || resolved.activationId !== activationId) {
-									return null;
-								}
-								const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
-								const accountGeneration = yield* receipts.currentAccount(resolved.userId);
-								const installation = yield* installations.findById(installationId);
-								if (installation?.isInitialized) {
+				Effect.gen(function* () {
+					const located = yield* installations.findById(installationId);
+					if (!located) {
+						return null;
+					}
+					return yield* database.transaction(
+						runtime.lockCatalog([located.userId]).pipe(
+							Effect.andThen(
+								Effect.gen(function* () {
+									const resolved = yield* runtime.resolveInstallationBootstrap(installationId);
+									if (resolved?.health !== "installing" || resolved.activationId !== activationId) {
+										return null;
+									}
+									const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
+									const accountGeneration = yield* receipts.currentAccount(resolved.userId);
+									const installation = yield* installations.findById(installationId);
+									if (installation?.isInitialized) {
+										return { entries, accountGeneration, userId: resolved.userId };
+									}
+									for (const entry of resolved.entries) {
+										if (!entry.scriptId) {
+											return yield* internalError(
+												`Plugin installation bootstrap script is unavailable: ${entry.slug}`,
+											);
+										}
+										const initialization = { activationId, installationId };
+										const pin = yield* sandboxRepository.getScriptPin(
+											entry.scriptId,
+											undefined,
+											{ type: "user", accountGeneration, userId: resolved.userId },
+											initialization,
+										);
+										if (!pin?.pluginRevision) {
+											return yield* internalError(
+												`Plugin installation bootstrap owner is unavailable: ${entry.slug}`,
+											);
+										}
+										yield* workflowReferences.registerInTransaction({
+											initialization,
+											userId: resolved.userId,
+											scriptId: entry.scriptId,
+											contentHash: pin.contentHash,
+											pluginId: pin.pluginRevision.id,
+											expectedRevision: pin.pluginRevision,
+											executionId: pluginInstallationBootstrapExecutionId(
+												installationId,
+												activationId,
+												entry.slug,
+											),
+										});
+										entries.push({
+											slug: entry.slug,
+											scriptId: entry.scriptId,
+											pluginRevision: pin.pluginRevision,
+										});
+									}
 									return { entries, accountGeneration, userId: resolved.userId };
-								}
-								for (const entry of resolved.entries) {
-									if (!entry.scriptId) {
-										return yield* internalError(
-											`Plugin installation bootstrap script is unavailable: ${entry.slug}`,
-										);
-									}
-									const initialization = { activationId, installationId };
-									const pin = yield* sandboxRepository.getScriptPin(
-										entry.scriptId,
-										undefined,
-										{ type: "user", accountGeneration, userId: resolved.userId },
-										initialization,
-									);
-									if (!pin?.pluginRevision) {
-										return yield* internalError(
-											`Plugin installation bootstrap owner is unavailable: ${entry.slug}`,
-										);
-									}
-									yield* workflowReferences.registerInTransaction({
-										initialization,
-										userId: resolved.userId,
-										scriptId: entry.scriptId,
-										contentHash: pin.contentHash,
-										pluginId: pin.pluginRevision.id,
-										expectedRevision: pin.pluginRevision,
-										executionId: pluginInstallationBootstrapExecutionId(
-											installationId,
-											activationId,
-											entry.slug,
-										),
-									});
-									entries.push({
-										slug: entry.slug,
-										scriptId: entry.scriptId,
-										pluginRevision: pin.pluginRevision,
-									});
-								}
-								return { entries, accountGeneration, userId: resolved.userId };
-							}),
+								}),
+							),
 						),
-					),
-				),
+					);
+				}),
 				"Plugin installation could not be inspected",
 			);
 
@@ -188,6 +194,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 									activationId,
 									health: "failed",
 									id: installationId,
+									userId: UserId.make(installation.userId),
 								})
 								.pipe(
 									Effect.tap((updated) =>
@@ -216,6 +223,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 							}
 							return yield* installations
 								.updateHealthForActivation({
+									userId,
 									activationId,
 									health: "ready",
 									id: installationId,

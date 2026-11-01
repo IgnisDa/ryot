@@ -136,8 +136,8 @@ const makeLayer = (
 							mockManagedAssets(input.managedAssets ?? {}),
 							mockObjectStorage(input.objectStorage ?? {}),
 							mockPluginRestore({
-								lockIngestion: Effect.void,
 								prepare: () => Effect.succeed([]),
+								lockIngestionForUser: () => Effect.void,
 								persist: () => Effect.succeed(new Map()),
 								buildDefinitions: () =>
 									Effect.succeed({

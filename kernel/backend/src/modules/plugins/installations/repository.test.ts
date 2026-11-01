@@ -139,6 +139,7 @@ describe("installation revision persistence", () => {
 					expect(
 						yield* session.transaction(
 							installations.updateHealthForActivation({
+								userId: owner,
 								health: "ready",
 								healthReason: null,
 								id: privateInstallation.id,
@@ -171,6 +172,7 @@ describe("installation revision persistence", () => {
 					expect(
 						yield* session.transaction(
 							installations.updateHealthForActivation({
+								userId: owner,
 								health: "ready",
 								healthReason: null,
 								id: privateInstallation.id,
@@ -184,6 +186,7 @@ describe("installation revision persistence", () => {
 					expect(
 						yield* session.transaction(
 							installations.updateHealthForActivation({
+								userId: owner,
 								health: "ready",
 								healthReason: null,
 								id: privateInstallation.id,

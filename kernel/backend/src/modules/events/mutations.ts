@@ -234,7 +234,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				)) {
 					yield* receipts.admitAccount(account);
 				}
-				yield* schemas.lockCatalog();
+				yield* schemas.lockCatalog([input.userId, ...accounts.keys()]);
 				const mutationReferences = preparedMutationReferences(input);
 				yield* repository.lockMutationReferences(mutationReferences);
 				return yield* groups.capture({
@@ -456,7 +456,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						}),
 					};
 				}
-				yield* schemas.lockCatalog();
+				yield* schemas.lockCatalog([input.userId]);
 				const mutationReferences = preparedMutationReferences({
 					batches: [input],
 					userId: input.userId,

@@ -282,7 +282,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					}
 					yield* receipts.admitAccount(account);
 				}
-				yield* eventSchemas.lockCatalog();
+				yield* eventSchemas.lockCatalog(userIds);
 				yield* repository.lockMutationReferences({
 					eventIds: items.map((item) => item.input.eventId),
 					sources: items.flatMap((item) =>
@@ -473,9 +473,9 @@ export class EventsService extends Context.Service<EventsService>()(
 						}),
 					)
 					.pipe(Effect.mapError(eventReceiptError));
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
 				groups
-					.transaction(eventSchemas.lockCatalog().pipe(Effect.andThen(work)))
+					.transaction(eventSchemas.lockCatalog(userIds).pipe(Effect.andThen(work)))
 					.pipe(
 						Effect.catchTag("DatabaseSessionStateError", () =>
 							Effect.fail(
@@ -817,6 +817,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							eventSchemaFingerprint: initial.eventSchemaFingerprint,
 						};
 					}),
+					[userId],
 				);
 				if (!prepared) {
 					return null;
@@ -1150,6 +1151,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							referenceContextFingerprint,
 						};
 					}),
+					[input.userId],
 				);
 				if (!planned) {
 					return null;
@@ -1316,7 +1318,7 @@ export class EventsService extends Context.Service<EventsService>()(
 					prepared.draft.entityId,
 					...(prepared.draft.sessionEntityId === null ? [] : [prepared.draft.sessionEntityId]),
 				]);
-				yield* eventSchemas.lockCatalog();
+				yield* eventSchemas.lockCatalog([prepared.input.userId]);
 				const current = yield* resolveEditContext(
 					prepared.input.userId,
 					prepared.before,
@@ -1375,7 +1377,7 @@ export class EventsService extends Context.Service<EventsService>()(
 						result: replay.result.eventId,
 					} satisfies CommittedLifecycleWork<null | EventId>;
 				}
-				yield* eventSchemas.lockCatalog();
+				yield* eventSchemas.lockCatalog([prepared.input.userId]);
 				const deletePin =
 					prepared.operation === "delete"
 						? yield* authorizeEventDelete(
@@ -1582,6 +1584,7 @@ export class EventsService extends Context.Service<EventsService>()(
 						? []
 						: yield* transaction(
 								planner.planBatch({ command, resource: "event", identity: [command.itemIdentity] }),
+								[input.userId],
 							);
 				return {
 					eventId: recorded.result.eventId,
@@ -1611,6 +1614,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							}
 							const work = yield* transaction(
 								withBatch(command, persist(prepared[preparedEventUpdate])),
+								[userId],
 							);
 							return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
 						}),
@@ -1643,7 +1647,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							const work =
 								"_tag" in prepared
 									? prepared.work
-									: yield* transaction(withBatch(command, persist(prepared)));
+									: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
 							return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
 						}),
 						input.userId,
@@ -1701,6 +1705,7 @@ export class EventsService extends Context.Service<EventsService>()(
 									),
 								);
 					}),
+					[input.userId],
 				);
 				if (itemReceipts.some((receipt) => receipt !== null)) {
 					return yield* eventBadRequest(
@@ -1795,7 +1800,7 @@ export class EventsService extends Context.Service<EventsService>()(
 										...(item.draft.sessionEntityId === null ? [] : [item.draft.sessionEntityId]),
 									]),
 								);
-								yield* eventSchemas.lockCatalog();
+								yield* eventSchemas.lockCatalog([userId]);
 								yield* repository.lockEventRows({
 									userId,
 									eventIds: items.map((item) => item.eventId),
@@ -1830,6 +1835,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								yield* receipts.insert({ result, dispatch, identity: batchIdentity });
 								return { result, dispatch, _tag: "Committed" as const };
 							}),
+							[userId],
 						);
 						if (work._tag === "Replay") {
 							return yield* dispatchBatchResult(work.receipt);
@@ -1991,6 +1997,7 @@ export class EventsService extends Context.Service<EventsService>()(
 								yield* receipts.insert({ result, dispatch, identity: batchIdentity });
 								return { result, dispatch, _tag: "Committed" as const };
 							}),
+							[userId],
 						);
 						if (work._tag === "Replay") {
 							return yield* dispatchBatchResult(work.receipt);
@@ -2020,7 +2027,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				const work =
 					"_tag" in prepared
 						? prepared.work
-						: yield* transaction(withBatch(command, persist(prepared)));
+						: yield* transaction(withBatch(command, persist(prepared)), [input.userId]);
 				return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
 			});
 

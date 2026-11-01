@@ -466,7 +466,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const updated = yield* transaction(
 					userId,
 					Effect.gen(function* () {
-						yield* repository.lockIngestion();
+						yield* repository.lockIngestionForUser(userId);
 						yield* findOwnedInstallation(userId, installationId);
 						yield* database.acquireUserWriteLock(userId);
 						const usablePluginIds = new Set(
@@ -566,7 +566,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						transaction(
 							input.userId,
 							Effect.gen(function* () {
-								yield* repository.lockIngestion();
+								yield* repository.lockIngestionForUser(input.userId);
 								yield* lockSettingsAssetReferences({
 									properties: config,
 									ownerUserId: input.userId,
@@ -680,7 +680,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								transaction(
 									input.userId,
 									Effect.gen(function* () {
-										yield* repository.lockIngestion();
+										yield* repository.lockIngestionForUser(input.userId);
 										yield* installations.assertIngestionActive(input.userId, installation.id);
 										yield* assertPackageAvailable(manifest, pluginId);
 										const current = yield* repository.findPrivateByIdForUser(
@@ -798,7 +798,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const updateInstallationUnlocked = Effect.fn(
 				"PluginInstallationService.updateInstallationUnlocked",
 			)(function* (userId: UserId, installationId: string, payload: UpdatePluginInstallationBody) {
-				yield* repository.lockIngestion();
+				yield* repository.lockIngestionForUser(userId);
 				const { plugin, installation: state } = yield* findOwnedInstallation(
 					userId,
 					installationId,
@@ -871,7 +871,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					transaction(
 						userId,
 						Effect.gen(function* () {
-							yield* repository.lockIngestion();
+							yield* repository.lockIngestionForUser(userId);
 							yield* installations.assertIngestionActive(userId, installationId);
 							const current = yield* findOwnedInstallation(userId, installationId);
 							const pluginId = PluginId.make(plugin.id);
@@ -979,7 +979,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					database
 						.transaction(
 							Effect.gen(function* () {
-								yield* repository.lockIngestion();
+								yield* repository.lockIngestionForUser(userId);
 								const receipt = yield* repository.findUninstallReceipt(activationId);
 								yield* database.acquireUserWriteLock(userId);
 								if (receipt?.ownerId === userId && receipt.installationId === installationId) {
@@ -1038,7 +1038,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					yield* database
 						.transaction(
 							Effect.gen(function* () {
-								yield* repository.lockIngestion();
+								yield* repository.lockIngestionForUser(userId);
 								yield* database.acquireUserWriteLock(userId);
 								const current = yield* repository.findPrivateByIdForUser(
 									removed.result.pluginId,

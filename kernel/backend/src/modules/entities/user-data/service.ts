@@ -289,7 +289,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						if (prior) {
 							return { result: prior.result, dispatch: prior.dispatch };
 						}
-						yield* lockPluginIngestionShared(database);
+						yield* lockPluginIngestionShared(database, [input.userId]);
 						yield* events.captureEventGroups({
 							items: input.eventMutations,
 							entityIds: input.states.flatMap((value) => [

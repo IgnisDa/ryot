@@ -131,8 +131,8 @@ const dependencies = Layer.unwrap(
 				assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
 			}),
 			Layer.mock(PluginBackupRestore)({
-				lockIngestion: Effect.void,
 				prepare: () => Effect.succeed([]),
+				lockIngestionForUser: () => Effect.void,
 				persist: () => Effect.succeed(new Map()),
 				buildDefinitions: () =>
 					Effect.succeed({

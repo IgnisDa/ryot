@@ -214,6 +214,7 @@ describe("plugin repository revisions", () => {
 					expect(
 						yield* session.transaction(
 							installations.updateHealthForActivation({
+								userId: owner,
 								health: "failed",
 								id: installation.id,
 								healthReason: "stale",
@@ -225,6 +226,7 @@ describe("plugin repository revisions", () => {
 					expect(
 						yield* session.transaction(
 							installations.updateHealthForActivation({
+								userId: owner,
 								health: "ready",
 								healthReason: null,
 								id: installation.id,

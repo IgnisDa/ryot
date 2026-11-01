@@ -111,7 +111,7 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 				const { script, installed } = yield* installCollectorPackage("gc-suspension");
 				yield* session.transaction(
 					Effect.gen(function* () {
-						yield* references.lockIngestionShared();
+						yield* references.lockIngestionShared([]);
 						yield* references.registerInTransaction({
 							pluginId: installed.pluginId,
 							contentHash: script.contentHash,
@@ -166,7 +166,7 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 				const holder = yield* Effect.forkChild(
 					admin.transaction(
 						Effect.gen(function* () {
-							yield* lockPluginIngestionShared(admin);
+							yield* lockPluginIngestionShared(admin, []);
 							yield* Deferred.succeed(held, undefined);
 							yield* Deferred.await(release);
 						}),

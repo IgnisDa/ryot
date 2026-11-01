@@ -133,7 +133,7 @@ layer(makeRegisterLayer({ active: true, pluginScope: "user", installationId: "in
 				Effect.gen(function* () {
 					const repository = yield* SandboxWorkflowReferenceRepository;
 					const database = yield* RegistrationDatabase;
-					yield* repository.lockIngestionShared();
+					yield* repository.lockIngestionShared(["owner"]);
 					expect(yield* repository.registerInTransaction({ ...input, userId: "owner" })).toEqual({
 						status: "registered",
 					});
@@ -161,7 +161,7 @@ layer(makeRegisterLayer({ active: true, pluginScope: "user" }))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const repository = yield* SandboxWorkflowReferenceRepository;
-				yield* repository.lockIngestionShared();
+				yield* repository.lockIngestionShared([]);
 				const exit = yield* Effect.exit(repository.registerInTransaction(input));
 				assertExitFails(
 					exit,
@@ -182,7 +182,7 @@ layer(makeRegisterLayer({ active: false }))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const repository = yield* SandboxWorkflowReferenceRepository;
-				yield* repository.lockIngestionShared();
+				yield* repository.lockIngestionShared([]);
 				const exit = yield* Effect.exit(repository.registerInTransaction(input));
 				assertExitFails(
 					exit,
@@ -203,7 +203,7 @@ layer(makeRegisterLayer({ active: true, inserted: false, existing: reference }))
 		() =>
 			Effect.gen(function* () {
 				const repository = yield* SandboxWorkflowReferenceRepository;
-				yield* repository.lockIngestionShared();
+				yield* repository.lockIngestionShared([]);
 				expect(yield* repository.registerInTransaction(input)).toEqual({
 					status: "already-registered",
 				});
@@ -244,7 +244,7 @@ layer(revisionDatabaseLayer)((test) => {
 				};
 				yield* session.transaction(
 					Effect.gen(function* () {
-						yield* repository.lockIngestionShared();
+						yield* repository.lockIngestionShared(["owner"]);
 						assertExitFails(
 							yield* Effect.exit(
 								repository.registerInTransaction({ ...pin, contentHash: "wrong" }),

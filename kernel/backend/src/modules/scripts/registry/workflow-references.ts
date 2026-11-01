@@ -39,8 +39,8 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const database = yield* DatabaseSession;
 			const lockIngestionShared = Effect.fn(
 				"SandboxWorkflowReferenceRepository.lockIngestionShared",
-			)(function* () {
-				yield* lockPluginIngestionShared(database);
+			)(function* (userIds: ReadonlyArray<string>) {
+				yield* lockPluginIngestionShared(database, userIds);
 			});
 
 			const registerInTransaction = Effect.fn(

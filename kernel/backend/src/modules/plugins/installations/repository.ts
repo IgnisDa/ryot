@@ -409,9 +409,11 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			);
 			const updateHealthForActivation = Effect.fn(
 				"PluginInstallationRepository.updateHealthForActivation",
-			)(function* (input: { activationId: string } & Parameters<typeof updateHealth>[0]) {
+			)(function* (
+				input: Parameters<typeof updateHealth>[0] & { userId: UserId; activationId: string },
+			) {
 				yield* database.requireTransaction;
-				yield* lockPluginIngestionShared(database);
+				yield* lockPluginIngestionShared(database, [input.userId]);
 				const [updated] = yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)
@@ -441,7 +443,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				installation?: SQL,
 			) {
 				yield* database.requireTransaction;
-				yield* lockPluginIngestionShared(database);
+				yield* lockPluginIngestionShared(database, [userId]);
 				return yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)

@@ -93,7 +93,7 @@ export class RemindersService extends Context.Service<RemindersService>()(
 						if (prior) {
 							return prior.result;
 						}
-						yield* plugins.lockIngestionShared();
+						yield* plugins.lockIngestionShared([user.id]);
 						const result = yield* write(identity.id);
 						yield* receipts.insert({ result, identity, dispatch: [] });
 						return result;

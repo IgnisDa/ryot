@@ -154,8 +154,8 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
-				yield* repository.lockIngestionShared();
 				const userIds = users.filter((id) => id !== null);
+				yield* repository.lockIngestionShared(userIds);
 				const rows = yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })
@@ -179,18 +179,19 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						)
 						.orderBy(asc(tables.plugin.id)),
 				);
-				for (const { id } of rows) {
-					// Shared: planners coexist; PluginConfigRevisions.lock takes this same key exclusively.
-					yield* session.run((db) =>
-						db.execute(
-							sql`select pg_advisory_xact_lock_shared(hashtext(${"plugin-config:" + id}))`,
-						),
-					);
-				}
 				const ids = rows.map(({ id }) => id);
 				if (!ids.length) {
 					return;
 				}
+				// Shared: planners coexist; PluginConfigRevisions.lock takes these same keys exclusively.
+				yield* session.run((db) =>
+					db.execute(
+						sql`select pg_advisory_xact_lock_shared(hashtext(k)) from unnest(array[${sql.join(
+							ids.map((id) => sql`${"plugin-config:" + id}`),
+							sql`, `,
+						)}]::text[]) with ordinality t(k, n) order by n`,
+					),
+				);
 				yield* session.run((db) =>
 					db
 						.select({ id: tables.plugin.id })

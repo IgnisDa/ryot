@@ -160,9 +160,9 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			const entitiesRepository = yield* EntitiesRepository;
 			const relationshipsRepository = yield* RelationshipsRepository;
 			const runtime = yield* PluginRuntimeResolver;
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userId: UserId) =>
 				database
-					.transaction(entitiesRepository.lockSchemaCatalog().pipe(Effect.andThen(work)))
+					.transaction(entitiesRepository.lockSchemaCatalog([userId]).pipe(Effect.andThen(work)))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const receiptLookup = <A>(
 				identity: ReturnType<typeof mutationReceiptIdentity>,
@@ -532,6 +532,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 						yield* receipts.insert({ identity, dispatch, result: { entityId: saved.entity.id } });
 						return { dispatch, kind: "saved" as const, entityId: saved.entity.id };
 					}),
+					userId,
 				);
 				if (committed.kind === "stale") {
 					return { output: stale, warnings: noWarnings };

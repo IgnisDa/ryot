@@ -49,7 +49,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 				session
 					.transaction(
 						Effect.gen(function* () {
-							yield* pluginRepository.lockIngestionShared();
+							yield* pluginRepository.lockIngestionShared([userId]);
 							yield* session.acquireUserWriteLock(userId);
 							const result = yield* work;
 							yield* invalidator.recordUser(userId);

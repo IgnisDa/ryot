@@ -32,7 +32,7 @@ export class PluginIngestionLock extends Context.Service<PluginIngestionLock>()(
 				plugin: NormalizedPlugin,
 				identity: UserPluginPersistenceIdentity,
 			) {
-				yield* repository.lockIngestion();
+				yield* repository.lockIngestionForUser(identity.ownerId);
 				yield* validatePluginManifestPolicy(plugin.manifest, {
 					scope: "user",
 					systemPackageIds: yield* reservedSystemPackageIds(),

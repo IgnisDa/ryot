@@ -66,6 +66,9 @@ export const mutationReceiptOwner = (command: LifecycleCommand, scopeUserId: nul
 		? command.causation.initiator.id
 		: scopeUserId);
 
+export const mutationUserIds = (command: LifecycleCommand, scopeUserId: null | UserId) =>
+	[mutationReceiptOwner(command, scopeUserId), scopeUserId].filter((id) => id !== null);
+
 export const MutationReceiptIdentity = Schema.Struct({
 	id: Schema.String,
 	commandKind: Schema.String,

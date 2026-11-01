@@ -245,7 +245,10 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 				return yield* database
 					.transaction(
 						Effect.gen(function* () {
-							yield* references.lockIngestionShared();
+							const ownership = pinningOwnership(payload);
+							yield* references.lockIngestionShared(
+								ownership.userId === null ? [] : [ownership.userId],
+							);
 							const subject = payload.subject;
 							yield* admitWorkflow(
 								receipts,
@@ -253,7 +256,6 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 								accountGenerationOf(payload),
 								executionId,
 							);
-							const ownership = pinningOwnership(payload);
 							if (ownership.conflicts) {
 								return yield* sandboxFailure(
 									"script-failure",

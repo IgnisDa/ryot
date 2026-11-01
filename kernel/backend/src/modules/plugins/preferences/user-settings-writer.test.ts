@@ -76,8 +76,10 @@ const recordedIngestionLocksLayer = Layer.effectContext(
 			PluginRepository.of({
 				...plugins,
 				lockIngestion: () => record("exclusive").pipe(Effect.andThen(plugins.lockIngestion())),
-				lockIngestionShared: () =>
-					record("shared").pipe(Effect.andThen(plugins.lockIngestionShared())),
+				lockIngestionShared: (userIds) =>
+					record("shared").pipe(Effect.andThen(plugins.lockIngestionShared(userIds))),
+				lockIngestionForUser: (userId) =>
+					record("exclusive").pipe(Effect.andThen(plugins.lockIngestionForUser(userId))),
 			}),
 		).pipe(Context.add(RecordedIngestionLocks, { all: Ref.get(recorded) }));
 	}),

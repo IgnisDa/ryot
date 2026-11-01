@@ -179,7 +179,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			const installations = yield* PluginInstallationRepository;
 			const repository = yield* PluginRepository;
 			const configs = yield* PluginConfigRevisions;
-			const lockCatalog = repository.lockIngestionShared;
+			const lockCatalog = (userIds: ReadonlyArray<string>) =>
+				repository.lockIngestionShared(userIds);
 
 			const queryAvailablePlugins = Effect.fn(function* (
 				userId: UserId,

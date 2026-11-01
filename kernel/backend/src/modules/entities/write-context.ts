@@ -138,6 +138,8 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 				scopeUserId: null | string,
 				lock?: boolean,
 			) {
+				const principal = command.writeContext;
+				const userId = principal === null ? null : sandboxSubjectUserId(principal.subject);
 				if (lock) {
 					yield* session.requireTransaction.pipe(
 						Effect.mapError(
@@ -145,14 +147,15 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 								new DbError({ message: "Domain authority commit checks require a transaction" }),
 						),
 					);
-					yield* lockPluginIngestionShared(session);
+					yield* lockPluginIngestionShared(
+						session,
+						[userId, scopeUserId].filter((id) => id !== null),
+					);
 				}
-				const principal = command.writeContext;
 				if (principal === null) {
 					return null;
 				}
 				const plugin = principal.pluginRevision;
-				const userId = sandboxSubjectUserId(principal.subject);
 				if (!domainWriteOwner(command, owner) && plugin) {
 					return yield* new DomainWriteConflict({
 						message: "Domain write belongs to another definition owner",
