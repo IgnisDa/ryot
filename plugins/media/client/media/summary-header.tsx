@@ -298,7 +298,6 @@ function MediaLibraryStrip(props: {
 				key={`collections:${media.id}`}
 				collections={media.collections}
 			/>
-			<MediaUserDataControl media={media} key={`user-data:${media.id}`} />
 			{media.providerName === null ? null : (
 				<MediaMonitoringControl
 					entityId={media.id}
@@ -307,6 +306,7 @@ function MediaLibraryStrip(props: {
 				/>
 			)}
 			<MediaProviderRefreshControl media={media} />
+			<MediaUserDataControl media={media} key={`user-data:${media.id}`} />
 		</div>
 	);
 }

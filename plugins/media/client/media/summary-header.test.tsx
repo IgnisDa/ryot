@@ -46,6 +46,9 @@ it.live(
 			);
 			try {
 				expect(queryByRole(mounted.container, "button", { name: "Reminders" })).toBeNull();
+				expect(
+					getByRole(mounted.container, "group", { name: "Your library" }).lastElementChild,
+				).toBe(getByRole(mounted.container, "button", { name: "Your data" }));
 				clickRyotElement(getByRole(mounted.container, "button", { name: "Your data" }));
 				expect(getByRole(document.body, "menuitem", { name: "Reminders" })).toBeDefined();
 				clickRyotElement(getByRole(document.body, "menuitem", { name: "Reminders" }));
