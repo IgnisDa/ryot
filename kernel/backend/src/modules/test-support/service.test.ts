@@ -17,7 +17,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -490,13 +490,11 @@ const rootFactEntity = {
 	updatedAt: "2026-07-20T12:00:00.000Z",
 };
 
-const rootFactCommands = recordingServiceLayer<DomainLifecycleCommand>((record) => ({
+const populatedCreates = recordingServiceLayer<unknown>((record) => ({
 	entitiesRepository: { stampRelatedPopulated: () => Effect.void },
 	entities: {
 		createGlobal: (input) =>
-			record(input.lifecycle).pipe(Effect.as({ warnings: [], entity: rootFactEntity })),
-		update: (input) =>
-			record(input.lifecycle).pipe(
+			record(input).pipe(
 				Effect.as({
 					warnings: [],
 					entity: { ...rootFactEntity, populatedAt: "2026-07-21T00:00:00.000Z" },
@@ -505,9 +503,9 @@ const rootFactCommands = recordingServiceLayer<DomainLifecycleCommand>((record) 
 	},
 }));
 
-layer(rootFactCommands.layer)((test) => {
+layer(populatedCreates.layer)((test) => {
 	test.effect(
-		"uses one root fact for create and populatedAt update",
+		"creates a populated global entity in one lifecycle command",
 		() =>
 			Effect.gen(function* () {
 				yield* (yield* TestSupportService).createGlobalEntity({
@@ -516,13 +514,12 @@ layer(rootFactCommands.layer)((test) => {
 					properties: {},
 					populatedAt: "2026-07-21T00:00:00.000Z",
 				});
-				const commands = yield* rootFactCommands.recorded;
-				expect(commands.map(({ itemIdentity }) => itemIdentity)).toEqual([
-					'["test-support:create-global-entity","create"]',
-					'["test-support:create-global-entity","set-populated-at"]',
+			expect(yield* populatedCreates.recorded).toMatchObject([
+				{
+					lifecycle: { itemIdentity: '["test-support:create-global-entity","create"]' },
+					populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-07-21T00:00:00.000Z")),
+				},
 				]);
-				expect(commands[1]?.occurredAt).toBe(commands[0]?.occurredAt);
-				expect(commands[1]?.causation).toEqual(commands[0]?.causation);
 			}),
 		testTimeout,
 	);

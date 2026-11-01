@@ -461,24 +461,26 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 					const after = input.after;
 					return yield* session.run((db) =>
 						db.execute<EventStreamBindingDeclaration & { projection: PluginEventProjection }>(
-							sql`select d.user_id as "userId", d.plugin_id as "eventSchemaPluginId",
-								d.entity_schema_slug as "entitySchemaSlug", d.slug as "eventSchemaSlug", d.projection,
+							// Creating a stream creates or bumps its declaration's binding row, so declarations
+							// without one have no streams to bind.
+							sql`select b.user_id as "userId", b.event_schema_plugin_id as "eventSchemaPluginId",
+								b.entity_schema_slug as "entitySchemaSlug", b.event_schema_slug as "eventSchemaSlug", d.projection,
 								up.active_revision_id as "pluginRevisionId", up.config_revision_id as "configRevisionId",
-								u.account_generation as "accountToken", coalesce(b.revision, 0) as "revision"
-								from ${schema.userEventSchema} d
-								inner join "user" u on u.id = d.user_id and u.disabled_at is null
-								inner join ${schema.userPlugin} up on up.user_id = d.user_id and up.plugin_id = d.plugin_id
+								u.account_generation as "accountToken", b.revision
+								from ${schema.eventStreamBinding} b
+								inner join "user" u on u.id = b.user_id and u.disabled_at is null
+								inner join ${schema.userPlugin} up on up.user_id = b.user_id
+									and up.plugin_id = b.event_schema_plugin_id
 									and up.is_executable and up.active_revision_id is not null
-								left join ${schema.eventStreamBinding} b on b.user_id = d.user_id
-									and b.event_schema_plugin_id = d.plugin_id and b.entity_schema_slug = d.entity_schema_slug
-									and b.event_schema_slug = d.slug
-								where d.is_effective and d.projection is not null
-								${after ? sql`and (d.user_id, d.plugin_id, d.entity_schema_slug, d.slug) > (${after.userId}, ${after.eventSchemaPluginId}, ${after.entitySchemaSlug}, ${after.eventSchemaSlug})` : sql``}
-								and (b.user_id is null or b.bound_revision is distinct from b.revision
+								inner join ${schema.userEventSchema} d on d.user_id = b.user_id
+									and d.plugin_id = b.event_schema_plugin_id and d.entity_schema_slug = b.entity_schema_slug
+									and d.slug = b.event_schema_slug and d.is_effective and d.projection is not null
+								where (b.bound_revision is distinct from b.revision
 									or b.account_token is distinct from u.account_generation
 									or b.plugin_revision_id is distinct from up.active_revision_id
 									or b.config_revision_id is distinct from up.config_revision_id)
-								order by d.user_id, d.plugin_id, d.entity_schema_slug, d.slug
+								${after ? sql`and (b.user_id, b.event_schema_plugin_id, b.entity_schema_slug, b.event_schema_slug) > (${after.userId}, ${after.eventSchemaPluginId}, ${after.entitySchemaSlug}, ${after.eventSchemaSlug})` : sql``}
+								order by b.user_id, b.event_schema_plugin_id, b.entity_schema_slug, b.event_schema_slug
 								limit ${input.limit}`,
 							"objects",
 						),

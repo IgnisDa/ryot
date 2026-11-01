@@ -162,10 +162,11 @@ restored events; declaration-driven reconciliation binds them and admits their j
 ownership.
 
 Reconciliation is index-driven so an idle tick reads no streams. `event_stream_binding` holds, per
-user and declaration, a `revision` that every stream creation increments in the creating
+user and declaration, a `revision` that every stream creation creates or increments in the creating
 transaction, plus the account generation, plugin revision, configuration revision, and
-`bound_revision` last reconciled. Only declarations whose record is missing, whose revision moved, or
-whose binding differs are selected, in keyset pages. For each, set-based statements insert or rebind
+`bound_revision` last reconciled. Reconciliation walks these records, not every user's declarations:
+a declaration without a record has no streams. Only records whose revision moved or whose binding
+differs from the user's current declaration are selected, in keyset pages. For each, set-based statements insert or rebind
 the work rows of all its streams in pages of 1,000, resetting rebound streams; the binding is then
 recorded only if the revision still equals the value it read, so a stream created meanwhile leaves
 the declaration stale for the next tick. A declaration whose processor binding is unavailable stays

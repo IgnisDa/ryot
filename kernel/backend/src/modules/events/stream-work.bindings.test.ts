@@ -89,7 +89,9 @@ layer(streamWorkTestLayer)((test) => {
 				expect(yield* projection(eventId)).toBeNull();
 				expect(yield* backgroundJob(job.id)).toEqual({ error: null, status: "succeeded" });
 				expect(yield* activeJob()).toEqual([]);
-				yield* session.run((db) => db.delete(tables.eventStreamBinding));
+				yield* session.run((db) =>
+					db.update(tables.eventStreamBinding).set({ boundRevision: null }),
+				);
 				yield* service.reconcile();
 				const rebound = yield* streamState(id);
 				expect(rebound).toMatchObject({
@@ -308,6 +310,7 @@ layer(streamWorkTestLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
+				const streams = yield* EventStreamRepository;
 				const service = yield* EventStreamWorkService;
 				const initial = fixturePackage();
 				const independent = {
@@ -348,7 +351,7 @@ layer(streamWorkTestLayer)((test) => {
 							eventSchemaSlug: adjustmentSchemaSlug,
 						}),
 				);
-				yield* session.run((db) => db.insert(tables.eventStream).values({ ...key, id }));
+				yield* session.transaction(streams.ensureStreams([key]));
 				yield* session.run((db) =>
 					db
 						.update(tables.pluginInstallation)
@@ -356,10 +359,7 @@ layer(streamWorkTestLayer)((test) => {
 						.where(eq(tables.pluginInstallation.pluginId, pluginId)),
 				);
 				const healthy = yield* seedRetainedTargets("unavailable-binding-healthy", 1);
-				yield* session.run((db) =>
-					db.insert(tables.eventStream).values({ ...healthy.key, id: healthy.id }),
-				);
-				yield* session.run((db) => db.delete(tables.eventStreamBinding));
+				yield* session.transaction(streams.ensureStreams([healthy.key]));
 				const facts = yield* sourceState(eventId);
 				yield* service.reconcile();
 				expect((yield* streamState(id))?.accountToken).toBeNull();
@@ -390,7 +390,12 @@ layer(streamWorkTestLayer)((test) => {
 		"pages binding declarations past declarations that stay unrecorded",
 		() =>
 			Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 				const streams = yield* EventStreamRepository;
+			const { key } = yield* seedRetainedTargets("binding-pages", 0);
+			yield* session.transaction(
+				streams.ensureStreams([key, { ...key, eventSchemaSlug: summarySchemaSlug }]),
+			);
 				const [first] = yield* streams.bindingDeclarations({ limit: 1 });
 				assert(first);
 				const [second] = yield* streams.bindingDeclarations({ limit: 1, after: first });
@@ -436,5 +441,20 @@ layer(streamWorkTestLayer)((test) => {
 				expect(yield* declarations).toEqual([]);
 			}),
 		testTimeout,
+	);
+});
+
+layer(streamWorkTestLayer)((test) => {
+	test.effect("lists binding declarations only once their streams exist", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const streams = yield* EventStreamRepository;
+			expect(yield* streams.bindingDeclarations({ limit: 100 })).toEqual([]);
+			const { key } = yield* seedRetainedTargets("binding-streamless", 0);
+			yield* session.transaction(streams.ensureStreams([key]));
+			expect(
+				(yield* streams.bindingDeclarations({ limit: 100 })).map((row) => row.eventSchemaSlug),
+			).toEqual([eventSchemaSlug]);
+		}),
 	);
 });

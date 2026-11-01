@@ -197,31 +197,24 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				input: CreateGlobalEntityInput,
 			) {
 				const command = yield* systemApiCommand("test-support:create-global-entity");
+				const populatedAt =
+					input.populatedAt === undefined || input.populatedAt === null
+						? null
+						: yield* parseDate(input.populatedAt);
 				const created = yield* entities.createGlobal({
+					populatedAt,
 					name: input.name,
-					populatedAt: null,
 					properties: input.properties,
 					externalId: input.externalId,
 					providerId: input.providerId,
 					entitySchema: input.entitySchema,
 					lifecycle: childSystemApiCommand(command, "create"),
 				});
-				if (input.populatedAt === undefined) {
-					yield* reportWarnings("create-global-entity", created.warnings);
-					return created.entity;
+				yield* reportWarnings("create-global-entity", created.warnings);
+				if (input.populatedAt !== undefined) {
+					yield* stampSeededRelatedLevel(created.entity.id, populatedAt, input.level ?? "full");
 				}
-				const populatedAt = input.populatedAt === null ? null : yield* parseDate(input.populatedAt);
-				const updated = yield* entities.update({
-					populatedAt,
-					scope: "global",
-					name: created.entity.name,
-					entityId: created.entity.id,
-					properties: created.entity.properties,
-					lifecycle: childSystemApiCommand(command, "set-populated-at"),
-				});
-				yield* reportWarnings("create-global-entity", [...created.warnings, ...updated.warnings]);
-				yield* stampSeededRelatedLevel(created.entity.id, populatedAt, input.level ?? "full");
-				return updated.entity;
+				return created.entity;
 			});
 
 			const setEntityPopulatedAt = Effect.fn("TestSupportService.setEntityPopulatedAt")(function* (

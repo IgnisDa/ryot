@@ -266,3 +266,18 @@
   - The heaviest statement is the event stream binding sweep (`bindingDeclarations`): 393 calls,
     0.94 s each, 370 s in all. It runs in the 5-minute cron and lists about 2,800 unbound
     declarations per run, mostly new users' projected event schemas, which have no streams.
+- The binding sweep listed declarations from `user_event_schema`, a view that joins kernel
+  definitions to every user and system plugins' schemas to every installation, then sorted the
+  wide rows (each with its projection) for the keyset. Every declaration without a binding row
+  counted as stale, so each tick resolved a principal, opened a transaction and recorded a binding
+  for every new user's projected schemas, although nothing can be bound before a stream exists.
+  Every stream creation inserts or bumps its declaration's binding row (`ensureAndLockStreams` is
+  the only path, restore included), so the sweep now walks binding rows and joins the declaration
+  view per row. Tests that deleted binding rows to force reconciliation mark them stale instead.
+- `testSupport.createGlobalEntity` created each seeded global entity with `populatedAt: null` and
+  then updated it to set `populatedAt`: two lifecycle commands, each with its hooks, for every seeded
+  show, season and episode (1,234 calls, 322 ms on average, in `full8`). It now creates the entity
+  populated.
+- Candidate, not done: script pins recompute `scriptsDigest` (a sorted `string_agg` over the
+  revision's scripts) on every lookup, 177,761 calls and 88 s in `full8`. Storing it on the revision
+  needs the script garbage collector to keep it current.
