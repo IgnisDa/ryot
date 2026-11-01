@@ -2,7 +2,7 @@ import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/w
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import type { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 
-import { KiB, SANDBOX_LIMITS } from "../protocol/limits";
+import { KiB, MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import type { SandboxPrincipal } from "./principal";
 
@@ -15,30 +15,30 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	updateUserSettings: { resultBytes: KiB, dispatch: "activity" },
 	getUserPreferences: { resultBytes: KiB, dispatch: "activity" },
 	getProAvailability: { resultBytes: KiB, dispatch: "activity" },
-	createEvents: { resultBytes: null, dispatch: "event-workflow" },
-	emitSignal: { resultBytes: null, dispatch: "service-workflow" },
+	createEvents: { resultBytes: MiB, dispatch: "event-workflow" },
+	emitSignal: { resultBytes: MiB, dispatch: "service-workflow" },
 	getOAuthAccessToken: { resultBytes: null, dispatch: "activity" },
 	log: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
 	getCurrentIntegration: { resultBytes: null, dispatch: "activity" },
+	deleteEvents: { resultBytes: MiB, dispatch: "lifecycle-workflow" },
+	updateEvents: { resultBytes: MiB, dispatch: "lifecycle-workflow" },
 	requestUserWork: { resultBytes: KiB, dispatch: "service-workflow" },
 	span: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
-	deleteEvents: { resultBytes: null, dispatch: "lifecycle-workflow" },
-	updateEvents: { resultBytes: null, dispatch: "lifecycle-workflow" },
-	createUserEntity: { resultBytes: null, dispatch: "service-workflow" },
-	deleteUserEntity: { resultBytes: null, dispatch: "service-workflow" },
-	updateUserEntity: { resultBytes: null, dispatch: "service-workflow" },
-	commitUserChanges: { resultBytes: null, dispatch: "service-workflow" },
+	createUserEntity: { resultBytes: MiB, dispatch: "service-workflow" },
+	deleteUserEntity: { resultBytes: MiB, dispatch: "service-workflow" },
+	updateUserEntity: { resultBytes: MiB, dispatch: "service-workflow" },
+	commitUserChanges: { resultBytes: MiB, dispatch: "service-workflow" },
 	invalidateOAuthAccessToken: { resultBytes: KiB, dispatch: "activity" },
-	ensureUserEntities: { resultBytes: null, dispatch: "service-workflow" },
-	mergeUserEntityData: { resultBytes: null, dispatch: "service-workflow" },
-	clearUserEntityData: { resultBytes: null, dispatch: "service-workflow" },
+	ensureUserEntities: { resultBytes: MiB, dispatch: "service-workflow" },
+	mergeUserEntityData: { resultBytes: MiB, dispatch: "service-workflow" },
+	clearUserEntityData: { resultBytes: MiB, dispatch: "service-workflow" },
+	sendNotification: { resultBytes: MiB, dispatch: "notification-workflow" },
 	requestEventStreamWork: { resultBytes: KiB, dispatch: "service-workflow" },
-	sendNotification: { resultBytes: null, dispatch: "notification-workflow" },
+	upsertGlobalEntities: { resultBytes: MiB, dispatch: "lifecycle-workflow" },
 	setCachedValue: { permit: "small", resultBytes: KiB, dispatch: "activity" },
-	upsertGlobalEntities: { resultBytes: null, dispatch: "lifecycle-workflow" },
-	changeUserRelationships: { resultBytes: null, dispatch: "lifecycle-workflow" },
+	changeUserRelationships: { resultBytes: MiB, dispatch: "lifecycle-workflow" },
 	verifyManagedAssets: { wireBytes: KiB, resultBytes: KiB, dispatch: "activity" },
-	upsertGlobalRelationships: { resultBytes: null, dispatch: "lifecycle-workflow" },
+	upsertGlobalRelationships: { resultBytes: MiB, dispatch: "lifecycle-workflow" },
 	requestRelationshipProjections: { resultBytes: KiB, dispatch: "service-workflow" },
 	httpCall: { dispatch: "activity", resultBytes: 2 * SANDBOX_LIMITS.http.responseBytes },
 	requestRelationshipProjectionsForAllUsers: { resultBytes: KiB, dispatch: "service-workflow" },
@@ -97,10 +97,18 @@ export const sandboxHostPermit = (capability: SandboxHostCapability) => {
 	return policy !== null && "permit" in policy ? policy.permit : "ordinary";
 };
 
+const inlineDispatches = new Set<null | string>([
+	"activity",
+	"event-workflow",
+	"service-workflow",
+	"lifecycle-workflow",
+	"notification-workflow",
+]);
+
 export const sandboxInlineDurableCapabilities = (principal: SandboxPrincipal) =>
 	(principal.metadata.capabilities ?? []).filter(
 		(capability): capability is SandboxHostCapability =>
 			isSandboxHostCapability(capability) &&
-			sandboxDurableHostDispatchStrategy(capability) === "activity" &&
+			inlineDispatches.has(sandboxDurableHostDispatchStrategy(capability)) &&
 			sandboxHostResultBytes(capability) !== null,
 	);

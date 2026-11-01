@@ -3,10 +3,20 @@ import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Cause, Duration, Effect, Exit, Layer, Option, Predicate, Schedule, Schema } from "effect";
+import {
+	Cause,
+	Duration,
+	Effect,
+	Exit,
+	Fiber,
+	Layer,
+	Option,
+	Predicate,
+	Schedule,
+	Schema,
+} from "effect";
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
-import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-import { layerMemory } from "effect/workflow/WorkflowEngine";
+import { layerMemory, type WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -61,6 +71,20 @@ const Ordered = Workflow.make("EngineConformanceOrdered", {
 	idempotencyKey: ({ id }) => id,
 });
 
+const Counted = Workflow.make("EngineConformanceCounted", {
+	success: Schema.String,
+	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
+const Joining = Workflow.make("EngineConformanceJoining", {
+	success: Schema.String,
+	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
 const Adopter = Workflow.make("EngineConformanceAdopter", {
 	success: Schema.String,
 	suspendedRetrySchedule: retry,
@@ -101,6 +125,23 @@ const workflowsLive = Layer.mergeAll(
 			});
 			yield* DurableDeferred.await(Signal);
 			return Predicate.isObject(value) ? Object.keys(value).join(",") : "";
+		}),
+	),
+	implementWorkflow(Counted, ({ id }) =>
+		makeActivity({
+			name: "count",
+			success: Schema.Int,
+			execute: Effect.sync(() => {
+				const next = (activityRuns.get(id) ?? 0) + 1;
+				activityRuns.set(id, next);
+				return next;
+			}),
+		}).pipe(Effect.map((runs) => `counted:${runs}`)),
+	),
+	implementWorkflow(Joining, ({ id }) =>
+		Effect.gen(function* () {
+			yield* DurableDeferred.await(Signal);
+			return `joined:${yield* Counted.execute({ id: `${id}-counted` })}`;
 		}),
 	),
 	implementWorkflow(LongSleeper, () =>
@@ -255,6 +296,32 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 				}).pipe(withEngine(engine.make())),
 			);
 		}
+
+		test.effect("postgres: a parent joins the child a caller outside it ran on its behalf", () =>
+			Effect.gen(function* () {
+				const id = yield* randomUuid;
+				const countedId = `${id}-counted`;
+				const executionId = yield* Joining.executionId({ id });
+				yield* Joining.execute({ id }, { discard: true });
+				yield* untilResult(Joining.poll(executionId), "Suspended");
+				const outside = yield* Counted.execute({ id: countedId }).pipe(
+					Effect.provideService(WorkflowInstance, WorkflowInstance.initial(Joining, executionId)),
+					Effect.forkChild,
+				);
+				expect(yield* Fiber.join(outside)).toBe("counted:1");
+				yield* signal(Signal, Joining, executionId, "go");
+				expect(yield* complete(Joining.poll(executionId))).toEqual(
+					Exit.succeed("joined:counted:1"),
+				);
+				expect(activityRuns.get(countedId)).toBe(1);
+				const sql = yield* PgClient.PgClient;
+				expect(
+					yield* sql`select root_execution_id as "root" from workflow_execution
+						where workflow_name = ${Counted._tag}
+						and execution_id = ${yield* Counted.executionId({ id: countedId })}`,
+				).toEqual([{ root: executionId }]);
+			}).pipe(withEngine(postgresEngine())),
+		);
 
 		test.effect("postgres: a new process resumes a released execution from its stored steps", () =>
 			Effect.gen(function* () {

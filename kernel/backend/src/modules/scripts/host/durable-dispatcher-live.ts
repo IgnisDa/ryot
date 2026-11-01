@@ -2,6 +2,7 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
@@ -13,8 +14,8 @@ import { sandboxDurableHostDispatchStrategy } from "@ryot-app/sandbox/host/host-
 import { toSandboxHostError } from "@ryot-app/sandbox/host/invocation";
 import { recordSandboxHostCall } from "@ryot-app/sandbox/host/metrics";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { Cause, Effect, Layer, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Cause, Effect, Exit, Fiber, Layer, Schema } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { runLifecycleWriteStepWith } from "#modules/automations/lifecycle/write-step";
@@ -29,6 +30,7 @@ import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { NotificationsService } from "#modules/notifications/service";
 import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import { infrastructureRunError } from "#modules/scripts/executions/run-error";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import {
 	dispatchSandboxHostActivity,
 	durableHostFailure,
@@ -74,6 +76,9 @@ const lifecycleHostSuccessSchemas = {
 	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
 };
 
+const inlineStrategy = (strategy: null | string) =>
+	strategy === "activity" || (strategy !== null && isHostWrite(strategy));
+
 const isHostWrite = (strategy: string) =>
 	strategy === "service-workflow" ||
 	strategy === "event-workflow" ||
@@ -84,12 +89,13 @@ export const SandboxDurableHostServiceWorkflowLive = implementWorkflow(
 	SandboxDurableHostServiceWorkflow,
 	Effect.fn("SandboxDurableHostServiceWorkflow")(function* (payload) {
 		yield* (yield* SandboxExecutionAuthority).resolve(payload.principal);
-		return yield* (yield* SandboxDurableHostDispatcher).write(
-			payload.request,
-			{ ...payload.sandbox, startedAt: payload.startedAt },
-			payload.principal,
-			payload.parentExecutionId,
-		);
+		return yield* (yield* SandboxDurableHostDispatcher).write(payload.request, {
+			lane: payload.lane,
+			context: payload.input,
+			principal: payload.principal,
+			startedAt: payload.startedAt,
+			executionId: payload.parentExecutionId,
+		});
 	}),
 );
 
@@ -127,7 +133,7 @@ const settlesInline = (
 ) =>
 	request.kind === "sleep"
 		? request.args.durationMs <= SANDBOX_LIMITS.replay.shortWaitMs
-		: sandboxDurableHostDispatchStrategy(request.args.capability) === "activity";
+		: inlineStrategy(sandboxDurableHostDispatchStrategy(request.args.capability));
 
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
@@ -234,14 +240,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				return { value, state: "success" } satisfies WorkflowDurableResult;
 			});
 
-		const writeHostCall: SandboxDurableHostDispatcher["Service"]["write"] = (
-			request,
-			payload,
-			principal,
-			executionId,
-		) => {
-			const { startedAt } = payload;
-			const scope = hostCallScopeOf(payload, principal, executionId, startedAt);
+		const writeHostCall: SandboxDurableHostDispatcher["Service"]["write"] = (request, scope) => {
 			const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
 			if (strategy === null || !isHostWrite(strategy)) {
 				return Effect.fail(
@@ -313,6 +312,47 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			});
 		};
 
+		const executeHostCall = (
+			request: DispatchArguments[0],
+			scope: HostCallScope,
+			input: JsonValue,
+		) =>
+			dispatchAdmittedWorkflow(
+				engine,
+				SandboxDurableHostServiceWorkflow,
+				scope.principal.subject.type === "system"
+					? null
+					: scope.principal.subject.accountGeneration,
+				{
+					executionId: `${scope.executionId}-host-service-${request.index}`,
+					payload: {
+						input,
+						request,
+						lane: scope.lane,
+						principal: scope.principal,
+						startedAt: scope.startedAt,
+						parentExecutionId: scope.executionId,
+					},
+				},
+			).pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
+
+		// Outside the script's workflow, the host call joins it as a child explicitly. A suspended
+		// host call keeps running and the run defers to the script workflow, which joins it there.
+		const settleHostCall = (
+			request: DispatchArguments[0],
+			scope: HostCallScope,
+			input: JsonValue,
+		) =>
+			Effect.gen(function* () {
+				const parent = WorkflowInstance.initial(ScriptExecutionWorkflow, scope.executionId);
+				const fiber = yield* executeHostCall(request, scope, input).pipe(
+					Effect.provideService(WorkflowInstance, parent),
+					Effect.forkChild,
+				);
+				const exit = yield* Fiber.await(fiber);
+				return Exit.isSuccess(exit) ? exit.value : null;
+			});
+
 		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
 			request,
 			payload,
@@ -334,21 +374,11 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				);
 			}
 			if (isHostWrite(strategy)) {
-				return dispatchAdmittedWorkflow(
-					engine,
-					SandboxDurableHostServiceWorkflow,
-					principal.subject.type === "system" ? null : principal.subject.accountGeneration,
-					{
-						executionId: `${executionId}-host-service-${request.index}`,
-						payload: {
-							request,
-							startedAt,
-							principal,
-							sandbox: payload,
-							parentExecutionId: executionId,
-						},
-					},
-				).pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
+				return executeHostCall(
+					request,
+					hostCallScopeOf(payload, principal, executionId, startedAt),
+					payload.input,
+				);
 			}
 			const resolved = authority.resolve(principal);
 			if (request.args.capability === "httpCall") {
@@ -424,37 +454,37 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									}
 									return { settled, value: null };
 								}
-								yield* authority.resolve(principal);
-								const value = yield* request.args.capability === "httpCall"
-									? recordHostCall(
-											request,
-											httpDispatcher.inline(
-												request,
-												{
-													lane,
-													input,
-													executionId,
-													resolutionMode: "exact",
-													subject: principal.subject,
-													scriptId: principal.scriptId,
-												},
-												principal,
-												executionId,
-												startedAt,
-												wait,
-												(progress) => checkpoint({ request, progress, _tag: "Http" }),
-											),
-										)
-									: recordHostCall(
-											request,
-											dispatchSandboxHostActivity(implementations, request, {
-												lane,
-												context,
-												principal,
-												startedAt,
-												executionId,
-											}),
+								const scope = { lane, context, principal, startedAt, executionId };
+								const value = yield* recordHostCall(
+									request,
+									Effect.suspend(() => {
+										const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
+										if (strategy !== null && isHostWrite(strategy)) {
+											return settleHostCall(request, scope, input);
+										}
+										return Effect.andThen(
+											authority.resolve(principal),
+											request.args.capability === "httpCall"
+												? httpDispatcher.inline(
+														request,
+														{
+															lane,
+															input,
+															executionId,
+															resolutionMode: "exact",
+															subject: principal.subject,
+															scriptId: principal.scriptId,
+														},
+														principal,
+														executionId,
+														startedAt,
+														wait,
+														(progress) => checkpoint({ request, progress, _tag: "Http" }),
+													)
+												: dispatchSandboxHostActivity(implementations, request, scope),
 										);
+									}),
+								);
 								if (value === null) {
 									return { value, settled: false };
 								}

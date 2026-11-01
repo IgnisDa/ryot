@@ -1,5 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
@@ -42,10 +42,9 @@ import {
 import type { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import { infrastructureRunError } from "../executions/run-error";
-import {
-	type PinnedScriptExecutionWorkflowPayload,
-	ScriptExecutionWorkflowPayload,
-	type ScriptExecutionWorkflowPayload as ScriptExecutionWorkflowPayloadValue,
+import type {
+	PinnedScriptExecutionWorkflowPayload,
+	ScriptExecutionWorkflowPayload as ScriptExecutionWorkflowPayloadValue,
 } from "../executions/workflow-payload";
 
 type HostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }>;
@@ -362,11 +361,12 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 );
 
 const SandboxDurableHostServiceWorkflowPayload = Schema.Struct({
+	lane: ExecutionLane,
+	input: jsonValueSchema,
 	startedAt: Schema.String,
 	parentExecutionId: Schema.String,
 	request: workflowHostRequestSchema,
 	principal: ScriptExecutionPrincipal,
-	sandbox: ScriptExecutionWorkflowPayload,
 });
 
 export const SandboxDurableHostServiceWorkflow = Workflow.make(
@@ -387,9 +387,7 @@ type SandboxDurableHostDispatcherValue = {
 	) => Effect.Effect<void>;
 	readonly write: (
 		request: HostRequest,
-		payload: PinnedScriptExecutionWorkflowPayload,
-		principal: ScriptExecutionPrincipal,
-		executionId: string,
+		scope: HostCallScope,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	readonly dispatch: (
 		request: HostRequest,

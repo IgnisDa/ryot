@@ -344,10 +344,15 @@ layer(childOwnerDispatchLayer)((test) => {
 						options: { executionId: "sandbox-parent-host-service-1" },
 					},
 				]);
-				expect(yield* dispatcher.write(notification, payload, principal, executionId)).toEqual({
-					value: null,
-					state: "success",
-				});
+			expect(
+				yield* dispatcher.write(notification, {
+					principal,
+					executionId,
+					lane: payload.lane,
+					context: payload.input,
+					startedAt: payload.startedAt,
+				}),
+			).toEqual({ value: null, state: "success" });
 				expect(yield* (yield* RecordedNotificationMessages).messages).toEqual([
 					{
 						message: "Ready",
@@ -358,6 +363,90 @@ layer(childOwnerDispatchLayer)((test) => {
 				]);
 			}),
 		testTimeout,
+	);
+});
+
+class RecordedInlineWrites extends Context.Service<
+	RecordedInlineWrites,
+	{ readonly writes: Effect.Effect<ReadonlyArray<unknown>> }
+>()(
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedInlineWrites",
+) {}
+
+const signalCreated = {
+	state: "success",
+	value: { wasCreated: true, triggerId: "signal-trigger-1" },
+};
+
+const inlineWriteLayer = (outcome: "suspend" | "complete") =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const writes = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, "unused");
+			const engine = makeWorkflowActivityEngine(instance, {
+				execute: (workflow, options) =>
+					Effect.gen(function* () {
+						const parent = yield* Effect.serviceOption(WorkflowInstance);
+						yield* append(writes, {
+							workflow: workflow.name,
+							executionId: options.executionId,
+							parent: Option.getOrNull(
+								Option.map(parent, (value) => `${value.workflow.name}/${value.executionId}`),
+							),
+						});
+						if (outcome === "suspend" && Option.isSome(parent)) {
+							return yield* Workflow.suspend(parent.value);
+						}
+						return signalCreated;
+					}),
+			});
+			return Layer.mergeAll(
+				dispatcherLayer({ engine, script, instance }),
+				Layer.succeed(RecordedInlineWrites, { writes: Ref.get(writes) }),
+			);
+		}),
+	);
+
+const runInlineWrite = Effect.gen(function* () {
+	const dispatcher = yield* SandboxDurableHostDispatcher;
+	const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
+	const result = yield* dispatcher.settleInline(
+		[{ index: 2, kind: "host", name: "emitSignal", args: { args: [], capability: "emitSignal" } }],
+		{},
+		principal,
+		"background",
+		"inline-parent",
+		"2026-08-06T00:00:00.000Z",
+		makeSandboxShortWait(),
+		(entry) => append(pending, entry),
+	);
+	return { result, pending: yield* Ref.get(pending) };
+});
+
+const inlineWrite = {
+	executionId: "inline-parent-host-service-2",
+	workflow: SandboxDurableHostServiceWorkflow.name,
+	parent: `${ScriptExecutionWorkflow.name}/inline-parent`,
+};
+
+layer(inlineWriteLayer("complete"))((test) => {
+	test.effect("settles a write inline through its host-call workflow under the script", () =>
+		Effect.gen(function* () {
+			const settled = yield* runInlineWrite;
+			expect(settled.result).toEqual([signalCreated]);
+			expect(settled.pending).toMatchObject([{ _tag: "Completed", value: signalCreated }]);
+			expect(yield* (yield* RecordedInlineWrites).writes).toEqual([inlineWrite]);
+		}),
+	);
+});
+
+layer(inlineWriteLayer("suspend"))((test) => {
+	test.effect("defers the run when the host-call workflow suspends", () =>
+		Effect.gen(function* () {
+			const settled = yield* runInlineWrite;
+			expect(settled).toEqual({ pending: [], result: null });
+			expect(yield* (yield* RecordedInlineWrites).writes).toEqual([inlineWrite]);
+		}),
 	);
 });
 
@@ -1987,9 +2076,13 @@ const runLifecycleWrite = (options: {
 				name: options.capability,
 				args: { args: options.args, capability: options.capability },
 			},
-			lifecyclePayload,
-			options.principal ?? lifecyclePrincipal,
-			lifecyclePayload.executionId,
+			{
+				lane: lifecyclePayload.lane,
+				context: lifecyclePayload.input,
+				startedAt: lifecyclePayload.startedAt,
+				executionId: lifecyclePayload.executionId,
+				principal: options.principal ?? lifecyclePrincipal,
+			},
 		),
 	);
 

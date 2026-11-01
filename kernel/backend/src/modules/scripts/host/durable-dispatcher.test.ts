@@ -324,16 +324,10 @@ it("derives service workflow identity from the parent and call index", () => {
 	expect(
 		SandboxDurableHostServiceWorkflow.idempotencyKey({
 			request,
+			input: {},
+			lane: "interactive",
 			parentExecutionId: "sandbox-parent",
 			startedAt: "2026-08-06T00:00:00.000Z",
-			sandbox: {
-				input: {},
-				lane: "interactive",
-				resolutionMode: "exact",
-				subject: { type: "system" },
-				executionId: "sandbox-parent",
-				scriptId: SandboxScriptId.make("script-1"),
-			},
 			principal: {
 				providerId: null,
 				contentHash: "hash",
