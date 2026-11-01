@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { BunCrypto, BunServices } from "@effect/platform-bun";
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -40,9 +40,14 @@ import {
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import { RedisService } from "#platform/redis";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import { implementWorkflow } from "#platform/workflow/scope";
 import { user } from "#schema/tables/auth";
-import { fakeDatabaseSession, makeRedisService } from "#testing/effect";
+import {
+	fakeDatabaseSession,
+	makeRedisService,
+	workflowAccountsTestService,
+} from "#testing/effect";
 import { postgresWorkflowEngineTestLayer } from "#testing/workflow-engine";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
@@ -384,6 +389,15 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 				Effect.provideContext(context),
 				Effect.provideService(WorkflowEngine, engine),
 				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(WorkflowAccounts, {
+					...workflowAccountsTestService,
+					adopt: (account) =>
+						state.retired && account !== null
+							? Effect.fail(
+									new DbError({ message: "Mutation command belongs to a retired account" }),
+								)
+							: Effect.void,
+				}),
 			);
 		});
 		return { provide, instance, body: provide(Workflow.provideScope(Workflow.intoResult(body))) };

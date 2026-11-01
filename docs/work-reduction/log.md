@@ -98,3 +98,30 @@
   not stall during these tests: the engine completes 750–1,170 workflow executions per minute, about
   2,700 per test. They are slow because of the sheer number of operations, which is what slices 3–4
   remove.
+- `baseliv`: `history-correction-liveness` alone on the pre-engine baseline (`f3c8ce8f77`), with
+  provider configuration. 4 of 5 fail at 180 s; the fifth passes in 27 s. The timeouts therefore
+  predate slice 2, which turned one of them into a pass.
+- The VM env file broke on the Hardcover key, whose value contains a space (`Bearer …`). Sourcing
+  it ran the token as a command, so runs before this fix had no Hardcover key. The value is now
+  quoted.
+- Slice 3a: account admission in one statement (see `strategy.md`).
+  - `probes5` shows statements down 12–18% per flow, with CPU unchanged (`probes.md`).
+  - `acct1` ran the 15 e2e files that touch accounts, notifications, background work, integrations
+    and recovery: 87 of 88 tests pass. The failure, `imports/durability`, was an engine bug from
+    slice 2:
+    - Stored JSON drops `undefined`, so the engine's own `Exit.void` deferreds (fired clocks and the
+      interrupt signal) were stored without their `value` key.
+    - Another process decoding them on a wake failed with "workflow wake failed: Missing key", and
+      the execution never resumed. Here, a cancel written by the API never reached the import.
+    - `eng3` passed by timing. Decoding now restores the dropped keys, and an engine test covers an
+      interrupt written by another process.
+  - `dur1`: the four restart and recovery files pass. `imports/durability` takes 75 s; it timed out
+    in `acct1`. `reminders/recovery` takes 81 s, down from 150 s in `acct1`.
+  - The fair queue sends its scripts by hash and backs off when idle (commit `4eef867752`).
+- Engine micro-benchmark (local, PostgreSQL in Docker):
+  - a workflow with no steps costs 0.54 ms of CPU;
+  - each activity step with a 9 KB result adds about 0.15 ms;
+  - a parent with one child costs 0.83 ms.
+
+  So the 18 executions of an event create cost under 20 ms of its roughly 1 s of API CPU. What
+  remains is the work inside them, not the engine.

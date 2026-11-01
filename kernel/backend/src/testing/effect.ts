@@ -1,5 +1,4 @@
 import { BunCrypto } from "@effect/platform-bun";
-import { PgClient } from "@effect/sql-pg";
 import { partialFake } from "@ryot-app/testing/fakes";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
@@ -18,7 +17,8 @@ import {
 	userWriteLockStatement,
 } from "#platform/db/session";
 import type { RedisService } from "#platform/redis";
-import { testDatabaseUrl, testPgClientLayer } from "#testing/database";
+import { WorkflowAccounts } from "#platform/workflow/account";
+import { testPgClientLayer } from "#testing/database";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
@@ -88,7 +88,21 @@ export const makeWorkflowEngine = (
 		overrides,
 	);
 
-export const workflowEngineTestLayer = workflowEngineMemoryLayer;
+// Account ownership needs the PostgreSQL engine; with the memory engine every execution is unowned.
+export const workflowAccountsTestService = WorkflowAccounts.of({
+	adopt: () => Effect.void,
+	listActive: () => Effect.succeed([]),
+});
+
+export const workflowAccountsTestLayer = Layer.succeed(
+	WorkflowAccounts,
+	workflowAccountsTestService,
+);
+
+export const workflowEngineTestLayer = Layer.merge(
+	workflowEngineMemoryLayer,
+	workflowAccountsTestLayer,
+);
 
 export const makeRedisService = (
 	overrides: Partial<RedisService["Service"]> = {},

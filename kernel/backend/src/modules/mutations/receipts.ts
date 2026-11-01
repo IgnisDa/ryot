@@ -17,7 +17,6 @@ import { insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
-import { userLifecycleOperation } from "#schema/tables/user-lifecycle";
 import { workflowExecution } from "#schema/tables/workflow-executions";
 
 import { RECEIPT_RETENTION } from "./submission-window";
@@ -95,17 +94,9 @@ export type MutationBatchPin<Payload> = {
 	readonly references: typeof MutationBatchPinReferences.Type;
 };
 
-const WorkflowOwnerState = Schema.Struct({
-	retiring: Schema.Boolean,
-	fingerprint: Schema.NullOr(Schema.String),
-});
-
-const retiringAccountFilter = (account: AccountGeneration) =>
-	and(
-		eq(userLifecycleOperation.userId, account.userId),
-		inArray(userLifecycleOperation.status, ["pending", "running", "failed"]),
-		sql`${userLifecycleOperation.metadata}->'user'->>'accountGeneration' = ${account.token}`,
-	);
+// Admissions within one transaction share its `for share` lock on the user row, which account
+// retirement must take exclusively, so each account needs admitting once per transaction.
+const admittedAccounts = new WeakMap<object, Set<string>>();
 
 const generationMismatch = (identity: MutationReceiptIdentity) => {
 	const account = identity.accountGeneration;
@@ -195,38 +186,36 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 									),
 								),
 				);
-			const lockAccount = Effect.fn("MutationReceipts.lockAccount")(function* (
-				account: AccountGeneration,
-			) {
-				yield* requireTransaction;
-				// Reset takes the exclusive account row lock before publishing retirement.
-				const [current] = yield* session.run((db) =>
-					db
-						.select({ token: user.accountGeneration })
-						.from(user)
-						.where(eq(user.id, account.userId))
-						.for("share"),
-				);
-				if (!current || current.token !== account.token) {
-					return yield* new DbError({ message: "Mutation command belongs to a retired account" });
-				}
-				return yield* Effect.void;
-			});
 			const admitAccount = Effect.fn("MutationReceipts.admitAccount")(function* (
 				account: AccountGeneration,
 			) {
-				yield* lockAccount(account);
-				const [retiring] = yield* session.run((db) =>
-					db
-						.select({ id: userLifecycleOperation.id })
-						.from(userLifecycleOperation)
-						.where(retiringAccountFilter(account))
-						.limit(1),
+				yield* requireTransaction;
+				yield* session.run((db) =>
+					Effect.gen(function* () {
+						const key = stableStringify([account.userId, account.token]);
+						const admitted = admittedAccounts.get(db) ?? new Set<string>();
+						if (admitted.has(key)) {
+							return yield* Effect.void;
+						}
+						// Retirement stamps this row under its exclusive lock, so the lock wait re-reads it.
+						const [current] = yield* db
+							.select({ token: user.accountGeneration, retiring: user.retiringAccountGeneration })
+							.from(user)
+							.where(eq(user.id, account.userId))
+							.for("share");
+						if (!current || current.token !== account.token) {
+							return yield* new DbError({
+								message: "Mutation command belongs to a retired account",
+							});
+						}
+						if (current.retiring === account.token) {
+							return yield* new DbError({ message: "Mutation command account is being retired" });
+						}
+						admitted.add(key);
+						admittedAccounts.set(db, admitted);
+						return yield* Effect.void;
+					}),
 				);
-				if (retiring) {
-					return yield* new DbError({ message: "Mutation command account is being retired" });
-				}
-				return yield* Effect.void;
 			});
 			const currentAccount = Effect.fn("MutationReceipts.currentAccount")(function* (
 				userId: UserId,
@@ -256,7 +245,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 			const firstGenerationFailure = Effect.fnUntraced(function* (
 				identities: ReadonlyArray<MutationReceiptIdentity>,
 			) {
-				const admitted = new Set<string>();
 				for (const [index, identity] of identities.entries()) {
 					const mismatch = generationMismatch(identity);
 					if (mismatch) {
@@ -266,15 +254,10 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 					if (account === null) {
 						continue;
 					}
-					const key = stableStringify([account.userId, account.token]);
-					if (admitted.has(key)) {
-						continue;
-					}
 					const admission = yield* Effect.result(admitAccount(account));
 					if (Result.isFailure(admission)) {
 						return { index, error: admission.failure };
 					}
-					admitted.add(key);
 				}
 				return undefined;
 			});
@@ -287,71 +270,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 						)}]::text[]) with ordinality t(k, n) order by n`,
 					),
 				);
-			const registerWorkflow = Effect.fn("MutationReceipts.registerWorkflow")(function* (
-				account: null | AccountGeneration,
-				workflowName: string,
-				executionId: string,
-			) {
-				if (account === null) {
-					return;
-				}
-				yield* inTransaction(
-					Effect.gen(function* () {
-						yield* lockAccount(account);
-						const id = `workflow_owner_${sha256Base64Url(stableStringify([workflowName, executionId]))}`;
-						const fingerprint = sha256Base64Url(
-							stableStringify([account, workflowName, executionId]),
-						);
-						const readOwner = Effect.gen(function* () {
-							const [state] = yield* session.run((db) =>
-								db.execute<typeof WorkflowOwnerState.Type>(
-									sql`select
-									(select ${mutationReceipt.inputFingerprint} from ${mutationReceipt}
-										where ${mutationReceipt.id} = ${id}) as fingerprint,
-									exists(select 1 from ${userLifecycleOperation}
-										where ${retiringAccountFilter(account)}) as retiring`,
-									"objects",
-								),
-							);
-							if (state?.retiring) {
-								return yield* new DbError({ message: "Mutation command account is being retired" });
-							}
-							return state?.fingerprint ? { fingerprint: state.fingerprint } : undefined;
-						});
-						let owner = yield* readOwner;
-						if (!owner) {
-							const [inserted] = yield* session.run((db) =>
-								db
-									.insert(mutationReceipt)
-									.values({
-										id,
-										executionId,
-										workflowName,
-										dispatch: [],
-										commandKind: "workflow",
-										mutationScope: "global",
-										accountGeneration: account,
-										itemIdentity: workflowName,
-										ownerUserId: account.userId,
-										rootExecutionId: executionId,
-										inputFingerprint: fingerprint,
-										receiptType: "workflow-owner",
-									})
-									.onConflictDoNothing()
-									.returning({ fingerprint: mutationReceipt.inputFingerprint }),
-							);
-							// A competing insert is visible only to the next statement's snapshot.
-							owner = inserted ?? (yield* readOwner);
-						}
-						if (owner?.fingerprint !== fingerprint) {
-							return yield* new DbError({
-								message: "Workflow belongs to another account generation",
-							});
-						}
-						return yield* Effect.void;
-					}),
-				);
-			});
 			const decodeItem = Effect.fnUntraced(function* <Result>(
 				identity: MutationReceiptIdentity,
 				row: typeof mutationReceipt.$inferSelect,
@@ -854,7 +772,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 				batchContents,
 				currentAccount,
 				retireUserPins,
-				registerWorkflow,
 				getCommittedItems,
 				countWrittenEvents,
 				peek: <Result>(identity: MutationReceiptIdentity, result: Schema.Codec<Result, unknown>) =>

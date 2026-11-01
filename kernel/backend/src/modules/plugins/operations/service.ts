@@ -25,10 +25,8 @@ import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { mapDatabaseErrors } from "#platform/db/errors";
@@ -300,12 +298,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					) {
 						return yield* operationNotFound;
 					}
-					yield* admitWorkflow(
-						receipts,
-						ScriptExecutionWorkflow,
-						dispatchInput.accountGeneration,
-						executionId,
-					);
+					yield* receipts.admitAccount(dispatchInput.accountGeneration);
 					yield* references
 						.registerInTransaction({
 							executionId,

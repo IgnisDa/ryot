@@ -2,7 +2,6 @@ import { Effect, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
@@ -16,21 +15,13 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 		yield* Effect.annotateCurrentSpan({ executionId, userId: payload.userId });
 		const engine = yield* WorkflowEngine;
 		const integrations = yield* IntegrationsService;
-		const receipts = yield* MutationReceipts.make;
-		yield* admitWorkflow(
-			receipts,
-			IntegrationSyncWorkflow,
-			payload.accountGeneration,
-			executionId,
-		).pipe(Effect.orDie);
+		yield* admitWorkflow(payload.accountGeneration).pipe(Effect.orDie);
 
 		yield* makeActivity({
 			error: Schema.Never,
 			success: Schema.Void,
 			name: "admit-yank-integration-runs",
-			execute: integrations
-				.prepareYankRuns(payload.userId, payload.accountGeneration)
-				.pipe(Effect.orDie),
+			execute: integrations.prepareYankRuns(payload.userId).pipe(Effect.orDie),
 		});
 		const before = yield* makeActivity({
 			error: Schema.Never,
@@ -50,7 +41,6 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 				return;
 			}
 			yield* dispatchAdmittedWorkflow(
-				receipts,
 				engine,
 				ProcessIntegrationRunWorkflow,
 				run.accountGeneration,
@@ -64,15 +54,12 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 						accountGeneration: run.accountGeneration,
 					},
 				},
-				(admission) => admission.pipe(Effect.orDie),
-				(execution) =>
-					execution.pipe(
-						Effect.catchCause((cause) =>
-							Effect.logError("integration sync run dispatch failed", cause).pipe(
-								Effect.annotateLogs({ runId: run.runId }),
-							),
-						),
+			).pipe(
+				Effect.catchCause((cause) =>
+					Effect.logError("integration sync run dispatch failed", cause).pipe(
+						Effect.annotateLogs({ runId: run.runId }),
 					),
+				),
 			);
 		});
 		let after: null | IngestionRecoveryCursor = null;

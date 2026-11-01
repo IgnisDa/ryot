@@ -33,8 +33,13 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
+import {
+	makeRedisService,
+	makeWorkflowActivityEngine,
+	workflowAccountsTestService,
+} from "#testing/effect";
 
 import type { ProviderEntityPopulationPayload } from "./provider-entity-population-workflow";
 import {
@@ -202,6 +207,7 @@ const harness = Effect.fnUntraced(function* (
 			runProviderEntityPopulationWorkflow(payload, executionId).pipe(
 				Effect.provideService(WorkflowInstance, instance),
 				Effect.provideService(WorkflowEngine, engine),
+				Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 			),
 	};
 });

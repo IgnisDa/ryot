@@ -553,15 +553,11 @@ export class EventsService extends Context.Service<EventsService>()(
 				yield* verifyCreateBatchInput(input, command);
 				const started = yield* Clock.currentTimeMillis;
 				const job = { itemCount: input.payload.length, executionId: command.causation.executionId };
-				yield* dispatchAdmittedWorkflow(
-					receipts,
-					engine,
-					EventCreateWorkflow,
-					command.accountGeneration,
-					{ discard: true, executionId: job.executionId, payload: { ...input, command } },
-					(admission) => admission,
-					(dispatch) => dispatch.pipe(Effect.uninterruptible),
-				);
+				yield* dispatchAdmittedWorkflow(engine, EventCreateWorkflow, command.accountGeneration, {
+					discard: true,
+					executionId: job.executionId,
+					payload: { ...input, command },
+				}).pipe(Effect.uninterruptible);
 				const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
 				const state = yield* awaitWorkflowSettled({
 					backstop: "500 millis",

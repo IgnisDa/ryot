@@ -2,7 +2,6 @@ import { DbError } from "@ryot-app/contract/errors";
 import { NotificationDeliveryResult } from "@ryot-app/contract/modules/notifications/delivery";
 import { Effect, Schema } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
@@ -19,12 +18,7 @@ export const runNotificationDeliveryWorkflow = Effect.fn("NotificationDeliveryWo
 			notificationId: payload.notificationId,
 			userId: payload.accountGeneration.userId,
 		});
-		yield* admitWorkflow(
-			yield* MutationReceipts,
-			NotificationDeliveryWorkflow,
-			payload.accountGeneration,
-			executionId,
-		);
+		yield* admitWorkflow(payload.accountGeneration);
 		return yield* makeActivity({
 			error: DbError,
 			name: "deliver-enabled-channels",

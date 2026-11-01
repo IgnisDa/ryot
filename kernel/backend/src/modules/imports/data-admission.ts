@@ -172,7 +172,6 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 						itemIdentity: stableStringify(["import-run", runId]),
 					});
 					yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ProcessImportRunWorkflow,
 						user.accountGeneration,
@@ -181,8 +180,6 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 							executionId: runId,
 							payload: { runId, command, dataJson: true, userId: user.id },
 						},
-						(admission) => admission,
-						(dispatch) => dispatch,
 					).pipe(Effect.catch((cause) => Effect.logError("data import dispatch failed", cause)));
 				}
 				return { id: runId };

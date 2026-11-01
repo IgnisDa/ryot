@@ -17,7 +17,6 @@ import * as authSchema from "#schema/tables/auth";
 import * as automationSchema from "#schema/tables/automations";
 import * as backupSchema from "#schema/tables/backups";
 import * as coreSchema from "#schema/tables/core";
-import * as mutationSchema from "#schema/tables/mutations";
 import * as uploadSchema from "#schema/tables/uploads";
 import * as lifecycleSchema from "#schema/tables/user-lifecycle";
 
@@ -77,24 +76,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const database = yield* DatabaseSession;
 			const receipts = yield* MutationReceipts.make;
 			const imports = yield* ImportsRepository;
-			const listUserMutationWork = Effect.fn("UserLifecycleRepository.listUserMutationWork")(
-				function* (userId: UserId) {
-					return yield* database.run((db) =>
-						db
-							.select({
-								executionId: mutationSchema.mutationReceipt.executionId,
-								workflowName: mutationSchema.mutationReceipt.workflowName,
-							})
-							.from(mutationSchema.mutationReceipt)
-							.where(
-								and(
-									eq(mutationSchema.mutationReceipt.ownerUserId, userId),
-									eq(mutationSchema.mutationReceipt.receiptType, "workflow-owner"),
-								),
-							),
-					);
-				},
-			);
 			const deleteUserData = Effect.fn("UserLifecycleRepository.deleteUserData")(function* (
 				userId: UserId,
 			) {
@@ -392,6 +373,12 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						.values({ ...input, status: "pending" })
 						.returning(),
 				);
+				yield* database.run((db) =>
+					db
+						.update(authSchema.user)
+						.set({ retiringAccountGeneration: input.metadata.user.accountGeneration })
+						.where(eq(authSchema.user.id, input.userId)),
+				);
 				return row
 					? yield* toInternal(row)
 					: yield* new DbError({ message: "Lifecycle operation was not inserted" });
@@ -637,7 +624,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				getInternalById,
 				reactivateFailed,
 				markAccessRevoked,
-				listUserMutationWork,
 				claimAccessRevocation,
 				loadRecreatedIdentity,
 				releaseAccessRevocation,

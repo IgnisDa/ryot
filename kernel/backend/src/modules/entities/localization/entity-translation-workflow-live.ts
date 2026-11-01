@@ -11,7 +11,6 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { redisKeys, RedisService } from "#platform/redis";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -111,15 +110,11 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(f
 	executionId: string,
 ) {
 	const requests = yield* EnrichmentRequests;
-	const receipts = yield* MutationReceipts.make;
 	const engine = yield* WorkflowEngine;
 	const operations = yield* TranslateEntityWorkflowOperations;
-	yield* admitWorkflow(
-		receipts,
-		TranslateEntityWorkflow,
-		payload.accountGeneration,
-		executionId,
-	).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+	yield* admitWorkflow(payload.accountGeneration).pipe(
+		Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+	);
 	const release = makeActivity({
 		name: "release-translation-registration",
 		success: Schema.Void satisfies DurableSchema,
@@ -171,7 +166,6 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(f
 			const result = yield* Effect.gen(function* () {
 				execution ??= yield* operations.captureExecution(payload, executionId, attempt);
 				return yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					TranslateEntityAttemptWorkflow,
 					payload.accountGeneration,
@@ -191,9 +185,10 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(f
 							},
 						},
 					},
-					(admission) =>
-						admission.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
-					(dispatch) => dispatch,
+				).pipe(
+					Effect.catchTag("DbError", (error) =>
+						Effect.fail(toSandboxRunError(error, "infrastructure")),
+					),
 				);
 			}).pipe(Effect.result);
 			if (Result.isSuccess(result)) {

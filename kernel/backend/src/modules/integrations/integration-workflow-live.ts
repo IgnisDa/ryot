@@ -22,7 +22,6 @@ import { ProcessDataImportWorkflow } from "#modules/imports/data-workflow";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { IngestionExecutionLive } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -49,13 +48,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			userId: payload.userId,
 			accountGeneration: payload.accountGeneration,
 		};
-		const receipts = yield* MutationReceipts.make;
-		yield* admitWorkflow(
-			receipts,
-			ProcessIntegrationRunWorkflow,
-			payload.accountGeneration,
-			executionId,
-		);
+		yield* admitWorkflow(payload.accountGeneration);
 		const repository = yield* ImportsRepository;
 		const ingestion = yield* IntegrationIngestion;
 		const execution = yield* IngestionExecution;
@@ -170,7 +163,6 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			if (integration.pluginInstallationId === null) {
 				const engine = yield* WorkflowEngine;
 				yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					ProcessDataImportWorkflow,
 					payload.accountGeneration,
@@ -178,8 +170,6 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 						executionId: `${payload.runId}-data`,
 						payload: { command, runId: payload.runId, userId: payload.userId },
 					},
-					(admission) => admission,
-					(dispatch) => dispatch,
 				);
 			} else {
 				const sandbox = yield* ScriptExecutionService;

@@ -16,9 +16,8 @@ import {
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { UserBootstrap } from "./bootstrap";
 import { UserBootstrapScheduling, userBootstrapWorkflowExecutionId } from "./scheduling";
@@ -82,7 +81,7 @@ const recordingSchedulingLayer = Layer.unwrap(
 					Layer.mock(UserLifecycleRepository)({}),
 					Layer.mock(ObjectStorageService)({}),
 					Layer.mock(IngestionExecution)({}),
-					Layer.succeed(AdmittedWorkflowCatalogue, []),
+					workflowAccountsTestLayer,
 					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),
 					Layer.succeed(RecordedSchedules, {

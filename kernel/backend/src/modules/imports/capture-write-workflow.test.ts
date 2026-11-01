@@ -6,6 +6,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Redacted } from "effect";
+import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
 import { DatabaseSession } from "#platform/db/session";
@@ -13,10 +14,14 @@ import { HmacSigner } from "#platform/storage/hmac-signer";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer } from "#testing/effect";
+import { makeAppConfigLayer, workflowAccountsTestLayer } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { captureWriteExecutionId, runIngestionCaptureWrite } from "./capture-write-workflow";
+import {
+	captureWriteExecutionId,
+	ProcessIngestionCaptureWorkflow,
+	runIngestionCaptureWrite,
+} from "./capture-write-workflow";
 import { ImportsRepository } from "./repository";
 
 layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")))((test) => {
@@ -43,6 +48,7 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 				yield* fs.makeDirectory(working);
 				const dependencies = Layer.mergeAll(
 					BunServices.layer,
+					workflowAccountsTestLayer,
 					makeAppConfigLayer({
 						database: { url: Redacted.make(url) },
 						fileStorage: { localTempDir: working, localDir: `${directory}/permanent` },
@@ -106,10 +112,16 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 					yield* fs.makeDirectory(working);
 					for (let activation = 0; activation < 2; activation++) {
 						const restarted = yield* Layer.build(services);
-						const capture = yield* runIngestionCaptureWrite(
-							input,
-							captureWriteExecutionId(scope, input.id),
-						).pipe(Effect.provideContext(restarted));
+						const capture = yield* runIngestionCaptureWrite(input).pipe(
+							Effect.provideService(
+								WorkflowInstance,
+								WorkflowInstance.initial(
+									ProcessIngestionCaptureWorkflow,
+									captureWriteExecutionId(scope, input.id),
+								),
+							),
+							Effect.provideContext(restarted),
+						);
 						expect(capture.payload).toEqual(payload);
 						expect(capture.checkpoint).toEqual({ page: 1 });
 						const stored = yield* Effect.flatMap(IngestionPayloads, (storage) =>

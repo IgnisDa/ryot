@@ -15,10 +15,9 @@ Recovery moves each checked row behind unchecked work for 60 seconds before disp
 dispatches cannot permanently occupy the front of the bounded scan.
 
 Transactions lock the account generation first, then any source-policy fence, then the notification
-source advisory lock or notification row, then the channel row and delivery row. Workflow registration takes the account
-lock before its receipt write. No transaction spans rendering, external I/O or workflow dispatch.
+source advisory lock or notification row, then the channel row and delivery row. No transaction spans rendering, external I/O or workflow dispatch.
 Account retirement takes the conflicting exclusive account lock; deleting the account cascades both
-ledger tables. Workflow ownership is registered with mutation admission and the retirement catalogue.
+ledger tables. Delivery workflows work for the notification's account, so retirement interrupts them.
 
 The source key and input digest are immutable and independent of automation-history foreign keys.
 Concurrent admission returns the same notification. Different content under the same key is rejected.

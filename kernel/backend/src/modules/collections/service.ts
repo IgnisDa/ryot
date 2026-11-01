@@ -39,7 +39,6 @@ import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	PendingRelationshipMutations,
@@ -158,7 +157,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const entities = yield* EntitiesService;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
-			const receipts = yield* MutationReceipts.make;
 			const relationshipSchemasRepository = yield* RelationshipSchemaReader;
 			const memberOfSchema = yield* Effect.cached(
 				relationshipSchemasRepository
@@ -555,13 +553,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			) => {
 				const executionId = command.causation.executionId;
 				return dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					CollectionMembershipWorkflow,
 					command.accountGeneration,
 					{ executionId, payload: { ...payload, command, executionId, userId: user.id } },
-					(admission) => admission,
-					(execution) => execution,
 				);
 			};
 

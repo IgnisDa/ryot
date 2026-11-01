@@ -28,7 +28,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import {
@@ -84,6 +84,7 @@ const applyCase = (
 		const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
 		let definitionReads = 0;
 		const dependencies = Layer.mergeAll(
+			workflowAccountsTestLayer,
 			ingestionTestDatabase(),
 			Layer.mock(LifecycleExecution)({}),
 			Layer.mock(EventsService)({}),

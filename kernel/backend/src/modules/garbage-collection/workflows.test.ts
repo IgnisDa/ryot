@@ -24,6 +24,7 @@ const admit = Effect.fnUntraced(function* (identity: WorkflowIdentity, parent?: 
 		owner,
 		parent,
 		identity,
+		account: undefined,
 		payload: { input: identity.executionId },
 	});
 });
@@ -265,7 +266,7 @@ layer(
 			yield* Deferred.succeed(release, undefined);
 			yield* Fiber.join(expiry);
 			const admitted = yield* Fiber.join(admission);
-			expect(admitted).toEqual({ row: undefined, inserted: false });
+			expect(admitted).toEqual({ row: undefined, inserted: false, rejected: false });
 		}),
 		testTimeout,
 	);
@@ -279,7 +280,11 @@ layer(
 			yield* TestClock.adjust("24 hours");
 			yield* (yield* WorkflowGarbageCollector).runBatch();
 			const child = { workflowName: "ChildWorkflow", executionId: "expired-new-child" };
-			expect(yield* admit(child, identity)).toEqual({ row: undefined, inserted: false });
+			expect(yield* admit(child, identity)).toEqual({
+				row: undefined,
+				inserted: false,
+				rejected: false,
+			});
 			expect(yield* storedRow(child)).toBeUndefined();
 			for (const kind of ["activity", "clock", "deferred"] as const) {
 				expect(yield* write(identity, kind, "late")).toMatchObject({
@@ -310,7 +315,11 @@ layer(
 			);
 			const orphan = { executionId: "orphan", workflowName: "ChildWorkflow" };
 			const missing = { workflowName: "RootWorkflow", executionId: "missing-parent" };
-			expect(yield* admit(orphan, missing)).toEqual({ row: undefined, inserted: false });
+			expect(yield* admit(orphan, missing)).toEqual({
+				row: undefined,
+				inserted: false,
+				rejected: false,
+			});
 			expect(yield* write(orphan, "deferred", "signal")).toMatchObject({
 				written: false,
 				admitted: false,

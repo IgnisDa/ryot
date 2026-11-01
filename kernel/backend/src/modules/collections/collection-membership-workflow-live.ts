@@ -8,7 +8,6 @@ import {
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	PendingRelationshipMutations,
@@ -73,13 +72,7 @@ const membershipEvents = {
 export const runCollectionMembershipWorkflow = Effect.fn("CollectionMembershipWorkflow")(
 	function* (payload: CollectionMembershipWorkflowPayload, executionId: string) {
 		const command = kernelCollectionLifecycleCommand(payload.command);
-		const receipts = yield* MutationReceipts.make;
-		yield* admitWorkflow(
-			receipts,
-			CollectionMembershipWorkflow,
-			command.accountGeneration,
-			executionId,
-		);
+		yield* admitWorkflow(command.accountGeneration);
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			userId: payload.userId,
@@ -147,7 +140,6 @@ export const runCollectionMembershipWorkflow = Effect.fn("CollectionMembershipWo
 			return { warnings, memberOf: result.memberOf, operation: result.operation };
 		}
 		const eventAttempt = yield* dispatchAdmittedWorkflow(
-			receipts,
 			engine,
 			EventCreateWorkflow,
 			payload.command.accountGeneration,
@@ -171,9 +163,7 @@ export const runCollectionMembershipWorkflow = Effect.fn("CollectionMembershipWo
 					],
 				},
 			},
-			(admission) => admission,
-			(execution) => execution.pipe(Effect.result),
-		);
+		).pipe(Effect.result);
 		const failure =
 			eventAttempt._tag === "Failure" ? eventAttempt.failure : eventAttempt.success.failure?.reason;
 		if (failure !== undefined) {

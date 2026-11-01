@@ -23,7 +23,7 @@ import {
 import { ImportsRepository } from "#modules/imports/repository";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IntegrationConfirmationError, IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -64,6 +64,7 @@ const rootCase = (
 		instance.suspended = failure === "suspend";
 		const dependencies = Layer.mergeAll(
 			mutationAdmissionTestLayer,
+			workflowAccountsTestLayer,
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(
 				WorkflowEngine,

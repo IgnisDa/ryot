@@ -26,6 +26,7 @@ export const user = snakeCase.table(
 		twoFactorEnabled: boolean(),
 		updatedAt: updatedAtColumn(),
 		email: text().notNull().unique(),
+		retiringAccountGeneration: text(),
 		bootstrapCompletedAt: timestamptz(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		emailVerified: boolean().default(false).notNull(),

@@ -7,7 +7,6 @@ import {
 	ingestionPayloadDigest,
 	IngestionPayloads,
 } from "#modules/assets/storage/ingestion-payloads";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow } from "#platform/workflow/scope";
@@ -32,14 +31,8 @@ export const ProcessIngestionCaptureWorkflow = Workflow.make("ProcessIngestionCa
 });
 
 export const runIngestionCaptureWrite = Effect.fn("ProcessIngestionCaptureWorkflow")(
-	function* (input: typeof CaptureWritePayload.Type, executionId: string) {
-		const receipts = yield* MutationReceipts.make;
-		yield* admitWorkflow(
-			receipts,
-			ProcessIngestionCaptureWorkflow,
-			input.scope.accountGeneration,
-			executionId,
-		);
+	function* (input: typeof CaptureWritePayload.Type) {
+		yield* admitWorkflow(input.scope.accountGeneration);
 		const repository = yield* ImportsRepository;
 		const database = yield* DatabaseSession;
 		const payloads = yield* IngestionPayloads;

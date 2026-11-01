@@ -56,7 +56,11 @@ import {
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
-import { makeWorkflowActivityEngine, type MockOverrides } from "#testing/effect";
+import {
+	makeWorkflowActivityEngine,
+	type MockOverrides,
+	workflowAccountsTestLayer,
+} from "#testing/effect";
 
 import { CollectionMembershipWorkflow } from "./collection-membership-workflow";
 import {
@@ -339,6 +343,7 @@ const makeServiceLayer = (
 				mockRelationshipSchemas({ findKernelBySlug: () => Effect.succeed(memberOfSchema) }),
 				Layer.succeed(WorkflowEngine, engine),
 				Layer.succeed(WorkflowInstance, instance),
+				workflowAccountsTestLayer,
 				Layer.succeed(CollectionCalls, {
 					createdEntities: Ref.get(createdEntities),
 					updatedEntities: Ref.get(updatedEntities),

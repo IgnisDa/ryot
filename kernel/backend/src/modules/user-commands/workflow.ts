@@ -118,15 +118,9 @@ const referencedEntity = (
 export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 	implementWorkflow(
 		UserEntityPreparationWorkflow,
-		Effect.fn("UserEntityPreparationWorkflow")(function* (payload, executionId) {
+		Effect.fn("UserEntityPreparationWorkflow")(function* (payload) {
 			const entities = yield* EntitiesService;
-			const receipts = yield* MutationReceipts.make;
-			yield* admitWorkflow(
-				receipts,
-				UserEntityPreparationWorkflow,
-				payload.command.accountGeneration,
-				executionId,
-			);
+			yield* admitWorkflow(payload.command.accountGeneration);
 			const owner = payload.command.writeContext?.pluginRevision;
 			if (!owner) {
 				return yield* new DbError({ message: "User command requires exact plugin authority" });
@@ -149,15 +143,9 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 	),
 	implementWorkflow(
 		UserRelationshipPreparationWorkflow,
-		Effect.fn("UserRelationshipPreparationWorkflow")(function* (payload, executionId) {
+		Effect.fn("UserRelationshipPreparationWorkflow")(function* (payload) {
 			const relationships = yield* RelationshipsService;
-			const receipts = yield* MutationReceipts.make;
-			yield* admitWorkflow(
-				receipts,
-				UserRelationshipPreparationWorkflow,
-				payload.command.accountGeneration,
-				executionId,
-			);
+			yield* admitWorkflow(payload.command.accountGeneration);
 			const owner = payload.command.writeContext?.pluginRevision;
 			if (!owner) {
 				return yield* new DbError({ message: "User command requires exact plugin authority" });
@@ -189,7 +177,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 	),
 	implementWorkflow(
 		UserCommandWorkflow,
-		Effect.fn("UserCommandWorkflow")(function* (payload, executionId) {
+		Effect.fn("UserCommandWorkflow")(function* (payload) {
 			const receipts = yield* MutationReceipts.make;
 			const session = yield* DatabaseSession;
 			const entities = yield* EntitiesService;
@@ -199,12 +187,7 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 			const relationships = yield* RelationshipsService;
 			const planner = yield* LifecyclePlanner;
 			const lifecycle = yield* LifecycleExecution;
-			yield* admitWorkflow(
-				receipts,
-				UserCommandWorkflow,
-				payload.command.accountGeneration,
-				executionId,
-			);
+			yield* admitWorkflow(payload.command.accountGeneration);
 			const receiptIdentity = mutationReceiptIdentity({
 				input: payload.input,
 				command: payload.command,

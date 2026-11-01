@@ -1,7 +1,6 @@
 import { Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { implementWorkflow } from "#platform/workflow/scope";
 
@@ -23,13 +22,9 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 			userId: payload.userId,
 		});
 		if (payload.dataJson) {
-			const receipts = yield* MutationReceipts.make;
-			yield* admitWorkflow(
-				receipts,
-				ProcessImportRunWorkflow,
-				payload.command.accountGeneration,
-				executionId,
-			).pipe(Effect.mapError(toWorkflowError));
+			yield* admitWorkflow(payload.command.accountGeneration).pipe(
+				Effect.mapError(toWorkflowError),
+			);
 			yield* runDataImportWorkflow(payload, executionId);
 		} else {
 			yield* runPluginImportWorkflow(payload, executionId);

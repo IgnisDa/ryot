@@ -12,7 +12,11 @@ import type {
 	EnrichmentRequestPatch,
 } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
-import { fakeDatabaseSession, makeWorkflowActivityEngine } from "#testing/effect";
+import {
+	fakeDatabaseSession,
+	makeWorkflowActivityEngine,
+	workflowAccountsTestLayer,
+} from "#testing/effect";
 
 import {
 	TranslateEntityAttemptWorkflow,
@@ -83,6 +87,7 @@ const harness = Effect.fnUntraced(function* (
 	});
 	const dependencies = Layer.mergeAll(
 		database,
+		workflowAccountsTestLayer,
 		Layer.mock(EnrichmentRequests)({
 			update: (_id, patch) =>
 				Effect.sync(() => {

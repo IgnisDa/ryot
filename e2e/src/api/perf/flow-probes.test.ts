@@ -30,6 +30,9 @@ const DatabaseRow = Schema.Struct({ xacts: Schema.FiniteFromString });
 const StatementsRow = Schema.Struct({ calls: Schema.Finite, execMs: Schema.Finite });
 const TableRows = Schema.Array(Schema.Struct({ writes: Schema.Finite, relname: Schema.String }));
 const CountRows = Schema.Array(Schema.Struct({ n: Schema.Finite, key: Schema.String }));
+const QueryRows = Schema.Array(
+	Schema.Struct({ n: Schema.Finite, key: Schema.String, text: Schema.String }),
+);
 
 type Snapshot = {
 	at: number;
@@ -37,8 +40,10 @@ type Snapshot = {
 	calls: number;
 	execMs: number;
 	cpuTicks: number;
+	ownCpuTicks: number;
 	tables: ReadonlyMap<string, number>;
 	counts: ReadonlyMap<string, number>;
+	queries: ReadonlyMap<string, { n: number; text: string }>;
 };
 
 const sql = RUN_FLOW_PROBES
@@ -81,7 +86,7 @@ const processTreeTicks = Effect.gen(function* () {
 			cursor = stats.get(cursor)?.ppid;
 		}
 	}
-	return total;
+	return { total, own: stats.get(serverPid)?.ticks ?? 0 };
 });
 
 const snapshot = Effect.gen(function* () {
@@ -105,15 +110,26 @@ const snapshot = Effect.gen(function* () {
 		(client) =>
 			client`select 'workflow:' || workflow_name as key, count(*)::float8 as n from workflow_execution group by 1
 				union all select 'hook:' || hook_slug, count(*)::float8 from automation_run group by 1
-				union all select 'background:' || purpose, count(*)::float8 from background_work group by 1`,
+				union all select 'background:' || purpose, count(*)::float8 from background_work group by 1
+				union all select 'step:' || kind || ':' || regexp_replace(name, '[0-9A-Za-z_]*[0-9][0-9A-Za-z_]*', 'N', 'g'), count(*)::float8
+					from workflow_step group by 1`,
+	);
+	const queries = yield* query(
+		QueryRows,
+		(client) =>
+			client`select queryid::text as key, calls::float8 as n, left(regexp_replace(query, '[[:space:]]+', ' ', 'g'), 200) as text
+				from pg_stat_statements where query not ilike '%pg_stat%' and queryid is not null`,
 	);
 	return {
 		at: performance.now(),
 		xacts: database?.xacts ?? 0,
 		calls: statements?.calls ?? 0,
 		execMs: statements?.execMs ?? 0,
-		cpuTicks: yield* processTreeTicks,
+		...(yield* processTreeTicks.pipe(
+			Effect.map(({ own, total }) => ({ cpuTicks: total, ownCpuTicks: own })),
+		)),
 		counts: new Map(counts.map(({ n, key }) => [key, n])),
+		queries: new Map(queries.map(({ n, key, text }) => [key, { n, text }])),
 		tables: new Map(tables.map(({ writes, relname }) => [relname, writes])),
 	} satisfies Snapshot;
 });
@@ -133,14 +149,21 @@ const diff = (before: Snapshot, after: Snapshot) => {
 			created[name] = delta;
 		}
 	}
+	const topStatements = [...after.queries]
+		.map(([key, { n, text }]) => ({ text, calls: n - (before.queries.get(key)?.n ?? 0) }))
+		.filter((entry) => entry.calls > 0)
+		.sort((left, right) => right.calls - left.calls)
+		.slice(0, 40);
 	return {
 		created,
 		tableWrites,
+		topStatements,
 		xacts: after.xacts - before.xacts,
 		ms: Math.round(after.at - before.at),
 		statements: after.calls - before.calls,
 		dbExecMs: Math.round(after.execMs - before.execMs),
 		serverCpuMs: (after.cpuTicks - before.cpuTicks) * 10,
+		apiCpuMs: (after.ownCpuTicks - before.ownCpuTicks) * 10,
 	};
 };
 

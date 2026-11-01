@@ -250,12 +250,10 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 								ownership.userId === null ? [] : [ownership.userId],
 							);
 							const subject = payload.subject;
-							yield* admitWorkflow(
-								receipts,
-								ScriptExecutionWorkflow,
-								accountGenerationOf(payload),
-								executionId,
-							);
+							const account = accountGenerationOf(payload);
+							if (account !== null) {
+								yield* receipts.admitAccount(account);
+							}
 							if (ownership.conflicts) {
 								return yield* sandboxFailure(
 									"script-failure",
@@ -647,7 +645,6 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	if (usesArtifacts) {
 		yield* artifactReference("retain");
 	}
-	const receipts = yield* MutationReceipts.make;
 
 	const child = yield* Effect.exit(
 		kernel
@@ -668,7 +665,6 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 								sandboxFailure("missing-artifact", "Child workflow script was not resolved"),
 							)
 						: dispatchAdmittedWorkflow(
-								receipts,
 								engine,
 								ScriptExecutionWorkflow,
 								accountGenerationOf(payload),
@@ -685,9 +681,10 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 										...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
 									},
 								},
-								(admission) =>
-									admission.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
-								(dispatch) => dispatch,
+							).pipe(
+								Effect.catchTag("DbError", (error) =>
+									Effect.fail(rethrowSandboxFailure("infrastructure")(error)),
+								),
 							),
 				),
 	);
@@ -1066,28 +1063,24 @@ export const runScriptExecutionWorkflow = Effect.fn("ScriptExecutionWorkflow")(f
 	payload: ScriptExecutionWorkflowPayloadValue,
 	executionId: string,
 ) {
-	const receipts = yield* MutationReceipts.make;
-	yield* admitWorkflow(
-		receipts,
-		ScriptExecutionWorkflow,
-		accountGenerationOf(payload),
-		executionId,
-	).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
+	yield* admitWorkflow(accountGenerationOf(payload)).pipe(
+		Effect.mapError(rethrowSandboxFailure("infrastructure")),
+	);
 	return yield* runScriptExecutionWorkflowBody(payload, executionId, processPinnedSandbox);
 });
 
 export const executeScriptExecutionWorkflow = Effect.fn("executeScriptExecutionWorkflow")(
 	function* (payload: ScriptExecutionWorkflowPayloadValue) {
 		const engine = yield* WorkflowEngine;
-		const receipts = yield* MutationReceipts.make;
 		const value = yield* dispatchAdmittedWorkflow(
-			receipts,
 			engine,
 			ScriptExecutionWorkflow,
 			accountGenerationOf(payload),
 			{ payload, executionId: payload.executionId },
-			(admission) => admission.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
-			(execution) => execution,
+		).pipe(
+			Effect.catchTag("DbError", (error) =>
+				Effect.fail(rethrowSandboxFailure("infrastructure")(error)),
+			),
 		);
 		return yield* Schema.decodeUnknownEffect(SandboxExecutionResultSchema)(value).pipe(
 			Effect.mapError((error) =>

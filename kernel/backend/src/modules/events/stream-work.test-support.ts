@@ -55,6 +55,7 @@ import {
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
+import { WorkflowAccountRejected, WorkflowAdmissionAccount } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -320,6 +321,22 @@ export const streamWorkTestLayer = Layer.unwrap(
 				return makeWorkflowEngine({
 					execute: (workflow, options) =>
 						Effect.gen(function* () {
+							const account = yield* WorkflowAdmissionAccount;
+							if (account) {
+								const [current] = yield* session.run((db) =>
+									db
+										.select({ token: tables.user.accountGeneration })
+										.from(tables.user)
+										.where(eq(tables.user.id, account.userId)),
+								);
+								if (current?.token !== account.token) {
+									return yield* Effect.die(
+										new WorkflowAccountRejected({
+											message: "Mutation command belongs to a retired account",
+										}),
+									);
+								}
+							}
 							const parent = yield* Effect.serviceOption(WorkflowInstance);
 							const inTransaction = yield* session.isTransactionActive;
 							yield* Ref.update(workflowCalls, (calls) => [

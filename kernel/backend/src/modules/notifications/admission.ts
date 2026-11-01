@@ -33,19 +33,11 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 				account: AccountGeneration,
 				executionId: string,
 			) {
-				return yield* dispatchAdmittedWorkflow(
-					receipts,
-					engine,
-					NotificationDeliveryWorkflow,
-					account,
-					{
-						executionId,
-						discard: true,
-						payload: { executionId, notificationId: id, accountGeneration: account },
-					},
-					(registration) => registration,
-					(execution) => execution,
-				);
+				return yield* dispatchAdmittedWorkflow(engine, NotificationDeliveryWorkflow, account, {
+					executionId,
+					discard: true,
+					payload: { executionId, notificationId: id, accountGeneration: account },
+				});
 			});
 			const admit = Effect.fn("NotificationAdmissions.admit")(function* (
 				input: NotificationAdmission,

@@ -41,12 +41,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 ) {
 	yield* Effect.annotateCurrentSpan({ executionId, userId: payload.userId });
 	const receipts = yield* MutationReceipts.make;
-	yield* admitWorkflow(
-		receipts,
-		EventCreateWorkflow,
-		payload.command.accountGeneration,
-		executionId,
-	);
+	yield* admitWorkflow(payload.command.accountGeneration);
 	const execution = yield* LifecycleExecution;
 	const mutations = yield* EventMutations;
 	const session = yield* DatabaseSession;

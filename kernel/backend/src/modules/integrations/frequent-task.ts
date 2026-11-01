@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import type { CronTask } from "#modules/scheduler/types";
 import type { DatabaseSession } from "#platform/db/session";
@@ -15,21 +14,12 @@ export const integrationsFrequentTask: FrequentCronTask = {
 	run: ({ executionId }) =>
 		Effect.gen(function* () {
 			const engine = yield* WorkflowEngine;
-			const receipts = yield* MutationReceipts.make;
 			const syncExecutionId = `${executionId}-integrations-sync`;
-			yield* dispatchAdmittedWorkflow(
-				receipts,
-				engine,
-				IntegrationSyncWorkflow,
-				null,
-				{
-					discard: true,
-					executionId: syncExecutionId,
-					payload: { userId: null, accountGeneration: null, executionId: syncExecutionId },
-				},
-				(admission) => admission,
-				(dispatch) => dispatch,
-			).pipe(
+			yield* dispatchAdmittedWorkflow(engine, IntegrationSyncWorkflow, null, {
+				discard: true,
+				executionId: syncExecutionId,
+				payload: { userId: null, accountGeneration: null, executionId: syncExecutionId },
+			}).pipe(
 				Effect.catchCause((cause) => Effect.logError("integrations sync enqueue failed", cause)),
 			);
 		}),

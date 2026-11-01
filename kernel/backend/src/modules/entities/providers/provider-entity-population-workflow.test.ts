@@ -54,6 +54,7 @@ import {
 	makeMemoizingWorkflowEngine,
 	makeRedisService,
 	makeWorkflowActivityEngine,
+	workflowAccountsTestLayer,
 } from "#testing/effect";
 
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
@@ -288,6 +289,7 @@ const populationLayer = (options: {
 				);
 			};
 			return Layer.mergeAll(
+				workflowAccountsTestLayer,
 				Layer.mock(EnrichmentRequests)({
 					attachEntity: () => Effect.void,
 					guardPopulation: () => Effect.void,

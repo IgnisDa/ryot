@@ -12,7 +12,6 @@ export const mutationReceipt = snakeCase.table(
 	"mutation_receipt",
 	{
 		batchId: text(),
-		workflowName: text(),
 		batchIndex: integer(),
 		id: text().primaryKey(),
 		executionId: text().notNull(),
@@ -30,13 +29,11 @@ export const mutationReceipt = snakeCase.table(
 		scopeUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		pluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		sandboxScriptId: text().references(() => sandboxScript.id, { onDelete: "restrict" }),
+		receiptType: text().$type<"item" | "batch-decision" | "batch-candidate">().notNull(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "restrict" }),
 		pluginConfigRevisionId: text().references(() => pluginConfigRevision.id, {
 			onDelete: "restrict",
 		}),
-		receiptType: text()
-			.$type<"item" | "batch-decision" | "workflow-owner" | "batch-candidate">()
-			.notNull(),
 	},
 	(table) => [
 		index("mutation_receipt_execution_idx").on(table.executionId, table.receiptType),
@@ -53,11 +50,7 @@ export const mutationReceipt = snakeCase.table(
 		),
 		check(
 			"mutation_receipt_type_check",
-			sql`${table.receiptType} in ('item', 'batch-decision', 'batch-candidate', 'workflow-owner')`,
-		),
-		check(
-			"mutation_receipt_workflow_owner_check",
-			sql`(${table.receiptType} = 'workflow-owner' and ${table.workflowName} is not null and ${table.ownerUserId} is not null and ${table.accountGeneration} is not null) or (${table.receiptType} <> 'workflow-owner' and ${table.workflowName} is null)`,
+			sql`${table.receiptType} in ('item', 'batch-decision', 'batch-candidate')`,
 		),
 	],
 );

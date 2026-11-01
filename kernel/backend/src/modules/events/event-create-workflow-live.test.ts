@@ -71,7 +71,7 @@ import {
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { EventCreateWorkflow, type EventCreateWorkflowPayload } from "./event-create-workflow";
@@ -733,6 +733,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				).pipe(Layer.provide(DomainWriteChecksLive.pipe(Layer.provide(database)))),
 				Layer.succeed(LifecycleExecution, execution),
 				Layer.succeed(WorkflowEngine, engine),
+				workflowAccountsTestLayer,
 				Layer.mock(EntitiesRepository)({
 					lockEntityReferencesByIds: recordEntityLocks,
 					getByIdForUser: ({ entityId: requestedId }) =>

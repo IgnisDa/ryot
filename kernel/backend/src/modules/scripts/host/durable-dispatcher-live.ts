@@ -25,7 +25,6 @@ import {
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { NotificationsService } from "#modules/notifications/service";
 import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
@@ -123,7 +122,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const submissions = yield* SandboxSubmissionCommands;
 		const authority = yield* SandboxExecutionAuthority;
-		const receipts = yield* MutationReceipts.make;
 		const httpDispatcher = yield* SandboxHttpDispatcher;
 		const implementations = yield* ScriptHostImplementations;
 		const lifecycleExecution = yield* LifecycleExecution;
@@ -272,7 +270,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			}
 			if (strategy === "service-workflow") {
 				return dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					SandboxDurableHostServiceWorkflow,
 					principal.subject.type === "system" ? null : principal.subject.accountGeneration,
@@ -286,9 +283,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							parentExecutionId: executionId,
 						},
 					},
-					(registration) => registration.pipe(Effect.mapError(infrastructureRunError)),
-					(execution) => execution,
-				);
+				).pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
 			}
 
 			if (strategy === "event-workflow") {
@@ -311,7 +306,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						),
 					);
 					const result = yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						EventCreateWorkflow,
 						eventPayload.command.accountGeneration,
@@ -319,9 +313,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							payload: eventPayload,
 							executionId: EventCreateWorkflow.idempotencyKey(eventPayload),
 						},
-						(registration) => registration.pipe(Effect.mapError(infrastructureRunError)),
-						Effect.exit,
-					);
+					).pipe(Effect.exit);
 					if (result._tag === "Failure") {
 						return yield* failureOrRethrow(result.cause);
 					}

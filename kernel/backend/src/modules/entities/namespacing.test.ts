@@ -61,8 +61,14 @@ import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-comm
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowActivityEngine, makeWorkflowEngine } from "#testing/effect";
+import {
+	makeRedisService,
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+	workflowAccountsTestService,
+} from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
 import { makeEntityScriptHost } from "./script-host";
@@ -247,6 +253,7 @@ const createEvents = (
 	}).pipe(
 		Effect.provideService(WorkflowEngine, original),
 		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 	);
 };
 
@@ -1884,6 +1891,7 @@ layer(
 						}),
 						Effect.provideService(WorkflowInstance, instance),
 						Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+						Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 						Effect.provideService(
 							RedisService,
 							makeRedisService({ publish: () => Effect.succeed(1) }),

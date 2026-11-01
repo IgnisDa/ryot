@@ -10,7 +10,7 @@ import {
 	IngestionPayloads,
 } from "#modules/assets/storage/ingestion-payloads";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -48,18 +48,10 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				maxBytes: number,
 				temporaryPath: null | string,
 			) =>
-				dispatchAdmittedWorkflow(
-					receipts,
-					engine,
-					ProcessIngestionCaptureWorkflow,
-					scope.accountGeneration,
-					{
-						executionId: captureWriteExecutionId(scope, id),
-						payload: { id, scope, maxBytes, temporaryPath },
-					},
-					(admission) => admission,
-					(dispatch) => dispatch,
-				);
+				dispatchAdmittedWorkflow(engine, ProcessIngestionCaptureWorkflow, scope.accountGeneration, {
+					executionId: captureWriteExecutionId(scope, id),
+					payload: { id, scope, maxBytes, temporaryPath },
+				});
 			const publish = Effect.fn("IngestionCaptures.publish")(function* (input: {
 				id: string;
 				ordinal: number;
@@ -99,12 +91,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 									? Buffer.from(input.bytes).toString("base64")
 									: null,
 						});
-						yield* admitWorkflow(
-							receipts,
-							ProcessIngestionCaptureWorkflow,
-							input.scope.accountGeneration,
-							captureWriteExecutionId(input.scope, input.id),
-						);
+						yield* receipts.admitAccount(input.scope.accountGeneration);
 						return reservation;
 					}),
 				);

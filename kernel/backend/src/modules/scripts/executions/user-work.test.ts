@@ -1173,38 +1173,4 @@ layer(userWorkWorkflowLayer())((test) => {
 		testTimeout,
 	);
 
-	test.effect(
-		"does not revive work after its account generation is retired",
-		() =>
-			Effect.gen(function* () {
-				const fixture = yield* UserWorkFixture;
-				const work = yield* BackgroundWorkService;
-				const session = yield* DatabaseSession;
-				const references = yield* SandboxWorkflowReferenceRepository.make;
-				const id = `user-work-retired-${yield* randomUuid}`;
-				const job = backgroundWorkInput(fixture, {
-					id,
-					key: id,
-					input: "success",
-					scope: "retirement-test",
-				});
-				yield* session.transaction(work.admit(job));
-				yield* markRunning(id);
-				yield* session.run((db) =>
-					db
-						.update(tables.user)
-						.set({ accountGeneration: "replacement-generation" })
-						.where(eq(tables.user.id, fixture.userId)),
-				);
-
-				yield* BackgroundWorkWorkflow.execute({ id });
-				const [stored] = yield* session.run((db) =>
-					db.select().from(backgroundWork).where(eq(backgroundWork.id, id)),
-				);
-				expect(stored?.status).toBe("failed");
-				expect(stored?.error).toContain("Mutation command belongs to a retired account");
-				expect(yield* references.listReferences(fixture.pluginId)).toEqual([]);
-			}),
-		testTimeout,
-	);
 });

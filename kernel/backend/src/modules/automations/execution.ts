@@ -143,25 +143,11 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 						}),
 					)
 					.pipe(Effect.catchTag("DatabaseSessionStateError", rootTransactionRequired));
-				return yield* dispatchAdmittedWorkflow(
-					receipts,
-					engine,
-					AutomationRunWorkflow,
-					account,
-					{ payload, executionId, discard: true },
-					(admission) =>
-						session
-							.transaction(
-								Effect.gen(function* () {
-									if (!(yield* runs.findById(payload.runId))) {
-										return yield* runUnavailable();
-									}
-									return yield* admission;
-								}),
-							)
-							.pipe(Effect.catchTag("DatabaseSessionStateError", rootTransactionRequired)),
-					(execution) => execution,
-				);
+				return yield* dispatchAdmittedWorkflow(engine, AutomationRunWorkflow, account, {
+					payload,
+					executionId,
+					discard: true,
+				});
 			}),
 		});
 	}),

@@ -6,8 +6,8 @@ record; feature-owned tables retain application state and checkpoints.
 
 ## Admission and dispatch
 
-Admission runs in the caller's transaction. It validates exact, purpose-bound user authority, records
-the wrapper's workflow-owner receipt, and retains the existing pinned script
+Admission runs in the caller's transaction. It validates exact, purpose-bound user authority, admits
+the account, and retains the existing pinned script
 and configuration references. The row records the work identity, purpose, scope, input hash, and
 `queued`, `running`, `succeeded`, or `failed` status. The user-scoped `backgroundWork` RyotQL table
 exposes status and scope, not the execution payload or pins.
@@ -16,8 +16,8 @@ Dispatch starts only after commit and serializes by scope: at most one job runs 
 `(userId, pluginId, purpose, scope)`. Dispatching any job dispatches its scope. Under a transaction-scoped
 advisory lock on that key, dispatch fails a running job whose workflow wrapper expired or ended, then
 claims the oldest `queued` job (`createdAt`, then ID) by setting it `running` only when no job in the
-key is running. After the claim commits, dispatch registers the workflow-owner receipt and starts the
-deterministic `BackgroundWorkWorkflow` for the key's running job, which also repairs a claim whose
+key is running. After the claim commits, dispatch starts the deterministic `BackgroundWorkWorkflow` under
+the job's account for the key's running job, which also repairs a claim whose
 start was lost. Order is best-effort FIFO because `createdAt` is transaction-start time. A hung running
 job holds its scope until its workflow expires.
 

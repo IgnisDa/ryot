@@ -5,7 +5,6 @@ import { Cause, Context, Duration, Effect, FiberMap, Layer, Option, Queue, Schem
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DomainWriteChecks } from "#modules/entities/write-context";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -35,7 +34,6 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const session = yield* DatabaseSession;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
-			const receipts = yield* MutationReceipts.make;
 			const sandbox = yield* ScriptExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
 			const checks = yield* DomainWriteChecks;
@@ -49,13 +47,10 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				decodePayload(row.payload).pipe(
 					Effect.flatMap((payload) =>
 						dispatchAdmittedWorkflow(
-							receipts,
 							engine,
 							EntityImportWorkflow,
 							payload.command.accountGeneration,
 							{ payload, discard: true, executionId: row.id },
-							(admission) => admission,
-							(execution) => execution,
 						),
 					),
 				);

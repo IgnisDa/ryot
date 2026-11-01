@@ -44,7 +44,6 @@ import { populationRequestPin } from "#modules/entities/population-trigger";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { retryOnDeadlock } from "#platform/db/errors";
@@ -643,7 +642,6 @@ const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(functio
 	generation: string,
 ) {
 	const engine = yield* WorkflowEngine;
-	const receipts = yield* MutationReceipts.make;
 	const executionId = `related-${entity.id}-${groupIndex}-${generation}`;
 	if (group.coverage.status !== "more") {
 		return yield* new SandboxRunError({
@@ -652,7 +650,6 @@ const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(functio
 		});
 	}
 	return yield* dispatchAdmittedWorkflow(
-		receipts,
 		engine,
 		ProviderRelatedPagesWorkflow,
 		payload.command.accountGeneration,
@@ -680,8 +677,6 @@ const startRelatedPagesWorkflow = Effect.fn("startRelatedPagesWorkflow")(functio
 				},
 			},
 		},
-		(admission) => admission,
-		(execution) => execution,
 	).pipe(
 		Effect.mapError((error) =>
 			error instanceof SandboxRunError
@@ -927,7 +922,6 @@ export const runProviderEntityPopulationAttemptWorkflow = Effect.fn(
 )(
 	function* (payload: ProviderEntityPopulationAttemptPayload, executionId: string) {
 		const requestId = payload.requestId;
-		const receipts = yield* MutationReceipts.make;
 		if (payload.command.writeContext?.pluginRevision?.id !== payload.pluginId) {
 			return yield* new SandboxRunError({
 				kind: "invalid-input",
@@ -948,12 +942,7 @@ export const runProviderEntityPopulationAttemptWorkflow = Effect.fn(
 				message: "Provider root schema does not match its exact owner",
 			});
 		}
-		yield* admitWorkflow(
-			receipts,
-			ProviderEntityPopulationAttemptWorkflow,
-			payload.command.accountGeneration,
-			executionId,
-		).pipe(
+		yield* admitWorkflow(payload.command.accountGeneration).pipe(
 			Effect.mapError(
 				(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
 			),
@@ -1022,14 +1011,8 @@ export const ProviderEntityPopulationAttemptWorkflowDefinitionsLive = implementW
 export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopulationWorkflow")(
 	function* (input: ProviderEntityPopulationPayload, executionId: string) {
 		const requests = yield* EnrichmentRequests;
-		const receipts = yield* MutationReceipts.make;
 		const engine = yield* WorkflowEngine;
-		yield* admitWorkflow(
-			receipts,
-			ProviderEntityPopulationWorkflow,
-			input.command.accountGeneration,
-			executionId,
-		).pipe(
+		yield* admitWorkflow(input.command.accountGeneration).pipe(
 			Effect.mapError(
 				(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
 			),
@@ -1182,7 +1165,6 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 			});
 			const attemptId = `${executionId}-attempt-${attempt}`;
 			const result = yield* dispatchAdmittedWorkflow(
-				receipts,
 				engine,
 				ProviderEntityPopulationAttemptWorkflow,
 				payload.command.accountGeneration,
@@ -1203,14 +1185,12 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 						},
 					},
 				},
-				(admission) =>
-					admission.pipe(
-						Effect.mapError(
-							(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
-						),
-					),
-				(execution) => execution,
-			).pipe(Effect.result);
+			).pipe(
+				Effect.catchTag("DbError", (error) =>
+					Effect.fail(new SandboxRunError({ kind: "infrastructure", message: error.message })),
+				),
+				Effect.result,
+			);
 			if (Result.isSuccess(result)) {
 				yield* makeActivity({
 					name: "population-succeeded",
@@ -1401,7 +1381,6 @@ const processRelatedPage = Effect.fn("processRelatedPage")(function* (
 // `ProviderRelatedPagesWorkflow` via the workflow engine.
 export const runProviderRelatedPagesWorkflow = Effect.fn("ProviderRelatedPagesWorkflow")(
 	function* (payload: ProviderRelatedPagesPayload, executionId: string) {
-		const receipts = yield* MutationReceipts.make;
 		if (payload.command.writeContext?.pluginRevision?.id !== payload.pluginId) {
 			return yield* new SandboxRunError({
 				kind: "invalid-input",
@@ -1422,12 +1401,7 @@ export const runProviderRelatedPagesWorkflow = Effect.fn("ProviderRelatedPagesWo
 				message: "Provider root schema does not match its exact owner",
 			});
 		}
-		yield* admitWorkflow(
-			receipts,
-			ProviderRelatedPagesWorkflow,
-			payload.command.accountGeneration,
-			executionId,
-		).pipe(
+		yield* admitWorkflow(payload.command.accountGeneration).pipe(
 			Effect.mapError(
 				(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
 			),

@@ -11,7 +11,6 @@ import {
 	populationRequestPin,
 } from "#modules/entities/population-trigger";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -31,7 +30,6 @@ export const EntityPopulationTriggerLive = Layer.effect(
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const receipts = yield* MutationReceipts.make;
 		const sandbox = yield* ScriptExecutionService;
 		const session = yield* DatabaseSession;
 		const checks = yield* DomainWriteChecks;
@@ -181,19 +179,15 @@ export const EntityPopulationTriggerLive = Layer.effect(
 						return false;
 					}
 					yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ProviderEntityPopulationWorkflow,
 						input.command.accountGeneration,
 						{ discard: true, payload: admitted.payload, executionId: admitted.request.id },
-						(admission) => admission,
-						(execution) =>
-							execution.pipe(
-								Effect.asVoid,
-								Effect.tapCause((cause) =>
-									Effect.logWarning("entity population enqueue failed", cause),
-								),
-							),
+					).pipe(
+						Effect.asVoid,
+						Effect.tapCause((cause) =>
+							Effect.logWarning("entity population enqueue failed", cause),
+						),
 					);
 					return admitted.request.id === executionId;
 				}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),

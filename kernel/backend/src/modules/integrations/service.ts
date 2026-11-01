@@ -41,7 +41,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import {
 	IntegrationProviderCatalog,
@@ -492,7 +492,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						return { runId: admitted.runId };
 					}
 					yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ProcessIntegrationRunWorkflow,
 						accountGeneration,
@@ -506,8 +505,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 								integrationId: integration.id,
 							},
 						},
-						(admission) => admission,
-						(execution) => execution,
 					).pipe(
 						Effect.catchCause((cause) => Effect.logError("Data webhook dispatch deferred", cause)),
 					);
@@ -577,7 +574,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 				const accountGeneration = scope.accountGeneration;
 				const started = yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					ProcessIntegrationRunWorkflow,
 					accountGeneration,
@@ -591,9 +587,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							integrationId: integration.id,
 						},
 					},
-					(admission) => admission,
-					(execution) => execution.pipe(Effect.result),
-				);
+				).pipe(Effect.result);
 
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration workflow enqueue failed", started.failure);
@@ -604,7 +598,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 			const prepareYankRuns = Effect.fn("IntegrationsService.prepareYankRuns")(function* (
 				userId: null | UserId,
-				accountGeneration: null | AccountGeneration,
 			) {
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
 				const isPro = yield* proKey.isValidated;
@@ -660,9 +653,6 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					if (!run) {
 						continue;
 					}
-
-					const account = accountGeneration ?? (yield* receipts.currentAccount(integration.userId));
-					yield* admitWorkflow(receipts, ProcessIntegrationRunWorkflow, account, run.id);
 				}
 			});
 
@@ -672,14 +662,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const userId = accountGeneration.userId;
 				const executionId = `integration-sync-${generateId()}`;
 				const started = yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					IntegrationSyncWorkflow,
 					accountGeneration,
 					{ executionId, discard: true, payload: { userId, executionId, accountGeneration } },
-					(admission) => admission,
-					(execution) => execution.pipe(Effect.result),
-				);
+				).pipe(Effect.result);
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration sync enqueue failed", started.failure).pipe(
 						Effect.annotateLogs({ userId, executionId }),

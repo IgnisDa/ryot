@@ -16,7 +16,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
+import { makeAppConfigLayer, makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";
@@ -55,6 +55,7 @@ const rootCase = (
 		const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, ingestionTestScope.runId);
 		instance.suspended = failure === "suspend";
 		const dependencies = Layer.mergeAll(
+			workflowAccountsTestLayer,
 			ingestionTestDatabase(),
 			makeAppConfigLayer({ fileStorage: { localTempDir: tmpdir() } }),
 			BunFileSystem.layer,

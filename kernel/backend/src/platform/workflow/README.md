@@ -1,6 +1,6 @@
 # Workflow engine
 
-`PostgresWorkflowEngine` (`engine.ts`) implements Effect's `WorkflowEngine` on two tables owned by
+`PostgresWorkflowEngine` (`engine.ts`) implements Effect's `WorkflowEngine` on tables owned by
 `WorkflowEngineStore` (`engine-store.ts`). Workflow code uses `Workflow`, `Activity`,
 `DurableDeferred`, `DurableClock` and `DurableQueue` unchanged. Every workflow is registered through
 `implementWorkflow`, which attaches the JSON codecs the engine persists payloads and results with.
@@ -36,3 +36,13 @@ suspended after a failure, which wait for an explicit resume. A step written for
 another live process owns calls `pg_notify` on `ryot_workflow` in the same statement; each process
 listens on one connection and wakes the executions it owns. Completion publishes on
 `WorkflowExecutionNotifications` for waiters outside the engine.
+
+## Accounts
+
+An execution may work for one account generation, stored on its row (`account.ts`). A caller names it
+by providing `WorkflowAdmissionAccount` around `execute`; otherwise a child inherits its parent's.
+Admission checks the generation in its insert statement: the user row must hold that token and not be
+stamped as retiring for it, read `FOR SHARE` so a concurrent retirement is seen. A fenced admission dies
+with `WorkflowAccountRejected`, since Effect's `execute` has no admission error. `WorkflowAccounts`
+binds a running execution admitted without an account to one, and lists an account's active
+executions so retirement can interrupt them.

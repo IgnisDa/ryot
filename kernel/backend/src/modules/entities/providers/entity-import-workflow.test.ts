@@ -53,7 +53,11 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
+import {
+	makeRedisService,
+	makeWorkflowActivityEngine,
+	workflowAccountsTestLayer,
+} from "#testing/effect";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
@@ -548,6 +552,7 @@ const rootPopulationLayer = Layer.unwrap(
 			Layer.mock(DefinitionRepository)({ ...definitionMethods, readPinnedRows }),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			workflowAccountsTestLayer,
 			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 			Layer.mock(PluginRuntimeResolver)({}),
 			Layer.mock(RelationshipsRepository)({}),

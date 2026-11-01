@@ -22,30 +22,17 @@ export class UserBootstrapScheduling extends Context.Service<UserBootstrapSchedu
 			const bootstrap = yield* UserBootstrap;
 			const engine = yield* WorkflowEngine;
 			const receipts = yield* MutationReceipts.make;
-			const schedule = Effect.fn("UserBootstrapScheduling.schedule")(function* (userId: UserId) {
-				const accountGeneration = yield* receipts
-					.currentAccount(userId)
-					.pipe(Effect.mapError(() => internalError("User bootstrap account is unavailable")));
-				yield* dispatchAdmittedWorkflow(
-					receipts,
-					engine,
-					UserBootstrapWorkflow,
-					accountGeneration,
-					{
+			const schedule = Effect.fn("UserBootstrapScheduling.schedule")(
+				function* (userId: UserId) {
+					const accountGeneration = yield* receipts.currentAccount(userId);
+					yield* dispatchAdmittedWorkflow(engine, UserBootstrapWorkflow, accountGeneration, {
 						discard: true,
 						payload: { userId, accountGeneration },
 						executionId: userBootstrapWorkflowExecutionId(userId, accountGeneration),
-					},
-					(admission) =>
-						admission.pipe(
-							Effect.mapError(() => internalError("User bootstrap account is unavailable")),
-						),
-					(execution) =>
-						execution.pipe(
-							Effect.mapError(() => internalError("User bootstrap could not be scheduled")),
-						),
-				);
-			});
+					});
+				},
+				Effect.mapError(() => internalError("User bootstrap account is unavailable")),
+			);
 			const reconcile = Effect.fn("UserBootstrapScheduling.reconcile")(function* (limit: number) {
 				const incomplete = yield* bootstrap.listIncomplete(limit);
 				yield* Effect.forEach(

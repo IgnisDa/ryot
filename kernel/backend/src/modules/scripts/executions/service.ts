@@ -145,7 +145,6 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 					)
 					.pipe(Effect.catchTag("SandboxRunError", () => notFound(sandboxScriptNotFoundError)));
 				yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					ScriptExecutionWorkflow,
 					resolvedPayload.subject.type === "system"
@@ -164,9 +163,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 							scriptId: resolvedPayload.scriptId,
 						},
 					},
-					(admission) => admission.pipe(Effect.orDie),
-					(execution) => execution.pipe(Effect.orDie),
-				);
+				).pipe(Effect.orDie);
 
 				return {
 					executionId,
@@ -249,7 +246,6 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 					}
 					return yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ScriptExecutionWorkflow,
 						input.subject.type === "system" ? null : input.subject.accountGeneration,
@@ -266,14 +262,10 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 								...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
 							},
 						},
-						(admission) =>
-							admission.pipe(
-								Effect.mapError(
-									(error) =>
-										new SandboxRunError({ kind: "infrastructure", message: error.message }),
-								),
-							),
-						(execution) => execution,
+					).pipe(
+						Effect.catchTag("DbError", (error) =>
+							Effect.fail(new SandboxRunError({ kind: "infrastructure", message: error.message })),
+						),
 					);
 				},
 			);
@@ -405,7 +397,6 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 							? workflowReferences.release(input.executionId)
 							: Effect.void;
 					yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ScriptExecutionWorkflow,
 						input.accountGeneration,
@@ -421,8 +412,6 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 									: {}),
 							},
 						},
-						(admission) => admission,
-						(dispatch) => dispatch,
 					).pipe(
 						Effect.matchCauseEffect({
 							onSuccess: Effect.succeed,

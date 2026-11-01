@@ -38,8 +38,13 @@ import type { SandboxExecutionResult } from "#modules/scripts/executions/result"
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
+import {
+	makeRedisService,
+	makeWorkflowActivityEngine,
+	workflowAccountsTestService,
+} from "#testing/effect";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
@@ -278,6 +283,7 @@ const harness = Effect.fnUntraced(function* (
 				Effect.provideService(WorkflowEngine, engine),
 			);
 		}).pipe(
+			Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 			Effect.provideService(RedisService, redisFor(hooks.afterBase)),
 			Effect.provideService(EntityImportWorkflowOperations, operations(details, handler)),
 		);
@@ -293,6 +299,7 @@ const harness = Effect.fnUntraced(function* (
 		return yield* runProviderRelatedPagesWorkflow(payload, payload.executionId).pipe(
 			Effect.provideService(WorkflowInstance, instance),
 			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 			Effect.provideService(RedisService, redis),
 			Effect.provideService(EntityImportWorkflowOperations, operations(details, handler)),
 		);

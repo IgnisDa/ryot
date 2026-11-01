@@ -7,7 +7,6 @@ import { Cause, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { makeActivity } from "#platform/workflow/scope";
@@ -15,7 +14,6 @@ import { makeActivity } from "#platform/workflow/scope";
 import { reconcileGenericIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";
-import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -30,10 +28,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		return yield* new ImportRunError({ message: "Import account generation is missing" });
 	}
 	const scope = { accountGeneration, runId: payload.runId, userId: payload.userId };
-	const receipts = yield* MutationReceipts.make;
-	yield* admitWorkflow(receipts, ProcessImportRunWorkflow, accountGeneration, executionId).pipe(
-		Effect.mapError(toWorkflowError),
-	);
+	yield* admitWorkflow(accountGeneration).pipe(Effect.mapError(toWorkflowError));
 	const sandbox = yield* ScriptExecutionService;
 	const sourceStates = yield* ImportSourceStateStore;
 	const repository = yield* ImportsRepository;

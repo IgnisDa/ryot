@@ -9,8 +9,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
-import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import type { IntegrationSyncRun } from "./jobs";
 import { IntegrationsService } from "./service";
@@ -51,7 +50,7 @@ const makeSyncLayer = (options: {
 	cutoff?: IntegrationsService["Service"]["captureRecoveryCutoff"];
 }) =>
 	Layer.mergeAll(
-		mutationAdmissionTestLayer,
+		workflowAccountsTestLayer,
 		Layer.unwrap(
 			Effect.gen(function* () {
 				const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
@@ -96,9 +95,9 @@ const makeSyncLayer = (options: {
 						prepareRecoveryRuns:
 							options.page ??
 							(() => Effect.succeed({ next: null, runs: [...(options.recovery ?? [])] })),
-						prepareYankRuns: (userId, generation) =>
+						prepareYankRuns: (userId) =>
 							Ref.update(preparedFor, (all) => [...all, userId]).pipe(
-								Effect.andThen(options.prepare?.(userId, generation) ?? Effect.void),
+								Effect.andThen(options.prepare?.(userId) ?? Effect.void),
 							),
 					}),
 				);

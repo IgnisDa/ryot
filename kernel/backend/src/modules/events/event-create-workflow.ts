@@ -13,7 +13,6 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 export const EventCreateWorkflowError = Schema.Union([DbError, EventCreateItemError]);
@@ -53,15 +52,11 @@ export const EventCreateWorkflow = Workflow.make("EventCreateWorkflow", {
 export const enqueueEventCreate = Effect.fn("enqueueEventCreate")(function* (
 	input: EventCreateWorkflowPayload,
 ) {
-	const receipts = yield* MutationReceipts.make;
 	const engine = yield* WorkflowEngine;
 	return yield* dispatchAdmittedWorkflow(
-		receipts,
 		engine,
 		EventCreateWorkflow,
 		input.command.accountGeneration,
 		{ payload: input },
-		(admission) => admission,
-		(execution) => execution,
 	);
 });

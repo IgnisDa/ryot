@@ -16,11 +16,11 @@ import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
-import { interruptWorkflowAndWait } from "#platform/workflow/interruption";
+import { interruptExecutionAndWait } from "#platform/workflow/interruption";
 import {
 	asIndependentWorkflowRoot,
 	implementWorkflow,
@@ -84,7 +84,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const notifications = yield* WorkflowExecutionNotifications;
 		const receipts = yield* MutationReceipts.make;
-		const mutationWorkflows = yield* AdmittedWorkflowCatalogue;
+		const accounts = yield* WorkflowAccounts;
 		const ingestion = yield* IngestionExecution;
 
 		const requireOperation = (operationId: string) =>
@@ -115,14 +115,8 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 			asInternal(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
-					for (const owner of yield* repository.listUserMutationWork(operation.operation.userId)) {
-						const workflow = mutationWorkflows.find(
-							(candidate) => candidate._tag === owner.workflowName,
-						);
-						if (!workflow) {
-							return yield* internalError("User mutation workflow owner is unknown");
-						}
-						yield* interruptWorkflowAndWait(workflow, owner.executionId).pipe(
+					for (const identity of yield* accounts.listActive(operation.operation.userId)) {
+						yield* interruptExecutionAndWait(identity).pipe(
 							Effect.provideService(WorkflowEngine, engine),
 							Effect.provideService(WorkflowExecutionNotifications, notifications),
 						);
@@ -210,15 +204,10 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const accountGeneration = yield* receipts.currentAccount(userId);
 					const executionId = userBootstrapWorkflowExecutionId(userId, accountGeneration);
-					return yield* dispatchAdmittedWorkflow(
-						receipts,
-						engine,
-						UserBootstrapWorkflow,
-						accountGeneration,
-						{ executionId, payload: { userId, accountGeneration } },
-						(admission) => admission,
-						(execution) => execution.pipe(Effect.asVoid),
-					).pipe(asIndependentWorkflowRoot);
+					return yield* dispatchAdmittedWorkflow(engine, UserBootstrapWorkflow, accountGeneration, {
+						executionId,
+						payload: { userId, accountGeneration },
+					}).pipe(Effect.asVoid, asIndependentWorkflowRoot);
 				}),
 				"Reset user bootstrap failed",
 			);

@@ -30,8 +30,13 @@ import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/princip
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
+import {
+	makeRedisService,
+	makeWorkflowActivityEngine,
+	workflowAccountsTestService,
+} from "#testing/effect";
 
 import type { DomainLifecycleCommand } from "../write-context";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
@@ -184,6 +189,7 @@ const setup = Effect.gen(function* () {
 		).pipe(
 			Effect.provideService(WorkflowInstance, instance),
 			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 			Effect.provideService(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 			Effect.provideService(EntityImportWorkflowOperations, {
 				processRelatedPage: () => Effect.die("unused"),

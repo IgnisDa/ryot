@@ -3,6 +3,7 @@ import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { awaitWorkflowSettled } from "./execution-notifications";
+import type { WorkflowIdentity } from "./identity";
 import { makeWorkflowCodecs, WorkflowCodecs } from "./scope";
 
 // The engine records `interrupt` under this deferred and applies it only once a run
@@ -52,3 +53,15 @@ export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(f
 			Option.isSome(result) ? result.value._tag === "Complete" : options.requireReply !== true,
 	});
 });
+
+// Interrupts an execution known only by name, such as one listed for a retiring account.
+export const interruptExecutionAndWait = (identity: WorkflowIdentity) =>
+	interruptWorkflowAndWait(
+		Workflow.make(identity.workflowName, {
+			error: Schema.Unknown,
+			success: Schema.Unknown,
+			payload: Schema.Struct({}),
+			idempotencyKey: () => identity.executionId,
+		}),
+		identity.executionId,
+	);

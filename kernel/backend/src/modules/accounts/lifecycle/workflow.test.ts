@@ -19,7 +19,11 @@ import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestio
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { testPgClientLayer } from "#testing/database";
-import { databaseLayer, makeWorkflowActivityEngine } from "#testing/effect";
+import {
+	databaseLayer,
+	makeWorkflowActivityEngine,
+	workflowAccountsTestLayer,
+} from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { UserLifecycleRepository } from "./repository";
@@ -214,6 +218,7 @@ const liveOperationsLayer = <R, E>(dependencies: {
 		UserLifecycleWorkflowOperationsLive.pipe(
 			Layer.provide(ingestionRetirementTestLayer),
 			Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
+			Layer.provide(workflowAccountsTestLayer),
 			Layer.provide(WorkflowExecutionNotifications.layer),
 			Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
 			Layer.provideMerge(dependencies.database),

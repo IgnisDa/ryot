@@ -235,13 +235,10 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				yield* cleanupUploads(uploadIntentIds);
 
 				const started = yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					ProcessImportRunWorkflow,
 					command.accountGeneration,
 					{ discard: true, executionId: runId, payload: { runId, command, userId: user.id } },
-					(admission) => admission,
-					(dispatch) => dispatch,
 				).pipe(Effect.result);
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("accepted ingestion dispatch deferred", { runId });
@@ -576,7 +573,6 @@ export class ImportsService extends Context.Service<ImportsService>()(
 						occurredAt: IsoUtcString.make(run.acceptedAt.toISOString()),
 					});
 					yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ProcessImportRunWorkflow,
 						scope.accountGeneration,
@@ -590,8 +586,6 @@ export class ImportsService extends Context.Service<ImportsService>()(
 								dataJson: run.pluginInstallationId === null && run.source === dataJsonSource,
 							},
 						},
-						(admission) => admission,
-						(dispatch) => dispatch,
 					);
 				}
 			});

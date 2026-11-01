@@ -48,10 +48,7 @@ import { CollectionMembershipWorkflow } from "#modules/collections/collection-me
 import { CollectionEntityResult, CollectionsService } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
-import {
-	type EntityImportError,
-	EntityImportWorkflow,
-} from "#modules/entities/providers/entity-import-workflow";
+import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
@@ -406,9 +403,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 				}
 			: command;
 	const engine = yield* WorkflowEngine;
-	const receipts = yield* MutationReceipts.make;
 	const providerEntity = yield* dispatchAdmittedWorkflow(
-		receipts,
 		engine,
 		EntityImportWorkflow,
 		command.accountGeneration,
@@ -424,20 +419,11 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 				entityScope: { userId, type: provider.pluginScope === "system" ? "global" : "user" },
 			},
 		},
-		(admission) =>
-			admission.pipe(
-				Effect.mapError(
-					(error) =>
-						new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
-				),
-			),
-		(execution) =>
-			execution.pipe(
-				Effect.mapError(
-					(error: EntityImportError) =>
-						new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
-				),
-			),
+	).pipe(
+		Effect.mapError(
+			(error) =>
+				new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
+		),
 	);
 	return matchesImportIntent(providerEntity, intent) ? providerEntity.id : undefined;
 });
@@ -916,12 +902,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 )(
 	function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
 		const receipts = yield* MutationReceipts.make;
-		yield* admitWorkflow(
-			receipts,
-			ProcessGenericImportChunksWorkflow,
-			payload.command.accountGeneration,
-			executionId,
-		).pipe(Effect.mapError(toWorkflowError));
+		yield* admitWorkflow(payload.command.accountGeneration).pipe(Effect.mapError(toWorkflowError));
 		if (!payload.command.accountGeneration) {
 			return yield* new ImportRunError({ message: "Ingestion account generation is missing" });
 		}
@@ -1082,7 +1063,6 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 						membership.operationId,
 					]);
 					const collectionResult = yield* dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						CollectionMembershipWorkflow,
 						payload.command.accountGeneration,
@@ -1102,9 +1082,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 								),
 							},
 						},
-						(admission) => admission.pipe(Effect.mapError(toWorkflowError)),
-						(execution) => execution.pipe(Effect.result),
-					);
+					).pipe(Effect.result);
 					if (collectionResult._tag === "Failure" && !message) {
 						message = unknownToMessage(collectionResult.failure);
 						failureCode ??= "membership-event-failed";

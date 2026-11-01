@@ -90,7 +90,6 @@ export class PluginCronService extends Context.Service<PluginCronService>()(
 				}
 				const execution = yield* Effect.exit(
 					dispatchAdmittedWorkflow(
-						receipts,
 						engine,
 						ScriptExecutionWorkflow,
 						resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
@@ -105,8 +104,6 @@ export class PluginCronService extends Context.Service<PluginCronService>()(
 								scriptId: resolved.script.id,
 							},
 						},
-						(admission) => admission,
-						(run) => run,
 					),
 				);
 				const result =

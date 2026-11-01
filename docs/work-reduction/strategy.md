@@ -92,6 +92,25 @@ Product behavior and the e2e suite stay green at every step.
 | 5 | Duplicate checks: account admission, catalog locks, batch bookkeeping, owner registration once per transaction | Lower constant factor everywhere | M |
 | 6 | Pool and lane sizing re-derived; operational gates re-measured | Gates within budget | S |
 
+Slice 3 after slice 2 (`probes4`): with the lean engine a child workflow layer costs about five
+statements, so removing wrappers alone saves little. Per-flow statement counts point at constant
+costs instead. In every write flow, account locks, retirement checks and workflow-owner reads are
+17–18% of all statements; user foreign-key checks and script pin lookups add 10–15% more. Slice 3
+therefore starts with:
+
+- **3a: account admission in one statement.**
+  - Retirement stamps the user row (`retiring_account_generation`). Admission is then one `FOR SHARE`
+    read of that row, done once per transaction. The lock wait re-checks only the locked row, which is
+    why the fence must live on that row.
+  - The engine records each execution's account at admission. Children inherit it, and the fence runs
+    inside the admission insert. `registerWorkflow`, the `workflow-owner` receipts and the
+    re-registration on every body replay go away; account cleanup reads `workflow_execution`.
+- **3b:** script pins resolved once per execution, not per replay or host call.
+- **3c:** the remaining child wrappers, where measurement still shows a cost.
+
+The event-create HTTP path keeps its workflow. Its API returns a pollable operation when a create
+outlives 35 s, so the work must survive the request.
+
 Order rationale:
 - 1 is cheap and tests whether coupling, not raw cost, causes the suite-only failures.
 - 2 lowers the cost of every durable step at once and keeps all 33 workflows and their tests

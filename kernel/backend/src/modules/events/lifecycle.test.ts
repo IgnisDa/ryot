@@ -70,6 +70,7 @@ import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
@@ -77,6 +78,8 @@ import {
 	makeConfigProviderLayer,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
+	workflowAccountsTestLayer,
+	workflowAccountsTestService,
 } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -300,6 +303,7 @@ const workflowEventSchema = {
 	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 const workflowLayer = Layer.mergeAll(
+	workflowAccountsTestLayer,
 	Layer.mock(EntitiesRepository)({
 		lockEntityReferencesByIds: () => Effect.void,
 		getByIdForUser: ({ entityId: requestedId }) => Effect.succeed(workflowEntity(requestedId)),
@@ -1659,19 +1663,6 @@ describe("Event lifecycle PostgreSQL", () => {
 										if (workflow._tag !== EventCreateWorkflow._tag) {
 											return yield* Effect.die(`Unexpected workflow: ${workflow._tag}`);
 										}
-										const owners = yield* session.run((db) =>
-											db
-												.select()
-												.from(tables.mutationReceipt)
-												.where(
-													and(
-														eq(tables.mutationReceipt.receiptType, "workflow-owner"),
-														eq(tables.mutationReceipt.executionId, options.executionId),
-													),
-												),
-										);
-										expect(owners).toHaveLength(1);
-										expect(owners[0]?.workflowName).toBe(EventCreateWorkflow._tag);
 										const decoded = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)(
 											options.payload,
 										);
@@ -1681,6 +1672,7 @@ describe("Event lifecycle PostgreSQL", () => {
 												: WorkflowInstance.initial(EventCreateWorkflow, options.executionId);
 										return yield* runEventCreateWorkflow(decoded, options.executionId).pipe(
 											Effect.provideServiceEffect(EventMutations, EventMutations.make),
+											Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
 											Effect.provide(
 												sourceContext.pipe(
 													Context.add(WorkflowEngine, recordingEngine),
@@ -1766,6 +1758,16 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(
 								AdmittedWorkflowCatalogue,
 								Object.freeze([EventCreateWorkflow]),
+							),
+							Effect.provideService(
+								WorkflowAccounts,
+								WorkflowAccounts.of({
+									...workflowAccountsTestService,
+									listActive: () =>
+										Effect.succeed([
+											{ executionId: ownerExecutionId, workflowName: EventCreateWorkflow._tag },
+										]),
+								}),
 							),
 							Effect.provideService(AuthService, auth),
 							Effect.provideService(UserLifecycleRepository, repository),

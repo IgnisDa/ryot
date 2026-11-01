@@ -1,5 +1,7 @@
 import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import {
 	Cause,
 	Clock,
@@ -28,6 +30,7 @@ import {
 	WorkflowInstance,
 } from "effect/workflow/WorkflowEngine";
 
+import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
 import {
 	type ExecutionRow,
 	type StepRow,
@@ -52,13 +55,37 @@ const ExitJson = Schema.toCodecJson(Schema.Exit(AnyOrVoid, AnyOrVoid, Schema.Any
 const ActivityResultJson = Schema.toCodecJson(
 	Workflow.Result({ error: AnyOrVoid, success: AnyOrVoid }),
 );
+// Stored JSON drops `undefined`, so a void success or failure loses its `value` or `error` key.
+const restoreExit = (json: unknown): unknown => {
+	if (!isObjectRecord(json)) {
+		return json;
+	}
+	if (json["_tag"] === "Success") {
+		return { value: undefined, ...json };
+	}
+	return json["_tag"] === "Failure" && Array.isArray(json["cause"])
+		? {
+				...json,
+				cause: json["cause"].map((reason: unknown) =>
+					isObjectRecord(reason) && reason["_tag"] === "Fail"
+						? { error: undefined, ...reason }
+						: reason,
+				),
+			}
+		: json;
+};
 const encodeExit = (exit: Exit.Exit<unknown, unknown>) =>
 	Schema.encodeEffect(ExitJson)(exit).pipe(Effect.orDie);
-const decodeExit = (json: unknown) => Schema.decodeUnknownEffect(ExitJson)(json).pipe(Effect.orDie);
+const decodeExit = (json: unknown) =>
+	Schema.decodeUnknownEffect(ExitJson)(restoreExit(json)).pipe(Effect.orDie);
 const encodeActivityResult = (result: Result) =>
 	Schema.encodeEffect(ActivityResultJson)(result).pipe(Effect.orDie);
 const decodeActivityResult = (json: unknown) =>
-	Schema.decodeUnknownEffect(ActivityResultJson)(json).pipe(Effect.orDie);
+	Schema.decodeUnknownEffect(ActivityResultJson)(
+		isObjectRecord(json) && json["_tag"] === "Complete"
+			? { ...json, exit: restoreExit(json["exit"]) }
+			: json,
+	).pipe(Effect.orDie);
 
 type WakeMode = "explicit" | "automatic";
 type Result = Workflow.Result<unknown, unknown>;
@@ -92,6 +119,7 @@ type Activation = {
 	readonly workflow: Workflow.Any;
 	// Parent of every run's scope; scopes of suspended runs stay open until the execution ends.
 	readonly scope: Scope.Closeable;
+	account: null | AccountGeneration;
 	readonly identity: WorkflowIdentity;
 	instance: WorkflowInstance["Service"];
 	resumeRequested: WakeMode | undefined;
@@ -106,12 +134,28 @@ type Activation = {
 
 const expired = (identity: WorkflowIdentity) => Effect.die(new WorkflowExecutionExpired(identity));
 
+const rejected = (message: string) => Effect.die(new WorkflowAccountRejected({ message }));
+
+const accountOf = (row: ExecutionRow): null | AccountGeneration =>
+	row.accountUserId === null || row.accountToken === null
+		? null
+		: { token: row.accountToken, userId: row.accountUserId };
+
+const sameAccount = (left: null | AccountGeneration, right: null | AccountGeneration) =>
+	left?.userId === right?.userId && left?.token === right?.token;
+
 const isUnwakeable = (result: Result, mode: WakeMode) =>
 	result._tag === "Complete" || (mode === "automatic" && result.failed === true);
 
 export const makePostgresWorkflowEngine = Effect.gen(function* () {
 	const scope = yield* Effect.scope;
 	const store = yield* WorkflowEngineStore;
+	const retirement = (account: AccountGeneration) =>
+		Effect.map(store.accountRetired(account), (retired) =>
+			retired
+				? "Mutation command belongs to a retired account"
+				: "Mutation command account is being retired",
+		);
 	const notifications = yield* WorkflowExecutionNotifications;
 	const pg = yield* PgClient.PgClient;
 	const owner = `runner-${yield* (yield* SecureRandom.SecureRandom).uuidV4()}`;
@@ -190,6 +234,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			deferreds: new Map(),
 			activities: new Map(),
 			execute: entry.execute,
+			account: accountOf(row),
 			workflow: entry.workflow,
 			interruptedUnsafe: false,
 			scope: Scope.makeUnsafe(),
@@ -318,6 +363,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				}),
 				Workflow.intoResult,
 				Effect.provideService(WorkflowEngine, engine),
+				Effect.provideService(WorkflowAdmissionAccount, undefined),
 				(effect) => deferredState.trackRun(instance, effect),
 				Effect.tap((result) => settle(activation, result)),
 				Effect.onExit((exit) => {
@@ -419,6 +465,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			return yield* Effect.die(`Workflow ${workflow._tag} is not registered`);
 		}
 		const identity = { workflowName: workflow._tag, executionId: options.executionId };
+		const account = yield* WorkflowAdmissionAccount;
 		let activation = activations.get(keyOf(identity));
 		if (!activation) {
 			const parent = options.parent
@@ -426,8 +473,13 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				: undefined;
 			const codecs = yield* codecsOf(workflow._tag);
 			const payload = yield* codecs.encodePayload(options.payload).pipe(Effect.orDie);
-			const admitted = yield* store.admit({ owner, parent, payload, identity });
-			const row = admitted.row;
+			const admitted = yield* store.admit({ owner, parent, account, payload, identity });
+			if (admitted.rejected) {
+				return yield* rejected(
+					account ? yield* retirement(account) : "Mutation command belongs to a retired account",
+				);
+			}
+			let row = admitted.row;
 			const parentRow = parent && !admitted.inserted ? yield* store.find(parent) : undefined;
 			if (parent && !admitted.inserted && !parentRow) {
 				return yield* Effect.die(new DbError({ message: "Workflow parent execution is missing" }));
@@ -443,6 +495,12 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				return yield* Effect.die(
 					new DbError({ message: "Workflow execution belongs to another root" }),
 				);
+			}
+			if (account && !admitted.inserted && !sameAccount(accountOf(row), account)) {
+				if (accountOf(row) !== null || !(yield* store.adopt(identity, account))) {
+					return yield* rejected("Workflow belongs to another account generation");
+				}
+				row = { ...row, accountToken: account.token, accountUserId: account.userId };
 			}
 			if (row.status !== "active") {
 				if (options.discard) {
@@ -466,8 +524,16 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				return yield* Effect.die(`Workflow ${workflow._tag} could not be activated`);
 			}
 			yield* resume(identity, "explicit");
-		} else if (!activation.fiber) {
-			yield* resume(identity, "explicit");
+		} else {
+			if (account && !sameAccount(activation.account, account)) {
+				if (activation.account !== null || !(yield* store.adopt(identity, account))) {
+					return yield* rejected("Workflow belongs to another account generation");
+				}
+				activation.account = account;
+			}
+			if (!activation.fiber) {
+				yield* resume(identity, "explicit");
+			}
 		}
 		if (options.discard) {
 			return undefined;
@@ -715,9 +781,31 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 
 	yield* Effect.addFinalizer(() => store.release(owner).pipe(Effect.ignore));
 
-	return engine;
+	const accounts = WorkflowAccounts.of({
+		listActive: store.listAccountExecutions,
+		adopt: Effect.fnUntraced(function* (account) {
+			const instance = yield* WorkflowInstance;
+			const identity = { executionId: instance.executionId, workflowName: instance.workflow._tag };
+			const activation = activations.get(keyOf(identity));
+			if (account === null || !activation || sameAccount(activation.account, account)) {
+				return yield* Effect.void;
+			}
+			if (activation.account !== null || !(yield* store.adopt(identity, account))) {
+				return yield* new DbError({
+					message:
+						activation.account === null
+							? yield* retirement(account)
+							: "Workflow belongs to another account generation",
+				});
+			}
+			activation.account = account;
+			return yield* Effect.void;
+		}),
+	});
+
+	return Context.make(WorkflowEngine, engine).pipe(Context.add(WorkflowAccounts, accounts));
 });
 
-export const PostgresWorkflowEngine = Layer.effect(WorkflowEngine, makePostgresWorkflowEngine).pipe(
+export const PostgresWorkflowEngine = Layer.effectContext(makePostgresWorkflowEngine).pipe(
 	Layer.provide(WorkflowEngineStore.layer),
 );

@@ -2,13 +2,21 @@
 
 `MutationReceipts` owns persistence and account-generation admission. It does not import concrete workflows or the workflow engine.
 
-`workflow-dispatch.ts` binds ownership to actual workflow definitions:
+Account admission is one `for share` read of the user row, done once per transaction. Account
+retirement stamps `retiring_account_generation` on that row under its exclusive lock, so a waiting
+admission re-reads the stamp; a replaced token or a stamped generation is refused.
 
-- `dispatchAdmittedWorkflow` accepts the workflow, an account generation (including explicit `null` for system work), and execution options. It derives a missing execution ID once, admits ownership, then calls the existing engine with that same ID.
-- Its admission and execution transformations keep boundary error mapping, dispatch recovery, and interruption masks separate. Execution recovery cannot consume admission failures.
-- `admitWorkflow` records ownership at replay-body and preparation boundaries. These checks remain necessary after reset, retirement, or account recreation, even if dispatch previously registered the same owner.
+The workflow engine records which account an execution works for (see
+[`platform/workflow`](../../platform/workflow/README.md)). `workflow-dispatch.ts` binds dispatch to it:
 
-Boot assembles `AdmittedWorkflowCatalogueLive` from defining workflow modules and freezes its array. User retirement receives the catalogue through `AdmittedWorkflowCatalogue`; it interrupts each retained owner before deleting receipts and fails closed when an owner is absent. There is no mutable registration catalogue or separate ownership table.
+- `dispatchAdmittedWorkflow` takes the workflow, an account generation (`null` for system work) and
+  execution options. It derives a missing execution ID, and the engine admits the execution under that
+  account in its insert. A retired account fails with `DbError`.
+- `admitWorkflow` binds the running workflow body to an account when it was admitted without one; it
+  costs nothing once the execution works for that account.
+
+User retirement interrupts every active execution the engine lists for the account, including children,
+which inherit their parent's account.
 
 ## Receipt retention
 

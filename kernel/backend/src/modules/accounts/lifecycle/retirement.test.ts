@@ -12,6 +12,7 @@ import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { ImportsRepository } from "#modules/imports/repository";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
+import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { makeWorkflowEngine } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -28,7 +29,7 @@ const ownerWorkflow = Workflow.make("InjectedOwnerWorkflow", {
 
 const accessRevokedAt = new Date("2026-09-01T00:00:00Z");
 
-const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: Array<string>) {
+const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 	const repository = yield* UserLifecycleRepository.make;
 	const operation: NonNullable<
 		Effect.Success<ReturnType<UserLifecycleRepository["Service"]["getInternalById"]>>
@@ -67,7 +68,7 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 		poll: () => Effect.succeedNone,
 		interrupt: (workflow, executionId) =>
 			Effect.sync(() => {
-				expect(workflow).toBe(ownerWorkflow);
+				expect(workflow._tag).toBe(ownerWorkflow._tag);
 				expect(executionId).toBe("suspended-before-write");
 				calls.push("interrupt");
 			}),
@@ -79,7 +80,17 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 				Layer.mergeAll(
 					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),
-					Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([ownerWorkflow])),
+					Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([])),
+					Layer.succeed(
+						WorkflowAccounts,
+						WorkflowAccounts.of({
+							adopt: () => Effect.void,
+							listActive: () =>
+								Effect.succeed([
+									{ workflowName: ownerWorkflow._tag, executionId: "suspended-before-write" },
+								]),
+						}),
+					),
 					Layer.succeed(UserLifecycleRepository, {
 						...repository,
 						getInternalById: () => Effect.succeed(operation),
@@ -91,8 +102,6 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 							Effect.sync(() => {
 								calls.push("complete");
 							}),
-						listUserMutationWork: () =>
-							Effect.succeed([{ workflowName, executionId: "suspended-before-write" }]),
 					}),
 					Layer.mock(AuthService)({ handler: () => Promise.reject(new Error("unused")) }),
 					Layer.mock(ObjectStorageService)({}),
@@ -115,19 +124,8 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const calls: Array<string> = [];
-				expect((yield* runRetirement(ownerWorkflow._tag, calls))._tag).toBe("Success");
+				expect((yield* runRetirement(calls))._tag).toBe("Success");
 				expect(calls).toEqual(["interrupt", "delete", "complete"]);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"fails closed for a retained owner absent from the injected catalogue",
-		() =>
-			Effect.gen(function* () {
-				const calls: Array<string> = [];
-				expect((yield* runRetirement("UnknownOwnerWorkflow", calls))._tag).toBe("Failure");
-				expect(calls).toEqual([]);
 			}),
 		testTimeout,
 	);

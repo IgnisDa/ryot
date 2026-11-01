@@ -30,7 +30,7 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { type DataGraphRecord, DataGraphRecordSchema } from "./data-graph";
@@ -132,6 +132,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		inputFingerprint: "fingerprint",
 	};
 	const dependencies = Layer.mergeAll(
+		workflowAccountsTestLayer,
 		ingestionTestDatabase(() => receipts),
 		Layer.succeed(
 			WorkflowInstance,
@@ -329,6 +330,7 @@ it.effect(
 				executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 			});
 			const dependencies = Layer.mergeAll(
+				workflowAccountsTestLayer,
 				ingestionTestDatabase(),
 				Layer.succeed(
 					WorkflowInstance,

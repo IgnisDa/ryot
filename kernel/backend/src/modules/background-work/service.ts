@@ -8,7 +8,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
 import { publishDerivedDataUpdated, RedisService } from "#platform/redis";
@@ -64,7 +64,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 						message: "Background work requires exact purpose-bound user authority",
 					});
 				}
-				yield* admitWorkflow(receipts, BackgroundWorkWorkflow, account, input.id);
+				yield* receipts.admitAccount(account);
 				yield* references.lockIngestionShared([account.userId]);
 				const payload = yield* Schema.encodeUnknownEffect(JsonValue)(input).pipe(
 					Effect.mapError(() => new DbError({ message: "Invalid background input" })),
@@ -125,30 +125,23 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				userId: string;
 				accountToken: string;
 			}) {
-				const rejected = yield* receipts
-					.registerWorkflow(
-						{ token: job.accountToken, userId: UserId.make(job.userId) },
-						BackgroundWorkWorkflow._tag,
-						job.id,
-					)
-					.pipe(
-						Effect.as(null),
-						Effect.catchTag("DbError", (error) =>
-							finish({ id: job.id, userId: UserId.make(job.userId) }, "failed", error.message).pipe(
-								Effect.as(error),
-							),
+				const account = { token: job.accountToken, userId: UserId.make(job.userId) };
+				const rejected = yield* dispatchAdmittedWorkflow(engine, BackgroundWorkWorkflow, account, {
+					discard: true,
+					executionId: job.id,
+					payload: { id: job.id },
+				}).pipe(
+					asIndependentWorkflowRoot,
+					Effect.as(null),
+					Effect.catchTag("DbError", (error) =>
+						finish({ id: job.id, userId: UserId.make(job.userId) }, "failed", error.message).pipe(
+							Effect.as(error),
 						),
-					);
+					),
+				);
 				if (rejected) {
 					return rejected;
 				}
-				yield* engine
-					.execute(BackgroundWorkWorkflow, {
-						discard: true,
-						executionId: job.id,
-						payload: { id: job.id },
-					})
-					.pipe(asIndependentWorkflowRoot);
 				yield* repository.dispatched(job.id);
 				return null;
 			});

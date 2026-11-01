@@ -6,7 +6,6 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { TranslateEntityWorkflow } from "#modules/entities/localization/entity-translation-workflow";
 import { ProviderEntityPopulationWorkflow } from "#modules/entities/providers/provider-entity-population-workflow";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
@@ -18,7 +17,6 @@ export class EnrichmentRecovery extends Context.Service<EnrichmentRecovery>()(
 		make: Effect.gen(function* () {
 			const requests = yield* EnrichmentRequests;
 			const engine = yield* WorkflowEngine;
-			const receipts = yield* MutationReceipts.make;
 			const sandbox = yield* ScriptExecutionService;
 			const settle = Effect.fnUntraced(function* <A>(
 				id: string,
@@ -78,15 +76,11 @@ export class EnrichmentRecovery extends Context.Service<EnrichmentRecovery>()(
 											}),
 									),
 								);
-								yield* dispatchAdmittedWorkflow(
-									receipts,
-									engine,
-									ProviderEntityPopulationWorkflow,
-									current,
-									{ payload, discard: true, executionId: row.id },
-									(admission) => admission,
-									(execution) => execution,
-								);
+								yield* dispatchAdmittedWorkflow(engine, ProviderEntityPopulationWorkflow, current, {
+									payload,
+									discard: true,
+									executionId: row.id,
+								});
 							}
 						} else if (row.workflowName === TranslateEntityWorkflow._tag) {
 							const result = yield* engine.poll(TranslateEntityWorkflow, row.id);
@@ -104,15 +98,11 @@ export class EnrichmentRecovery extends Context.Service<EnrichmentRecovery>()(
 											}),
 									),
 								);
-								yield* dispatchAdmittedWorkflow(
-									receipts,
-									engine,
-									TranslateEntityWorkflow,
-									current,
-									{ payload, discard: true, executionId: row.id },
-									(admission) => admission,
-									(execution) => execution,
-								);
+								yield* dispatchAdmittedWorkflow(engine, TranslateEntityWorkflow, current, {
+									payload,
+									discard: true,
+									executionId: row.id,
+								});
 							}
 						} else {
 							yield* requests.update(row.id, { state: "failed", failureKind: "invalid-input" });

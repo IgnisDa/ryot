@@ -19,7 +19,7 @@ import {
 } from "#modules/assets/storage/ingestion-payloads";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import type { importPayloadReservation } from "#schema/tables/imports";
-import { makeAppConfigLayer } from "#testing/effect";
+import { makeAppConfigLayer, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";
@@ -66,6 +66,7 @@ const fixture = Effect.fnUntraced(function* (
 		};
 	}
 	const dependencies = Layer.mergeAll(
+		workflowAccountsTestLayer,
 		WorkflowExecutionNotifications.layer,
 		ingestionTestDatabase(),
 		BunFileSystem.layer,

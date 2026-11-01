@@ -7,7 +7,6 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import type { DurableSchema } from "#boot/workflow-engine";
 import { childLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { enqueueEventCreate } from "#modules/events/event-create-workflow";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	type ProviderImportPhase,
@@ -90,11 +89,9 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 ) {
 	const engine = yield* WorkflowEngine;
 	const populationExecutionId = `${executionId}-provider-population`;
-	const receipts = yield* MutationReceipts.make;
 	const importedEntity = yield* measureImportPhase(
 		"population",
 		dispatchAdmittedWorkflow(
-			receipts,
 			engine,
 			ProviderEntityPopulationWorkflow,
 			payload.command.accountGeneration,
@@ -112,18 +109,10 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 					entitySchemaSlug: payload.entitySchemaSlug,
 				},
 			},
-			(admission) =>
-				admission.pipe(
-					Effect.mapError(
-						(error) => new EntityImportError({ stage: "population", message: error.message }),
-					),
-				),
-			(execution) =>
-				execution.pipe(
-					Effect.mapError(
-						(error) => new EntityImportError({ stage: "population", message: error.message }),
-					),
-				),
+		).pipe(
+			Effect.mapError(
+				(error) => new EntityImportError({ stage: "population", message: error.message }),
+			),
 		),
 	);
 	const operations = yield* EntityImportWorkflowOperations;

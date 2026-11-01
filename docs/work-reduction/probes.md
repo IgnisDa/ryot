@@ -152,3 +152,66 @@ The same probes on the PostgreSQL workflow engine. Medians of repeats, `probes3`
 - Writes behind one backlog create: `mutation_receipt` 85, `workflow_step` 77,
   `workflow_execution` 57, `automation_run` 15, `sandbox_workflow_reference` 14. The 663
   `cluster_*` rows are gone.
+
+## Runs `probes4` → `probes5` (slice 3a: account admission in one statement)
+
+`probes4` is the engine revision with per-statement capture; `probes5` adds slice 3a. Medians of
+repeats, net of the idle baseline.
+
+| Flow | Statements | Transactions | DB exec | Server CPU | Caller |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Signup | 564 → 473 | 218 → 261 | 144 → 123 ms | 0.84 → 0.77 s | 0.92 → 0.91 s |
+| Event create, `backlog` | 1,307 → 1,066 | 362 → 337 | 231 → 218 ms | 1.17 → 1.14 s | 0.67 → 0.66 s |
+| Review operation | 3,035 → 2,507 | 946 → 748 | 836 → 757 ms | 3.13 → 3.15 s | 2.69 → 2.54 s |
+| Workout, 1 set | 900 → 764 | 332 → 203 | 190 → 188 ms | 0.91 → 0.91 s | 1.19 → 1.16 s |
+| Workout, 25 sets | 1,993 → 1,760 | 365 → 363 | 312 → 335 ms | 1.51 → 1.44 s | 1.80 → 1.71 s |
+
+- Statements fall by 12–18%, as predicted from the account-check share in `probes4`.
+- CPU and caller latency do not move. Statement count is no longer what drives the server's cost.
+
+### What one event create still does (`probes5`)
+
+| Unit | Count |
+| --- | ---: |
+| Workflow executions | 18 |
+| Workflow steps | 64 |
+| Script executions | 5 |
+| Sandbox runs (replays) | 9 |
+| Deferred host requests (each ends a run) | 4 |
+
+The 18 executions are:
+
+- 5 `ScriptExecutionWorkflow`
+- 3 `AutomationRunWorkflow`
+- 3 `SandboxDurableHostServiceWorkflow`
+- 2 `PolicyBatchWorkflow`
+- 2 `BackgroundWorkWorkflow`
+- one each of `EventCreateWorkflow`, `UserCommandWorkflow` and `UserEntityPreparationWorkflow`
+
+The review operation runs 13 scripts in 25 sandbox runs, with 43 executions and 166 steps. It
+costs about 1.4 s more API CPU than the event create, which is roughly 80 ms for every added
+(1.4 executions + 1 sandbox run + 6 steps). The overhead is per operation, not per statement.
+
+### Where the CPU goes (`prof5`, API process, 32.3 s busy)
+
+- **Self time:** Effect runtime 38%, native 35%.
+  - `writeBuffered` takes 10.6%: socket writes to PostgreSQL (1.9 s) and Redis (1.5 s).
+- **Inclusive time:**
+
+  | Area | Share |
+  | --- | ---: |
+  | Schema | 19% |
+  | Logging | 12% |
+  | Sandbox host | 11.5% |
+  | Workflow engine | 10% |
+  | Redis | 8.5% |
+  | SQL | 8% |
+
+- **Redis:** the fair queue polled every 25 ms and sent the full Lua script each time. Commit
+  `4eef867752` sends the script hash instead and backs off when the queue is idle.
+- **Script authority on every host call.** `SandboxExecutionAuthority.resolve` decodes the full
+  principal twice, reloads the script pin, and compares two `stableStringify` outputs. That is
+  1.25 s of the profile (0.53 s schema, 0.72 s stringify) plus one pin query per host call.
+- **Boot-only costs.** Stored manifest decoding (0.49 s) and plugin archive normalization (1.7 s)
+  happen only in the first 10 s, while boot synchronizes the system plugins. They are not
+  per-signup costs.

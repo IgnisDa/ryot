@@ -91,7 +91,6 @@ export const ingestionTestReceipt = (
 	evidence: null,
 	pluginId: null,
 	batchIndex: null,
-	workflowName: null,
 	receiptType: "item",
 	mutationScope: "user",
 	sandboxScriptId: null,

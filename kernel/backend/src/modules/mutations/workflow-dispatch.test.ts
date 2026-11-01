@@ -5,150 +5,79 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
-import { Effect, Schema } from "effect";
+import { Cause, Effect, Exit, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
+import { WorkflowAccountRejected, WorkflowAdmissionAccount } from "#platform/workflow/account";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 
 const account = { token: "generation", userId: UserId.make("dispatch-owner") };
 
-it.effect(
-	"derives ownership once, records it before dispatch, and retains it for a failed dispatch retry",
-	() =>
-		Effect.gen(function* () {
-			let derivations = 0;
-			const workflow = Workflow.make("AdmittedRetryWorkflow", {
-				error: Schema.String,
-				success: Schema.String,
-				payload: Schema.Struct({ key: Schema.String }),
-				idempotencyKey: ({ key }) => {
-					derivations += 1;
-					return key;
-				},
-			});
-			const calls: Array<string> = [];
-			let owner: string | undefined;
-			let attempts = 0;
-			const receipts = {
-				registerWorkflow: (identity: null | typeof account, name: string, executionId: string) =>
-					Effect.sync(() => {
-						expect(identity).toEqual(account);
-						expect(name).toBe(workflow._tag);
-						owner = executionId;
-						calls.push("admit");
-					}),
-			};
-			const engine = makeWorkflowEngine({
-				execute: (definition, options) =>
-					Effect.gen(function* () {
-						expect(definition).toBe<unknown>(workflow);
-						expect(options.executionId).toBe<unknown>(owner);
-						calls.push("dispatch");
-						attempts += 1;
-						return yield* attempts === 1 ? Effect.fail("unavailable") : Effect.succeed("completed");
-					}),
-			});
-			const execute = dispatchAdmittedWorkflow(
-				receipts,
-				engine,
-				workflow,
-				account,
-				{ payload: { key: "retry" } },
-				(admission) => admission,
-				Effect.result,
-			);
-			expect(yield* execute).toMatchObject({ _tag: "Failure", failure: "unavailable" });
-			const firstOwner = owner;
-			expect(yield* execute).toMatchObject({ _tag: "Success", success: "completed" });
-			expect(owner).toBe(firstOwner);
-			expect(derivations).toBe(2);
-			expect(calls).toEqual(["admit", "dispatch", "admit", "dispatch"]);
-		}),
+const workflow = Workflow.make("AdmittedWorkflow", {
+	error: Schema.Never,
+	success: Schema.String,
+	idempotencyKey: ({ key }) => key,
+	payload: Schema.Struct({ key: Schema.String }),
+});
+
+it.effect("admits the execution derived from its payload under the given account", () =>
+	Effect.gen(function* () {
+		const engine = makeWorkflowEngine({
+			execute: (definition, options) =>
+				Effect.gen(function* () {
+					expect(definition).toBe(workflow);
+					expect(yield* WorkflowAdmissionAccount).toEqual(account);
+					return options.executionId;
+				}),
+		});
+		const executionId = yield* workflow.executionId({ key: "derived" });
+		expect(
+			yield* dispatchAdmittedWorkflow(engine, workflow, account, { payload: { key: "derived" } }),
+		).toBe(executionId);
+	}),
 	testTimeout,
 );
 
-it.effect(
-	"keeps admission failures outside dispatch recovery and does not start the workflow",
-	() =>
-		Effect.gen(function* () {
-			const workflow = Workflow.make("RejectedWorkflow", {
-				error: Schema.String,
-				success: Schema.String,
-				payload: Schema.Struct({}),
-				idempotencyKey: () => "rejected",
-			});
-			let dispatched = false;
-			const engine = makeWorkflowEngine({
-				execute: () =>
-					Effect.sync(() => {
-						dispatched = true;
-						return "unexpected";
-					}),
-			});
-			const failure = new DbError({ message: "Mutation command belongs to a retired account" });
-			const exit = yield* Effect.exit(
-				dispatchAdmittedWorkflow(
-					{ registerWorkflow: () => Effect.fail(failure) },
-					engine,
-					workflow,
-					account,
-					{ payload: {} },
-					(admission) => admission,
-					Effect.result,
-				),
-			);
-			assertExitFails(exit, failure);
-			expect(dispatched).toBe(false);
-		}),
+it.effect("admits an explicit execution ID without an account", () =>
+	Effect.gen(function* () {
+		const engine = makeWorkflowEngine({
+			execute: (_definition, options) =>
+				Effect.gen(function* () {
+					expect(yield* WorkflowAdmissionAccount).toBeNull();
+					return options.executionId;
+				}),
+		});
+		expect(
+			yield* dispatchAdmittedWorkflow(engine, workflow, null, {
+				executionId: "explicit",
+				payload: { key: "ignored" },
+			}),
+		).toBe("explicit");
+	}),
 	testTimeout,
 );
 
-it.effect(
-	"passes an explicit null account and explicit ID without deriving a system execution ID",
-	() =>
-		Effect.gen(function* () {
-			const workflow = Workflow.make("SystemWorkflow", {
-				error: Schema.Never,
-				success: Schema.String,
-				payload: Schema.Struct({ value: Schema.String }),
-				idempotencyKey: () => {
-					throw new Error("Explicit IDs must not be derived");
-				},
-			});
-			let registered = false;
-			const engine = makeWorkflowEngine({
-				execute: (definition, options) =>
-					Effect.sync(() => {
-						expect(registered).toBe(true);
-						expect(definition).toBe<unknown>(workflow);
-						expect(options).toEqual({
-							discard: true,
-							executionId: "explicit",
-							payload: { value: "system" },
-						});
-						return options.executionId;
-					}),
-			});
-			const result = yield* dispatchAdmittedWorkflow(
-				{
-					registerWorkflow: (identity, name, executionId) =>
-						Effect.sync(() => {
-							expect(identity).toBeNull();
-							expect(name).toBe("SystemWorkflow");
-							expect(executionId).toBe("explicit");
-							registered = true;
-						}),
-				},
-				engine,
-				workflow,
-				null,
-				{ discard: true, executionId: "explicit", payload: { value: "system" } },
-				(admission) => admission,
-				(execution) => execution,
-			);
-			expect(result).toBe("explicit");
-		}),
+const dispatch = (defect: unknown) =>
+	Effect.exit(
+		dispatchAdmittedWorkflow(
+			makeWorkflowEngine({ execute: () => Effect.die(defect) }),
+			workflow,
+			account,
+			{ payload: { key: "fenced" } },
+		),
+	);
+
+it.effect("fails a fenced admission as a database error and keeps other defects", () =>
+	Effect.gen(function* () {
+		const message = "Mutation command account is being retired";
+		assertExitFails(
+			yield* dispatch(new WorkflowAccountRejected({ message })),
+			new DbError({ message }),
+		);
+		const unrelated = yield* dispatch("engine failure");
+		expect(Exit.isFailure(unrelated) && Cause.squash(unrelated.cause)).toBe("engine failure");
+	}),
 	testTimeout,
 );

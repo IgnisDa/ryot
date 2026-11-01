@@ -1,34 +1,27 @@
+import { DbError } from "@ryot-app/contract/errors";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { Effect, type Schema } from "effect";
 import type { Workflow } from "effect/workflow";
 import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import type { MutationReceipts } from "./receipts";
+import {
+	WorkflowAccountRejected,
+	WorkflowAccounts,
+	WorkflowAdmissionAccount,
+} from "#platform/workflow/account";
 
-type Registration = ReturnType<MutationReceipts["Service"]["registerWorkflow"]>;
+// Binds the running workflow to the account it works for; a no-op once it does.
+export const admitWorkflow = (account: null | AccountGeneration) =>
+	Effect.flatMap(WorkflowAccounts, (accounts) => accounts.adopt(account));
 
-export const admitWorkflow = Effect.fnUntraced(function* (
-	receipts: Pick<MutationReceipts["Service"], "registerWorkflow">,
-	workflow: Workflow.Any,
-	account: null | AccountGeneration,
-	executionId: string,
-) {
-	return yield* receipts.registerWorkflow(account, workflow._tag, executionId);
-});
-
+// Starts or joins a workflow that works for `account`; a retired account fails with `DbError`.
 export const dispatchAdmittedWorkflow = Effect.fnUntraced(function* <
 	Name extends string,
 	Payload extends Workflow.AnyStructSchema,
 	Success extends Schema.Top,
 	Error extends Schema.Top,
-	AdmissionError,
-	AdmissionServices,
-	Result,
-	DispatchError,
-	DispatchServices,
 	const Discard extends boolean = false,
 >(
-	receipts: Pick<MutationReceipts["Service"], "registerWorkflow">,
 	engine: WorkflowEngine["Service"],
 	workflow: Workflow.Workflow<Name, Payload, Success, Error>,
 	account: null | AccountGeneration,
@@ -40,16 +33,14 @@ export const dispatchAdmittedWorkflow = Effect.fnUntraced(function* <
 			WorkflowEngine["Service"]["execute"]
 		>[1]["suspendedRetrySchedule"];
 	},
-	admit: (registration: Registration) => Effect.Effect<void, AdmissionError, AdmissionServices>,
-	dispatch: (
-		execution: Effect.Effect<
-			Discard extends true ? string : Success["Type"],
-			Error["Type"],
-			Error["DecodingServices"] | Payload["EncodingServices"] | Success["DecodingServices"]
-		>,
-	) => Effect.Effect<Result, DispatchError, DispatchServices>,
 ) {
 	const executionId = options.executionId ?? (yield* workflow.executionId(options.payload));
-	yield* admit(admitWorkflow(receipts, workflow, account, executionId));
-	return yield* dispatch(engine.execute(workflow, { ...options, executionId }));
+	return yield* engine.execute(workflow, { ...options, executionId }).pipe(
+		Effect.provideService(WorkflowAdmissionAccount, account),
+		Effect.catchDefect((defect) =>
+			defect instanceof WorkflowAccountRejected
+				? Effect.fail(new DbError({ message: defect.message }))
+				: Effect.die(defect),
+		),
+	);
 });

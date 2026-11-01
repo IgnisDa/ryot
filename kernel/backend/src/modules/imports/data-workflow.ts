@@ -20,7 +20,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	PendingRelationshipMutations,
@@ -142,7 +141,6 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 		const repository = yield* ImportsRepository;
 		const definitionRepository = yield* DefinitionRepository;
 		const engine = yield* WorkflowEngine;
-		const receipts = yield* MutationReceipts.make;
 		if (!input.command.accountGeneration) {
 			return yield* new ImportRunError({ message: "Data ingestion account generation is missing" });
 		}
@@ -364,7 +362,6 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 					segmentExecutionId,
 				);
 				const result = yield* dispatchAdmittedWorkflow(
-					receipts,
 					engine,
 					ProcessDataImportSegmentWorkflow,
 					input.command.accountGeneration,
@@ -390,8 +387,6 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 							),
 						},
 					},
-					(admission) => admission,
-					(dispatch) => dispatch,
 				).pipe(Effect.mapError(toWorkflowError));
 				for (const [key, value] of Object.entries(result.entityIds)) {
 					entityIds.set(key, value);
@@ -464,13 +459,7 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 
 export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 	function* (input: typeof DataImportSegmentPayload.Type) {
-		const receipts = yield* MutationReceipts.make;
-		yield* admitWorkflow(
-			receipts,
-			ProcessDataImportSegmentWorkflow,
-			input.command.accountGeneration,
-			input.executionId,
-		).pipe(Effect.mapError(toWorkflowError));
+		yield* admitWorkflow(input.command.accountGeneration).pipe(Effect.mapError(toWorkflowError));
 		const repository = yield* ImportsRepository;
 		if (!input.command.accountGeneration) {
 			return yield* new ImportRunError({ message: "Data ingestion account generation is missing" });
@@ -817,13 +806,9 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 export const DataImportWorkflowDefinitionsLive = Layer.mergeAll(
 	implementWorkflow(ProcessDataImportWorkflow, (payload, executionId) =>
 		Effect.gen(function* () {
-			const receipts = yield* MutationReceipts.make;
-			yield* admitWorkflow(
-				receipts,
-				ProcessDataImportWorkflow,
-				payload.command.accountGeneration,
-				executionId,
-			).pipe(Effect.mapError(toWorkflowError));
+			yield* admitWorkflow(payload.command.accountGeneration).pipe(
+				Effect.mapError(toWorkflowError),
+			);
 			return yield* runDataImportWorkflow(payload, executionId);
 		}),
 	),

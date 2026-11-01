@@ -116,7 +116,7 @@ script, and key; replay with different input or scope is refused. Continuations 
 keys and stay independent of the invocation that admitted them.
 
 `BackgroundWorkWorkflow` and `background_work` own admission and status for the independent script
-execution. Admission records workflow-owner receipts and retains the existing script/config references
+execution. Admission checks the account and retains the existing script/config references
 in the caller's transaction; dispatch starts after commit and runs one job at a time per scope. Bounded
 recovery resumes each scope's running or oldest queued job and fails jobs whose workflow ended before
 settlement. Queued, running, succeeded, and failed status is
