@@ -41,3 +41,11 @@ General-purpose durable workflows (every step journaled, bodies replayed) are ne
 the request paths. The real requirements are: (1) a host-call journal for sandbox executions,
 (2) durable timers, (3) job rows with attempts, deadlines, and recovery, (4) receipts. A design built
 from those four primitives keeps every tested guarantee.
+
+## Correction: shared databases
+
+Multi-process operation is exercised, not just documented.
+`e2e/src/api/kernel/sandbox/global-provider-rate-limiting.test.ts` runs two API processes on one
+database at the same time. The restart tests need a new process to take over a dead one's work. Any
+engine must therefore keep per-execution ownership with expiry and cross-process wake-ups
+([`design-engine.md`](design-engine.md)).

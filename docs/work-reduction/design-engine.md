@@ -81,13 +81,21 @@ finalizers, and parent wake-up on child completion. Persistence is added at thes
 | `interrupt` | Set `interrupted`, then wake, following `layerMemory`'s semantics. |
 | `poll` | In-memory state; else the row's `result`. |
 
-Recovery:
-- At boot, load active executions that have no unfired clock and resume them.
-- Arm all unfired clocks, firing overdue ones immediately.
-- The process owns every execution. The current deployment is already single-runner
-  (`Runners.layerNoop`).
-- Multi-replica ownership (a lease column and a sweep) is documented as future work and is not
-  tested today ([`durability-requirements.md`](durability-requirements.md)).
+Ownership and recovery:
+- Several API processes can share one database. `e2e/src/api/kernel/sandbox/global-provider-rate-limiting.test.ts`
+  runs two concurrently. The restart tests (history-correction recovery, reminder recovery, import
+  durability) need a new process to take over a dead one's executions.
+- Each `workflow_execution` row gets `owner` (a per-process id) and `lease_until`. A process runs only
+  executions it owns. It claims a new execution at insert. It renews all its leases with one heartbeat
+  statement every few seconds.
+- A sweep, at boot and periodically, claims active executions whose lease has expired, then resumes
+  them and arms their unfired clocks. An expired lease plays the role that shard-lock expiry plays
+  today.
+- **Cross-process wake.** When a process writes a step or a child result for an execution it does
+  not own, the same statement calls `pg_notify('ryot_workflow', <identity>)`. Each process listens on
+  one dedicated connection and wakes the executions it owns. When the owner is local, the wake is
+  in memory and nothing is notified. Today Cluster delivers cross-runner messages by polling storage
+  every 10 s, so this is not a regression.
 
 GC:
 - `expireTrees` checks for "no unfired clock step and no active member" instead of unprocessed
@@ -100,7 +108,7 @@ GC:
 | --- | --- | --- |
 | Activity | ≈6–8 statements over 2–3 transactions, plus a root `FOR UPDATE` | 1 insert (in the caller's connection; no extra transaction) |
 | Workflow start / finish | Message, reply and fence rows, a shard lookup, polling | 1 insert / 1 update |
-| Idle process | ≈11 transactions/s (shard locks, heartbeat, polling) | 0 |
+| Idle process | ≈11 transactions/s (shard locks, heartbeat, polling) | One lease renewal every few seconds |
 
 ## Testing
 
