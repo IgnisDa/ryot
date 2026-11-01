@@ -152,3 +152,34 @@
     containers 0.6–1 GB, and the vitest parent 0.4 GB.
   - The suite therefore cannot finish on this VM with six workers. `full5` reruns it with
     `--maxWorkers=4`, matching the CPU count, to separate memory collapse from load failures.
+- `full5`, the same revision with `--maxWorkers=4`, is the first whole-suite run to finish: 58.6 min,
+  956 tests, 914 passed, 25 failed in 18 files, 17 skipped.
+  - Memory still ran out at the end. 41 sandbox daemons were killed between 15:06 and 15:08, while
+    `pro-key` held eight API servers up for its whole file and `pro-gated-providers` three more. By
+    then the four workers held about 1.2 GB each, up from 270 MB at start, and the shared server
+    1.4 GB after 40 minutes. Isolated servers held 260–560 MB each.
+  - Worker memory grows with the number of files a worker has run (`isolate: false`): 600 MB per
+    worker in `full4` with six workers, 1.2 GB in `full5` with four.
+  - Four of the failures were in `history-correction-liveness`. The history-correction background
+    work failed with `Workflow replay 1 failed: ` and an empty message. The workflow rows show the
+    cause:
+    - A write's policy hook waited 104 s in the sandbox queue, then ran in 36 ms. Its 35 s deadline
+      had passed, so the policy batch failed with `AutomationPolicyExecutionError`, which has no
+      message.
+    - The hook inherits the background lane. With 60 subjects in flight, every replay and fresh
+      run of the same user and plugin shares one FIFO, so the awaited hook queued behind all of
+      them.
+    - `base2` failed the same tests by 180 s timeout before any of this work, so the ordering is
+      older than slice 4; inline parking holds slots longer and makes it worse.
+  - Fix (commit `8675c643a9`): within a flow, the fair queue takes awaited hook runs first, then
+    replays and recoveries, then fresh runs. Lane, tenant and plugin turns are unchanged. HTTP
+    rate-limit admission keeps the identity without urgency. Host failures without a message now
+    report their tag and code.
+- `urg1` (the fair-queue urgency fix, three files): `lifecycle-triggers` and `history-correction`
+  pass, and `history-correction-liveness` fails one test instead of four (`baseliv`, before this
+  work, also failed four). The 60-subject fan-out no longer misses a policy deadline, but it does
+  not finish within 180 s beside two heavy files; that is background-lane capacity, for slice 6.
+- E2E isolation is back on at the owner's request: each file runs in a fresh worker, so fixture
+  maps and heap growth no longer accumulate. `pro-key` starts each scenario's API only for its own
+  test instead of keeping eight up for the whole file. `iso1` (four files, including `pro-key` and
+  a browser file) passes with workers peaking at 291 MB.

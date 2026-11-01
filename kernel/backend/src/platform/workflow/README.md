@@ -46,3 +46,13 @@ stamped as retiring for it, read `FOR SHARE` so a concurrent retirement is seen.
 with `WorkflowAccountRejected`, since Effect's `execute` has no admission error. `WorkflowAccounts`
 binds a running execution admitted without an account to one, and lists an account's active
 executions so retirement can interrupt them.
+
+## Fair queue
+
+`fairQueueStoreLayer` (`fair-queue-store.ts`) backs `DurableQueue` with Redis. Each process caps its
+claims at a total, of which a share may be background. Interactive work is claimed first, but waiting
+background work with none running takes the next claim after four interactive ones. Within a lane, claims rotate across tenants, then
+across plugins within a tenant. Each item carries an urgency, and a flow yields `awaited` items
+before `continuation` items, and both before `fresh` ones, FIFO within each. For sandbox runs,
+`awaited` is a policy or required hook that a write waits on under a deadline, and `continuation` is a
+replay or a recovery attempt.
