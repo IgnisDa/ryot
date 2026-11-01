@@ -30,9 +30,13 @@ vmstat -t 5 > "$out/vmstat.log" & vm=$!
 ( while true; do ps -eo pid,pcpu,rss,etime,args --sort=-pcpu | head -15 | sed "s/^/$(date +%T) /"; echo; sleep 15; done ) > "$out/ps.log" 2>/dev/null & pss=$!
 bash "$here/pgwatch.sh" "$out/pgss.csv" 2> "$out/pgwatch.log" & pw=$!
 
+# PROFILE=1: every Bun process (API servers included) writes a CPU profile on exit.
+prof=""
+if [ "${PROFILE:-}" = 1 ]; then mkdir -p "$out/prof"; chown 1001:1001 "$out/prof"; prof="BUN_OPTIONS='--cpu-prof --cpu-prof-md --cpu-prof-dir=$out/prof'"; fi
+
 start=$(date +%s)
 # Fail fast: hard wall cap (MAX_WALL_S) and a stall watchdog (no vitest output for STALL_S).
-timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "cd $src/e2e && env TMPDIR=$out/tmp OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 \
+timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "cd $src/e2e && env $prof TMPDIR=$out/tmp OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318 \
 	RUN_LIVE_PROVIDER_TESTS= RUN_OPERATIONAL_GATES=${RUN_OPERATIONAL_GATES:-} RUN_FLOW_PROBES=${RUN_FLOW_PROBES:-} FLOW_PROBE_OUT=$out/flow-probes.json \
 	bun --bun run vitest run --reporter=default --reporter=json --outputFile.json=$out/vitest.json $*" \
 	> "$out/vitest.out" 2>&1 & vt=$!
