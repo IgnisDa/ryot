@@ -1,0 +1,19 @@
+{{- if .Values.redis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ryot.redis.fullname" . }}
+  labels:
+    {{- include "ryot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cache
+spec:
+  # Headless service backing the StatefulSet.
+  clusterIP: None
+  ports:
+    - port: {{ .Values.redis.service.port }}
+      targetPort: redis
+      protocol: TCP
+      name: redis
+  selector:
+    {{- include "ryot.redis.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,738 @@
+import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import {
+	and,
+	ascending,
+	castBoolean,
+	castDate,
+	castNumber,
+	castText,
+	coalesce,
+	column,
+	conditional,
+	contains,
+	count,
+	countDistinct,
+	defineRecipe,
+	eq,
+	exists,
+	gt,
+	inArray,
+	isNotNull,
+	isNull,
+	join,
+	jsonPath,
+	literal,
+	maximum,
+	neq,
+	not,
+	or,
+	schemaOwnerPredicate,
+	selectedField,
+	selectedOptionalRow,
+	selectedRows,
+	table,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+
+import { CompletionOccurrence, HistoryCorrection } from "../../shared/history-correction";
+import {
+	episodicEpisodeQuery,
+	type EpisodicKindConfig,
+	orderExpressionsAreAfter,
+	type Predicate,
+	type TableReference,
+} from "../../shared/lifecycle-expressions";
+
+const HistoryEvent = Schema.Struct({
+	id: Schema.String,
+	revision: Schema.Int,
+	entityId: Schema.String,
+	orderKey: Schema.String,
+	createdAt: Schema.String,
+	occurredAt: Schema.String,
+	orderCreatedAt: Schema.String,
+	eventSchemaSlug: Schema.String,
+	entitySchemaSlug: Schema.String,
+	sessionEntityId: Schema.NullOr(Schema.String),
+	properties: Schema.Record(Schema.String, Schema.Json),
+});
+export type HistoryEvent = typeof HistoryEvent.Type;
+
+export const historyProperty = (event: TableReference, key: string) =>
+	castText(jsonPath(column(event, "properties"), key));
+/** Structural containment is served by the event properties GIN index. */
+export const historyPropertyIs = (event: TableReference, key: string, value: string) =>
+	contains(column(event, "properties"), literal({ [key]: value }));
+const own = (event: TableReference) =>
+	schemaOwnerPredicate(event, "eventSchemaPluginId", { kind: "self" });
+const selection = (event: TableReference) => ({
+	id: selectedField(column(event, "id"), Schema.String),
+	revision: selectedField(column(event, "revision"), Schema.Int),
+	occurredAt: selectedField(column(event, "occurredAt"), Schema.String),
+});
+const historySelection = (event: TableReference, entity: TableReference) => ({
+	...selection(event),
+	entityId: selectedField(column(event, "entityId"), Schema.String),
+	orderKey: selectedField(column(event, "orderKey"), Schema.String),
+	createdAt: selectedField(column(event, "createdAt"), Schema.String),
+	orderCreatedAt: selectedField(column(event, "orderCreatedAt"), Schema.String),
+	eventSchemaSlug: selectedField(column(event, "eventSchemaSlug"), Schema.String),
+	entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+	properties: selectedField(column(event, "properties"), HistoryEvent.fields.properties),
+	sessionEntityId: selectedField(column(event, "sessionEntityId"), Schema.NullOr(Schema.String)),
+});
+
+export const correctionRecordsRecipe = <A, I>(
+	codec: Schema.Codec<A, I>,
+	input: {
+		slug: string;
+		libraryId: string;
+		subjectEntityId: string;
+		after?: string | undefined;
+		limit?: number | undefined;
+		where?: undefined | ((event: TableReference) => Predicate);
+	},
+) =>
+	defineRecipe(() => {
+		const event = table("event", "correctionRecord");
+		return {
+			map: ({ records }) => Result.succeed(records),
+			queries: {
+				records: selectedRows(event, {
+					after: input.after,
+					limit: input.limit ?? 100,
+					orderBy: [ascending(column(event, "id"))],
+					selection: {
+						...selection(event),
+						properties: selectedField(column(event, "properties"), codec),
+					},
+					where: and(
+						own(event),
+						eq(column(event, "entityId"), literal(input.libraryId)),
+						eq(column(event, "eventSchemaSlug"), literal(input.slug)),
+						historyPropertyIs(event, "subjectEntityId", input.subjectEntityId),
+						...(input.where ? [input.where(event)] : []),
+					),
+				}),
+			},
+		};
+	})();
+
+export const historySourceRecipe = defineRecipe(
+	(input: { entityId: string; progressOnly: boolean; after?: string | undefined }) => {
+		const event = table("event", "correctionSource");
+		const entity = table("entity", "correctionEntity");
+		return {
+			map: ({ events }) => Result.succeed(events),
+			queries: {
+				events: selectedRows(event, {
+					limit: 1,
+					after: input.after,
+					selection: historySelection(event, entity),
+					joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
+					orderBy: [
+						ascending(column(event, "occurredAt")),
+						ascending(column(event, "orderCreatedAt")),
+						ascending(column(event, "orderKey")),
+						ascending(column(event, "id")),
+					],
+					where: and(
+						own(event),
+						or(
+							eq(column(event, "entityId"), literal(input.entityId)),
+							eq(column(event, "sessionEntityId"), literal(input.entityId)),
+						),
+						inArray(
+							column(event, "eventSchemaSlug"),
+							(input.progressOnly ? ["progress"] : ["progress", "complete"]).map(literal),
+						),
+						or(
+							neq(column(event, "entityId"), literal(input.entityId)),
+							not(
+								inArray(column(entity, "entitySchemaSlug"), [
+									literal("show-episode"),
+									literal("podcast-episode"),
+								]),
+							),
+							isNull(column(event, "sessionEntityId")),
+						),
+						or(
+							neq(column(event, "entityId"), literal(input.entityId)),
+							isNull(historyProperty(event, "completionKey")),
+						),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export const historyRecordRecipe = defineRecipe(
+	(input: { id?: string | undefined; occurrenceId?: string | undefined }) => {
+		const event = table("event", "correctionEvent");
+		const entity = table("entity", "correctionEventEntity");
+		return {
+			map: ({ event: record }) => Result.succeed(record),
+			queries: {
+				event: selectedOptionalRow(event, {
+					orderBy: [ascending(column(event, "id"))],
+					selection: historySelection(event, entity),
+					joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
+					where: and(
+						own(event),
+						input.id
+							? eq(column(event, "id"), literal(input.id))
+							: and(
+									eq(column(event, "eventSchemaSlug"), literal("complete")),
+									historyPropertyIs(event, "completionKey", input.occurrenceId ?? ""),
+								),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export const progressCompletionBlockersRecipe = defineRecipe(
+	(input: { runKey: string; libraryId: string; positional: boolean; source: HistoryEvent }) => {
+		const parent = table("entity", "progressSubject");
+		const explicit = table("event", "explicitCompletion");
+		const occurrence = table("event", "progressOccurrence");
+		const sourceRun = input.source.properties["sourceRun"];
+		const sameRun = (event: TableReference, property: string) =>
+			typeof sourceRun === "string"
+				? eq(historyProperty(event, property), literal(sourceRun))
+				: isNull(historyProperty(event, property));
+		const later = orderExpressionsAreAfter(
+			{
+				id: column(explicit, "orderKey"),
+				occurredAt: column(explicit, "occurredAt"),
+				createdAt: column(explicit, "orderCreatedAt"),
+			},
+			{
+				id: literal(input.source.orderKey),
+				occurredAt: castDate(literal(input.source.occurredAt)),
+				createdAt: castDate(literal(input.source.orderCreatedAt)),
+			},
+		);
+		return {
+			map: ({ blockers }) => Result.succeed(blockers),
+			queries: {
+				blockers: selectedOptionalRow(parent, {
+					orderBy: [ascending(column(parent, "id"))],
+					where: eq(column(parent, "id"), literal(input.source.entityId)),
+					selection: {
+						explicit: selectedField(
+							exists(explicit, {
+								where: and(
+									own(explicit),
+									eq(column(explicit, "entityId"), literal(input.source.entityId)),
+									eq(column(explicit, "eventSchemaSlug"), literal("complete")),
+									isNull(historyProperty(explicit, "completionKey")),
+									sameRun(explicit, "sourceRun"),
+									or(
+										eq(column(explicit, "occurredAt"), castDate(literal(input.source.occurredAt))),
+										...(input.positional || typeof sourceRun === "string" ? [later] : []),
+									),
+								),
+							}),
+							Schema.Boolean,
+						),
+						sameTime: selectedField(
+							exists(occurrence, {
+								where: and(
+									own(occurrence),
+									eq(column(occurrence, "entityId"), literal(input.libraryId)),
+									eq(column(occurrence, "eventSchemaSlug"), literal("completion-occurrence")),
+									historyPropertyIs(occurrence, "entityId", input.source.entityId),
+									historyPropertyIs(occurrence, "rule", "progress"),
+									sameRun(occurrence, "expectedSourceRun"),
+									historyPropertyIs(occurrence, "runKey", input.runKey),
+									eq(
+										historyProperty(occurrence, "expectedOccurredAt"),
+										literal(input.source.occurredAt),
+									),
+									neq(historyProperty(occurrence, "sourceEventId"), literal(input.source.id)),
+								),
+							}),
+							Schema.Boolean,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+export const coverageBasisRecipe = defineRecipe(
+	(input: {
+		runKey: string;
+		libraryId: string;
+		sourceEventId: string;
+		subjectEntityId: string;
+	}) => {
+		const occurrence = table("event", "coverageOccurrence");
+		const episode = table("event", "coverageEpisode");
+		return {
+			map: ({ basis }) => Result.succeed(basis),
+			queries: {
+				basis: selectedOptionalRow(occurrence, {
+					orderBy: [ascending(column(occurrence, "id"))],
+					selection: {
+						...selection(occurrence),
+						properties: selectedField(column(occurrence, "properties"), CompletionOccurrence),
+					},
+					joins: [
+						join(
+							"inner",
+							episode,
+							and(
+								own(episode),
+								eq(column(episode, "entityId"), literal(input.libraryId)),
+								eq(column(episode, "eventSchemaSlug"), literal("completion-episode")),
+								eq(historyProperty(episode, "occurrenceId"), column(occurrence, "id")),
+								historyPropertyIs(episode, "sourceEventId", input.sourceEventId),
+							),
+						),
+					],
+					where: and(
+						own(occurrence),
+						eq(column(occurrence, "entityId"), literal(input.libraryId)),
+						eq(column(occurrence, "eventSchemaSlug"), literal("completion-occurrence")),
+						historyPropertyIs(occurrence, "subjectEntityId", input.subjectEntityId),
+						historyPropertyIs(occurrence, "rule", "coverage"),
+						eq(castBoolean(jsonPath(column(occurrence, "properties"), "frozen")), literal(true)),
+						neq(historyProperty(occurrence, "runKey"), literal(input.runKey)),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export const historyCorrectionContextRecipe = defineRecipe(
+	(input: { entityId: string; libraryId: string }) => {
+		const scope = table("eventScope", "correctionScope");
+		const target = table("entity", "correctionTarget");
+		const library = table("entity", "correctionLibrary");
+		const work = table("event", "correctionWork");
+		const childSource = table("event", "correctionChildSource");
+		const dependency = table("event", "correctionDependency");
+		const progress = table("event", "correctionProgressInput");
+		const correction = table("event", "correctionHistoryInput");
+		return {
+			map: ({ library: root, target: subject, work: checkpoint, scope: sourceScope }) =>
+				Result.succeed({
+					library: root,
+					target: subject,
+					work: checkpoint,
+					sourceRevision: sourceScope?.revision ?? 0,
+				}),
+			queries: {
+				scope: selectedOptionalRow(scope, {
+					orderBy: [ascending(column(scope, "id"))],
+					selection: { revision: selectedField(column(scope, "revision"), Schema.Int) },
+					where: and(
+						schemaOwnerPredicate(scope, "eventSchemaPluginId", { kind: "self" }),
+						eq(column(scope, "entityId"), literal(input.entityId)),
+					),
+				}),
+				library: selectedOptionalRow(library, {
+					orderBy: [ascending(column(library, "id"))],
+					where: eq(column(library, "id"), literal(input.libraryId)),
+					selection: {
+						name: selectedField(column(library, "name"), Schema.String),
+						updatedAt: selectedField(column(library, "updatedAt"), Schema.String),
+						properties: selectedField(
+							column(library, "properties"),
+							Schema.Record(Schema.String, Schema.Json),
+						),
+					},
+				}),
+				work: selectedOptionalRow(work, {
+					orderBy: [ascending(column(work, "id"))],
+					selection: {
+						...selection(work),
+						properties: selectedField(column(work, "properties"), HistoryCorrection),
+					},
+					where: and(
+						own(work),
+						eq(column(work, "entityId"), literal(input.libraryId)),
+						eq(column(work, "eventSchemaSlug"), literal("history-correction")),
+						historyPropertyIs(work, "subjectEntityId", input.entityId),
+					),
+				}),
+				target: selectedOptionalRow(target, {
+					orderBy: [ascending(column(target, "id"))],
+					where: eq(column(target, "id"), literal(input.entityId)),
+					selection: {
+						schemaSlug: selectedField(column(target, "entitySchemaSlug"), Schema.String),
+						properties: selectedField(
+							column(target, "properties"),
+							Schema.Record(Schema.String, Schema.Json),
+						),
+						missingDependencies: selectedField(
+							exists(childSource, {
+								where: and(
+									own(childSource),
+									eq(column(childSource, "sessionEntityId"), literal(input.entityId)),
+									neq(column(childSource, "entityId"), literal(input.entityId)),
+									not(
+										exists(dependency, {
+											where: and(
+												own(dependency),
+												eq(
+													column(dependency, "eventSchemaSlug"),
+													literal("consumption-dependency"),
+												),
+												eq(
+													historyProperty(dependency, "correctionSubjectEntityId"),
+													literal(input.entityId),
+												),
+												eq(
+													historyProperty(dependency, "subjectEntityId"),
+													column(childSource, "entityId"),
+												),
+											),
+										}),
+									),
+								),
+							}),
+							Schema.Boolean,
+						),
+						hasCorrectionInputs: selectedField(
+							conditional(
+								or(
+									exists(progress, {
+										where: and(
+											own(progress),
+											eq(column(progress, "eventSchemaSlug"), literal("progress")),
+											or(
+												eq(column(progress, "entityId"), literal(input.entityId)),
+												eq(column(progress, "sessionEntityId"), literal(input.entityId)),
+											),
+										),
+									}),
+									exists(correction, {
+										where: and(
+											own(correction),
+											eq(column(correction, "entityId"), literal(input.libraryId)),
+											historyPropertyIs(correction, "subjectEntityId", input.entityId),
+											inArray(
+												column(correction, "eventSchemaSlug"),
+												["completion-occurrence", "history-coverage"].map(literal),
+											),
+										),
+									}),
+								),
+								literal(true),
+								literal(false),
+							),
+							Schema.Boolean,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+export const consumptionDependenciesPageRecipe = defineRecipe(
+	(input: { subjectEntityId: string; after?: string | undefined }) => {
+		const child = table("entity", "dependencyChild");
+		const source = table("event", "dependencySource");
+		const dependency = table("event", "existingConsumptionDependency");
+		return {
+			map: ({ children }) => Result.succeed(children),
+			queries: {
+				children: selectedRows(child, {
+					limit: 50,
+					after: input.after,
+					orderBy: [ascending(column(child, "id"))],
+					where: and(
+						neq(column(child, "id"), literal(input.subjectEntityId)),
+						exists(source, {
+							where: and(
+								own(source),
+								eq(column(source, "entityId"), column(child, "id")),
+								eq(column(source, "sessionEntityId"), literal(input.subjectEntityId)),
+							),
+						}),
+					),
+					selection: {
+						id: selectedField(column(child, "id"), Schema.String),
+						exists: selectedField(
+							exists(dependency, {
+								where: and(
+									own(dependency),
+									eq(column(dependency, "eventSchemaSlug"), literal("consumption-dependency")),
+									eq(historyProperty(dependency, "subjectEntityId"), column(child, "id")),
+									eq(
+										historyProperty(dependency, "correctionSubjectEntityId"),
+										literal(input.subjectEntityId),
+									),
+								),
+							}),
+							Schema.Boolean,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+const requiredEpisodes = (
+	parent: TableReference,
+	input: {
+		libraryId: string;
+		subjectEntityId: string;
+		config: EpisodicKindConfig;
+		basisId?: string | undefined;
+	},
+) => {
+	if (input.basisId) {
+		const saved = table("event", "savedCompletionEpisode");
+		return {
+			joins: [],
+			from: saved,
+			episodeId: historyProperty(saved, "episodeId"),
+			where: and(
+				own(saved),
+				eq(column(saved, "entityId"), literal(input.libraryId)),
+				eq(column(saved, "eventSchemaSlug"), literal("completion-episode")),
+				historyPropertyIs(saved, "occurrenceId", input.basisId),
+			),
+		};
+	}
+	const episode = table("entity", "requiredEpisode");
+	const scope = episodicEpisodeQuery(input.config, parent, episode, "requiredInventory");
+	return { from: episode, episodeId: column(episode, "id"), ...scope };
+};
+
+export const correctionCoverageRecipe = defineRecipe(
+	(input: {
+		cycle: number;
+		runKey: string;
+		libraryId: string;
+		subjectEntityId: string;
+		config: EpisodicKindConfig;
+		basisId?: string | undefined;
+		liveSourceIds?: undefined | readonly string[];
+	}) => {
+		const parent = table("entity", "coverageParent");
+		const required = requiredEpisodes(parent, input);
+		const scratch = table("event", "coveredEpisode");
+		const covered = and(
+			own(scratch),
+			eq(column(scratch, "entityId"), literal(input.libraryId)),
+			eq(column(scratch, "eventSchemaSlug"), literal("history-coverage")),
+			historyPropertyIs(scratch, "subjectEntityId", input.subjectEntityId),
+			historyPropertyIs(scratch, "runKey", input.runKey),
+			eq(castNumber(jsonPath(column(scratch, "properties"), "cycle")), literal(input.cycle)),
+		);
+		const requiredCovered = exists(scratch, {
+			where: and(covered, eq(historyProperty(scratch, "episodeId"), required.episodeId)),
+		});
+		const contributing = and(
+			covered,
+			exists(required.from, {
+				joins: required.joins,
+				where: and(required.where, eq(required.episodeId, historyProperty(scratch, "episodeId"))),
+			}),
+		);
+		return {
+			map: ({ coverage }) => Result.succeed(coverage),
+			queries: {
+				coverage: selectedOptionalRow(parent, {
+					orderBy: [ascending(column(parent, "id"))],
+					where: eq(column(parent, "id"), literal(input.subjectEntityId)),
+					selection: {
+						required: selectedField(
+							count(required.from, { joins: required.joins, where: required.where }),
+							Schema.Int,
+						),
+						consumedOn: selectedField(
+							maximum(scratch, historyProperty(scratch, "consumedOn"), { where: contributing }),
+							Schema.NullOr(Schema.String),
+						),
+						sourceCount: selectedField(
+							countDistinct(scratch, historyProperty(scratch, "consumedOn"), {
+								where: contributing,
+							}),
+							Schema.Int,
+						),
+						sourced: selectedField(
+							count(scratch, {
+								where: and(contributing, isNotNull(historyProperty(scratch, "consumedOn"))),
+							}),
+							Schema.Int,
+						),
+						covered: selectedField(
+							count(required.from, {
+								joins: required.joins,
+								where: and(required.where, requiredCovered),
+							}),
+							Schema.Int,
+						),
+						unknown: selectedField(
+							count(scratch, {
+								where: and(
+									contributing,
+									eq(
+										castBoolean(jsonPath(column(scratch, "properties"), "dateUnknown")),
+										literal(true),
+									),
+								),
+							}),
+							Schema.Int,
+						),
+						live: selectedField(
+							count(scratch, {
+								where: and(
+									contributing,
+									inArray(
+										historyProperty(scratch, "sourceEventId"),
+										(input.liveSourceIds ?? []).map(literal),
+									),
+								),
+							}),
+							Schema.Int,
+						),
+						supportCount: selectedField(
+							input.basisId
+								? count(scratch, {
+										where: and(
+											covered,
+											exists(required.from, {
+												joins: required.joins,
+												where: and(
+													required.where,
+													eq(required.episodeId, historyProperty(scratch, "episodeId")),
+													eq(
+														historyProperty(required.from, "sourceEventId"),
+														historyProperty(scratch, "sourceEventId"),
+													),
+												),
+											}),
+										),
+									})
+								: literal(0),
+							Schema.Int,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+export const correctionInventoryRecipe = defineRecipe(
+	(input: {
+		cycle: number;
+		runKey: string;
+		libraryId: string;
+		subjectEntityId: string;
+		config: EpisodicKindConfig;
+		after?: string | undefined;
+		basisId?: string | undefined;
+	}) => {
+		const parent = table("entity", "snapshotParent");
+		const required = requiredEpisodes(parent, input);
+		const scratch = table("event", "snapshotCoverage");
+		const coverageId = historyProperty(scratch, "episodeId");
+		return {
+			map: ({ episodes }) => Result.succeed(episodes),
+			queries: {
+				episodes: selectedRows(required.from, {
+					limit: 50,
+					after: input.after,
+					where: required.where,
+					orderBy: [ascending(column(required.from, "id"))],
+					selection: {
+						episodeId: selectedField(required.episodeId, Schema.String),
+						id: selectedField(column(required.from, "id"), Schema.String),
+						sourceEventId: selectedField(
+							historyProperty(scratch, "sourceEventId"),
+							Schema.NullOr(Schema.String),
+						),
+					},
+					joins: [
+						join("inner", parent, eq(column(parent, "id"), literal(input.subjectEntityId))),
+						...required.joins,
+						join(
+							"left",
+							scratch,
+							and(
+								own(scratch),
+								eq(column(scratch, "entityId"), literal(input.libraryId)),
+								eq(column(scratch, "eventSchemaSlug"), literal("history-coverage")),
+								historyPropertyIs(scratch, "subjectEntityId", input.subjectEntityId),
+								historyPropertyIs(scratch, "runKey", input.runKey),
+								eq(
+									castNumber(jsonPath(column(scratch, "properties"), "cycle")),
+									literal(input.cycle),
+								),
+								eq(coverageId, required.episodeId),
+							),
+						),
+					],
+				}),
+			},
+		};
+	},
+);
+
+export const correctionInventoryFingerprintRecipe = defineRecipe(
+	(input: { subjectEntityId: string; config: EpisodicKindConfig }) => {
+		const parent = table("entity", "fingerprintParent");
+		const required = table("entity", "fingerprintRequired");
+		const total = table("entity", "fingerprintTotal");
+		const requiredScope = episodicEpisodeQuery(
+			input.config,
+			parent,
+			required,
+			"fingerprintRequired",
+		);
+		const totalScope = episodicEpisodeQuery(
+			input.config,
+			parent,
+			total,
+			"fingerprintTotal",
+			"any",
+			"all",
+		);
+		const [firstLink, secondLink] = totalScope.links.map((link) =>
+			maximum(total, column(link, "createdAt"), totalScope),
+		);
+		return {
+			map: ({ fingerprint }) => Result.succeed(fingerprint),
+			queries: {
+				fingerprint: selectedOptionalRow(parent, {
+					orderBy: [ascending(column(parent, "id"))],
+					where: eq(column(parent, "id"), literal(input.subjectEntityId)),
+					selection: {
+						total: selectedField(count(total, totalScope), Schema.Int),
+						required: selectedField(count(required, requiredScope), Schema.Int),
+						subjectUpdatedAt: selectedField(column(parent, "updatedAt"), Schema.String),
+						latestEpisode: selectedField(
+							maximum(total, column(total, "updatedAt"), totalScope),
+							Schema.NullOr(Schema.String),
+						),
+						latestSeason: selectedField(
+							totalScope.season
+								? maximum(total, column(totalScope.season, "updatedAt"), totalScope)
+								: literal(null),
+							Schema.NullOr(Schema.String),
+						),
+						latestLink: selectedField(
+							firstLink && secondLink
+								? conditional(gt(firstLink, secondLink), firstLink, coalesce(secondLink, firstLink))
+								: (firstLink ?? literal(null)),
+							Schema.NullOr(Schema.String),
+						),
+					},
+				}),
+			},
+		};
+	},
+);

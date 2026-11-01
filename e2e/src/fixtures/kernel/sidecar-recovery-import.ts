@@ -1,0 +1,232 @@
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
+import { randomUuid } from "@ryot-app/testing/random";
+import { Effect, Schema } from "effect";
+
+import type { Client } from "./auth";
+import { getApiClient } from "./contract-client";
+import { providerSandboxSource } from "./sandbox-provider";
+import {
+	installTestPluginBundle,
+	installTestSupportSystemPlugin,
+	testPluginManifest,
+} from "./test-plugin";
+
+const encodeJson = (value: unknown) =>
+	Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(value).pipe(Effect.orDie);
+
+export const installSidecarRecoveryImport = (client: Client, checkpointUrl: string) =>
+	Effect.gen(function* () {
+		const suffix = yield* randomUuid;
+		const entitySchemaSlug = `sidecar-recovery-${suffix}`;
+		const providerSlug = `${entitySchemaSlug}.provider`;
+		const detailsSlug = `${providerSlug}.details`;
+		const resolveSlug = `${providerSlug}.resolve`;
+		const workflowSlug = `recovery-${suffix}`;
+		const workflowScriptSlug = `workflow.${workflowSlug}`;
+		const chunkSlug = `chunk.${workflowSlug}`;
+		const source = `sidecar_recovery_${suffix.replaceAll("-", "_")}`;
+		const committedName = `Committed ${suffix}`;
+		const recoveredName = `Recovered ${suffix}`;
+		const checkpoint = `native-recovery-provider-${suffix}`;
+		const item = (name: string, index: number): GenericImportWriteItem => ({
+			events: [],
+			itemIndex: index,
+			relationships: [],
+			sourceLabel: name,
+			recordId: String(index),
+			subjectEntityAlias: "record",
+			sourceIdentifier: String(index),
+			entities: [
+				{
+					name,
+					properties: {},
+					alias: "record",
+					entitySchemaSlug,
+					operationId: `entity-${index}`,
+					outcome: { unit: "records", recordKind: "record" },
+					...(index === 1
+						? { providerResolution: { providerSlug, value: suffix, identifierType: "source-id" } }
+						: {}),
+				},
+			],
+		});
+		const chunks = yield* Effect.forEach([committedName, recoveredName], (name, index) =>
+			Effect.map(encodeJson({ failures: [], items: [item(name, index)] }), (contents) => ({
+				contents,
+				name: `chunk-${index}.json`,
+			})),
+		);
+		const literals = yield* Effect.all({
+			chunks: encodeJson(chunks),
+			chunkSlug: encodeJson(chunkSlug),
+			checkpoint: encodeJson(checkpoint),
+			detailsSlug: encodeJson(detailsSlug),
+			recoveredName: encodeJson(recoveredName),
+			enterUrl: encodeJson(`${checkpointUrl}/enter`),
+			workflowScriptSlug: encodeJson(workflowScriptSlug),
+			checkpointUrl: encodeJson(`${checkpointUrl}/checkpoint`),
+		});
+		const workflowEntry = "backend/scripts/import.sandbox.ts";
+		const chunkEntry = "backend/scripts/chunks.sandbox.ts";
+		const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
+		const resolveEntry = `backend/providers/${providerSlug}/resolve.sandbox.ts`;
+		const policyManifest = testPluginManifest({
+			pluginSlug: `sidecar-recovery-policy-${suffix}`,
+			httpRateLimits: [
+				{
+					requests: 1,
+					intervalMs: 2_000,
+					key: `sidecar.recovery.${suffix}`,
+					origins: [new URL(checkpointUrl).origin],
+				},
+			],
+		});
+		yield* Effect.acquireRelease(
+			installTestSupportSystemPlugin({
+				files: {},
+				target: client.target,
+				manifest: policyManifest,
+			}),
+			({ pluginId, activationId }) =>
+				getApiClient(client.target)
+					.adminCall((c) =>
+						c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
+					)
+					.pipe(Effect.orDie),
+		);
+		const plugin = yield* installTestPluginBundle({
+			client,
+			scope: "user",
+			pluginSlug: `sidecar-recovery-import-${suffix}`,
+			workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+			providers: [
+				{
+					slug: providerSlug,
+					information: { source: "e2e" },
+					name: "Sidecar recovery provider",
+					rootEntitySchemaSlug: entitySchemaSlug,
+				},
+			],
+			entitySchemas: [
+				{
+					icon: "file",
+					eventSchemas: [],
+					slug: entitySchemaSlug,
+					name: "Sidecar recovery record",
+					propertiesSchema: { fields: {}, unknownKeys: "strict" },
+				},
+			],
+			importSources: [
+				{
+					slug: source,
+					workflowSlug,
+					name: "Sidecar recovery import",
+					inputSchema: { fields: {}, unknownKeys: "strict" },
+					description: "Import with a provider checkpoint after a committed batch",
+				},
+			],
+			scripts: [
+				{
+					kind: "workflow",
+					capabilities: [],
+					entry: workflowEntry,
+					slug: workflowScriptSlug,
+					requiredPluginConfigKeys: [],
+					name: "Sidecar recovery import",
+				},
+				{
+					kind: "script",
+					slug: chunkSlug,
+					entry: chunkEntry,
+					capabilities: ["scratch"],
+					requiredPluginConfigKeys: [],
+					name: "Sidecar recovery chunks",
+				},
+				{
+					providerSlug,
+					kind: "provider",
+					slug: detailsSlug,
+					entry: detailsEntry,
+					requiredPluginConfigKeys: [],
+					providerOperation: "details",
+					name: "Sidecar recovery details",
+					capabilities: ["httpCall", "log"],
+				},
+				{
+					providerSlug,
+					kind: "provider",
+					capabilities: [],
+					slug: resolveSlug,
+					entry: resolveEntry,
+					requiredPluginConfigKeys: [],
+					providerOperation: "resolve",
+					name: "Sidecar recovery resolve",
+				},
+			],
+			files: {
+				[resolveEntry]: providerSandboxSource({
+					slug: resolveSlug,
+					operation: "resolve",
+					result: { externalId: suffix },
+					name: "Sidecar recovery resolve",
+				}),
+				[chunkEntry]: `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
+export const manifest = defineManifest({ kind: "script", name: "Sidecar recovery chunks", slug: ${literals.chunkSlug} });
+export default defineScript({ manifest, input: Schema.Struct({}), output: sandboxScratchManifestSchema,
+  run: () => writeScratchChunks(${literals.chunks}),
+});`,
+				[detailsEntry]: `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+export const manifest = defineManifest({ kind: "provider", name: "Sidecar recovery details", slug: ${literals.detailsSlug} });
+export default defineProvider({ manifest, operation: "details",
+  run: (input, host, execution) => Effect.gen(function* () {
+    yield* host.httpCall("POST", ${literals.enterUrl}, { body: JSON.stringify({ input, startedAt: execution.startedAt, scriptId: execution.sandboxScriptId }), headers: { "content-type": "application/json" } });
+    yield* host.httpCall("GET", ${literals.checkpointUrl});
+    yield* host.log([{ level: "info", message: ${literals.checkpoint} }]);
+    yield* Effect.sleep("20 seconds");
+    return { name: ${literals.recoveredName}, properties: {} };
+  }),
+});`,
+				[workflowEntry]: `
+import {
+  genericImportApplyReference, genericImportCaptureReference, genericImportSealReference,
+  genericImportWorkflowInputSchema, genericImportWorkflowResultSchema,
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
+export const manifest = defineManifest({ kind: "workflow", name: "Sidecar recovery import", slug: ${literals.workflowScriptSlug} });
+const chunks = defineScriptReference({ scriptSlug: ${literals.chunkSlug}, input: Schema.Struct({}), output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }) });
+export default defineWorkflow({ manifest, input: genericImportWorkflowInputSchema, output: genericImportWorkflowResultSchema,
+  run: (input, replay) => Effect.gen(function* () {
+    const written = yield* replay.activity("chunks", chunks, {});
+    const attribution = { runId: input.runId, command: input.command };
+    for (const [ordinal, handle] of written.chunkHandles.entries()) {
+      const captured = yield* replay.child("capture-" + ordinal, genericImportCaptureReference, {
+        ...attribution, operation: { action: "capture", phase: "application", ordinal, handle, captureId: "chunk-" + ordinal, checkpoint: {} },
+      });
+      yield* replay.child("apply-" + ordinal, genericImportApplyReference, {
+        ...attribution, operation: { action: "apply", ordinal, batchId: "batch-" + ordinal, captureId: captured.captureId, inputFingerprint: captured.inputFingerprint },
+      });
+    }
+    const sealed = yield* replay.child("seal", genericImportSealReference, { ...attribution, operation: { action: "seal" } });
+    return { summary: sealed.summary, issues: [] };
+  }),
+});`,
+			},
+		});
+		return {
+			plugin,
+			source,
+			suffix,
+			checkpoint,
+			detailsSlug,
+			resolveSlug,
+			committedName,
+			recoveredName,
+			entitySchemaSlug,
+		};
+	});

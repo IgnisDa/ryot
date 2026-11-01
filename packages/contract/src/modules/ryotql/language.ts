@@ -1,0 +1,732 @@
+import { Function, Schema } from "effect";
+
+import { JsonValue } from "../../schema/json";
+import { strictStruct } from "../../schema/utils";
+import { PluginIdentityReference } from "../plugins/references";
+
+export const TableReference = strictStruct({ alias: Schema.String, table: Schema.String }).annotate(
+	{ identifier: "RyotQLTableReference" },
+);
+export type TableReference = typeof TableReference.Type;
+
+export const ColumnExpression = strictStruct({
+	field: Schema.String,
+	tableAlias: Schema.String,
+	type: Schema.Literal("column"),
+}).annotate({ identifier: "RyotQLColumnExpression" });
+export type ColumnExpression = typeof ColumnExpression.Type;
+
+export const LiteralExpression = strictStruct({
+	value: JsonValue,
+	type: Schema.Literal("literal"),
+}).annotate({ identifier: "RyotQLLiteralExpression" });
+export type LiteralExpression = typeof LiteralExpression.Type;
+
+export const PluginIdExpression = strictStruct({
+	type: Schema.Literal("pluginId"),
+	reference: PluginIdentityReference,
+}).annotate({ identifier: "RyotQLPluginIdExpression" });
+export type PluginIdExpression = typeof PluginIdExpression.Type;
+
+const JsonPathSegment = Schema.Union([Schema.String, Schema.Finite]);
+const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
+const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
+const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
+const DateBucketUnit = Schema.Literals(["hour", "day", "week", "month", "year"]);
+
+export type JsonElementExpression = { readonly type: "jsonElement" };
+
+export type CurrentDateExpression = { readonly type: "currentDate" };
+
+export type ExistsExpression = { readonly type: "exists"; readonly query: CorrelatedQuerySet };
+
+export type JsonArrayCountExpression = {
+	readonly type: "jsonCount";
+	readonly array: ScalarExpression;
+	readonly where?: Predicate | undefined;
+};
+
+export type JsonArrayExistsExpression = {
+	readonly type: "jsonExists";
+	readonly array: ScalarExpression;
+	readonly where?: Predicate | undefined;
+};
+
+export type CorrelatedQuerySet = {
+	readonly from: TableReference;
+	readonly where?: Predicate | undefined;
+	readonly joins?: undefined | readonly [Join, ...Join[]];
+};
+
+export type JsonArrayFirstExpression = {
+	readonly type: "jsonFirst";
+	readonly array: ScalarExpression;
+	readonly select: ScalarExpression;
+	readonly where?: Predicate | undefined;
+	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+};
+
+export type AggregationSpec =
+	| { readonly function: "count" }
+	| { readonly expr: ScalarExpression; readonly function: "countDistinct" }
+	| {
+			readonly expr: ScalarExpression;
+			readonly function: "sum" | "average" | "maximum" | "minimum";
+	  };
+
+export type ScalarExpression =
+	| ColumnExpression
+	| ExistsExpression
+	| LiteralExpression
+	| PluginIdExpression
+	| CurrentDateExpression
+	| JsonElementExpression
+	| JsonArrayCountExpression
+	| JsonArrayFirstExpression
+	| JsonArrayExistsExpression
+	| { readonly type: "floor"; readonly expr: ScalarExpression }
+	| { readonly type: "round"; readonly expr: ScalarExpression }
+	| { readonly type: "integer"; readonly expr: ScalarExpression }
+	| { readonly type: "isNotNull"; readonly expr: ScalarExpression }
+	| { readonly timeZone: string; readonly type: "localDate"; readonly expr: ScalarExpression }
+	| { readonly timeZone: string; readonly type: "localHour"; readonly expr: ScalarExpression }
+	| { readonly type: "concat"; readonly values: readonly [ScalarExpression, ...ScalarExpression[]] }
+	| {
+			readonly type: "coalesce";
+			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
+	  }
+	| {
+			readonly type: "cast";
+			readonly expr: ScalarExpression;
+			readonly target: typeof CastTarget.Type;
+	  }
+	| {
+			readonly type: "jsonPath";
+			readonly expr: ScalarExpression;
+			readonly path: typeof JsonPath.Type;
+	  }
+	| {
+			readonly type: "transform";
+			readonly expr: ScalarExpression;
+			readonly name: typeof TransformName.Type;
+	  }
+	| {
+			readonly type: "aggregate";
+			readonly query: CorrelatedQuerySet;
+			readonly aggregation: AggregationSpec;
+	  }
+	| {
+			readonly timeZone: string;
+			readonly type: "dateBucket";
+			readonly expr: ScalarExpression;
+			readonly bucket: typeof DateBucketUnit.Type;
+	  }
+	| {
+			readonly type: "conditional";
+			readonly condition: Predicate;
+			readonly whenTrue: ScalarExpression;
+			readonly whenFalse: ScalarExpression;
+	  }
+	| {
+			readonly type: "first";
+			readonly select: ScalarExpression;
+			readonly query: CorrelatedQuerySet;
+			readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+	  }
+	| {
+			readonly type: "arithmetic";
+			readonly left: ScalarExpression;
+			readonly right: ScalarExpression;
+			readonly operator: "add" | "divide" | "multiply" | "subtract";
+	  };
+
+export const CorrelatedQuerySet: Schema.Codec<CorrelatedQuerySet, unknown> = Schema.suspend(() =>
+	strictStruct({
+		from: TableReference,
+		where: Schema.optional(Predicate),
+		joins: Schema.optional(Schema.NonEmptyArray(Join)),
+	}),
+).annotate({ identifier: "RyotQLCorrelatedQuerySet" });
+
+export const AggregationSpec: Schema.Codec<AggregationSpec, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		strictStruct({ function: Schema.Literal("count") }),
+		strictStruct({ expr: ScalarExpression, function: Schema.Literal("countDistinct") }),
+		strictStruct({
+			expr: ScalarExpression,
+			function: Schema.Literals(["average", "maximum", "minimum", "sum"]),
+		}),
+	]),
+).annotate({ identifier: "RyotQLAggregationSpec" });
+
+export const ExistsExpression: Schema.Codec<ExistsExpression, unknown> = Schema.suspend(() =>
+	strictStruct({ query: CorrelatedQuerySet, type: Schema.Literal("exists") }),
+).annotate({ identifier: "RyotQLExistsExpression" });
+
+export const JsonElementExpression: Schema.Codec<JsonElementExpression, unknown> = strictStruct({
+	type: Schema.Literal("jsonElement"),
+}).annotate({ identifier: "RyotQLJsonElementExpression" });
+
+export const CurrentDateExpression: Schema.Codec<CurrentDateExpression, unknown> = strictStruct({
+	type: Schema.Literal("currentDate"),
+}).annotate({ identifier: "RyotQLCurrentDateExpression" });
+
+export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		ColumnExpression,
+		LiteralExpression,
+		PluginIdExpression,
+		ExistsExpression,
+		JsonElementExpression,
+		CurrentDateExpression,
+		JsonArrayExistsExpression,
+		JsonArrayFirstExpression,
+		JsonArrayCountExpression,
+		strictStruct({
+			type: Schema.Literal("coalesce"),
+			values: Schema.NonEmptyArray(ScalarExpression),
+		}),
+		strictStruct({
+			type: Schema.Literal("concat"),
+			values: Schema.NonEmptyArray(ScalarExpression),
+		}),
+		strictStruct({
+			condition: Predicate,
+			whenTrue: ScalarExpression,
+			whenFalse: ScalarExpression,
+			type: Schema.Literal("conditional"),
+		}),
+		strictStruct({ target: CastTarget, expr: ScalarExpression, type: Schema.Literal("cast") }),
+		strictStruct({
+			name: TransformName,
+			expr: ScalarExpression,
+			type: Schema.Literal("transform"),
+		}),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("floor") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("integer") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNotNull") }),
+		strictStruct({ expr: ScalarExpression, type: Schema.Literal("round") }),
+		strictStruct({
+			expr: ScalarExpression,
+			timeZone: Schema.String,
+			type: Schema.Literal("localDate"),
+		}),
+		strictStruct({
+			expr: ScalarExpression,
+			timeZone: Schema.String,
+			type: Schema.Literal("localHour"),
+		}),
+		strictStruct({
+			expr: ScalarExpression,
+			bucket: DateBucketUnit,
+			timeZone: Schema.String,
+			type: Schema.Literal("dateBucket"),
+		}),
+		strictStruct({ path: JsonPath, expr: ScalarExpression, type: Schema.Literal("jsonPath") }),
+		strictStruct({
+			query: CorrelatedQuerySet,
+			aggregation: AggregationSpec,
+			type: Schema.Literal("aggregate"),
+		}),
+		strictStruct({
+			left: ScalarExpression,
+			right: ScalarExpression,
+			type: Schema.Literal("arithmetic"),
+			operator: Schema.Literals(["add", "divide", "multiply", "subtract"]),
+		}),
+		strictStruct({
+			select: ScalarExpression,
+			query: CorrelatedQuerySet,
+			type: Schema.Literal("first"),
+			orderBy: Schema.NonEmptyArray(OrderBy),
+		}),
+	]),
+).annotate({ identifier: "RyotQLScalarExpression" });
+
+const IsNullPredicate = strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNull") });
+
+const IsNotNullPredicate = strictStruct({
+	expr: ScalarExpression,
+	type: Schema.Literal("isNotNull"),
+});
+
+const InPredicate = strictStruct({
+	expr: ScalarExpression,
+	type: Schema.Literal("in"),
+	values: Schema.Array(ScalarExpression),
+});
+
+const ContainsPredicate = strictStruct({
+	left: ScalarExpression,
+	right: ScalarExpression,
+	type: Schema.Literal("contains"),
+});
+
+const StartsWithPredicate = strictStruct({
+	left: ScalarExpression,
+	right: ScalarExpression,
+	type: Schema.Literal("startsWith"),
+});
+
+const ComparisonOperator = Schema.Literals(["eq", "gt", "gte", "lt", "lte", "neq"]);
+
+const ComparisonPredicate = strictStruct({
+	left: ScalarExpression,
+	right: ScalarExpression,
+	operator: ComparisonOperator,
+	type: Schema.Literal("comparison"),
+});
+
+export type Predicate =
+	| ExistsExpression
+	| typeof InPredicate.Type
+	| JsonArrayExistsExpression
+	| typeof IsNullPredicate.Type
+	| typeof ContainsPredicate.Type
+	| typeof IsNotNullPredicate.Type
+	| typeof StartsWithPredicate.Type
+	| typeof ComparisonPredicate.Type
+	| { readonly type: "not"; readonly predicate: Predicate }
+	| { readonly type: "or"; readonly predicates: readonly Predicate[] }
+	| { readonly type: "and"; readonly predicates: readonly Predicate[] };
+
+export const Predicate: Schema.Codec<Predicate, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		InPredicate,
+		IsNullPredicate,
+		ExistsExpression,
+		JsonArrayExistsExpression,
+		ContainsPredicate,
+		StartsWithPredicate,
+		IsNotNullPredicate,
+		ComparisonPredicate,
+		strictStruct({ predicate: Predicate, type: Schema.Literal("not") }),
+		strictStruct({ type: Schema.Literal("or"), predicates: Schema.Array(Predicate) }),
+		strictStruct({ type: Schema.Literal("and"), predicates: Schema.Array(Predicate) }),
+	]),
+).annotate({ identifier: "RyotQLPredicate" });
+
+const TableJoin = strictStruct({
+	on: Predicate,
+	table: TableReference,
+	type: Schema.Literals(["inner", "left"]),
+}).annotate({ identifier: "RyotQLTableJoin" });
+
+export const JsonElementsJoin = strictStruct({
+	alias: Schema.String,
+	expr: ScalarExpression,
+	type: Schema.Literal("jsonElements"),
+	mode: Schema.Literals(["inner", "left"]),
+}).annotate({ identifier: "RyotQLJsonElementsJoin" });
+export type JsonElementsJoin = typeof JsonElementsJoin.Type;
+
+export const Join = Schema.Union([TableJoin, JsonElementsJoin]).annotate({
+	identifier: "RyotQLJoin",
+});
+export type Join = typeof Join.Type;
+
+export const OutputFieldKey = Schema.NonEmptyString.annotate({
+	identifier: "RyotQLOutputFieldKey",
+});
+export type OutputFieldKey = typeof OutputFieldKey.Type;
+
+export const FieldSelection = strictStruct({
+	key: OutputFieldKey,
+	expr: ScalarExpression,
+}).annotate({ identifier: "RyotQLFieldSelection" });
+export type FieldSelection = typeof FieldSelection.Type;
+
+export const WildcardSelection = strictStruct({
+	tableAlias: Schema.String,
+	type: Schema.Literal("wildcard"),
+}).annotate({ identifier: "RyotQLWildcardSelection" });
+export type WildcardSelection = typeof WildcardSelection.Type;
+
+export const RowSelection = Schema.Union([FieldSelection, WildcardSelection]).annotate({
+	identifier: "RyotQLRowSelection",
+});
+export type RowSelection = typeof RowSelection.Type;
+
+export const OrderBy = strictStruct({
+	expr: ScalarExpression,
+	direction: Schema.Literals(["asc", "desc"]),
+}).annotate({ identifier: "RyotQLOrderBy" });
+export type OrderBy = typeof OrderBy.Type;
+
+export const JsonArrayExistsExpression: Schema.Codec<JsonArrayExistsExpression, unknown> =
+	Schema.suspend(() =>
+		strictStruct({
+			array: ScalarExpression,
+			where: Schema.optional(Predicate),
+			type: Schema.Literal("jsonExists"),
+		}),
+	).annotate({ identifier: "RyotQLJsonArrayExistsExpression" });
+
+export const JsonArrayFirstExpression: Schema.Codec<JsonArrayFirstExpression, unknown> =
+	Schema.suspend(() =>
+		strictStruct({
+			array: ScalarExpression,
+			select: ScalarExpression,
+			where: Schema.optional(Predicate),
+			type: Schema.Literal("jsonFirst"),
+			orderBy: Schema.NonEmptyArray(OrderBy),
+		}),
+	).annotate({ identifier: "RyotQLJsonArrayFirstExpression" });
+
+export const JsonArrayCountExpression: Schema.Codec<JsonArrayCountExpression, unknown> =
+	Schema.suspend(() =>
+		strictStruct({
+			array: ScalarExpression,
+			where: Schema.optional(Predicate),
+			type: Schema.Literal("jsonCount"),
+		}),
+	).annotate({ identifier: "RyotQLJsonArrayCountExpression" });
+
+export const AggregateMeasure = strictStruct({
+	key: Schema.String,
+	aggregation: AggregationSpec,
+}).annotate({ identifier: "RyotQLAggregateMeasure" });
+export type AggregateMeasure = typeof AggregateMeasure.Type;
+
+export const AggregateOrderBy = strictStruct({
+	key: Schema.String,
+	direction: Schema.Literals(["asc", "desc"]),
+}).annotate({ identifier: "RyotQLAggregateOrderBy" });
+export type AggregateOrderBy = typeof AggregateOrderBy.Type;
+
+export type Include = {
+	readonly key: string;
+	readonly limit: number;
+	readonly from: TableReference;
+	readonly where?: Predicate | undefined;
+	readonly fields: readonly RowSelection[];
+	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+	readonly joins?: undefined | readonly [Join, ...Join[]];
+	readonly include?: undefined | readonly [Include, ...Include[]];
+};
+
+export const Include: Schema.Codec<Include, unknown> = Schema.suspend(() =>
+	strictStruct({
+		key: Schema.String,
+		from: TableReference,
+		where: Schema.optional(Predicate),
+		fields: Schema.Array(RowSelection),
+		orderBy: Schema.NonEmptyArray(OrderBy),
+		joins: Schema.optional(Schema.NonEmptyArray(Join)),
+		include: Schema.optional(Schema.NonEmptyArray(Include)),
+		limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+	}),
+).annotate({ identifier: "RyotQLInclude" });
+
+export const Pagination = strictStruct({
+	after: Schema.optional(Schema.NonEmptyString),
+	limit: Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0))),
+}).annotate({ identifier: "RyotQLPagination" });
+export type Pagination = typeof Pagination.Type;
+
+export const RowsOutput = strictStruct({
+	pagination: Pagination,
+	type: Schema.Literal("rows"),
+	orderBy: Schema.Array(OrderBy),
+	fields: Schema.Array(RowSelection),
+	include: Schema.optional(Schema.NonEmptyArray(Include)),
+}).annotate({ identifier: "RyotQLRowsOutput" });
+export type RowsOutput = typeof RowsOutput.Type;
+
+export const AggregateOutput = strictStruct({
+	type: Schema.Literal("aggregate"),
+	after: Schema.optional(Schema.String),
+	measures: Schema.NonEmptyArray(AggregateMeasure),
+	groupBy: Schema.optional(Schema.Array(FieldSelection)),
+	orderBy: Schema.optional(Schema.NonEmptyArray(AggregateOrderBy)),
+	limit: Schema.optional(Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)))),
+}).annotate({ identifier: "RyotQLAggregateOutput" });
+export type AggregateOutput = typeof AggregateOutput.Type;
+
+export const NamedQuery = strictStruct({
+	from: TableReference,
+	where: Schema.optional(Predicate),
+	joins: Schema.optional(Schema.NonEmptyArray(Join)),
+	output: Schema.Union([RowsOutput, AggregateOutput]),
+}).annotate({ identifier: "RyotQLNamedQuery" });
+export type NamedQuery = typeof NamedQuery.Type;
+
+export const RyotQLDocument = strictStruct({
+	queries: Schema.Record(Schema.String, NamedQuery),
+}).annotate({ identifier: "RyotQLDocument" });
+export type RyotQLDocument = typeof RyotQLDocument.Type;
+
+export type RyotQLDocumentWithSelections<Selection extends RowSelection> = {
+	readonly queries: Readonly<Record<string, NamedQueryWithSelections<Selection>>>;
+};
+
+export type NamedQueryWithSelections<Selection extends RowSelection> = Omit<
+	NamedQuery,
+	"output"
+> & { readonly output: AggregateOutput | RowsOutputWithSelections<Selection> };
+
+export type IncludeWithSelections<Selection extends RowSelection> = Omit<
+	Include,
+	"fields" | "include"
+> & {
+	readonly fields: readonly Selection[];
+	readonly include?:
+		undefined | readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]];
+};
+
+export type RowsOutputWithSelections<Selection extends RowSelection> = Omit<
+	RowsOutput,
+	"fields" | "include"
+> & {
+	readonly fields: readonly Selection[];
+	readonly include?:
+		undefined | readonly [IncludeWithSelections<Selection>, ...IncludeWithSelections<Selection>[]];
+};
+
+const mapNonEmpty = <A, B>(
+	values: readonly [A, ...A[]],
+	transform: (value: A) => B,
+): readonly [B, ...B[]] => [transform(values[0]), ...values.slice(1).map(transform)];
+
+type LanguageMapping = {
+	readonly alias: (alias: string) => string;
+	readonly reference: (reference: PluginIdentityReference) => PluginIdentityReference;
+};
+
+const languageMapper = (mapping: LanguageMapping) => {
+	const aggregation = (value: AggregationSpec): AggregationSpec =>
+		value.function === "count" ? value : { ...value, expr: expression(value.expr) };
+	const ordering = (value: OrderBy): OrderBy => ({ ...value, expr: expression(value.expr) });
+	const field = (value: FieldSelection): FieldSelection => ({
+		...value,
+		expr: expression(value.expr),
+	});
+	const tableReference = (value: TableReference): TableReference => ({
+		...value,
+		alias: mapping.alias(value.alias),
+	});
+	const join = (value: Join): Join =>
+		value.type === "jsonElements"
+			? { ...value, expr: expression(value.expr), alias: mapping.alias(value.alias) }
+			: { ...value, on: predicate(value.on), table: tableReference(value.table) };
+	const querySet = <A extends CorrelatedQuerySet>(value: A) => ({
+		...value,
+		from: tableReference(value.from),
+		...(value.where === undefined ? {} : { where: predicate(value.where) }),
+		...(value.joins === undefined ? {} : { joins: mapNonEmpty(value.joins, join) }),
+	});
+	function expression(value: ScalarExpression): ScalarExpression {
+		switch (value.type) {
+			case "cast":
+			case "floor":
+			case "round":
+			case "integer":
+			case "jsonPath":
+			case "isNotNull":
+			case "transform":
+			case "localDate":
+			case "localHour":
+			case "dateBucket":
+				return { ...value, expr: expression(value.expr) };
+			case "first":
+				return {
+					...value,
+					query: querySet(value.query),
+					select: expression(value.select),
+					orderBy: mapNonEmpty(value.orderBy, ordering),
+				};
+			case "column":
+				return { ...value, tableAlias: mapping.alias(value.tableAlias) };
+			case "concat":
+			case "coalesce":
+				return { ...value, values: mapNonEmpty(value.values, expression) };
+			case "exists":
+				return { ...value, query: querySet(value.query) };
+			case "literal":
+			case "currentDate":
+			case "jsonElement":
+				return value;
+			case "pluginId":
+				return { ...value, reference: mapping.reference(value.reference) };
+			case "aggregate":
+				return {
+					...value,
+					query: querySet(value.query),
+					aggregation: aggregation(value.aggregation),
+				};
+			case "jsonCount":
+			case "jsonExists":
+				return {
+					...value,
+					array: expression(value.array),
+					...(value.where === undefined ? {} : { where: predicate(value.where) }),
+				};
+			case "jsonFirst":
+				return {
+					...value,
+					array: expression(value.array),
+					select: expression(value.select),
+					orderBy: mapNonEmpty(value.orderBy, ordering),
+					...(value.where === undefined ? {} : { where: predicate(value.where) }),
+				};
+			case "arithmetic":
+				return { ...value, left: expression(value.left), right: expression(value.right) };
+			case "conditional":
+				return {
+					...value,
+					whenTrue: expression(value.whenTrue),
+					condition: predicate(value.condition),
+					whenFalse: expression(value.whenFalse),
+				};
+			default:
+				return Function.absurd(value);
+		}
+	}
+	function predicate(value: Predicate): Predicate {
+		switch (value.type) {
+			case "or":
+			case "and":
+				return { ...value, predicates: value.predicates.map(predicate) };
+			case "in":
+				return { ...value, expr: expression(value.expr), values: value.values.map(expression) };
+			case "not":
+				return { ...value, predicate: predicate(value.predicate) };
+			case "isNull":
+			case "isNotNull":
+				return { ...value, expr: expression(value.expr) };
+			case "exists":
+				return { ...value, query: querySet(value.query) };
+			case "contains":
+			case "comparison":
+			case "startsWith":
+				return { ...value, left: expression(value.left), right: expression(value.right) };
+			case "jsonExists":
+				return {
+					...value,
+					array: expression(value.array),
+					...(value.where === undefined ? {} : { where: predicate(value.where) }),
+				};
+			default:
+				return Function.absurd(value);
+		}
+	}
+	return { field, ordering, querySet, expression, aggregation };
+};
+
+export const mapScalarExpression = (
+	value: ScalarExpression,
+	mapping: Partial<LanguageMapping>,
+): ScalarExpression =>
+	languageMapper({
+		alias: mapping.alias ?? ((alias) => alias),
+		reference: mapping.reference ?? ((reference) => reference),
+	}).expression(value);
+
+export const mapPluginIdentityReferences = <Selection extends RowSelection>(
+	document: RyotQLDocumentWithSelections<Selection>,
+	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
+): RyotQLDocumentWithSelections<Selection | FieldSelection> => {
+	const { field, ordering, querySet, aggregation } = languageMapper({
+		reference: transform,
+		alias: (alias) => alias,
+	});
+	const selection = (value: Selection): Selection | FieldSelection =>
+		"expr" in value ? field(value) : value;
+	const include = (
+		value: IncludeWithSelections<Selection>,
+	): IncludeWithSelections<Selection | FieldSelection> => ({
+		...querySet(value),
+		fields: value.fields.map(selection),
+		orderBy: mapNonEmpty(value.orderBy, ordering),
+		...(value.include === undefined ? {} : { include: mapNonEmpty(value.include, include) }),
+	});
+	function query(
+		value: NamedQueryWithSelections<Selection>,
+	): NamedQueryWithSelections<Selection | FieldSelection> {
+		const output = value.output;
+		switch (output.type) {
+			case "rows":
+				return {
+					...querySet(value),
+					output: {
+						...output,
+						fields: output.fields.map(selection),
+						orderBy: output.orderBy.map(ordering),
+						...(output.include === undefined
+							? {}
+							: { include: mapNonEmpty(output.include, include) }),
+					},
+				};
+			case "aggregate":
+				return {
+					...querySet(value),
+					output: {
+						...output,
+						measures: mapNonEmpty(output.measures, (measure) => ({
+							...measure,
+							aggregation: aggregation(measure.aggregation),
+						})),
+						...(output.groupBy === undefined ? {} : { groupBy: output.groupBy.map(field) }),
+					},
+				};
+			default:
+				return Function.absurd(output);
+		}
+	}
+	return {
+		queries: Object.fromEntries(
+			Object.entries(document.queries).map(([name, value]) => [name, query(value)]),
+		),
+	};
+};
+
+const IncludePageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolean }).annotate({
+	identifier: "RyotQLIncludePageInfo",
+});
+
+export type RowItem = Readonly<Record<string, unknown>>;
+export type IncludeResult = {
+	readonly items: readonly RowItem[];
+	readonly pageInfo: typeof IncludePageInfo.Type;
+};
+
+const ResultValue: Schema.Codec<unknown, unknown> = Schema.suspend(() =>
+	Schema.Union([
+		JsonValue,
+		strictStruct({
+			pageInfo: IncludePageInfo,
+			items: Schema.Array(Schema.Record(Schema.String, ResultValue)),
+		}),
+	]),
+);
+
+export const RowsPageInfo = strictStruct({
+	limit: Schema.Int,
+	hasMore: Schema.Boolean,
+	nextCursor: Schema.NullOr(Schema.String),
+}).annotate({ identifier: "RyotQLRowsPageInfo" });
+
+export const rowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>
+	strictStruct({ pageInfo: RowsPageInfo, items: Schema.Array(item), type: Schema.Literal("rows") });
+
+export const RowsResult = rowsResultSchema(Schema.Record(Schema.String, ResultValue)).annotate({
+	identifier: "RyotQLRowsResult",
+});
+export type RowsResult = typeof RowsResult.Type;
+
+export const AggregateResult = strictStruct({
+	type: Schema.Literal("aggregate"),
+	pageInfo: Schema.optional(RowsPageInfo),
+	items: Schema.Array(Schema.Record(Schema.String, JsonValue)),
+}).annotate({ identifier: "RyotQLAggregateResult" });
+export type AggregateResult = typeof AggregateResult.Type;
+
+export const RyotQLResult = Schema.Union([RowsResult, AggregateResult]).annotate({
+	identifier: "RyotQLResult",
+});
+export type RyotQLResult = typeof RyotQLResult.Type;
+
+export const RyotQLResponse = strictStruct({
+	data: Schema.Record(Schema.String, RyotQLResult),
+}).annotate({ identifier: "RyotQLResponse" });
+export type RyotQLResponse = typeof RyotQLResponse.Type;

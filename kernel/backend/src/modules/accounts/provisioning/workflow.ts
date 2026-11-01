@@ -1,0 +1,91 @@
+import { InternalError, internalError, unknownToMessage } from "@ryot-app/contract/errors";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { exponentialBackoffMs } from "@ryot-app/ts-utils/backoff";
+import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
+import { DurableClock, Workflow } from "effect/workflow";
+
+import type { DurableSchema } from "#boot/workflow-engine";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+
+import { UserBootstrap } from "./bootstrap";
+
+const UserBootstrapWorkflowPayload = Schema.Struct({
+	userId: UserId,
+	accountGeneration: AccountGeneration,
+});
+type UserBootstrapWorkflowPayload = typeof UserBootstrapWorkflowPayload.Type;
+
+export const UserBootstrapWorkflow = Workflow.make("UserBootstrapWorkflow", {
+	error: Schema.Never satisfies DurableSchema,
+	success: Schema.Void satisfies DurableSchema,
+	payload: UserBootstrapWorkflowPayload satisfies DurableSchema,
+	idempotencyKey: ({ accountGeneration }) => accountGeneration.token,
+});
+
+export class UserBootstrapWorkflowOperations extends Context.Service<
+	UserBootstrapWorkflowOperations,
+	{
+		perform: (
+			userId: UserId,
+			accountGeneration: AccountGeneration,
+		) => Effect.Effect<void, InternalError>;
+	}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/workflow/UserBootstrapWorkflowOperations",
+) {}
+
+export const UserBootstrapWorkflowOperationsLive = Layer.effect(
+	UserBootstrapWorkflowOperations,
+	Effect.gen(function* () {
+		const bootstrap = yield* UserBootstrap;
+		return {
+			perform: (userId: UserId, accountGeneration: AccountGeneration) =>
+				bootstrap.perform(userId, accountGeneration).pipe(
+					Effect.catchCauseIf(
+						(cause) => !Cause.hasInterruptsOnly(cause),
+						(cause) =>
+							Effect.logError("user bootstrap attempt failed", cause).pipe(
+								Effect.annotateLogs({ userId }),
+								Effect.andThen(internalError("User bootstrap attempt failed")),
+							),
+					),
+					Effect.mapError((error) => internalError(unknownToMessage(error))),
+				),
+		};
+	}),
+);
+
+export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(function* (
+	payload: UserBootstrapWorkflowPayload,
+	executionId: string,
+) {
+	yield* Effect.annotateCurrentSpan({ executionId, userId: payload.userId });
+	const operations = yield* UserBootstrapWorkflowOperations;
+	let attempt = 1;
+	const performAttempt = (attemptNumber: number) =>
+		makeActivity({
+			name: `bootstrap-user-${attemptNumber}`,
+			error: InternalError satisfies DurableSchema,
+			success: Schema.Void satisfies DurableSchema,
+			execute: operations.perform(payload.userId, payload.accountGeneration),
+		}).pipe(Effect.result);
+	let result = yield* performAttempt(attempt);
+	while (Result.isFailure(result)) {
+		yield* Effect.logWarning("user bootstrap will retry", result.failure).pipe(
+			Effect.annotateLogs({ attempt, userId: payload.userId }),
+		);
+		const delayMs = exponentialBackoffMs(attempt, 5 * 60_000);
+		yield* DurableClock.sleep({
+			duration: Duration.millis(delayMs),
+			name: `user-bootstrap-retry-${attempt}`,
+		});
+		attempt += 1;
+		result = yield* performAttempt(attempt);
+	}
+});
+
+export const UserBootstrapWorkflowDefinitionsLive = implementWorkflow(
+	UserBootstrapWorkflow,
+	runUserBootstrapWorkflow,
+);

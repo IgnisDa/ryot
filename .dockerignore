@@ -1,5 +1,15 @@
+.git
+.turbo
+.DS_Store
+.env*
+tmp
 out
 target
 node_modules
-.turbo
-**/.env
+**/build
+**/coverage
+**/dist
+**/.cache
+**/.turbo
+**/node_modules
+**/*.tsbuildinfo

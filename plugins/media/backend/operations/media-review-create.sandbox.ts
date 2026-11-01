@@ -1,0 +1,71 @@
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import {
+	and,
+	ascending,
+	column,
+	defineRecipe,
+	entitySchemaPredicate,
+	eq,
+	executeRyotqlRecipe,
+	literal,
+	or,
+	selectedField,
+	selectedOptionalRow,
+	table,
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+
+import { MediaReviewCreateInput, MediaReviewOutput } from "../../shared/media-review-operations";
+import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { mediaReviewProperties } from "./media-review-properties";
+
+const reviewTargetRecipe = defineRecipe((entityId: string) => {
+	const entity = table("entity", "reviewTarget");
+	return {
+		map: ({ target }) => Result.succeed(target),
+		queries: {
+			target: selectedOptionalRow(entity, {
+				orderBy: [ascending(column(entity, "id"))],
+				selection: { id: selectedField(column(entity, "id"), Schema.String) },
+				where: and(
+					eq(column(entity, "id"), literal(entityId)),
+					or(
+						...mediaLibraryMemberEntitySchemaSlugs.map((slug) =>
+							entitySchemaPredicate(entity, slug, { kind: "self" }),
+						),
+					),
+				),
+			}),
+		},
+	};
+});
+
+export const manifest = defineManifest({
+	kind: "operation",
+	name: "Create media review",
+	slug: "operation.media-review-create",
+});
+
+export default defineOperation({
+	manifest,
+	output: MediaReviewOutput,
+	input: MediaReviewCreateInput,
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const target = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				reviewTargetRecipe(input.entityId),
+			);
+			if (target === undefined) {
+				return yield* new OperationRejectedError({ message: "Review target not found" });
+			}
+			return yield* host.createEvents([
+				{
+					entityId: target.id,
+					eventSchemaSlug: "review",
+					properties: mediaReviewProperties(input),
+				},
+			]);
+		}),
+});

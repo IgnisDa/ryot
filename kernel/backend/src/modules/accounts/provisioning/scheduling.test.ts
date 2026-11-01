@@ -1,0 +1,213 @@
+import { expect, it, layer } from "@effect/vitest";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { Context, Effect, Layer, Option, Ref } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+
+import { AuthService } from "#modules/accounts/auth/service";
+import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
+import {
+	UserLifecycleWorkflow,
+	UserLifecycleWorkflowOperations,
+	UserLifecycleWorkflowOperationsLive,
+} from "#modules/accounts/lifecycle/workflow";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { IngestionExecution } from "#modules/imports/execution-service";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { makeWorkflowEngine } from "#testing/effect";
+
+import { UserBootstrap } from "./bootstrap";
+import { UserBootstrapScheduling, userBootstrapWorkflowExecutionId } from "./scheduling";
+
+const userId = UserId.make("user-1");
+const accountFor = (accountUserId: UserId) => ({
+	userId: accountUserId,
+	token: "test-account-generation",
+});
+
+it("derives a stable and distinct workflow execution id", () => {
+	const otherUserId = UserId.make("user-2");
+
+	expect(userBootstrapWorkflowExecutionId(userId, accountFor(userId))).toBe(
+		userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+	);
+	expect(userBootstrapWorkflowExecutionId(userId, accountFor(userId))).not.toBe(
+		userBootstrapWorkflowExecutionId(otherUserId, accountFor(otherUserId)),
+	);
+	expect(userBootstrapWorkflowExecutionId(userId, accountFor(userId))).toBe(
+		"user-bootstrap-6-user-1-test-account-generation",
+	);
+	expect(userBootstrapWorkflowExecutionId(userId, { userId, token: "next-generation" })).not.toBe(
+		userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+	);
+});
+
+class RecordedSchedules extends Context.Service<
+	RecordedSchedules,
+	{
+		readonly parents: Effect.Effect<ReadonlyArray<null | string>>;
+		readonly options: Effect.Effect<
+			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
+		>;
+	}
+>()("@ryot-app/kernel-backend/modules/accounts/provisioning/scheduling.test/RecordedSchedules") {}
+
+const recordingSchedulingLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const options = yield* Ref.make<
+			ReadonlyArray<Parameters<WorkflowEngine["Service"]["execute"]>[1]>
+		>([]);
+		const parents = yield* Ref.make<ReadonlyArray<null | string>>([]);
+		const engine = makeWorkflowEngine({
+			execute: (_workflow, input) =>
+				Effect.gen(function* () {
+					const parent = yield* Effect.serviceOption(WorkflowInstance);
+					yield* Ref.update(parents, (all) => [
+						...all,
+						Option.isSome(parent) ? parent.value.executionId : null,
+					]);
+					yield* Ref.update(options, (all) => [...all, input]);
+					return input.executionId;
+				}),
+		});
+		return Layer.merge(UserBootstrapScheduling.layer, UserLifecycleWorkflowOperationsLive).pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					Layer.mock(UserBootstrap)({}),
+					Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
+					Layer.mock(UserLifecycleRepository)({}),
+					Layer.mock(ObjectStorageService)({}),
+					Layer.mock(IngestionExecution)({}),
+					Layer.succeed(AdmittedWorkflowCatalogue, []),
+					WorkflowExecutionNotifications.layer,
+					Layer.succeed(WorkflowEngine, engine),
+					Layer.succeed(RecordedSchedules, {
+						options: Ref.get(options),
+						parents: Ref.get(parents),
+					}),
+				),
+			),
+		);
+	}),
+);
+
+layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
+	test.effect("reuses one discarded execution for repeated and concurrent scheduling", () =>
+		Effect.gen(function* () {
+			const scheduling = yield* UserBootstrapScheduling;
+			yield* scheduling.schedule(userId);
+			yield* scheduling.schedule(userId);
+			yield* Effect.all([scheduling.schedule(userId), scheduling.schedule(userId)], {
+				discard: true,
+				concurrency: "unbounded",
+			});
+
+			const options = yield* (yield* RecordedSchedules).options;
+			expect(options).toHaveLength(4);
+			expect(options).toEqual(
+				Array.from({ length: 4 }, () => ({
+					discard: true,
+					payload: { userId, accountGeneration: accountFor(userId) },
+					executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+				})),
+			);
+		}),
+	);
+});
+
+layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
+	test.effect(
+		"joins the creation bootstrap identity when reset waits for the same account generation",
+		() =>
+			Effect.gen(function* () {
+				const scheduling = yield* UserBootstrapScheduling;
+				const lifecycle = yield* UserLifecycleWorkflowOperations;
+				yield* scheduling.schedule(userId);
+				yield* lifecycle
+					.bootstrapResetUser(userId)
+					.pipe(
+						Effect.provideService(
+							WorkflowInstance,
+							WorkflowInstance.initial(UserLifecycleWorkflow, "reset-owner"),
+						),
+					);
+
+				const options = yield* (yield* RecordedSchedules).options;
+				expect(options).toEqual([
+					{
+						discard: true,
+						payload: { userId, accountGeneration: accountFor(userId) },
+						executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+					},
+					{
+						payload: { userId, accountGeneration: accountFor(userId) },
+						executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+					},
+				]);
+				expect(yield* (yield* RecordedSchedules).parents).toEqual([null, null]);
+			}),
+	);
+});
+
+class RecordedReconciliation extends Context.Service<
+	RecordedReconciliation,
+	{
+		readonly limit: Effect.Effect<null | number>;
+		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
+	}
+>()(
+	"@ryot-app/kernel-backend/modules/accounts/provisioning/scheduling.test/RecordedReconciliation",
+) {}
+
+const reconciliationLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const limit = yield* Ref.make<null | number>(null);
+		const executionIds = yield* Ref.make<ReadonlyArray<string>>([]);
+		const failedUserId = UserId.make("user-2");
+		const incomplete = [userId, failedUserId, UserId.make("user-3")];
+		const engine = makeWorkflowEngine({
+			execute: (_workflow, options) =>
+				Ref.update(executionIds, (all) => [...all, options.executionId]).pipe(
+					Effect.andThen(
+						options.executionId ===
+							userBootstrapWorkflowExecutionId(failedUserId, accountFor(failedUserId))
+							? Effect.fail("workflow unavailable")
+							: Effect.succeed(options.executionId),
+					),
+				),
+		});
+		return UserBootstrapScheduling.layer.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					Layer.mock(UserBootstrap)({
+						listIncomplete: (value) =>
+							Ref.set(limit, value).pipe(Effect.as(incomplete.map((id) => ({ id })))),
+					}),
+					Layer.succeed(WorkflowEngine, engine),
+					Layer.succeed(RecordedReconciliation, {
+						limit: Ref.get(limit),
+						executionIds: Ref.get(executionIds),
+					}),
+				),
+			),
+		);
+	}),
+);
+
+layer(reconciliationLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
+	test.effect("dispatches every incomplete user and contains one scheduling failure", () =>
+		Effect.gen(function* () {
+			const exit = yield* Effect.exit((yield* UserBootstrapScheduling).reconcile(25));
+			const recorded = yield* RecordedReconciliation;
+
+			expect(exit._tag).toBe("Success");
+			expect(yield* recorded.limit).toBe(25);
+			expect(yield* recorded.executionIds).toEqual([
+				userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+				userBootstrapWorkflowExecutionId(UserId.make("user-2"), accountFor(UserId.make("user-2"))),
+				userBootstrapWorkflowExecutionId(UserId.make("user-3"), accountFor(UserId.make("user-3"))),
+			]);
+		}),
+	);
+});

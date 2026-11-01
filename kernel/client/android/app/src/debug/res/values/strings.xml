@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ryot Debug</string>
+    <string name="title_activity_main">Ryot Debug</string>
+    <string name="package_name">io.ryot.app.dev</string>
+    <string name="custom_url_scheme">io.ryot.app.dev</string>
+</resources>

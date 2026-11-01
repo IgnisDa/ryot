@@ -1,0 +1,69 @@
+# Background work
+
+`BackgroundWorkService` and `BackgroundWorkWorkflow` own durable admission and settlement for
+independent pinned user scripts, event-projection batches, and relationship-projection steps. `background_work` is the canonical job
+record; feature-owned tables retain application state and checkpoints.
+
+## Admission and dispatch
+
+Admission runs in the caller's transaction. It validates exact, purpose-bound user authority, records
+the wrapper's workflow-owner receipt, and retains the existing pinned script
+and configuration references. The row records the work identity, purpose, scope, input hash, and
+`queued`, `running`, `succeeded`, or `failed` status. The user-scoped `backgroundWork` RyotQL table
+exposes status and scope, not the execution payload or pins.
+
+Dispatch starts only after commit and serializes by scope: at most one job runs at a time per
+`(userId, pluginId, purpose, scope)`. Dispatching any job dispatches its scope. Under a transaction-scoped
+advisory lock on that key, dispatch fails a running job whose workflow wrapper expired or ended, then
+claims the oldest `queued` job (`createdAt`, then ID) by setting it `running` only when no job in the
+key is running. After the claim commits, dispatch registers the workflow-owner receipt and starts the
+deterministic `BackgroundWorkWorkflow` for the key's running job, which also repairs a claim whose
+start was lost. Order is best-effort FIFO because `createdAt` is transaction-start time. A hung running
+job holds its scope until its workflow expires.
+
+The workflow starts only a `running` row, so a row settled by recovery is never revived, runs the
+pinned script through `ScriptExecutionWorkflow`, registering its child ownership before execution, and
+after settlement dispatches its own scope from the workflow body so the next queued job starts.
+Plugins do not separately dispatch the generic worker. User work and projections use the same
+owner, while their admission rules and feature state remain with their respective modules.
+
+Projection preparation runs as a persisted activity before script execution. The event feature
+claims its batch there and settles a job with nothing to claim without executing the script; normal
+settlement recovery and scope handoff still run. Publication retains its own claim check for changes
+after preparation.
+
+`requestUserWork` is the script-host adapter for independent user work. Its identity is keyed by
+account generation, plugin, script, and caller key. Reusing the identity with changed input or scope is
+rejected; a retry or continuation uses a fresh deterministic key.
+
+`lockQueued` returns a scope's oldest queued job and holds a share lock on it until the caller's
+transaction commits, so a concurrent dispatch claims that job only after the admitting write is
+visible. Event projections reuse that job instead of admitting another. See [events and projections](../events/README.md#stream-work-and-freshness).
+
+## Recovery and settlement
+
+Every settlement through the workflow, a rejected launch, or recovery of an ended wrapper publishes
+the user-scoped derived-data-updated hint after commit (see [entity
+interest](../entities/watches/README.md)), so open pages refresh job status and projection output.
+
+Recovery keyset-pages running rows and scopes whose oldest queued row has no running sibling, at
+most 100 heads per page, then dispatches each distinct scope in that page once. Queued rows behind a
+running head are never selected individually, so they cannot crowd out heads. A wrapper that is
+expired or already failed/succeeded before the job settles is recorded as failed and its scope moves
+on, rather than leaving the job pending. Suspension is
+not failure. Terminal settlement only transitions queued/running rows, so late or repeated settlement
+cannot change a terminal result; settling also releases retained execution references.
+
+The frequent cron deletes succeeded and failed rows 168 hours after settlement in bounded batches.
+It keeps the newest row of each scope, which plugins read as the scope's latest status, and any row an
+`event_stream_work` or `relationship_projection_work` record still names as its current job.
+
+Relationship-projection reconciliation admits dirty work through `admitCandidates`, which
+keyset-pages a feature's candidate IDs 100 at a time, arranges each in its own transaction, and
+dispatches admitted jobs after commit. A failing candidate is logged and skipped, so it cannot block
+later candidates.
+
+Projection-specific freshness remains event-owned: reconciliation finds stale bindings and dirty
+streams, and projection values are visible only while their source revision,
+plugin revision/configuration/installation, and processor binding remain current. See [events and
+projections](../events/README.md#stream-work-and-freshness).

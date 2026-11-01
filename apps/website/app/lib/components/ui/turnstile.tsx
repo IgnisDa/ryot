@@ -8,21 +8,19 @@ export interface TurnstileProps {
 	onSuccess?: (token: string) => void;
 }
 
-const TurnstileWidget = forwardRef<HTMLDivElement, TurnstileProps>(
-	(props, ref) => {
-		return (
-			<div ref={ref}>
-				<Turnstile
-					siteKey={props.siteKey}
-					onError={props.onError}
-					onExpire={props.onExpire}
-					onSuccess={props.onSuccess}
-					options={{ theme: "light", size: "invisible" }}
-				/>
-			</div>
-		);
-	},
-);
+const TurnstileWidget = forwardRef<HTMLDivElement, TurnstileProps>((props, ref) => {
+	return (
+		<div ref={ref}>
+			<Turnstile
+				siteKey={props.siteKey}
+				onError={props.onError}
+				onExpire={props.onExpire}
+				onSuccess={props.onSuccess}
+				options={{ theme: "light", size: "invisible" }}
+			/>
+		</div>
+	);
+});
 
 TurnstileWidget.displayName = "TurnstileWidget";
 

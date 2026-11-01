@@ -1,0 +1,334 @@
+import { describe, expect, it } from "@effect/vitest";
+import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
+
+import { fitnessPlugin } from "../../manifest/plugin";
+import definition, { manifest } from "./workout-records.sandbox";
+
+const timestamp = "2026-01-01T08:00:00.000Z";
+
+const eventSnapshot = (id: string, entityId: string, overrides: Record<string, unknown> = {}) => ({
+	id,
+	entityId,
+	properties: {},
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	occurredAt: timestamp,
+	sessionEntityId: "workout-1",
+	entitySchemaSlug: "exercise",
+	eventSchemaSlug: "workout-set",
+	eventSchemaPluginId: "fitness-owner",
+	entitySchemaPluginId: "fitness-owner",
+	...overrides,
+});
+
+const automationInput = (items: readonly unknown[], source: "api" | "import" = "api") =>
+	Schema.decodeUnknownEffect(automationInputSchema)({
+		automation: {
+			runId: "run-1",
+			occurredAt: timestamp,
+			triggerId: "trigger-1",
+			executionUserId: "user-1",
+			hookSlug: "fitness.workout-records",
+			payload: { items, resource: "event", category: "change", operation: "batch" },
+			causation: {
+				source,
+				depth: 0,
+				parentRunId: null,
+				parentTriggerId: null,
+				executionId: "execution-1",
+				rootExecutionId: "execution-1",
+				initiator: { kind: "user", id: "user-1" },
+				lane: source === "import" ? "background" : "interactive",
+			},
+		},
+	}).pipe(Effect.orDie);
+
+const entitySnapshot = {
+	name: "Push",
+	properties: {},
+	id: "workout-1",
+	externalId: null,
+	providerId: null,
+	populatedAt: null,
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	entitySchemaSlug: "workout",
+	entitySchemaPluginId: "fitness-owner",
+};
+
+const workoutUpdateInput = (changedProperties: readonly string[]) =>
+	Schema.decodeEffect(automationInputSchema)({
+		automation: {
+			runId: "run-1",
+			occurredAt: timestamp,
+			triggerId: "trigger-1",
+			executionUserId: "user-1",
+			hookSlug: "fitness.workout-context-records",
+			payload: {
+				changedProperties,
+				resource: "entity",
+				category: "change",
+				operation: "update",
+				after: entitySnapshot,
+				before: entitySnapshot,
+			},
+			causation: {
+				depth: 0,
+				source: "api",
+				parentRunId: null,
+				lane: "interactive",
+				parentTriggerId: null,
+				executionId: "execution-1",
+				rootExecutionId: "execution-1",
+				initiator: { kind: "user", id: "user-1" },
+			},
+		},
+	}).pipe(Effect.orDie);
+
+const workoutSetExercisePage = (
+	entityIds: readonly string[],
+	options: { readonly hasMore?: boolean; readonly nextCursor?: null | string } = {},
+) => ({
+	type: "rows" as const,
+	items: entityIds.map((entityId) => ({ entityId })),
+	pageInfo: {
+		limit: 50,
+		hasMore: options.hasMore ?? false,
+		nextCursor: options.nextCursor ?? null,
+	},
+});
+
+const recordingHost = (
+	existingExerciseIds = ["exercise-1", "exercise-2", "exercise-3"],
+	workoutSetExercisePages?: readonly ReturnType<typeof workoutSetExercisePage>[],
+) => {
+	const requests: unknown[] = [];
+	let pageIndex = 0;
+	const host = defineSandboxTestHost(manifest, {
+		requestEventStreamWork: (request, reference) =>
+			Effect.sync(() => {
+				requests.push({ request, reference });
+				return { workId: `work-${request.entityId}` };
+			}),
+		executeRyotql: () => {
+			if (workoutSetExercisePages !== undefined) {
+				const page = workoutSetExercisePages[pageIndex++];
+				if (page === undefined) {
+					throw new Error("Unexpected workout-set exercise page request");
+				}
+				return Effect.succeed({ data: { workoutSetExerciseIds: page } });
+			}
+			return Effect.succeed({
+				data: {
+					exercises: {
+						type: "rows" as const,
+						items: existingExerciseIds.map((id) => ({ id })),
+						pageInfo: {
+							hasMore: false,
+							nextCursor: null,
+							limit: Math.max(existingExerciseIds.length, 1),
+						},
+					},
+				},
+			});
+		},
+	});
+	return { host, requests };
+};
+
+describe("workout start change", () => {
+	it.effect(
+		"requests record streams for every exercise in the workout when its start changes",
+		() =>
+			Effect.gen(function* () {
+				const { host, requests } = recordingHost(undefined, [
+					workoutSetExercisePage(["exercise-1", "exercise-1", "exercise-2"], {
+						hasMore: true,
+						nextCursor: "event-cursor",
+					}),
+					workoutSetExercisePage(["exercise-3"]),
+				]);
+
+				return yield* definition.run(yield* workoutUpdateInput(["startedAt"]), host).pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(requests).toEqual(
+							["exercise-1", "exercise-2", "exercise-3"].map((entityId): unknown =>
+								objectContaining({
+									request: { entityId, eventSchemaSlug: "workout-set" },
+									reference: objectContaining({
+										referenceKind: "script",
+										scriptSlug: "script.workout-record-step",
+									}),
+								}),
+							),
+						);
+					}),
+				);
+			}),
+	);
+
+	it.effect("requests nothing when the workout update leaves its start unchanged", () =>
+		Effect.gen(function* () {
+			const { host, requests } = recordingHost(undefined, []);
+			return yield* definition.run(yield* workoutUpdateInput([]), host).pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(requests).toEqual([]);
+				}),
+			);
+		}),
+	);
+});
+
+describe("workout record automation", () => {
+	it.effect(
+		"deduplicates before and after exercise streams and requests work once per entity",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* automationInput(
+					[
+						{
+							resource: "event",
+							category: "change",
+							operation: "update",
+							changedProperties: ["weight"],
+							after: eventSnapshot("event-1", "exercise-2"),
+							before: eventSnapshot("event-1", "exercise-1"),
+						},
+						{
+							resource: "event",
+							category: "change",
+							operation: "delete",
+							before: eventSnapshot("event-2", "exercise-1"),
+						},
+						{
+							resource: "event",
+							category: "change",
+							operation: "create",
+							after: eventSnapshot("event-3", "exercise-3"),
+						},
+					],
+					"import",
+				);
+				const { host, requests } = recordingHost();
+
+				return yield* definition.run(input, host).pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(requests).toHaveLength(3);
+						expect(requests).toEqual(
+							["exercise-1", "exercise-2", "exercise-3"].map((entityId): unknown =>
+								objectContaining({
+									request: { entityId, eventSchemaSlug: "workout-set" },
+									reference: objectContaining({
+										referenceKind: "script",
+										scriptSlug: "script.workout-record-step",
+									}),
+								}),
+							),
+						);
+					}),
+				);
+			}),
+	);
+
+	it.effect("requests work for source updates and declares the batch hook", () =>
+		Effect.gen(function* () {
+			const before = eventSnapshot("event-1", "exercise-1");
+			const sourceUpdate = yield* automationInput([
+				{
+					before,
+					resource: "event",
+					category: "change",
+					operation: "update",
+					changedProperties: ["weight"],
+					after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
+				},
+			]);
+			const { host, requests } = recordingHost();
+
+			expect(yield* definition.run(sourceUpdate, host)).toBeNull();
+			expect(requests).toHaveLength(1);
+			expect(requests).toEqual([
+				objectContaining({ request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" } }),
+			]);
+			const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
+			expect(hook).toMatchObject({
+				stage: "after",
+				delivery: "async",
+				batchMaxItems: 50,
+				frequency: "batch",
+				executionScope: "user",
+			});
+			expect(hook).not.toHaveProperty("causationSources");
+			expect(manifest.inputProjection.event).toEqual({
+				properties: [],
+				compareProperties: [
+					{ equality: "json", property: "confirmedAt" },
+					{ equality: "json", property: "distance" },
+					{ equality: "json", property: "duration" },
+					{ equality: "json", property: "exerciseKind" },
+					{ equality: "json", property: "exerciseOrder" },
+					{ property: "reps", equality: "json" },
+					{ equality: "json", property: "setOrder" },
+					{ equality: "json", property: "weight" },
+				],
+			});
+			expect(manifest.inputProjection.entity).toEqual({
+				properties: [],
+				parentEntityProperties: [],
+				compareProperties: [{ equality: "json", property: "startedAt" }],
+			});
+		}),
+	);
+
+	it.effect("skips streams whose exercise entity no longer exists", () =>
+		Effect.gen(function* () {
+			const input = yield* automationInput([
+				{
+					resource: "event",
+					category: "change",
+					operation: "delete",
+					before: eventSnapshot("event-deleted", "deleted-exercise"),
+				},
+			]);
+			const { host, requests } = recordingHost([]);
+
+			return yield* definition.run(input, host).pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(requests).toEqual([]);
+				}),
+			);
+		}),
+	);
+
+	it.effect("requests work without explicit workflow dispatch", () =>
+		Effect.gen(function* () {
+			const input = yield* automationInput([
+				{
+					resource: "event",
+					category: "change",
+					operation: "create",
+					after: eventSnapshot("event-1", "exercise-1"),
+				},
+			]);
+			const { host, requests } = recordingHost();
+
+			return yield* definition.run(input, host).pipe(
+				Effect.map((result) => {
+					expect(result).toBeNull();
+					expect(requests).toEqual([
+						objectContaining({
+							request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
+						}),
+					]);
+				}),
+			);
+		}),
+	);
+});

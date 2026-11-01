@@ -1,0 +1,345 @@
+mutation RegisterUser($input: RegisterUserInput!) {
+	registerUser(input: $input) {
+		__typename
+		... on RegisterError {
+			error
+		}
+		... on StringIdObject {
+			id
+		}
+	}
+}
+
+mutation LoginUser($input: AuthUserInput!) {
+	loginUser(input: $input) {
+		__typename
+		... on LoginError {
+			error
+		}
+		... on ApiKeyResponse {
+			apiKey
+		}
+		... on StringIdObject {
+			id
+		}
+	}
+}
+
+mutation LogoutUser {
+	logoutUser
+}
+
+mutation DeployAddEntitiesToCollectionJob($input: ChangeCollectionToEntitiesInput!) {
+	deployAddEntitiesToCollectionJob(input: $input)
+}
+
+mutation CreateCustomExercise($input: ExerciseInput!) {
+	createCustomExercise(input: $input)
+}
+
+mutation UpdateCustomExercise($input: UpdateCustomExerciseInput!) {
+	updateCustomExercise(input: $input)
+}
+
+mutation CreateCustomMetadata($input: CreateCustomMetadataInput!) {
+	createCustomMetadata(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomMetadata($input: UpdateCustomMetadataInput!) {
+	updateCustomMetadata(input: $input)
+}
+
+mutation CreateCustomMetadataGroup($input: CreateCustomMetadataGroupInput!) {
+	createCustomMetadataGroup(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomMetadataGroup($input: UpdateCustomMetadataGroupInput!) {
+	updateCustomMetadataGroup(input: $input)
+}
+
+mutation CreateCustomPerson($input: CreateCustomPersonInput!) {
+	createCustomPerson(input: $input) {
+		id
+	}
+}
+
+mutation UpdateCustomPerson($input: UpdateCustomPersonInput!) {
+	updateCustomPerson(input: $input)
+}
+
+mutation CreateOrUpdateCollection($input: CreateOrUpdateCollectionInput!) {
+	createOrUpdateCollection(input: $input) {
+		id
+	}
+}
+
+mutation CreateReviewComment($input: CreateReviewCommentInput!) {
+	createReviewComment(input: $input)
+}
+
+mutation CreateOrUpdateUserMeasurement($input: UserMeasurementInput!) {
+	createOrUpdateUserMeasurement(input: $input)
+}
+
+mutation CreateUserNotificationPlatform($input: CreateUserNotificationPlatformInput!) {
+	createUserNotificationPlatform(input: $input)
+}
+
+mutation CreateOrUpdateUserIntegration($input: CreateOrUpdateUserIntegrationInput!) {
+	createOrUpdateUserIntegration(input: $input)
+}
+
+mutation CreateOrUpdateUserWorkout($input: UserWorkoutInput!) {
+	createOrUpdateUserWorkout(input: $input)
+}
+
+mutation CreateOrUpdateUserWorkoutTemplate($input: UserWorkoutInput!) {
+	createOrUpdateUserWorkoutTemplate(input: $input)
+}
+
+mutation DeleteCollection($collectionName: String!) {
+	deleteCollection(collectionName: $collectionName)
+}
+
+mutation DeleteReview($reviewId: String!) {
+	deleteReview(reviewId: $reviewId)
+}
+
+mutation DeleteS3Object($key: String!) {
+	deleteS3Object(key: $key)
+}
+
+mutation DeleteSeenItem($seenId: String!) {
+	deleteSeenItem(seenId: $seenId) {
+		id
+	}
+}
+
+mutation DeleteUser($toDeleteUserId: String!) {
+	deleteUser(toDeleteUserId: $toDeleteUserId)
+}
+
+mutation ResetUser($toResetUserId: String!) {
+	resetUser(toResetUserId: $toResetUserId) {
+		__typename
+		... on UserResetResponse {
+			userId
+			passwordChangeUrl
+		}
+	}
+}
+
+mutation DeleteUserIntegration($integrationId: String!) {
+	deleteUserIntegration(integrationId: $integrationId)
+}
+
+mutation DeleteUserImportReport($importReportId: String!) {
+	deleteUserImportReport(importReportId: $importReportId)
+}
+
+mutation DeleteUserMeasurement($timestamp: DateTime!) {
+	deleteUserMeasurement(timestamp: $timestamp)
+}
+
+mutation DeleteUserNotificationPlatform($notificationId: String!) {
+	deleteUserNotificationPlatform(notificationId: $notificationId)
+}
+
+mutation DeleteUserWorkout($workoutId: String!) {
+	deleteUserWorkout(workoutId: $workoutId)
+}
+
+mutation DeleteUserWorkoutTemplate($workoutTemplateId: String!) {
+	deleteUserWorkoutTemplate(workoutTemplateId: $workoutTemplateId)
+}
+
+mutation DeployBackgroundJob($jobName: BackgroundJob!) {
+	deployBackgroundJob(jobName: $jobName)
+}
+
+mutation DeployExportJob {
+	deployExportJob
+}
+
+mutation DeployImportJob($input: DeployImportJobInput!) {
+	deployImportJob(input: $input)
+}
+
+mutation DeployUpdateMediaTranslationsJob($input: MediaTranslationInput!) {
+	deployUpdateMediaTranslationsJob(input: $input)
+}
+
+mutation DeployUpdateMediaEntityJob($input: EntityWithLotInput!) {
+	deployUpdateMediaEntityJob(input: $input)
+}
+
+mutation UpdateSeenItem($input: UpdateSeenItemInput!) {
+	updateSeenItem(input: $input)
+}
+
+mutation UpdateUserNotificationPlatform($input: UpdateUserNotificationPlatformInput!) {
+	updateUserNotificationPlatform(input: $input)
+}
+
+mutation UpdateUserWorkoutAttributes($input: UpdateUserWorkoutAttributesInput!) {
+	updateUserWorkoutAttributes(input: $input)
+}
+
+mutation GenerateAuthToken {
+	generateAuthToken
+}
+
+mutation MergeMetadata($mergeFrom: String!, $mergeInto: String!) {
+	mergeMetadata(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+}
+
+mutation DisassociateMetadata($metadataId: String!) {
+	disassociateMetadata(metadataId: $metadataId)
+}
+
+mutation CreateOrUpdateReview($input: CreateOrUpdateReviewInput!) {
+	createOrUpdateReview(input: $input) {
+		id
+	}
+}
+
+mutation PresignedPutS3Url($prefix: String!) {
+	presignedPutS3Url(prefix: $prefix) {
+		key
+		uploadUrl
+	}
+}
+
+mutation DeployRemoveEntitiesFromCollectionJob($input: ChangeCollectionToEntitiesInput!) {
+	deployRemoveEntitiesFromCollectionJob(input: $input)
+}
+
+mutation ReorderCollectionEntity($input: ReorderCollectionEntityInput!) {
+	reorderCollectionEntity(input: $input)
+}
+
+mutation TestUserNotificationPlatforms {
+	testUserNotificationPlatforms
+}
+
+mutation UpdateUser($input: UpdateUserInput!) {
+	updateUser(input: $input) {
+		id
+	}
+}
+
+mutation UpdateUserPreference($input: UserPreferencesInput!) {
+	updateUserPreference(input: $input)
+}
+
+mutation CreateAccessLink($input: CreateAccessLinkInput!) {
+	createAccessLink(input: $input) {
+		id
+	}
+}
+
+mutation ProcessAccessLink($input: ProcessAccessLinkInput!) {
+	processAccessLink(input: $input) {
+		__typename
+		... on ProcessAccessLinkError {
+			error
+		}
+		... on ProcessAccessLinkResponse {
+			apiKey
+			redirectTo
+			tokenValidForDays
+		}
+	}
+}
+
+mutation RevokeAccessLink($accessLinkId: String!) {
+	revokeAccessLink(accessLinkId: $accessLinkId)
+}
+
+mutation UpdateUserExerciseSettings($input: UpdateUserExerciseSettings!) {
+	updateUserExerciseSettings(input: $input)
+}
+
+mutation MergeExercise($mergeFrom: String!, $mergeInto: String!) {
+	mergeExercise(mergeFrom: $mergeFrom, mergeInto: $mergeInto)
+}
+
+mutation MarkEntityAsPartial($input: EntityWithLotInput!) {
+	markEntityAsPartial(input: $input)
+}
+
+mutation ExpireCacheKey($cacheId: UUID!) {
+	expireCacheKey(cacheId: $cacheId)
+}
+
+mutation DeployBulkMetadataProgressUpdate($input: [MetadataProgressUpdateInput!]!) {
+	deployBulkMetadataProgressUpdate(input: $input)
+}
+
+mutation InitiateTwoFactorSetup {
+	initiateTwoFactorSetup {
+		secret
+		qrCodeUrl
+	}
+}
+
+mutation CompleteTwoFactorSetup($input: UserTwoFactorSetupInput!) {
+	completeTwoFactorSetup(input: $input) {
+		backupCodes
+	}
+}
+
+mutation VerifyTwoFactor($input: UserTwoFactorVerifyInput!) {
+	verifyTwoFactor(input: $input) {
+		__typename
+		... on VerifyTwoFactorError {
+			error
+		}
+		... on ApiKeyResponse {
+			apiKey
+		}
+	}
+}
+
+mutation DisableTwoFactor {
+	disableTwoFactor
+}
+
+mutation RegenerateTwoFactorBackupCodes {
+	regenerateTwoFactorBackupCodes {
+		backupCodes
+	}
+}
+
+mutation GetPasswordChangeSession($input: GetPasswordChangeSessionInput!) {
+	getPasswordChangeSession(input: $input) {
+		userId
+		passwordChangeUrl
+	}
+}
+
+mutation SetPasswordViaSession($input: SetPasswordViaSessionInput!) {
+	setPasswordViaSession(input: $input)
+}
+
+mutation CreateFilterPreset($input: CreateFilterPresetInput!) {
+	createFilterPreset(input: $input) {
+		id
+	}
+}
+
+mutation DeleteFilterPreset($filterPresetId: UUID!) {
+	deleteFilterPreset(filterPresetId: $filterPresetId)
+}
+
+mutation UpdateFilterPresetLastUsed($filterPresetId: UUID!) {
+	updateFilterPresetLastUsed(filterPresetId: $filterPresetId)
+}
+
+mutation GenerateLogDownloadUrl {
+	generateLogDownloadUrl
+}

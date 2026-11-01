@@ -1,0 +1,9 @@
+{
+	"name": "@ryot-app/graphql",
+	"scripts": {
+		"check": "tsc"
+	},
+	"dependencies": {
+		"graphql-request": "7.4.0"
+	}
+}

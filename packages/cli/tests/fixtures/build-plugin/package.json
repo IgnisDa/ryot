@@ -1,0 +1,10 @@
+{
+	"name": "@ryot-app/cli-test-plugin",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./manifest.ts",
+			"default": "./manifest.ts"
+		}
+	}
+}

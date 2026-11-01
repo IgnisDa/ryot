@@ -1,0 +1,21 @@
+// Only environment-neutral modules may appear here: both plugin compilers resolve this file, and the
+// client bundler serves "effect" from a narrow shim, so everything reachable from here is limited to
+// the namespaces that shim provides. Re-exporting the @ryot-app/ryotql-recipes barrel would also drag
+// the contract runtime into every plugin artifact, which is why the event helpers sit in their own
+// module rather than being pulled from the barrel.
+export * from "@ryot-app/ryotql";
+export { JsonValue } from "@ryot-app/contract/schema/json";
+export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
+export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
+export {
+	eventIsAfter,
+	latestEventField,
+	eventOrderAscending,
+	eventOrderDescending,
+} from "@ryot-app/ryotql-recipes/event-expressions";
+export {
+	ProjectionProcessing,
+	projectionProcessing,
+	projectionStatusMeasures,
+	projectionProcessingState,
+} from "@ryot-app/ryotql-recipes/projection-status";

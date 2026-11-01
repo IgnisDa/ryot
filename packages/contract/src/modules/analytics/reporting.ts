@@ -1,0 +1,324 @@
+import { Array, DateTime, Option, Order, Record, Result, Schema } from "effect";
+
+import { TimeZone } from "../../schema/time-zone";
+import { IsoUtcString, strictStruct } from "../../schema/utils";
+import {
+	addCalendarDays,
+	addCalendarUnits,
+	calendarDaysBetween,
+	type CalendarUnit,
+	isCalendarDate,
+	localDateOf,
+	startOfCalendarUnit,
+} from "./calendar";
+
+export const ReportingPreferences = strictStruct({ timeZone: TimeZone });
+export type ReportingPreferences = typeof ReportingPreferences.Type;
+
+export const CalendarDate = Schema.String.check(
+	Schema.makeFilter(
+		(value) =>
+			isCalendarDate(value) &&
+			Option.exists(DateTime.make(value), (date) => DateTime.formatIsoDate(date) === value),
+	),
+);
+
+export const ReportingGrouping = Schema.Literals(["auto", "day", "week", "month", "year"]);
+export type ReportingGrouping = typeof ReportingGrouping.Type;
+export const ReportingRange = Schema.Union([
+	strictStruct({ kind: Schema.Literal("all-time") }),
+	strictStruct({ kind: Schema.Literal("rolling"), days: Schema.Literals([7, 30, 90, 365]) }),
+	strictStruct({
+		kind: Schema.Literal("calendar"),
+		offset: Schema.Literals([0, -1]),
+		unit: Schema.Literals(["week", "month", "year"]),
+	}),
+	strictStruct({
+		endDate: CalendarDate,
+		startDate: CalendarDate,
+		kind: Schema.Literal("custom"),
+	}).check(Schema.makeFilter((value) => value.startDate <= value.endDate)),
+]);
+export type ReportingRange = typeof ReportingRange.Type;
+
+export const ReportingSelection = strictStruct({
+	range: ReportingRange,
+	grouping: ReportingGrouping,
+	comparison: Schema.Literals(["none", "previous-period"]),
+});
+export type ReportingSelection = typeof ReportingSelection.Type;
+
+export const defaultReportingSelection: ReportingSelection = {
+	grouping: "auto",
+	comparison: "previous-period",
+	range: { days: 30, kind: "rolling" },
+};
+
+export const ReportingPeriod = strictStruct({
+	endAt: IsoUtcString,
+	endDate: CalendarDate,
+	startAt: IsoUtcString,
+	startDate: CalendarDate,
+});
+export type ReportingPeriod = typeof ReportingPeriod.Type;
+
+export const REPORTING_BUCKET_LIMIT = 366;
+
+const groupingOrder = ["day", "week", "month", "year"] as const satisfies readonly CalendarUnit[];
+
+const automaticGrouping = (days: number): CalendarUnit => {
+	if (days <= 90) {
+		return "day";
+	}
+	if (days <= 730) {
+		return "week";
+	}
+	return days <= 3653 ? "month" : "year";
+};
+
+const bucketCount = (startDate: string, endDate: string, unit: CalendarUnit) => {
+	const start = DateTime.toParts(DateTime.makeUnsafe(startDate));
+	const end = DateTime.toParts(DateTime.makeUnsafe(endDate));
+	if (unit === "year") {
+		return end.year - start.year + 1;
+	}
+	if (unit === "month") {
+		return (end.year - start.year) * 12 + end.month - start.month + 1;
+	}
+	const days = calendarDaysBetween(startOfCalendarUnit(startDate, unit), endDate) + 1;
+	return unit === "week" ? Math.ceil(days / 7) : days;
+};
+
+const boundedGrouping = (requested: CalendarUnit, startDate: string, endDate: string) =>
+	groupingOrder
+		.slice(groupingOrder.indexOf(requested))
+		.find((unit) => bucketCount(startDate, endDate, unit) <= REPORTING_BUCKET_LIMIT) ?? "year";
+
+const calendarStep = { week: { weeks: 1 }, year: { years: 1 }, month: { months: 1 } };
+
+const periodBetween = (
+	start: DateTime.Utc,
+	end: DateTime.Utc,
+	timeZone: TimeZone,
+): ReportingPeriod => ({
+	startDate: DateTime.formatIsoDate(start),
+	endDate: DateTime.formatIsoDate(DateTime.subtract(end, { days: 1 })),
+	endAt: DateTime.formatIso(DateTime.makeZonedUnsafe(end, { timeZone, adjustForTimeZone: true })),
+	startAt: DateTime.formatIso(
+		DateTime.makeZonedUnsafe(start, { timeZone, adjustForTimeZone: true }),
+	),
+});
+
+export const calendarPeriod = (startDate: string, endDate: string, timeZone: TimeZone) =>
+	periodBetween(
+		DateTime.makeUnsafe(startDate),
+		DateTime.add(DateTime.makeUnsafe(endDate), { days: 1 }),
+		timeZone,
+	);
+
+const calendarDays = (start: DateTime.Utc, end: DateTime.Utc) =>
+	calendarDaysBetween(DateTime.formatIsoDate(start), DateTime.formatIsoDate(end));
+
+/** All-time reports group by year; bounded ranges coarsen until they fit `REPORTING_BUCKET_LIMIT`. */
+export const resolveReportingSelection = (
+	selection: ReportingSelection,
+	input: { readonly now: number; readonly timeZone: TimeZone },
+) => {
+	const timeZone = input.timeZone;
+	const today = DateTime.makeUnsafe(
+		DateTime.formatIsoDate(DateTime.makeZonedUnsafe(input.now, { timeZone })),
+	);
+	const range = selection.range;
+	if (range.kind === "all-time") {
+		const grouping: CalendarUnit = "year";
+		return { timeZone, grouping, current: null, previous: null };
+	}
+	let start: DateTime.Utc;
+	let end: DateTime.Utc;
+	let previousStart: DateTime.Utc;
+	if (range.kind === "calendar") {
+		const anchor = DateTime.startOf(today, range.unit, { weekStartsOn: 1 });
+		const parts = calendarStep[range.unit];
+		start = range.offset === -1 ? DateTime.subtract(anchor, parts) : anchor;
+		end = DateTime.add(start, parts);
+		previousStart = DateTime.subtract(start, parts);
+	} else {
+		end =
+			range.kind === "rolling"
+				? DateTime.add(today, { days: 1 })
+				: DateTime.add(DateTime.makeUnsafe(range.endDate), { days: 1 });
+		start =
+			range.kind === "rolling"
+				? DateTime.subtract(end, { days: range.days })
+				: DateTime.makeUnsafe(range.startDate);
+		previousStart = DateTime.subtract(start, { days: calendarDays(start, end) });
+	}
+	const current = periodBetween(start, end, timeZone);
+	return {
+		current,
+		timeZone,
+		previous:
+			selection.comparison === "previous-period"
+				? periodBetween(previousStart, start, timeZone)
+				: null,
+		grouping: boundedGrouping(
+			selection.grouping === "auto"
+				? automaticGrouping(calendarDays(start, end))
+				: selection.grouping,
+			current.startDate,
+			current.endDate,
+		),
+	};
+};
+
+export type ResolvedReportingSelection = ReturnType<typeof resolveReportingSelection>;
+
+export const selectionForPeriod = (
+	selection: ReportingSelection,
+	period: null | ReportingPeriod,
+): ReportingSelection => ({
+	comparison: "none",
+	grouping: selection.grouping,
+	range:
+		period === null
+			? { kind: "all-time" }
+			: { kind: "custom", endDate: period.endDate, startDate: period.startDate },
+});
+
+export type Reported<Data> = Data & { readonly reporting: ReportingExecution };
+
+/** `selection` pins the resolved current period so later pages and drills ignore clock movement. */
+export type ReportingExecution = {
+	readonly now: number;
+	readonly selection: ReportingSelection;
+	readonly resolved: ResolvedReportingSelection;
+};
+
+export const reportingExecution = (
+	selection: ReportingSelection,
+	input: { readonly now: number; readonly timeZone: TimeZone },
+): ReportingExecution => {
+	const resolved = resolveReportingSelection(selection, input);
+	return {
+		resolved,
+		now: input.now,
+		selection: selectionForPeriod({ ...selection, grouping: resolved.grouping }, resolved.current),
+	};
+};
+
+export type CalendarBucket<Point> = {
+	/** First local date of the grouping unit, which may precede `period.startDate`. */
+	readonly date: string;
+	readonly period: ReportingPeriod;
+	readonly points: ReadonlyArray<Point>;
+};
+
+export const calendarBuckets = <Point>(
+	points: ReadonlyArray<Point>,
+	input: {
+		readonly timeZone: TimeZone;
+		readonly grouping: CalendarUnit;
+		readonly at: (point: Point) => string;
+		readonly period: null | ReportingPeriod;
+	},
+): ReadonlyArray<CalendarBucket<Point>> => {
+	const grouped = Array.groupBy(points, (point) =>
+		startOfCalendarUnit(localDateOf(input.at(point), input.timeZone), input.grouping),
+	);
+	const dates = Array.sort(Record.keys(grouped), Order.String);
+	const first = input.period?.startDate ?? dates[0];
+	const lastDate = dates.at(-1);
+	const last =
+		input.period?.endDate ??
+		(lastDate === undefined
+			? undefined
+			: addCalendarDays(addCalendarUnits(lastDate, input.grouping, 1), -1));
+	if (first === undefined || last === undefined) {
+		return [];
+	}
+	const buckets: CalendarBucket<Point>[] = [];
+	for (
+		let date = startOfCalendarUnit(first, input.grouping);
+		date <= last;
+		date = addCalendarUnits(date, input.grouping, 1)
+	) {
+		const endDate = addCalendarDays(addCalendarUnits(date, input.grouping, 1), -1);
+		buckets.push({
+			date,
+			points: grouped[date] ?? [],
+			period: calendarPeriod(
+				date < first ? first : date,
+				endDate > last ? last : endDate,
+				input.timeZone,
+			),
+		});
+	}
+	return buckets;
+};
+
+export const reportingRangePresets = [
+	{ days: 7, kind: "rolling" },
+	{ days: 30, kind: "rolling" },
+	{ days: 90, kind: "rolling" },
+	{ days: 365, kind: "rolling" },
+	{ offset: 0, unit: "week", kind: "calendar" },
+	{ offset: -1, unit: "week", kind: "calendar" },
+	{ offset: 0, unit: "month", kind: "calendar" },
+	{ offset: -1, unit: "month", kind: "calendar" },
+	{ offset: 0, unit: "year", kind: "calendar" },
+	{ offset: -1, unit: "year", kind: "calendar" },
+] as const satisfies ReadonlyArray<ReportingRange>;
+
+export const reportingRangeValue = (range: ReportingRange) => {
+	if (range.kind === "rolling") {
+		return `rolling-${range.days}`;
+	}
+	if (range.kind === "calendar") {
+		return `${range.offset === 0 ? "this" : "previous"}-${range.unit}`;
+	}
+	return range.kind;
+};
+
+export const analyticsSectionKey = (section: {
+	readonly slug: string;
+	readonly ownerPluginId: string;
+}) => `${section.ownerPluginId}/${section.slug}`;
+
+export const reportingSearchParams = (selection: ReportingSelection) => ({
+	group: selection.grouping,
+	compare: selection.comparison,
+	range: reportingRangeValue(selection.range),
+	end: selection.range.kind === "custom" ? selection.range.endDate : null,
+	start: selection.range.kind === "custom" ? selection.range.startDate : null,
+});
+
+export const parseReportingSearch = (search: string): ReportingSelection => {
+	const params = new URLSearchParams(search);
+	const value = params.get("range");
+	const preset: null | ReportingRange =
+		value === "all-time"
+			? { kind: "all-time" }
+			: (reportingRangePresets.find((range) => reportingRangeValue(range) === value) ?? null);
+	const custom = Schema.decodeUnknownResult(ReportingRange)({
+		kind: "custom",
+		endDate: params.get("end"),
+		startDate: params.get("start"),
+	});
+	let range = defaultReportingSelection.range;
+	if (value === "custom" && Result.isSuccess(custom)) {
+		range = custom.success;
+	} else if (preset !== null) {
+		range = preset;
+	}
+	const grouping = params.get("group");
+	const comparison = params.get("compare");
+	return {
+		range,
+		grouping: Schema.is(ReportingGrouping)(grouping)
+			? grouping
+			: defaultReportingSelection.grouping,
+		comparison: Schema.is(ReportingSelection.fields.comparison)(comparison)
+			? comparison
+			: defaultReportingSelection.comparison,
+	};
+};

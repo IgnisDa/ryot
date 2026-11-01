@@ -1,0 +1,95 @@
+import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import {
+	PluginConflictError,
+	PluginInvocationError,
+	PluginNotFoundError,
+	PluginOperationRejected,
+	PluginRequestError,
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import type {
+	PluginOperationBridgeErrorReason,
+	PluginOperationOutcome,
+	PluginOperationRequest,
+} from "@ryot-app/plugin-client-contract";
+import { Context, Effect, Layer, Schema } from "effect";
+
+import { isDemoOperationProtectedError } from "#/api/authenticated";
+import { PluginsApi } from "#/api/plugins";
+import type { ApiScope } from "#/api/scope";
+
+const isDeclaredFailure = Schema.is(
+	Schema.Union([
+		AuthRateLimited,
+		AuthUnauthorized,
+		PluginConflictError,
+		PluginRequestError,
+		PluginNotFoundError,
+		PluginInvocationError,
+	]),
+);
+
+const isOperationRejected = Schema.is(PluginOperationRejected);
+
+const isStaleRevision = (cause: unknown) =>
+	Schema.is(PluginConflictError)(cause) && cause.reason.code === "source-revision-stale";
+
+export type PluginOperationDispatchOutcome =
+	PluginOperationOutcome | { readonly outcome: "stale-session" };
+
+export class PluginOperationsService extends Context.Service<PluginOperationsService>()(
+	"@ryot-app/kernel-client/modules/pages/bridge/operations/PluginOperationsService",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* PluginsApi;
+			const invoke = Effect.fn("PluginOperationsService.invoke")(function* (invocation: {
+				readonly scope: ApiScope;
+				readonly contentHash: string;
+				readonly request: PluginOperationRequest;
+			}) {
+				const outcome = yield* api
+					.invoke(invocation.scope, {
+						params: {
+							operationSlug: invocation.request.operationSlug,
+							...pluginPackageSegments(invocation.request.packageId),
+						},
+						payload: {
+							payload: invocation.request.input,
+							contentHash: invocation.contentHash,
+							...(invocation.request.idempotencyKey === undefined
+								? {}
+								: { idempotencyKey: invocation.request.idempotencyKey }),
+						},
+					})
+					.pipe(
+						Effect.match({
+							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
+							onFailure: (error) => {
+								if (isStaleRevision(error.cause)) {
+									return { outcome: "stale-session" } as const;
+								}
+								if (isOperationRejected(error.cause)) {
+									return {
+										outcome: "failure",
+										message: error.cause.message,
+										reason: "operation-rejected",
+									} as const;
+								}
+								const reason = (
+									isDeclaredFailure(error.cause) || isDemoOperationProtectedError(error)
+										? "operation-failed"
+										: "transport"
+								) satisfies PluginOperationBridgeErrorReason;
+								return { reason, outcome: "failure" } as const;
+							},
+						}),
+					);
+				return outcome satisfies PluginOperationDispatchOutcome;
+			});
+
+			return { invoke };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

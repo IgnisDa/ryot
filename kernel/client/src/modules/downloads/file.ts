@@ -1,0 +1,113 @@
+import { Capacitor } from "@capacitor/core";
+import { type DownloadFileOptions, FileTransfer } from "@capacitor/file-transfer";
+import { Directory, Filesystem } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+import { Context, Effect, Layer, Option, Schema } from "effect";
+import { SecureRandom } from "effect/crypto";
+
+export type FileDownloadRequest = { readonly fileName: string } & Pick<DownloadFileOptions, "url">;
+
+export class FileDownloadError extends Schema.TaggedError<
+	FileDownloadError,
+	{ readonly brand: unique symbol }
+>()("FileDownloadError", { cause: Schema.Unknown, status: Schema.optionalKey(Schema.Int) }) {}
+
+const NativeHttpError = Schema.Struct({ data: Schema.Struct({ httpStatus: Schema.Finite }) });
+const nativeError = (cause: unknown) => {
+	const decoded = Schema.decodeUnknownOption(NativeHttpError)(cause);
+	return new FileDownloadError({
+		cause,
+		...(Option.isSome(decoded) ? { status: decoded.value.data.httpStatus } : {}),
+	});
+};
+
+export const makeNativeFileDownload = (
+	random: SecureRandom.SecureRandom["Service"],
+	ports: {
+		readonly remove: (path: string) => Effect.Effect<void>;
+		readonly share: (uri: string) => Effect.Effect<void, FileDownloadError>;
+		readonly uri: (path: string) => Effect.Effect<string, FileDownloadError>;
+		readonly create: (path: string) => Effect.Effect<void, FileDownloadError>;
+		readonly transfer: (request: DownloadFileOptions) => Effect.Effect<void, FileDownloadError>;
+	},
+) =>
+	Effect.fn("NativeFileDownload")(function* (request: FileDownloadRequest) {
+		const directory = `ryot-download-${yield* random.uuidV4()}`;
+		const fileName = request.fileName.replaceAll(/[\\/]/g, "_");
+		yield* Effect.acquireRelease(ports.create(directory), () => ports.remove(directory));
+		const uri = yield* ports.uri(`${directory}/${fileName}`);
+		// Native plugins cannot abort transfers or share sheets; cleanup must wait for their completion.
+		yield* ports
+			.transfer({ path: uri, url: request.url, disableRedirects: true })
+			.pipe(Effect.uninterruptible);
+		yield* ports.share(uri).pipe(
+			Effect.catchIf(
+				(error) =>
+					typeof error.cause === "object" &&
+					error.cause !== null &&
+					"message" in error.cause &&
+					error.cause.message === "Share canceled",
+				() => Effect.void,
+			),
+			Effect.uninterruptible,
+		);
+	}, Effect.scoped);
+
+const nativeFilePorts: Parameters<typeof makeNativeFileDownload>[1] = {
+	share: (uri) =>
+		Effect.tryPromise({ catch: nativeError, try: () => Share.share({ files: [uri] }) }).pipe(
+			Effect.asVoid,
+		),
+	transfer: (request) =>
+		Effect.tryPromise({ catch: nativeError, try: () => FileTransfer.downloadFile(request) }).pipe(
+			Effect.asVoid,
+		),
+	remove: (path) =>
+		Effect.tryPromise(() =>
+			Filesystem.rmdir({ path, recursive: true, directory: Directory.Cache }),
+		).pipe(Effect.ignore),
+	create: (path) =>
+		Effect.tryPromise({
+			catch: nativeError,
+			try: () => Filesystem.mkdir({ path, directory: Directory.Cache }),
+		}).pipe(Effect.asVoid),
+	uri: (path) =>
+		Effect.tryPromise({
+			catch: nativeError,
+			try: () => Filesystem.getUri({ path, directory: Directory.Cache }),
+		}).pipe(Effect.map((result) => result.uri)),
+};
+
+export class FileDownloads extends Context.Service<
+	FileDownloads,
+	{ readonly download: (request: FileDownloadRequest) => Effect.Effect<void, FileDownloadError> }
+>()("@ryot-app/kernel-client/modules/downloads/file/FileDownloads", {
+	make: Effect.gen(function* () {
+		const downloadNativeFile = makeNativeFileDownload(
+			yield* SecureRandom.SecureRandom,
+			nativeFilePorts,
+		);
+		return {
+			download: Effect.fn("downloadFile")(function* (request: FileDownloadRequest) {
+				if (Capacitor.isNativePlatform()) {
+					yield* downloadNativeFile(request);
+					return;
+				}
+				yield* Effect.try({
+					catch: (cause) => new FileDownloadError({ cause }),
+					try: () => {
+						const anchor = document.createElement("a");
+						anchor.href = request.url;
+						anchor.rel = "noreferrer";
+						anchor.referrerPolicy = "no-referrer";
+						document.body.append(anchor);
+						anchor.click();
+						anchor.remove();
+					},
+				});
+			}),
+		};
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}

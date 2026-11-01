@@ -1,0 +1,573 @@
+import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	PluginHook,
+	PluginHookTarget,
+	PluginManifest,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	type DefinitionOwner,
+	definitionOwner,
+	definitionOwnerPluginId,
+} from "@ryot-app/contract/modules/plugins/references";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
+import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
+import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
+
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+
+import type { BatchHookPin } from "./batch-hook-pin";
+
+const plannedScriptFields = {
+	id: tables.sandboxScript.id,
+	slug: tables.sandboxScript.slug,
+	metadata: tables.sandboxScript.metadata,
+	contentHash: tables.sandboxScript.contentHash,
+};
+
+type PlannedAutomationScript = {
+	[Field in keyof typeof plannedScriptFields]: (typeof tables.sandboxScript.$inferSelect)[Field];
+};
+
+type TransactionCatalogMemo = {
+	readonly lockedSets: Set<string>;
+	readonly scripts: Map<string, PlannedAutomationScript>;
+	readonly catalogs: Map<null | UserId, ReadonlyArray<PlannerPlugin>>;
+};
+
+type PlannerPlugin = {
+	readonly id: string;
+	readonly pluginRevisionId: string;
+	readonly hooks: PluginManifest["hooks"];
+	readonly scripts: PluginManifest["scripts"];
+	readonly pluginConfigRevisionId: null | string;
+	readonly signalSchemas: PluginManifest["signalSchemas"];
+};
+
+const scriptKey = (pluginRevisionId: string, slug: string) =>
+	JSON.stringify([pluginRevisionId, slug]);
+
+type SelectedHook = { hook: PluginHook; plugin: PlannerPlugin };
+
+const plannerPluginFields = {
+	hooks: tables.pluginRevision.hooks,
+	scripts: tables.pluginRevision.scripts,
+	signalSchemas: tables.pluginRevision.signalSchemas,
+};
+
+type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
+type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
+type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
+
+const targetSnapshot = (payload: ItemPayload) => {
+	if (payload.category === "request") {
+		return payload.draft;
+	}
+	if (payload.resource === "signal" || payload.resource === "provider-entity-import") {
+		return payload;
+	}
+	return payload.operation === "delete" ? payload.before : payload.after;
+};
+
+export const automationPayloadPluginId = (payload: ItemPayload) => {
+	const snapshot = targetSnapshot(payload);
+	if (payload.resource === "signal") {
+		return payload.signalSchemaPluginId;
+	}
+	if (payload.resource === "relationship" && "relationshipSchemaPluginId" in snapshot) {
+		return snapshot.relationshipSchemaPluginId;
+	}
+	if (payload.resource === "event" && "eventSchemaPluginId" in snapshot) {
+		return snapshot.eventSchemaPluginId;
+	}
+	if ("entitySchemaPluginId" in snapshot) {
+		return snapshot.entitySchemaPluginId;
+	}
+	return undefined;
+};
+
+const matchesItem = (
+	owner: DefinitionOwner,
+	target: PluginHookTarget,
+	payload: ItemPayload,
+): boolean => {
+	const targetOwner = "owner" in target ? target.owner : owner;
+	if (
+		target.resource !== payload.resource ||
+		target.operation !== payload.operation ||
+		automationPayloadPluginId(payload) !== definitionOwnerPluginId(targetOwner)
+	) {
+		return false;
+	}
+	const snapshot = targetSnapshot(payload);
+	switch (target.resource) {
+		case "event":
+			return (
+				"eventSchemaSlug" in snapshot &&
+				"entitySchemaPluginId" in snapshot &&
+				snapshot.entitySchemaPluginId === definitionOwnerPluginId(targetOwner) &&
+				snapshot.eventSchemaSlug === target.eventSchemaSlug &&
+				snapshot.entitySchemaSlug === target.entitySchemaSlug
+			);
+		case "entity":
+		case "provider-entity-import":
+			return (
+				"entitySchemaSlug" in snapshot && snapshot.entitySchemaSlug === target.entitySchemaSlug
+			);
+		case "signal":
+			return (
+				"signalSchemaSlug" in snapshot && snapshot.signalSchemaSlug === target.signalSchemaSlug
+			);
+		case "relationship":
+			return (
+				"relationshipSchemaSlug" in snapshot &&
+				snapshot.relationshipSchemaSlug === target.relationshipSchemaSlug
+			);
+		default:
+			return false;
+	}
+};
+
+export const matchesTarget = (
+	owner: DefinitionOwner,
+	target: PluginHookTarget,
+	trigger: AutomationTrigger,
+): boolean => {
+	const payload = trigger.payload;
+	if (!payload) {
+		return false;
+	}
+	return payload.operation === "batch"
+		? payload.items.some((item) => matchesItem(owner, target, item))
+		: matchesItem(owner, target, payload);
+};
+
+export class AutomationPlannerResolver extends Context.Service<AutomationPlannerResolver>()(
+	"@ryot-app/kernel-backend/modules/automations/planner-resolver/AutomationPlannerResolver",
+	{
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* PluginRepository;
+			const definitions = yield* DefinitionRepository;
+			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
+				yield* repository.lockIngestionShared();
+				const userIds = users.filter((id) => id !== null);
+				const rows = yield* session.run((db) =>
+					db
+						.select({ id: tables.plugin.id })
+						.from(tables.plugin)
+						.where(
+							and(
+								eq(tables.plugin.status, "active"),
+								or(
+									users.includes(null) ? isNull(tables.plugin.ownerId) : sql`false`,
+									userIds.length
+										? inArray(
+												tables.plugin.id,
+												db
+													.select({ pluginId: tables.pluginInstallation.pluginId })
+													.from(tables.pluginInstallation)
+													.where(inArray(tables.pluginInstallation.userId, userIds)),
+											)
+										: sql`false`,
+								),
+							),
+						)
+						.orderBy(asc(tables.plugin.id)),
+				);
+				for (const { id } of rows) {
+					// Shared: planners coexist; PluginConfigRevisions.lock takes this same key exclusively.
+					yield* session.run((db) =>
+						db.execute(
+							sql`select pg_advisory_xact_lock_shared(hashtext(${"plugin-config:" + id}))`,
+						),
+					);
+				}
+				const ids = rows.map(({ id }) => id);
+				if (!ids.length) {
+					return;
+				}
+				yield* session.run((db) =>
+					db
+						.select({ id: tables.plugin.id })
+						.from(tables.plugin)
+						.where(inArray(tables.plugin.id, ids))
+						.orderBy(asc(tables.plugin.id))
+						.for("share"),
+				);
+				if (userIds.length) {
+					yield* session.run((db) =>
+						db
+							.select({ id: tables.pluginInstallation.id })
+							.from(tables.pluginInstallation)
+							.where(
+								and(
+									inArray(tables.pluginInstallation.pluginId, ids),
+									inArray(tables.pluginInstallation.userId, userIds),
+								),
+							)
+							.orderBy(asc(tables.pluginInstallation.pluginId), asc(tables.pluginInstallation.id))
+							.for("share"),
+					);
+				}
+			});
+			const catalogUncached = Effect.fn(function* (
+				userId: null | UserId,
+			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
+				if (userId === null) {
+					return yield* session.run((db) =>
+						db
+							.select({
+								...plannerPluginFields,
+								id: tables.globalPlugin.pluginId,
+								pluginRevisionId: tables.globalPlugin.activeRevisionId,
+								pluginConfigRevisionId: tables.globalPlugin.configRevisionId,
+							})
+							.from(tables.globalPlugin)
+							.innerJoin(
+								tables.pluginRevision,
+								eq(tables.pluginRevision.id, tables.globalPlugin.activeRevisionId),
+							)
+							.where(eq(tables.globalPlugin.isExecutable, true))
+							.orderBy(asc(tables.globalPlugin.pluginId)),
+					);
+				}
+				return yield* session.run((db) =>
+					db
+						.select({
+							...plannerPluginFields,
+							id: tables.userPlugin.pluginId,
+							pluginRevisionId: tables.userPlugin.activeRevisionId,
+							pluginConfigRevisionId: tables.userPlugin.configRevisionId,
+						})
+						.from(tables.userPlugin)
+						.innerJoin(
+							tables.pluginRevision,
+							eq(tables.pluginRevision.id, tables.userPlugin.activeRevisionId),
+						)
+						.innerJoin(
+							tables.user,
+							and(eq(tables.user.id, tables.userPlugin.userId), isNull(tables.user.disabledAt)),
+						)
+						.where(
+							and(eq(tables.userPlugin.userId, userId), eq(tables.userPlugin.isExecutable, true)),
+						)
+						.orderBy(asc(tables.userPlugin.pluginId)),
+				);
+			});
+			// `lockCatalogUncached` holds the `plugin-config:` advisory locks and the `for share` rows on
+			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
+			// can move the pointers a catalog read resolved: a second read within the same transaction
+			// cannot observe anything different, so both are worth resolving once. Callers must plan
+			// inside `session.transaction(...)`; entries are keyed on that transaction's executor
+			// value and die with it.
+			const memos = new WeakMap<object, TransactionCatalogMemo>();
+			const memoFor = (db: object) => {
+				const existing = memos.get(db);
+				if (existing) {
+					return existing;
+				}
+				const created: TransactionCatalogMemo = {
+					scripts: new Map(),
+					catalogs: new Map(),
+					lockedSets: new Set(),
+				};
+				memos.set(db, created);
+				return created;
+			};
+			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
+				yield* session.run((db) =>
+					Effect.gen(function* () {
+						const memo = memoFor(db);
+						const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
+						if (memo.lockedSets.has(key)) {
+							return;
+						}
+						yield* lockCatalogUncached(users);
+						memo.lockedSets.add(key);
+					}),
+				);
+			});
+			const catalog = Effect.fn(function* (userId: null | UserId) {
+				return yield* session.run((db) =>
+					Effect.gen(function* () {
+						const memo = memoFor(db);
+						const cached = memo.catalogs.get(userId);
+						if (cached) {
+							return cached;
+						}
+						const resolved = yield* catalogUncached(userId);
+						memo.catalogs.set(userId, resolved);
+						return resolved;
+					}),
+				);
+			});
+			const materialize = Effect.fn(function* (selected: ReadonlyArray<SelectedHook>) {
+				return yield* session.run((db) =>
+					Effect.gen(function* () {
+						const memo = memoFor(db);
+						const missing = new Map(
+							selected
+								.map(({ hook, plugin }) => ({
+									slug: hook.scriptSlug,
+									pluginRevisionId: plugin.pluginRevisionId,
+								}))
+								.filter(
+									({ slug, pluginRevisionId }) =>
+										!memo.scripts.has(scriptKey(pluginRevisionId, slug)),
+								)
+								.map((reference) => [
+									scriptKey(reference.pluginRevisionId, reference.slug),
+									reference,
+								]),
+						);
+						if (missing.size) {
+							const scripts = yield* db
+								.select({ ...plannedScriptFields, pluginRevisionId: tables.pluginRevision.id })
+								.from(tables.sandboxScript)
+								.innerJoin(
+									tables.pluginRevision,
+									eq(tables.pluginRevision.id, tables.sandboxScript.pluginRevisionId),
+								)
+								.where(
+									or(
+										...[...missing.values()].map(({ slug, pluginRevisionId }) =>
+											and(
+												eq(tables.sandboxScript.pluginRevisionId, pluginRevisionId),
+												eq(tables.sandboxScript.slug, slug),
+											),
+										),
+									),
+								);
+							for (const script of scripts) {
+								memo.scripts.set(scriptKey(script.pluginRevisionId, script.slug), script);
+							}
+						}
+						return yield* Effect.forEach(selected, ({ hook, plugin }) => {
+							const script = memo.scripts.get(scriptKey(plugin.pluginRevisionId, hook.scriptSlug));
+							return script?.metadata.kind === "automation"
+								? Effect.succeed({ hook, plugin, script })
+								: Effect.fail(
+										new DbError({ message: `Missing automation script ${plugin.id}/${hook.slug}` }),
+									);
+						});
+					}),
+				);
+			});
+			const resolve = Effect.fn(function* (
+				trigger: AutomationTrigger,
+				executionUserId: null | UserId,
+			) {
+				const available = yield* catalog(executionUserId);
+				const result: Array<{
+					hook: PluginHook;
+					plugin: null | PlannerPlugin;
+					executionUserId: null | UserId;
+					script: PlannedAutomationScript;
+				}> = [];
+				const signal = trigger.payload?.resource === "signal" ? trigger.payload : null;
+				const preferences =
+					signal && executionUserId !== null
+						? yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.notificationSubscription)
+									.where(
+										and(
+											eq(tables.notificationSubscription.userId, executionUserId),
+											eq(tables.notificationSubscription.signalSchemaSlug, signal.signalSchemaSlug),
+											signal.signalSchemaPluginId === null
+												? isNull(tables.notificationSubscription.signalSchemaPluginId)
+												: eq(
+														tables.notificationSubscription.signalSchemaPluginId,
+														signal.signalSchemaPluginId,
+													),
+										),
+									)
+									.orderBy(asc(tables.notificationSubscription.id))
+									.for("share"),
+							)
+						: [];
+				const kernelDefinition =
+					signal?.signalSchemaPluginId === null
+						? yield* definitions.findGlobalSignalSchema({
+								owner: { kind: "kernel" },
+								slug: signal.signalSchemaSlug,
+							})
+						: null;
+				const kernelSignal =
+					kernelDefinition && kernelDefinition.pluginId == null ? kernelDefinition : null;
+				const signalOwner =
+					signal && signal.signalSchemaPluginId !== null
+						? available.find(({ id }) => id === signal.signalSchemaPluginId)
+						: null;
+				const signalDefinition = signalOwner?.signalSchemas.find(
+					({ slug }) => slug === signal?.signalSchemaSlug,
+				);
+				if (signal && !kernelSignal && !signalDefinition) {
+					return result;
+				}
+				const isBatch = trigger.kind.operation === "batch";
+				const selected: SelectedHook[] = [];
+				for (const plugin of available) {
+					for (const hook of plugin.hooks) {
+						if (
+							hook.targets.some((target) => "owner" in target) &&
+							(hook.stage === "before" || hook.executionScope === "global")
+						) {
+							return yield* new DbError({
+								message: `Invalid kernel collection observer authority ${plugin.id}/${hook.slug}`,
+							});
+						}
+						if (
+							hook.stage !== (trigger.kind.category === "request" ? "before" : "after") ||
+							(hook.causationSources && !hook.causationSources.includes(trigger.causation.source))
+						) {
+							continue;
+						}
+						if (
+							hook.stage === "after" &&
+							(((hook.frequency ?? "item") === "batch") !== isBatch ||
+								(hook.executionScope === "user" && executionUserId === null) ||
+								(hook.executionScope === "global" && executionUserId !== null))
+						) {
+							continue;
+						}
+						if (
+							!hook.targets.some((target) =>
+								matchesTarget(definitionOwner(plugin.id), target, trigger),
+							)
+						) {
+							continue;
+						}
+						const notification =
+							signal &&
+							plugin.signalSchemas.some(
+								(definition) =>
+									definition.slug === signal.signalSchemaSlug &&
+									definition.notificationHookSlug === hook.slug,
+							);
+						if (
+							notification &&
+							(signalOwner?.id !== plugin.id ||
+								(signalDefinition ?? kernelSignal)?.catalogState !== "active" ||
+								!preferences.some((p) => p.isActive && p.signalSchemaPluginId === plugin.id))
+						) {
+							continue;
+						}
+						const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
+						if (
+							declaration?.kind !== "automation" ||
+							declaration.automationType !== (hook.stage === "before" ? "policy" : "automation") ||
+							(hook.stage === "before" &&
+								declaration.capabilities.some(
+									(capability) =>
+										!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+								))
+						) {
+							return yield* new DbError({
+								message: `Invalid automation hook script ${plugin.id}/${hook.slug}`,
+							});
+						}
+						selected.push({ hook, plugin });
+					}
+				}
+				result.push(
+					...(yield* materialize(selected)).map(({ hook, plugin, script }) => ({
+						hook,
+						plugin,
+						script,
+						executionUserId,
+					})),
+				);
+				if (
+					kernelSignal?.catalogState === "active" &&
+					signal &&
+					executionUserId !== null &&
+					preferences.some((p) => p.isActive && p.signalSchemaPluginId === null)
+				) {
+					const [user] = yield* session.run((db) =>
+						db
+							.select({ id: tables.user.id })
+							.from(tables.user)
+							.where(and(eq(tables.user.id, executionUserId), isNull(tables.user.disabledAt))),
+					);
+					if (!user) {
+						return result;
+					}
+					const slug = kernelSignal.notificationHookSlug;
+					const script = yield* repository.findKernelScript(slug);
+					if (script?.metadata.kind !== "automation") {
+						return yield* new DbError({ message: "Kernel notification script is unavailable" });
+					}
+					result.push({
+						script,
+						plugin: null,
+						executionUserId,
+						hook: {
+							slug,
+							stage: "after",
+							scriptSlug: slug,
+							delivery: "async",
+							name: kernelSignal.name,
+							targets: [
+								{
+									operation: "emit",
+									resource: "signal",
+									signalSchemaSlug: signal.signalSchemaSlug,
+								},
+							],
+						},
+					});
+				}
+				return result;
+			});
+			const resolveBatchCandidates = Effect.fn(function* (input: {
+				userId: null | UserId;
+				resource: "event" | "entity" | "relationship";
+				source: AutomationTrigger["causation"]["source"];
+			}) {
+				const available = yield* catalog(input.userId);
+				const selected: SelectedHook[] = [];
+				for (const plugin of available) {
+					for (const hook of plugin.hooks) {
+						if (
+							hook.stage !== "after" ||
+							hook.frequency !== "batch" ||
+							(hook.causationSources && !hook.causationSources.includes(input.source)) ||
+							(hook.executionScope === "user" && input.userId === null) ||
+							(hook.executionScope === "global" && input.userId !== null) ||
+							!hook.targets.some((target) => target.resource === input.resource)
+						) {
+							continue;
+						}
+						const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
+						if (declaration?.kind !== "automation" || declaration.automationType !== "automation") {
+							return yield* new DbError({
+								message: `Invalid batch hook script ${plugin.id}/${hook.slug}`,
+							});
+						}
+						selected.push({ hook, plugin });
+					}
+				}
+				return (yield* materialize(selected)).map(({ hook, plugin, script }): BatchHookPin => ({
+					payload: { hook, scriptSlug: script.slug, scriptContentHash: script.contentHash },
+					references: {
+						scopeUserId: input.userId,
+						sandboxScriptId: script.id,
+						pluginId: PluginId.make(plugin.id),
+						pluginRevisionId: plugin.pluginRevisionId,
+						pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+					},
+				}));
+			});
+			return { resolve, lockCatalog, resolveBatchCandidates };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

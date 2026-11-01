@@ -1,0 +1,618 @@
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import { integrationWebhookUrl as buildIntegrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
+import {
+	getOAuthEndpoint,
+	getOAuthResource,
+	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_NATIVE_CALLBACK_URIS,
+	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_TOKEN_PATH,
+	OAUTH_WEB_CLIENT_ID,
+	type OAuthClientId,
+	OAuthTokenResponse,
+} from "@ryot-app/contract/oauth";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
+import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
+import { randomUuid } from "@ryot-app/testing/random";
+import { Effect, Option, Result, Schema } from "effect";
+import getPort from "get-port";
+
+import {
+	clearEntityUserData,
+	createApiKey,
+	createCollection,
+	createEntity,
+	createKodiIntegration,
+	createTestUser,
+	executeRyotQL,
+	executeRyotQLRecipe,
+	findPluginInstallationByPackage,
+	getTwoFactorStatus,
+	getUserSettings,
+	listEventSchemas,
+	listRelationshipSchemas,
+	makeSession,
+	mergeEntityUserData,
+	type PendingOAuth,
+	prepareOAuth,
+	requireEventSchemaBySlug,
+	requireRelationshipSchemaBySlug,
+	requireRows,
+	requireRyotQLText,
+	responseCookie,
+	searchProviderEntities,
+	signInWithPassword,
+	updateUserSettingsPreferences,
+	waitForCreateEvents,
+} from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
+import {
+	assertTaggedError,
+	requireArray,
+	requireObjectRecord,
+	requirePresent,
+	requireString,
+} from "~/support/assertions";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import {
+	buildApiEnv,
+	startApiProcess,
+	startCoreTestInfrastructure,
+	stopApiProcess,
+} from "~/support/provisioning";
+import { makeTestResourceScope } from "~/support/resource-scope";
+import { webRequest } from "~/support/web-request";
+
+const S3_BUCKET_NAME = "ryot-demo-access-test";
+const DEMO_COLLECTION_NAME = `Demo acceptance ${crypto.randomUUID()}`;
+
+let apiUrl: string;
+let harnessTarget: Effect.Success<ReturnType<typeof startApiProcess>>["target"];
+let apiOrigin: string;
+let apiProcess: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
+let demoApiKey: string;
+let demoUserId: string;
+let demoEmail: string;
+let demoPassword: string;
+let integrationId: string;
+let integrationWebhookUrl: string;
+let ownerSessionCookie: string;
+let infrastructure: undefined | Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>;
+const resources = makeTestResourceScope();
+
+const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>
+	[
+		{ method: "GET", path: "/list-accounts", expectedStandardStatus: 200 },
+		{ method: "POST", body: { accountId }, path: "/get-access-token" },
+		{ method: "POST", body: { accountId }, path: "/refresh-token" },
+		{ method: "GET", path: `/account-info?accountId=${encodeURIComponent(accountId)}` },
+		{ method: "GET", path: "/list-sessions", expectedStandardStatus: 200 },
+		{ method: "GET", path: "/api-key/list", expectedStandardStatus: 200 },
+		{
+			method: "GET",
+			expectedStandardStatus: 200,
+			path: `/api-key/get?id=${encodeURIComponent(apiKeyId)}`,
+		},
+		{ body: {}, method: "POST", path: "/two-factor/get-totp-uri" },
+		{ method: "POST", body: { code: "000000" }, path: "/two-factor/verify-totp" },
+	] as const;
+
+const callHostedAuth = (
+	sessionCookie: string,
+	request: ReturnType<typeof authControlPlaneRequests>[number],
+) =>
+	Effect.gen(function* () {
+		return yield* webRequest(`${apiOrigin}/api/auth${request.path}`, {
+			method: request.method,
+			headers: {
+				Cookie: sessionCookie,
+				...(request.method === "POST" ? { "content-type": "application/json" } : {}),
+			},
+			...(request.method === "POST"
+				? { body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(request.body) }
+				: {}),
+		});
+	});
+
+const startApi = (extraEnv: Record<string, string | undefined>) =>
+	Effect.gen(function* () {
+		const activeInfrastructure = requirePresent(
+			infrastructure,
+			"Demo access test infrastructure is not initialised",
+		);
+		const env = buildApiEnv({
+			extraEnv,
+			frontendUrl: apiOrigin,
+			s3BucketName: S3_BUCKET_NAME,
+			label: "Demo access acceptance",
+			dbUrl: activeInfrastructure.dbUrl,
+			port: Number(new URL(apiOrigin).port),
+			redisUrl: activeInfrastructure.redisUrl,
+			s3Endpoint: activeInfrastructure.s3Endpoint,
+		});
+		apiProcess = yield* startApiProcess(env, "Demo access acceptance");
+		harnessTarget = apiProcess.target;
+		return env;
+	});
+
+const exchangeTokens = (
+	pending: PendingOAuth,
+	authorizationResponse: Response,
+	clientId: OAuthClientId,
+) =>
+	Effect.gen(function* () {
+		const callback = new URL(
+			requirePresent(
+				authorizationResponse.headers.get("location"),
+				"OAuth authorization did not redirect",
+			),
+			pending.serverOrigin,
+		);
+		const code = requirePresent(
+			callback.searchParams.get("code"),
+			"OAuth authorization returned no code",
+		);
+		const response = yield* webRequest(getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH), {
+			method: "POST",
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({
+				code,
+				client_id: clientId,
+				grant_type: "authorization_code",
+				redirect_uri: pending.redirectUri,
+				code_verifier: pending.codeVerifier,
+				resource: getOAuthResource(pending.frontendOrigin),
+			}),
+		});
+		expect(response.status).toBe(200);
+		return yield* Schema.decodeUnknownEffect(OAuthTokenResponse)(
+			yield* Effect.promise(() => response.json()),
+		);
+	});
+
+const authorize = (sessionCookie: string, clientId: OAuthClientId, redirectUri?: string) =>
+	Effect.gen(function* () {
+		const pending = yield* prepareOAuth(apiUrl);
+		const authorizationUrl = new URL(pending.authorizationUrl);
+		authorizationUrl.searchParams.set("client_id", clientId);
+		if (redirectUri) {
+			authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+		}
+		const response = yield* webRequest(authorizationUrl, {
+			redirect: "manual",
+			headers: { Cookie: sessionCookie },
+		});
+		return { pending, response };
+	});
+
+const signInDemo = () =>
+	Effect.gen(function* () {
+		const response = yield* webRequest(`${apiOrigin}/api/auth/demo/sign-in`, {
+			method: "POST",
+			headers: { Origin: apiOrigin },
+		});
+		expect(response.status).toBe(200);
+		expect(yield* Effect.promise(() => response.json())).toEqual({ mode: "demo" });
+		return requirePresent(responseCookie(response), "Demo sign-in did not set a session cookie");
+	});
+
+const expectDemoSession = (sessionCookie: string) =>
+	Effect.gen(function* () {
+		const response = yield* webRequest(`${apiOrigin}/api/auth/get-session`, {
+			headers: { Cookie: sessionCookie },
+		});
+		expect(response.status).toBe(200);
+		expect(yield* Effect.promise(() => response.json())).toMatchObject({
+			user: { id: demoUserId },
+			session: { userId: demoUserId, accessClass: "demo" },
+		});
+	});
+
+const signInOwnerClient = () =>
+	Effect.gen(function* () {
+		const ownerSignIn = yield* signInWithPassword(demoEmail, demoPassword, apiUrl);
+		expect(ownerSignIn.error).toBeNull();
+		return makeSession(harnessTarget, {
+			Authorization: `Bearer ${requirePresent(ownerSignIn.token, "Owner sign-in returned no token")}`,
+		});
+	});
+
+const getDemoToken = (sessionCookie: string) =>
+	Effect.gen(function* () {
+		const { pending, response } = yield* authorize(sessionCookie, OAUTH_DEMO_WEB_CLIENT_ID);
+		expect(response.status).toBe(302);
+		const tokens = yield* exchangeTokens(pending, response, OAUTH_DEMO_WEB_CLIENT_ID);
+		return tokens.access_token;
+	});
+
+beforeAll(() =>
+	runPromise(
+		resources.run(
+			Effect.gen(function* () {
+				const port = yield* Effect.promise(() => getPort());
+				apiOrigin = `http://127.0.0.1:${port}`;
+				apiUrl = `${apiOrigin}/api`;
+				infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+
+				yield* startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
+				const seeded = yield* createTestUser(apiUrl);
+				demoUserId = seeded.userId;
+				demoEmail = seeded.email;
+				demoPassword = seeded.password;
+				ownerSessionCookie = seeded.sessionCookie;
+				demoApiKey = yield* createApiKey(seeded.sessionCookie, "Demo account key", apiUrl);
+				const owner = makeSession(harnessTarget, { Authorization: `Bearer ${seeded.token}` });
+				const integration = yield* createKodiIntegration(owner);
+				integrationId = integration.id;
+				const detail = requirePresent(
+					Option.getOrUndefined(
+						yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
+					),
+					"Seeded integration detail is missing",
+				);
+				const { frontendOrigin } = yield* owner.call((c) => c.system.config());
+				integrationWebhookUrl = buildIntegrationWebhookUrl(
+					frontendOrigin,
+					requirePresent(
+						detail.webhookToken,
+						"Seeded integration did not expose its webhook token",
+					),
+				);
+
+				yield* stopApiProcess(apiProcess);
+				apiProcess = undefined;
+				yield* startApi({ USERS_ALLOW_REGISTRATION: "false", USERS_DEMO_ACCOUNT_ID: demoUserId });
+			}),
+		),
+	),
+);
+
+afterAll(() => runPromise(resources.close));
+
+describe("shared demo access acceptance", () => {
+	it.live("enters the configured account and issues restricted demo OAuth authority", () =>
+		Effect.gen(function* () {
+			const config = yield* makeSession(harnessTarget).call((c) => c.system.config());
+			expect(config.auth.signupAllowed).toBe(false);
+
+			const sessionCookie = yield* signInDemo();
+			yield* expectDemoSession(sessionCookie);
+			const token = yield* getDemoToken(sessionCookie);
+			const demoClient = makeSession(harnessTarget, { Authorization: `Bearer ${token}` });
+
+			const collection = yield* createCollection(demoClient, {
+				name: DEMO_COLLECTION_NAME,
+				description: "Persists between demo sessions",
+			});
+			expect(collection.name).toBe(DEMO_COLLECTION_NAME);
+			const rawProtectedResponse = yield* webRequest(`${apiUrl}/account/preferences`, {
+				method: "PATCH",
+				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ language: "de" }),
+			});
+			expect(rawProtectedResponse.status).toBe(403);
+			expect(yield* Effect.promise(() => rawProtectedResponse.json())).toEqual({
+				_tag: "DemoOperationProtected",
+				reason: { code: "demo-operation-protected" },
+			});
+			const mediaInstallation = yield* findPluginInstallationByPackage(demoClient, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			const pluginStateResponse = yield* webRequest(
+				`${apiUrl}/plugins/installations/${mediaInstallation.installationId}/state`,
+				{
+					method: "PATCH",
+					headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						isHidden: true,
+					}),
+				},
+			);
+			expect(pluginStateResponse.status).toBe(403);
+			expect(yield* Effect.promise(() => pluginStateResponse.json())).toEqual({
+				_tag: "DemoOperationProtected",
+				reason: { code: "demo-operation-protected" },
+			});
+
+			const protectedError = yield* Effect.flip(
+				updateUserSettingsPreferences(demoClient, { language: "de" }),
+			);
+			expect(protectedError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			expect((yield* getUserSettings(demoClient)).id).toBe(demoUserId);
+			expect(yield* Effect.flip(getTwoFactorStatus(demoClient))).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			yield* expectDemoSession(sessionCookie);
+		}),
+	);
+
+	it.live("keeps owner OAuth unrestricted for the same configured user", () =>
+		Effect.gen(function* () {
+			const ownerSignIn = yield* signInWithPassword(demoEmail, demoPassword, apiUrl);
+			expect(ownerSignIn.error).toBeNull();
+			const ownerCookie = requirePresent(
+				ownerSignIn.sessionCookie,
+				"Owner sign-in returned no session",
+			);
+			const sessionResponse = yield* webRequest(`${apiOrigin}/api/auth/get-session`, {
+				headers: { Cookie: ownerCookie },
+			});
+			expect(yield* Effect.promise(() => sessionResponse.json())).toMatchObject({
+				user: { id: demoUserId },
+				session: { accessClass: "standard" },
+			});
+
+			const ownerClient = makeSession(harnessTarget, {
+				Authorization: `Bearer ${requirePresent(ownerSignIn.token, "Owner sign-in returned no token")}`,
+			});
+			yield* updateUserSettingsPreferences(ownerClient, { language: "en" });
+			expect((yield* getUserSettings(ownerClient)).preferences.language).toBe("en");
+		}),
+	);
+
+	it.live("does not let alternate credentials or normal clients bypass demo restrictions", () =>
+		Effect.gen(function* () {
+			const apiKeyClient = makeSession(harnessTarget, { "X-Api-Key": demoApiKey });
+			const apiKeyError = yield* Effect.flip(
+				updateUserSettingsPreferences(apiKeyClient, { language: "fr" }),
+			);
+			assertTaggedError(apiKeyError, "DemoOperationProtected");
+			expect(apiKeyError.reason.code).toBe("demo-operation-protected");
+
+			const sessionCookie = yield* signInDemo();
+			for (const [clientId, redirectUri] of [
+				[OAUTH_WEB_CLIENT_ID, undefined],
+				[OAUTH_NATIVE_CLIENT_ID, OAUTH_NATIVE_CALLBACK_URIS[0]],
+			] as const) {
+				const { response } = yield* authorize(sessionCookie, clientId, redirectUri);
+				expect(response.status).toBe(403);
+				expect(yield* Effect.promise(() => response.json())).toMatchObject({
+					code: "DEMO_OPERATION_PROTECTED",
+				});
+			}
+		}),
+	);
+
+	it.live("protects Better Auth credential reads while preserving standard hosted access", () =>
+		Effect.gen(function* () {
+			const standardAccountsResponse = yield* webRequest(`${apiOrigin}/api/auth/list-accounts`, {
+				headers: { Cookie: ownerSessionCookie },
+			});
+			expect(standardAccountsResponse.status).toBe(200);
+			const standardAccounts: unknown = yield* Effect.promise(() =>
+				standardAccountsResponse.json(),
+			);
+			const account = requireObjectRecord(
+				requirePresent(
+					requireArray(standardAccounts, "Account list was invalid")[0],
+					"Standard account list was empty",
+				),
+				"Standard account was invalid",
+			);
+			const accountId = requireString(account.id, "Account ID was missing");
+
+			const standardApiKeysResponse = yield* webRequest(`${apiOrigin}/api/auth/api-key/list`, {
+				headers: { Cookie: ownerSessionCookie },
+			});
+			expect(standardApiKeysResponse.status).toBe(200);
+			const standardApiKeys: unknown = yield* Effect.promise(() => standardApiKeysResponse.json());
+			const apiKeys = requireArray(
+				requireObjectRecord(standardApiKeys, "API-key list was invalid").apiKeys,
+				"API-key list items were invalid",
+			);
+			const apiKey = requireObjectRecord(
+				requirePresent(apiKeys[0], "Standard API-key list was empty"),
+				"Standard API key was invalid",
+			);
+			const apiKeyId = requireString(apiKey.id, "API-key ID was missing");
+			const demoCookie = yield* signInDemo();
+
+			for (const request of authControlPlaneRequests(accountId, apiKeyId)) {
+				const demoResponse = yield* callHostedAuth(demoCookie, request);
+				expect(demoResponse.status).toBe(403);
+				expect(yield* Effect.promise(() => demoResponse.json())).toMatchObject({
+					code: "DEMO_OPERATION_PROTECTED",
+				});
+
+				const standardResponse = yield* callHostedAuth(ownerSessionCookie, request);
+				const standardBody: unknown = yield* Effect.promise(() => standardResponse.json());
+				expect(standardResponse.status).not.toBe(403);
+				expect(standardBody).not.toMatchObject({ code: "DEMO_OPERATION_PROTECTED" });
+				if ("expectedStandardStatus" in request) {
+					expect(standardResponse.status).toBe(request.expectedStandardStatus);
+				}
+			}
+		}),
+	);
+
+	it.live("protects entity-user-data routes while allowing provider and event tracking", () =>
+		Effect.gen(function* () {
+			const sessionCookie = yield* signInDemo();
+			const token = yield* getDemoToken(sessionCookie);
+			const demoClient = makeSession(harnessTarget, { Authorization: `Bearer ${token}` });
+			const missingProviderId = SandboxProviderId.make(yield* randomUuid);
+			const searchError = yield* Effect.flip(
+				searchProviderEntities(demoClient, {
+					page: 1,
+					pageSize: 5,
+					query: "demo",
+					providerId: missingProviderId,
+				}),
+			);
+			assertTaggedError(searchError, "ProviderEntityNotFound");
+			expect(searchError.reason.code).toBe("provider-not-found");
+			const importError = yield* Effect.flip(
+				demoClient.call((c) =>
+					c.entityProviders.import({
+						payload: { externalId: "demo-record", providerId: missingProviderId },
+					}),
+				),
+			);
+			assertTaggedError(importError, "ProviderEntityNotFound");
+			expect(importError.reason.code).toBe("provider-not-found");
+
+			const ownerClient = yield* signInOwnerClient();
+			const { schema } = yield* findMediaEntitySchema(ownerClient, "book");
+			const mergeFrom = yield* createEntity(ownerClient, {
+				properties: {},
+				name: "Demo merge source",
+				entitySchema: schema.reference,
+			});
+			const mergeInto = yield* createEntity(ownerClient, {
+				properties: {},
+				name: "Demo merge target",
+				entitySchema: schema.reference,
+			});
+			const eventSchemas = yield* listEventSchemas(demoClient, schema.reference);
+			const review = requireEventSchemaBySlug(eventSchemas, "review");
+			const eventResult = yield* demoClient.call((c) =>
+				c.events.create({
+					payload: [
+						{ entityId: mergeFrom.id, properties: { rating: 5 }, eventSchemaSlug: review.id },
+					],
+				}),
+			);
+			expect((yield* waitForCreateEvents(demoClient, eventResult)).count).toBe(1);
+
+			const mergeError = yield* Effect.flip(
+				mergeEntityUserData(demoClient, { mergeFrom: mergeFrom.id, mergeInto: mergeInto.id }),
+			);
+			expect(mergeError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			const clearError = yield* Effect.flip(clearEntityUserData(demoClient, mergeFrom.id));
+			expect(clearError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+		}),
+	);
+
+	it.live("protects raw entity and relationship creation from demo users", () =>
+		Effect.gen(function* () {
+			const sessionCookie = yield* signInDemo();
+			const token = yield* getDemoToken(sessionCookie);
+			const ownerClient = yield* signInOwnerClient();
+			const demoClient = makeSession(ownerClient.target, { Authorization: `Bearer ${token}` });
+
+			const { schema } = yield* findMediaEntitySchema(ownerClient, "book");
+			const source = yield* createEntity(ownerClient, {
+				properties: {},
+				entitySchema: schema.reference,
+				name: "Demo relationship source",
+			});
+			const target = yield* createEntity(ownerClient, {
+				properties: {},
+				entitySchema: schema.reference,
+				name: "Demo relationship target",
+			});
+			const relationshipSchema = requireRelationshipSchemaBySlug(
+				yield* listRelationshipSchemas(ownerClient, { slugs: ["media-suggestion"] }),
+				"media-suggestion",
+				schema.reference.owner,
+			);
+
+			const entityName = `Demo protected entity ${yield* randomUuid}`;
+			const entityError = yield* Effect.flip(
+				createEntity(demoClient, {
+					properties: {},
+					name: entityName,
+					entitySchema: schema.reference,
+				}),
+			);
+			expect(entityError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			const relationshipError = yield* Effect.flip(
+				demoClient.call((c) =>
+					c.relationships.create({
+						payload: {
+							sourceEntityId: source.id,
+							targetEntityId: target.id,
+							relationshipSchema: relationshipSchema.reference,
+						},
+					}),
+				),
+			);
+			expect(relationshipError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+
+			const entityTable = table("entity", "entity");
+			const relationshipTable = table("relationship", "relationship");
+			const result = yield* executeRyotQL(
+				ownerClient,
+				document({
+					entities: rows(entityTable, {
+						fields: [field("id", column(entityTable, "id"))],
+						where: eq(column(entityTable, "name"), literal(entityName)),
+					}),
+					relationships: rows(relationshipTable, {
+						fields: [field("id", column(relationshipTable, "id"))],
+						where: and(
+							eq(column(relationshipTable, "sourceEntityId"), literal(source.id)),
+							eq(column(relationshipTable, "targetEntityId"), literal(target.id)),
+						),
+					}),
+				}),
+			);
+			expect(requireRows(result.data.entities, "entities").items).toHaveLength(0);
+			expect(requireRows(result.data.relationships, "relationships").items).toHaveLength(0);
+		}),
+	);
+
+	it.live(
+		"denies sensitive kernel RyotQL integration detail to demo users while preserving domain changes",
+		() =>
+			Effect.gen(function* () {
+				const sessionCookie = yield* signInDemo();
+				const token = yield* getDemoToken(sessionCookie);
+				const demoClient = makeSession(harnessTarget, { Authorization: `Bearer ${token}` });
+
+				const detailRecipe = integrationRecipe({ id: integrationId });
+				const restricted = yield* Effect.flip(
+					demoClient.call((c) => c.ryotql.executePlugin({ payload: detailRecipe.document })),
+				);
+				assertTaggedError(restricted, "RyotQLBadRequest");
+				expect(restricted.reason.code).toBe("invalid-query");
+				expect(
+					(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(restricted)).includes(
+						integrationWebhookUrl,
+					),
+				).toBe(false);
+
+				const outcome = yield* Effect.result(executeRyotQLRecipe(demoClient, detailRecipe));
+				if (Result.isSuccess(outcome)) {
+					throw new Error("Demo credentials read protected kernel integration detail");
+				}
+				const integrationError = outcome.failure;
+				assertTaggedError(integrationError, "DemoOperationProtected");
+				expect(integrationError.reason.code).toBe("demo-operation-protected");
+				expect(
+					(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+						integrationError,
+					)).includes(integrationWebhookUrl),
+				).toBe(false);
+
+				const collectionEntity = table("entity", "demoCollection");
+				const result = yield* executeRyotQL(
+					demoClient,
+					document({
+						collection: rows(collectionEntity, {
+							fields: [field("name", column(collectionEntity, "name"))],
+							where: eq(column(collectionEntity, "name"), literal(DEMO_COLLECTION_NAME)),
+						}),
+					}),
+				);
+				const collections = requireRows(result.data.collection, "collection");
+				expect(collections.items).toHaveLength(1);
+				expect(
+					requireRyotQLText(requirePresent(collections.items[0], "Collection is missing"), "name"),
+				).toBe(DEMO_COLLECTION_NAME);
+			}),
+	);
+});

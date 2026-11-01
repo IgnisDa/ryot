@@ -1,11 +1,7 @@
 # Goodreads
 
-Ryot translates [Goodreads](https://www.goodreads.com) shelves in the
-following manner:
+The `Want To Read` shelf becomes `Watchlist`.
 
-- Want To Read -> Watchlist
-
-1. Login to your Goodreads account and go to the "My Books" section.
-2. Click on "Import and export" on the left sidebar.
-3. Click on "Export Library" and download the CSV file.
-4. Upload this file in the input.
+1. Log in to [Goodreads](https://www.goodreads.com) and open **My Books**.
+2. Select **Import and export > Export Library** and download the CSV file.
+3. Upload it under **Settings > Import data**.
