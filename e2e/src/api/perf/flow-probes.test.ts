@@ -1,0 +1,242 @@
+import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
+import {
+	MediaReviewCreateInput,
+	MediaReviewOutput,
+} from "@ryot-app/media-plugin/shared/media-review-operations";
+import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import { randomUuid } from "@ryot-app/testing/random";
+import { Duration, Effect, FileSystem, Schema } from "effect";
+
+import { createAuthenticatedClient } from "~/fixtures/kernel";
+import { invokeOperation } from "~/fixtures/kernel/operations";
+import { createExerciseEntityFixture, seedExerciseWorkout } from "~/fixtures/plugins/fitness";
+import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
+import { describe, it } from "~/support/effect-test";
+
+const RUN_FLOW_PROBES = process.env.RUN_FLOW_PROBES === "1";
+const FLOW_PROBE_OUT = process.env.FLOW_PROBE_OUT;
+const SETTLE_WINDOW_MS = 1500;
+const SETTLE_MAX_MS = 120_000;
+
+const createReview = defineOperationRecipe({
+	output: MediaReviewOutput,
+	input: MediaReviewCreateInput,
+	operationSlug: "media-review-create",
+	packageId: mediaPlugin.metadata.packageId,
+});
+
+const DatabaseRow = Schema.Struct({ xacts: Schema.FiniteFromString });
+const StatementsRow = Schema.Struct({ calls: Schema.Finite, execMs: Schema.Finite });
+const TableRows = Schema.Array(Schema.Struct({ writes: Schema.Finite, relname: Schema.String }));
+
+type Snapshot = {
+	at: number;
+	xacts: number;
+	calls: number;
+	execMs: number;
+	cpuTicks: number;
+	tables: ReadonlyMap<string, number>;
+};
+
+const sql = RUN_FLOW_PROBES
+	? new Bun.SQL(String(process.env.E2E_DATABASE_URL), { max: 1 })
+	: undefined;
+const serverPid = Number(process.env.E2E_SERVER_PID);
+
+const query = <S extends Schema.Top>(schema: S, run: (client: Bun.SQL) => Promise<unknown>) =>
+	Effect.gen(function* () {
+		if (sql === undefined) {
+			return yield* Effect.die("flow probes are disabled");
+		}
+		const rows = yield* Effect.promise(() => run(sql));
+		return yield* Schema.decodeUnknownEffect(schema)(rows).pipe(Effect.orDie);
+	});
+
+const processTreeTicks = Effect.gen(function* () {
+	const fs = yield* FileSystem.FileSystem;
+	const stats = new Map<number, { ppid: number; ticks: number }>();
+	for (const name of yield* fs.readDirectory("/proc").pipe(Effect.orDie)) {
+		if (!/^\d+$/.test(name)) {
+			continue;
+		}
+		const raw = yield* fs.readFileString(`/proc/${name}/stat`).pipe(Effect.orElseSucceed(() => ""));
+		if (raw === "") {
+			continue;
+		}
+		const fields = raw.slice(raw.lastIndexOf(")") + 2).split(" ");
+		const ticks = [11, 12, 13, 14].reduce((sum, index) => sum + Number(fields[index]), 0);
+		stats.set(Number(name), { ticks, ppid: Number(fields[1]) });
+	}
+	let total = 0;
+	for (const [pid, stat] of stats) {
+		let cursor: number | undefined = pid;
+		while (cursor !== undefined && cursor > 1) {
+			if (cursor === serverPid) {
+				total += stat.ticks;
+				break;
+			}
+			cursor = stats.get(cursor)?.ppid;
+		}
+	}
+	return total;
+});
+
+const snapshot = Effect.gen(function* () {
+	const [database] = yield* query(
+		Schema.Array(DatabaseRow),
+		(client) =>
+			client`select (xact_commit + xact_rollback)::text as xacts from pg_stat_database where datname = current_database()`,
+	);
+	const [statements] = yield* query(
+		Schema.Array(StatementsRow),
+		(client) =>
+			client`select coalesce(sum(calls), 0)::float8 as calls, coalesce(sum(total_exec_time), 0)::float8 as "execMs" from pg_stat_statements where query not ilike '%pg_stat%'`,
+	);
+	const tables = yield* query(
+		TableRows,
+		(client) =>
+			client`select relname, (n_tup_ins + n_tup_upd + n_tup_del)::float8 as writes from pg_stat_user_tables`,
+	);
+	return {
+		at: performance.now(),
+		xacts: database?.xacts ?? 0,
+		calls: statements?.calls ?? 0,
+		execMs: statements?.execMs ?? 0,
+		cpuTicks: yield* processTreeTicks,
+		tables: new Map(tables.map(({ writes, relname }) => [relname, writes])),
+	} satisfies Snapshot;
+});
+
+const diff = (before: Snapshot, after: Snapshot) => {
+	const tableWrites: Record<string, number> = {};
+	for (const [name, value] of after.tables) {
+		const delta = value - (before.tables.get(name) ?? 0);
+		if (delta > 0) {
+			tableWrites[name] = delta;
+		}
+	}
+	return {
+		tableWrites,
+		xacts: after.xacts - before.xacts,
+		ms: Math.round(after.at - before.at),
+		statements: after.calls - before.calls,
+		dbExecMs: Math.round(after.execMs - before.execMs),
+		serverCpuMs: (after.cpuTicks - before.cpuTicks) * 10,
+	};
+};
+
+// Each snapshot itself costs about three transactions, so a window with five or fewer is idle.
+const settle = Effect.gen(function* () {
+	let previous = yield* snapshot;
+	const deadline = previous.at + SETTLE_MAX_MS;
+	let current = previous;
+	do {
+		yield* Effect.sleep(Duration.millis(SETTLE_WINDOW_MS));
+		current = yield* snapshot;
+		if (current.xacts - previous.xacts <= 5) {
+			break;
+		}
+		previous = current;
+	} while (current.at <= deadline);
+	return current;
+});
+
+const ProbeResults = Schema.fromJsonString(Schema.Unknown);
+const results: Array<Record<string, unknown>> = [];
+
+const probe = <A, E, R>(name: string, flow: Effect.Effect<A, E, R>) =>
+	Effect.gen(function* () {
+		yield* settle;
+		const before = yield* snapshot;
+		const value = yield* flow;
+		const returned = yield* snapshot;
+		const settled = yield* settle;
+		const row = {
+			name,
+			...diff(before, settled),
+			callerMs: Math.round(returned.at - before.at),
+			settleMs: Math.round(settled.at - returned.at - SETTLE_WINDOW_MS),
+		};
+		results.push(row);
+		const encoded = yield* Schema.encodeEffect(ProbeResults)(results).pipe(Effect.orDie);
+		yield* Effect.logInfo("flow probe", row);
+		if (FLOW_PROBE_OUT !== undefined) {
+			const fs = yield* FileSystem.FileSystem;
+			yield* fs.writeFileString(FLOW_PROBE_OUT, encoded).pipe(Effect.orDie);
+		}
+		return value;
+	});
+
+const repeat = <A, E, R>(name: string, times: number, flow: () => Effect.Effect<A, E, R>) =>
+	Effect.gen(function* () {
+		for (let index = 0; index < times; index++) {
+			yield* probe(name, flow());
+		}
+	});
+
+const day = (value: number, time: string) =>
+	`2026-06-${String(value).padStart(2, "0")}T${time}.000Z`;
+
+describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
+	it.live(
+		"measures per-flow cost on an otherwise idle server",
+		() =>
+			Effect.gen(function* () {
+				yield* repeat("signup", 5, () => createAuthenticatedClient());
+
+				const { client } = yield* createAuthenticatedClient();
+				yield* repeat("media-movie-fixture", 3, () =>
+					createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "movie" }),
+				);
+				const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
+					entitySchemaSlug: "movie",
+				});
+				yield* repeat("event-create-backlog", 5, () =>
+					client.call((c) =>
+						c.events.create({
+							payload: [
+								{
+									properties: {},
+									entityId: EntityId.make(entityId),
+									eventSchemaSlug: EventSchemaSlug.make("backlog"),
+								},
+							],
+						}),
+					),
+				);
+				yield* repeat("operation-review-create", 3, () =>
+					Effect.gen(function* () {
+						const movie = yield* createBuiltinMediaLifecycleFixture(client, {
+							entitySchemaSlug: "movie",
+						});
+						return yield* invokeOperation(
+							client,
+							createReview,
+							{ rating: 80, text: null, isSpoiler: false, entityId: movie.entityId },
+							{ idempotencyKey: yield* randomUuid },
+						);
+					}),
+				);
+
+				const { exerciseId } = yield* createExerciseEntityFixture(client);
+				const workout = (sets: number, date: number) =>
+					seedExerciseWorkout(client, {
+						exerciseId,
+						timeoutMs: 600_000,
+						name: `Probe workout ${sets}`,
+						endedAt: day(date, "11:00:00"),
+						startedAt: day(date, "10:00:00"),
+						sets: Array.from({ length: sets }, () => ({
+							occurredAt: day(date, "10:05:00"),
+							properties: { reps: 10, weight: 50, confirmedAt: day(date, "10:05:00") },
+						})),
+					});
+				yield* probe("workout-1-set", workout(1, 1));
+				yield* probe("workout-1-set", workout(1, 2));
+				yield* probe("workout-10-sets", workout(10, 3));
+				yield* probe("workout-25-sets", workout(25, 4));
+			}),
+		1_800_000,
+	);
+});

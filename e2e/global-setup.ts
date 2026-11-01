@@ -98,6 +98,7 @@ export default Effect.gen(function* () {
 				return {
 					frontendUrl,
 					apiPid: apiProcess.pid,
+					dbUrl: coreInfrastructure.dbUrl,
 					pgLogPath: coreInfrastructure.pgLogPath,
 					logFile: String(apiEnv.SERVER_LOG_FILE),
 					apiUrl: `http://127.0.0.1:${apiPort}/api`,
@@ -109,6 +110,7 @@ export default Effect.gen(function* () {
 	yield* Effect.logInfo(`PostgreSQL logs: ${setup.pgLogPath}`);
 	return {
 		E2E_API_URL: setup.apiUrl,
+		E2E_DATABASE_URL: setup.dbUrl,
 		E2E_SERVER_LOG_FILE: setup.logFile,
 		E2E_FRONTEND_URL: setup.frontendUrl,
 		E2E_SERVER_PID: String(setup.apiPid),
