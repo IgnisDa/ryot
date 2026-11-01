@@ -1,6 +1,6 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
-import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
+import type { YoutubeiHost, YTMusic } from "@ryot-app/plugin-backend-sdk/youtubei";
 import {
 	createYoutubeHistoryClient as createSdkYoutubeHistoryClient,
 	createYoutubeMusicClient as createSdkYoutubeMusicClient,
@@ -20,14 +20,25 @@ export type YoutubeMusicHost = YoutubeiHost;
 
 export type AlbumClient = { music: { getAlbum: (albumId: string) => Promise<unknown> } };
 
-export type ArtistClient = { music: { getArtist: (artistId: string) => Promise<unknown> } };
-
 export type HistoryClient = { getHistory: () => Effect.Effect<unknown, MediaSandboxError> };
 
 export type TrackQueueClient = { music: { getUpNext: (videoId: string) => Promise<unknown> } };
 
 export type MusicSearchClient = {
 	music: { search: (query: string, filters: { type: MusicSearchType }) => Promise<unknown> };
+};
+
+export type ArtistClient = {
+	music: {
+		getArtist: (artistId: string) => Promise<unknown>;
+		getPlaylist: (
+			playlistId: string,
+		) => Promise<
+			Pick<YTMusic.Playlist, "getContinuation" | "has_continuation"> & {
+				readonly items: readonly YTMusic.Playlist["items"][number][];
+			}
+		>;
+	};
 };
 
 type MusicSearchType = "song" | "album" | "artist";

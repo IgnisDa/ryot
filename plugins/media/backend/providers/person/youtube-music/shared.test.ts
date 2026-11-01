@@ -1,13 +1,54 @@
 import { describe, expect, it } from "@effect/vitest";
+import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { buildArtistDetails } from "./shared";
 
+configureApprovedDependencyRuntime((operation) => operation());
+
 describe("person.youtube-music sandbox script", () => {
+	it.live.each(["playlist", "continuation"])(
+		"fails the artist refresh when the song %s request fails",
+		(stage) =>
+			Effect.gen(function* () {
+				const failure = new Error("Song inventory unavailable");
+				const error = yield* Effect.flip(
+					buildArtistDetails(
+						{
+							music: {
+								getPlaylist: () =>
+									stage === "playlist"
+										? Promise.reject(failure)
+										: Promise.resolve({
+												items: [],
+												has_continuation: true,
+												getContinuation: () => Promise.reject(failure),
+											}),
+								getArtist: () =>
+									Promise.resolve({
+										header: { title: { text: "Artist" } },
+										sections: [
+											{
+												type: "MusicShelf",
+												endpoint: { payload: { browseId: "VLsongs" } },
+												contents: [{ id: "preview", title: "Preview", item_type: "song" }],
+											},
+										],
+									}),
+							},
+						},
+						"UCartist",
+					),
+				);
+				expect(error.message).toBe("Song inventory unavailable");
+			}),
+	);
+
 	it.live("classifies artist credits by item type rather than section titles", () =>
 		Effect.gen(function* () {
 			const client = {
 				music: {
+					getPlaylist: () => Promise.reject(new Error("Unexpected playlist request")),
 					getArtist: () =>
 						Promise.resolve({
 							header: {
@@ -91,6 +132,7 @@ describe("person.youtube-music sandbox script", () => {
 			const details = yield* buildArtistDetails(
 				{
 					music: {
+						getPlaylist: () => Promise.reject(new Error("Unexpected playlist request")),
 						getArtist: () =>
 							Promise.resolve({
 								header: { title: { text: "The Artist" } },

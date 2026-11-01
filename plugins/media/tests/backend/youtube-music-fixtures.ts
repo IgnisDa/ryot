@@ -95,7 +95,7 @@ export const searchResponse = (kind: "song" | "album" | "artist") => ({
 	},
 });
 
-export const artistResponse = (name: string) => ({
+export const artistResponse = (name: string, songsTitle?: string) => ({
 	header: {
 		musicImmersiveHeaderRenderer: {
 			title: text(name),
@@ -106,7 +106,17 @@ export const artistResponse = (name: string) => ({
 	contents: {
 		sectionListRenderer: {
 			contents: [
-				shelf("Songs", [song("track", "Track")]),
+				{
+					musicShelfRenderer: {
+						...shelf(songsTitle ?? "Songs", [song("track", "Track")]).musicShelfRenderer,
+						...(songsTitle === undefined
+							? {}
+							: {
+									bottomEndpoint: browse("VLartist-songs", "MUSIC_PAGE_TYPE_PLAYLIST")
+										.navigationEndpoint,
+								}),
+					},
+				},
 				carousel("Latest release", [twoRowItem("MPRalbum", "Album", "MUSIC_PAGE_TYPE_ALBUM")]),
 				carousel("Albums", [twoRowItem("MPRalbum", "Album", "MUSIC_PAGE_TYPE_ALBUM")]),
 				carousel("Singles & EPs", [twoRowItem("MPRsingle", "Single", "MUSIC_PAGE_TYPE_ALBUM")]),
@@ -118,6 +128,50 @@ export const artistResponse = (name: string) => ({
 		},
 	},
 });
+
+export const artistSongsResponse = (continuation?: "token" | "endpoint") => ({
+	contents: {
+		sectionListRenderer: {
+			contents: [
+				{
+					musicPlaylistShelfRenderer: {
+						playlistId: "artist-songs",
+						contents: [
+							song("track", "Track"),
+							song("second", "Second Track"),
+							...(continuation === "endpoint"
+								? [
+										{
+											continuationItemRenderer: {
+												trigger: "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+												continuationEndpoint: {
+													continuationCommand: {
+														token: "page-2",
+														request: "CONTINUATION_REQUEST_TYPE_BROWSE",
+													},
+												},
+											},
+										},
+									]
+								: []),
+						],
+						...(continuation === "token"
+							? { continuations: [{ nextContinuationData: { continuation: "page-2" } }] }
+							: {}),
+					},
+				},
+			],
+		},
+	},
+});
+
+export const artistSongsContinuationResponse = {
+	continuationContents: {
+		musicPlaylistShelfContinuation: {
+			contents: [song("second", "Second Track"), song("third", "Third Track")],
+		},
+	},
+};
 
 export const albumResponse = (name: string) => ({
 	contents: {

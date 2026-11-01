@@ -251,6 +251,9 @@ be deleted. YouTube Music artist credits use parsed item types, not section head
 videos become track credits, while albums (including singles and EPs) become album credits. List
 and carousel item titles use their parsed string or text value; repeated releases are deduplicated, and
 artist recommendations, playlists, and navigation items do not become credits.
+Artist song credits also follow the song shelf's playlist endpoint through every continuation page;
+the artist-page preview is not the complete song inventory. Playlist fetch failures fail the refresh
+instead of publishing a partial authoritative inventory.
 TMDB and TVDB cast credits and AniList staff voice credits preserve character names in
 the person-to-media relationship's `character` field, separately from roles. Multiple names for one
 credit are deduplicated and joined with `/`; missing names stay absent. Detail credit lists display

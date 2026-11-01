@@ -1,3 +1,4 @@
+import { withApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
@@ -18,32 +19,60 @@ const getArtistName = (artist: null | UnknownRecord) => {
 	return coerceTrimmed(raw);
 };
 
-const collectArtistEntities = (artist: null | UnknownRecord) => {
+const collectArtistSongs = Effect.fn(function* (
+	client: ArtistClient,
+	artist: null | UnknownRecord,
+) {
+	for (const section of asArray(artist?.["sections"])) {
+		const record = asRecord(section);
+		if (record?.["type"] !== "MusicShelf") {
+			continue;
+		}
+		const playlistId = stringValue(
+			asRecord(asRecord(record["endpoint"])?.["payload"])?.["browseId"],
+		);
+		if (!playlistId) {
+			continue;
+		}
+		let page = yield* tryYoutubeMusic(() => client.music.getPlaylist(playlistId));
+		const songs: unknown[] = [...page.items];
+		while (page.has_continuation) {
+			page = yield* tryYoutubeMusic(() =>
+				withApprovedDependencyRuntime(() => page.getContinuation()),
+			);
+			songs.push(...page.items);
+		}
+		return songs;
+	}
+	return [];
+});
+
+const collectArtistEntities = (artist: null | UnknownRecord, songs: readonly unknown[]) => {
 	const media = createRoleAccumulator();
 	const groups = createRoleAccumulator();
-	for (const section of asArray(artist?.["sections"])) {
-		for (const item of asArray(asRecord(section)?.["contents"])) {
-			const itemRecord = asRecord(item);
-			const itemType = itemRecord?.["item_type"];
-			if (itemType !== "album" && itemType !== "song" && itemType !== "video") {
-				continue;
-			}
-			const id = stringValue(itemRecord?.["id"]);
-			const title =
-				stringValue(itemRecord?.["title"]) ??
-				stringValue(asRecord(itemRecord?.["title"])?.["text"]);
-			if (!id || !title) {
-				continue;
-			}
-			const isAlbum = itemType === "album";
-			const accumulator = isAlbum ? groups : media;
-			accumulator.add({
-				name: title,
-				externalId: id,
-				relationshipProperties: { roles: ["Artist"] },
-				providerSlug: isAlbum ? "music-group.youtube-music" : "music.youtube-music",
-			});
+	const items = asArray(artist?.["sections"]).flatMap((section) =>
+		asArray(asRecord(section)?.["contents"]),
+	);
+	for (const item of [...items, ...songs]) {
+		const itemRecord = asRecord(item);
+		const itemType = itemRecord?.["item_type"];
+		if (itemType !== "album" && itemType !== "song" && itemType !== "video") {
+			continue;
 		}
+		const id = stringValue(itemRecord?.["id"]);
+		const title =
+			stringValue(itemRecord?.["title"]) ?? stringValue(asRecord(itemRecord?.["title"])?.["text"]);
+		if (!id || !title) {
+			continue;
+		}
+		const isAlbum = itemType === "album";
+		const accumulator = isAlbum ? groups : media;
+		accumulator.add({
+			name: title,
+			externalId: id,
+			relationshipProperties: { roles: ["Artist"] },
+			providerSlug: isAlbum ? "music-group.youtube-music" : "music.youtube-music",
+		});
 	}
 	return { media: media.entities, groups: groups.entities };
 };
@@ -76,48 +105,48 @@ export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
 	);
 
 export const buildArtistDetails = (client: ArtistClient, externalId: string) =>
-	tryYoutubeMusic(() => client.music.getArtist(externalId)).pipe(
-		Effect.map((artist) => {
-			const artistRecord = asRecord(artist);
-			const name = getArtistName(artistRecord);
-			if (!name) {
-				throw new Error("YouTube Music artist is missing name");
-			}
+	Effect.gen(function* () {
+		const artist = yield* tryYoutubeMusic(() => client.music.getArtist(externalId));
+		const artistRecord = asRecord(artist);
+		const name = getArtistName(artistRecord);
+		if (!name) {
+			throw new Error("YouTube Music artist is missing name");
+		}
 
-			const header = asRecord(artistRecord?.["header"]);
-			const descriptionValue = asRecord(header?.["description"])?.["text"];
-			const description = normalizePlainDescription(descriptionValue);
-			const { media, groups } = collectArtistEntities(artistRecord);
+		const header = asRecord(artistRecord?.["header"]);
+		const descriptionValue = asRecord(header?.["description"])?.["text"];
+		const description = normalizePlainDescription(descriptionValue);
+		const songs = yield* collectArtistSongs(client, artistRecord);
+		const { media, groups } = collectArtistEntities(artistRecord, songs);
 
-			return {
-				name,
-				properties: {
-					description,
-					alternateNames: [],
-					sourceUrl: `https://music.youtube.com/channel/${externalId}`,
-					images: getThumbnailUrls(header?.["thumbnail"]).map((url) => ({
-						url,
-						type: "remote" as const,
-						purpose: "profile" as const,
-					})),
+		return {
+			name,
+			properties: {
+				description,
+				alternateNames: [],
+				sourceUrl: `https://music.youtube.com/channel/${externalId}`,
+				images: getThumbnailUrls(header?.["thumbnail"]).map((url) => ({
+					url,
+					type: "remote" as const,
+					purpose: "profile" as const,
+				})),
+			},
+			relatedEntityGroups: [
+				{
+					entities: media,
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "person-to-music",
 				},
-				relatedEntityGroups: [
-					{
-						entities: media,
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "person-to-music",
-					},
-					{
-						entities: groups,
-						direction: "outgoing" as const,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "person-to-music-group",
-					},
-				],
-			};
-		}),
-	);
+				{
+					entities: groups,
+					direction: "outgoing" as const,
+					synchronization: "authoritative" as const,
+					relationshipSchemaSlug: "person-to-music-group",
+				},
+			],
+		};
+	});
 
 export const buildArtistTranslate = (client: ArtistClient, externalId: string) =>
 	tryYoutubeMusic(() => client.music.getArtist(externalId)).pipe(

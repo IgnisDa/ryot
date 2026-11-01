@@ -6,6 +6,8 @@ import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
 import {
 	albumResponse,
 	artistResponse,
+	artistSongsContinuationResponse,
+	artistSongsResponse,
 	queueResponse,
 	searchResponse,
 } from "../../../tests/backend/youtube-music-fixtures";
@@ -258,6 +260,56 @@ it.live("maps album details and ordered members through browse", () =>
 	}),
 );
 
+it.live.each(["Top songs", "Canciones principales"])(
+	"fetches the full artist song playlist behind %s",
+	(title) =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", [
+				artistResponse("Artist", title),
+				artistSongsResponse(),
+			]);
+			const details = yield* buildArtistDetails(client, "UCartist");
+			expect(details.relatedEntityGroups[0]?.entities).toEqual([
+				{
+					name: "Track",
+					externalId: "track",
+					providerSlug: "music.youtube-music",
+					relationshipProperties: { roles: ["Artist"] },
+				},
+				{
+					name: "Second Track",
+					externalId: "second",
+					providerSlug: "music.youtube-music",
+					relationshipProperties: { roles: ["Artist"] },
+				},
+			]);
+			expect(requests.map(({ body }) => body)).toMatchObject([
+				{ browseId: "UCartist" },
+				{ browseId: "VLartist-songs" },
+			]);
+		}),
+);
+
+it.live.each(["token", "endpoint"] as const)(
+	"fetches artist song %s continuations and deduplicates overlapping songs",
+	(continuation) =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", [
+				artistResponse("Artist", "Top songs"),
+				artistSongsResponse(continuation),
+				artistSongsContinuationResponse,
+			]);
+			const details = yield* buildArtistDetails(client, "UCartist");
+			expect(details.relatedEntityGroups[0]?.entities.map(({ externalId }) => externalId)).toEqual([
+				"track",
+				"second",
+				"third",
+			]);
+			expect(requests).toHaveLength(3);
+			expect(requests[2]).toMatchObject({ body: { continuation: "page-2" } });
+		}),
+);
+
 it.live("preserves the requested language for all three translations", () =>
 	Effect.gen(function* () {
 		const track = yield* recordedClient(
@@ -266,7 +318,11 @@ it.live("preserves the requested language for all three translations", () =>
 			"fr",
 		);
 		expect(yield* buildTrackTranslate(track.client, "track")).toEqual({ name: "Chanson" });
-		const artist = yield* recordedClient("browse", [artistResponse("Artiste")], "fr");
+		const artist = yield* recordedClient(
+			"browse",
+			[artistResponse("Artiste", "Titres populaires")],
+			"fr",
+		);
 		expect(yield* buildArtistTranslate(artist.client, "UCartist")).toEqual({ name: "Artiste" });
 		const album = yield* recordedClient("browse", [albumResponse("Disque")], "fr");
 		expect(yield* buildAlbumTranslate(album.client, "MPRalbum")).toEqual({ name: "Disque" });
