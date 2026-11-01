@@ -42,7 +42,10 @@ otel=""
 
 start=$(date +%s)
 # Fail fast: hard wall cap (MAX_WALL_S) and a stall watchdog (no vitest output for STALL_S).
-timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "cd $src/e2e && env $prof $otel TMPDIR=$out/tmp \
+# Provider configuration (RYOT_PLUGIN__*) copied from the owner's apps/server/.env; never committed.
+envfile=""
+[ -f /opt/ryot/e2e.env ] && envfile="set -a && . /opt/ryot/e2e.env && set +a &&"
+timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "$envfile cd $src/e2e && env $prof $otel TMPDIR=$out/tmp \
 	RUN_LIVE_PROVIDER_TESTS= RUN_OPERATIONAL_GATES=${RUN_OPERATIONAL_GATES:-} RUN_FLOW_PROBES=${RUN_FLOW_PROBES:-} FLOW_PROBE_OUT=$out/flow-probes.json \
 	bun --bun run vitest run --reporter=default --reporter=json --outputFile.json=$out/vitest.json $*" \
 	> "$out/vitest.out" 2>&1 & vt=$!

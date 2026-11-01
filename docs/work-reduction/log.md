@@ -74,3 +74,16 @@
     0.5 GB, plus Chromium and the test PostgreSQL connections. A full run on this VM therefore also
     needs less memory per server. The growth of the long-lived server is a follow-up to measure after
     the engine change, which drops Cluster's in-memory mailboxes.
+- Slice 2 e2e (`eng3`, 14 targeted files):
+  - Passing: every restart and recovery file (`imports/durability`, `reminders/recovery`,
+    `sidecar-recovery`, `history-correction-recovery`, both tracers) and the two-process
+    `global-provider-rate-limiting`.
+  - Fixed along the way: the takeover sweep claimed orphans before boot had registered their workflows,
+    and stranded them. Storing results as `jsonb` reordered keys, so the sandbox journal diverged on
+    replay. Ubuntu unattended upgrades re-executed systemd mid-run and restarted the measurement unit;
+    they are now disabled on the VM.
+  - All 15 failures also failed in `base2`. Run alone, the `integrations` failures repeat. Their runs
+    stay `blocked` on `configuration-required: tmdbAccessToken`. The harness passes the shell
+    environment to the API servers, and the VM runs never had the owner's `RYOT_PLUGIN__*` provider
+    configuration. Several "suite-only" failures in the baselines may therefore be missing
+    configuration, not load. `vm-e2e.sh` now loads those keys from a VM-only file (never committed).
