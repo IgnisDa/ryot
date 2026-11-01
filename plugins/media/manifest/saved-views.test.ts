@@ -65,7 +65,7 @@ describe("media saved views", () => {
 	it("orders titles by recent activity, creators by credits and groups by parts", () => {
 		const order = (name: string) => JSON.stringify(source(name).view.dataSources);
 		expect(order("All Movies")).toContain('"path":["lastActivityAt"]');
-		expect(order("All Persons")).toContain('"function":"countDistinct"');
+		expect(order("All People")).toContain('"function":"countDistinct"');
 		expect(order("All Book Series")).toContain('"path":["parts"]');
 		expect(source("All Movies").view.settings).not.toHaveProperty("filterFields");
 	});

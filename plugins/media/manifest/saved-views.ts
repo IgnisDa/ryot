@@ -136,7 +136,7 @@ export const mediaSavedViews = () => {
 	const schemas = new Map(mediaEntitySchemas().map((schema) => [schema.slug, schema]));
 	const entity = table("entity", "entity");
 	const definitions = [
-		{ name: "All Persons", slug: "all-persons", entitySchemaSlug: "person" },
+		{ name: "All People", slug: "all-persons", entitySchemaSlug: "person" },
 		{ name: "All Companies", slug: "all-companies", entitySchemaSlug: "company" },
 		...mediaEntitySchemaSlugs.map((entitySchemaSlug) => ({
 			entitySchemaSlug,

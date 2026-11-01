@@ -848,7 +848,7 @@ it.effect("declares the complete media-owned source", () =>
 				),
 			),
 		).toEqual([
-			{ name: "All Persons", entitySchemaSlug: "person" },
+			{ name: "All People", entitySchemaSlug: "person" },
 			{ name: "All Companies", entitySchemaSlug: "company" },
 			{ name: "All Shows", entitySchemaSlug: "show" },
 			{ name: "All Books", entitySchemaSlug: "book" },
