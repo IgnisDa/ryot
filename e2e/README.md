@@ -37,7 +37,7 @@ the conflicting statements; inspect that file before the test teardown process e
 
 Up to six files, and no more than the machine's available parallelism, share the backend concurrently. Servers a file starts with `startApiProcess` are marked as the first out-of-memory victims on Linux, so memory pressure costs that file instead of the shared backend. Tests and hooks time out after 180 seconds. Tests that write 101-set workouts raise their own timeout with `LARGE_WORKOUT_BUDGET` from the Fitness fixtures, which also bounds their event-write waits for sequential production policy workflows and record processing. The opt-in media gates raise their own timeout to their gate budget plus 30 seconds. `startIsolatedApiServer` and `startIsolatedHarness` start an API with its own infrastructure and optional `extraEnv` for suites that need different server configuration; `startApiProcess` owns spawning and the health wait for suites that share infrastructure across processes. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory, captures its console output beside it as `.stdout` and `.stderr`, and prints those paths. Health checks fail as soon as the API process exits.
 
-Files that install, update, or remove system plugins call `runFileOnIsolatedServer` at module level: system plugins are instance-wide, so a change on the shared backend marks every open page in other files stale and covers it with the update prompt. The helper points the file's fixture defaults at its own server.
+System plugins are instance-wide, so installing, updating, or removing one on the shared backend marks every open page stale and covers it with the update prompt. The test launcher runs browser files and `src/api/kernel/pages` before other API files. API files may change system plugins on the shared backend. A file that changes system plugins while pages in other files may be open, or whose own pages must survive such changes, calls `runFileOnIsolatedServer` at module level; the helper points the file's fixture defaults at its own server.
 
 Fixtures mirror ownership: generic platform fixtures live under `src/fixtures/kernel`, plugin-owned domain fixtures under `src/fixtures/plugins/<plugin>`, and cross-cutting harness code under `src/support`. There is no aggregate fixture barrel. Kernel suites that need plugin-owned schemas import that plugin fixture explicitly.
 
@@ -62,7 +62,7 @@ Assert the transport tag or category, module-owned kebab-case reason code, and s
 
 ## Capacity
 
-The shared harness uses `--parallel=6`, sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
+The shared harness uses at most six workers (no more than the available parallelism), sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
 
 Watch app-pool waits, cross-suite timeouts, connection ceilings, lock waits, Redis projection errors,
 stalled progress, and overlapping sandbox work.

@@ -34,6 +34,9 @@ import { assertTaggedError } from "~/support/assertions";
 import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Saved View Browser");
 
 const SUITE_ID = crypto.randomUUID();
 const VIEW_NAME = `Browser View ${SUITE_ID}`;

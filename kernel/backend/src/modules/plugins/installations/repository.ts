@@ -658,7 +658,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			});
 
 			const listPendingLifecycle = Effect.fn("PluginInstallationRepository.listPendingLifecycle")(
-				function* (limit: number) {
+				function* (limit: number, afterInstallationId?: string) {
 					const rows = yield* database.run((db) =>
 						db
 							.select({
@@ -672,6 +672,9 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 									eq(schema.plugin.status, "active"),
 									eq(schema.pluginInstallation.health, "installing"),
 									isNull(schema.pluginInstallation.uninstalledAt),
+									afterInstallationId === undefined
+										? undefined
+										: sql`(${schema.pluginInstallation.createdAt}, ${schema.pluginInstallation.id}) > (select p.created_at, p.id from ${schema.pluginInstallation} p where p.id = ${afterInstallationId})`,
 								),
 							)
 							.orderBy(asc(schema.pluginInstallation.createdAt), asc(schema.pluginInstallation.id))

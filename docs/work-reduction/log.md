@@ -281,3 +281,22 @@
 - Candidate, not done: script pins recompute `scriptsDigest` (a sorted `string_agg` over the
   revision's scripts) on every lookup, 177,761 calls and 88 s in `full8`. Storing it on the revision
   needs the script garbage collector to keep it current.
+- `full9`, the whole suite at `dafaf83630`: 57 min, 933 passed, 15 failed in 10 files, 8 skipped.
+  Nothing was killed for memory.
+  - Product bug: `dispatchPendingInstallationLifecycle` started at most 100 pending installation
+    workflows per call, from the test route or the 5-minute cron. A system plugin provisions an
+    installation for every user at once, and with 800 users the installations past the first 100
+    stayed `installing`. `namespaceInstallation` waits until health leaves `installing`, so late
+    entity-provider and translation tests (`refresh` ×3, `related-progress`, `entity-translation`)
+    waited out 180 s. Dispatch only starts workflows, and installations stay pending until theirs
+    finishes, so one sweep now pages past each page it dispatched.
+  - `page-freshness` went stale when another file removed a system plugin 0.1 s earlier, and the
+    browser failures in `media-custom-entity` and `collection-detail` match the same window. Every
+    system plugin change on the shared backend stales every open page by design. Vitest now runs the
+    files that hold pages open (`browser/`, `api/kernel/pages/`) as a first project and the API
+    files after them (`sequence.groupOrder`). `saved-view` removes a system plugin itself and moved
+    to its own server.
+  - `history-correction-liveness` (4 timeouts) and `analytics-recipes` (1) time out at 180 s when
+    the shared background lane is busy; not yet addressed.
+  - `tri2`, those eleven files together: all passed in 271 s, with the page group done before the
+    API group started.

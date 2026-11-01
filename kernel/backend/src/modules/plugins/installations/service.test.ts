@@ -476,13 +476,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						Effect.flatMap(transactionScope, (scope) =>
 							record(recordings, "retirementEvents", `remove:${id}:${scope}`),
 						).pipe(Effect.andThen(record(recordings, "removed", id))),
-					listPendingLifecycle: () =>
-						Effect.succeed(
-							(options.pendingLifecycle ?? []).map((installationId) => ({
-								installationId,
-								activationId: "test/private-fixture-activation",
-							})),
-						),
 					findByUserAndPlugin: (_user, pluginId) =>
 						Effect.gen(function* () {
 							if (
@@ -493,6 +486,18 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 							}
 							return installations.find((row) => row.pluginId === pluginId) ?? null;
 						}),
+					listPendingLifecycle: (limit, after) => {
+						const pending = options.pendingLifecycle ?? [];
+						const start = after === undefined ? 0 : pending.indexOf(after) + 1;
+						return Effect.succeed(
+							pending
+								.slice(start, start + limit)
+								.map((installationId) => ({
+									installationId,
+									activationId: "test/private-fixture-activation",
+								})),
+						);
+					},
 					findHomeSavedView: (_ownerId, reference) =>
 						Effect.gen(function* () {
 							yield* record(recordings, "homeViewTransactionScopes", yield* transactionScope);
@@ -2363,6 +2368,22 @@ layer(makeLayer({ pendingLifecycle, dispatchFailsFor: ["installation-b"] }))(
 		);
 	},
 );
+
+const provisionedEveryUser = Array.from(
+	{ length: 250 },
+	(_, index) => `installation-${String(index).padStart(3, "0")}`,
+);
+
+layer(makeLayer({ pendingLifecycle: provisionedEveryUser }))((test) => {
+	test.effect("dispatches pending installations past the first page in one sweep", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeInstallationDependencies;
+			const service = yield* PluginInstallationService;
+			yield* service.dispatchPendingInstallationLifecycle();
+			expect([...(yield* fake.dispatched)].sort()).toEqual(provisionedEveryUser);
+		}),
+	);
+});
 
 const incompatibleInstallation = installationRow({
 	isInitialized: true,

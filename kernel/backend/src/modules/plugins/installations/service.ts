@@ -436,21 +436,31 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const dispatchPendingInstallationLifecycle = Effect.fn(
 				"PluginInstallationService.dispatchPendingInstallationLifecycle",
 			)(function* () {
-				const pending = yield* installations.listPendingLifecycle(100);
-				yield* Effect.forEach(
-					pending,
-					(installation) =>
-						lifecycleDispatcher
-							.dispatch(installation)
-							.pipe(
-								Effect.catchCause((cause) =>
-									Effect.logError("plugin installation lifecycle sweep failed", cause).pipe(
-										Effect.annotateLogs({ installationId: installation.installationId }),
+				// Dispatching only starts each workflow, and installations stay pending until theirs
+				// finishes, so one sweep pages past them: a system plugin provisions every user at once.
+				let after: string | undefined;
+				for (;;) {
+					const pending = yield* installations.listPendingLifecycle(100, after);
+					yield* Effect.forEach(
+						pending,
+						(installation) =>
+							lifecycleDispatcher
+								.dispatch(installation)
+								.pipe(
+									Effect.catchCause((cause) =>
+										Effect.logError("plugin installation lifecycle sweep failed", cause).pipe(
+											Effect.annotateLogs({ installationId: installation.installationId }),
+										),
 									),
 								),
-							),
-					{ discard: true, concurrency: 4 },
-				);
+						{ discard: true, concurrency: 4 },
+					);
+					const last = pending.at(-1);
+					if (pending.length < 100 || last === undefined) {
+						return;
+					}
+					after = last.installationId;
+				}
 			});
 
 			const setHomeView = Effect.fn("PluginInstallationService.setHomeView")(function* (
