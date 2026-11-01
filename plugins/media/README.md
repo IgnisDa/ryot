@@ -247,7 +247,11 @@ TMDB companies return the first discover page of movies and shows from `details`
 run, five at a time, and ends at the last page or TMDB's page 500.
 
 Provider refresh emits authoritative empty relationship groups where supported so removed links can
-be deleted. TMDB and TVDB cast credits and AniList staff voice credits preserve character names in
+be deleted. YouTube Music artist credits use parsed item types, not section headings: songs and
+videos become track credits, while albums (including singles and EPs) become album credits. List
+and carousel item titles use their parsed string or text value; repeated releases are deduplicated, and
+artist recommendations, playlists, and navigation items do not become credits.
+TMDB and TVDB cast credits and AniList staff voice credits preserve character names in
 the person-to-media relationship's `character` field, separately from roles. Multiple names for one
 credit are deduplicated and joined with `/`; missing names stay absent. Detail credit lists display
 the recorded names as `as <character>`. Consumers use normalized properties, not provider-specific branches. Descriptions and

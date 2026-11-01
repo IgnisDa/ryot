@@ -4,19 +4,12 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { buildArtistDetails } from "./shared";
 
 describe("person.youtube-music sandbox script", () => {
-	it.live("splits artist sections into track and group related entities", () =>
+	it.live("classifies artist credits by item type rather than section titles", () =>
 		Effect.gen(function* () {
 			const client = {
 				music: {
 					getArtist: () =>
 						Promise.resolve({
-							sections: [
-								{
-									title: { text: "Songs" },
-									contents: [{ video_id: "s1", title: "Song One" }, { title: "No Id" }],
-								},
-								{ title: { text: "Albums" }, contents: [{ id: "al1", title: "Album One" }] },
-							],
 							header: {
 								title: { text: "The Artist" },
 								description: { text: "Bio." },
@@ -25,6 +18,22 @@ describe("person.youtube-music sandbox script", () => {
 									{ width: 600, height: 600, url: "https://img/big.jpg" },
 								],
 							},
+							sections: [
+								{
+									title: { text: "Canciones" },
+									contents: [{ id: "s1", item_type: "song", title: "Song One" }],
+								},
+								{
+									header: { title: { text: "Álbumes" } },
+									contents: [{ id: "al1", item_type: "album", title: { text: "Album One" } }],
+								},
+								{
+									contents: [
+										{ id: "v1", item_type: "video", title: { text: "Video One" } },
+										{ id: "al1", item_type: "album", title: { text: "Album One" } },
+									],
+								},
+							],
 						}),
 				},
 			};
@@ -52,6 +61,12 @@ describe("person.youtube-music sandbox script", () => {
 							providerSlug: "music.youtube-music",
 							relationshipProperties: { roles: ["Artist"] },
 						},
+						{
+							externalId: "v1",
+							name: "Video One",
+							providerSlug: "music.youtube-music",
+							relationshipProperties: { roles: ["Artist"] },
+						},
 					],
 				},
 				{
@@ -66,6 +81,51 @@ describe("person.youtube-music sandbox script", () => {
 							relationshipProperties: { roles: ["Artist"] },
 						},
 					],
+				},
+			]);
+		}),
+	);
+
+	it.live("omits unsupported and incomplete items from authoritative artist credits", () =>
+		Effect.gen(function* () {
+			const details = yield* buildArtistDetails(
+				{
+					music: {
+						getArtist: () =>
+							Promise.resolve({
+								header: { title: { text: "The Artist" } },
+								sections: [
+									{
+										title: { text: "Albums" },
+										contents: [
+											{ id: "other", item_type: "artist", title: { text: "Other Artist" } },
+											{ id: "playlist", title: "Playlist", item_type: "playlist" },
+											{ id: "endpoint", title: "Shuffle", item_type: "endpoint" },
+											{ item_type: "album", title: { text: "No Id" } },
+											{ id: "empty", item_type: "album", title: { text: " " } },
+											{ id: "missing", item_type: "album" },
+											{ id: " ", item_type: "song", title: "Blank Id" },
+											{ id: "unknown", title: "Unknown Type" },
+										],
+									},
+								],
+							}),
+					},
+				},
+				"artist-1",
+			);
+			expect(details.relatedEntityGroups).toEqual([
+				{
+					entities: [],
+					direction: "outgoing",
+					synchronization: "authoritative",
+					relationshipSchemaSlug: "person-to-music",
+				},
+				{
+					entities: [],
+					direction: "outgoing",
+					synchronization: "authoritative",
+					relationshipSchemaSlug: "person-to-music-group",
 				},
 			]);
 		}),

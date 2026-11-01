@@ -174,7 +174,7 @@ it.live.each([false, true])("maps track details through the queue (automix: %s)"
 	}),
 );
 
-it.live("maps artist details and relationships through browse", () =>
+it.live("maps artist album and single carousels without duplicate or unrelated credits", () =>
 	Effect.gen(function* () {
 		const { client, requests } = yield* recordedClient("browse", [artistResponse("Artist")]);
 		expect(yield* buildArtistDetails(client, "UCartist")).toEqual({
@@ -207,6 +207,12 @@ it.live("maps artist details and relationships through browse", () =>
 						{
 							name: "Album",
 							externalId: "MPRalbum",
+							providerSlug: "music-group.youtube-music",
+							relationshipProperties: { roles: ["Artist"] },
+						},
+						{
+							name: "Single",
+							externalId: "MPRsingle",
 							providerSlug: "music-group.youtube-music",
 							relationshipProperties: { roles: ["Artist"] },
 						},

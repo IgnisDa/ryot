@@ -58,6 +58,22 @@ const shelf = (title: string, contents: readonly unknown[]) => ({
 	musicShelfRenderer: { contents, title: text(title) },
 });
 
+const twoRowItem = (id: string, title: string, pageType: string) => ({
+	musicTwoRowItemRenderer: {
+		...browse(id, pageType),
+		title: text(title),
+		subtitle: text("2024"),
+		thumbnailRenderer: { musicThumbnailRenderer: { thumbnail } },
+	},
+});
+
+const carousel = (title: string, contents: readonly unknown[]) => ({
+	musicCarouselShelfRenderer: {
+		contents,
+		header: { musicCarouselShelfBasicHeaderRenderer: { title: text(title) } },
+	},
+});
+
 export const searchResponse = (kind: "song" | "album" | "artist") => ({
 	contents: {
 		tabbedSearchResultsRenderer: {
@@ -80,16 +96,25 @@ export const searchResponse = (kind: "song" | "album" | "artist") => ({
 });
 
 export const artistResponse = (name: string) => ({
-	contents: {
-		sectionListRenderer: {
-			contents: [shelf("Songs", [song("track", "Track")]), shelf("Albums", [album])],
-		},
-	},
 	header: {
 		musicImmersiveHeaderRenderer: {
 			title: text(name),
 			description: text("Artist biography"),
 			thumbnail: { musicThumbnailRenderer: { thumbnail } },
+		},
+	},
+	contents: {
+		sectionListRenderer: {
+			contents: [
+				shelf("Songs", [song("track", "Track")]),
+				carousel("Latest release", [twoRowItem("MPRalbum", "Album", "MUSIC_PAGE_TYPE_ALBUM")]),
+				carousel("Albums", [twoRowItem("MPRalbum", "Album", "MUSIC_PAGE_TYPE_ALBUM")]),
+				carousel("Singles & EPs", [twoRowItem("MPRsingle", "Single", "MUSIC_PAGE_TYPE_ALBUM")]),
+				carousel("Fans might also like", [
+					twoRowItem("UCneighbor", "Another Artist", "MUSIC_PAGE_TYPE_ARTIST"),
+				]),
+				carousel("Featured on", [twoRowItem("VLplaylist", "Playlist", "MUSIC_PAGE_TYPE_PLAYLIST")]),
+			],
 		},
 	},
 });

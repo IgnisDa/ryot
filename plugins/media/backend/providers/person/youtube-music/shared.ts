@@ -3,6 +3,7 @@ import { asArray, asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { stringValue, type UnknownRecord } from "../../../lib/records";
+import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	type ArtistClient,
 	coerceTrimmed,
@@ -12,58 +13,39 @@ import {
 	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
 
-type ArtistRelatedEntity = {
-	name: string;
-	externalId: string;
-	providerSlug: string;
-	relationshipProperties: { roles: string[] };
-};
-
 const getArtistName = (artist: null | UnknownRecord) => {
 	const raw = asRecord(asRecord(artist?.["header"])?.["title"])?.["text"] ?? artist?.["name"] ?? "";
 	return coerceTrimmed(raw);
 };
 
 const collectArtistEntities = (artist: null | UnknownRecord) => {
-	const media: ArtistRelatedEntity[] = [];
-	const groups: ArtistRelatedEntity[] = [];
-	const sections = artist?.["sections"];
-	for (const section of asArray(sections)) {
-		const record = asRecord(section);
-		const rawSectionTitle =
-			asRecord(record?.["title"])?.["text"] ??
-			asRecord(asRecord(record?.["header"])?.["title"])?.["text"] ??
-			record?.["title"] ??
-			"";
-		const sectionTitle = coerceTrimmed(rawSectionTitle).toLowerCase();
-		const isTrackSection = /song|track|video/.test(sectionTitle);
-		const contents = record?.["contents"];
-		for (const item of asArray(contents)) {
+	const media = createRoleAccumulator();
+	const groups = createRoleAccumulator();
+	for (const section of asArray(artist?.["sections"])) {
+		for (const item of asArray(asRecord(section)?.["contents"])) {
 			const itemRecord = asRecord(item);
-			const videoId = stringValue(itemRecord?.["video_id"]);
-			const id = videoId ?? stringValue(itemRecord?.["id"]);
-			const title = stringValue(itemRecord?.["title"]) ?? stringValue(itemRecord?.["name"]);
+			const itemType = itemRecord?.["item_type"];
+			if (itemType !== "album" && itemType !== "song" && itemType !== "video") {
+				continue;
+			}
+			const id = stringValue(itemRecord?.["id"]);
+			const title =
+				stringValue(itemRecord?.["title"]) ??
+				stringValue(asRecord(itemRecord?.["title"])?.["text"]);
 			if (!id || !title) {
 				continue;
 			}
-			if (videoId || isTrackSection) {
-				media.push({
-					name: title,
-					externalId: id,
-					providerSlug: "music.youtube-music",
-					relationshipProperties: { roles: ["Artist"] },
-				});
-			} else {
-				groups.push({
-					name: title,
-					externalId: id,
-					providerSlug: "music-group.youtube-music",
-					relationshipProperties: { roles: ["Artist"] },
-				});
-			}
+			const isAlbum = itemType === "album";
+			const accumulator = isAlbum ? groups : media;
+			accumulator.add({
+				name: title,
+				externalId: id,
+				relationshipProperties: { roles: ["Artist"] },
+				providerSlug: isAlbum ? "music-group.youtube-music" : "music.youtube-music",
+			});
 		}
 	}
-	return { media, groups };
+	return { media: media.entities, groups: groups.entities };
 };
 
 export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
