@@ -136,6 +136,8 @@ export function buildApiEnv(input: {
 		PORT: input.port.toString(),
 		SANDBOX_WORKER_CONCURRENCY: "5",
 		FRONTEND_URL: input.frontendUrl,
+		// Memory admission reserves each run's worst case; the default budget admits about two.
+		SANDBOX_MEMORY_BUDGET_MIB: "2304",
 		FILE_STORAGE_S3_REGION: "us-east-1",
 		FILE_STORAGE_S3_URL: input.s3Endpoint,
 		FILE_STORAGE_S3_ACCESS_KEY_ID: S3_ACCESS_KEY,

@@ -62,7 +62,7 @@ Assert the transport tag or category, module-owned kebab-case reason code, and s
 
 ## Capacity
 
-The shared harness uses at most six workers (no more than the available parallelism), sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
+The shared harness uses at most six workers (no more than the available parallelism), sandbox worker concurrency 5 with a 2,304 MiB sandbox memory budget (memory admission reserves each run's worst case, and the derived default admits about two runs), an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
 
 Watch app-pool waits, cross-suite timeouts, connection ceilings, lock waits, Redis projection errors,
 stalled progress, and overlapping sandbox work.
