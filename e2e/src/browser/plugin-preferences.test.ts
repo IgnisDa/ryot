@@ -52,16 +52,23 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 			.getByText("Where you consume: Movie", { exact: true })
 			.waitFor({ state: "visible" });
 		yield* nsfw.click();
+		yield* page
+			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.click();
+		yield* page.getByRole("textbox", { name: "Search Viewing country" }).fill("India");
+		yield* page.getByRole("radio", { exact: true, name: "India" }).click();
 		yield* page.getByRole("button", { name: "Save changes" }).click();
 		yield* page.getByText("Plugin settings saved.").waitFor({ state: "visible" });
 		yield* page.reload;
 		expect(yield* nsfw.getAttribute("aria-checked")).toBe("true");
+		yield* page.getByRole("button", { exact: true, name: "Viewing country: India" }).waitFor();
 		const mediaSetting = requirePresent(
 			(yield* listPluginUserSettings(owner.client)).find(({ name }) => name === "Media"),
 			"Media settings not found",
 		);
 		expect(mediaSetting.settings).toMatchObject({
 			allowNsfw: true,
+			viewingRegion: "IN",
 			consumedOnVisualNovel: ["PC", "Nintendo Switch"],
 		});
 
@@ -69,6 +76,9 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 		yield* page.getByText("Plugin settings reset to defaults.").waitFor({ state: "visible" });
 		yield* page.reload;
 		expect(yield* nsfw.getAttribute("aria-checked")).toBe("false");
+		yield* page
+			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.waitFor();
 		expect(
 			(yield* listPluginUserSettings(owner.client)).find(({ name }) => name === "Media")?.settings,
 		).toEqual({});

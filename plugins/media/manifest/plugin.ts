@@ -44,6 +44,7 @@ import { builtinRelationshipSchemas } from "./schemas/relationship";
 import { mediaSignalSchemas } from "./schemas/signal";
 import { mediaSignalSchedules } from "./signal-schedules";
 import { mediaUserStatePolicy } from "./user-state";
+import { watchProviderUserSettingFields } from "./watch-provider-settings";
 
 const entitySchemas = mediaEntitySchemas().map(
 	(
@@ -121,7 +122,7 @@ const consumedOnUserSettingFields = Object.fromEntries(
 	consumedOnSettings.map(({ slug, label, defaults }, index) => [
 		consumedOnSettingKeys[slug],
 		{
-			position: index + 3,
+			position: index + 4,
 			type: "array" as const,
 			defaultValue: defaults,
 			label: `Where you consume: ${label}`,
@@ -647,6 +648,7 @@ export const mediaPlugin = definePlugin({
 				validation: { minimum: 1, maximum: MAX_UPCOMING_DAYS_AHEAD },
 				description: "How many days ahead the home Upcoming rail looks.",
 			},
+			...watchProviderUserSettingFields,
 			...consumedOnUserSettingFields,
 		},
 	},

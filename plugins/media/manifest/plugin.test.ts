@@ -1206,11 +1206,14 @@ it("edits credits from media, membership from groups, and children under a fixed
 	}
 });
 
-it("declares upcoming controls and one bounded where-you-consume list per media type", () => {
+it("declares viewing country, upcoming controls, and one bounded where-you-consume list per media type", () => {
 	const fields = new Map(Object.entries(mediaPlugin.userSettingsSchema.fields));
 	const keys = Object.values(consumedOnSettingKeys);
 	expect(sortBy([...fields.keys()], (key) => key)).toEqual(
-		sortBy(["allowNsfw", "upcomingDaysAhead", "upcomingOnePerTitle", ...keys], (key) => key),
+		sortBy(
+			["allowNsfw", "upcomingDaysAhead", "upcomingOnePerTitle", "viewingRegion", ...keys],
+			(key) => key,
+		),
 	);
 	expect(fields.get("allowNsfw")).toMatchObject({ position: 0 });
 	expect(fields.get("upcomingDaysAhead")).toMatchObject({
@@ -1224,7 +1227,25 @@ it("declares upcoming controls and one bounded where-you-consume list per media 
 		type: "boolean",
 		defaultValue: true,
 	});
-	expect(new Set([...fields.values()].map(({ position }) => position)).size).toBe(14);
+	expect(fields.get("viewingRegion")).toMatchObject({
+		position: 3,
+		type: "enum",
+		defaultValue: "auto",
+		label: "Viewing country",
+		choices: { kind: "static" },
+		validation: { required: true },
+	});
+	for (const choice of [
+		{ value: "auto", label: "Automatic (browser region)" },
+		{ value: "US", label: "United States" },
+		{ value: "GB", label: "United Kingdom" },
+		{ value: "IN", label: "India" },
+	]) {
+		expect(mediaPlugin.userSettingsSchema.fields.viewingRegion.choices.values).toContainEqual(
+			choice,
+		);
+	}
+	expect(new Set([...fields.values()].map(({ position }) => position)).size).toBe(15);
 	for (const key of keys) {
 		expect(fields.get(key)).toMatchObject({
 			type: "array",

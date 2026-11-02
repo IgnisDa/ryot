@@ -1,5 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
+export const VIEWING_REGION_SETTING = "viewingRegion";
+
 export const watchProviderOffers = ["stream", "free", "ads", "rent", "buy"] as const;
 
 export type WatchProviderOffer = (typeof watchProviderOffers)[number];
