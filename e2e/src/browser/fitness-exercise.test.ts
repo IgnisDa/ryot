@@ -119,6 +119,7 @@ it.live("offers the same menu actions for global and custom exercises", () =>
 			yield* visible(detail.getByRole("button", { exact: true, name: "Add to collection" }));
 			yield* openActionsMenu(detail);
 			const items = [
+				"Reminders",
 				"Preferences",
 				"Post a review",
 				"Duplicate",

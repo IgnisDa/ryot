@@ -439,3 +439,11 @@
   each rail visits every membership. The crash reproduces at a 400 MB limit with JIT on or off, so it is
   memory exhaustion rather than JIT alone. The run also OOM-killed another project's ClickHouse container on
   the owner's Docker VM, despite the limit on its own PostgreSQL container.
+- `full15` is the clean baseline: 51 min, 945 passed, 6 failed, 8 skipped. Test time splits into 42% HTTP, 41%
+  polling sleeps and 21% neither, which answers where the unmeasured time went. `full14` was discarded because
+  it was accidentally started twice, so two suites ran into one results folder.
+- `legacy2` compares JIT on and off on `tmp/file2.sql`. No read got clearly slower with JIT off, and the
+  home page's OOM kills went from 3 of 3 loads to 0 of 3 at a 1 GB limit. The page is still poor with JIT off:
+  30 s, and `upcoming` fails at the 30 s limit in 2 of 3 loads. All Shows fails at the limit either way, for
+  the default view and 6 of its 8 other sorts. The direction now turns JIT off for RyotQL reads only.
+

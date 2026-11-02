@@ -41,8 +41,12 @@ still takes 9,601 statements and 59 workflows. So the direction is:
    for every existing user. The cost is what surrounds them: a workflow per installation, per-user
    fan-out on a system plugin change, and per-row authority checks. Installing becomes a row written in
    a transaction, a system plugin change touches one pointer, and authority is cached by revision.
-4. **Reads scale with the page, not the library.** Filterable state moves to indexed columns, the plugin
-   and installation gate runs once per query instead of once per row, and big plans do not use JIT.
+4. **Reads scale with the page, not the library.** Filterable state moves to indexed columns, and the
+   plugin and installation gate runs once per query instead of once per row. Stored library summaries also
+   have to hold what lists sort on: `timesCompleted`, `lastCompletedAt` and `userRating` are still computed
+   per row from events. RyotQL reads turn JIT off in their own transaction, which leaves other SQL
+   unchanged; `legacy2` found no read that JIT clearly helped. This does not make the home page safe alone:
+   `upcoming` still hits the 30 s limit with JIT off.
 
 Every read of stored state needs a check against a real library before it changes. The lists to cover are
 the All saved views, home rails, calendar, analytics and monitoring schedules. Add a repeatable check

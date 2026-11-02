@@ -3,6 +3,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	episodicEarlierUnwatchedRecipe,
 	mediaActivityLogContextRecipe,
+	showSeasonChoicesRecipe,
 	showSeasonEpisodeChoicesRecipe,
 } from "@ryot-app/media-plugin/shared/activity-log-recipes";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -398,8 +399,13 @@ describe("Media activity log operation", () => {
 
 			const initial = yield* readContext(client, showId);
 			expect(initial.nextUp).toBeNull();
-			expect(initial.seasons.map((season) => season.seasonNumber)).toEqual([0, 1, 2]);
-			expect(initial.seasons.map((season) => season.id)).toEqual(seasons.map(({ id }) => id));
+			expect(initial.seasons.map((season) => season.seasonNumber)).toEqual([1]);
+			const seasonChoices = yield* executeRyotQLRecipe(
+				client,
+				showSeasonChoicesRecipe({ reference, limit: 100, entityId: showId }),
+			);
+			expect(seasonChoices.items.map((season) => season.seasonNumber)).toEqual([0, 1, 2]);
+			expect(seasonChoices.items.map((season) => season.id)).toEqual(seasons.map(({ id }) => id));
 
 			yield* log([episodeId(1, 2)]);
 			expect((yield* readContext(client, showId)).nextUp?.id).toBe(episodeId(1, 3));

@@ -541,3 +541,87 @@ ran individually rather than in the page's combined sections.
 The first run also got `discovery-resume-tests-ch`, another project's ClickHouse container on the same
 Docker VM, OOM-killed: the limit on this PostgreSQL container did not protect the rest of the VM. That run's
 13 s first page load is discarded because of that memory pressure.
+
+## Run `full15` (clean baseline with a test timer)
+
+Whole suite on the VM, one run, 51 min: 945 passed, 6 failed, 8 skipped. Every file recorded HTTP time and
+sleep time, with overlapping spans merged. Test time adds up across workers: 11,043 s in 3,067 s of wall
+clock.
+
+| Share of test time | |
+| --- | ---: |
+| In an HTTP call | 42% |
+| Sleeping between polls | 41% |
+| Both combined, without double counting | 79% |
+| Neither (browser work, test code, process start) | 21% |
+
+- **Sleeps:** mostly fixed polling delays: 6,015 of 200 ms, 4,994 of 500 ms, 907 of 100 ms, 629 of 1 s and
+  182 of 5 s. This is the time tests spend waiting for background work to settle. How much disappears depends
+  on how much of that work moves into the write's transaction, which this run cannot say.
+- **Slowest routes, by total time:** `POST /api/events` (348 calls, 887 s), `POST /api/ryotql/execute` (16,906
+  calls, 774 s), `POST /api/test-support/entities/global` (1,212 calls, 456 s), `POST /api/plugins` (292 calls,
+  360 s), `media-activity-log` (59 calls, 270 s).
+- **Failures:** the 4 `history-correction-liveness` tests, which also failed in `full12`, plus
+  `collection-detail` (30 s wait for a list item) and `entity-reminders` (`Malformed value` filling a
+  `datetime-local` input). The last two were not investigated.
+
+An earlier attempt, `full14`, is discarded: two copies of the suite ran at once into one results folder.
+
+## Run `legacy2` (JIT on and off on a larger library, laptop)
+
+`tmp/file2.sql` restored and migrated into disposable containers: 299 users, 230 of them disabled; 736,147
+entities, 1,154,796 events, 3.8 GB; migration 457 s. Reads ran through the API as the enabled user with the
+largest library: 14,708 titles, of which 10,098 are movies and 4,610 are shows, plus 65,107 events. Fitness
+reads ran as the enabled user with the most workouts (113). PostgreSQL 18 limited to 1 GB, on a 2 GB, 2 CPU
+Docker VM with nothing else busy.
+
+195 reads ran one at a time, 3 times with `jit=on` and 3 times with `jit=off`, in the order off, on, on, off,
+off, on. A read that hit the 30 s limit was not repeated in that mode. 187 of them finished at least once each
+way. Medians, in ms:
+
+| Read | `jit=on` | `jit=off` |
+| --- | ---: | ---: |
+| Backlog rail, shows | 18,561 | 3,281 |
+| Backlog rail, other media | 3,257 | 183 |
+| Continue rail, other media | 3,606 | 196 |
+| All Shows, sorted by name | 5,529 | 463 |
+| All Shows, sorted by provider rating | 6,131 | 333 |
+| All People, sorted by rating | 1,383 | 76 |
+| Analytics summary, all time | 998 | 457 |
+| Analytics trend, all time | 509 | 98 |
+| Fitness rank by targets | 165 | 148 |
+| Upcoming | 27,879 (1 of 2 finished) | 26,748 |
+| Show episode calendar | 25,396 | 26,698 |
+| All Shows, default and 6 other sorts | Fails at the 30 s limit | Fails at the 30 s limit |
+
+- **Regressions:** no read was clearly slower with JIT off. Where `jit=off` looks slower, either the read did
+  not use JIT or the ranges overlap. The largest is the show episode calendar, at 15–27 s either way.
+- **Most reads never reach JIT:** many ran with no JIT at all and differ only by noise. Background work is
+  in the same counters, so "fired" counts are not exact per read. It also means something in the background
+  repeatedly spends about 2 s in JIT, which was not traced.
+- **Run-to-run variation:** `upcoming` took 5 s with JIT off in an earlier run and 20–28 s in this one, and the
+  show calendar took 3.8 s against 15–27 s. Neither change is explained by JIT. The cause was not established;
+  a cold cache under the 1 GB limit is one candidate.
+- **All Shows:** `timesCompleted`, `lastCompletedAt` and `userRating` are computed per row from events
+  (`librarySummary`), so those sorts read every show's events. Why the default view and the sorts on stored
+  values also time out was not established.
+
+The whole home page, 11 queries at once, 3 times each way, from PostgreSQL's own logs:
+
+| | `jit=on` | `jit=off` |
+| --- | --- | --- |
+| Backend OOM-killed | 3 of 3 page loads | 0 of 3 |
+| Time | Failed, up to 180 s | 30 s |
+| Rails failing | 3–5 of 11 | `upcoming`, 2 of 3 loads |
+| Slowest other rails | Failed or timed out | Continue shows 7–9 s, backlog shows 4–6 s |
+| Peak memory, sampled | 1,024 MiB (the limit) | About 900 MiB |
+
+- **One read alone:** the continue rail for shows also got a backend OOM-killed once with `jit=on`, with no
+  other test query running. It was not run again in that mode, because the harness skipped reads after a long
+  failure, so the table has no `jit=on` median for it. With JIT off it took 4.5–5.2 s.
+- **Not covered:** writes, imports, projections and other background SQL, and the crash at a lower limit with
+  this library. `legacy1` still shows a 400 MB limit crashes with JIT on or off.
+- **Corrections to the harness:** its own `crashed` flag read `pg_postmaster_start_time`, which does not change
+  on this kind of restart, so kills are taken from PostgreSQL's log. An earlier attempt in this run lost its
+  login session after about 13 minutes, so only the last attempt's numbers are used.
+
