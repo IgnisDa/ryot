@@ -19,7 +19,6 @@ URL. It looks like `https://<instance_url>/_i/<slug>`.
 2. Go to the plugin settings and add a new `Generic` destination with the following
    settings:
     - Webhook URL => `<paste_url_copied>`
-    - Request method => `POST`
     - Request content type => `application/json` (add a `Content-Type` header if the
       destination does not set it automatically)
     - Notification types => `PlaybackStart` and `PlaybackStop` (`PlaybackProgress`
