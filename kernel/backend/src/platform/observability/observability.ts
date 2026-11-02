@@ -167,6 +167,10 @@ const decorateTracer = (tracer: Tracer.Tracer, runtime: Context.Context<never>) 
 									spanId: span.spanId,
 									traceId: span.traceId,
 									spanName: options.name,
+									...Option.match(span.parent, {
+										onNone: () => ({}),
+										onSome: (parent) => ({ parentSpanId: parent.spanId }),
+									}),
 									durationMs: Number(endTime - options.startTime) / 1_000_000,
 								}),
 							),
