@@ -316,3 +316,24 @@ of the calibrated idle rate; `probes7 → probes8 / probes9`, medians.
 - **Background work:** two of the three review samples in `probes8` ran an extra relationship
   projection and an extra user script. The faster write path changes when coalescing requests
   arrive, so a request can now land after the first run has started.
+
+## Runs `probes2` → `probes9` → `probes10` (baseline, slice 3 end, `fa8aaf6900`)
+
+Medians of repeats on the idle VM. `probes9` is `912380c69b`; `probes10` adds settled-replay reuse,
+the leaner user command commit, and single-step history-correction phase changes.
+
+| Flow | Caller | Statements | Server CPU |
+| --- | --- | --- | --- |
+| Signup | 1.32 → 0.69 → 0.71 s | 917 → 463 → 453 | 1.32 → 0.78 → 0.71 s |
+| Media movie fixture | 0.63 → 0.50 → 0.50 s | 265 → 159 → 160 | 0.71 → 0.40 → 0.43 s |
+| Event create, `backlog` | 1.21 → 0.53 → 0.56 s | 2,442 → 1,057 → 991 | 2.23 → 0.86 → 1.10 s |
+| Review operation | 4.12 → 1.97 → 1.98 s | 6,042 → 2,441 → 2,361 | 4.73 → 2.20 → 2.25 s |
+| Workout, 1 set | 1.91 → 1.21 → 1.17 s | 1,719 → 758 → 754 | 1.69 → 0.90 → 0.87 s |
+| Workout, 10 sets | 2.03 → 1.57 → 1.46 s | 2,157 → 1,127 → 1,126 | 2.12 → 1.17 → 1.25 s |
+| Workout, 25 sets | 2.24 → 1.71 → 1.76 s | 2,851 → 1,765 → 1,754 | 1.94 → 1.37 → 1.33 s |
+
+- Against the baseline, callers wait 21–54% less, with 38–61% fewer statements and 31–52% less
+  server CPU.
+- `probes9` → `probes10` is flat within noise. The later changes cut work that only repeats under
+  load (workflow re-activations, commits queued behind one entity lock, correction steps), which
+  these single-flow probes do not exercise. Settle times vary by the ±1.5 s sampling window.

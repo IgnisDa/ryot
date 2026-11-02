@@ -390,3 +390,15 @@
     repeating it inside the same transaction rereads the same rows. A user command commit, which
     never changes plugin, installation or account rows, now reuses each check for its key;
     `reuseLockedWriteChecks` is the opt-in for such a scope.
+- `liv9`, with write checks reused: the test passed in 164 s. The lock was held for 87 s (−21% against
+  `liv7`), median 158 ms; a median commit issues 100 statements instead of 140.
+  - The wall time barely moved. From 20 s to 160 s the server committed about 3.3 correction steps
+    a second, with about one commit in flight at any time, while sandbox runs kept the background
+    lane's two slots busy. A step holds its slot for its script reads and its inline commit, so the
+    test is bounded by steps × step time over two slots.
+  - A single-completion movie took six steps: restart, audit, progress (record the occurrence),
+    progress (publish), prune and clear; three of those commit only a phase change. A step that has
+    written nothing now continues into the next audit, progress, prune, sweep, clear or dependency
+    phase, each at most once per step, so writes per commit stay bounded. Coverage and the snapshot
+    phases read the step's starting checkpoint and still start a step of their own, as does a
+    restart. The movie now takes four steps.
