@@ -432,3 +432,10 @@
   use a write's direct result, the script's own commits, or a durable child workflow (imports).
 - `local1` measures a real 150-set workout save: 3.1 s and 9,601 statements. The existing workout flows
   seed through a different path from the client's, so `flow-probes` gains `workout-editor-save-*` flows.
+- The owner replaced the VM with a fresh one of the same size, and it was provisioned. The owner's review
+  changed the direction, recorded in `redesign.md`: first-party plugins stay sandboxed, and derived state
+  stays stored rather than computed on read.
+- `legacy1` runs the home page on a real 28,619-title library. `jit=on` makes it about 5 times slower, and
+  each rail visits every membership. The crash reproduces at a 400 MB limit with JIT on or off, so it is
+  memory exhaustion rather than JIT alone. The run also OOM-killed another project's ClickHouse container on
+  the owner's Docker VM, despite the limit on its own PostgreSQL container.

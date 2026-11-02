@@ -1,8 +1,8 @@
 # Redesign proposal: remove the cascade
 
-Status: agreed by the owner, and the spike (move 1) is done. Nothing else here is implemented, and
-implementation waits on the owner's review of the spike. It replaces the ordering in
-[`strategy.md`](strategy.md), whose target design was only partly built.
+Status: direction under review with the owner. Nothing here is implemented, and implementation waits
+for the owner's go-ahead. It replaces the ordering in [`strategy.md`](strategy.md), whose target design
+was only partly built.
 
 ## Decisions
 
@@ -11,6 +11,38 @@ implementation waits on the owner's review of the spike. It replaces the orderin
 - **Internals** are free to change as long as user-facing features keep working. That includes where
   history-correction evidence is stored.
 - **Replicas** must keep working, so cross-process ownership and wake-ups stay.
+- **Greenfield:** there is no V2 production data, so schema changes need no migrations, and breaking
+  changes and complete design changes are fine.
+- **Sandbox:** first-party plugins stay in the sandbox, which they exist partly to demonstrate. Its 17%
+  of attributed CPU is tuned last, if at all.
+- **Plugin versions:** system plugins are global, not user controlled, and follow the Docker image. Other
+  plugins install per instance, but a user can be on a different version of the same plugin.
+- **Tests:** moving rules to a faster layer happens only if the suite is still the bottleneck after the
+  backend work. Real user journeys stay in e2e.
+
+## Direction
+
+The first proposal kept the architecture and removed steps from it. The evidence points at the foundation:
+removing the cascade cut machine CPU by only 21%, and a 150-set save that barely touches those hooks
+still takes 9,601 statements and 59 workflows. So the direction is:
+
+**A write is one transaction. Anything else is stored in that transaction or is a plain job.**
+
+1. **Commands stop being workflows.** A write is a function call and a transaction with one receipt. The
+   durable engine stays for imports, provider fetches, external deliveries and durable sleeps.
+2. **Store derived state, written with the source.** Computing state on read was rejected. It is cheap for
+   one page, but filtering or sorting a library by state needs every row (`legacy1` in
+   [`probes.md`](probes.md)). Instead, a plugin declares a summary as a RyotQL recipe, and the kernel runs
+   it for only the touched subject in the source transaction. Provider-driven changes and bulk imports
+   stay jobs. History correction becomes the same pattern where it can.
+3. **Plugin state stops being per user.** The rules are under Decisions. That removes most per-user
+   installation rows and authority checks, and system plugin changes no longer fan out to every user.
+4. **Reads scale with the page, not the library.** Filterable state moves to indexed columns, the plugin
+   and installation gate runs once per query instead of once per row, and big plans do not use JIT.
+
+Every read of stored state needs a check against a real library before it changes. The lists to cover are
+the All saved views, home rails, calendar, analytics and monitoring schedules. Add a repeatable check
+against a large library, because the e2e suite's tiny libraries cannot catch these failures.
 
 ## What the spike showed
 

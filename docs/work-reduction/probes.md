@@ -496,3 +496,48 @@ use for saving, so earlier workout rows in this file do not describe a real save
   the 930 projection writes all appear in the third run, so that figure is a third of the total.
 - **About 57 statements per extra set.** The source commit is already one transaction, and no membership
   hook fires here, so the cost is the kernel's per-item work and records, which moves 3 and 4 address.
+
+## Run `legacy1` (home page on a real library, laptop)
+
+`tmp/file.sql` restored and migrated into disposable Postgres, Redis and S3 on the owner's Mac (Docker
+limited to 2 GB and 2 CPUs), then queried through the API as that user with the recipes the home page
+uses. One user with 28,619 library members: 27,334 music, 671 movies, 300 books, 109 audiobooks, 86
+games, 73 shows; 179,979 events; 411 MB. PostgreSQL 18 with default settings, including `jit=on`.
+
+| Home page, 11 queries at once | `jit=on` | `jit=off` |
+| --- | ---: | ---: |
+| Quiet | 3.3 s | 0.65 s |
+| Background load (4 busy loops on 2 CPUs) | 6.3 s | 1.35 s |
+
+- **The two flat rails set the page time.** `flatByLifecycleStateRecipe` takes about 3 s, with
+  2,384 ms execution with JIT and about 215 ms without. Without JIT the other queries take under 700 ms.
+- **The rail reads stored summaries, but scales with the library.** It visits all 28,619 memberships and
+  checks each one's note, work, plugin and installation rows: 465,941 buffer hits to return 2 rows.
+
+Computing library summaries live, using the projection's own recipe:
+
+| Input | Time |
+| --- | ---: |
+| 20 shows | 87 ms |
+| All 73 shows | 145 ms |
+| 20 movies | 19 ms |
+| 100 movies | 27 ms |
+| 100 music titles | 14 ms |
+
+So live state is cheap for one page or one subject. Filtering or sorting needs every row: at these rates
+about 4 s or more for this library, by extrapolation, because the recipe rejects 1,000 IDs.
+
+Crash, with memory limits set on the PostgreSQL container and background load:
+
+| Limit | `jit=on` | `jit=off` |
+| --- | --- | --- |
+| 1 GB | Survived, peak about 650 MB | Survived |
+| 400 MB | Backends and checkpointer OOM-killed, recovery, requests failed | Backend OOM-killed, requests failed |
+
+The crash reproduces as memory exhaustion, and JIT is not its proven cause. Peak use on this library is
+high enough that a busy 2 GB Docker VM could plausibly reach it. The API ran outside Docker, and queries
+ran individually rather than in the page's combined sections.
+
+The first run also got `discovery-resume-tests-ch`, another project's ClickHouse container on the same
+Docker VM, OOM-killed: the limit on this PostgreSQL container did not protect the rest of the VM. That run's
+13 s first page load is discarded because of that memory pressure.
