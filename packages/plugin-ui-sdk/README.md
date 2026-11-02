@@ -109,6 +109,8 @@ top-level fields. Decoding and normalization match backend writes: required mean
 clear writes null, and empty lists remain `[]`. Date-only values are unchanged; datetimes submit UTC
 using the supplied/device zone. Edit disables immutable fields. Omitted object secrets and unchanged
 secret-bearing arrays are retained; editing an array replaces it and requires its secrets again.
+Static enums with more than eight choices use a searchable `Select`; shorter lists use chips or
+segmented controls.
 
 ## Markdown
 

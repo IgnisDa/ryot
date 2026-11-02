@@ -136,6 +136,7 @@ const arrayValue = (value: unknown): readonly JsonValue[] =>
 const isAsset = Schema.is(AssetLocator);
 const clearableControls: ReadonlySet<SchemaFormControl> = new Set<SchemaFormControl>([
 	"chips",
+	"select",
 	"object",
 	"switch",
 	"timezone",
@@ -779,6 +780,21 @@ function NodeControl(props: NodeProps) {
 		case "switch":
 			return (
 				<Switch label={property.label} onChange={props.onChange} checked={props.value === true} />
+			);
+		case "select":
+			return (
+				<Select
+					value={value}
+					label={property.label}
+					onChange={props.onChange}
+					checkIcon={context.icons.check}
+					searchIcon={context.icons.search}
+					chevronIcon={context.icons.chevron}
+					choices={choices.map((choice) => ({
+						value: choice.value,
+						label: schemaChoiceLabel(choice),
+					}))}
+				/>
 			);
 		case "timezone": {
 			const zones = Intl.supportedValuesOf("timeZone");

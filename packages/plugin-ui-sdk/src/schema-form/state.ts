@@ -27,6 +27,7 @@ export type SchemaFormControl =
 	| "file"
 	| "asset"
 	| "chips"
+	| "select"
 	| "assets"
 	| "object"
 	| "switch"
@@ -95,6 +96,9 @@ const schemaFieldControl = (property: AppPropertyDefinition): SchemaFormControl 
 		return "text";
 	}
 	const choices = property.choices.values;
+	if (choices.length > 8) {
+		return "select";
+	}
 	return choices.length > 1 &&
 		choices.length <= 3 &&
 		choices.every((choice) => schemaChoiceLabel(choice).length <= 12)

@@ -644,6 +644,57 @@ describe("SchemaForm", () => {
 		expect(comedy.getAttribute("aria-checked")).toBe("true");
 	});
 
+	it.live("searches a long static enum and submits the selected value", () =>
+		Effect.gen(function* () {
+			const longEnumSchema: AppSchema = {
+				fields: {
+					source: {
+						type: "enum",
+						label: "Source",
+						defaultValue: "alpha",
+						description: "Source",
+						choices: {
+							kind: "static",
+							values: [
+								"alpha",
+								"beta",
+								"gamma",
+								"delta",
+								"epsilon",
+								"zeta",
+								"eta",
+								"theta",
+								"iota",
+							].map((value) => ({ value })),
+						},
+					},
+				},
+			};
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness schema={longEnumSchema} onSubmit={(values) => submitted.push(values)} />,
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Source: alpha" })),
+			);
+			fireEvent.change(screen.getByRole("textbox", { name: "Search Source" }), {
+				target: { value: "iot" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.queryByRole("radio", { name: "beta" })).toBeNull()),
+			);
+			fireEvent.click(screen.getByRole("radio", { name: "iota" }));
+			expect(screen.getByRole("button", { name: "Source: iota" })).toBeTruthy();
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() => waitFor(() => expect(submitted).toEqual([{ source: "iota" }])));
+			fireEvent.click(screen.getByRole("button", { name: "Clear Source" }));
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ source: "iota" }, { source: null }])),
+			);
+		}),
+	);
+
 	it("renders an enum-array as a multi-select trigger", () => {
 		render(<SchemaFormHarness schema={multiSelectSchema} onSubmit={() => undefined} />);
 

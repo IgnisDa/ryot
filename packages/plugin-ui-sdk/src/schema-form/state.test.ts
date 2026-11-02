@@ -644,6 +644,11 @@ describe("schema form state", () => {
 					type: "enum",
 					choices: choices("a", "an extremely long label"),
 				},
+				long: {
+					...described("Long"),
+					type: "enum",
+					choices: choices("a", "b", "c", "d", "e", "f", "g", "h", "i"),
+				},
 			},
 		} satisfies AppSchema;
 
@@ -659,6 +664,7 @@ describe("schema form state", () => {
 			["tags", "multi-select"],
 			["list", "list"],
 			["wordy", "chips"],
+			["long", "select"],
 		]);
 	});
 
