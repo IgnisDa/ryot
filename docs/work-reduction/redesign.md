@@ -15,8 +15,9 @@ was only partly built.
   changes and complete design changes are fine.
 - **Sandbox:** first-party plugins stay in the sandbox, which they exist partly to demonstrate. Its 17%
   of attributed CPU is tuned last, if at all.
-- **Plugin versions:** system plugins are global, not user controlled, and follow the Docker image. Other
-  plugins install per instance, but a user can be on a different version of the same plugin.
+- **Plugin versions:** system plugins are global, not user controlled, and follow the Docker image. Users
+  can run different versions of the same uploaded plugin, which the current `plugin` and
+  `plugin_revision` tables already allow because each owner gets their own `plugin` row.
 - **Tests:** moving rules to a faster layer happens only if the suite is still the bottleneck after the
   backend work. Real user journeys stay in e2e.
 
@@ -35,8 +36,11 @@ still takes 9,601 statements and 59 workflows. So the direction is:
    [`probes.md`](probes.md)). Instead, a plugin declares a summary as a RyotQL recipe, and the kernel runs
    it for only the touched subject in the source transaction. Provider-driven changes and bulk imports
    stay jobs. History correction becomes the same pattern where it can.
-3. **Plugin state stops being per user.** The rules are under Decisions. That removes most per-user
-   installation rows and authority checks, and system plugin changes no longer fan out to every user.
+3. **Plugin installation rows stay, but stop being machinery.** The tables keep their shape. A real user
+   has only a few installation rows; the 18,334 in `full11` came from tests installing system plugins
+   for every existing user. The cost is what surrounds them: a workflow per installation, per-user
+   fan-out on a system plugin change, and per-row authority checks. Installing becomes a row written in
+   a transaction, a system plugin change touches one pointer, and authority is cached by revision.
 4. **Reads scale with the page, not the library.** Filterable state moves to indexed columns, the plugin
    and installation gate runs once per query instead of once per row, and big plans do not use JIT.
 
