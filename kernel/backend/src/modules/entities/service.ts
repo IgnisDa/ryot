@@ -68,6 +68,7 @@ import { trimToNull } from "#platform/validation";
 import { EntityDeleteResult, EntityEnsureResult, EntitySnapshotResult } from "./mutation-outcomes";
 import {
 	draftOf,
+	isUnchangedUpdate,
 	makePersistMutation,
 	makeReceiptBatches,
 	type MutationReceiptRecord,
@@ -1543,6 +1544,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					const prepared = saved[preparedUserEntitySave];
 					yield* assertUserEditable(prepared);
 					yield* assertImmutablePropertiesKept(prepared);
+					if (isUnchangedUpdate(prepared)) {
+						const persisted = yield* persistSnapshots.persistSave(prepared);
+						return { dispatch: persisted.dispatch, entity: persisted.result.entity };
+					}
 					const batchScope = { identity: ["batch"], command: prepared.lifecycle };
 					const decision = yield* planner.prepareBatch({
 						...batchScope,

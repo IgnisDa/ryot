@@ -103,6 +103,15 @@ const effectiveDraft = (item: PersistItem, before: AutomationEntitySnapshot) =>
 			item.input.draft.populatedAt < before.populatedAt))
 		? { ...item.input.draft, populatedAt: before.populatedAt }
 		: item.input.draft;
+
+/** An update whose draft matches the snapshot it was prepared from writes nothing and plans no hooks. */
+export const isUnchangedUpdate = (input: PreparedMutation) =>
+	input.operation === "update" &&
+	input.before !== null &&
+	same(
+		draftOf(input.before),
+		effectiveDraft({ input, batchIndex: 0, pin: undefined }, input.before),
+	);
 export type MutationReceiptRecord = Parameters<MutationReceipts["Service"]["insert"]>[0];
 
 export const mutationReceiptRecord = (input: {

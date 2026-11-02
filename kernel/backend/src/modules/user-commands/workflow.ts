@@ -424,20 +424,22 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 								batches: preparedBatches,
 							});
 							const dispatch = [...saved.dispatch];
-							const batch = {
-								command: payload.command,
-								identity: ["relationships"],
-								resource: "relationship" as const,
-							};
-							yield* planner.prepareBatch({ ...batch, scopes: [payload.userId] });
-							for (const [index, relation] of preparedRelations.entries()) {
-								const work = yield* relationships.persistPreparedUserCreate(
-									yield* restoreUserRelationshipCreate(relation),
-									{ ...batch, index },
-								);
-								dispatch.push(...work.dispatch);
+							if (preparedRelations.length > 0) {
+								const batch = {
+									command: payload.command,
+									identity: ["relationships"],
+									resource: "relationship" as const,
+								};
+								yield* planner.prepareBatch({ ...batch, scopes: [payload.userId] });
+								for (const [index, relation] of preparedRelations.entries()) {
+									const work = yield* relationships.persistPreparedUserCreate(
+										yield* restoreUserRelationshipCreate(relation),
+										{ ...batch, index },
+									);
+									dispatch.push(...work.dispatch);
+								}
+								dispatch.push(...(yield* planner.planBatch(batch)));
 							}
-							dispatch.push(...(yield* planner.planBatch(batch)));
 							const written = [];
 							const eventBatch = {
 								identity: ["events"],
