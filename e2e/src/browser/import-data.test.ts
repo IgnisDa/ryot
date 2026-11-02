@@ -12,6 +12,9 @@ import {
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, assert, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
+import { runFileOnIsolatedServer } from "~/support/isolated-harness";
+
+runFileOnIsolatedServer("Import Data Browser");
 
 const SUITE_ID = crypto.randomUUID();
 

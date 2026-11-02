@@ -341,3 +341,17 @@
     run return a recovery identity for its caller to clear.
 - `liv4`, with that change, against `liv3`: the file took 423 s instead of 462 s, the 60-subject
   test 149 s instead of 166 s, and the API server used 321 CPU-seconds instead of 377 (−15%).
+- `full11`, the whole suite at `306769dee3`: 53.0 min, 940 passed, 8 failed in 4 files, 8 skipped.
+  - `history-correction-liveness` (4) and `analytics-recipes` (1) still time out at 180 s.
+  - `lifecycle-query-recipes` (2, new) read a pending library summary. Every event write queues one
+    `library-summary-refresh` run in the background lane, and each run advances the summary's
+    revision. The first run to finish already covers both writes, so `waitForLibrarySummary` saw a
+    ready summary equal to the live computation; the second run then marked it pending again, and a
+    pending summary is in no lifecycle state. The file passes alone (`lqr1`). Its state assertion
+    now polls while the summary is in no state; a wrong state still fails at once. Other callers of
+    `waitForLibrarySummary` that read the stored summary have the same exposure.
+    - Candidate: a refresh request that a completed step already covered still recomputes the
+      summary. Skipping it needs the request to carry its triggering write's position.
+  - `fitness-analytics-interactions` timed out clicking under the "Update available" prompt.
+    `browser/import-data` installs two system plugins on the shared backend in `beforeAll` and
+    removes them in `afterAll`, which stales every open page; it now runs on its own server.

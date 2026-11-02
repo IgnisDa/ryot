@@ -206,24 +206,32 @@ const assertEpisodicState = (
 	Effect.gen(function* () {
 		yield* waitForLibrarySummary(client, entityId);
 		const reference = yield* localReferenceForEntity(client, entityId);
-		const results = yield* Effect.all(
-			lifecycleStates.map((state) =>
-				executeRyotQLRecipe(
-					client,
-					episodicByLifecycleStateRecipe({
-						config,
-						entityId,
-						limit: 1,
-						reference,
-						states: [state],
-					}),
-				),
-			),
-		);
-		const memberships = results.flatMap((result, index) =>
-			result.items.some((item) => item.id === entityId && item.state === expected)
-				? [lifecycleStates[index]]
-				: [],
+		// A refresh queued by an earlier write can mark the current summary pending again, and a pending
+		// summary is in no state.
+		const memberships = yield* pollUntil(
+			`lifecycle state of ${entityId}`,
+			Effect.gen(function* () {
+				const results = yield* Effect.all(
+					lifecycleStates.map((state) =>
+						executeRyotQLRecipe(
+							client,
+							episodicByLifecycleStateRecipe({
+								config,
+								entityId,
+								limit: 1,
+								reference,
+								states: [state],
+							}),
+						),
+					),
+				);
+				const states = results.flatMap((result, index) =>
+					result.items.some((item) => item.id === entityId && item.state === lifecycleStates[index])
+						? [lifecycleStates[index]]
+						: [],
+				);
+				return states.length > 0 ? states : null;
+			}),
 		);
 		expect(memberships).toEqual([expected]);
 	});
