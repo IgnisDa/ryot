@@ -12,7 +12,6 @@ import {
 	flushRyotClient,
 	mountRyotClient,
 } from "../../tests/client/test-support";
-import { screenCreditFilters } from "../creator/credit-filters";
 import { createMediaCreditsQuery, MediaCreditsButton } from "./credits";
 
 const query = createMediaCreditsQuery(showRecipes.peopleRecipe);
@@ -169,7 +168,7 @@ describe("credit lists", () => {
 	);
 
 	it.live(
-		"resets paged person credits for each server-side filter without filtering returned rows",
+		"pages all people without filter controls, including cast, crew, and marked appearances",
 		() =>
 			Effect.gen(function* () {
 				const documents: string[] = [];
@@ -190,9 +189,12 @@ describe("credit lists", () => {
 									people: rowsResult(
 										Array.from({ length: 30 }, (_, index) => ({
 											...personRow,
+											isGuest: index % 3 === 0,
 											departments: ["Direction"],
+											isUncredited: index % 5 === 0,
 											id: `person-${page * 30 + index}`,
 											name: `Person ${page * 30 + index}`,
+											creditKinds: [index % 2 === 0 ? "cast" : "crew"],
 										})),
 										{
 											limit: 30,
@@ -212,7 +214,6 @@ describe("credit lists", () => {
 						safeAreaTop={0}
 						purpose="profile"
 						label="View all people"
-						filters={screenCreditFilters}
 						input={{ entityId: "show-1" }}
 					/>,
 				);
@@ -230,25 +231,14 @@ describe("credit lists", () => {
 					);
 				}
 				expect(dialog.textContent).toContain("Direction");
-				for (const [label, choice] of [
-					["Credit kind", "Cast"],
-					["Guest credits", "Exclude explicitly marked"],
-					["Uncredited credits", "Only explicitly marked"],
-				] satisfies readonly (readonly [string, string])[]) {
-					clickRyotElement(getByRole(dialog, "button", { name: new RegExp(`^${label}:`) }));
-					yield* Effect.promise(() => flushRyotClient());
-					const picker = getByRole(document.body, "dialog", { name: label });
-					clickRyotElement(getByRole(picker, "radio", { name: choice }));
-					yield* Effect.promise(() => flushRyotClient());
-					yield* Effect.promise(() =>
-						waitFor(() => expect(getAllByRole(dialog, "link")).toHaveLength(30)),
-					);
-					expect(documents.at(-1)).not.toContain('"after"');
-					expect(queryByRole(dialog, "link", { name: "Open Person 89" })).toBeNull();
-				}
-				expect(documents.at(-1)).toContain('"cast"');
-				expect(documents.at(-1)).toContain("isGuest");
-				expect(documents.at(-1)).toContain("isUncredited");
+				expect(documents).toHaveLength(3);
+				expect(
+					queryByRole(dialog, "button", {
+						name: /^(Credit kind|Guest credits|Uncredited credits):/,
+					}),
+				).toBeNull();
+				expect(queryByRole(dialog, "button", { name: "Load more" })).toBeNull();
+				expect(getByRole(dialog, "link", { name: "Open Person 89" })).toBeDefined();
 				expect(getByRole(dialog, "link", { name: "Open Person 0" })).toBeDefined();
 				view.unmount();
 			}),

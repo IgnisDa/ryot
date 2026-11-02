@@ -1,14 +1,11 @@
 import { type PluginIdentityReference, PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
-import { Select } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { type ComponentProps, useState } from "react";
+import type { ComponentProps } from "react";
 
 import type { MediaCreatorCredit } from "../../shared/creator-recipes";
-import type { MediaCreditFilters } from "../../shared/media-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages } from "./cursor-pages";
@@ -20,32 +17,18 @@ import { ManagedAssetImage } from "./managed-assets";
 import { mediaCharacterLabel, mediaRolesLabel, type MediaUnlinkedCreator } from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
 
-export type MediaCreditFilterControls = {
-	readonly guest: string;
-	readonly uncredited: string;
-	readonly kind: {
-		readonly label: string;
-		readonly choices: readonly {
-			readonly label: string;
-			readonly value: MediaCreditFilters["kind"];
-		}[];
-	};
-};
-
 export type MediaCreditsRecipe<Scope extends object = object> = (
 	input: Scope & {
 		readonly limit: number;
 		readonly entityId: string;
 		readonly after?: string | undefined;
 		readonly reference: PluginIdentityReference;
-		readonly filters?: undefined | MediaCreditFilters;
 	},
 ) => PreparedRecipe<MediaCursorPage<MediaCreatorCredit>>;
 
 type CreditPageInput<Scope extends object> = Scope & {
 	readonly entityId: string;
 	readonly after: null | string;
-	readonly filters?: undefined | MediaCreditFilters;
 };
 
 export const createMediaCreditsQuery = <Scope extends object>(recipe: MediaCreditsRecipe<Scope>) =>
@@ -76,18 +59,9 @@ export function MediaCreditsButton<Scope extends object>(props: {
 	readonly purpose: MediaImagePurposes[number];
 	readonly unlinked?: readonly MediaUnlinkedCreator[];
 	readonly input: Scope & { readonly entityId: string };
-	readonly filters?: undefined | MediaCreditFilterControls;
 	readonly fit?: ComponentProps<typeof ManagedAssetImage>["fit"];
 	readonly query: RyotQuery<CreditPageInput<NoInfer<Scope>>, MediaCursorPage<MediaCreatorCredit>>;
 }) {
-	const [filters, setFilters] = useState<MediaCreditFilters>({
-		kind: "all",
-		guest: "all",
-		uncredited: "all",
-	});
-	const showUnlinked =
-		props.filters === undefined ||
-		(filters.kind === "all" && filters.guest !== "only" && filters.uncredited !== "only");
 	return (
 		<MediaDetailModalButton
 			title={props.title}
@@ -97,43 +71,7 @@ export function MediaCreditsButton<Scope extends object>(props: {
 			safeAreaTop={props.safeAreaTop}
 		>
 			<div className="flex flex-col gap-3">
-				{props.filters === undefined ? null : (
-					<div className="flex flex-wrap gap-3">
-						<Select
-							value={filters.kind}
-							label={props.filters.kind.label}
-							choices={props.filters.kind.choices}
-							checkIcon={<AppIcon size={15} name="check" />}
-							chevronIcon={<AppIcon size={15} name="chevron-down" />}
-							onChange={(value) => {
-								const choice = props.filters?.kind.choices.find((item) => item.value === value);
-								if (choice !== undefined) {
-									setFilters({ ...filters, kind: choice.value });
-								}
-							}}
-						/>
-						{(["guest", "uncredited"] satisfies readonly ("guest" | "uncredited")[]).map((key) => (
-							<Select
-								key={key}
-								value={filters[key]}
-								label={props.filters?.[key] ?? ""}
-								checkIcon={<AppIcon size={15} name="check" />}
-								chevronIcon={<AppIcon size={15} name="chevron-down" />}
-								onChange={(value) => {
-									if (value === "all" || value === "only" || value === "exclude") {
-										setFilters({ ...filters, [key]: value });
-									}
-								}}
-								choices={[
-									{ value: "all", label: "Include all (including unknown)" },
-									{ value: "only", label: "Only explicitly marked" },
-									{ value: "exclude", label: "Exclude explicitly marked" },
-								]}
-							/>
-						))}
-					</div>
-				)}
-				{(showUnlinked ? props.unlinked : [])?.map((creator) => (
+				{props.unlinked?.map((creator) => (
 					<div className="py-3" key={`${creator.role}:${creator.name}`}>
 						<p className="font-ui font-medium text-sm text-text">{creator.name}</p>
 						<p className="font-ui text-xs text-text-muted">{creator.role}</p>
@@ -141,8 +79,8 @@ export function MediaCreditsButton<Scope extends object>(props: {
 				))}
 				<MediaCursorPages
 					query={props.query}
+					input={props.input}
 					getPageInput={(input, after) => ({ ...input, after })}
-					input={{ ...props.input, ...(props.filters === undefined ? {} : { filters }) }}
 					assets={(items) =>
 						collectManagedAssetLocators(items.map((item) => mediaPosterAsset(item, props.purpose)))
 					}

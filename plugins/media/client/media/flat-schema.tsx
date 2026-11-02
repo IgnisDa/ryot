@@ -25,12 +25,7 @@ import {
 } from "./activity-rows";
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { decimalLabel, mediaCollectionRowLabel, mergeActivityRuns } from "./activity-timeline";
-import {
-	createMediaCreditsQuery,
-	type MediaCreditFilterControls,
-	MediaCreditsButton,
-	type MediaCreditsRecipe,
-} from "./credits";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -129,7 +124,6 @@ export type MediaFlatSchemaDescriptor<
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
 	readonly logActivity: MediaActivityLogger;
-	readonly creditFilters?: MediaCreditFilterControls;
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
 	readonly overviewRails?: (overview: Overview) => readonly MediaOverviewRail[];
@@ -419,6 +413,19 @@ export const defineFlatMediaSchema = <
 				unlinked={unlinked}
 				aspect={descriptor.aspect}
 				copy={descriptor.creditCopy}
+				peopleAction={
+					<MediaCreditsButton
+						aspect="square"
+						compact={compact}
+						purpose="profile"
+						query={peopleQuery}
+						input={{ entityId }}
+						label="View all people"
+						safeAreaTop={safeAreaTop}
+						title={descriptor.creditCopy.people}
+						unlinked={mediaUnlinkedCredits(unlinked).people}
+					/>
+				}
 				companiesAction={
 					<MediaCreditsButton
 						fit="contain"
@@ -431,20 +438,6 @@ export const defineFlatMediaSchema = <
 						label="View all companies"
 						title={descriptor.creditCopy.companies}
 						unlinked={mediaUnlinkedCredits(unlinked).companies}
-					/>
-				}
-				peopleAction={
-					<MediaCreditsButton
-						aspect="square"
-						compact={compact}
-						purpose="profile"
-						query={peopleQuery}
-						input={{ entityId }}
-						label="View all people"
-						safeAreaTop={safeAreaTop}
-						filters={descriptor.creditFilters}
-						title={descriptor.creditCopy.people}
-						unlinked={mediaUnlinkedCredits(unlinked).people}
 					/>
 				}
 				trailing={

@@ -124,7 +124,6 @@ const showSeasonCoverageQuery = (input: {
 export const showRecipes = mediaEpisodicRecipes({
 	slug: "show",
 	alias: "show",
-	personCreditFilters: true,
 	config: showEpisodicKindConfig,
 	episodeFields: showSeasonNumber,
 	extraOverviewQueries: () => ({}),

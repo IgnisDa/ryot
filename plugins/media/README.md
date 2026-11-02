@@ -123,9 +123,8 @@ sort by descending year, then name/ID, and yearless group credits by name/ID. On
 credits select characters. Rails are bounded and expose View all when more results exist. View all
 opens a cursor-paged credits modal. Media and group overviews use the same modal for their full
 people and company lists, including unlinked contributors. Credit pages preserve overview ordering,
-roles, and declared character fields. Movie and show people lists filter cast, crew, guest appearances,
-and uncredited appearances before cursor pagination; unknown classifications remain unknown. All
-credits are included by default. The credits and image gallery share the detail modal frame.
+roles, and declared character fields. All credits are included without filters. The credits and image
+gallery share the detail modal frame.
 
 Creators have no lifecycle, ownership toggle, or Log activity action. Activity combines reviews and
 collection changes. Person facts use provider birth/death data without inventing ages for partial or

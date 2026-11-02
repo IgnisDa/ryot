@@ -27,12 +27,7 @@ import {
 	MediaActivityRecord,
 } from "./activity-tab";
 import { mergeActivityRuns } from "./activity-timeline";
-import {
-	createMediaCreditsQuery,
-	type MediaCreditFilterControls,
-	MediaCreditsButton,
-	type MediaCreditsRecipe,
-} from "./credits";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -127,7 +122,6 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
 	readonly logActivity: MediaActivityLogger;
-	readonly creditFilters?: MediaCreditFilterControls;
 	readonly episodeOrigin: (episode: Origin) => string;
 	readonly episodeOrder: (episode: Origin) => readonly number[];
 	readonly coverage: (result: Activity) => MediaEpisodicCoverage;
@@ -367,6 +361,19 @@ export const defineEpisodicMediaSchema = <
 			aspect={descriptor.aspect}
 			copy={descriptor.creditCopy}
 			unlinked={mediaUnlinkedCreators(overview)}
+			peopleAction={
+				<MediaCreditsButton
+					aspect="square"
+					compact={compact}
+					purpose="profile"
+					query={peopleQuery}
+					input={{ entityId }}
+					label="View all people"
+					safeAreaTop={safeAreaTop}
+					title={descriptor.creditCopy.people}
+					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).people}
+				/>
+			}
 			companiesAction={
 				<MediaCreditsButton
 					fit="contain"
@@ -379,20 +386,6 @@ export const defineEpisodicMediaSchema = <
 					label="View all companies"
 					title={descriptor.creditCopy.companies}
 					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).companies}
-				/>
-			}
-			peopleAction={
-				<MediaCreditsButton
-					aspect="square"
-					compact={compact}
-					purpose="profile"
-					query={peopleQuery}
-					input={{ entityId }}
-					label="View all people"
-					safeAreaTop={safeAreaTop}
-					filters={descriptor.creditFilters}
-					title={descriptor.creditCopy.people}
-					unlinked={mediaUnlinkedCredits(mediaUnlinkedCreators(overview)).people}
 				/>
 			}
 		/>

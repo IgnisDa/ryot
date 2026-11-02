@@ -61,40 +61,26 @@ describe("credit pagination recipes", () => {
 		expect(preview.output.pagination).toEqual({ limit: 6 });
 	});
 
-	it("applies known kind and flag predicates before pagination and keeps defaults unfiltered", () => {
+	it("pages all movie and show credits without kind or appearance restrictions", () => {
 		for (const recipes of [movieRecipes, showRecipes]) {
-			const input = {
-				limit: 30,
-				entityId: "media-1",
-				reference: { kind: "self" },
-			} satisfies Parameters<typeof movieRecipes.peopleRecipe>[0];
-			const all = rowsQuery(recipes.peopleRecipe(input), "people");
-			expect(JSON.stringify(all.where)).not.toContain("creditKinds");
-			expect(JSON.stringify(all.where)).not.toContain("isGuest");
-			expect(JSON.stringify(all.where)).not.toContain("isUncredited");
-			for (const kind of ["cast", "crew"] satisfies readonly ("cast" | "crew")[]) {
-				for (const after of [undefined, "people-page-1", "people-page-2"]) {
-					const query = rowsQuery(
-						recipes.peopleRecipe({
-							...input,
-							after,
-							filters: { kind, guest: "exclude", uncredited: "only" },
-						}),
-						"people",
-					);
-					expect(query.output.pagination).toEqual({
+			for (const after of [undefined, "people-page-1", "people-page-2"]) {
+				const query = rowsQuery(
+					recipes.peopleRecipe({
+						after,
 						limit: 30,
-						...(after === undefined ? {} : { after }),
-					});
-					const where = JSON.stringify(query.where);
-					expect(where).toContain("creditKinds");
-					expect(where).toContain(kind);
-					expect(where).toContain("isGuest");
-					expect(where).toContain("isNull");
-					expect(where).toContain("isUncredited");
-					expect(where).toContain('"value":true');
-					expect(where).toContain('"value":false');
-				}
+						entityId: "media-1",
+						reference: { kind: "self" },
+					}),
+					"people",
+				);
+				expect(query.output.pagination).toEqual({
+					limit: 30,
+					...(after === undefined ? {} : { after }),
+				});
+				const where = JSON.stringify(query.where);
+				expect(where).not.toContain("creditKinds");
+				expect(where).not.toContain("isGuest");
+				expect(where).not.toContain("isUncredited");
 			}
 		}
 	});

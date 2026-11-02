@@ -4,7 +4,6 @@ export const movieRecipes = mediaFlatRecipes({
 	slug: "movie",
 	alias: "movie",
 	groupSlug: "movie-group",
-	personCreditFilters: true,
 	consumptionUnit: "minutes",
 	activityEventFields: () => ({}),
 	extraOverviewQueries: () => ({}),

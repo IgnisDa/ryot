@@ -7,7 +7,6 @@ import {
 	castText,
 	column,
 	conditional,
-	contains,
 	count,
 	defineRecipe,
 	descending,
@@ -306,33 +305,6 @@ export const creditCharacterSelection = (relationship: Table) => ({
 	),
 });
 
-export type MediaCreditFilters = {
-	readonly kind: "all" | "cast" | "crew";
-	readonly guest: "all" | "only" | "exclude";
-	readonly uncredited: "all" | "only" | "exclude";
-};
-
-const creditFilterPredicate = (relationship: Table, filters: undefined | MediaCreditFilters) => {
-	const keys: readonly ("guest" | "uncredited")[] = ["guest", "uncredited"];
-	const flags = keys.flatMap((key) => {
-		const value = filters?.[key] ?? "all";
-		const field = propertyBoolean(relationship, key === "guest" ? "isGuest" : "isUncredited");
-		return value === "all"
-			? []
-			: [
-					value === "only"
-						? eq(field, literal(true))
-						: or(isNull(field), eq(field, literal(false))),
-				];
-	});
-	return and(
-		...flags,
-		...(filters === undefined || filters.kind === "all"
-			? []
-			: [contains(propertyJson(relationship, "creditKinds"), literal([filters.kind]))]),
-	);
-};
-
 /** Rows of `relationship` joining `related` on `relatedSide`, anchored to the entity on the other side. */
 export const relatedRows = (input: {
 	readonly limit: number;
@@ -428,7 +400,6 @@ export type MediaCreditRows<PersonFields extends SelectedSelection> = SelectedQu
 
 export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config: {
 	readonly slug: string;
-	readonly personCreditFilters?: boolean;
 	readonly personFields: (relationship: Table) => Fields;
 }) =>
 	defineRecipe(
@@ -437,7 +408,6 @@ export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config
 			readonly entityId: string;
 			readonly after?: string | undefined;
 			readonly reference: PluginIdentityReference;
-			readonly filters?: undefined | MediaCreditFilters;
 		}) => {
 			const person = table("entity", "person");
 			const relationship = table("relationship", "personRelationship");
@@ -451,7 +421,6 @@ export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config
 							related: person,
 							creator: "person",
 							slug: config.slug,
-							filters: config.personCreditFilters ? input.filters : undefined,
 						}),
 						...(input.after === undefined ? {} : { after: input.after }),
 						selection: {
@@ -472,9 +441,8 @@ const incomingCreditRows = (input: {
 	readonly relationship: Table;
 	readonly creator: "person" | "company";
 	readonly reference: PluginIdentityReference;
-	readonly filters?: undefined | MediaCreditFilters;
-}) => {
-	const rows = relatedRows({
+}) =>
+	relatedRows({
 		...input,
 		relatedSide: "sourceEntityId",
 		relatedSchemaSlug: input.creator,
@@ -484,14 +452,6 @@ const incomingCreditRows = (input: {
 			ascending(column(input.related, "id")),
 		],
 	});
-	return {
-		...rows,
-		where:
-			input.filters === undefined
-				? rows.where
-				: and(rows.where, creditFilterPredicate(input.relationship, input.filters)),
-	};
-};
 
 export const mediaCompanyRecipe = (config: { readonly slug: string }) =>
 	defineRecipe(
@@ -1065,7 +1025,6 @@ export const mediaFlatRecipes = <
 	readonly slug: string;
 	readonly alias: string;
 	readonly groupSlug?: string;
-	readonly personCreditFilters?: boolean;
 	readonly consumptionUnit: ConsumptionMeasureUnit;
 	readonly summaryFields: (entity: Table) => SummaryFields;
 	readonly presentationFields: (entity: Table) => PresentationFields;
