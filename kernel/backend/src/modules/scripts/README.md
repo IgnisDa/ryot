@@ -44,8 +44,10 @@ other operation failure stays HTTP 502 `PluginInvocationError`, an automation ru
 
 The workflow body runs from the start on every activation. A step whose first replay attempt has a
 stored success without recovery state to clear reuses that result: the body neither projects its
-journal nor offers the replay to the queue again, and its logs and replay metrics are not repeated.
-Other steps take the queue path, which clears recovery state after the result is stored.
+journal nor offers the replay to the queue again. Other steps take the queue path, which clears
+recovery state after the result is stored. A step's script logs and replay metric are recorded once,
+by the activation that first observes its result, usually the one resumed when the result arrives;
+the metric's duration is the run's own.
 
 Dispatch uses the original workflow owner so cancellation remains attached. Failure, interruption,
 suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat

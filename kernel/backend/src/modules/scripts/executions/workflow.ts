@@ -25,7 +25,7 @@ import { sandboxMetricKind } from "@ryot-app/sandbox/host/metrics";
 import { SANDBOX_LIMITS, sandboxWorkflowJournalByteError } from "@ryot-app/sandbox/protocol/limits";
 import { jsonValueEquals, stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Cause, Clock, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Cause, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -480,6 +480,7 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 	pluginRevision: ScriptExecutionPrincipal["pluginRevision"],
 	metadata: ScriptExecutionPrincipal["metadata"],
 	step: number,
+	recordObservation: (state: ObservedWorkflowReplay["state"]) => Effect.Effect<void>,
 ) {
 	const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
 		replayValue,
@@ -506,6 +507,7 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 		success: ObservedWorkflowReplay,
 		name: `observe-sandbox-workflow-replay-${step}`,
 		execute: Effect.gen(function* () {
+			yield* recordObservation(validated.state);
 			if (validated.state !== "pending") {
 				return validated;
 			}
@@ -869,27 +871,35 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 		const journal = makeReplayJournal();
 		let projected = 0;
 		let projectionRebuilds = 0;
-		let replayStartedAt = 0;
-		let settledStep = false;
-		const finishReplay = (outcome: SandboxReplayOutcome) =>
-			settledStep
-				? Effect.void
-				: Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
-						recordSandboxWorkflowReplayFinished({
-							outcome,
-							kind: replayKind,
-							journalBytes: journal.bytes,
-							journalEntries: journal.entries.length,
-							durationMs: Math.max(0, finishedAt - replayStartedAt),
-						}),
-					);
+		const recordReplay = (outcome: SandboxReplayOutcome, durationMs: number) =>
+			recordSandboxWorkflowReplayFinished({
+				outcome,
+				durationMs,
+				kind: replayKind,
+				journalBytes: journal.bytes,
+				journalEntries: journal.entries.length,
+			});
+		// A step's result is read again on every later body activation; its logs and metric are
+		// recorded only by the activation that first observes it.
+		const recordObservedReplay = (
+			replay: SandboxReplayResult,
+			step: number,
+			outcome: SandboxReplayOutcome,
+		) =>
+			Effect.forEach(
+				replay.logs,
+				(message) =>
+					Effect.logDebug(message).pipe(
+						Effect.annotateLogs({ replayStep: step, sandboxWorkflowExecutionId: executionId }),
+					),
+				{ discard: true },
+			).pipe(Effect.andThen(recordReplay(outcome, replay.timing?.totalMs ?? 0)));
 		const failReplay = Effect.fnUntraced(function* (
 			replay: SandboxReplayResult,
 			step: number,
 			error: NonNullable<SandboxExecutionResult["error"]>,
 			description: string,
 		) {
-			yield* finishReplay("failed");
 			if (payload.resultMode === "execution") {
 				return toSandboxExecutionResult(replay, null, error);
 			}
@@ -918,8 +928,6 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				...(payload.grants ? { grants: payload.grants } : {}),
 			};
 			const settled = yield* settledSandboxReplay(replayPayload);
-			settledStep = Option.isSome(settled);
-			replayStartedAt = yield* Clock.currentTimeMillis;
 			const replay = Option.isSome(settled)
 				? settled.value
 				: yield* appendWorkflowJournal(
@@ -934,7 +942,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 						Effect.catchTag("SandboxProjectionMissing", () => Effect.void),
 					);
 			if (replay === undefined) {
-				yield* finishReplay("missing");
+				yield* recordReplay("missing", 0);
 				projectionRebuilds += 1;
 				if (projectionRebuilds > SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS) {
 					return yield* sandboxFailure(
@@ -959,15 +967,8 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				);
 			}
 			projectionRebuilds = 0;
-			yield* Effect.forEach(
-				settledStep ? [] : replay.logs,
-				(message) =>
-					Effect.logDebug(message).pipe(
-						Effect.annotateLogs({ replayStep: step, sandboxWorkflowExecutionId: executionId }),
-					),
-				{ discard: true },
-			);
 			if (replay.error) {
+				yield* recordObservedReplay(replay, step, "failed");
 				yield* cancelPending;
 				return yield* failReplay(
 					replay,
@@ -983,6 +984,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				pin.principal.pluginRevision,
 				pin.principal.metadata,
 				step,
+				(state) => recordObservedReplay(replay, step, state),
 			).pipe(Effect.onError(() => cancelPending));
 			const pending = yield* validatePendingInline(replay, observed).pipe(
 				Effect.onError(() => cancelPending),
@@ -1007,7 +1009,6 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				);
 			}
 			if (observed.state === "completed") {
-				yield* finishReplay("completed");
 				const output =
 					replay.harvest && isObjectRecord(observed.output)
 						? withHarvestedChunks(observed.output, replay.harvest.chunkHandles)
@@ -1016,7 +1017,6 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 					? toSandboxExecutionResult(replay, output)
 					: output;
 			}
-			yield* finishReplay("pending");
 			if (journal.entries.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}

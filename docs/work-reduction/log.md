@@ -355,3 +355,11 @@
   - `fitness-analytics-interactions` timed out clicking under the "Update available" prompt.
     `browser/import-data` installs two system plugins on the shared backend in `beforeAll` and
     removes them in `afterAll`, which stales every open page; it now runs on its own server.
+- `liv5`, `history-correction-liveness` alone with OTLP export at `309a1306f6`: the 60-subject test
+  timed out (180 s), and only 36 replays recorded their metric against 2,765 script runs. The
+  settled-step change dropped them: `DurableQueue.process` usually suspends the body while the run is
+  in flight, so the activation that resumes reads the step as settled, and settled steps skipped
+  their script logs and replay metric. Both are now recorded inside the step's observation activity,
+  which runs once, in the first activation that sees the result; a failed replay, which ends the
+  workflow, records directly. The metric's duration is the run's own rather than body wall time,
+  which read about zero for a resumed step.

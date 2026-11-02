@@ -23,7 +23,9 @@ import {
 	Exit,
 	Fiber,
 	Layer,
+	Logger,
 	Option,
+	References,
 	Schema,
 	type Scope,
 } from "effect";
@@ -157,6 +159,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		hideReads: number;
 		waitInChild: boolean;
 		childFailure: boolean;
+		suspendReplay: boolean;
 		forceCacheMiss: boolean;
 		afterStoreCrash: boolean;
 		beforeStoreCrash: boolean;
@@ -167,6 +170,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		retired: false,
 		waitInChild: false,
 		childFailure: false,
+		suspendReplay: false,
 		forceCacheMiss: false,
 		afterStoreCrash: false,
 		beforeStoreCrash: false,
@@ -367,7 +371,8 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 				),
 		});
 		const body = runScriptExecutionWorkflowBody(parentPayload, executionId, (replay) =>
-			Effect.sync(() => replays.push(replay.executionId)).pipe(
+			(state.suspendReplay ? Workflow.suspend(instance) : Effect.void).pipe(
+				Effect.andThen(Effect.sync(() => replays.push(replay.executionId))),
 				Effect.as({
 					logs: [],
 					inline: [],
@@ -807,6 +812,47 @@ it.effect("reads a settled replay's stored result instead of replaying it again"
 		expect(h.replays).toEqual([`${executionId}-replay-0`, `${executionId}-replay-1`]);
 	}),
 	testTimeout,
+);
+
+it.effect("logs a step's output once when the workflow resumes on its stored result", () =>
+	Effect.gen(function* () {
+		const logs: Array<{ step: unknown; message: unknown }> = [];
+		const logger = Logger.make<unknown, void>((entry) => {
+			const step = entry.fiber.getRef(References.CurrentLogAnnotations)["replayStep"];
+			if (step !== undefined) {
+				logs.push({ step, message: entry.message });
+			}
+		});
+		const logging = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+			effect.pipe(
+				Effect.provideService(Logger.CurrentLoggers, new Set([logger])),
+				Effect.provideService(References.MinimumLogLevel, "Trace"),
+			);
+		const h = makeHarness();
+		h.state.suspendReplay = true;
+		const suspended = yield* h.fresh().body;
+		expect(suspended._tag).toBe("Suspended");
+		const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+		assert(queued !== undefined);
+		h.slots.set(
+			queued,
+			Exit.succeed({
+				inline: [],
+				error: null,
+				harvest: null,
+				pendingInline: [],
+				status: "completed",
+				logs: ["replay zero output"],
+				value: { requests, journalLength: 0, state: "pending" },
+			}),
+		);
+		h.state.suspendReplay = false;
+		yield* h.fresh().body.pipe(logging);
+		h.state.blocked = false;
+		const result = yield* h.fresh().body.pipe(logging);
+		assert(result._tag === "Complete");
+		expect(logs).toEqual([{ step: 0, message: ["replay zero output"] }]);
+	}),
 );
 
 it.effect("replays a settled step again while its result holds recovery state to clear", () =>
