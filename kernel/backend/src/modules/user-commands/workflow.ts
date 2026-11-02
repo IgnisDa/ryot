@@ -44,7 +44,7 @@ import {
 	SerializedUserEntitySave,
 	serializeUserEntitySave,
 } from "#modules/entities/service";
-import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { DomainLifecycleCommand, reuseLockedWriteChecks } from "#modules/entities/write-context";
 import { EventMutations, eventPolicyItems, PreparedEventChanges } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
@@ -326,145 +326,152 @@ export const UserCommandWorkflowDefinitionsLive = Layer.mergeAll(
 				}),
 				execute: events
 					.transaction(
-						Effect.gen(function* () {
-							const replay = yield* receipts
-								.lookup(receiptIdentity, UserCommandResult)
-								.pipe(
-									Effect.catchTag(
-										"MutationReceiptIdentityConflict",
-										() => new DbError({ message: "Command identity reused with different input" }),
-									),
-								);
-							if (replay) {
-								return { result: replay.result, dispatch: replay.dispatch };
-							}
-							const baselines = payload.input.events.baselines ?? [];
-							for (const baseline of baselines) {
-								const visible = yield* entityRows.getByIdForUser({
-									userId: payload.userId,
-									entityId: baseline.entityId,
-								});
-								if (
-									!visible ||
-									visible.entitySchemaPluginId !== payload.command.writeContext?.pluginRevision?.id
-								) {
-									return yield* new EventBadRequest({
-										reason: {
-											code: "mutation-conflict",
-											message: "Event baseline is outside the command scope",
-										},
-									});
-								}
-							}
-							const references = [
-								...new Set([
-									entity.entityId,
-									...baselines.map((baseline) => baseline.entityId),
-									...preparedBatches.flatMap((batch) =>
-										Object.keys(batch.validated.references).map((id) => EntityId.make(id)),
-									),
-									...payload.input.relationships.flatMap((relation) => [
-										referencedEntity(relation.source, entity.entityId),
-										referencedEntity(relation.target, entity.entityId),
-									]),
-								]),
-							].sort();
-							const lockedEntityIds = yield* events.captureGroups({
-								entityIds: references,
-								userId: payload.userId,
-								batches: preparedBatches,
-							});
-							const lockedReferences = yield* entityRows.getMutationEntities(lockedEntityIds, true);
-							for (const baseline of baselines) {
-								if (!lockedReferences.has(baseline.entityId)) {
-									return yield* new EntityStale({
-										reason: { code: "entity-stale", entityId: baseline.entityId },
-									});
-								}
-								const owner = payload.command.writeContext?.pluginRevision;
-								if (!owner) {
-									return yield* new DbError({
-										message: "User command requires exact plugin authority",
-									});
-								}
-								const current = yield* eventRows.getScopeRevision({
-									userId: payload.userId,
-									entityId: baseline.entityId,
-									eventSchemaPluginId: owner.id,
-								});
-								if (baseline.revision !== current) {
-									return yield* new EntityStale({
-										reason: { code: "entity-stale", entityId: baseline.entityId },
-									});
-								}
-							}
-							const expected = payload.input.events.expected;
-							if (expected) {
-								const owner = payload.command.writeContext?.pluginRevision;
-								if (!owner) {
-									return yield* new DbError({
-										message: "User command requires exact plugin authority",
-									});
-								}
-								const current = yield* eventRows.listSessionEventIds({
-									userId: payload.userId,
-									eventSchemaPluginId: owner.id,
-									sessionEntityId: entity.entityId,
-									eventSchemaSlug: expected.eventSchemaSlug,
-								});
-								if (stableStringify([...expected.eventIds].sort()) !== stableStringify(current)) {
-									return yield* new EntityStale({
-										reason: { code: "entity-stale", entityId: entity.entityId },
-									});
-								}
-							}
-							const saved = yield* entities.persistPreparedUserSave(entity);
-							yield* events.lockPreparedChanges({
-								userId: payload.userId,
-								batches: preparedBatches,
-							});
-							const dispatch = [...saved.dispatch];
-							if (preparedRelations.length > 0) {
-								const batch = {
-									command: payload.command,
-									identity: ["relationships"],
-									resource: "relationship" as const,
-								};
-								yield* planner.prepareBatch({ ...batch, scopes: [payload.userId] });
-								for (const [index, relation] of preparedRelations.entries()) {
-									const work = yield* relationships.persistPreparedUserCreate(
-										yield* restoreUserRelationshipCreate(relation),
-										{ ...batch, index },
+						reuseLockedWriteChecks(
+							Effect.gen(function* () {
+								const replay = yield* receipts
+									.lookup(receiptIdentity, UserCommandResult)
+									.pipe(
+										Effect.catchTag(
+											"MutationReceiptIdentityConflict",
+											() =>
+												new DbError({ message: "Command identity reused with different input" }),
+										),
 									);
+								if (replay) {
+									return { result: replay.result, dispatch: replay.dispatch };
+								}
+								const baselines = payload.input.events.baselines ?? [];
+								for (const baseline of baselines) {
+									const visible = yield* entityRows.getByIdForUser({
+										userId: payload.userId,
+										entityId: baseline.entityId,
+									});
+									if (
+										!visible ||
+										visible.entitySchemaPluginId !==
+											payload.command.writeContext?.pluginRevision?.id
+									) {
+										return yield* new EventBadRequest({
+											reason: {
+												code: "mutation-conflict",
+												message: "Event baseline is outside the command scope",
+											},
+										});
+									}
+								}
+								const references = [
+									...new Set([
+										entity.entityId,
+										...baselines.map((baseline) => baseline.entityId),
+										...preparedBatches.flatMap((batch) =>
+											Object.keys(batch.validated.references).map((id) => EntityId.make(id)),
+										),
+										...payload.input.relationships.flatMap((relation) => [
+											referencedEntity(relation.source, entity.entityId),
+											referencedEntity(relation.target, entity.entityId),
+										]),
+									]),
+								].sort();
+								const lockedEntityIds = yield* events.captureGroups({
+									entityIds: references,
+									userId: payload.userId,
+									batches: preparedBatches,
+								});
+								const lockedReferences = yield* entityRows.getMutationEntities(
+									lockedEntityIds,
+									true,
+								);
+								for (const baseline of baselines) {
+									if (!lockedReferences.has(baseline.entityId)) {
+										return yield* new EntityStale({
+											reason: { code: "entity-stale", entityId: baseline.entityId },
+										});
+									}
+									const owner = payload.command.writeContext?.pluginRevision;
+									if (!owner) {
+										return yield* new DbError({
+											message: "User command requires exact plugin authority",
+										});
+									}
+									const current = yield* eventRows.getScopeRevision({
+										userId: payload.userId,
+										entityId: baseline.entityId,
+										eventSchemaPluginId: owner.id,
+									});
+									if (baseline.revision !== current) {
+										return yield* new EntityStale({
+											reason: { code: "entity-stale", entityId: baseline.entityId },
+										});
+									}
+								}
+								const expected = payload.input.events.expected;
+								if (expected) {
+									const owner = payload.command.writeContext?.pluginRevision;
+									if (!owner) {
+										return yield* new DbError({
+											message: "User command requires exact plugin authority",
+										});
+									}
+									const current = yield* eventRows.listSessionEventIds({
+										userId: payload.userId,
+										eventSchemaPluginId: owner.id,
+										sessionEntityId: entity.entityId,
+										eventSchemaSlug: expected.eventSchemaSlug,
+									});
+									if (stableStringify([...expected.eventIds].sort()) !== stableStringify(current)) {
+										return yield* new EntityStale({
+											reason: { code: "entity-stale", entityId: entity.entityId },
+										});
+									}
+								}
+								const saved = yield* entities.persistPreparedUserSave(entity);
+								yield* events.lockPreparedChanges({
+									userId: payload.userId,
+									batches: preparedBatches,
+								});
+								const dispatch = [...saved.dispatch];
+								if (preparedRelations.length > 0) {
+									const batch = {
+										command: payload.command,
+										identity: ["relationships"],
+										resource: "relationship" as const,
+									};
+									yield* planner.prepareBatch({ ...batch, scopes: [payload.userId] });
+									for (const [index, relation] of preparedRelations.entries()) {
+										const work = yield* relationships.persistPreparedUserCreate(
+											yield* restoreUserRelationshipCreate(relation),
+											{ ...batch, index },
+										);
+										dispatch.push(...work.dispatch);
+									}
+									dispatch.push(...(yield* planner.planBatch(batch)));
+								}
+								const written = [];
+								const eventBatch = {
+									identity: ["events"],
+									command: payload.command,
+									resource: "event" as const,
+								};
+								yield* planner.prepareBatch({ ...eventBatch, scopes: [payload.userId] });
+								let eventOffset = 0;
+								for (const prepared of preparedBatches) {
+									const work = yield* events.persist({
+										userId: payload.userId,
+										...prepared,
+										sealBatch: false,
+										batch: eventBatch,
+										batchIndexOffset: eventOffset,
+									});
+									eventOffset += prepared.prepared.items.length;
+									written.push(...work.results);
 									dispatch.push(...work.dispatch);
 								}
-								dispatch.push(...(yield* planner.planBatch(batch)));
-							}
-							const written = [];
-							const eventBatch = {
-								identity: ["events"],
-								command: payload.command,
-								resource: "event" as const,
-							};
-							yield* planner.prepareBatch({ ...eventBatch, scopes: [payload.userId] });
-							let eventOffset = 0;
-							for (const prepared of preparedBatches) {
-								const work = yield* events.persist({
-									userId: payload.userId,
-									...prepared,
-									sealBatch: false,
-									batch: eventBatch,
-									batchIndexOffset: eventOffset,
-								});
-								eventOffset += prepared.prepared.items.length;
-								written.push(...work.results);
-								dispatch.push(...work.dispatch);
-							}
-							dispatch.push(...(yield* planner.planBatch(eventBatch)));
-							const result = { events: written, entityId: saved.entity.id };
-							yield* receipts.insert({ result, dispatch, identity: receiptIdentity });
-							return { result, dispatch };
-						}),
+								dispatch.push(...(yield* planner.planBatch(eventBatch)));
+								const result = { events: written, entityId: saved.entity.id };
+								yield* receipts.insert({ result, dispatch, identity: receiptIdentity });
+								return { result, dispatch };
+							}),
+						),
 					)
 					.pipe(
 						Effect.catchTags({

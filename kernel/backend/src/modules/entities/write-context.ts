@@ -125,6 +125,19 @@ const domainWriteOwner = (command: DomainWriteCommand, owner: DefinitionOwner) =
 	);
 };
 
+const LockedWriteChecks = Context.Reference<null | Map<
+	string,
+	{ readonly pin: null | DomainWritePin }
+>>("DomainWriteChecks.LockedWriteChecks", { defaultValue: () => null });
+
+/**
+ * Reuses each locked write check for the rest of `work`. A locked check holds shared locks on the
+ * authority it read until the transaction ends, so only work that never changes plugin,
+ * installation, or account rows itself may opt in.
+ */
+export const reuseLockedWriteChecks = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+	Effect.suspend(() => work.pipe(Effect.provideService(LockedWriteChecks, new Map())));
+
 export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 	"@ryot-app/kernel-backend/modules/entities/write-context/DomainWriteChecks",
 	{
@@ -132,7 +145,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 			const session = yield* DatabaseSession;
 			const definitions = yield* DefinitionRepository;
 			const authority = yield* SandboxExecutionAuthority;
-			const check = Effect.fnUntraced(function* (
+			const resolveCheck = Effect.fnUntraced(function* (
 				command: DomainWriteCommand,
 				owner: DefinitionOwner,
 				scopeUserId: null | string,
@@ -280,6 +293,25 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 					.resolve(principal)
 					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 				return owner.kind === "kernel" && command.kernelCollection === true ? null : revision;
+			});
+			const check = Effect.fnUntraced(function* (
+				command: DomainWriteCommand,
+				owner: DefinitionOwner,
+				scopeUserId: null | string,
+				lock?: boolean,
+			) {
+				const reused = lock ? yield* LockedWriteChecks : null;
+				if (reused === null) {
+					return yield* resolveCheck(command, owner, scopeUserId, lock);
+				}
+				const key = domainWriteCheckKey({ owner, command, scopeUserId });
+				const known = reused.get(key);
+				if (known) {
+					return known.pin;
+				}
+				const pin = yield* resolveCheck(command, owner, scopeUserId, lock);
+				reused.set(key, { pin });
+				return pin;
 			});
 			const checkMany = Effect.fnUntraced(function* (checks: ReadonlyArray<DomainWriteCheck>) {
 				const pins = new Map<string, null | DomainWritePin>();
