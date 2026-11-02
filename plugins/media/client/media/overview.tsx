@@ -1,10 +1,12 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { usePluginIdentity, usePluginUserSettings } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Shelf } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isEnrichmentActive } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { MediaStatusCopy } from "./detail-screen";
 import { useMediaEnrichment } from "./enrichment";
 import type { MediaArtworkAspect } from "./entity-presentation";
@@ -167,7 +169,11 @@ function MediaRegionWatchProvidersSection(props: {
 	readonly compact: boolean;
 	readonly media: MediaWatchProviders;
 }) {
-	const region = useMemo(() => viewerRegion(), []);
+	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
+	if (settings.data === undefined) {
+		return null;
+	}
+	const region = viewerRegion(settings.data);
 	if (region === undefined) {
 		return null;
 	}

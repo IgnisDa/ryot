@@ -1,13 +1,27 @@
 import { assert, describe, expect, it } from "vitest";
 
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
-import { watchProviderAsset, watchProviderGroups, watchProviderLink } from "./watch-providers";
+import {
+	viewerRegion,
+	watchProviderAsset,
+	watchProviderGroups,
+	watchProviderLink,
+} from "./watch-providers";
 
 const usProviders = (providers: readonly Record<string, unknown>[]) => ({
 	watchProviders: [{ providers, link: null, country: "US" }],
 });
 
 describe("show watch providers", () => {
+	it("uses the saved viewing country instead of the browser region", () => {
+		expect(viewerRegion({ viewingRegion: "IN" })).toBe("IN");
+	});
+
+	it("uses the browser region for automatic and unset preferences", () => {
+		expect(viewerRegion({ viewingRegion: "auto" })).toBe(viewerRegion());
+		expect(viewerRegion({})).toBe(viewerRegion());
+	});
+
 	it("shows manually entered providers without requiring optional links or logos", () => {
 		const show = decodeShowSummary({
 			watchProviders: [{ country: "US", providers: [{ name: "Custom", offers: ["stream"] }] }],

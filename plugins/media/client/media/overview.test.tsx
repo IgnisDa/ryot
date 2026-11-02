@@ -11,7 +11,7 @@ import {
 	showRecommendationRow,
 } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
-import { mountRyotClient } from "../../tests/client/test-support";
+import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
 import {
 	MediaOverview,
 	MediaOverviewRelations,
@@ -145,6 +145,55 @@ describe("MediaOverview", () => {
 		).not.toBeNull();
 		unmount();
 	});
+
+	it.effect("filters the providers, link and attribution by the saved viewing country", () =>
+		Effect.gen(function* () {
+			const { unmount, container } = mountRyotClient(
+				{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "GB" }) },
+				overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+			);
+
+			yield* Effect.promise(() => flushRyotClient());
+
+			expect(container.textContent).toContain("Where to watch");
+			expect(container.textContent).toContain("Netflix");
+			expect(container.textContent).not.toContain("Apple TV");
+			expect(container.textContent).toContain("Availability in United Kingdom, from JustWatch.");
+			expect(container.textContent).not.toContain("View all options");
+			unmount();
+		}),
+	);
+
+	it.effect("uses the watch link for the saved country", () =>
+		Effect.gen(function* () {
+			const { unmount, container } = mountRyotClient(
+				{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "US" }) },
+				overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+			);
+			yield* Effect.promise(() => flushRyotClient());
+
+			expect(container.textContent).toContain("Apple TV");
+			expect(container.textContent).toContain("Availability in United States, from JustWatch.");
+			expect(
+				container.querySelector('a[href="https://www.themoviedb.org/tv/1/watch?locale=US"]'),
+			).not.toBeNull();
+			unmount();
+		}),
+	);
+
+	it.effect("hides unavailable countries rather than showing another country's providers", () =>
+		Effect.gen(function* () {
+			const { unmount, container } = mountRyotClient(
+				{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "FR" }) },
+				overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+			);
+			yield* Effect.promise(() => flushRyotClient());
+
+			expect(container.textContent).not.toContain("Where to watch");
+			expect(container.textContent).not.toContain("JustWatch");
+			unmount();
+		}),
+	);
 
 	it("omits the watch providers section when the region carries none", () => {
 		const { unmount, container } = mountRyotClient(

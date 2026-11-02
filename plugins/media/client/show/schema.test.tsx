@@ -66,7 +66,7 @@ describe("show schema", () => {
 
 	it("titles the credits as cast and companies and offers where to watch", () => {
 		const { unmount, container } = mountRyotClient(
-			noopAdapter,
+			{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "auto" }) },
 			<showSchema.ScreenBody
 				compact
 				episodes={null}

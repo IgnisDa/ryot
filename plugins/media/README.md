@@ -236,7 +236,9 @@ are multiplied by 20 and /10 scales (MyAnimeList, MangaUpdates) by 10; AniList, 
 already report /100. Spotify and Listen Notes store popularity scores, not ratings.
 
 TMDB watch providers exist only on Movie/Show. Population retains every country; the client filters
-to the viewer's known region and hides empty results. Country entries contain the watch link and
+to the user's `viewingRegion` country preference in Settings → Plugin preferences → Media.
+The default, Automatic (browser region), uses the browser locale's region; choosing a country
+overrides it on every device. Unknown regions and empty results hide the section. Country entries contain the watch link and
 offers in `stream`, `free`, `ads`, `rent`, `buy` order. The UI credits JustWatch and sorts services by
 name within each offer kind.
 

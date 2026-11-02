@@ -13,6 +13,7 @@ import {
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
 import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
+import { findPluginInstallationByPackage } from "~/fixtures/kernel/plugins";
 import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
@@ -77,6 +78,11 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 						country: "US",
 						link: "https://www.themoviedb.org/movie/550/watch?locale=US",
 						providers: [{ image: null, name: "Netflix", offers: ["stream"] }],
+					},
+					{
+						country: "GB",
+						link: "https://www.themoviedb.org/movie/550/watch?locale=GB",
+						providers: [{ image: null, offers: ["free"], name: "BBC iPlayer" }],
 					},
 				],
 			},
@@ -184,6 +190,30 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		expect(yield* record.locator("p").filter({ hasText: /^Watch 1 · / }).count).toBe(1);
 		expect(yield* body.getByText("Coverage", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(1);
+
+		const mediaInstallation = yield* findPluginInstallationByPackage(client, {
+			scope: "system",
+			packageId: mediaPlugin.metadata.packageId,
+		});
+		yield* page.goto(
+			`${frontendUrl}/settings/plugin-preferences/${mediaInstallation.installationId}`,
+		);
+		yield* page
+			.getByRole("button", { exact: true, name: "Viewing country: Automatic (browser region)" })
+			.click();
+		yield* page.getByRole("textbox", { name: "Search Viewing country" }).fill("United Kingdom");
+		yield* page.getByRole("radio", { exact: true, name: "United Kingdom" }).click();
+		yield* page.getByRole("button", { name: "Save changes" }).click();
+		yield* page.getByText("Plugin settings saved.").waitFor({ state: "visible" });
+		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
+		yield* media
+			.getByText("Availability in United Kingdom, from JustWatch.", { exact: true })
+			.waitFor({ state: "visible" });
+		yield* media.getByText("BBC iPlayer", { exact: true }).waitFor({ state: "visible" });
+		expect(yield* media.getByText("Netflix", { exact: true }).count).toBe(0);
+		expect(yield* media.getByRole("link", { name: "View all options" }).getAttribute("href")).toBe(
+			"https://www.themoviedb.org/movie/550/watch?locale=GB",
+		);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

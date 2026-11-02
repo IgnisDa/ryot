@@ -1,4 +1,5 @@
 import {
+	VIEWING_REGION_SETTING,
 	type WatchProvider,
 	type WatchProviderList,
 	type WatchProviderOffer,
@@ -27,8 +28,12 @@ const regionAvailability = (media: MediaWatchProviders, region: string | undefin
 		? undefined
 		: (media.watchProviders ?? []).find((entry) => entry?.country === region);
 
-export const viewerRegion = () =>
-	new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region ?? undefined;
+export const viewerRegion = (settings?: Readonly<Record<string, unknown>>) => {
+	const region = settings?.[VIEWING_REGION_SETTING];
+	return typeof region === "string" && region !== "auto"
+		? region
+		: new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region;
+};
 
 export const regionLabel = (region: string) =>
 	new Intl.DisplayNames(undefined, { type: "region" }).of(region) ?? region;
