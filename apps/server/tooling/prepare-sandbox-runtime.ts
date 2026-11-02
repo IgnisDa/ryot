@@ -357,10 +357,10 @@ const smoke = Effect.gen(function* () {
 					}),
 			),
 		);
-		if (result.recovery.executionId !== executionId || result.recovery.instance !== expectedKey) {
+		if (result.recovery !== undefined) {
 			return yield* new SandboxRunError({
 				kind: "invalid-output",
-				message: "Native sandbox smoke output or recovery identity is invalid",
+				message: "Native sandbox smoke unexpectedly returned recovery state",
 			});
 		}
 		const calls = yield* Effect.sync(() => [...recordedHostCalls]);
@@ -373,7 +373,6 @@ const smoke = Effect.gen(function* () {
 				message: "Native sandbox smoke host call record is invalid",
 			});
 		}
-		yield* service.completeRecovery(result.recovery);
 		completedKeys.push(expectedKey);
 	}
 

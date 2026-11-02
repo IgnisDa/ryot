@@ -343,14 +343,10 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 						harvest: null,
 						success: true,
 						pendingInline: [],
+						recovery: undefined,
 						executionId: input.executionId,
 						timing: { totalMs: anyOf(Number), executionMs: anyOf(Number) },
 						value: { count: 7, cached: { key: "shared-key", source: "native-host" } },
-						recovery: {
-							instance: "user/core",
-							pinHash: anyOf(String),
-							executionId: input.executionId,
-						},
 					});
 					expect(result.timing.totalMs).toBeGreaterThan(0);
 					expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
