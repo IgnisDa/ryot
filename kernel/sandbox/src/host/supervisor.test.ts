@@ -667,6 +667,19 @@ const supervisorTest = <A, E>(
 	effect: () => Effect.Effect<A, E, Scope.Scope | Layer.Success<typeof dependencyLayer>>,
 ) => layer(Layer.fresh(dependencyLayer))((test) => test.effect(name, effect, testTimeout));
 
+supervisorTest("returns no recovery identity from a run that recorded no failure", () =>
+	withSupervisor(({ harness, supervisor }) =>
+		Effect.gen(function* () {
+			const fiber = yield* startRun(supervisor, harness).pipe(
+				Effect.forkScoped({ startImmediately: true }),
+			);
+			const core = yield* awaitConnection(harness, "user/core");
+			yield* harness.complete(core, yield* Queue.take(core.nextRun));
+			expect((yield* Fiber.join(fiber)).recovery).toBeUndefined();
+		}),
+	),
+);
+
 supervisorTest("starts lazy tiers once and stops them only when idle", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {

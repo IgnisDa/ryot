@@ -148,6 +148,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 	const interrupted: string[] = [];
 	const reads: string[] = [];
 	const appends: string[] = [];
+	const replays: string[] = [];
 	const clockSchedules: Array<ReturnType<typeof DurableClock.make>> = [];
 	const state: {
 		value: unknown;
@@ -320,7 +321,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 					if (state.forceCacheMiss) {
 						return Option.none();
 					}
-					if (state.hideReads > 0) {
+					if (state.hideReads > 0 && deferred.name.startsWith("sandbox-request-")) {
 						state.hideReads -= 1;
 						return Option.none();
 					}
@@ -366,22 +367,24 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 				),
 		});
 		const body = runScriptExecutionWorkflowBody(parentPayload, executionId, (replay) =>
-			Effect.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				harvest: null,
-				status: "completed" as const,
-				pendingInline: replay.executionId.endsWith("-replay-0") ? pendingInline : [],
-				value: replay.executionId.endsWith("-replay-0")
-					? envelope
-					: {
-							output: "done",
-							state: "completed" as const,
-							requests: envelope.requests,
-							journalLength: replay.journalLength,
-						},
-			}),
+			Effect.sync(() => replays.push(replay.executionId)).pipe(
+				Effect.as({
+					logs: [],
+					inline: [],
+					error: null,
+					harvest: null,
+					status: "completed" as const,
+					pendingInline: replay.executionId.endsWith("-replay-0") ? pendingInline : [],
+					value: replay.executionId.endsWith("-replay-0")
+						? envelope
+						: {
+								output: "done",
+								state: "completed" as const,
+								requests: envelope.requests,
+								journalLength: replay.journalLength,
+							},
+				}),
+			),
 		);
 		const provide = Effect.fnUntraced(function* <A, E, R>(effect: Effect.Effect<A, E, R>) {
 			const context = yield* Layer.build(dependencies);
@@ -408,6 +411,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		slots,
 		reads,
 		appends,
+		replays,
 		mutations,
 		activities,
 		dispatches,
@@ -775,6 +779,63 @@ it.effect(
 			expect(h.dispatches).toEqual([0, 1, 0, 1]);
 			expect(h.mutations).toEqual([0, 1]);
 		}),
+	testTimeout,
+);
+
+it.effect("reads a settled replay's stored result instead of replaying it again", () =>
+	Effect.gen(function* () {
+		const h = makeHarness();
+		yield* h.fresh().body;
+		const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+		assert(queued !== undefined);
+		h.slots.set(
+			queued,
+			Exit.succeed({
+				logs: [],
+				inline: [],
+				error: null,
+				harvest: null,
+				pendingInline: [],
+				status: "completed",
+				value: { requests, journalLength: 0, state: "pending" },
+			}),
+		);
+		h.state.blocked = false;
+		const result = yield* h.fresh().body;
+		assert(result._tag === "Complete");
+		expect(yield* result.exit).toBe("done");
+		expect(h.replays).toEqual([`${executionId}-replay-0`, `${executionId}-replay-1`]);
+	}),
+	testTimeout,
+);
+
+it.effect("replays a settled step again while its result holds recovery state to clear", () =>
+	Effect.gen(function* () {
+		const h = makeHarness();
+		yield* h.fresh().body;
+		const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+		assert(queued !== undefined);
+		h.slots.set(
+			queued,
+			Exit.succeed({
+				logs: [],
+				inline: [],
+				error: null,
+				harvest: null,
+				pendingInline: [],
+				status: "completed",
+				value: { requests, journalLength: 0, state: "pending" },
+				recovery: { instance: "user/core", pinHash: "a".repeat(64), executionId: "recovered" },
+			}),
+		);
+		h.state.blocked = false;
+		yield* h.fresh().body;
+		expect(h.replays).toEqual([
+			`${executionId}-replay-0`,
+			`${executionId}-replay-0`,
+			`${executionId}-replay-1`,
+		]);
+	}),
 	testTimeout,
 );
 

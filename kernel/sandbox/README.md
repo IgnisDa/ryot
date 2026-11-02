@@ -68,7 +68,7 @@ Artifact reads use 1 MiB slices; scratch writes are limited to 256 KiB. Before d
 
 ## Recovery
 
-Redis stores sidecar recovery state with a failure count capped at three. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An owner/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
+Redis stores sidecar recovery state with a failure count capped at three. State exists only once a collateral failure is recorded: reads of a run without it store nothing, and the run returns no recovery identity, so its caller has nothing to clear. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An owner/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
 
 ## Limits
 

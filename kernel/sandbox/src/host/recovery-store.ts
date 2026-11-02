@@ -36,7 +36,7 @@ local function encode_state(recoveries, suspended)
   return cjson.encode({ recoveries = recoveries, suspended = suspended })
 end
 if redis.call("EXISTS", KEYS[1]) == 0 then
-  if operation == "clear" then return encode_state(0, false) end
+  if operation == "clear" or operation == "read" then return encode_state(0, false) end
   redis.call("HSET", KEYS[1], "instance", instance, "pinHash", pin_hash, "recoveries", "0", "suspended", "0")
 end
 local values = redis.call("HGETALL", KEYS[1])

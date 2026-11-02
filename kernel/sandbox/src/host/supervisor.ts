@@ -951,7 +951,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									entry.healthyEpoch = yield* random.uuidV4();
 								}
 								yield* protectedLease.protection.survived;
-								return { ...result.success, recovery };
+								// Only a recorded collateral failure stores recovery state for the caller to clear.
+								return { ...result.success, recovery: state.recoveries > 0 ? recovery : undefined };
 							}
 							const failure = result.failure;
 							if (!(failure instanceof SidecarGenerationError)) {

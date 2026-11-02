@@ -8,8 +8,9 @@ import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-ex
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Duration, Effect, Layer, Schema } from "effect";
-import { DurableQueue } from "effect/workflow";
+import { Duration, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Activity, DurableDeferred, DurableQueue } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptInlineProgress } from "#modules/scripts/host/http-progress";
@@ -69,11 +70,17 @@ const toQueueError = (error: unknown) =>
 		? error
 		: infrastructureRunError(error);
 
+const SandboxExecutionQueueError = Schema.Union([
+	SandboxRunError,
+	SandboxRecoverySuspended,
+	SandboxProjectionMissing,
+]);
+
 export const SandboxExecutionQueue = DurableQueue.make({
 	success: SandboxReplayResult,
 	name: "SandboxExecutionQueue",
+	error: SandboxExecutionQueueError,
 	payload: SandboxExecutionQueuePayload,
-	error: Schema.Union([SandboxRunError, SandboxRecoverySuspended, SandboxProjectionMissing]),
 	idempotencyKey: ({ executionId, recoveryAttempt }) =>
 		recoveryAttempt === undefined || recoveryAttempt === 0
 			? executionId
@@ -91,6 +98,31 @@ export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQu
 		yield* runtime.completeRecovery(result.recovery);
 	}
 	return result;
+});
+
+/**
+ * The stored result of a replay whose first attempt succeeded without recovery state to clear,
+ * read from the deferred `DurableQueue.process` awaits. A workflow body runs again after every
+ * settled step; reading the result spares it offering the replay and projecting its journal again.
+ */
+export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* (
+	payload: SandboxExecutionQueuePayload,
+) {
+	const id = yield* Activity.idempotencyKey(
+		`DurableQueue/${SandboxExecutionQueue.name}/${SandboxExecutionQueue.idempotencyKey(payload)}`,
+	);
+	const engine = yield* WorkflowEngine;
+	const exit = yield* engine.deferredResult(
+		DurableDeferred.make(`${SandboxExecutionQueue.deferred.name}/${id}`, {
+			success: SandboxReplayResult,
+			error: SandboxExecutionQueueError,
+		}),
+	);
+	return Option.isSome(exit) &&
+		Exit.isSuccess(exit.value) &&
+		exit.value.value.recovery === undefined
+		? Option.some(exit.value.value)
+		: Option.none<SandboxReplayResult>();
 });
 
 export type SandboxExecutionResolutionMode = "exact" | "active";

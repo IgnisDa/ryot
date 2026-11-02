@@ -310,3 +310,34 @@
     unwatched episodes load; with backfill on it then reads "Mark 3 episodes watched". When the
     episode choices loaded after them, the first label never appeared. Both tests now wait for the
     settled state.
+- `otel1`, `history-correction-liveness` beside five heavy Media API files with OTLP export: the
+  same three liveness tests and `analytics-recipes` time out. Background dispatches waited 51 s on
+  average (3,300 of them), interactive ones 12 ms, and the CPU was 42% idle.
+  - Memory admission, not the queue, held the background lane at one run. Admission reserves each
+    run's worst case, 298 MiB (isolate heap, external and headroom, staging, and five outstanding
+    host-call frames), plus 128 MiB for a fresh process. The default 1.5 GiB budget leaves 852 MiB
+    of dynamic memory, and a background run must leave 426 MiB for an interactive one, so only one
+    background run fits. The queue's second background slot waited in `reserveRun`: 163 ms per
+    dispatch, 45% of slot time. Sandbox runs added up to 897 s over 841 s of wall clock.
+  - E2E servers now set `SANDBOX_MEMORY_BUDGET_MIB=2304`, which admits the configured five runs.
+    Production keeps its defaults: two workers and 1.5 GiB admit one run in each lane.
+- `otel2`, the same files with that budget: admission waits fell from 743 s to 1 s, dispatches rose
+  from 4,671 to 7,812 in less time (780 s), mean background wait fell to 21 s and `integrations` ran
+  in 364 s instead of 547 s. The liveness tests still time out.
+- `liv1`–`liv3`, `history-correction-liveness` alone: it passes, but its 60-subject test takes
+  166–180 s against a 180 s timeout. The file makes about 4,500 sandbox runs, and the API server
+  spends about 0.85 of a core on them while sandbox daemons use about 0.5. The `PROFILE=1` profile
+  (`liv2`) has no dominant frame: schema work is 25% of the API's CPU, PostgreSQL socket writes
+  (one per statement) 9%, the workflow engine 13% and SQL building 10%.
+  - Every activation of a script workflow body repeats the work of each earlier replay. In `otel2`,
+    7,812 dispatches came from 44,025 `processSandboxExecutionQueue` calls, each of which offered
+    the replay to the fair queue again (encoding its payload and principal), appended its journal
+    to Redis again, logged its script output again and recorded its replay metric again. Each one
+    also cleared recovery state in Redis, 33,539 times, because the recovery read created a record
+    for every run.
+  - A step whose first replay attempt has a stored success without recovery state now reuses the
+    result from the deferred `DurableQueue.process` awaits, and skips all of that. A recovery read
+    no longer stores a record; one exists only after a collateral failure, and only then does the
+    run return a recovery identity for its caller to clear.
+- `liv4`, with that change, against `liv3`: the file took 423 s instead of 462 s, the 60-subject
+  test 149 s instead of 166 s, and the API server used 321 CPU-seconds instead of 377 (−15%).

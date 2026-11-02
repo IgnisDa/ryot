@@ -38,6 +38,22 @@ const acquireIdentity = Effect.acquireRelease(
 );
 
 layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
+	test.effect("reads absent recovery state without storing it", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const store = yield* SandboxRecoveryStore;
+				const redis = yield* SandboxRedis;
+				const identity = yield* acquireIdentity;
+				expect(yield* store.read(identity)).toEqual({ recoveries: 0, suspended: false });
+				expect(
+					yield* Effect.promise(() =>
+						redis.client.exists(sandboxRedisKeys.recovery(identity.executionId)),
+					),
+				).toBe(0);
+			}),
+		),
+		testTimeout,
+	);
 	test.effect(
 		"counts concurrent distinct and duplicate collateral events atomically",
 		() =>
@@ -107,7 +123,7 @@ layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
 				Effect.gen(function* () {
 					const store = yield* SandboxRecoveryStore;
 					const identity = yield* acquireIdentity;
-					yield* store.read(identity);
+				yield* store.collateral(identity, "event-1");
 					const wrongInstance = yield* Effect.exit(
 						store.read({ ...identity, instance: "other-instance" }),
 					);

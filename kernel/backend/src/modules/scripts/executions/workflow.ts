@@ -62,6 +62,7 @@ import {
 	type SandboxProjectionMissing,
 	sandboxRecoveryExecutionId,
 	type SandboxReplayResult,
+	settledSandboxReplay,
 } from "./queues";
 import {
 	type SandboxExecutionResult,
@@ -869,16 +870,19 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 		let projected = 0;
 		let projectionRebuilds = 0;
 		let replayStartedAt = 0;
+		let settledStep = false;
 		const finishReplay = (outcome: SandboxReplayOutcome) =>
-			Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
-				recordSandboxWorkflowReplayFinished({
-					outcome,
-					kind: replayKind,
-					journalBytes: journal.bytes,
-					journalEntries: journal.entries.length,
-					durationMs: Math.max(0, finishedAt - replayStartedAt),
-				}),
-			);
+			settledStep
+				? Effect.void
+				: Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
+						recordSandboxWorkflowReplayFinished({
+							outcome,
+							kind: replayKind,
+							journalBytes: journal.bytes,
+							journalEntries: journal.entries.length,
+							durationMs: Math.max(0, finishedAt - replayStartedAt),
+						}),
+					);
 		const failReplay = Effect.fnUntraced(function* (
 			replay: SandboxReplayResult,
 			step: number,
@@ -903,22 +907,32 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 			});
 		});
 		for (let step = 0; journal.entries.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
-			yield* appendWorkflowJournal(executionId, projected, journal.entries.slice(projected));
-			projected = journal.entries.length;
-			const replayExecutionId = `${executionId}-replay-${step}`;
+			const replayPayload: SandboxExecutionQueuePayload = {
+				lane: payload.lane,
+				context: payload.input,
+				startedAt: pin.startedAt,
+				principal: pin.principal,
+				workflowExecutionId: executionId,
+				journalLength: journal.entries.length,
+				executionId: `${executionId}-replay-${step}`,
+				...(payload.grants ? { grants: payload.grants } : {}),
+			};
+			const settled = yield* settledSandboxReplay(replayPayload);
+			settledStep = Option.isSome(settled);
 			replayStartedAt = yield* Clock.currentTimeMillis;
-			const replay = yield* Effect.scoped(
-				processReplay({
-					lane: payload.lane,
-					context: payload.input,
-					startedAt: pin.startedAt,
-					principal: pin.principal,
-					executionId: replayExecutionId,
-					workflowExecutionId: executionId,
-					journalLength: journal.entries.length,
-					...(payload.grants ? { grants: payload.grants } : {}),
-				}),
-			).pipe(Effect.catchTag("SandboxProjectionMissing", () => Effect.void));
+			const replay = Option.isSome(settled)
+				? settled.value
+				: yield* appendWorkflowJournal(
+						executionId,
+						projected,
+						journal.entries.slice(projected),
+					).pipe(
+						Effect.andThen(() => {
+							projected = journal.entries.length;
+							return Effect.scoped(processReplay(replayPayload));
+						}),
+						Effect.catchTag("SandboxProjectionMissing", () => Effect.void),
+					);
 			if (replay === undefined) {
 				yield* finishReplay("missing");
 				projectionRebuilds += 1;
@@ -946,7 +960,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 			}
 			projectionRebuilds = 0;
 			yield* Effect.forEach(
-				replay.logs,
+				settledStep ? [] : replay.logs,
 				(message) =>
 					Effect.logDebug(message).pipe(
 						Effect.annotateLogs({ replayStep: step, sandboxWorkflowExecutionId: executionId }),

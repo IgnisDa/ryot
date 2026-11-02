@@ -42,6 +42,11 @@ The `operation-rejected` reason marks a deliberate operation refusal: the guest 
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
 `business-failure` under the code `operation-rejected`, and workflow classification is unchanged.
 
+The workflow body runs from the start on every activation. A step whose first replay attempt has a
+stored success without recovery state to clear reuses that result: the body neither projects its
+journal nor offers the replay to the queue again, and its logs and replay metrics are not repeated.
+Other steps take the queue path, which clears recovery state after the result is stored.
+
 Dispatch uses the original workflow owner so cancellation remains attached. Failure, interruption,
 suspension, and defects do not complete a slot. Delayed completions or concurrent misses may repeat
 idempotent dispatch: durable ownership is not a single-flight guarantee.
