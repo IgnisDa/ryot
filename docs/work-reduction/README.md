@@ -51,7 +51,8 @@ it, but systemd's default `OOMPolicy=stop` would stop the whole run on that kill
 
 ## Findings and plan
 
-- [`strategy.md`](strategy.md): diagnosis, target design, ordered slices.
+- [`redesign.md`](redesign.md): the current proposal, built on the `probes11` decomposition.
+- [`strategy.md`](strategy.md): the first diagnosis, target design and slices.
 - [`probes.md`](probes.md): per-flow measurements and the backend CPU profile.
 - [`durability-requirements.md`](durability-requirements.md): guarantees the product tests.
 - [`reading-event-create.md`](reading-event-create.md), [`reading-import-population.md`](reading-import-population.md): code readings.

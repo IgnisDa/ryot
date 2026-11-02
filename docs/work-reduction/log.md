@@ -402,3 +402,16 @@
     phase, each at most once per step, so writes per commit stay bounded. Coverage and the snapshot
     phases read the step's starting checkpoint and still start a step of their own, as does a
     restart. The movie now takes four steps.
+
+## 2026-11-02
+
+- The owner is not satisfied with the improvement and asked what a bigger redesign would look like.
+- `probes11` adds no-hook event creates, the first measurement that separates the kernel write path
+  from the plugin cascade. The cascade is about 82% of a backlog create's API CPU (`probes.md`).
+- [`redesign.md`](redesign.md) proposes removing the cascade: declarative plugin effects, commands as
+  one transaction, scripts that run once, and one job table. It waits on the owner's decisions.
+- The VM rebooted at about 03:44 UTC with nothing running. The journal stops without a shutdown
+  sequence or OOM, so the restart came from outside the guest; the cause is unknown. A first
+  `probes11` attempt had started on stale code after a failed sync and was lost in that reboot.
+- A `bun` process with 3.2 GB anonymous RSS killed at 23:42 UTC on 11-01 belongs to `liv2`, a
+  `PROFILE=1` run, so it says nothing about normal server memory.

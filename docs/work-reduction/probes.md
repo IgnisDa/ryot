@@ -337,3 +337,48 @@ the leaner user command commit, and single-step history-correction phase changes
 - `probes9` → `probes10` is flat within noise. The later changes cut work that only repeats under
   load (workflow re-activations, commits queued behind one entity lock, correction steps), which
   these single-flow probes do not exercise. Settle times vary by the ±1.5 s sampling window.
+
+## Run `probes11` (the write path without hooks, `54c2464f36`)
+
+Adds `event-create-no-hooks` and `event-create-no-hooks-50`, which write `measurement-reading` events:
+no hook matches them and they have no projection. The checkout carried the owner's uncommitted
+`recovery` test and smoke edits, which do not touch these flows. Medians; API CPU has 10 ms ticks and
+single samples ranged 70–160 ms, so compare magnitudes.
+
+| Flow | Caller | Statements | Transactions | DB exec | API CPU | Workflows | Steps | Scripts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Event, no hooks | 179 ms | 148 | 62 | 51 ms | 130 ms | 2 | 7 | 0 |
+| 50 events, no hooks | 673 ms | 1,475 | 66 | 197 ms | 480 ms | 2 | 7 | 0 |
+| Event, `backlog` | 610 ms | 1,006 | 311 | 183 ms | 740 ms | 22.8 | 75.4 | 5.8 |
+| Signup | 704 ms | 452 | 176 | 120 ms | 610 ms | 5 | 9 | 2 |
+
+- **The hook cascade is about 82% of the API CPU of a backlog create**, 85% of its statements and 70%
+  of its caller latency.
+- **The floor is still high:** 148 statements and 13 `mutation_receipt` writes for one row.
+- **The batch path is per-item:** about 27 statements, 7 ms of CPU and 10 ms of latency per extra
+  event, with one `event`, `event_scope`, stream update and stream lookup statement each.
+- Settle figures are omitted; as in `probes8` they measure the settle window.
+
+## `full11` statements by layer
+
+A keyword classification of `pg_stat_statements` for the shared database: 3,333,599 calls, 1,042 s.
+It is approximate. Views mentioning plugin tables count as catalog, so RyotQL reads are undercounted,
+and the catalog time includes 199 s of `lockSourceReferences` statements, mostly lock waits.
+
+| Layer | Calls | Share | DB time |
+| --- | ---: | ---: | ---: |
+| Authority, catalog, definitions | 912,364 | 27.4% | 690 s |
+| Foreign-key trigger checks (no round trip) | 750,618 | 22.5% | 16 s |
+| Workflow engine | 470,261 | 14.1% | 105 s |
+| Advisory locks | 261,172 | 7.8% | 26 s |
+| Account admission | 240,106 | 7.2% | 14 s |
+| Mutation receipts | 205,222 | 6.2% | 37 s |
+| Background and automation bookkeeping | 187,334 | 5.6% | 25 s |
+| Domain writes | 17,034 | 0.5% | 5 s |
+
+Rows written in that database include 3,702 events, 3,815 entities and 1,449 relationships, against
+67,235 mutation receipts and 59,638 child workflow starts.
+
+CPU over the same run, from per-process deltas in `ps.log` (top 15 processes per sample, so 7,012 s of
+about 11,100 s busy): API servers 44%, sandbox daemons 17%, vitest workers 15%, PostgreSQL 13%,
+docker-proxy 4%. `vmstat`: 65% user, 22% system, 12.5% idle, 8.2 runnable, 32 k context switches/s.

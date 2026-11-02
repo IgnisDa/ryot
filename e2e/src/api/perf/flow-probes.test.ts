@@ -10,7 +10,11 @@ import { Duration, Effect, FileSystem, Schema } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { invokeOperation } from "~/fixtures/kernel/operations";
-import { createExerciseEntityFixture, seedExerciseWorkout } from "~/fixtures/plugins/fitness";
+import {
+	createExerciseEntityFixture,
+	createMeasurementMetric,
+	seedExerciseWorkout,
+} from "~/fixtures/plugins/fitness";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
 import { describe, it } from "~/support/effect-test";
 
@@ -292,6 +296,23 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
 				}
+				// `measurement-reading` matches no hook, has no projection and belongs to no batch-hook
+				// candidate, so these flows measure the write path alone.
+				const { entityId: metricId } = yield* createMeasurementMetric(client, {
+					name: "Probe metric",
+				});
+				const readings = (count: number) =>
+					Array.from({ length: count }, (_, index) => ({
+						properties: { value: index },
+						entityId: EntityId.make(metricId),
+						eventSchemaSlug: EventSchemaSlug.make("measurement-reading"),
+					}));
+				yield* repeat("event-create-no-hooks", 5, () =>
+					client.call((c) => c.events.create({ payload: readings(1) })),
+				);
+				yield* repeat("event-create-no-hooks-50", 3, () =>
+					client.call((c) => c.events.create({ payload: readings(50) })),
+				);
 				yield* repeat("operation-review-create", 3, () =>
 					Effect.gen(function* () {
 						const movie = yield* createBuiltinMediaLifecycleFixture(client, {
