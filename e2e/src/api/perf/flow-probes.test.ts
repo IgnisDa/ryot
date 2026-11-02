@@ -1,21 +1,27 @@
 import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { flatByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import {
 	MediaReviewCreateInput,
 	MediaReviewOutput,
 } from "@ryot-app/media-plugin/shared/media-review-operations";
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
+import { entityReadRecipe } from "@ryot-app/ryotql-recipes/scripts";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Duration, Effect, FileSystem, Schema } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { invokeOperation } from "~/fixtures/kernel/operations";
+import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import {
 	createExerciseEntityFixture,
 	createMeasurementMetric,
 	seedExerciseWorkout,
 } from "~/fixtures/plugins/fitness";
-import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
+import {
+	createBuiltinMediaLifecycleFixture,
+	findMediaEntitySchema,
+} from "~/fixtures/plugins/media";
 import { describe, it } from "~/support/effect-test";
 
 const RUN_FLOW_PROBES = process.env.RUN_FLOW_PROBES === "1";
@@ -312,6 +318,25 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				);
 				yield* repeat("event-create-no-hooks-50", 3, () =>
 					client.call((c) => c.events.create({ payload: readings(50) })),
+				);
+				const movieSchema = yield* findMediaEntitySchema(client, "movie");
+				// Fifty reads per sample: one read is below the CPU sampler's 10 ms resolution.
+				yield* repeat("read-entity-x50", 3, () =>
+					Effect.forEach(Array.from({ length: 50 }), () =>
+						executeRyotQLRecipe(client, entityReadRecipe({ entityIds: [entityId] })),
+					),
+				);
+				yield* repeat("read-media-list-x50", 3, () =>
+					Effect.forEach(Array.from({ length: 50 }), () =>
+						executeRyotQLRecipe(
+							client,
+							flatByLifecycleStateRecipe({
+								limit: 20,
+								states: ["backlog", "in_progress", "complete"],
+								reference: { kind: "local", pluginId: movieSchema.pluginId },
+							}),
+						),
+					),
 				);
 				yield* repeat("operation-review-create", 3, () =>
 					Effect.gen(function* () {
