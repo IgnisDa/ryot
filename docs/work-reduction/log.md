@@ -426,3 +426,9 @@
 - `activity-log` and `fitness-exercise` each have one test that passed in `full11` and now fails every
   time at `76a8cff917`, including on an idle VM. Both look like stale expectations after feature commits
   `7767dcc8e7` and `d2769ea0d4`.
+- The owner deleted the VM and allowed local runs. The raw results of `full11`–`full13` and `recheck12`
+  were on the VM; this directory keeps the summaries, and the `vm-*.sh` scripts now have no target.
+- Plugin scripts were checked for writing, waiting for effects to settle, then deciding. None do. Decisions
+  use a write's direct result, the script's own commits, or a durable child workflow (imports).
+- `local1` measures a real 150-set workout save: 3.1 s and 9,601 statements. The existing workout flows
+  seed through a different path from the client's, so `flow-probes` gains `workout-editor-save-*` flows.

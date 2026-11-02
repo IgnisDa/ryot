@@ -16,7 +16,11 @@ import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import {
 	createExerciseEntityFixture,
 	createMeasurementMetric,
+	saveWorkoutData,
 	seedExerciseWorkout,
+	workoutData,
+	workoutOccurrence,
+	workoutSet,
 } from "~/fixtures/plugins/fitness";
 import {
 	createBuiltinMediaLifecycleFixture,
@@ -369,6 +373,26 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				yield* probe("workout-1-set", workout(1, 2));
 				yield* probe("workout-10-sets", workout(10, 3));
 				yield* probe("workout-25-sets", workout(25, 4));
+				const exercises = yield* Effect.forEach(Array.from({ length: 10 }), () =>
+					createExerciseEntityFixture(client),
+				);
+				const editorSave = (occurrences: number, setsPerOccurrence: number) =>
+					saveWorkoutData(
+						client,
+						workoutData({
+							occurrences: exercises.slice(0, occurrences).map((exercise) =>
+								workoutOccurrence(
+									exercise.exerciseId,
+									Array.from({ length: setsPerOccurrence }, () =>
+										workoutSet({ measurements: { reps: 10, weight: 50 } }),
+									),
+								),
+							),
+						}),
+					);
+				yield* repeat("workout-editor-save-1x5", 3, () => editorSave(1, 5));
+				yield* repeat("workout-editor-save-5x5", 3, () => editorSave(5, 5));
+				yield* repeat("workout-editor-save-10x15", 3, () => editorSave(10, 15));
 			}),
 		1_800_000,
 	);

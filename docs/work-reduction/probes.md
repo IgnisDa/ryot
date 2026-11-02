@@ -471,3 +471,28 @@ an updated expectation.
   overflow menu.
 - `activity-log`, next-up and seasons: expected seasons `[0, 1, 2]`, got `[1]`. `7767dcc8e7` made the
   context select one seed season and page the rest.
+
+## Run `local1` (workout saves through the real operation, laptop)
+
+The VM is gone, so this ran on the owner's Mac, on one idle server. Compare these rows with each other,
+not with VM figures. The run needed two temporary patches, not committed: `pg_stat_statements` in the
+test PostgreSQL (`vm-e2e.sh` line 17, plus `create extension`), and a probe that tolerates a missing
+`/proc`, so there is no CPU column.
+
+The `workout-*-sets` flows seed through `createEntity` and `events.create`, which the client does not
+use for saving, so earlier workout rows in this file do not describe a real save. These flows call
+`workout-editor-save`, which commits with `commitUserChanges`. Medians of 3:
+
+| Flow | Events | Caller | Statements | Transactions | DB exec | Workflows |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 exercise, 5 sets | 7 | 591 ms | 1,291 | 422 | 143 ms | 22 |
+| 5 exercises, 25 sets | 31 | 925 ms | 2,538 | 481 | 183 ms | 30 |
+| 10 exercises, 150 sets | 161 | 3,125 ms | 9,601 | 1,166 | 467 ms | 59 |
+
+- **The 150-set save:** 13 script executions, 16 host-call workflows, 11 automation runs, 10 relationship
+  preparations and 4 policy batches.
+- **Table writes per save, for 161 events:** about 340 `mutation_receipt`, 321 `event_scope`, about 170
+  `event_stream_work`, 162 `event_stream`, and about 310 `event_projection`. Table counters flush late:
+  the 930 projection writes all appear in the third run, so that figure is a third of the total.
+- **About 57 statements per extra set.** The source commit is already one transaction, and no membership
+  hook fires here, so the cost is the kernel's per-item work and records, which moves 3 and 4 address.
