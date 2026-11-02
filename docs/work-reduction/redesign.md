@@ -1,7 +1,38 @@
 # Redesign proposal: remove the cascade
 
-Status: proposed, waiting on the owner's decisions below. Nothing here is implemented. It replaces
-the ordering in [`strategy.md`](strategy.md), whose target design was only partly built.
+Status: agreed by the owner, and the spike (move 1) is done. Nothing else here is implemented, and
+implementation waits on the owner's review of the spike. It replaces the ordering in
+[`strategy.md`](strategy.md), whose target design was only partly built.
+
+## Decisions
+
+- **Targets:** a typical write under 100 ms and the whole suite under 20 minutes on the 4-vCPU VM.
+- **Plugins** may declare effects as data, changing the Plugin Kit and first-party plugins.
+- **Internals** are free to change as long as user-facing features keep working. That includes where
+  history-correction evidence is stored.
+- **Replicas** must keep working, so cross-process ownership and wake-ups stay.
+
+## What the spike showed
+
+Removing the five hook families from `76a8cff917` ([`probes.md`](probes.md), `full12` and `full13`):
+
+| Measure | Baseline | Hooks removed |
+| --- | ---: | ---: |
+| `POST /events`, mean under load | 2,378 ms | 658 ms |
+| `POST /entities`, mean under load | 370 ms | 80 ms |
+| Statements | 2.84 M | 1.47 M |
+| Machine CPU | about 10,500 s | about 8,300 s |
+| Suite, projected | 50 min | 26–38 min |
+
+- **The cascade is the largest single server cost, and removing it is not enough.** The earlier estimate
+  of 20–30 minutes after moves 2–4 now sits at the optimistic end, and the 20-minute target needs work
+  beyond the cascade.
+- **The hooked write path gains most.** Writes fall about 70% in handler time, which supports moves 2
+  and 3 for the write target.
+- **55% of baseline test time is outside server handlers** and has never been measured.
+- **Reads are not the main cost**, at 19% of handler time.
+- **Plugin installs are a separate cost** the proposal did not cover: 608 s of handler time remains
+  with the hooks removed, more than reads.
 
 ## What the last round showed
 
@@ -55,10 +86,8 @@ scripts are the main users (124 of 144). This matches
 
 Each move is measured with the flow probes and, at milestones, the full suite. Effects are estimates.
 
-1. **Bound the gain first (a spike, thrown away).** Run the whole suite with those hook families and
-   bootstrap scripts disabled, ignoring the failures they cause, and read wall time and CPU per
-   server. Add a CPU profile of read-only flows. This answers the largest unknown: what share of the
-   suite is reads, which no probe measures.
+1. **Bound the gain first (done).** See "What the spike showed". Bootstrap scripts stayed on, because
+   removing them breaks most Media tests, so signup was not part of the measured gain.
 2. **Declarative plugin effects.** Generic manifest declarations, applied by the kernel in the source
    write's transaction, with no plugin IDs in kernel code:
    - user bootstrap entities;
@@ -91,11 +120,16 @@ Each move is measured with the flow probes and, at milestones, the full suite. E
    on one row lock (87 s of the 164 s 60-subject test in `liv9`). Compute the desired state for a
    subject and apply the difference in one commit, keeping paged steps only for genuinely long
    histories.
-6. **Harness and memory, last.**
+6. **Harness and memory.** The time outside handlers makes this more important than first ranked, so
+   it starts with a measurement, run alongside move 2: how much test time is `pollUntil` waits, sleeps,
+   browser waits and scheduling delay.
    - Hook-free seeding for tests not about hooks, and template databases instead of per-file
      container sets.
    - Heap snapshots of the shared server, which grew from 375 MB to about 1.1 GB in `full11` for
      reasons nobody has established.
+
+7. **Plugin installs.** Added by the spike. `POST /plugins` takes 1.1–1.3 s and a system package change
+   3–3.7 s under load, largely independent of the cascade. Profile this path before deciding on changes.
 
 ## Expected effect (estimates)
 
@@ -104,12 +138,12 @@ Each move is measured with the flow probes and, at milestones, the full suite. E
 | Backlog event create, caller | 610 ms | 80–150 ms |
 | Backlog event create, API CPU | 740 ms | 50–100 ms |
 | Signup, caller | 704 ms | 100–150 ms |
-| Whole suite on the 4-vCPU VM | 53 min | 20–30 min, 10–15 min with move 6 |
+| Whole suite on the 4-vCPU VM | 50 min | 25–35 min |
 
-The VM is CPU-bound (87% busy, 8 runnable), and API servers, sandbox daemons and PostgreSQL are about
-three quarters of the CPU the sampler attributes (7,012 s of about 11,100 s busy; it keeps only the
-top 15 processes per sample). Signups alone cost up to 18% of API CPU. The suite range is the weakest
-number here because read cost is unmeasured; move 1 exists to replace it with a measurement.
+The suite figure is lowered from 20–30 minutes. The spike projects 26–38 minutes from the cascade alone,
+moves 3 and 4 add some, and the rest of the target depends on moves 6 and 7, which are unsized until
+the time outside handlers is measured. The suite is limited to 4 workers, so test time matters as much
+as machine CPU.
 
 ## What not to do
 
@@ -127,10 +161,3 @@ number here because read cost is unmeasured; move 1 exists to replace it with a 
   targets) that the rule must cover, or those cases stay scripted.
 - Recovery tests pin replay behavior. They must stay green; 19 kernel test files name the workflows
   and will be rewritten, while only 1 e2e file does, so the e2e suite stays a valid behavior check.
-
-## Open decisions for the owner
-
-1. The target numbers.
-2. Whether plugins may declare effects as data, changing the Plugin Kit and first-party plugins.
-3. Whether history-correction evidence must remain real events on the library entity.
-4. Whether production ever runs more than one API process.

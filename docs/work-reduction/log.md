@@ -410,8 +410,19 @@
   from the plugin cascade. The cascade is about 82% of a backlog create's API CPU (`probes.md`).
 - [`redesign.md`](redesign.md) proposes removing the cascade: declarative plugin effects, commands as
   one transaction, scripts that run once, and one job table. It waits on the owner's decisions.
-- The VM rebooted at about 03:44 UTC with nothing running. The journal stops without a shutdown
-  sequence or OOM, so the restart came from outside the guest; the cause is unknown. A first
-  `probes11` attempt had started on stale code after a failed sync and was lost in that reboot.
+- The VM restarted at about 03:44 UTC with nothing running: the owner restarted it from the Hetzner
+  console. A first `probes11` attempt had started on stale code after a failed sync and was lost then.
 - A `bun` process with 3.2 GB anonymous RSS killed at 23:42 UTC on 11-01 belongs to `liv2`, a
   `PROFILE=1` run, so it says nothing about normal server memory.
+- The owner agreed to the redesign: a typical write under 100 ms, the suite under 20 minutes, plugins
+  may declare effects as data, internals are free to change, and replicas must keep working.
+- The spike ran the whole suite with and without the cascade (`full12`, `full13`). Writes fall about
+  70% in handler time, statements 48% and machine CPU 21%, and the suite projects to 26–38 minutes,
+  so the cascade alone does not reach the target. `redesign.md` is lowered to match and adds plugin
+  installs and a measurement of the 55% of test time spent outside server handlers.
+- `full13` first failed to start: the patch script matched the wrong indentation and had not been
+  tried beforehand. The chain's wait loop also treated an inactive unit as an SSH failure, so nothing
+  reported the stop, and the VM sat idle for about 20 minutes until the owner asked for status.
+- `activity-log` and `fitness-exercise` each have one test that passed in `full11` and now fails every
+  time at `76a8cff917`, including on an idle VM. Both look like stale expectations after feature commits
+  `7767dcc8e7` and `d2769ea0d4`.

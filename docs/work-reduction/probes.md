@@ -382,3 +382,92 @@ Rows written in that database include 3,702 events, 3,815 entities and 1,449 rel
 CPU over the same run, from per-process deltas in `ps.log` (top 15 processes per sample, so 7,012 s of
 about 11,100 s busy): API servers 44%, sandbox daemons 17%, vitest workers 15%, PostgreSQL 13%,
 docker-proxy 4%. `vmstat`: 65% user, 22% system, 12.5% idle, 8.2 runnable, 32 k context switches/s.
+
+## Runs `full12`, `full13` (whole suite with and without the cascade, `76a8cff917`)
+
+`full12` is the baseline. `full13` is a throwaway patch on the same revision: the media hooks
+`ensure-media-library-membership` (both), `record-media-library-membership-event`,
+`library-summary-refresh` and `reconcile-history` and the fitness library membership hook are removed,
+and the test timeout drops from 180 s to 60 s so tests waiting on those hooks fail sooner. Bootstrap
+scripts stay. The patch was never committed.
+
+| Measure | `full12` | `full13` | Change |
+| --- | ---: | ---: | ---: |
+| Wall time | 2,983 s | 3,019 s | none, see below |
+| Passed / failed / skipped | 944 / 7 / 8 | 833 / 118 / 8 | 111 newly failing |
+| Summed test time | 10,790 s | 11,036 s | |
+| Machine CPU, `vmstat` | about 10,500 s (88% busy) | about 8,300 s (68% busy) | -21% |
+| Statements, shared database | 2,840,409 | 1,469,294 | -48% |
+| Database execution time | 895 s | 402 s | -55% |
+| API server CPU, sampled | 2,981 s | 2,158 s | -28% |
+| PostgreSQL CPU, sampled | 2,031 s | 912 s | -55% |
+| Sandbox daemon CPU, sampled | 1,096 s | 300 s | -73% |
+| vitest CPU, sampled | 995 s | 1,005 s | none |
+| Workflow executions | 43,012 | 21,292 | -50% |
+| Automation runs | 4,701 | 1,997 | -58% |
+
+Sampled CPU takes each process's last `ps` sample (top 15 per sample), so it covers 7,714 s and 5,113 s
+of the machine totals. Execution and run counts come from a snapshot taken once a minute, so they can
+miss the last minute.
+
+**Wall time is not a result.** 87 tests wait out the 60 s timeout and 16 browser tests wait out 30 s, so
+idle waiting replaces the removed work. Of the 111 new failures, 17 took 60 s or more in `full12` and
+may be failing on the timeout rather than the missing hooks.
+
+- **Tests passing in both runs:** 833 tests, 6,644 s to 4,905 s, or -26%. Part of that is lower load.
+- **Files with no new failure:** 183 files, 5,342 s to 4,227 s, or -21%.
+
+Projecting a suite where those effects cost nothing, at the observed 3.62 tests running in parallel:
+
+- 38 min: every test that did not time out gets 26% faster and the 5 baseline timeouts stay.
+- 26 min: the 111 tests take the mean of 5.9 s seen in `full13` and the 5 baseline timeouts pass.
+
+### Server handler time by route
+
+From `Sent HTTP response` lines of all servers, summing handler durations, which overlap across
+workers. Long-lived `/entity-watches/ws` sockets are excluded.
+
+| Category | `full12` requests | `full12` | `full13` |
+| --- | ---: | ---: | ---: |
+| Writes and plugin operations | 4,049 | 2,052 s | 618 s |
+| RyotQL and other reads | 32,083 | 902 s | 562 s |
+| Plugin install and package change | 672 | 699 s | 608 s |
+| Test-support seeding | 2,474 | 638 s | 397 s |
+| Auth | 13,357 | 462 s | 358 s |
+| Static assets and page bundles | 19,604 | 67 s | 49 s |
+| **Total** | 72,239 | **4,820 s** | **2,592 s** |
+
+| Route | `full12` mean | `full13` mean |
+| --- | ---: | ---: |
+| `POST /events` | 2,378 ms | 658 ms |
+| `POST /entities` | 370 ms | 80 ms |
+| `POST /relationships` | 834 ms | 61 ms |
+| `POST /collections/memberships` | 1,097 ms | 247 ms |
+| `workout-editor-save` | 1,464 ms | 992 ms |
+| `media-activity-log` | 4,160 ms | 1,147 ms |
+| `POST /plugins` | 1,254 ms | 1,126 ms |
+| `PUT /test-support/system-plugins/:id/package` | 3,674 ms | 3,036 ms |
+| `POST /auth/sign-up*` | 152 ms | 130 ms |
+| `POST /auth/sign-in*` | 130 ms | 107 ms |
+
+- **Handlers explain 45% of baseline test time** (4,820 s of 10,790 s). The other 55% is outside
+  handlers and unmeasured: client work, `pollUntil` waits at 500 ms, explicit sleeps, browser waits, and
+  scheduling delay on a busy machine.
+- **Reads are 19% of handler time**, about 28 ms per request under load. They are not the main cost.
+- **Plugin installs are as costly as reads and barely depend on the cascade.** Removing the hooks
+  moved them from 699 s to 608 s, on 672 requests.
+- These means are under suite load, so they run higher than the unloaded flow probes.
+
+### Baseline failures
+
+Five of the seven `full12` failures also failed in `full11`, all at the 180 s timeout: four in
+`history-correction-liveness` and one in `analytics-recipes`. The other two passed in `full11`
+(`306769dee3`) and fail with identical assertions in `full12`, in `full13`, and in `recheck12`, a
+two-file rerun on the idle VM. Both look like stale expectations after feature commits that arrived
+with the rebase onto `main`, not effects of this work. Neither test has been changed or rerun against
+an updated expectation.
+
+- `fitness-exercise`, menu actions: expected 4 menu items, got 5. `d2769ea0d4` moved reminders into the
+  overflow menu.
+- `activity-log`, next-up and seasons: expected seasons `[0, 1, 2]`, got `[1]`. `7767dcc8e7` made the
+  context select one seed season and page the rest.
