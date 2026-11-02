@@ -14,6 +14,13 @@ validated, serialized inputs into the final transaction; it does not hold a data
 workflow or sandbox execution. The commit rechecks references and schema fingerprints, persists the
 entity, relationships, and event changes, and records the result and dispatch plan atomically.
 
+The commit holds its entity reference locks until it ends, so commands that write events under the
+same entity serialize on its row. It does only the work its changes need: an unchanged entity update
+still rechecks the stored entity, but plans no entity lifecycle batch, and a command without
+relationships plans no relationship batch. The commit changes no plugin, installation, or account
+rows, so it runs each locked domain write check once per writer, owner, and scope
+(`reuseLockedWriteChecks`); the check's shared locks keep its result valid until commit.
+
 Asset uploads and storage are separate from the command transaction. A command may refer to managed
 assets; the write boundary validates and locks those references while committing metadata.
 

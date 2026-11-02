@@ -238,10 +238,21 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 		override,
 		removeOutput,
 		sourceWrites: () => sourceWrites,
+		isEmpty: () => creates.length === 0 && changes.length === 0,
 	};
 };
 
 const maintenancePageSize = 25;
+
+// Phases that read only committed records, never the step's starting checkpoint.
+const chainablePhases = new Set<HistoryCorrection["phase"]>([
+	"audit",
+	"prune",
+	"sweep",
+	"clear",
+	"progress",
+	"dependencies",
+]);
 
 const positive = (value: JsonValue | undefined) =>
 	typeof value === "number" && value > 0 ? value : 0;
@@ -376,7 +387,12 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		}
 		write.replace(row, { ...row.properties, status: "inactive" });
 	});
-	if (!restart) {
+	// A phase change that wrote nothing would commit only the checkpoint, and the next step would read
+	// the same records, so the next phase runs in this step. Each phase runs at most once per step.
+	const visited = new Set<HistoryCorrection["phase"]>();
+	let advancing = !restart;
+	while (advancing) {
+		visited.add(state.phase);
 		if (state.phase === "dependencies") {
 			const page = yield* executeRyotqlRecipe(
 				host.executeRyotql,
@@ -691,7 +707,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 									});
 									delete state.closingEventId;
 									delete state.coverageFinished;
-									setAfter(previous.after);
+									setAfter(previous?.after);
 								}
 							}
 							if (state.basisId) {
@@ -860,6 +876,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		} else {
 			return yield* new MediaSandboxError({ message: "History correction phase is invalid" });
 		}
+		advancing = write.isEmpty() && chainablePhases.has(state.phase) && !visited.has(state.phase);
 	}
 	state.step += 1;
 	state.workKey = input.workKey;

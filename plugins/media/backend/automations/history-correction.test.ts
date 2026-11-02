@@ -374,8 +374,13 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const test = harness({
-				responses: [reply("records", [])],
 				state: checkpoint({ phase: "audit", runKey: "newer-run", requestKey: "newer-request" }),
+			responses: [
+				reply("records", []),
+				reply("events", [source()]),
+				reply("records", []),
+				reply("blockers", [{ explicit: false, sameTime: false }]),
+			],
 			});
 			yield* test.run();
 			expect(yield* test.saved()).toMatchObject({
@@ -570,15 +575,36 @@ it.effect(
 							},
 						}),
 					]),
+					reply("events", []),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
+			expect(test.commands).toHaveLength(1);
 			expect(test.commands[0]?.events.creates).toEqual([]);
 			expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
 				"replace:checkpoint",
 			]);
-			expect((yield* test.saved()).phase).toBe("progress");
+			expect((yield* test.saved()).phase).toBe("done");
 		}),
+	testTimeout,
+);
+
+it.effect("runs phase changes that write nothing in the same step", () =>
+	Effect.gen(function* () {
+		const test = harness({
+			state: checkpoint({ phase: "prune" }),
+			responses: [reply("records", []), reply("records", [])],
+		});
+		yield* test.run();
+		expect(test.commands).toHaveLength(1);
+		expect(test.commands[0]?.events.creates).toEqual([]);
+		expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
+			"replace:checkpoint",
+		]);
+		expect(yield* test.saved()).toMatchObject({ step: 6, phase: "done" });
+	}),
 	testTimeout,
 );
 
@@ -595,6 +621,8 @@ it.effect(
 					]),
 					reply("records", [record(occurrence({ total: 12 }))]),
 					reply("blockers", [{ explicit: true, sameTime: false }]),
+				reply("records", []),
+				reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -804,6 +832,7 @@ it.effect(
 							record(occurrence({ silent: true, sourceEventId: id, runKey: state.runKey })),
 						]),
 						reply("blockers", [{ explicit: false, sameTime: false }]),
+						...(next === null ? [reply("records", []), reply("records", [])] : []),
 					],
 				});
 				yield* advance.run();
@@ -815,7 +844,7 @@ it.effect(
 				}
 			}
 			expect(writes).toBe(6_000);
-			expect(state).toMatchObject({ step: 6_005, phase: "prune" });
+			expect(state).toMatchObject({ step: 6_005, phase: "done" });
 			expect(state).not.toHaveProperty("after");
 			expect(largestCommand).toBeLessThan(4_000);
 		}),

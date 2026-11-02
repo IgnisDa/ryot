@@ -363,3 +363,30 @@
   which runs once, in the first activation that sees the result; a failed replay, which ends the
   workflow, records directly. The metric's duration is the run's own rather than body wall time,
   which read about zero for a resumed step.
+- `liv6`, `history-correction-liveness` alone with OTLP export at `5e73bdab7c`: the 60-subject test
+  timed out again. Of 2,741 script replays, 1,708 ended pending; background dispatches waited 6.3 s
+  on average (4,088 of them). One statement, the entity-row lock in
+  `EventStreamRepository.lockSourceReferences`, took 172 s of the file's 328 s of statement time,
+  nearly all of it waiting. PostgreSQL logged 608 lock waits over 100 ms, 168 s in total, all but one
+  on a single `entity` tuple per test: that user's media library.
+  - Media stores every history-correction record as an event on the user's one library entity, so
+    every correction step for every subject locks that row and its streams for its whole commit
+    transaction. The 75 subjects of the 60-subject test commit one at a time, while the CPU idles.
+    Parking runs (slice 4 step 3) would not move this bound, so it waits.
+  - Span logs now carry the parent span ID, so a span tree can be rebuilt from them.
+- `liv7`, the 60-subject test alone: it timed out at 180 s. Its 459 correction commits held the
+  library lock for 111 s in total, median 214 ms, of 287 ms median transaction time. A median commit
+  (one event update under an unchanged library root) issued 140 statements:
+  - 56 to save the unchanged library: schema validation twice, asset, row and catalog locks, a
+    receipt, and the entity lifecycle batch (begin, lookup, contents, seal);
+  - 12 to begin and seal a relationship batch with no relationships;
+  - about 36 in six repeated locked write checks (ingestion and plugin-config locks, the plugin
+    revision, installation and account reads, and the script pin).
+  - An unchanged update now skips the entity lifecycle batch, which cannot contain evidence, and a
+    command without relationships skips their batch.
+- `liv8`, with those skips: the test passed in 165 s. The lock was held for 91 s (−18%), median
+  172 ms.
+  - A locked write check holds shared locks on the authority it read until the transaction ends, so
+    repeating it inside the same transaction rereads the same rows. A user command commit, which
+    never changes plugin, installation or account rows, now reuses each check for its key;
+    `reuseLockedWriteChecks` is the opt-in for such a scope.
