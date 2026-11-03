@@ -739,3 +739,32 @@ median of 3 rounds; a whole-page load runs its reads at once, so a read takes lo
 - The backfill for the 664,155 dated rows ran inside plugin activation. The whole migration took 94 s, every dated
   row was filled, and no value disagreed with its property.
 
+## Run `full17` (whole suite after Phase A)
+
+Whole suite on the VM at `2fa7957766` with step 5, one run, 51 min: 938 passed, 13 failed, 9 skipped. Phase A was
+not expected to shorten it, and it did not.
+
+- **Caused by this work:** 1, `wildcards.test.ts`, which lists entity fields and now gains `occursAt`.
+- **Known:** the 4 `history-correction-liveness` tests, which wait for step 10.
+- **The other 8:** rerun on the 8 files, 3 times (`tri17-*`), and then alternated with code from before Phase A
+  (`84502d32c0`) 3 times each (`ab17-*`):
+
+| Test | `full17` | Current, 6 runs | Before Phase A, 3 runs |
+| --- | ---: | ---: | ---: |
+| `saved-view-sorting`, lifecycle activity order | failed | 0 | 0 |
+| `analytics-recipes`, rankings beyond 100 entities | timed out | 0 | 0 |
+| `fitness-workout-editor`, competing historical edit | failed | 2 | 2 |
+| `entity-reminders` | failed | 2 | 1 |
+| `fitness-workout-interactions` | failed | 1 | 0 |
+| `god-mode-impersonation` | failed (2) | 1 | 0 |
+| `media-custom-entity` | failed | 0 | 0 |
+
+The first two fail only beside the whole suite. The workout editor test fails on the old code as often as on the
+new: a 30 s wait for the details dialog, with the test taking 40–49 s against 19–22 s when it passes. The
+rest are single failures of browser waits spread across both versions, so they are treated as load.
+
+The non-e2e tests (`bun turbo --filter='!@ryot-app/e2e' test`, `u17*`) needed `--concurrency=1` and the swap file:
+without them `tsgolint` was killed for memory while linting the kernel backend. One run stalled for 10 minutes with
+two files open that then passed alone 3 of 3 times in 3 s each. The last run passed every task except the known
+backup memory test, at 537,583,616 bytes against its 536,870,912 limit: 3,023 of 3,024 kernel tests.
+

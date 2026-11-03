@@ -34,7 +34,8 @@ step 6's whole-page check, without tracing the background query, so that trace a
 read needs them. Step 4 would only serve flat rails at about 140 ms against 100 ms.
 
 **Phase check:** the whole suite still passes, because tiny libraries do not exercise these paths. This phase is
-not expected to shorten it much.
+not expected to shorten it much. Met in `full17`, apart from the known liveness tests and failures that also occur on
+the code from before the phase (`probes.md`).
 
 ## Phase B: writes
 

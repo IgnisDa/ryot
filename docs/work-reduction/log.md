@@ -460,4 +460,8 @@
 - Step 5 landed as `design-indexed-date.md` describes. Upcoming and the show calendar now take under 200 ms alone on
   all three dates, and the whole page 0.7–2.0 s with no failed reads or kills. RyotQL's 100-row limit shaped the
   `upcoming` rewrite: a rows query for tiles and a grouped count for `total`.
+- `full17` ran the whole suite after Phase A: 51 min, 938 passed, 13 failed. One failure was this work's, a field list
+  test missing `occursAt`, now fixed. Reruns and an alternation with code from before Phase A put the rest down to
+  the 4 known liveness tests and to load. The non-e2e tests pass on the VM apart from the flaky backup memory
+  test, once the VM has swap for linting. The local real-data containers and plan files were removed.
 

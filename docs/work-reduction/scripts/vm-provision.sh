@@ -47,4 +47,10 @@ fs.inotify.max_user_instances=1024
 vm.max_map_count=262144
 EOF
 sysctl --system >/dev/null
+
+# The kernel backend's type-aware lint needs more than the VM's 7.6 GiB.
+if [ ! -e /swap-check ]; then
+	fallocate -l 6G /swap-check && chmod 600 /swap-check && mkswap -q /swap-check && swapon /swap-check
+fi
+grep -q '^/swap-check ' /etc/fstab || echo '/swap-check none swap sw 0 0' >> /etc/fstab
 echo provisioned

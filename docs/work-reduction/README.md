@@ -9,8 +9,9 @@ outside it, in the kernel's durability, planning, and bookkeeping layers.
 
 ## Environment
 
-- Benchmark VM: `tmp/server.ip` (Hetzner, AMD EPYC-Genoa, 4 vCPU, 7.6 GiB RAM, no swap, Ubuntu 26.04,
-  Linux 7.0). Dedicated to this work; it can be wiped.
+- Benchmark VM: `tmp/server.ip` (Hetzner, AMD EPYC-Genoa, 4 vCPU, 7.6 GiB RAM, 6 GiB swap, Ubuntu
+  26.04, Linux 7.0). The swap is for `tsgolint`, which runs out of memory linting the kernel backend without it;
+  runs up to `full17` and `ab17-*` had none. Dedicated to this work; it can be wiped.
 - Toolchains: Bun 1.4.4 (`/opt/bun`), Rust 1.93.1, Node 24.22.1, Docker. The e2e harness requires
   UID/GID 1001 on Linux, so everything runs as `ryot-backend` (1001) and the native sandbox is
   root-provisioned with `kernel/sandbox/native/provision.sh`.
