@@ -1,8 +1,8 @@
 # Redesign proposal: remove the cascade
 
-Status: direction under review with the owner. Nothing here is implemented, and implementation waits
-for the owner's go-ahead. It replaces the ordering in [`strategy.md`](strategy.md), whose target design
-was only partly built.
+Status: direction agreed with the owner, including plugins and JIT. Nothing here is implemented, and
+implementation waits for the owner's go-ahead on [`order-of-work.md`](order-of-work.md), which sets the
+sequence. It replaces the ordering in [`strategy.md`](strategy.md), whose target design was only partly built.
 
 ## Decisions
 
@@ -41,8 +41,9 @@ still takes 9,601 statements and 59 workflows. So the direction is:
    for every existing user. The cost is what surrounds them: a workflow per installation, per-user
    fan-out on a system plugin change, and per-row authority checks. Installing becomes a row written in
    a transaction, a system plugin change touches one pointer, and authority is cached by revision.
-4. **Reads scale with the page, not the library.** Filterable state moves to indexed columns, and the
-   plugin and installation gate runs once per query instead of once per row. Stored library summaries also
+4. **Reads scale with the page, not the library.** RyotQL filters, sorts and limits before it computes
+   display fields, filterable state moves to indexed columns, and the plugin and installation gate runs once
+   per query instead of once per row. Stored library summaries also
    have to hold what lists sort on: `timesCompleted`, `lastCompletedAt` and `userRating` are still computed
    per row from events. RyotQL reads turn JIT off in their own transaction, which leaves other SQL
    unchanged; `legacy2` found no read that JIT clearly helped. This does not make the home page safe alone:
@@ -69,7 +70,8 @@ Removing the five hook families from `76a8cff917` ([`probes.md`](probes.md), `fu
   beyond the cascade.
 - **The hooked write path gains most.** Writes fall about 70% in handler time, which supports moves 2
   and 3 for the write target.
-- **55% of baseline test time is outside server handlers** and has never been measured.
+- **55% of baseline test time is outside server handlers.** `full15` has since measured it: test time is
+  42% HTTP calls, 41% sleeping between polls and 21% neither.
 - **Reads are not the main cost**, at 19% of handler time.
 - **Plugin installs are a separate cost** the proposal did not cover: 608 s of handler time remains
   with the hooks removed, more than reads.
@@ -160,9 +162,8 @@ Each move is measured with the flow probes and, at milestones, the full suite. E
    on one row lock (87 s of the 164 s 60-subject test in `liv9`). Compute the desired state for a
    subject and apply the difference in one commit, keeping paged steps only for genuinely long
    histories.
-6. **Harness and memory.** The time outside handlers makes this more important than first ranked, so
-   it starts with a measurement, run alongside move 2: how much test time is `pollUntil` waits, sleeps,
-   browser waits and scheduling delay.
+6. **Harness and memory.** The time outside handlers makes this more important than first ranked:
+   `full15` shows 41% of test time asleep between polls.
    - Hook-free seeding for tests not about hooks, and template databases instead of per-file
      container sets.
    - Heap snapshots of the shared server, which grew from 375 MB to about 1.1 GB in `full11` for
@@ -181,8 +182,8 @@ Each move is measured with the flow probes and, at milestones, the full suite. E
 | Whole suite on the 4-vCPU VM | 50 min | 25–35 min |
 
 The suite figure is lowered from 20–30 minutes. The spike projects 26–38 minutes from the cascade alone,
-moves 3 and 4 add some, and the rest of the target depends on moves 6 and 7, which are unsized until
-the time outside handlers is measured. The suite is limited to 4 workers, so test time matters as much
+moves 3 and 4 add some, and the rest of the target depends on moves 6 and 7, which are not sized yet.
+The suite is limited to 4 workers, so test time matters as much
 as machine CPU.
 
 ## What not to do

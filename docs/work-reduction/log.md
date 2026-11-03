@@ -446,4 +446,7 @@
   home page's OOM kills went from 3 of 3 loads to 0 of 3 at a 1 GB limit. The page is still poor with JIT off:
   30 s, and `upcoming` fails at the 30 s limit in 2 of 3 loads. All Shows fails at the limit either way, for
   the default view and 6 of its 8 other sorts. The direction now turns JIT off for RyotQL reads only.
+- The owner confirmed the plugin section and JIT off for RyotQL reads. `legacy3` captured query plans: All Shows
+  computes display fields for all 9,208 catalog shows before paging, and upcoming and the calendar read the whole
+  episode catalog. `order-of-work.md` proposes the sequence for the owner's review.
 

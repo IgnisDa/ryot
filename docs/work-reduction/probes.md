@@ -600,11 +600,10 @@ way. Medians, in ms:
   in the same counters, so "fired" counts are not exact per read. It also means something in the background
   repeatedly spends about 2 s in JIT, which was not traced.
 - **Run-to-run variation:** `upcoming` took 5 s with JIT off in an earlier run and 20–28 s in this one, and the
-  show calendar took 3.8 s against 15–27 s. Neither change is explained by JIT. The cause was not established;
-  a cold cache under the 1 GB limit is one candidate.
+  show calendar took 3.8 s against 15–27 s. Neither change is explained by JIT; `legacy3` points at background
+  queries running alongside.
 - **All Shows:** `timesCompleted`, `lastCompletedAt` and `userRating` are computed per row from events
-  (`librarySummary`), so those sorts read every show's events. Why the default view and the sorts on stored
-  values also time out was not established.
+  (`librarySummary`), so those sorts read every show's events. `legacy3` explains the rest.
 
 The whole home page, 11 queries at once, 3 times each way, from PostgreSQL's own logs:
 
@@ -624,4 +623,33 @@ The whole home page, 11 queries at once, 3 times each way, from PostgreSQL's own
 - **Corrections to the harness:** its own `crashed` flag read `pg_postmaster_start_time`, which does not change
   on this kind of restart, so kills are taken from PostgreSQL's log. An earlier attempt in this run lost its
   login session after about 13 minutes, so only the last attempt's numbers are used.
+
+## Run `legacy3` (query plans for the slow reads)
+
+The same data and user as `legacy2`. The SQL was captured from PostgreSQL's log with JIT off, then run with
+`EXPLAIN (ANALYZE, BUFFERS)` with the server stopped and no time limit. Instrumentation and cache state inflate
+the times, and identical buffer counts took 37–143 s, so the loop counts are the reliable part.
+
+| Read | Rows returned | Time | Buffers | Episode visits |
+| --- | ---: | ---: | ---: | ---: |
+| All Shows, default | 21 | 113 s | 37.8 M | 607,521 |
+| All Shows, sorted by date added | 21 | 143 s | 37.7 M | 607,521 |
+| All Shows, sorted by times completed | 21 | 37.5 s | 37.7 M | 607,521 |
+| All Shows, sorted by name | 21 | 0.47 s | 0.18 M | 2,708 |
+| Continue rail, shows | 21 | 3.4 s | 7.2 M | |
+| Continue rail, other media | 1 | 0.19 s | 0.42 M | |
+| Upcoming | 4 | 4.5 s | 3.6 M | 644,137 dates cast |
+| Show episode calendar | 32 | 4.1 s | 2.4 M | 441,130 |
+
+- **All Shows computes display fields before it pages.** The per-show aggregates run for all 9,208 shows in the
+  catalog, about 66 episodes each. Only then does a semi-join keep the user's 4,610, and a top-N sort keep 21. The
+  name sort selects the same fields and computes them for the page, which is why it is about 300 times cheaper.
+- **Flat rails pay per membership.** The continue rail for other media does 29,460 projection and 29,460 installation
+  lookups, plus two user lookups for each of 14,708 memberships, to return 1 row.
+- **Upcoming and the calendar read the whole episode catalog,** casting a date out of JSON for each row, because no
+  index starts from the date.
+- **Background load matters.** The captured API run took 25.6 s for `upcoming` while about 70 scans of an airing
+  schedule ran alongside it, against 4.5 s here. The show calendar took 4.5 s with 16 statements alongside it. The
+  query looks like a signal schedule, but its source and frequency were not traced.
+- **Memory settings:** PostgreSQL ran with defaults, `shared_buffers=128MB` and `work_mem=4MB`.
 
