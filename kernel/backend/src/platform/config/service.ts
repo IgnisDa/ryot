@@ -134,7 +134,7 @@ const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, 
 		: Result.succeed(headers);
 };
 
-// One cluster runner connection, two durable queue worker connections, and one application connection.
+// The workflow wake listener holds one connection; the rest serve application and workflow statements.
 const fixedApplicationConnections = 4;
 
 export const databaseConnectionBudget = (config: {

@@ -256,6 +256,7 @@ CREATE TABLE "definition_entity_schema" (
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
+	"occurs_at_property" text,
 	"browse" jsonb,
 	"editor" jsonb,
 	"merge_identity_properties" text[] NOT NULL,
@@ -389,6 +390,7 @@ CREATE TABLE "definition_signal_schema" (
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
+	"occurs_at" timestamp(3) with time zone,
 	"populated_at" timestamp(3) with time zone,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"related_populated_at" timestamp(3) with time zone,
@@ -712,7 +714,6 @@ CREATE TABLE "migration_report_detail" (
 --> statement-breakpoint
 CREATE TABLE "mutation_receipt" (
 	"batch_id" text,
-	"workflow_name" text,
 	"batch_index" integer,
 	"id" text PRIMARY KEY,
 	"execution_id" text NOT NULL,
@@ -730,12 +731,11 @@ CREATE TABLE "mutation_receipt" (
 	"scope_user_id" text,
 	"plugin_id" text,
 	"sandbox_script_id" text,
+	"receipt_type" text NOT NULL,
 	"plugin_revision_id" text,
 	"plugin_config_revision_id" text,
-	"receipt_type" text NOT NULL,
 	CONSTRAINT "mutation_receipt_scope_check" CHECK (("mutation_scope" = 'global' and "scope_user_id" is null) or ("mutation_scope" = 'user' and "scope_user_id" is not null and "owner_user_id" is not null)),
-	CONSTRAINT "mutation_receipt_type_check" CHECK ("receipt_type" in ('item', 'batch-decision', 'batch-candidate', 'workflow-owner')),
-	CONSTRAINT "mutation_receipt_workflow_owner_check" CHECK (("receipt_type" = 'workflow-owner' and "workflow_name" is not null and "owner_user_id" is not null and "account_generation" is not null) or ("receipt_type" <> 'workflow-owner' and "workflow_name" is null))
+	CONSTRAINT "mutation_receipt_type_check" CHECK ("receipt_type" in ('item', 'batch-decision', 'batch-candidate'))
 );
 --> statement-breakpoint
 CREATE TABLE "notification" (
@@ -1276,6 +1276,7 @@ CREATE TABLE "user" (
 	"two_factor_enabled" boolean,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email" text NOT NULL UNIQUE,
+	"retiring_account_generation" text,
 	"bootstrap_completed_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
@@ -1352,18 +1353,45 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 CREATE TABLE "workflow_execution" (
-	"shard_id" text,
+	"owner" text,
+	"result" json,
+	"payload" json,
+	"account_token" text,
+	"account_user_id" text,
 	"cleared_at" timestamp(3) with time zone,
 	"expired_at" timestamp(3) with time zone,
+	"parent_execution_id" text,
 	"completed_at" timestamp(3) with time zone,
+	"parent_workflow_name" text,
 	"execution_id" text,
 	"workflow_name" text,
 	"root_execution_id" text NOT NULL,
 	"root_workflow_name" text NOT NULL,
+	"suspension" text,
 	"status" text NOT NULL,
 	CONSTRAINT "workflow_execution_pkey" PRIMARY KEY("workflow_name","execution_id"),
 	CONSTRAINT "workflow_execution_status_check" CHECK ("status" in ('active', 'succeeded', 'failed')),
+	CONSTRAINT "workflow_execution_suspension_check" CHECK ("suspension" is null or "suspension" in ('failed', 'waiting')),
+	CONSTRAINT "workflow_execution_account_check" CHECK (("account_user_id" is null) = ("account_token" is null)),
 	CONSTRAINT "workflow_execution_completion_check" CHECK (("status" = 'active') = ("completed_at" is null))
+);
+--> statement-breakpoint
+CREATE TABLE "workflow_runner" (
+	"id" text PRIMARY KEY,
+	"lease_until" timestamp(3) with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "workflow_step" (
+	"exit" json,
+	"fire_at" timestamp(3) with time zone,
+	"name" text,
+	"attempt" integer,
+	"execution_id" text,
+	"workflow_name" text,
+	"kind" text,
+	CONSTRAINT "workflow_step_pkey" PRIMARY KEY("workflow_name","execution_id","kind","name","attempt"),
+	CONSTRAINT "workflow_step_kind_check" CHECK ("kind" in ('activity', 'clock', 'deferred')),
+	CONSTRAINT "workflow_step_clock_check" CHECK (("kind" = 'clock') = ("fire_at" is not null))
 );
 --> statement-breakpoint
 CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpoint
@@ -1407,6 +1435,7 @@ CREATE INDEX "entity_user_schema_name_idx" ON "entity" ("user_id","entity_schema
 CREATE INDEX "entity_external_id_idx" ON "entity" ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_slug_idx" ON "entity" ("entity_schema_slug");--> statement-breakpoint
+CREATE INDEX "entity_schema_occurs_at_idx" ON "entity" ("entity_schema_slug","occurs_at");--> statement-breakpoint
 CREATE INDEX "entity_entity_schema_plugin_id_idx" ON "entity" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "entity_properties_idx" ON "entity" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "entity_check_after_idx" ON "entity" ("check_after") WHERE "provider_id" is not null;--> statement-breakpoint
@@ -1495,7 +1524,7 @@ CREATE UNIQUE INDEX "provider_import_admission_identity_unique" ON "provider_imp
 CREATE INDEX "relationship_schema_slug_idx" ON "relationship" ("relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_schema_plugin_id_idx" ON "relationship" ("relationship_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "relationship_user_schema_idx" ON "relationship" ("user_id","relationship_schema_plugin_id","relationship_schema_slug");--> statement-breakpoint
-CREATE INDEX "relationship_source_entity_id_idx" ON "relationship" ("source_entity_id");--> statement-breakpoint
+CREATE INDEX "relationship_source_schema_idx" ON "relationship" ("source_entity_id","relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "relationship_collection_order_idx" ON "relationship" ("target_entity_id",(case when "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null then ("properties" ->> 'rank')::double precision end),"source_entity_id") WHERE "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null;--> statement-breakpoint
@@ -1530,6 +1559,8 @@ CREATE INDEX "user_plugin_state_installation_config_idx" ON "user_plugin_state" 
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
 CREATE INDEX "workflow_execution_execution_id_idx" ON "workflow_execution" ("execution_id");--> statement-breakpoint
 CREATE INDEX "workflow_execution_root_idx" ON "workflow_execution" ("root_workflow_name","root_execution_id");--> statement-breakpoint
+CREATE INDEX "workflow_execution_owner_idx" ON "workflow_execution" ("owner") WHERE "status" = 'active';--> statement-breakpoint
+CREATE INDEX "workflow_execution_account_idx" ON "workflow_execution" ("account_user_id") WHERE "status" = 'active';--> statement-breakpoint
 CREATE INDEX "workflow_execution_cleanup_idx" ON "workflow_execution" ("expired_at") WHERE "expired_at" is not null and "cleared_at" is null;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1680,6 +1711,7 @@ ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIG
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "user_plugin_state" ADD CONSTRAINT "user_plugin_state_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("installation_id") REFERENCES "plugin_installation"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "workflow_step" ADD CONSTRAINT "workflow_step_9KAI5HOPHafJ_fkey" FOREIGN KEY ("workflow_name","execution_id") REFERENCES "workflow_execution"("workflow_name","execution_id") ON DELETE CASCADE;--> statement-breakpoint
 CREATE VIEW "global_calendar_source" AS (
 			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done
 			from definition_calendar_source d
