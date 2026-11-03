@@ -28,7 +28,9 @@ Each lands on its own with flow probes.
    match, persists, seals the batch and records the receipt in one transaction, then dispatches after commit. A
    create that matches a policy, or is larger than one chunk, keeps the workflow until move 2. The receipt
    identity is unchanged, so a retried command replays its result either way.
-2. **Direct policy calls.** Policies are read-only and patch the draft before commit, so they need a sandbox call
+2. **Direct policy calls (moved to step 9).** A policy runs as `AutomationRunWorkflow` around a
+   `ScriptExecutionWorkflow`, with its durable queue, workflow references and replay journal; calling the sandbox
+   directly needs the non-durable executor that step 9 builds, so it lands there. The original proposal: Policies are read-only and patch the draft before commit, so they need a sandbox call
    but no durability. The request calls the sandbox directly, outside the transaction, with the same deadline,
    then commits. This removes `PolicyBatchWorkflow`, the run workflow per policy and the journal, and lets every
    create below the operation threshold take move 1's path.

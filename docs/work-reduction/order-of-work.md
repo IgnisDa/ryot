@@ -48,6 +48,10 @@ its only consumer is history correction, which step 10 reshapes, and steps 8 and
 sit on. Check: no script on signup, summaries still match live values, and a backlog create runs only the history
 reconciliation hook until step 10 removes it.
 
+Order within Phase B changed with the evidence: step 8's first move is in, then step 9 comes before step 8's moves
+3–5, with direct policy calls moved into it ([`design-scripts-once.md`](design-scripts-once.md)), because script
+workflows now outweigh the kernel write path in every heavy flow.
+
 **8. Commands are one transaction.** Direct policy calls, one receipt per command, revisions cached in process,
 set-based batches. Check: about 25 statements and under 30 ms for a no-hook event, and a 150-set workout save far
 below today's 9,601 statements.
