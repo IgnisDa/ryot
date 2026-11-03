@@ -31,6 +31,7 @@ import {
 	episodeDisplayStateExpression,
 	episodicEpisodeQuery,
 	mediaLifecycleExpressions,
+	occursAt,
 	podcastEpisodicKindConfig,
 	publishDate,
 	showEpisodicKindConfig,
@@ -93,7 +94,7 @@ export const episodeSource = (
 };
 
 const episodeFields = (source: ReturnType<typeof episodeSource>) => [
-	field("startAt", publishDate(source.episode)),
+	field("startAt", occursAt(source.episode)),
 	field("caption", source.caption),
 	field(
 		"art",
@@ -248,7 +249,7 @@ const releases = () => {
 			output: {
 				type: "rows",
 				fields: [
-					field("startAt", publishDate(entity)),
+					field("startAt", occursAt(entity)),
 					field("caption", caption),
 					field("art", preferredMediaImageExpression(entity)),
 					field("done", asTrue(eq(lifecycle.state, literal("complete")))),

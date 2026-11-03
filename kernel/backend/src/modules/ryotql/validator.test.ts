@@ -186,6 +186,7 @@ it("exposes only approved entity fields", () => {
 			"id",
 			"name",
 			"userId",
+			"occursAt",
 			"createdAt",
 			"updatedAt",
 			"properties",

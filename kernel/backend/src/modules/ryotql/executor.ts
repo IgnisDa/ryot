@@ -38,6 +38,7 @@ import {
 	childScope,
 	conjuncts,
 	correlatedAliasScope,
+	hasClosedRootOccursAtRange,
 	jsonKeyColumn,
 	kindResolver,
 	lookupTable,
@@ -1713,7 +1714,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	} satisfies AggregateResult;
 });
 
-export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
+const executeOutput = Effect.fnUntraced(function* (
 	executionScope: RyotQLExecutionScope,
 	query: ExpandedNamedQuery,
 	queryName: string,
@@ -1786,4 +1787,24 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		: null;
 
 	return { items, type: "rows", pageInfo: { limit, hasMore, nextCursor } } satisfies RowsResult;
+});
+
+export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (
+	executionScope: RyotQLExecutionScope,
+	query: ExpandedNamedQuery,
+	queryName: string,
+	db: EffectPgDatabase,
+	budget?: RyotQLResultBudget,
+) {
+	if (!hasClosedRootOccursAtRange(query)) {
+		return yield* executeOutput(executionScope, query, queryName, db, budget);
+	}
+	// Postgres underestimates joins through library memberships by orders of magnitude and would start
+	// there, visiting every row the date range is meant to rule out.
+	yield* db.execute(sql`SET LOCAL join_collapse_limit = 1`);
+	yield* db.execute(sql`SET LOCAL from_collapse_limit = 1`);
+	const result = yield* executeOutput(executionScope, query, queryName, db, budget);
+	yield* db.execute(sql`SET LOCAL join_collapse_limit TO DEFAULT`);
+	yield* db.execute(sql`SET LOCAL from_collapse_limit TO DEFAULT`);
+	return result;
 });

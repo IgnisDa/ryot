@@ -301,6 +301,7 @@ const entity: CatalogTable = {
 		populationStatus: entityPopulationStatus,
 		userId: physicalField("user_id", "text"),
 		translationStatus: entityTranslationStatus,
+		occursAt: physicalField("occurs_at", "date"),
 		externalId: physicalField("external_id", "text"),
 		providerId: physicalField("provider_id", "text"),
 		populatedAt: physicalField("populated_at", "date"),

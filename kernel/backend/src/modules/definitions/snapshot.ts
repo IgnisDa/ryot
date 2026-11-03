@@ -68,6 +68,7 @@ export const EntitySchemaDefinition = Schema.Struct({
 	propertiesSchema: AppSchema,
 	editor: Schema.optional(PluginEntityEditor),
 	browse: Schema.optional(EntitySchemaBrowse),
+	occursAtProperty: Schema.optional(Schema.String),
 	eventSchemas: Schema.Array(EventSchemaDefinition),
 	mergeIdentityProperties: Schema.Array(Schema.String),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
@@ -348,6 +349,15 @@ const validateDefinitionSource = (
 			if (!Object.hasOwn(entitySchema.propertiesSchema.fields, property)) {
 				throw new Error(
 					`Entity schema ${entitySchema.slug} merge identity property '${property}' is not defined in its properties schema`,
+				);
+			}
+		}
+		const occursAt = entitySchema.occursAtProperty;
+		if (occursAt !== undefined) {
+			const field = entitySchema.propertiesSchema.fields[occursAt];
+			if (field?.type !== "string" && field?.type !== "datetime") {
+				throw new Error(
+					`Entity schema ${entitySchema.slug} occursAt property '${occursAt}' must be a declared string or datetime property`,
 				);
 			}
 		}

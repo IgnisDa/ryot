@@ -320,6 +320,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										browse: definition.browse ?? null,
 										userState: definition.userState ?? null,
 										propertiesSchema: definition.propertiesSchema,
+										occursAtProperty: definition.occursAtProperty ?? null,
 										mergeIdentityProperties: [...definition.mergeIdentityProperties],
 									})),
 								)
@@ -543,6 +544,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												browse: definition.browse ?? null,
 												userState: definition.userState ?? null,
 												propertiesSchema: definition.propertiesSchema,
+												occursAtProperty: definition.occursAtProperty ?? null,
 												mergeIdentityProperties: [...(definition.mergeIdentityProperties ?? [])],
 											})),
 										)
@@ -559,6 +561,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												position: sql`excluded.position`,
 												userState: sql`excluded.user_state`,
 												propertiesSchema: sql`excluded.properties_schema`,
+												occursAtProperty: sql`excluded.occurs_at_property`,
 												mergeIdentityProperties: sql`excluded.merge_identity_properties`,
 											},
 										})

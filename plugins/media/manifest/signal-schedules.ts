@@ -28,8 +28,8 @@ import {
 import { libraryLinkExists } from "../shared/entity-selections";
 import { libraryMembershipJoin } from "../shared/library-summary";
 import {
+	occursAt,
 	podcastEpisodicKindConfig,
-	publishDate,
 	showEpisodicKindConfig,
 } from "../shared/lifecycle-expressions";
 import { builtinMediaEntitySchemaSlugs, flatMediaSchemaSlugs } from "../shared/media-schema-slugs";
@@ -108,7 +108,7 @@ const episodeReleases = (
 		root: source.parent,
 		from: source.query.from,
 		joins: source.query.joins,
-		dueAt: publishDate(source.episode),
+		dueAt: occursAt(source.episode),
 		slug: `${config.kind}-episode-releases`,
 		occurrence: column(source.episode, "id"),
 		subject: subjectOf(config.parentSchemaSlug, [config.parentSchemaSlug]),
@@ -146,7 +146,7 @@ const flatReleases = () => {
 		root: source.entity,
 		where: source.where,
 		slug: "flat-releases",
-		dueAt: publishDate(source.entity),
+		dueAt: occursAt(source.entity),
 		occurrence: column(source.entity, "id"),
 		subject: subjectOf("entity", flatMediaSchemaSlugs),
 	});

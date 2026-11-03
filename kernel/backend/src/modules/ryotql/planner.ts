@@ -302,6 +302,28 @@ const hasClosedDateRange = (local: readonly Predicate[], scope: AliasScope) => {
 	return [...bounds.values()].some((bound) => bound.lower && bound.upper);
 };
 
+export const hasClosedRootOccursAtRange = (query: {
+	readonly from: TableReference;
+	readonly where?: Predicate | undefined;
+}) => {
+	if (query.from.table !== "entity" || !query.where) {
+		return false;
+	}
+	const bounds = { lower: false, upper: false };
+	for (const predicate of conjuncts(query.where)) {
+		if (
+			predicate.type === "comparison" &&
+			predicate.left.type === "column" &&
+			predicate.left.tableAlias === query.from.alias &&
+			predicate.left.field === "occursAt"
+		) {
+			bounds.lower ||= predicate.operator === "gt" || predicate.operator === "gte";
+			bounds.upper ||= predicate.operator === "lt" || predicate.operator === "lte";
+		}
+	}
+	return bounds.lower && bounds.upper;
+};
+
 export const jsonKeyColumn = (expr: ScalarExpression) =>
 	expr.type === "cast" &&
 	expr.target !== "json" &&

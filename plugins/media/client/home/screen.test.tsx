@@ -22,7 +22,14 @@ import {
 import { HomeBody } from "./screen";
 
 const libraryCount = (count: number) => ({ type: "aggregate", items: [{ count }] });
-const activityAggregates = new Set(["days", "figures", "reviews", "mediaTypes"]);
+const activityAggregates = new Set([
+	"days",
+	"figures",
+	"reviews",
+	"mediaTypes",
+	"titles.showTotals",
+	"titles.podcastTotals",
+]);
 const emptyActivityResult = (name: string) => {
 	if (name === "figures") {
 		return { type: "aggregate", items: [{ minutes: 0, finished: 0, minutesMissing: 0 }] };
@@ -274,7 +281,14 @@ describe("home gate", () => {
 					).toEqual([
 						["flat.items", "podcast.items", "show.items"],
 						["flat.items", "podcast.items", "show.items"],
-						["titles.anime", "titles.podcasts", "titles.releases", "titles.shows"],
+						[
+							"titles.anime",
+							"titles.podcastTotals",
+							"titles.podcasts",
+							"titles.releases",
+							"titles.showTotals",
+							"titles.shows",
+						],
 					]);
 					expect(view.container.textContent).not.toContain("Start your media library");
 					expect(view.container.textContent).not.toContain("Continue");
@@ -388,7 +402,14 @@ describe("home sections", () => {
 					["library"],
 					["flat.items", "podcast.items", "show.items"],
 					["flat.items", "podcast.items", "show.items"],
-					["titles.anime", "titles.podcasts", "titles.releases", "titles.shows"],
+				[
+					"titles.anime",
+					"titles.podcastTotals",
+					"titles.podcasts",
+					"titles.releases",
+					"titles.showTotals",
+					"titles.shows",
+				],
 				]);
 				expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
 					"600px 0px",

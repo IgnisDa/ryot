@@ -672,6 +672,12 @@ validation.
 `mergeIdentityProperties` names unique top-level entity properties whose persisted JSON values must
 match before user state can merge. Omission means no property-based merge restriction.
 
+`occursAtProperty` names one top-level string or datetime property as the entity's date. The kernel
+stores it as the indexed `occursAt` column of the `entity` table on every write, and a malformed or
+missing value stores null. A query whose root filters `occursAt` on both sides starts from that date
+range, so use the column instead of casting the property for date windows. A revision can add the
+declaration, which fills existing rows when it activates, but cannot change or remove it.
+
 `editor: { relationships }` opts an entity schema into the kernel entity editor. Users can then
 create and edit their own entities of that schema, together with the listed outgoing relationships,
 through `EntityEditorScreen` and the kernel editor save; no plugin operation is involved. Each listed

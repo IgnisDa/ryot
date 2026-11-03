@@ -295,6 +295,7 @@ const translationUpserts = recordingServiceLayer<unknown>((record) => ({
 				userId: null,
 				properties: {},
 				name: "Entity",
+				occursAt: null,
 				providerId: null,
 				externalId: null,
 				entitySchemaSlug,

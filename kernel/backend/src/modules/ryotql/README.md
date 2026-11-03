@@ -132,6 +132,8 @@ A lateral aggregate runs once per row before PostgreSQL can filter, sort, or lim
 
 Inside a fused aggregate with only inner table joins, a reference is hoisted into a materialized CTE evaluated once per statement when its own predicates form a closed date range, or when it does not depend on the outer row and joins another reference on typed JSON casts of its columns. The CTE applies those local predicates and precomputes the cast keys.
 
+A rows query whose root `entity` filters `occursAt` on both sides runs with the written join order, set for that statement. Postgres badly underestimates joins through library memberships and would otherwise start there and visit every row the date range rules out, so such a query should list its joins outward from the dated entity.
+
 Catalog sources return their `from` fragment plus named CTEs; the executor owns CTE names, merges them for the whole statement, and emits one `WITH` clause. A cast of a JSON object path to text, number, or boolean is one silent `jsonb_path_query_first` call, and a cast of a subquery operand evaluates the subquery once.
 
 ## Limits

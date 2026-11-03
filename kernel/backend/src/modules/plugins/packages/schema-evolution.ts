@@ -165,6 +165,13 @@ export const validateAdditiveSchemaEvolution = (previous: PluginManifest, next: 
 					path: `entity:${entity.slug}.mergeIdentityProperties`,
 				});
 			}
+			if (
+				candidate &&
+				entity.occursAtProperty !== undefined &&
+				entity.occursAtProperty !== candidate.occursAtProperty
+			) {
+				issues.push({ code: "schema_changed", path: `entity:${entity.slug}.occursAtProperty` });
+			}
 		}
 		for (const relationship of previous.relationshipSchemas) {
 			const candidate = next.relationshipSchemas.find(({ slug }) => slug === relationship.slug);

@@ -5,17 +5,17 @@ import {
 	castDate,
 	castNumber,
 	column,
-	count,
+	countAll,
 	defineRecipe,
 	entitySchemaPredicate,
 	eq,
-	exists,
-	first,
+	groupAscending,
 	gt,
 	gte,
 	inArray,
 	isNull,
 	IsoDateString,
+	join,
 	jsonArrayCount,
 	jsonArrayExists,
 	jsonArrayFirst,
@@ -28,8 +28,10 @@ import {
 	neq,
 	or,
 	schemaOwnerPredicate,
+	selectedAggregate,
 	selectedField,
 	selectedInclude,
+	type SelectedRow,
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -48,6 +50,7 @@ import {
 	episodeDisplayStateExpression,
 	episodicEpisodeQuery,
 	type EpisodicKindConfig,
+	occursAt,
 	podcastEpisodicKindConfig,
 	publishDate,
 	type ScalarExpression,
@@ -72,6 +75,9 @@ const upcomingEntitySelection = (entity: Table) => ({
 	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
 });
 
+const WINDOW_EPISODE_LIMIT = 100;
+const WINDOW_TITLE_LIMIT = 1_000;
+
 const perTitle = (input: UpcomingInput) => (input.onePerTitle ? 1 : input.limit);
 
 const inDateWindow = (date: ScalarExpression, input: UpcomingInput) =>
@@ -86,89 +92,120 @@ const followed = (entity: Table, alias: string) => {
 	};
 };
 
-const windowEpisodes = (
-	config: EpisodicKindConfig,
-	parent: Table,
-	alias: string,
-	input: UpcomingInput,
-) => {
-	const episode = table("entity", alias);
-	const scope = episodicEpisodeQuery(config, parent, episode, alias, "any");
-	return {
-		episode,
-		joins: scope.joins,
-		order: [
-			ascending(publishDate(episode)),
-			...scope.position.map((position) => ascending(position)),
-			ascending(column(episode, "id")),
-		] as const,
-		where: and(
-			scope.where,
-			inDateWindow(publishDate(episode), input),
-			neq(episodeDisplayStateExpression(episode, parent, `${alias}State`), literal("complete")),
-		),
-	};
-};
-
-const episodicTitles = (config: EpisodicKindConfig, input: UpcomingInput) => {
+const windowEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 	const alias = `upcoming${config.kind}`;
 	const parent = table("entity", alias);
+	const episode = table("entity", `${alias}Episode`);
 	const follow = followed(parent, alias);
-	const candidate = windowEpisodes(config, parent, `${alias}Candidate`, input);
-	const soonest = windowEpisodes(config, parent, `${alias}Soonest`, input);
-	const counted = windowEpisodes(config, parent, `${alias}Counted`, input);
-	const listed = windowEpisodes(config, parent, `${alias}Listed`, input);
-	return selectedRows(parent, {
-		limit: input.limit,
-		joins: [follow.join],
-		selection: {
-			...upcomingEntitySelection(parent),
-			total: selectedField(
-				count(counted.episode, { joins: counted.joins, where: counted.where }),
-				Schema.Finite,
-			),
-		},
-		orderBy: [
-			ascending(
-				first(soonest.episode, {
-					joins: soonest.joins,
-					where: soonest.where,
-					orderBy: soonest.order,
-					select: publishDate(soonest.episode),
-				}),
-			),
-			ascending(column(parent, "id")),
+	const scope = episodicEpisodeQuery(config, parent, episode, `${alias}Episode`, "any");
+	return {
+		parent,
+		episode,
+		position: scope.position,
+		joins: [
+			...scope.joins,
+			join("inner", parent, eq(scope.parentId, column(parent, "id"))),
+			follow.join,
 		],
 		where: and(
+			scope.where,
+			inDateWindow(occursAt(episode), input),
 			entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 			or(
 				inArray(follow.lifecycleState, [literal("in_progress"), literal("caught_up")]),
 				follow.monitored,
 			),
-			exists(candidate.episode, { joins: candidate.joins, where: candidate.where }),
+			neq(episodeDisplayStateExpression(episode, parent, `${alias}State`), literal("complete")),
 		),
-		include: {
-			occurrences: selectedInclude(listed.episode, {
-				joins: listed.joins,
-				where: listed.where,
-				limit: perTitle(input),
-				orderBy: [...listed.order],
-				selection: {
-					id: selectedField(column(listed.episode, "id"), Schema.String),
-					images: selectedField(propertyJson(listed.episode, "images"), MediaImageListSchema),
-					publishDate: selectedField(propertyText(listed.episode, "publishDate"), Schema.String),
-					episodeNumber: selectedField(
-						propertyNumber(listed.episode, "episodeNumber"),
-						Schema.Finite,
-					),
-					seasonNumber: selectedField(
-						propertyNumber(listed.episode, "seasonNumber"),
-						Schema.NullOr(Schema.Finite),
-					),
-				},
-			}),
-		},
+	};
+};
+
+const episodeSelection = (parent: Table, episode: Table) => ({
+	...upcomingEntitySelection(parent),
+	occurrenceId: selectedField(column(episode, "id"), Schema.String),
+	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.String),
+	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
+	occurrenceImages: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
+	seasonNumber: selectedField(
+		propertyNumber(episode, "seasonNumber"),
+		Schema.NullOr(Schema.Finite),
+	),
+});
+
+const episodicEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
+	const { joins, where, parent, episode, position } = windowEpisodes(config, input);
+	return selectedRows(episode, {
+		joins,
+		where,
+		limit: WINDOW_EPISODE_LIMIT,
+		selection: episodeSelection(parent, episode),
+		orderBy: [
+			ascending(occursAt(episode)),
+			...position.map((value) => ascending(value)),
+			ascending(column(episode, "id")),
+		],
 	});
+};
+
+const episodicTotals = (config: EpisodicKindConfig, input: UpcomingInput) => {
+	const { joins, where, parent, episode } = windowEpisodes(config, input);
+	return selectedAggregate(episode, {
+		joins,
+		where,
+		limit: WINDOW_TITLE_LIMIT,
+		measures: { total: countAll },
+		orderBy: [groupAscending("id")],
+		groupBy: { id: selectedField(column(parent, "id"), Schema.String) },
+	});
+};
+
+type EpisodeRow = SelectedRow<ReturnType<typeof episodeSelection>>;
+
+/**
+ * Rows arrive soonest first, so a title reached only past `WINDOW_EPISODE_LIMIT` is dropped before any
+ * title that airs sooner. Past `WINDOW_TITLE_LIMIT` titles, `total` falls back to the rows at hand.
+ */
+const titlesFromEpisodes = (
+	rows: readonly EpisodeRow[],
+	totals: readonly { readonly id: string; readonly total: number }[],
+	input: UpcomingInput,
+) => {
+	const totalOf = new Map(totals.map(({ id, total }) => [id, total]));
+	const titles = new Map<string, [EpisodeRow, ...EpisodeRow[]]>();
+	for (const row of rows) {
+		const episodes = titles.get(row.id);
+		if (episodes) {
+			episodes.push(row);
+		} else {
+			titles.set(row.id, [row]);
+		}
+	}
+	return [...titles.values()]
+		.sort(([a], [b]) => a.publishDate.localeCompare(b.publishDate) || a.id.localeCompare(b.id))
+		.slice(0, input.limit)
+		.map((episodes) => {
+			const {
+				publishDate: _publishDate,
+				occurrenceId: _occurrenceId,
+				seasonNumber: _seasonNumber,
+				episodeNumber: _episodeNumber,
+				occurrenceImages: _occurrenceImages,
+				...entity
+			} = episodes[0];
+			return {
+				entity,
+				total: totalOf.get(entity.id) ?? episodes.length,
+				occurrences: episodes
+					.slice(0, perTitle(input))
+					.map((episode) => ({
+						dateOnly: true,
+						key: episode.occurrenceId,
+						airsAt: episode.publishDate,
+						images: episode.occurrenceImages,
+						episode: { seasonNumber: episode.seasonNumber, episodeNumber: episode.episodeNumber },
+					})),
+			};
+		});
 };
 
 const airingSchedule = (entity: Table) => jsonPath(column(entity, "properties"), "airingSchedule");
@@ -248,7 +285,7 @@ const animeTitles = (input: UpcomingInput) => {
 const releaseTitles = (input: UpcomingInput) => {
 	const entity = table("entity", "upcomingRelease");
 	const follow = followed(entity, "upcomingRelease");
-	const date = publishDate(entity);
+	const date = occursAt(entity);
 	return selectedRows(entity, {
 		limit: input.limit,
 		joins: [follow.join],
@@ -280,22 +317,15 @@ export const upcomingRecipe = defineRecipe((input: UpcomingInput) => ({
 	queries: {
 		anime: animeTitles(input),
 		releases: releaseTitles(input),
-		shows: episodicTitles(showEpisodicKindConfig, input),
-		podcasts: episodicTitles(podcastEpisodicKindConfig, input),
+		shows: episodicEpisodes(showEpisodicKindConfig, input),
+		showTotals: episodicTotals(showEpisodicKindConfig, input),
+		podcasts: episodicEpisodes(podcastEpisodicKindConfig, input),
+		podcastTotals: episodicTotals(podcastEpisodicKindConfig, input),
 	},
-	map: ({ anime, shows, podcasts, releases }) =>
+	map: ({ anime, shows, podcasts, releases, showTotals, podcastTotals }) =>
 		Result.succeed([
-			...[...shows.items, ...podcasts.items].map(({ total, occurrences, ...entity }) => ({
-				total,
-				entity,
-				occurrences: occurrences.items.map(({ id, images, publishDate: day, ...episode }) => ({
-					images,
-					episode,
-					key: id,
-					airsAt: day,
-					dateOnly: true,
-				})),
-			})),
+			...titlesFromEpisodes(shows.items, showTotals.items, input),
+			...titlesFromEpisodes(podcasts.items, podcastTotals.items, input),
 			...anime.items.map(({ total, occurrences, ...entity }) => ({
 				total,
 				entity,

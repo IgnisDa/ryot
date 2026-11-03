@@ -203,6 +203,48 @@ layer(makeServiceLayer())((test) => {
 		testTimeout,
 	);
 
+	test.effect("starts from the date only when a query closes an occursAt range", () =>
+		Effect.gen(function* () {
+			const entity = table("entity", "entity");
+			const occursAt = column(entity, "occursAt");
+			const from = castDate(literal("2026-09-01"));
+			const until = castDate(literal("2026-09-08"));
+			const service = yield* RyotQLService;
+			const orderBy = [ascending(occursAt)];
+			yield* service.executeForUser("user-1", null, "plugin", {
+				queries: {
+					open: rows(entity, {
+						orderBy,
+						where: gte(occursAt, from),
+						fields: [field("id", column(entity, "id"))],
+					}),
+				},
+			});
+			const recorded = yield* RecordedStatements;
+			expect((yield* recorded.statements).join()).not.toContain("join_collapse_limit");
+
+			yield* service.executeForUser("user-1", null, "plugin", {
+				queries: {
+					closed: rows(entity, {
+						orderBy,
+						fields: [field("id", column(entity, "id"))],
+						where: and(gte(occursAt, from), lte(occursAt, until)),
+					}),
+				},
+			});
+			const statements = yield* recorded.statements;
+			const forced = statements.findIndex((value) => value.includes("join_collapse_limit = 1"));
+			const reset = statements.findIndex((value) =>
+				value.includes("join_collapse_limit TO DEFAULT"),
+			);
+			const query = statements.findLastIndex((value) => value.includes("occurs_at"));
+			expect(forced).toBeGreaterThanOrEqual(0);
+			expect(forced).toBeLessThan(query);
+			expect(reset).toBeGreaterThan(query);
+		}),
+		testTimeout,
+	);
+
 	test.effect(
 		"compiles timezone-aware hour and year groups in SQL",
 		() =>

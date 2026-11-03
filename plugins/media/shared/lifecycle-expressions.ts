@@ -397,6 +397,9 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 export const publishDate = (episode: TableReference) =>
 	castDate(jsonPath(column(episode, "properties"), "publishDate"));
 
+/** `publishDate` as an indexed column. Date windows filter on this, not on the property. */
+export const occursAt = (entity: TableReference) => column(entity, "occursAt");
+
 /** A null or malformed `publishDate` casts to null and counts as aired. */
 export const episodeHasAired = (episode: TableReference) =>
 	or(isNull(publishDate(episode)), lte(publishDate(episode), currentDate()));

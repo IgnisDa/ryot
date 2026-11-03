@@ -296,6 +296,7 @@ const makeServiceLayer = (
 			};
 			const database = fakeDatabaseSession(db);
 			const storedEntity = {
+				occursAt: null,
 				createdAt: storedAt,
 				updatedAt: storedAt,
 				id: payload.entityId,

@@ -20,6 +20,7 @@ export const entity = snakeCase.table(
 	{
 		externalId: text(),
 		name: text().notNull(),
+		occursAt: timestamptz(),
 		populatedAt: timestamptz(),
 		updatedAt: updatedAtColumn(),
 		relatedPopulatedAt: timestamptz(),
@@ -46,6 +47,7 @@ export const entity = snakeCase.table(
 		index("entity_external_id_idx").on(table.externalId),
 		index("entity_provider_id_idx").on(table.providerId),
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
+		index("entity_schema_occurs_at_idx").on(table.entitySchemaSlug, table.occursAt),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
 		index("entity_check_after_idx")

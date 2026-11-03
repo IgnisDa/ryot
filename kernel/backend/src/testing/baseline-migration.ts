@@ -3,6 +3,7 @@ import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
 import { collectionOrderStatements } from "#platform/db/collection-order";
+import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
 import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
 import { userPluginStateStatements } from "#platform/db/user-plugin-state";
 
@@ -21,6 +22,7 @@ export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 		...immutableRevisionStatements,
 		...userPluginStateStatements,
 		...collectionOrderStatements,
+		...entityOccursAtStatements,
 	];
 });
 
