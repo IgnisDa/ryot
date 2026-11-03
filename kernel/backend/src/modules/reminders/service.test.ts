@@ -20,7 +20,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
-import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { reminderTestInput } from "./reminders.test-support";
@@ -39,7 +39,7 @@ const services = RemindersService.layer.pipe(
 			NotificationDeliveryRepository.layer,
 		),
 	),
-	Layer.provideMerge(makeRevisionDatabaseLayer(4)),
+	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
 

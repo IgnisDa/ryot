@@ -514,7 +514,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 							),
 						),
 					),
-					Layer.provide(makeAppConfigLayer({ database: { poolMax: 1, url: databaseUrl } })),
+					Layer.provide(makeAppConfigLayer({ database: { url: databaseUrl } })),
 				);
 				const schema = Layer.effectDiscard(
 					Effect.gen(function* () {

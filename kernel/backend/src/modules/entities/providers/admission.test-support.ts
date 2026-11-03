@@ -25,9 +25,7 @@ export const admissionDatabaseLayer = Layer.unwrap(
 			"options",
 			`${options ? `${options} ` : ""}-c search_path=${name},public`,
 		);
-		const config = makeAppConfigLayer({
-			database: { poolMax: 1, url: Redacted.make(databaseUrl.href) },
-		});
+		const config = makeAppConfigLayer({ database: { url: Redacted.make(databaseUrl.href) } });
 		const schema = Layer.effectDiscard(
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;

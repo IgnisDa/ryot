@@ -28,7 +28,7 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { CollectionOrderingService } from "#modules/collections/ordering-service";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import {
 	type CreateRelationshipInput,
@@ -195,9 +195,7 @@ const reorderInput = (
 	expectedRevision,
 });
 
-const entitiesLayer = EntitiesRepository.layer.pipe(
-	Layer.provideMerge(makeRevisionDatabaseLayer(4)),
-);
+const entitiesLayer = EntitiesRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer));
 const repositoriesLayer = Layer.mergeAll(
 	CollectionsRepository.layer,
 	RelationshipsRepository.layer,

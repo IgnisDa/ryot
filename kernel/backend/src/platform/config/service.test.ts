@@ -150,41 +150,6 @@ describe("validateSystemConfig sandbox capacity", () => {
 		);
 	});
 
-	for (const [poolMax, workerConcurrency, isValid] of [
-		[7, 2, true],
-		[6, 2, false],
-		[10, 5, true],
-		[9, 5, false],
-	] as const) {
-		layer(
-			makeRequiredConfigLayer({
-				DATABASE_POOL_MAX: poolMax,
-				SANDBOX_WORKER_CONCURRENCY: workerConcurrency,
-			}),
-		)((test) => {
-			test.effect(
-				`${isValid ? "accepts" : "rejects"} pool ${poolMax} with ${workerConcurrency} sandbox workers`,
-				() =>
-					Effect.gen(function* () {
-						const result = yield* loaded;
-						expect(Exit.isSuccess(result)).toBe(isValid);
-						if (!isValid) {
-							assert(Exit.isFailure(result));
-							const failure = Cause.findErrorOption(result.cause);
-							assert(Option.isSome(failure));
-							expect(failure.value).toMatchObject({ _tag: "ConfigError" });
-							const message = Cause.pretty(result.cause);
-							expect(message).toContain("DATABASE_POOL_MAX");
-							expect(message).toContain("SANDBOX_WORKER_CONCURRENCY");
-							expect(message).toContain("application pool");
-							expect(message).toContain("sandbox host database dispatch connection");
-						}
-					}),
-				testTimeout,
-			);
-		});
-	}
-
 	for (const value of [0, -1, 1.5, Number.NaN]) {
 		for (const key of [
 			"SANDBOX_WORKER_CONCURRENCY",

@@ -37,7 +37,7 @@ const expiresAt = new Date("2100-01-01T00:00:00Z");
 const expiredAt = new Date(0);
 const config = Layer.unwrap(
 	Effect.map(testDatabaseUrl, (url) =>
-		makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(url) } }),
+		makeAppConfigLayer({ database: { url: Redacted.make(url) } }),
 	),
 );
 const services = Layer.mergeAll(

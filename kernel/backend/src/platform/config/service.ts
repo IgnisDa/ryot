@@ -138,12 +138,11 @@ const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, 
 const fixedApplicationConnections = 4;
 
 export const databaseConnectionBudget = (config: {
-	readonly database: { readonly poolMax: number };
 	readonly sandbox: { readonly workerConcurrency: number };
-}) => {
-	const application = fixedApplicationConnections + config.sandbox.workerConcurrency;
-	return { application, sandboxDispatch: config.database.poolMax - application };
-};
+}) => ({
+	sandboxDispatch: config.sandbox.workerConcurrency,
+	application: fixedApplicationConnections + config.sandbox.workerConcurrency,
+});
 
 export const validateSystemConfig = (system: SystemConfigValue) =>
 	Effect.gen(function* () {
@@ -332,15 +331,6 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 			if (!(Number.isInteger(value) && value >= 1)) {
 				return yield* Effect.fail(configError(`${key} (${value}) must be a positive integer.`));
 			}
-		}
-
-		const { application, sandboxDispatch } = databaseConnectionBudget(config);
-		if (sandboxDispatch < 1) {
-			return yield* Effect.fail(
-				configError(
-					`DATABASE_POOL_MAX (${config.database.poolMax}) must exceed the application pool (${application} = ${fixedApplicationConnections} + SANDBOX_WORKER_CONCURRENCY ${config.sandbox.workerConcurrency}) by at least one sandbox host database dispatch connection. Raise DATABASE_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
-				),
-			);
 		}
 
 		return {

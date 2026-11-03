@@ -21,7 +21,6 @@ import {
 } from "#lib/domain/managed-asset-writes.test-support";
 import {
 	installRevisionPackage,
-	makeRevisionDatabaseLayer,
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
@@ -559,7 +558,7 @@ layer(testLayer)((test) => {
 	);
 });
 
-layer(ManagedAssetReferencesRepository.layer.pipe(Layer.provideMerge(makeRevisionDatabaseLayer())))(
+layer(testLayer)(
 	(test) => {
 		test.effect(
 			"encrypted configurations follow declared object and array schema paths only",

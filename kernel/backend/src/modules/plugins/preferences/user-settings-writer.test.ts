@@ -20,7 +20,7 @@ import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
 import {
 	installRevisionPackage,
-	makeRevisionDatabaseLayer,
+	revisionDatabaseLayer,
 	revisionPackage,
 } from "../packages/revision.test-support";
 import {
@@ -87,7 +87,7 @@ const recordedIngestionLocksLayer = Layer.effectContext(
 
 const writerLayer = PluginUserSettingsWriter.layer.pipe(
 	Layer.provideMerge(Layer.merge(recordedInvalidationsLayer, recordedIngestionLocksLayer)),
-	Layer.provideMerge(makeRevisionDatabaseLayer(16)),
+	Layer.provideMerge(revisionDatabaseLayer),
 );
 
 const textField = (label: string) => ({ label, description: label, type: "string" as const });

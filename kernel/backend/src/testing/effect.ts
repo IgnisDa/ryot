@@ -144,8 +144,8 @@ export const makeAppConfigLayer = (
 		disableTelemetry: false,
 		redisUrl: Redacted.make("unused"),
 		frontendUrl: "http://localhost:3000",
+		database: { connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		fileStorage: { s3: Option.none(), localDir: "./storage", localTempDir: "./work" },
-		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		users: { disableLocalAuth: false, allowRegistration: true, demoAccountId: Option.none() },
 		frontend: {
 			oidcButtonLabel: Option.none(),

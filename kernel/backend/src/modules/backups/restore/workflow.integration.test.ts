@@ -17,7 +17,7 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
-import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { reminder } from "#schema/tables/reminders";
@@ -226,7 +226,7 @@ const dependencies = Layer.unwrap(
 			}),
 		).pipe(Layer.provideMerge(Layer.succeed(DatabaseSession, { ...database, transaction })));
 	}),
-).pipe(Layer.provide(makeRevisionDatabaseLayer()));
+).pipe(Layer.provide(revisionDatabaseLayer));
 
 const operationsLayer = RestoreBackupWorkflowOperationsLive.pipe(
 	Layer.provideMerge(dependencies),

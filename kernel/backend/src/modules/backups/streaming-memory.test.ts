@@ -22,7 +22,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
-	makeRevisionDatabaseLayer,
+	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -136,7 +136,7 @@ const services = Layer.mergeAll(
 	BackupsRepository.layer,
 ).pipe(
 	Layer.provideMerge(dependencies),
-	Layer.provideMerge(makeRevisionDatabaseLayer()),
+	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(BunFileSystem.layer),
 	Layer.provide(
 		Layer.mock(ManagedAssetsService, { verifyManagedAssetOwnership: () => Effect.succeed([]) }),

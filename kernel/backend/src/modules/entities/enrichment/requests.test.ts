@@ -15,7 +15,7 @@ import { TestClock } from "effect/testing";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
-	makeRevisionDatabaseLayer,
+	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
@@ -102,7 +102,7 @@ const requestLayer = Layer.unwrap(
 		);
 	}),
 ).pipe(
-	Layer.provideMerge(makeRevisionDatabaseLayer(4)),
+	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provide(
 		Layer.effectDiscard(
 			Effect.gen(function* () {

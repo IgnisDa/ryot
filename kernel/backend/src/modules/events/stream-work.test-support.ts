@@ -37,7 +37,7 @@ import { EventStreamLifecycleWorkLive, EventStreamWorkService } from "#modules/e
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
-	makeRevisionDatabaseLayer,
+	revisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -266,7 +266,7 @@ const fixtureLayer = Layer.effect(
 			accountGeneration: { userId, token: accountToken },
 		};
 	}),
-).pipe(Layer.provideMerge(makeRevisionDatabaseLayer(4)));
+).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
 const streamRepositoryLayer = EventStreamRepository.layer.pipe(Layer.provideMerge(fixtureLayer));
 const eventSchemasRepositoryLayer = EventSchemaReader.layer.pipe(Layer.provideMerge(fixtureLayer));

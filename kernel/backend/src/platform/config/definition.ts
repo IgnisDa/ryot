@@ -92,26 +92,12 @@ const database = group(
 			description:
 				"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
 		}),
-		poolMax: integerField({
-			defaultValue: 10,
-			envKey: "DATABASE_POOL_MAX",
-			label: "Shared pool maximum",
-			description:
-				"Total PostgreSQL connections one process may open: SANDBOX_WORKER_CONCURRENCY + 4 for application and workflow work, and the remainder for sandbox host database calls",
-		}),
 	},
 );
 
 const sandbox = group(
 	{ label: "Sandbox", description: "Sandbox execution settings" },
 	{
-		workerConcurrency: integerField({
-			defaultValue: 2,
-			label: "Worker concurrency",
-			envKey: "SANDBOX_WORKER_CONCURRENCY",
-			description:
-				"Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom",
-		}),
 		memoryBudgetMiB: integerField({
 			label: "Memory budget (MiB)",
 			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
@@ -131,6 +117,13 @@ const sandbox = group(
 			envKey: "SANDBOX_IMPORT_CONCURRENCY",
 			description:
 				"Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances",
+		}),
+		workerConcurrency: integerField({
+			defaultValue: 2,
+			label: "Worker concurrency",
+			envKey: "SANDBOX_WORKER_CONCURRENCY",
+			description:
+				"Global sandbox execution concurrency across trust and snapshot tiers; each process opens up to 4 + 2 × this many PostgreSQL connections, so keep it within available database and memory headroom",
 		}),
 	},
 );

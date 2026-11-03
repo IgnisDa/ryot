@@ -24,7 +24,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { reminderTestInput } from "#modules/reminders/reminders.test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -58,7 +58,7 @@ const services = Layer.mergeAll(
 	BackupRestorePersistence.layer,
 ).pipe(
 	Layer.provideMerge(dependencies),
-	Layer.provideMerge(makeRevisionDatabaseLayer()),
+	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(BunFileSystem.layer),
 	Layer.provide(
 		Layer.mock(ManagedAssetsService, { verifyManagedAssetOwnership: () => Effect.succeed([]) }),

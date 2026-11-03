@@ -16,7 +16,7 @@ import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
@@ -108,7 +108,7 @@ const dependencies = Layer.mergeAll(
 	NotificationsRepository.layer,
 	MutationReceipts.layer,
 	Layer.succeed(NotificationSourcePolicy, { authorize: () => Effect.succeed(true) }),
-).pipe(Layer.provideMerge(makeRevisionDatabaseLayer(4)));
+).pipe(Layer.provideMerge(revisionDatabaseLayer));
 const services = NotificationAdmissions.layer.pipe(
 	Layer.provideMerge(dependencies),
 	Layer.provideMerge(recordingTransports),

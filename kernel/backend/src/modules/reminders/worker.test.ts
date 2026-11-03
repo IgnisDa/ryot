@@ -40,7 +40,7 @@ import { NotificationDeliveryService } from "#modules/notifications/delivery";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { makeRevisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -113,7 +113,7 @@ const dependencies = SignalEmissionService.layer.pipe(
 	Layer.provideMerge(LifecyclePlannerServiceLive.pipe(Layer.provide(noLifecycleWorkLayer))),
 	Layer.provideMerge(execution),
 	Layer.provideMerge(repositories),
-	Layer.provideMerge(makeRevisionDatabaseLayer(4)),
+	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
 const services = Layer.mergeAll(

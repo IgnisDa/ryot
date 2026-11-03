@@ -148,7 +148,7 @@ const makeHeadroomLayer = Layer.provideMerge(
 				sandbox: { workerConcurrency: 2 },
 				fileStorage: { localTempDir: root },
 				redisUrl: Redacted.make(testRedisUrl()),
-				database: { poolMax: 7, url: Redacted.make(applicationUrl.toString()) },
+				database: { url: Redacted.make(applicationUrl.toString()) },
 			});
 			const observerFactory = {
 				countApplicationConnections: admin
@@ -402,7 +402,7 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 					expect(application?.pid).not.toBe(control.rootPids[0]);
 					const connectionsWhileHeld = yield* observer.countApplicationConnections;
 					expect(connectionsWhileHeld).toBeGreaterThanOrEqual(2);
-					expect(connectionsWhileHeld).toBeLessThanOrEqual(7);
+				expect(connectionsWhileHeld).toBeLessThanOrEqual(8);
 					yield* Deferred.succeed(control.releaseFirstRoot, undefined);
 					yield* Fiber.join(fiber);
 					expect(control.pidPairs).not.toHaveLength(0);

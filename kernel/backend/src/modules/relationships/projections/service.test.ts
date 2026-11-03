@@ -26,7 +26,7 @@ import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
-	makeRevisionDatabaseLayer,
+	revisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -149,7 +149,7 @@ const fixtureLayer = Layer.effect(
 			accountGeneration: { userId, token: accountToken },
 		};
 	}),
-).pipe(Layer.provideMerge(makeRevisionDatabaseLayer(2)));
+).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
 const engineLayer = Layer.succeed(
 	WorkflowEngine,

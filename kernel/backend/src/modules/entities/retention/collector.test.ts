@@ -18,7 +18,7 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import {
 	installRevisionPackage,
-	makeRevisionDatabaseLayer,
+	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { reminderTestInput } from "#modules/reminders/reminders.test-support";
@@ -44,7 +44,7 @@ const testLayer = Layer.mergeAll(EntityGraphCollector.layer, RemindersService.la
 			NotificationDeliveryRepository.layer,
 		),
 	),
-	Layer.provideMerge(makeRevisionDatabaseLayer(2)),
+	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(makeAppConfigLayer()),
 );
 
