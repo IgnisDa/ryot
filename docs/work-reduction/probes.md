@@ -790,7 +790,25 @@ every e2e test pays at least once, so the 316 ms of API CPU saved per signup app
 
 ### Non-e2e test stalls
 
-Two of four recent kernel test runs on the VM stopped producing output for 10 minutes and were killed, one of them
-on code from before these changes. Memory sampling in a later run showed at most 296 MB of swap in use and at least
-4.5 GB available, so the stalls are not memory pressure. The open files differed each time and passed alone. The
-cause is not traced; a rerun has passed each time.
+These were not stalls. Under Turbo, `bun --bun run vitest` writes to a pipe and holds the output until it exits, so
+the watchdog in `vm-unit.sh` saw no output while the kernel tests were still running, and killed any run whose
+kernel task outlasted its idle limit. A snapshot at one such kill showed live migrations and test-database drops,
+no blocked queries, and Vitest workers seconds old; 1,846 lines arrived at the kill. Neither
+`--log-order=stream` nor a pseudo-terminal for Turbo changed this. `vm-unit.sh` now applies the watchdog only to
+file runs, where Vitest writes directly, and Turbo runs have only the wall cap.
+
+## Run `probesB2` (membership rules)
+
+Flow probes on the VM with membership rules declared. Medians, net of idle background, against `probesB0`. Hook runs
+and script executions count the rows created by the flow.
+
+| Flow | Caller | Statements | Transactions | DB exec | Workflows | Hook runs | Scripts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Event, `backlog`, `probesB0` | 644 ms | 1,008 | 423 | 212 ms | 19 | 3 | 5 |
+| Event, `backlog`, `probesB2` | 423 ms | 772 | 221 | 141 ms | 16 | 2 | 4 |
+| Review operation, `probesB0` | 2,151 ms | 2,349 | 776 | 604 ms | 47 | 9 | 13 |
+| Review operation, `probesB2` | 1,337 ms | 1,312 | 433 | 397 ms | 27 | 5 | 8 |
+
+The `backlog` event no longer runs either membership hook or the nested event workflow the second one started; the
+summary refresh and history reconciliation remain, for parts 3 and 4. Signup, no-hook events, reads and workouts are
+unchanged within noise: a workout save creates no exercises, so the fitness rule does not apply to it.

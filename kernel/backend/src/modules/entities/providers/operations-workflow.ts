@@ -10,11 +10,7 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowE
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import {
-	LifecycleDispatchPlan,
-	LifecyclePlanner,
-	toLifecycleDispatchPlan,
-} from "#modules/automations/lifecycle/planning";
+import { LifecycleDispatchPlan, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -339,14 +335,13 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 									payload.entityScope.type === "user" ? payload.entityScope.userId : null,
 									true,
 								);
-								const result = yield* planner.plan({
+								return yield* planner.planChange({
 									trigger: yield* lifecycleTrigger(
 										payload.command,
 										payload.entityScope.userId,
 										completion,
 									),
 								});
-								return result.trigger === null ? [] : [toLifecycleDispatchPlan(result)];
 							}),
 						)
 						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),

@@ -202,6 +202,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `workflows`            | Public workflow slugs                                                      |
 | `operations`           | Public user- or integration-authenticated operations                       |
 | `userBootstrap`        | Per-user bootstrap entities or scripts for system and private plugins      |
+| `memberships`          | Relationships the kernel keeps from member entities to a bootstrap entity  |
 | `crons`                | Scheduled system-subject dispatches                                        |
 | `importSources`        | Payload, single-file, or named-file workflow inputs                        |
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                      |
@@ -365,6 +366,13 @@ cannot write global domain data or declare deployment-owned `httpRateLimits` or 
 A `userBootstrap` entry either names a direct script or lists `entities`, each with a name, one of
 the plugin's own entity schemas, and properties valid for it. The kernel ensures declared entities
 itself, one per schema and user, without running a script. Use a script only when setup needs logic.
+
+A `memberships` rule links the plugin's member entities to a bootstrap-declared target through one of
+its relationship schemas, without a hook. `join` chooses what adds a member: creating one of the
+listed `entityCreate` schemas, completing a provider import, writing any of its events, or adding it
+to a kernel collection. An event whose `silentEventProperty` is `true` does not join. The kernel
+writes the relationship in the same transaction as the source write and, for a new one, an optional
+`recordEventSchemaSlug` event, which must belong to every member schema. Hooks still see those writes.
 
 The compiler derives local host capabilities from each entry's reachable code, including helpers,
 closures, and forwarding methods. Executable dependencies do not merge authority: children use their

@@ -24,7 +24,6 @@ import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	type LifecycleBatchInput,
 	LifecyclePlanner,
-	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import type { PolicyBatchResult } from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -720,10 +719,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							};
 						}
 					}
-					const plan = yield* planner.plan({
+					const planned = yield* planner.planChange({
 						trigger: yield* lifecycleTrigger(command, input.userId, change),
 					});
-					const planned = plan.trigger ? [toLifecycleDispatchPlan(plan)] : [];
 					dispatch.push(...planned);
 					recorded.push({
 						dispatch: planned,

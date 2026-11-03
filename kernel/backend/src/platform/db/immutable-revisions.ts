@@ -10,6 +10,7 @@ export const pluginRevisionSections = (manifest: SQL) => ({
 	name: sql`${manifest} -> 'metadata' ->> 'name'`.as("name"),
 	icon: sql`${manifest} -> 'metadata' ->> 'icon'`.as("icon"),
 	operations: sql`${manifest} -> 'operations'`.as("operations"),
+	memberships: sql`${manifest} -> 'memberships'`.as("memberships"),
 	version: sql`${manifest} -> 'metadata' ->> 'version'`.as("version"),
 	configSchema: sql`${manifest} -> 'configSchema'`.as("config_schema"),
 	signalSchemas: sql`${manifest} -> 'signalSchemas'`.as("signal_schemas"),
@@ -55,6 +56,7 @@ begin
 			or r.signal_schemas is distinct from (new.manifest -> 'signalSchemas')
 			or r.entity_schemas is distinct from (new.manifest -> 'entitySchemas')
 			or r.user_bootstrap is distinct from (new.manifest -> 'userBootstrap')
+			or r.memberships is distinct from (new.manifest -> 'memberships')
 			or r.user_settings_schema is distinct from (new.manifest -> 'userSettingsSchema')
 			or r.http_rate_limits is distinct from (new.manifest -> 'httpRateLimits')
 			or r.relationship_schemas is distinct from (new.manifest -> 'relationshipSchemas')

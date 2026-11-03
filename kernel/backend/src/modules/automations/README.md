@@ -10,6 +10,8 @@ Each run pins the exact sandbox script, its input projection, plugin revision, a
 
 `LifecyclePlanner.plan` runs on the caller's active transaction and returns either `NoHooks` or a persisted trigger with ordered pinned runs and policy declarations from pinned revisions. Callers resolve signal audiences and supply recipients; the planner deduplicates the actor. A caller inspects a persisted request trigger's `blockedReason`: a blocked request must reject the write, while blocked post-write planning produces a warning only when `hasRequiredHooks` is true. Callers execute the returned policies sequentially after the planning transaction commits and submit after-hook runs only after the source commit.
 
+`LifecyclePlanner.planChange` plans a committed change trigger, then asks `LifecycleWork.derive` for the writes plugins declare for it, such as membership rules. Those writes join the source transaction, and their triggers are planned the same way, so one call returns the dispatch plans for the source and everything it derived.
+
 The automations feature Layer constructs the planner with its resolver, run repository, and trigger repository. The planner implementation keeps those collaborators as constructor requirements; transaction-scoped catalog reads use the same resolver instance throughout a plan.
 
 Batch owners pass identities already processed for the current entity as `excludedOncePerSubjectPolicies`, keyed by the run's stable `pluginId`/`hookSlug` and the batch's deterministic subject key. Before-event `once-per-subject` hooks are excluded before budget counting and insertion; participating request triggers retain the normalized exclusions.

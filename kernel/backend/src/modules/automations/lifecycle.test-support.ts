@@ -34,6 +34,7 @@ import type { DatabaseSession } from "#platform/db/session";
 export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
 	dispatch: () => Effect.void,
 	admit: () => Effect.succeed([]),
+	derive: () => Effect.succeed([]),
 });
 
 export const noHooksFixture = (): Extract<LifecyclePlanningResult, { _tag: "NoHooks" }> => ({
@@ -56,31 +57,36 @@ export const withLifecycleBatchPlanning = (
 		payload: Parameters<typeof lifecycleBatchTriggers>[2][number]["payload"];
 	}> = [];
 	const sealed = new Map<string, ReadonlyArray<ReturnType<typeof toLifecycleDispatchPlan>>>();
+	const recordPlan = (input: Parameters<LifecyclePlanner["Service"]["plan"]>[0]) =>
+		planner.plan(input).pipe(
+			Effect.tap((result) => {
+				const payload = input.trigger.payload;
+				if (
+					result.trigger !== null &&
+					payload?.category === "change" &&
+					payload.operation !== "batch" &&
+					payload.resource !== "provider-entity-import"
+				) {
+					changes.push({
+						payload,
+						scopeUserId: input.trigger.scopeUserId,
+						executionId: input.trigger.causation.executionId,
+					});
+				}
+				return Effect.void;
+			}),
+		);
 	return {
+		plan: recordPlan,
+		planChange: (input) =>
+			Effect.map(recordPlan(input), (result) =>
+				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
+			),
 		prepareBatch: (input) =>
 			Effect.succeed({
 				hasCandidates,
 				id: stableStringify([input.command.itemIdentity, ...input.identity]),
 			}),
-		plan: (input) =>
-			planner.plan(input).pipe(
-				Effect.tap((result) => {
-					const payload = input.trigger.payload;
-					if (
-						result.trigger !== null &&
-						payload?.category === "change" &&
-						payload.operation !== "batch" &&
-						payload.resource !== "provider-entity-import"
-					) {
-						changes.push({
-							payload,
-							scopeUserId: input.trigger.scopeUserId,
-							executionId: input.trigger.causation.executionId,
-						});
-					}
-					return Effect.void;
-				}),
-			),
 		planBatch: (input) =>
 			Effect.gen(function* () {
 				const identity = stableStringify([

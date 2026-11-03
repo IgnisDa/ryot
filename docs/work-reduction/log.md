@@ -469,3 +469,8 @@
   and 0, and from 672 ms to 356 ms of API CPU (`probesB1`). A reset-account e2e test caught hook dispatch inside an
   activity; the write now returns its plans for the workflow body. `design-declared-effects.md` proposes the rest
   of step 7.
+- Membership rules landed. Media and Fitness declare `memberships`, and the kernel writes the library relationship
+  and the `add-to-media-library` event in the source transaction, through `LifecyclePlanner.planChange` and
+  `LifecycleWork.derive`. Four hooks and their scripts went. A `backlog` event fell from 644 ms and 1,008 statements
+  to 423 ms and 772, and a review from 47 workflows to 27 (`probesB2`). The kernel test "stalls" turned out to be
+  Vitest's output held in Turbo's pipe until exit; `vm-unit.sh` no longer watches output on Turbo runs.

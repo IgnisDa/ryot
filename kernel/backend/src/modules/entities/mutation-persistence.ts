@@ -21,11 +21,10 @@ import type {
 	OwnedManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import {
-	type CommittedLifecycleWork,
-	type LifecycleDispatchPlan,
-	type LifecyclePlanner,
-	toLifecycleDispatchPlan,
+import type {
+	CommittedLifecycleWork,
+	LifecycleDispatchPlan,
+	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
 import {
 	MutationReceiptIdentity,
@@ -378,8 +377,8 @@ export const makePersistMutation = <E, R, Result>({
 						...(input.lifecycle.population ? { population: input.lifecycle.population } : {}),
 					}
 				: undefined;
-			const plan = evidence
-				? yield* planner.plan({
+			const dispatch = evidence
+				? yield* planner.planChange({
 						trigger: yield* lifecycleTrigger(
 							{
 								...input.lifecycle,
@@ -392,8 +391,7 @@ export const makePersistMutation = <E, R, Result>({
 							evidence,
 						),
 					})
-				: null;
-			const dispatch = plan?.trigger ? [toLifecycleDispatchPlan(plan)] : [];
+				: [];
 			const result = resultOf(entity, input.operation === "create" && before === null);
 			results.push({ result, dispatch });
 			records.push(

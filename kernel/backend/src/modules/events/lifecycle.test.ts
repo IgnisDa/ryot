@@ -90,6 +90,16 @@ import { EventMutations } from "./mutations";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
+const failChanges = <A, E, R>(
+	trigger: { kind: { category: string } },
+	planned: Effect.Effect<A, E, R>,
+) =>
+	Effect.filterOrFail(
+		planned,
+		() => trigger.kind.category !== "change",
+		() => new DbError({ message: "planning failed after run insertion" }),
+	);
+
 const userId = UserId.make("event-owner");
 const entityId = EntityId.make("event-subject");
 const movedId = EntityId.make("event-moved-subject");
@@ -1007,13 +1017,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					const failingService = yield* EventsService.make.pipe(
 						Effect.provideService(LifecyclePlanner, {
 							...currentPlanner,
-							plan: (input) =>
-								currentPlanner.plan(input).pipe(
-									Effect.filterOrFail(
-										() => input.trigger.kind.category !== "change",
-										() => new DbError({ message: "planning failed after run insertion" }),
-									),
-								),
+						plan: (input) => failChanges(input.trigger, currentPlanner.plan(input)),
+						planChange: (input) => failChanges(input.trigger, currentPlanner.planChange(input)),
 						}),
 					);
 					const eventId = EventId.make("event");

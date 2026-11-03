@@ -119,6 +119,7 @@ export const pluginRevision = snakeCase.table(
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
 		hooks: jsonb().$type<PluginManifest["hooks"]>().notNull(),
 		crons: jsonb().$type<PluginManifest["crons"]>().notNull(),
+		memberships: jsonb().$type<PluginManifest["memberships"]>(),
 		scripts: jsonb().$type<PluginManifest["scripts"]>().notNull(),
 		id: text()
 			.primaryKey()

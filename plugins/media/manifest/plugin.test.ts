@@ -810,7 +810,7 @@ it.effect(
 				{
 					slug: "initialize-workspace",
 					description: "Initialize the user's media workspace",
-				entities: [{ properties: {}, name: "Media Library", entitySchemaSlug: "media-library" }],
+					entities: [{ properties: {}, name: "Media Library", entitySchemaSlug: "media-library" }],
 				},
 			]);
 			expect(mediaPlugin.importSources.map(({ slug }) => slug)).toEqual([
@@ -970,61 +970,28 @@ it("declares genres as provider-backed entities with outgoing media relationship
 	expect(mediaPlugin.client.entities).not.toHaveProperty("genre");
 });
 
-it("keeps entity and import membership immediate and groups event membership by batch", () => {
-	const itemHook = mediaPlugin.hooks.find(
-		({ slug }) => slug === "media.ensure-media-library-membership",
-	);
-	expect(itemHook).toEqual<unknown>({
-		stage: "after",
-		delivery: "required",
-		executionScope: "user",
-		name: "Ensure media library membership",
-		slug: "media.ensure-media-library-membership",
-		scriptSlug: "automation.ensure-media-library-membership",
-		targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => {
-			const imported = {
-				entitySchemaSlug,
-				operation: "complete",
-				resource: "provider-entity-import",
-			};
-			return isMediaChildEntitySchemaSlug(entitySchemaSlug)
-				? [imported]
-				: [{ entitySchemaSlug, resource: "entity", operation: "create" }, imported];
-		}),
-	});
-	const batchHook = mediaPlugin.hooks.find(
-		({ slug }) => slug === "media.ensure-media-library-membership-on-events",
-	);
-	expect(batchHook).toEqual<unknown>({
-		stage: "after",
-		frequency: "batch",
-		delivery: "required",
-		executionScope: "user",
-		name: "Ensure media library membership for events",
-		slug: "media.ensure-media-library-membership-on-events",
-		scriptSlug: "automation.ensure-media-library-membership",
-		targets: [
-			...mediaPlugin.entitySchemas
-				.filter((schema) => schema.slug !== "media-library")
-				.flatMap((schema) =>
-					schema.eventSchemas
-						.filter(({ slug }) => slug !== "add-to-media-library")
-						.map(({ slug }) => ({
-							resource: "event",
-							operation: "create",
-							eventSchemaSlug: slug,
-							entitySchemaSlug: schema.slug,
-						})),
+it("declares library membership for member creates, imports, events, and collection adds", () => {
+	expect(mediaPlugin.memberships).toEqual([
+		{
+			slug: "media-library",
+			silentEventProperty: "completionSilent",
+			targetEntitySchemaSlug: "media-library",
+			relationshipSchemaSlug: "in-media-library",
+			recordEventSchemaSlug: "add-to-media-library",
+			memberEntitySchemaSlugs: [...mediaLibraryMemberEntitySchemaSlugs],
+			join: {
+				events: true,
+				providerImport: true,
+				kernelCollectionAdd: true,
+				entityCreate: mediaLibraryMemberEntitySchemaSlugs.filter(
+					(slug) => !isMediaChildEntitySchemaSlug(slug),
 				),
-			{
-				resource: "event",
-				operation: "create",
-				owner: { kind: "kernel" },
-				entitySchemaSlug: "collection",
-				eventSchemaSlug: "add-entity-to-collection",
 			},
-		],
-	});
+		},
+	]);
+	expect(
+		mediaPlugin.hooks.filter(({ scriptSlug }) => scriptSlug.includes("library-membership")),
+	).toEqual([]);
 });
 
 it("declares ownership sync only for integrations that import ownership", () => {
@@ -1061,43 +1028,11 @@ it("observes only explicit kernel collection targets in user-scoped after hooks"
 		{
 			stage: "after",
 			executionScope: "user",
-			target: membershipTarget,
-			slug: "media.ensure-media-library-membership-on-events",
-		},
-		{
-			stage: "after",
-			executionScope: "user",
 			slug: "media.review-created",
 			target: { ...membershipTarget, eventSchemaSlug: "review" },
 		},
 		{ stage: "after", executionScope: "user", target: membershipTarget, slug: "media.radarr-push" },
 		{ stage: "after", executionScope: "user", target: membershipTarget, slug: "media.sonarr-push" },
-	]);
-});
-
-it("records newly-created media library memberships as events", () => {
-	const hooks = mediaPlugin.hooks.filter(
-		({ slug }) => slug === "media.record-media-library-membership-event",
-	);
-
-	expect(hooks).toEqual([
-		{
-			stage: "after",
-			batchMaxItems: 80,
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			name: "Record media library membership event",
-			slug: "media.record-media-library-membership-event",
-			scriptSlug: "automation.record-media-library-membership-event",
-			targets: [
-				{
-					operation: "create",
-					resource: "relationship",
-					relationshipSchemaSlug: "in-media-library",
-				},
-			],
-		},
 	]);
 });
 

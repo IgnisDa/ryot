@@ -5,8 +5,10 @@ import { BackgroundWorkService } from "#modules/background-work/service";
 import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
 import { EventCreateWorkflowDefinitionsLive } from "./event-create-workflow-live";
+import { EventMembershipWrites } from "./memberships";
 import { EventMutations } from "./mutations";
 import { EventProjectionRepository } from "./projection-repository";
 import { EventsRepository } from "./repository";
@@ -64,5 +66,20 @@ export const EventStreamWorkServiceLive = EventStreamWorkService.layer.pipe(
 );
 
 export const EventStreamLifecycleWorkProvidedLive = EventStreamLifecycleWorkLive.pipe(
-	Layer.provide(Layer.merge(EventStreamWorkServiceLive, BackgroundWorkService.layer)),
+	Layer.provide(
+		Layer.mergeAll(
+			EventStreamWorkServiceLive,
+			BackgroundWorkService.layer,
+			EventMembershipWrites.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						EventsRepository.layer,
+						EntitiesRepositoryLive,
+						EventSchemaReaderLive,
+						RelationshipsRepository.layer,
+					),
+				),
+			),
+		),
+	),
 );

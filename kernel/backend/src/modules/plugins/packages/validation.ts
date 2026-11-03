@@ -260,6 +260,41 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 				);
 			}
 		}
+		const membershipSlugs = new Set<string>();
+		const bootstrapSchemas = new Set(
+			manifest.userBootstrap.flatMap((entry) =>
+				"entities" in entry ? entry.entities.map(({ entitySchemaSlug }) => entitySchemaSlug) : [],
+			),
+		);
+		for (const membership of manifest.memberships ?? []) {
+			const label = `Membership ${membership.slug}`;
+			yield* assertSlug("membership", membership.slug);
+			if (membershipSlugs.has(membership.slug)) {
+				return yield* fail(`Duplicate membership slug: ${membership.slug}`);
+			}
+			membershipSlugs.add(membership.slug);
+			yield* assertReference(label, membership.relationshipSchemaSlug, relationships);
+			if (!bootstrapSchemas.has(membership.targetEntitySchemaSlug)) {
+				return yield* fail(`${label} target must be a bootstrap-declared entity schema`);
+			}
+			for (const member of membership.memberEntitySchemaSlugs) {
+				yield* assertReference(label, member, entities);
+			}
+			const members = new Set(membership.memberEntitySchemaSlugs);
+			if (membership.join.entityCreate.some((slug) => !members.has(slug))) {
+				return yield* fail(`${label} joins on creates of entity schemas that are not members`);
+			}
+			const recorded = membership.recordEventSchemaSlug;
+			if (
+				recorded !== undefined &&
+				manifest.entitySchemas.some(
+					(schema) =>
+						members.has(schema.slug) && !schema.eventSchemas.some(({ slug }) => slug === recorded),
+				)
+			) {
+				return yield* fail(`${label} record event must belong to every member schema`);
+			}
+		}
 		for (const cron of manifest.crons) {
 			yield* assertSlug("cron", cron.slug);
 			if (cronSlugs.has(cron.slug)) {

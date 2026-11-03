@@ -442,3 +442,23 @@ it("binds the combined set policy before stream-based record recomputation", () 
 		{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" },
 	]);
 });
+
+it("declares exercise library membership for creates and imports", () => {
+	expect(fitnessPlugin.memberships).toEqual([
+		{
+			slug: "fitness-library",
+			memberEntitySchemaSlugs: ["exercise"],
+			targetEntitySchemaSlug: "fitness-library",
+			relationshipSchemaSlug: "in-fitness-library",
+			join: {
+				events: false,
+				providerImport: true,
+				entityCreate: ["exercise"],
+				kernelCollectionAdd: false,
+			},
+		},
+	]);
+	expect(
+		fitnessPlugin.hooks.filter(({ scriptSlug }) => scriptSlug.includes("library-membership")),
+	).toEqual([]);
+});

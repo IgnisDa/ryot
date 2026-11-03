@@ -45,6 +45,7 @@ import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
 import { resolveEventCreateItemScopes } from "./event-creation";
+import { EventMembershipWrites } from "./memberships";
 import { EventProjectionRepository } from "./projection-repository";
 import {
 	type EventStreamBindingDeclaration,
@@ -730,8 +731,10 @@ export const EventStreamLifecycleWorkLive = Layer.effect(
 	Effect.gen(function* () {
 		const streams = yield* EventStreamWorkService;
 		const background = yield* BackgroundWorkService;
+		const memberships = yield* EventMembershipWrites;
 		return LifecycleWork.of({
 			admit: streams.admitChange,
+			derive: memberships.derive,
 			dispatch: (ids) => Effect.forEach(ids, (id) => background.dispatch(id), { discard: true }),
 		});
 	}),

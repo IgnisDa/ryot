@@ -598,6 +598,24 @@ export const mediaPlugin = definePlugin({
 			description: "Refresh global media trending rankings",
 		},
 	],
+	memberships: [
+		{
+			slug: "media-library",
+			silentEventProperty: "completionSilent",
+			targetEntitySchemaSlug: "media-library",
+			relationshipSchemaSlug: "in-media-library",
+			recordEventSchemaSlug: "add-to-media-library",
+			memberEntitySchemaSlugs: [...mediaLibraryMemberEntitySchemaSlugs],
+			join: {
+				events: true,
+				providerImport: true,
+				kernelCollectionAdd: true,
+				entityCreate: mediaLibraryMemberEntitySchemaSlugs.filter(
+					(slug) => !isMediaChildEntitySchemaSlug(slug),
+				),
+			},
+		},
+	],
 	oauthProviders: [
 		{
 			scopes: [],
@@ -828,63 +846,6 @@ export const mediaPlugin = definePlugin({
 					resource: "entity" as const,
 				})),
 			),
-		},
-		{
-			stage: "after",
-			delivery: "required",
-			executionScope: "user",
-			name: "Ensure media library membership",
-			slug: "media.ensure-media-library-membership",
-			scriptSlug: "automation.ensure-media-library-membership",
-			targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => {
-				const imported = {
-					entitySchemaSlug,
-					operation: "complete" as const,
-					resource: "provider-entity-import" as const,
-				};
-				return isMediaChildEntitySchemaSlug(entitySchemaSlug)
-					? [imported]
-					: [
-							{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
-							imported,
-						];
-			}),
-		},
-		{
-			stage: "after",
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			name: "Ensure media library membership for events",
-			slug: "media.ensure-media-library-membership-on-events",
-			scriptSlug: "automation.ensure-media-library-membership",
-			targets: [
-				...entitySchemas
-					.filter((schema) => schema.slug !== "media-library")
-					.flatMap((schema) =>
-						schema.eventSchemas
-							.filter(({ slug }) => slug !== "add-to-media-library")
-							.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
-					),
-				kernelCollectionEventHookTarget("add-entity-to-collection"),
-			],
-		},
-		{
-			stage: "after",
-			batchMaxItems: 80,
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			name: "Record media library membership event",
-			slug: "media.record-media-library-membership-event",
-			scriptSlug: "automation.record-media-library-membership-event",
-			targets: [
-				{
-					operation: "create",
-					resource: "relationship",
-					relationshipSchemaSlug: "in-media-library",
-				},
-			],
 		},
 		{
 			stage: "after",

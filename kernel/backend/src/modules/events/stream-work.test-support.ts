@@ -28,6 +28,7 @@ import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EventMembershipWrites } from "#modules/events/memberships";
 import { EventMutations } from "#modules/events/mutations";
 import { EventProjectionRepository } from "#modules/events/projection-repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -43,6 +44,7 @@ import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipProjectionRepository } from "#modules/relationships/projections/repository";
 import { RelationshipProjectionService } from "#modules/relationships/projections/service";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 import {
 	ScriptExecutionPrincipal,
@@ -399,7 +401,16 @@ export const streamWorkTestLayer = Layer.unwrap(
 			),
 		);
 		const lifecycleWorkLayer = EventStreamLifecycleWorkLive.pipe(
-			Layer.provide(Layer.merge(serviceLayer, backgroundLayer)),
+			Layer.provide(
+				Layer.mergeAll(
+					serviceLayer,
+					backgroundLayer,
+					EventMembershipWrites.layer.pipe(
+						Layer.provide(Layer.mergeAll(EventsRepository.layer, RelationshipsRepository.layer)),
+						Layer.provide(sharedDependencies),
+					),
+				),
+			),
 		);
 		const lifecycleLayer = LifecycleServicesLive.pipe(
 			Layer.provide(lifecycleWorkLayer),

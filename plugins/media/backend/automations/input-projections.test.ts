@@ -1,7 +1,6 @@
 import { expect, it } from "bun:test";
 
 import { manifest as customPublishYear } from "./custom-publish-year-policy.sandbox";
-import { manifest as ensureMediaLibrary } from "./ensure-media-library-membership.sandbox";
 import { manifest as episodicPolicy } from "./episodic-session-policy.sandbox";
 import { manifest as jellyfin } from "./jellyfin-push.sandbox";
 import { manifest as association } from "./media-association.sandbox";
@@ -10,7 +9,6 @@ import { manifest as relationshipSync } from "./media-relationship-sync.sandbox"
 import { manifest as notification } from "./notification.sandbox";
 import { manifest as radarr } from "./radarr-push.sandbox";
 import { manifest as reconcileMediaHistory } from "./reconcile-media-history.sandbox";
-import { manifest as recordMediaLibraryMembership } from "./record-media-library-membership-event.sandbox";
 import { manifest as reviewCreated } from "./review-created.sandbox";
 import { manifest as sonarr } from "./sonarr-push.sandbox";
 
@@ -26,9 +24,7 @@ it("declares the media automation input projections", () => {
 		[episodicPolicy.slug]: episodicPolicy.inputProjection,
 		[relationshipSync.slug]: relationshipSync.inputProjection,
 		[customPublishYear.slug]: customPublishYear.inputProjection,
-		[ensureMediaLibrary.slug]: ensureMediaLibrary.inputProjection,
 		[reconcileMediaHistory.slug]: reconcileMediaHistory.inputProjection,
-		[recordMediaLibraryMembership.slug]: recordMediaLibraryMembership.inputProjection,
 	}).toEqual({
 		"policy.media-episodic-session": { event: { properties: [] } },
 		"automation.review-created": { event: { properties: [], compareProperties: [] } },
@@ -43,9 +39,6 @@ it("declares the media automation input projections", () => {
 		"automation.media-association": {
 			relationship: { properties: ["roles"], compareProperties: [], parentEntityProperties: [] },
 		},
-		"automation.record-media-library-membership-event": {
-			relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
-		},
 		"automation.media-relationship-sync": {
 			relationship: {
 				properties: [],
@@ -56,14 +49,6 @@ it("declares the media automation input projections", () => {
 		"automation.reconcile-media-history": {
 			event: { compareProperties: [], properties: ["completionKey"] },
 			signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
-		},
-		"automation.ensure-media-library-membership": {
-			providerEntityImport: true,
-			entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-			event: {
-				compareProperties: [],
-				properties: ["entityId", "entitySchemaSlug", "completionSilent"],
-			},
 		},
 		"automation.media-entity-updated": {
 			entity: {

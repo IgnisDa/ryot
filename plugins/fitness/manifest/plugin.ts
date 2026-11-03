@@ -95,6 +95,20 @@ export const fitnessPlugin = definePlugin({
 			entities: [{ properties: {}, name: "Fitness Library", entitySchemaSlug: "fitness-library" }],
 		},
 	],
+	memberships: [
+		{
+			slug: "fitness-library",
+			memberEntitySchemaSlugs: ["exercise"],
+			targetEntitySchemaSlug: "fitness-library",
+			relationshipSchemaSlug: "in-fitness-library",
+			join: {
+				events: false,
+				providerImport: true,
+				entityCreate: ["exercise"],
+				kernelCollectionAdd: false,
+			},
+		},
+	],
 	providers: [
 		{
 			name: "Free Exercise DB",
@@ -222,18 +236,6 @@ export const fitnessPlugin = definePlugin({
 			scriptSlug: "automation.workout-records",
 			name: "Recompute records after workout start changes",
 			targets: [{ resource: "entity", operation: "update", entitySchemaSlug: "workout" }],
-		},
-		{
-			stage: "after",
-			delivery: "required",
-			executionScope: "user",
-			name: "Ensure fitness library membership",
-			slug: "fitness.ensure-fitness-library-membership",
-			scriptSlug: "automation.ensure-fitness-library-membership",
-			targets: [
-				{ resource: "entity", operation: "create", entitySchemaSlug: "exercise" },
-				{ operation: "complete", entitySchemaSlug: "exercise", resource: "provider-entity-import" },
-			],
 		},
 		{
 			stage: "after",

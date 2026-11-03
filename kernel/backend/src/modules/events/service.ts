@@ -50,7 +50,6 @@ import {
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
 	LifecyclePlanner,
-	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
@@ -1497,7 +1496,7 @@ export class EventsService extends Context.Service<EventsService>()(
 						before: prepared.before,
 					};
 				}
-				const plan = yield* planner.plan({
+				const dispatch = yield* planner.planChange({
 					trigger: yield* lifecycleTrigger(
 						{
 							...prepared.command,
@@ -1510,7 +1509,6 @@ export class EventsService extends Context.Service<EventsService>()(
 						change,
 					),
 				});
-				const dispatch = plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)];
 				yield* receipts.insert({
 					identity,
 					dispatch,

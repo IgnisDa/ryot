@@ -1,6 +1,6 @@
 # Design: declared plugin effects (step 7)
 
-Status: bootstrap entities built; membership rules, projection inputs and dirty-subject work proposed, in that
+Status: bootstrap entities and membership rules built; projection inputs and dirty-subject work proposed, in that
 order. The owner approved step 7 in [`order-of-work.md`](order-of-work.md) and left the order to me.
 
 ## What a media `backlog` event runs today
@@ -26,9 +26,9 @@ entry and dated at the installation's creation, so a retry replays the same comm
 activity and returns its hook dispatch plans, which the workflow body dispatches. Scripts remain for setup that
 needs logic.
 
-## 2. Membership rules
+## 2. Membership rules (built)
 
-A plugin declares:
+Media and fitness declare `memberships` in their manifests, copied to `plugin_revision.memberships`:
 
 ```ts
 memberships: [{
@@ -36,25 +36,21 @@ memberships: [{
   relationshipSchemaSlug: "in-media-library",
   targetEntitySchemaSlug: "media-library",
   memberEntitySchemaSlugs: [...],
-  on: { entityCreate: [...], providerImport: true, events: true, kernelCollectionAdd: true },
-  exceptEventSchemaSlugs: ["add-to-media-library"],
-  skipWhenEventProperty: "completionSilent",
+  join: { entityCreate: [...], providerImport: true, events: true, kernelCollectionAdd: true },
+  silentEventProperty: "completionSilent",
   recordEventSchemaSlug: "add-to-media-library",
 }]
 ```
 
-- **Validation:** the relationship schema is the plugin's own and points from member schemas to the target; the
-  target is a bootstrap-declared entity, so each user has exactly one; the record event belongs to every member
-  schema.
-- **Applied in the source transaction.** The event, entity and import-completion commits collect member entities
-  their written items name, as the scripts did today, including the kernel collection event's `entityId` property
-  for entities the plugin owns. The kernel then upserts the relationship to the user's target, and for each newly
-  inserted one writes the record event, dated at the relationship's creation.
-- **Ports, as for bootstrap.** Events and relationships do not import each other, so the commit calls a
-  `PluginMembershipRules` port that boot binds to the entity and relationship services. The derived writes use the
-  existing prepare-and-persist APIs that join the caller's transaction, so receipts, projection bindings and event
-  scopes stay correct. Their own hook matches are planned and dispatched with the source's.
-- **Removes** both membership hooks and their scripts, and the nested event workflow the second one started.
+- **Validation:** the slug is unique, the relationship schema is the plugin's own, the target is a
+  bootstrap-declared schema so each user has exactly one, `entityCreate` is a subset of the members, and the record
+  event belongs to every member schema. An event of the record schema never joins, so it cannot loop.
+- **Applied in the source transaction.** `LifecyclePlanner.planChange` plans a change trigger, then calls
+  `LifecycleWork.derive`, which the events module binds to `EventMembershipWrites`. It reads the active revision's
+  rules for an installed plugin, finds the user's target, locks and inserts the relationship and, for a new one,
+  writes the record event with a deterministic ID dated at the relationship's creation. Each derived write's trigger
+  is planned the same way, so the summary and history hooks still see it until parts 3 and 4 replace them.
+- **Removed:** the three media membership hooks, the fitness one, their scripts, and the nested event workflow.
 
 ## 3. Projection inputs
 

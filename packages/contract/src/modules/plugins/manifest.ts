@@ -672,6 +672,25 @@ export const PluginUserBootstrap = Schema.Union([
 
 export type PluginUserBootstrap = Schema.Schema.Type<typeof PluginUserBootstrap>;
 
+export const PluginMembership = strictStruct({
+	slug: sandboxManifestSlug,
+	relationshipSchemaSlug: sandboxManifestSlug,
+	targetEntitySchemaSlug: sandboxManifestSlug,
+	silentEventProperty: Schema.optional(Schema.String),
+	recordEventSchemaSlug: Schema.optional(sandboxManifestSlug),
+	memberEntitySchemaSlugs: Schema.Array(sandboxManifestSlug).pipe(
+		Schema.check(Schema.isMinLength(1)),
+	),
+	join: strictStruct({
+		events: Schema.Boolean,
+		providerImport: Schema.Boolean,
+		kernelCollectionAdd: Schema.Boolean,
+		entityCreate: Schema.Array(sandboxManifestSlug),
+	}),
+});
+
+export type PluginMembership = Schema.Schema.Type<typeof PluginMembership>;
+
 export const PluginOperationAuth = Schema.Literals(["user", "integration"]);
 
 export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
@@ -972,6 +991,7 @@ const PluginManifestAuthoredFields = {
 	importSources: Schema.Array(PluginImportSource),
 	userBootstrap: Schema.Array(PluginUserBootstrap),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
+	memberships: Schema.optional(Schema.Array(PluginMembership)),
 	userSettingsSchema: Schema.optional(PluginUserSettingsSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),

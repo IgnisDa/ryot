@@ -21,6 +21,7 @@ import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	type LifecycleBatchInput,
+	type LifecycleDispatchPlan,
 	type LifecyclePlannedPolicy,
 	LifecyclePlanner,
 	type LifecyclePlanningResult,
@@ -483,6 +484,17 @@ export const LifecyclePlannerLive = Layer.effect(
 			yield* receipts.sealBatch(identity, dispatch);
 			return dispatch;
 		});
-		return { plan, planBatch, prepareBatch };
+		const planChange = (input: {
+			trigger: AutomationTrigger;
+		}): Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError> =>
+			Effect.gen(function* () {
+				const planned = yield* plan(input);
+				const dispatch = planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)];
+				for (const derived of yield* work.derive(input.trigger)) {
+					dispatch.push(...(yield* planChange({ trigger: derived })));
+				}
+				return dispatch;
+			});
+		return { plan, planBatch, planChange, prepareBatch };
 	}),
 );
