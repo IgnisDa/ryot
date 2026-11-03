@@ -1342,13 +1342,13 @@ describe("Relationships lifecycle owner", () => {
 							planner: {
 								...planner,
 								plan: (input) =>
-									planner.plan(input).pipe(
-										Effect.tap(() =>
-											Effect.sync(() => {
-												planned.push(input.trigger);
-											}),
-										),
-									),
+								planner
+									.plan(input)
+									.pipe(Effect.tap(() => Effect.sync(() => planned.push(input.trigger)))),
+							planChange: (input) =>
+								planner
+									.planChange(input)
+									.pipe(Effect.tap(() => Effect.sync(() => planned.push(input.trigger)))),
 							},
 						});
 						const session = yield* DatabaseSession;

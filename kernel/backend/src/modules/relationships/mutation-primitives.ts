@@ -15,10 +15,7 @@ import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import {
-	type LifecyclePlannedPolicy,
-	toLifecycleDispatchPlan,
-} from "#modules/automations/lifecycle/planning";
+import type { LifecyclePlannedPolicy } from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
@@ -583,7 +580,7 @@ export const makeRelationshipMutationPrimitives = ({
 			...input.payload,
 			...(input.population === undefined ? {} : { population: input.population }),
 		};
-		const plan = yield* planner.plan({
+		const dispatch = yield* planner.planChange({
 			trigger: yield* lifecycleTrigger(
 				{
 					...command,
@@ -596,7 +593,7 @@ export const makeRelationshipMutationPrimitives = ({
 				change,
 			),
 		});
-		return { change, dispatch: plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)] };
+		return { change, dispatch };
 	});
 	const lockMutations = Effect.fnUntraced(function* (mutations: ReadonlyArray<Mutation>) {
 		yield* assertActiveTransaction;

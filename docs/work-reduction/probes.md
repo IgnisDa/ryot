@@ -832,3 +832,15 @@ The `backlog` event's remaining hook is `media.reconcile-history`, which step 10
 reads its plugin's projection input declarations, about one statement per event in the 50-event batch; step 8's
 in-process revision cache is where that read goes. Caller times moved within noise.
 
+## Run `full18` (whole suite after step 7)
+
+Whole suite on the VM at `134f5cc25f`, one run, 45 min against `full17`'s 51: 944 passed, 7 failed, 9 skipped.
+
+- **Caused by this work:** 1, `media-reviews`, rating-only review. It failed 3 of 3 reruns (`tri18-*`): the
+  membership rule wrote `add-to-media-library` only for memberships the kernel derived, while the removed hook
+  wrote it for every new `in-media-library` relationship, including the test's direct create. Fixed: any new
+  relationship of a rule's schema from a member records the event.
+- **Known:** the 4 `history-correction-liveness` tests (step 10) and the workout editor's competing historical
+  edit, which also fails on the code from before Phase A.
+- **Load:** `client-plugin`'s interstitial passed 3 of 3 reruns.
+

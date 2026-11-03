@@ -1,7 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type {
+	AutomationRelationshipSnapshot,
 	AutomationTrigger,
 	AutomationTriggerPayload,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginMembership } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -197,12 +199,81 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				return written.snapshot;
 			});
 
+			/** Records a new membership relationship of a member entity as the rule's event, dated at its creation. */
+			const recordMembership = Effect.fnUntraced(function* (
+				userId: UserId,
+				trigger: AutomationTrigger,
+				command: LifecycleCommand,
+				relationship: AutomationRelationshipSnapshot,
+			) {
+				const pluginId = relationship.relationshipSchemaPluginId;
+				if (pluginId === null) {
+					return [];
+				}
+				const membership = (yield* membershipsFor(userId, [pluginId]))
+					.get(pluginId)
+					?.find(
+						(rule) =>
+							rule.recordEventSchemaSlug !== undefined &&
+							rule.relationshipSchemaSlug === relationship.relationshipSchemaSlug,
+					);
+				if (membership?.recordEventSchemaSlug === undefined) {
+					return [];
+				}
+				const source = (yield* entities.getByIdsForUser({
+					userId,
+					entityIds: [relationship.sourceEntityId],
+				})).get(relationship.sourceEntityId);
+				if (
+					!source ||
+					source.entitySchemaPluginId !== pluginId ||
+					!membership.memberEntitySchemaSlugs.includes(source.entitySchemaSlug)
+				) {
+					return [];
+				}
+				const event = yield* recordEvent({
+					userId,
+					occurredAt: relationship.createdAt,
+					eventSchemaSlug: membership.recordEventSchemaSlug,
+					identity: `${trigger.causation.executionId}:${trigger.id}:${membership.slug}`,
+					member: {
+						entityId: source.id,
+						entitySchemaPluginId: pluginId,
+						entitySchemaSlug: source.entitySchemaSlug,
+					},
+				});
+				return event
+					? [
+							yield* lifecycleTrigger(
+								command,
+								userId,
+								{ after: event, resource: "event", category: "change", operation: "create" },
+								`${membership.slug}:event`,
+							),
+						]
+					: [];
+			});
+
 			const derive = Effect.fn("PluginMembershipWrites.derive")(function* (
 				trigger: AutomationTrigger,
 			) {
 				const userId = trigger.scopeUserId;
 				if (userId === null || trigger.payload === null) {
 					return [];
+				}
+				const command = {
+					accountGeneration: null,
+					occurredAt: trigger.occurredAt,
+					itemIdentity: `${trigger.id}:membership`,
+					causation: { ...trigger.causation, parentTriggerId: trigger.id },
+				};
+				const payload = trigger.payload;
+				if (
+					payload.category === "change" &&
+					payload.resource === "relationship" &&
+					payload.operation === "create"
+				) {
+					return yield* recordMembership(userId, trigger, command, payload.after);
 				}
 				const candidates: ReadonlyArray<Candidate> = yield* candidatesOf(userId, trigger.payload);
 				if (candidates.length === 0) {
@@ -211,12 +282,6 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				const declared = yield* membershipsFor(userId, [
 					...new Set(candidates.map(({ entitySchemaPluginId }) => entitySchemaPluginId)),
 				]);
-				const command = {
-					accountGeneration: null,
-					occurredAt: trigger.occurredAt,
-					itemIdentity: `${trigger.id}:membership`,
-					causation: { ...trigger.causation, parentTriggerId: trigger.id },
-				};
 				const derived: AutomationTrigger[] = [];
 				for (const candidate of candidates) {
 					for (const membership of declared.get(candidate.entitySchemaPluginId) ?? []) {
@@ -253,36 +318,19 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 						if (!stored) {
 							return yield* new DbError({ message: "Membership relationship disappeared" });
 						}
-						const after = yield* relationshipSnapshot(stored);
-						const discriminator = `${membership.slug}:${candidate.entityId}`;
 						derived.push(
 							yield* lifecycleTrigger(
 								command,
 								userId,
-								{ after, category: "change", operation: "create", resource: "relationship" },
-								discriminator,
+								{
+									category: "change",
+									operation: "create",
+									resource: "relationship",
+									after: yield* relationshipSnapshot(stored),
+								},
+								`${membership.slug}:${candidate.entityId}`,
 							),
 						);
-						if (membership.recordEventSchemaSlug === undefined) {
-							continue;
-						}
-						const event = yield* recordEvent({
-							userId,
-							member: candidate,
-							occurredAt: after.createdAt,
-							eventSchemaSlug: membership.recordEventSchemaSlug,
-							identity: `${trigger.causation.executionId}:${trigger.id}:${discriminator}`,
-						});
-						if (event) {
-							derived.push(
-								yield* lifecycleTrigger(
-									command,
-									userId,
-									{ after: event, resource: "event", category: "change", operation: "create" },
-									`${discriminator}:event`,
-								),
-							);
-						}
 					}
 				}
 				return derived;

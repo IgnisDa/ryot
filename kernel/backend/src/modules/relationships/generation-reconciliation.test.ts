@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { asc, eq } from "drizzle-orm";
@@ -48,21 +49,20 @@ const setup = (scope: string) =>
 		const session = yield* DatabaseSession;
 		const planned = yield* Ref.make<ReadonlyArray<string>>([]);
 		const planner = yield* LifecyclePlanner;
+		const record = (input: { trigger: AutomationTrigger }) => {
+			const payload = input.trigger.payload;
+			return payload?.resource === "relationship"
+				? Ref.update(planned, (all) => [
+						...all,
+						`${payload.category}:${"operation" in payload ? payload.operation : ""}`,
+					])
+				: Effect.void;
+		};
 		const service = yield* relationshipsServiceWith({
 			planner: {
 				...planner,
-				plan: (input) =>
-					planner.plan(input).pipe(
-						Effect.tap(() => {
-							const payload = input.trigger.payload;
-							return payload?.resource === "relationship"
-								? Ref.update(planned, (all) => [
-										...all,
-										`${payload.category}:${"operation" in payload ? payload.operation : ""}`,
-									])
-								: Effect.void;
-						}),
-					),
+				plan: (input) => planner.plan(input).pipe(Effect.tap(() => record(input))),
+				planChange: (input) => planner.planChange(input).pipe(Effect.tap(() => record(input))),
 			},
 		});
 		yield* session.run((db) =>

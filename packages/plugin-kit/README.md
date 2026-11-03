@@ -375,8 +375,9 @@ A `memberships` rule links the plugin's member entities to a bootstrap-declared 
 its relationship schemas, without a hook. `join` chooses what adds a member: creating one of the
 listed `entityCreate` schemas, completing a provider import, writing any of its events, or adding it
 to a kernel collection. An event whose `silentEventProperty` is `true` does not join. The kernel
-writes the relationship in the same transaction as the source write and, for a new one, an optional
-`recordEventSchemaSlug` event, which must belong to every member schema. Hooks still see those writes.
+writes the relationship in the same transaction as the source write. An optional
+`recordEventSchemaSlug` event, which must belong to every member schema, is written for every new
+relationship of that schema from a member, whoever creates it. Hooks still see those writes.
 
 The compiler derives local host capabilities from each entry's reachable code, including helpers,
 closures, and forwarding methods. Executable dependencies do not merge authority: children use their

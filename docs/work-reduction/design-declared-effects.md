@@ -47,8 +47,9 @@ memberships: [{
   event belongs to every member schema. An event of the record schema never joins, so it cannot loop.
 - **Applied in the source transaction.** `LifecyclePlanner.planChange` plans a change trigger, then calls
   `LifecycleWork.derive`, which the entities module binds to `PluginMembershipWrites`. It reads the active revision's
-  rules for an installed plugin, finds the user's target, locks and inserts the relationship and, for a new one,
-  writes the record event with a deterministic ID dated at the relationship's creation. Each derived write's trigger
+  rules for an installed plugin, finds the user's target, and locks and inserts the relationship. Any new
+  relationship of the rule's schema from a member, including one a user or a plugin operation creates, writes the
+  record event with a deterministic ID dated at the relationship's creation, as the removed hook did. Each derived write's trigger
   is planned the same way, so the summary and history hooks still see it until parts 3 and 4 replace them.
 - **Removed:** the three media membership hooks, the fitness one, their scripts, and the nested event workflow.
 
