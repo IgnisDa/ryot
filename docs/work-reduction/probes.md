@@ -708,5 +708,7 @@ column would be read the same way. Removed from the database afterwards.
 
 The kernel suite on the VM (`kernel2`) passed 3,019 of 3,020. The failure was this backup test, at 558,608,384 bytes
 against a 536,870,912 limit. It does not reach the changed RyotQL code, and the index is in Postgres, not the
-measured process. Alone on the VM: current code failed 1 of 4, code from before the changes failed 0 of 4.
+measured process. Alone on the VM, alternating: code from before the changes failed 3 of 12, current code 4 of 12,
+with readings on both sides of the limit up to about 590 MB. It is flaky at this limit on both, so it is not caused
+by these changes.
 
