@@ -1,6 +1,6 @@
 # Design note: indexed dates for upcoming and the calendar
 
-Status: for the owner's decision. Numbers are in `probes.md`, runs `a2`–`a6`.
+Status: agreed with the owner and built. Numbers are in `probes.md`, runs `a2`–`a9`.
 
 ## The problem
 
@@ -20,8 +20,9 @@ Three separate causes, each needing its own fix:
 
 **A. A declared, indexed date on entities.**
 - An entity schema can name one of its date properties, such as `occursAtProperty: "publishDate"`.
-- The kernel copies the value to a new `entity.occurs_at` column in the same write, indexed on
-  `(entity_schema_slug, occurs_at)`, and RyotQL exposes it like any physical column.
+- A trigger copies the value to a new `entity.occurs_at` column in the same write, indexed on
+  `(entity_schema_slug, occurs_at)`, and RyotQL exposes it like any physical column. A trigger, because backup
+  restores and one-time migrations write entities without going through the services.
 - A plugin revision that changes the declaration backfills that schema's rows.
 - The kernel learns nothing about any plugin. Other plugins can declare dates too.
 
@@ -29,9 +30,10 @@ Three separate causes, each needing its own fix:
 the statement runs with the written join order, set in its own transaction next to `jit`. Only those statements
 change.
 
-**C. `upcoming` starts from the window.** The show and podcast sources become one query over the window's episodes,
-joined up to the followed title, with `map` grouping rows into titles, `total` and `occurrences`. It reads at most a
-fixed number of episodes per rail, so `total` could undercount past that cap.
+**C. `upcoming` starts from the window.** The show and podcast sources become two queries over the window's
+episodes, joined up to the followed title. A rows query reads at most 100 episodes soonest first, RyotQL's limit,
+and `map` groups them into titles and `occurrences`. A grouped aggregate counts `total`, exact for up to 1,000
+titles. A title first reached past 100 episodes is dropped, which leaves the rail's soonest titles intact.
 
 ## Alternatives rejected
 
@@ -45,7 +47,7 @@ fixed number of episodes per rail, so `total` could undercount past that cap.
 ## What this does not cover
 
 - Anime airings are an array in one property, so they stay as they are. They take 49 ms today.
-- The fixed cap in C and the backfill time on a large catalog are unmeasured until built. 664,155 rows have a
-  publish date, and updating them rewrites their index entries, including the GIN index on `properties`.
+- The backfill runs inside the activating transaction: 94 s for the whole migration on 664,155 dated rows. It runs
+  only when a revision adds the declaration.
 - With B, a wide window on a small library visits the whole window first, so it could be slower than starting from
   the library. Upcoming and the calendar use windows of at most about a month.

@@ -457,4 +457,7 @@
   every list sort is under 1 s, which drops step 3. `a4` looked good only because the dump has aged: its week held 10
   episodes. On the dump's date and in a busy week, `upcoming` still fails at 30 s and takes the page with it. The
   prototype in `probes.md` shows an index alone does not fix this, and `design-indexed-date.md` proposes the rest.
+- Step 5 landed as `design-indexed-date.md` describes. Upcoming and the show calendar now take under 200 ms alone on
+  all three dates, and the whole page 0.7–2.0 s with no failed reads or kills. RyotQL's 100-row limit shaped the
+  `upcoming` rewrite: a rows query for tiles and a grouped count for `total`.
 

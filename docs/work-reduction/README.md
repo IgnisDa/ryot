@@ -56,7 +56,7 @@ it, but systemd's default `OOMPolicy=stop` would stop the whole run on that kill
 
 - [`redesign.md`](redesign.md): the current proposal, built on the `probes11` decomposition.
 - [`order-of-work.md`](order-of-work.md): the agreed sequence and what is done.
-- [`design-indexed-date.md`](design-indexed-date.md): indexed dates for upcoming and the calendar, for decision.
+- [`design-indexed-date.md`](design-indexed-date.md): indexed dates for upcoming and the calendar.
 - [`strategy.md`](strategy.md): the first diagnosis, target design and slices.
 - [`probes.md`](probes.md): per-flow measurements and the backend CPU profile.
 - [`durability-requirements.md`](durability-requirements.md): guarantees the product tests.

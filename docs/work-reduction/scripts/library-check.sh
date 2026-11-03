@@ -2,6 +2,7 @@
 # Real-library reads, on the owner's machine only: dumps hold real user data and stay local.
 # A dump ages: set LIBRARY_CHECK_TODAY=YYYY-MM-DD to the dump's date, or date windows hold almost no rows.
 #   library-check.sh setup DUMP        Restore DUMP into disposable containers and migrate it.
+#   library-check.sh update            Rebuild the current code and migrate the restored dump, timed.
 #   library-check.sh serve             Start the server and wait for stored summaries to settle.
 #   library-check.sh run ID [ROUNDS] [PAGES]
 #                                      ROUNDS and PAGES are comma lists of jit modes: on, off or
@@ -34,6 +35,18 @@ wait_for_postgres() {
 
 load_env() { set -a; . "$state/env.sh"; set +a; }
 
+migrate_current() {
+	cd "$root"
+	bun turbo build --filter=@ryot-app/media-plugin --filter=@ryot-app/kernel-client --filter=@ryot-app/fitness-plugin \
+		--filter=@ryot-app/fixture-plugin --filter=@ryot-app/sandbox 2>&1 | tail -1
+	(cd apps/server && bun --no-env-file run assemble 2>&1 | tail -1)
+	bun turbo --filter=@ryot-app/kernel-backend --filter=@ryot-app/kernel-renderers build 2>&1 | tail -1
+	load_env
+	started=$(date +%s)
+	(cd apps/server && RUN_MIGRATION_ONLY=true bun --no-env-file run src/main.ts > "$state/migration.log" 2>&1)
+	echo "migration exit $? in $(($(date +%s) - started)) s"
+}
+
 case "${1:-}" in
 setup)
 	dump="$2"
@@ -60,14 +73,12 @@ FILE_STORAGE_S3_URL=http://127.0.0.1:59000
 FILE_STORAGE_S3_ACCESS_KEY_ID=rustfsadmin
 FILE_STORAGE_S3_SECRET_ACCESS_KEY=rustfsadmin
 ENV
-	cd "$root"
-	bun turbo build --filter=@ryot-app/media-plugin --filter=@ryot-app/kernel-client --filter=@ryot-app/fitness-plugin \
-		--filter=@ryot-app/fixture-plugin --filter=@ryot-app/sandbox 2>&1 | tail -1
-	(cd apps/server && bun --no-env-file run assemble 2>&1 | tail -1)
-	bun turbo --filter=@ryot-app/kernel-backend --filter=@ryot-app/kernel-renderers build 2>&1 | tail -1
-	load_env
-	(cd apps/server && RUN_MIGRATION_ONLY=true bun --no-env-file run src/main.ts > "$state/migration.log" 2>&1)
-	echo "migration exit $?"
+	migrate_current
+	;;
+update)
+	docker start wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null
+	wait_for_postgres
+	migrate_current
 	;;
 serve)
 	docker start wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null
@@ -128,5 +139,5 @@ destroy)
 	docker volume rm wr-legacy-pg-data wr-legacy-s3-data >/dev/null 2>&1
 	rm -rf "$state"
 	;;
-*) sed -n 2,12p "$0"; exit 64 ;;
+*) sed -n 2,13p "$0"; exit 64 ;;
 esac

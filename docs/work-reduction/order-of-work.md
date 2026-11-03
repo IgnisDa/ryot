@@ -1,8 +1,7 @@
 # Order of work
 
-Status: agreed with the owner. Steps 0–2 are done; step 5 waits on the owner's decision on
-[`design-indexed-date.md`](design-indexed-date.md). It replaces the ordering in [`redesign.md`](redesign.md),
-whose direction and evidence still apply.
+Status: agreed with the owner. Phase A is built, with steps 0, 1, 2 and 5 done, step 3 dropped, and steps 4 and 6
+open as noted. It replaces the ordering in [`redesign.md`](redesign.md), whose direction and evidence still apply.
 
 Each step lands on its own, with `[reduce-work]` commits, and has to meet its check before the next starts.
 "Library check" means the reads in step 0 on `tmp/file2.sql`, run with `LIBRARY_CHECK_TODAY` at the dump's date and
@@ -30,7 +29,9 @@ These fix what real users hit now, and do not depend on the write redesign.
 | **5. Indexed dates** | Upcoming and calendar start from an indexed date, not by parsing every episode | `a5`, `a6`: `upcoming` fails at 30 s; prototype in `probes.md` | Each under 500 ms on both dates |
 | **6. Memory and background load** | Trace the background query that slows reads, then bound concurrent reads if still needed | `upcoming`: 4.5 s alone, 20–28 s beside it | Whole home page under 2 s, no kill at 1 GB under background load |
 
-Step 5 needs a decision first: see [`design-indexed-date.md`](design-indexed-date.md).
+Step 5 is described in [`design-indexed-date.md`](design-indexed-date.md). Its check is met in `a7`–`a9`. So is
+step 6's whole-page check, without tracing the background query, so that trace and any read limit wait until a
+read needs them. Step 4 would only serve flat rails at about 140 ms against 100 ms.
 
 **Phase check:** the whole suite still passes, because tiny libraries do not exercise these paths. This phase is
 not expected to shorten it much.

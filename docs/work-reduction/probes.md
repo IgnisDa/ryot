@@ -712,3 +712,30 @@ measured process. Alone on the VM, alternating: code from before the changes fai
 with readings on both sides of the limit up to about 590 MB. It is flaky at this limit on both, so it is not caused
 by these changes.
 
+## Runs `a7`–`a9` (library check with indexed dates, laptop)
+
+Uncontended, same dump and 1 GB limit. `a7` uses the dump's date, `a8` a busy week and `a9` today. Times in ms,
+median of 3 rounds; a whole-page load runs its reads at once, so a read takes longer there.
+
+| Read | Target | Before, `a5` / `a6` | `a7` dump date | `a8` busy week | `a9` today |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `upcoming` | 500 | fails at 30 s | 100 | 189 | 75 |
+| Show calendar | 500 | 3,295 / 3,262 | 30 | 178 | 22 |
+| Releases calendar | 500 | 172 / 196 | 314 | 343 | 355 |
+| `continue-show` | 1,000 | 1,063 / 1,005 | 188 | 1,077 | 1,180 |
+| All Shows, default | 1,000 | 791 / 780 | 268 | 827 | 866 |
+| `continue-flat` | 100 | 135 / 138 | 198 | 139 | 144 |
+| Reads that failed, of 192 | 0 | 1 / 1 | 0 | 0 | 0 |
+| Whole page | 2,000 | fails at 30 s | 731–833 | 1,435–1,707 | 1,440–1,972 |
+| Backends killed | 0 | 0 / 0 | 0 | 0 | 0 |
+| Peak Postgres memory | | 870 / 826 MiB | 816 MiB | 824 MiB | 877 MiB |
+
+- `upcoming` reads up to 100 episodes per source and counts `total` with a grouped aggregate, which stays exact for
+  up to 1,000 titles. During a page load it takes 401–726 ms.
+- **Unexplained:** `continue-show` and All Shows are about 5 times faster soon after `ANALYZE` (`a7`, and also an
+  earlier run in the same order) than a few minutes later. The cause is not traced; a plan change is likely.
+- `continue-show` slightly misses its 1 s target in two of three runs, and flat rails miss 100 ms. Both are unchanged
+  by this work, and step 4 is the candidate for the flat rails.
+- The backfill for the 664,155 dated rows ran inside plugin activation. The whole migration took 94 s, every dated
+  row was filled, and no value disagreed with its property.
+
