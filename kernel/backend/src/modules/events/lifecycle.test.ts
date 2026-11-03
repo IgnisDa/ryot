@@ -1015,6 +1015,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const currentPlanner = yield* LifecyclePlanner;
 					const failingService = yield* EventsService.make.pipe(
+					Effect.provideServiceEffect(EventMutations, EventMutations.make),
 						Effect.provideService(LifecyclePlanner, {
 							...currentPlanner,
 						plan: (input) => failChanges(input.trigger, currentPlanner.plan(input)),
@@ -1331,6 +1332,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const rejectedId = EventId.make("prepared-rejected");
 					yield* seed(rejectedId);
 					const rejectingService = yield* EventsService.make.pipe(
+					Effect.provideServiceEffect(EventMutations, EventMutations.make),
 						Effect.provideService(
 							LifecyclePlanner,
 							withLifecycleBatchPlanning({
@@ -1394,6 +1396,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						);
 					}
 					const racingService = yield* EventsService.make.pipe(
+					Effect.provideServiceEffect(EventMutations, EventMutations.make),
 						Effect.provideService(
 							LifecyclePlanner,
 							withLifecycleBatchPlanning({
@@ -1688,6 +1691,7 @@ describe("Event lifecycle PostgreSQL", () => {
 									}),
 					});
 					const events = yield* EventsService.make.pipe(
+						Effect.provideServiceEffect(EventMutations, EventMutations.make),
 						Effect.provideService(WorkflowEngine, recordingEngine),
 						Effect.provideService(LifecycleExecution, gatedExecution),
 					);
@@ -1830,6 +1834,37 @@ describe("Event lifecycle PostgreSQL", () => {
 			testTimeout,
 		);
 	});
+
+	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))(
+		"direct HTTP event harness",
+		(test) => {
+			test.effect(
+				"creates a no-policy HTTP event in one transaction and replays its receipt",
+				() => Effect.gen(function* () {
+					const service = yield* EventsService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("direct-http-create");
+					const input = {
+						userId,
+						payload: [{ entityId, eventSchemaSlug, properties: { rating: 4 } }],
+					};
+					const created = yield* service.createHttp(input, lifecycle);
+					assert("count" in created);
+					expect(created).toMatchObject({ count: 1, failure: null });
+					expect(yield* service.createHttp(input, lifecycle)).toEqual(created);
+					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
+					expect(
+						yield* session.run((db) =>
+							db.select({ commandKind: tables.mutationReceipt.commandKind })
+								.from(tables.mutationReceipt)
+								.where(eq(tables.mutationReceipt.commandKind, "event:create-operation")),
+						),
+					).toHaveLength(1);
+				}),
+				testTimeout,
+			);
+		},
+	);
 
 	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))(
 		"event lifecycle harness",

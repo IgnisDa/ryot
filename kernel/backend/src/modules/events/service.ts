@@ -88,6 +88,7 @@ import {
 import { toWorkflowRunResult } from "#platform/workflow/result";
 
 import { enqueueEventCreate, EventCreateWorkflow } from "./event-create-workflow";
+import { makeDirectEventCreate } from "./event-create-workflow-live";
 import {
 	capturedEventReferences,
 	resolveEventCreateItemScopes,
@@ -103,6 +104,7 @@ import {
 	EventMutationReceiptResult,
 	eventReceiptError,
 } from "./mutation-receipts";
+import { EventMutations } from "./mutations";
 import {
 	type EventIdentityInput,
 	EventsRepository,
@@ -460,6 +462,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				lock = true,
 			) => findReceipt(input, command, mutation, lock).pipe(Effect.mapError(eventReceiptError));
 			const execution = yield* LifecycleExecution;
+			const createDirect = yield* makeDirectEventCreate;
 			const verifyCreateBatchInput = (
 				input: { userId: UserId; payload: ReadonlyArray<CreateEventItem> },
 				command: DomainLifecycleCommand,
@@ -550,6 +553,10 @@ export class EventsService extends Context.Service<EventsService>()(
 					return { count: 0, outcomes: [], warnings: [], failure: null };
 				}
 				yield* verifyCreateBatchInput(input, command);
+				const direct = yield* createDirect({ ...input, command });
+				if (Option.isSome(direct)) {
+					return direct.value;
+				}
 				const started = yield* Clock.currentTimeMillis;
 				const job = { itemCount: input.payload.length, executionId: command.causation.executionId };
 				yield* dispatchAdmittedWorkflow(engine, EventCreateWorkflow, command.accountGeneration, {
@@ -2047,5 +2054,5 @@ export class EventsService extends Context.Service<EventsService>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(EventMutations.layer));
 }

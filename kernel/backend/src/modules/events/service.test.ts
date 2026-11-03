@@ -56,7 +56,7 @@ const serviceLayer = EventsService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			Layer.mock(EventsRepository)({
-				getCreateProgress: () => Effect.succeed({ writtenCount: 1, requiredPending: true }),
+				getCreateProgress: () => Effect.succeed({ writtenCount: 51, requiredPending: true }),
 			}),
 			Layer.mock(EntitiesRepository)({}),
 			Layer.mock(DomainWriteChecks)({}),
@@ -110,7 +110,7 @@ layer(serviceLayer)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"ends the HTTP wait after one command budget without abandoning a committed event",
+		"ends the HTTP wait for a multi-chunk create after one command budget without abandoning committed events",
 		() =>
 			Effect.gen(function* () {
 				const command = {
@@ -130,13 +130,11 @@ layer(serviceLayer)((test) => {
 					.createHttp(
 						{
 							userId,
-							payload: [
-								{
-									properties: {},
-									entityId: EntityId.make("entity"),
-									eventSchemaSlug: EventSchemaSlug.make("rating"),
-								},
-							],
+							payload: Array.from({ length: 51 }, () => ({
+								properties: {},
+								entityId: EntityId.make("entity"),
+								eventSchemaSlug: EventSchemaSlug.make("rating"),
+							})),
 						},
 						command,
 					)
@@ -144,7 +142,7 @@ layer(serviceLayer)((test) => {
 				yield* TestClock.adjust("35 seconds");
 				const response = yield* Fiber.join(waiting);
 				expect(response).toMatchObject({
-					writtenCount: 1,
+					writtenCount: 51,
 					writesPending: false,
 					status: "committed-follow-up-pending",
 				});

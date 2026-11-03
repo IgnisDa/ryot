@@ -480,4 +480,10 @@
   keeps events and relationships free of each other. A `backlog` event is down to one hook run and 662 statements
   (`probesB3`). Dirty-subject work moved into step 10, since history correction is its only consumer and step 10
   reshapes it.
+- `full18` ran the whole suite after step 7: 45 min, 944 passed, 7 failed. One was this work's: the membership rule
+  recorded `add-to-media-library` only for memberships it derived, and now records it for every new membership
+  relationship. The rest were the known liveness and workout editor failures and one load failure.
+- Step 8 started with `design-one-transaction.md`. Its first move sends an HTTP create of up to 50 events that
+  matches no policy through one transaction and no workflow, falling back to `EventCreateWorkflow` otherwise; a
+  no-hook event fell from 137 statements and 2 workflows to 95 and none (`probesB4`).
 

@@ -844,3 +844,20 @@ Whole suite on the VM at `134f5cc25f`, one run, 45 min against `full17`'s 51: 94
   edit, which also fails on the code from before Phase A.
 - **Load:** `client-plugin`'s interstitial passed 3 of 3 reruns.
 
+## Run `probesB4` (direct small HTTP creates)
+
+Flow probes on the VM with step 8's first move: an HTTP create of up to 50 events that matches no policy runs in one
+transaction without a workflow. Medians against `probesB3`.
+
+| Flow | Run | Caller | Statements | DB exec | API CPU | Workflows |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Event, no hooks | `probesB3` | 184 ms | 137 | 36 ms | 150 ms | 2 |
+| | `probesB4` | 121 ms | 95 | 18 ms | 100 ms | 0 |
+| 50 events, no hooks | `probesB3` | 738 ms | 1,561 | 169 ms | 570 ms | 2 |
+| | `probesB4` | 649 ms | 1,614 | 127 ms | 510 ms | 0 |
+| Event, `backlog` | `probesB3` | 451 ms | 662 | 125 ms | 590 ms | 13 |
+| | `probesB4` | 385 ms | 582 | 108 ms | 500 ms | 11 |
+
+The 50-event batch keeps its per-item cost, about 32 statements an item, which move 5 targets. Workouts and the
+review operation create events through sandbox operations, not this path, and are unchanged within noise.
+

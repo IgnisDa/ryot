@@ -9,13 +9,18 @@ import {
 	type EventCreateItemOutcome,
 } from "@ryot-app/contract/modules/events/schemas";
 import { EventId } from "@ryot-app/contract/schema/brands";
-import { Effect, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecycleDispatchPlan, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import { PolicyBatchWorkflow } from "#modules/automations/lifecycle/policy-batch";
+import {
+	planPolicyBatch,
+	type PolicyBatchResult,
+	PolicyBatchWorkflow,
+	unchangedPolicyBatch,
+} from "#modules/automations/lifecycle/policy-batch";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
@@ -35,6 +40,247 @@ const CommittedChunk = Schema.Struct({
 	results: Schema.Array(Schema.Struct({ eventId: EventId, itemIdentity: Schema.String })),
 });
 
+class DirectCreateDeclined extends Schema.TaggedError<
+	DirectCreateDeclined,
+	{ readonly brand: unique symbol }
+>()("DirectCreateDeclined", {}) {}
+
+const operationReceiptOf = (
+	payload: EventCreateWorkflowPayload,
+	batch: ReturnType<typeof eventCreateBatchInput>,
+) =>
+	mutationReceiptIdentity({
+		input: batch.commandInput,
+		ownerUserId: payload.userId,
+		scopeUserId: payload.userId,
+		commandKind: "event:create-operation",
+		command: { ...payload.command, itemIdentity: `${payload.command.itemIdentity}:operation` },
+	});
+
+const chunkOf = (payload: EventCreateWorkflowPayload, first: number) => {
+	const changes = payload.payload
+		.slice(first, first + chunkSize)
+		.map((item, offset) => ({
+			item,
+			kind: "create" as const,
+			itemIdentity: payload.itemIdentities?.[first + offset] ?? `event:${first + offset}`,
+		}));
+	const indexOf = (itemIdentity: string) =>
+		first + changes.findIndex((item) => item.itemIdentity === itemIdentity);
+	return { changes, indexOf };
+};
+
+const prepareChunk = (
+	mutations: EventMutations["Service"],
+	payload: EventCreateWorkflowPayload,
+	first: number,
+) => {
+	const { changes, indexOf } = chunkOf(payload, first);
+	return mutations
+		.prepare({
+			changes,
+			independent: true,
+			positionOffset: first,
+			userId: payload.userId,
+			command: payload.writeCommand ?? payload.command,
+		})
+		.pipe(
+			Effect.map((prepared) => ({
+				...prepared,
+				items: prepared.items.map((item) => ({
+					...item,
+					receipt:
+						item.change.kind === "create"
+							? eventCreateReceiptIdentity(
+									payload,
+									indexOf(item.change.itemIdentity),
+									item.change.item,
+								)
+							: item.receipt,
+				})),
+			})),
+		);
+};
+
+const policyBatchOf = (
+	payload: EventCreateWorkflowPayload,
+	prepared: PreparedEventChanges,
+	first: number,
+	subjects: ReadonlyMap<string, ReadonlyArray<AutomationHookIdentity>>,
+) => ({
+	userId: payload.userId,
+	resource: "event" as const,
+	references: prepared.references,
+	propertiesSchemas: prepared.propertiesSchemas,
+	command: {
+		...payload.command,
+		itemIdentity: `${payload.command.itemIdentity}:policies:${first}`,
+	},
+	items: prepared.items.map((item) => ({
+		itemIdentity: item.change.itemIdentity,
+		schemaKey: item.schemaFingerprint.digest,
+		request: {
+			draft: item.draft,
+			resource: "event" as const,
+			category: "request" as const,
+			operation: "create" as const,
+			excludedOncePerSubjectPolicies: [...(subjects.get(item.draft.entityId) ?? [])],
+		},
+	})),
+});
+
+const policyOutcomes = (
+	validated: PolicyBatchResult,
+	indexOf: (itemIdentity: string) => number,
+) => {
+	const outcomes: EventCreateItemOutcome[] = [];
+	for (const item of validated.items) {
+		if (item.rejected !== null) {
+			outcomes.push({
+				reason: item.rejected,
+				status: "skipped_by_policy",
+				index: indexOf(item.itemIdentity),
+			});
+		}
+		if (item.error !== null) {
+			const reason: EventCreateFailureReason =
+				item.error.code === "reference-not-found" && item.error.entityId !== undefined
+					? { entityId: item.error.entityId, code: "session-entity-not-found" }
+					: { code: "invalid-properties" };
+			outcomes.push({ reason, status: "failed", index: indexOf(item.itemIdentity) });
+		}
+	}
+	const accepted = new Set(
+		validated.items
+			.filter((item) => item.rejected === null && item.error === null)
+			.map((item) => item.itemIdentity),
+	);
+	return { outcomes, accepted };
+};
+
+const persistChunk = (
+	mutations: EventMutations["Service"],
+	payload: EventCreateWorkflowPayload,
+	input: {
+		first: number;
+		validated: PolicyBatchResult;
+		accepted: ReadonlySet<string>;
+		prepared: PreparedEventChanges;
+		batch: ReturnType<typeof eventCreateBatchInput>;
+	},
+) =>
+	mutations.persist({
+		sealBatch: false,
+		batch: input.batch,
+		userId: payload.userId,
+		validated: input.validated,
+		batchIndexOffset: input.first,
+		command: payload.writeCommand ?? payload.command,
+		prepared: {
+			...input.prepared,
+			items: input.prepared.items.filter((item) => input.accepted.has(item.change.itemIdentity)),
+		},
+	});
+
+const writtenOutcomes = (
+	committed: typeof CommittedChunk.Type,
+	indexOf: (itemIdentity: string) => number,
+): EventCreateItemOutcome[] =>
+	committed.results.map((result) => ({
+		status: "written",
+		eventId: result.eventId,
+		index: indexOf(result.itemIdentity),
+	}));
+
+const createResult = (
+	outcomes: ReadonlyArray<EventCreateItemOutcome>,
+	warnings: ReadonlyArray<AutomationWarning>,
+) => {
+	const sorted = [...outcomes].sort((left, right) => left.index - right.index);
+	const failed = sorted.find((outcome) => outcome.status === "failed");
+	return {
+		warnings,
+		outcomes: sorted,
+		count: sorted.filter((outcome) => outcome.status === "written").length,
+		failure: failed ? { index: failed.index, reason: failed.reason } : null,
+	};
+};
+
+/**
+ * Creates up to one chunk of events in one transaction when no policy matches, returning none when the create
+ * needs `EventCreateWorkflow`; nothing it wrote survives a decline.
+ */
+export const makeDirectEventCreate = Effect.gen(function* () {
+	const receipts = yield* MutationReceipts.make;
+	const execution = yield* LifecycleExecution;
+	const mutations = yield* EventMutations;
+	const planner = yield* LifecyclePlanner;
+	return Effect.fn("EventCreate.direct")(function* (payload: EventCreateWorkflowPayload) {
+		if (payload.payload.length > chunkSize) {
+			return Option.none();
+		}
+		const batch = eventCreateBatchInput(payload);
+		const identity = operationReceiptOf(payload, batch);
+		const written = yield* mutations
+			.transaction(
+				Effect.gen(function* () {
+					const replay = yield* receipts.peek(identity, CreateEventsResponse);
+					if (replay) {
+						return { replayed: true, result: replay.result, dispatch: replay.dispatch };
+					}
+					yield* planner.prepareBatch({ ...batch, scopes: [payload.userId] });
+					const { indexOf } = chunkOf(payload, 0);
+					const prepared = yield* prepareChunk(mutations, payload, 0);
+					const policies = policyBatchOf(payload, prepared, 0, new Map());
+					const plan = yield* planPolicyBatch(policies).pipe(
+						Effect.provideService(LifecyclePlanner, planner),
+					);
+					if (plan.trigger !== null) {
+						return yield* new DirectCreateDeclined();
+					}
+					const validated = unchangedPolicyBatch(policies, null);
+					const { accepted } = policyOutcomes(validated, indexOf);
+					const committed =
+						accepted.size === 0
+							? { results: [], dispatch: [] }
+							: yield* persistChunk(mutations, payload, {
+									batch,
+									prepared,
+									accepted,
+									first: 0,
+									validated,
+								});
+					const dispatch = [...committed.dispatch, ...(yield* planner.planBatch(batch))];
+					const result = createResult(
+						[
+							...prepared.failures.map(({ reason, itemIdentity }) => ({
+								reason,
+								status: "failed" as const,
+								index: indexOf(itemIdentity),
+							})),
+							...writtenOutcomes(committed, indexOf),
+						],
+						[],
+					);
+					yield* receipts.insert({ result, dispatch, identity });
+					return { result, dispatch, replayed: false };
+				}),
+			)
+			.pipe(Effect.orElseSucceed(() => null));
+		if (written === null) {
+			return Option.none();
+		}
+		const warnings = yield* execution
+			.dispatch(written.dispatch)
+			.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
+		return Option.some(
+			written.replayed
+				? written.result
+				: { ...written.result, warnings: [...written.result.warnings, ...warnings] },
+		);
+	});
+});
+
 export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function* (
 	payload: EventCreateWorkflowPayload,
 	executionId: string,
@@ -47,13 +293,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	const session = yield* DatabaseSession;
 	const planner = yield* LifecyclePlanner;
 	const batch = eventCreateBatchInput(payload);
-	const operationReceipt = mutationReceiptIdentity({
-		input: batch.commandInput,
-		ownerUserId: payload.userId,
-		scopeUserId: payload.userId,
-		commandKind: "event:create-operation",
-		command: { ...payload.command, itemIdentity: `${payload.command.itemIdentity}:operation` },
-	});
+	const operationReceipt = operationReceiptOf(payload, batch);
 	const replay = yield* receipts
 		.peek(operationReceipt, CreateEventsResponse)
 		.pipe(
@@ -98,83 +338,28 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	const warnings: AutomationWarning[] = [];
 	const dispatch: Array<LifecycleDispatchPlan> = [];
 	const subjects = new Map<string, AutomationHookIdentity[]>();
-	let count = 0;
 	for (let first = 0; first < payload.payload.length; first += chunkSize) {
-		const writeCommand = payload.writeCommand ?? payload.command;
-		const changes = payload.payload
-			.slice(first, first + chunkSize)
-			.map((item, offset) => ({
-				item,
-				kind: "create" as const,
-				itemIdentity: payload.itemIdentities?.[first + offset] ?? `event:${first + offset}`,
-			}));
-		const indexOf = (itemIdentity: string) =>
-			first + changes.findIndex((item) => item.itemIdentity === itemIdentity);
+		const { changes, indexOf } = chunkOf(payload, first);
 		yield* Effect.gen(function* () {
 			const prepared = yield* makeActivity({
 				success: PreparedEventChanges,
 				name: `prepare-events-${first}`,
 				error: EventCreateWorkflowError,
-				execute: session
-					.transaction(
-						mutations
-							.prepare({
-								changes,
-								independent: true,
-								positionOffset: first,
-								command: writeCommand,
-								userId: payload.userId,
-							})
-							.pipe(
-								Effect.map((batchPrepared) => ({
-									...batchPrepared,
-									items: batchPrepared.items.map((item) => ({
-										...item,
-										receipt:
-											item.change.kind === "create"
-												? eventCreateReceiptIdentity(
-														payload,
-														indexOf(item.change.itemIdentity),
-														item.change.item,
-													)
-												: item.receipt,
-									})),
-								})),
-							),
-					)
-					.pipe(
-						Effect.catchTag("DatabaseSessionStateError", Effect.die),
-						Effect.catchIf(
-							(error) => error._tag !== "DbError" && error._tag !== "EventCreateItemError",
-							() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
-						),
+				execute: session.transaction(prepareChunk(mutations, payload, first)).pipe(
+					Effect.catchTag("DatabaseSessionStateError", Effect.die),
+					Effect.catchIf(
+						(error) => error._tag !== "DbError" && error._tag !== "EventCreateItemError",
+						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 					),
+				),
 			});
 			for (const failed of prepared.failures) {
 				const index = indexOf(failed.itemIdentity);
 				outcomes.push({ index, status: "failed", reason: failed.reason });
 			}
-			const validated = yield* PolicyBatchWorkflow.execute({
-				resource: "event",
-				userId: payload.userId,
-				references: prepared.references,
-				propertiesSchemas: prepared.propertiesSchemas,
-				command: {
-					...payload.command,
-					itemIdentity: `${payload.command.itemIdentity}:policies:${first}`,
-				},
-				items: prepared.items.map((item) => ({
-					itemIdentity: item.change.itemIdentity,
-					schemaKey: item.schemaFingerprint.digest,
-					request: {
-						draft: item.draft,
-						resource: "event" as const,
-						category: "request" as const,
-						operation: "create" as const,
-						excludedOncePerSubjectPolicies: subjects.get(item.draft.entityId) ?? [],
-					},
-				})),
-			}).pipe(
+			const validated = yield* PolicyBatchWorkflow.execute(
+				policyBatchOf(payload, prepared, first, subjects),
+			).pipe(
 				Effect.catchTags({
 					PolicyBatchBlocked: (error) =>
 						new EventCreateItemError({
@@ -192,28 +377,10 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 				}
 				const subject = item.request.draft.entityId;
 				subjects.set(subject, [...(subjects.get(subject) ?? []), ...item.processed]);
-				if (item.rejected !== null) {
-					outcomes.push({
-						reason: item.rejected,
-						status: "skipped_by_policy",
-						index: indexOf(item.itemIdentity),
-					});
-				}
-				if (item.error !== null) {
-					const reason: EventCreateFailureReason =
-						item.error.code === "reference-not-found" && item.error.entityId !== undefined
-							? { entityId: item.error.entityId, code: "session-entity-not-found" }
-							: { code: "invalid-properties" };
-					const failed = { reason, index: indexOf(item.itemIdentity) };
-					outcomes.push({ ...failed, status: "failed" });
-				}
 			}
-			const accepted = new Set(
-				validated.items
-					.filter((item) => item.rejected === null && item.error === null)
-					.map((item) => item.itemIdentity),
-			);
-			if (accepted.size === 0) {
+			const policy = policyOutcomes(validated, indexOf);
+			outcomes.push(...policy.outcomes);
+			if (policy.accepted.size === 0) {
 				return undefined;
 			}
 			const committed = yield* makeActivity({
@@ -222,17 +389,12 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 				error: EventCreateWorkflowError,
 				execute: mutations
 					.transaction(
-						mutations.persist({
+						persistChunk(mutations, payload, {
 							batch,
+							first,
+							prepared,
 							validated,
-							sealBatch: false,
-							command: writeCommand,
-							userId: payload.userId,
-							batchIndexOffset: first,
-							prepared: {
-								...prepared,
-								items: prepared.items.filter((item) => accepted.has(item.change.itemIdentity)),
-							},
+							accepted: policy.accepted,
 						}),
 					)
 					.pipe(
@@ -251,14 +413,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 						),
 					),
 			});
-			for (const result of committed.results) {
-				outcomes.push({
-					status: "written",
-					eventId: result.eventId,
-					index: indexOf(result.itemIdentity),
-				});
-				count += 1;
-			}
+			outcomes.push(...writtenOutcomes(committed, indexOf));
 			warnings.push(
 				...(yield* execution
 					.dispatch(committed.dispatch)
@@ -294,14 +449,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 			.dispatch(batchDispatch)
 			.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))),
 	);
-	outcomes.sort((left, right) => left.index - right.index);
-	const failed = outcomes.find((outcome) => outcome.status === "failed");
-	const result = {
-		count,
-		outcomes,
-		warnings,
-		failure: failed ? { index: failed.index, reason: failed.reason } : null,
-	};
+	const result = createResult(outcomes, warnings);
 	yield* makeActivity({
 		success: Schema.Void,
 		name: "record-event-operation",

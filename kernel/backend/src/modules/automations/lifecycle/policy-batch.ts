@@ -78,10 +78,45 @@ const Plan = Schema.Struct({
 	policies: Schema.Array(LifecyclePlannedPolicy),
 });
 
+/** Plans a batch's policies on the caller's transaction; a null trigger means none matched. */
+export const planPolicyBatch = Effect.fn("planPolicyBatch")(function* (
+	input: typeof PolicyBatchPayload.Type,
+) {
+	if (input.items.length === 0) {
+		return { runs: [], policies: [], trigger: null };
+	}
+	const planned = yield* (yield* LifecyclePlanner).plan({
+		trigger: yield* lifecycleTrigger(input.command, input.userId, {
+			operation: "batch",
+			category: "request",
+			resource: input.resource,
+			references: input.references,
+			items: input.items.map((item) => item.request),
+			itemIdentities: input.items.map((item) => item.itemIdentity),
+		}),
+	});
+	return { runs: planned.runs, trigger: planned.trigger, policies: planned.policies };
+});
+
+/** The result of a batch no policy has changed. */
+export const unchangedPolicyBatch = (
+	input: typeof PolicyBatchPayload.Type,
+	triggerId: null | AutomationTrigger["id"],
+): PolicyBatchResult => ({
+	triggerId,
+	references: input.references,
+	items: input.items.map((item) => ({
+		...item,
+		patches: [],
+		error: null,
+		processed: [],
+		rejected: null,
+	})),
+});
+
 export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function* (
 	input: typeof PolicyBatchPayload.Type,
 ) {
-	const planner = yield* LifecyclePlanner;
 	const execution = yield* LifecycleExecution;
 	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesRepository;
@@ -90,24 +125,7 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 		success: Plan,
 		error: Failure,
 		execute: session
-			.transaction(
-				Effect.gen(function* () {
-					if (input.items.length === 0) {
-						return { runs: [], policies: [], trigger: null };
-					}
-					const planned = yield* planner.plan({
-						trigger: yield* lifecycleTrigger(input.command, input.userId, {
-							operation: "batch",
-							category: "request",
-							resource: input.resource,
-							references: input.references,
-							items: input.items.map((item) => item.request),
-							itemIdentities: input.items.map((item) => item.itemIdentity),
-						}),
-					});
-					return { runs: planned.runs, trigger: planned.trigger, policies: planned.policies };
-				}),
-			)
+			.transaction(planPolicyBatch(input))
 			.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 	});
 	if (plan.trigger?.blockedReason) {
@@ -126,17 +144,7 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 			),
 		);
 	}
-	let result: PolicyBatchResult = {
-		references: input.references,
-		triggerId: plan.trigger?.id ?? null,
-		items: input.items.map((item) => ({
-			...item,
-			patches: [],
-			error: null,
-			processed: [],
-			rejected: null,
-		})),
-	};
+	let result = unchangedPolicyBatch(input, plan.trigger?.id ?? null);
 	const propertiesSchemaOf = (item: typeof PolicyBatchItem.Type) => {
 		const schema = input.propertiesSchemas[item.schemaKey];
 		return schema === undefined
