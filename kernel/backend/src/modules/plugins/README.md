@@ -66,6 +66,11 @@ Quarantine and ordinary revision changes preserve it. Explicit recovery of a com
 does not reseed it; incomplete recovery uses a fresh private activation token and the existing
 installation workflow. Guarded lifecycle completion sets readiness and initialization together.
 
+A bootstrap entry that declares entities runs no script. Signup and the installation workflow hand it to
+the `PluginBootstrapEntities` port, which boot binds to the entity service. It ensures the entities with
+kernel authority, under a receipt keyed by the installation and entry, dated at the installation's
+creation so a retry replays the same command.
+
 ## System plugin synchronization
 
 `PluginIngestionService` owns system plugin ingestion and environment configuration

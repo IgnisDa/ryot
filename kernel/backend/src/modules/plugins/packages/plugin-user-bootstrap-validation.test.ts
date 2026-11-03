@@ -97,3 +97,45 @@ it.effect(
 	},
 	testTimeout,
 );
+
+const withEntities = (
+	...entries: ReadonlyArray<ReadonlyArray<{ name: string; properties: Record<string, string> }>>
+) => ({
+	...fixtureManifest(),
+	userBootstrap: entries.map((entities, index) => ({
+		slug: `seed-${index}`,
+		description: "Seed fixture entities",
+		entities: entities.map((entity) => ({ ...entity, entitySchemaSlug: "fixture-entity" })),
+	})),
+});
+
+it.effect(
+	"accepts declared bootstrap entities and rejects unknown, invalid, or repeated schemas",
+	() => {
+		const valid = withEntities([{ name: "Fixture", properties: { kind: "one" } }]);
+		const rejected = [
+			{
+				...valid,
+				userBootstrap: [
+					{
+						slug: "seed",
+						description: "Unknown schema",
+						entities: [{ properties: {}, name: "Missing", entitySchemaSlug: "missing" }],
+					},
+				],
+			},
+			withEntities([{ name: "Fixture", properties: { kind: "three" } }]),
+			withEntities([{ name: "First", properties: {} }], [{ name: "Second", properties: {} }]),
+		];
+
+		return Effect.gen(function* () {
+			yield* validatePluginManifestReferences(valid);
+			yield* validatePluginExecutableScripts({ scripts: [], manifest: valid });
+			for (const manifest of rejected) {
+				const exit = yield* Effect.exit(validatePluginManifestReferences(manifest));
+				expect(Exit.isFailure(exit)).toBe(true);
+			}
+		});
+	},
+	testTimeout,
+);

@@ -649,11 +649,26 @@ export const PluginCron = strictStruct({ ...PluginCronFields, scriptSlug: sandbo
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 
-export const PluginUserBootstrap = strictStruct({
-	slug: sandboxManifestSlug,
-	scriptSlug: sandboxManifestSlug,
-	description: sandboxManifestString,
+export const PluginUserBootstrapEntity = strictStruct({
+	name: sandboxManifestString,
+	entitySchemaSlug: sandboxManifestSlug,
+	properties: Schema.Record(Schema.String, JsonValue),
 });
+
+export type PluginUserBootstrapEntity = Schema.Schema.Type<typeof PluginUserBootstrapEntity>;
+
+export const PluginUserBootstrap = Schema.Union([
+	strictStruct({
+		slug: sandboxManifestSlug,
+		scriptSlug: sandboxManifestSlug,
+		description: sandboxManifestString,
+	}),
+	strictStruct({
+		slug: sandboxManifestSlug,
+		description: sandboxManifestString,
+		entities: Schema.Array(PluginUserBootstrapEntity).pipe(Schema.check(Schema.isMinLength(1))),
+	}),
+]);
 
 export type PluginUserBootstrap = Schema.Schema.Type<typeof PluginUserBootstrap>;
 
@@ -1325,7 +1340,9 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	}
 	if (
 		manifest.userBootstrap.some(
-			(entry) => manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
+			(entry) =>
+				"scriptSlug" in entry &&
+				manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script",
 		)
 	) {
 		return false;
@@ -1435,7 +1452,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	}
 
 	const referencedScriptSlugs = [
-		...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
+		...manifest.userBootstrap.flatMap((entry) => ("scriptSlug" in entry ? [entry.scriptSlug] : [])),
 		...manifest.crons.map(({ scriptSlug }) => scriptSlug),
 		...manifest.operations.map(({ scriptSlug }) => scriptSlug),
 		...manifest.workflows.map(({ scriptSlug }) => scriptSlug),

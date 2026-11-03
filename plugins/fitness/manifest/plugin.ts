@@ -72,13 +72,6 @@ export const fitnessPlugin = definePlugin({
 	calendarSources: fitnessCalendarSources(),
 	userSettingsSchema: fitnessUserSettingsSchema,
 	relationshipSchemas: fitnessRelationshipSchemas(),
-	userBootstrap: [
-		{
-			slug: "initialize-workspace",
-			scriptSlug: "bootstrap.fitness-workspace",
-			description: "Initialize the user's fitness workspace",
-		},
-	],
 	metadata: {
 		name: "Fitness",
 		version: "1.0.0",
@@ -94,6 +87,13 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import", scriptSlug: "workflow.import" },
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
+	],
+	userBootstrap: [
+		{
+			slug: "initialize-workspace",
+			description: "Initialize the user's fitness workspace",
+			entities: [{ properties: {}, name: "Fitness Library", entitySchemaSlug: "fitness-library" }],
+		},
 	],
 	providers: [
 		{

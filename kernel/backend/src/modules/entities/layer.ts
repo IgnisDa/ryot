@@ -6,6 +6,7 @@ import { EventsServiceLive } from "#modules/events/layer";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 
+import { PluginBootstrapEntitiesLive } from "./plugin-bootstrap-entities";
 import { EntitiesRepositoryLive } from "./repository";
 import { EntityGraphCollector } from "./retention/collector";
 import { EntityRetentionRepository } from "./retention/repository";
@@ -34,6 +35,10 @@ export const EntitiesServiceRuntimeLive = EntitiesService.layerRuntime.pipe(
 			LifecycleServicesLive,
 		),
 	),
+);
+
+export const PluginBootstrapEntitiesRuntimeLive = PluginBootstrapEntitiesLive.pipe(
+	Layer.provide(EntitiesServiceRuntimeLive),
 );
 
 export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(

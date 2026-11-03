@@ -11,7 +11,6 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
-import { manifest as userBootstrapManifest } from "../backend/bootstrap/user-bootstrap.sandbox";
 import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
 import { manifest as settingsManifest } from "../backend/imports/settings.sandbox";
@@ -305,8 +304,10 @@ it.effect(
 			expect(fitnessPlugin.userBootstrap).toEqual([
 				{
 					slug: "initialize-workspace",
-					scriptSlug: "bootstrap.fitness-workspace",
 					description: "Initialize the user's fitness workspace",
+				entities: [
+					{ properties: {}, name: "Fitness Library", entitySchemaSlug: "fitness-library" },
+				],
 				},
 			]);
 			expect(fitnessPlugin.providers).toEqual([
@@ -382,10 +383,6 @@ it.effect(
 				{ kind: "script", slug: "import.strong-app" },
 				{ kind: "script", slug: "import.settings" },
 			]);
-			expect(userBootstrapManifest).toMatchObject({
-				kind: "script",
-				slug: "bootstrap.fitness-workspace",
-			});
 			expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
 				{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
 				{ name: "All Workouts", renderer: { kind: "plugin", exportName: "workouts" } },

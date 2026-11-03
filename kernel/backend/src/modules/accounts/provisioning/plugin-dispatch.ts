@@ -1,10 +1,11 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -25,6 +26,7 @@ export const makePluginUserBootstrapDispatcher = (
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
 		const installations = yield* PluginInstallationRepository;
+		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const database = yield* DatabaseSession;
 		const completeInitialization = Effect.fn(
 			"PluginUserBootstrapDispatcher.completeInitialization",
@@ -61,23 +63,69 @@ export const makePluginUserBootstrapDispatcher = (
 				initialization.has(pluginId),
 			);
 
-			for (const entry of entries) {
-				const resolved = yield* runtime.resolveActivePluginUserBootstrap({
-					pluginId: entry.pluginId,
-					bootstrapSlug: entry.bootstrap.slug,
-				});
-				if (!resolved) {
-					return yield* new SandboxRunError({
-						kind: "script-failure",
-						message: `Plugin user bootstrap script not found: ${entry.packageId} ${entry.bootstrap.slug}`,
-					});
+			const markCompleted = (pluginId: string, slug: string) => {
+				const captured = initialization.get(pluginId);
+				if (!captured) {
+					return Effect.void;
 				}
+				captured.completed.add(slug);
+				return captured.completed.size === captured.entries.length
+					? completeInitialization({
+							userId,
+							activationId: captured.activationId,
+							installationId: captured.installationId,
+						})
+					: Effect.void;
+			};
+
+			for (const entry of entries) {
 				const executionId = userBootstrapExecutionId(
 					userId,
 					entry.pluginId,
 					entry.bootstrap.slug,
 					accountGeneration,
 				);
+				const { bootstrap } = entry;
+				if ("entities" in bootstrap) {
+					const captured = initialization.get(entry.pluginId);
+					if (!captured) {
+						continue;
+					}
+					yield* bootstrapEntities
+						.ensure({
+							userId,
+							executionId,
+							accountGeneration,
+							entrySlug: bootstrap.slug,
+							entities: bootstrap.entities,
+							installedAt: captured.installedAt,
+							installationId: captured.installationId,
+							pluginId: PluginId.make(entry.pluginId),
+						})
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({
+										kind: "script-failure",
+										message: `Plugin user bootstrap failed: ${entry.packageId} ${bootstrap.slug}: ${error.message}`,
+									}),
+							),
+						);
+					if (captured.entries.some(({ slug }) => slug === bootstrap.slug)) {
+						yield* markCompleted(entry.pluginId, bootstrap.slug);
+					}
+					continue;
+				}
+				const resolved = yield* runtime.resolveActivePluginUserBootstrap({
+					pluginId: entry.pluginId,
+					bootstrapSlug: bootstrap.slug,
+				});
+				if (!resolved) {
+					return yield* new SandboxRunError({
+						kind: "script-failure",
+						message: `Plugin user bootstrap script not found: ${entry.packageId} ${bootstrap.slug}`,
+					});
+				}
 				const result = yield* execute({
 					context: {},
 					executionId,
@@ -98,21 +146,17 @@ export const makePluginUserBootstrapDispatcher = (
 						message: `Plugin user bootstrap failed: ${entry.packageId} ${entry.bootstrap.slug}: ${result.error.message}`,
 					});
 				}
-				const captured = initialization.get(entry.pluginId);
 				if (
-					captured?.entries.some(
-						({ slug, scriptId }) =>
-							slug === entry.bootstrap.slug && scriptId === resolved.script.id,
-					)
+					initialization
+						.get(entry.pluginId)
+						?.entries.some(
+							(captured) =>
+								captured.slug === bootstrap.slug &&
+								"scriptId" in captured &&
+								captured.scriptId === resolved.script.id,
+						)
 				) {
-					captured.completed.add(entry.bootstrap.slug);
-					if (captured.completed.size === captured.entries.length) {
-						yield* completeInitialization({
-							userId,
-							activationId: captured.activationId,
-							installationId: captured.installationId,
-						});
-					}
+					yield* markCompleted(entry.pluginId, bootstrap.slug);
 				}
 			}
 			return yield* Effect.void;

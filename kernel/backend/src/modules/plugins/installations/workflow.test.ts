@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -16,6 +17,7 @@ import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
+import { PluginBootstrapEntities, type PluginBootstrapEntitiesInput } from "./bootstrap-entities";
 import { PluginInstallationRepository } from "./repository";
 import {
 	pluginInstallationBootstrapExecutionId,
@@ -74,14 +76,23 @@ type ScriptPinLookup = {
 
 const bootstrapEntry = (slug: string) => ({ slug, scriptId: SandboxScriptId.make(`${slug}-id`) });
 
-const resolved = (overrides: Partial<NonNullable<ResolvedBootstrap>> = {}) => ({
+const installedAt = new Date(0);
+
+const resolved = (
+	overrides: Partial<NonNullable<ResolvedBootstrap>> = {},
+): NonNullable<ResolvedBootstrap> => ({
 	userId,
+	installedAt,
 	activationId,
-	pluginScope: "user" as const,
-	health: "installing" as const,
+	pluginScope: "user",
+	pluginId: "plugin-1",
+	health: "installing",
 	entries: [bootstrapEntry("first"), bootstrapEntry("second")],
 	...overrides,
 });
+
+const libraryEntity = { properties: {}, name: "Library", entitySchemaSlug: "library" };
+const ensuredEntities: Array<PluginBootstrapEntitiesInput> = [];
 
 class InstallationWorkflowFakeState extends Context.Service<
 	InstallationWorkflowFakeState,
@@ -185,6 +196,12 @@ const workflowLayer = (input: {
 				scriptPinLookups,
 			}) =>
 				Layer.mergeAll(
+					Layer.succeed(PluginBootstrapEntities)({
+						ensure: (ensured) =>
+							Effect.sync(() => void ensuredEntities.push(ensured)).pipe(
+								Effect.andThen(pushOrder(`ensure:${ensured.entrySlug}`)),
+							),
+					}),
 					Layer.mock(PluginRuntimeResolver)({
 						lockCatalog: () => Effect.void,
 						resolveInstallationBootstrap: () => Ref.get(bootstrap),
@@ -420,6 +437,42 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 					{ userId, health: "ready", healthReason: null, id: installationId },
 				]);
 			}),
+		testTimeout,
+	);
+});
+
+layer(
+	workflowLayer({
+		bootstrap: resolved({
+			entries: [{ slug: "library", entities: [libraryEntity] }, bootstrapEntry("first")],
+		}),
+	}),
+)((test) => {
+	test.effect("ensures declared entities as a durable step before later script entries", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeInstallationWorkflow;
+			ensuredEntities.length = 0;
+			yield* runWorkflow;
+			expect(yield* fake.order).toEqual(["ensure:library", "health:ready", "invalidate"]);
+			expect(ensuredEntities).toEqual<unknown>([
+				{
+					userId,
+					installedAt,
+					installationId,
+					entrySlug: "library",
+					pluginId: "plugin-1",
+					entities: [libraryEntity],
+					accountGeneration: objectContaining({ userId }),
+					executionId: pluginInstallationBootstrapExecutionId(
+						installationId,
+						activationId,
+						"library",
+					),
+				},
+			]);
+			expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual<unknown>(["first-id"]);
+			expect((yield* fake.registrations).map(({ scriptId }) => scriptId)).toEqual<unknown>(["first-id"]);
+		}),
 		testTimeout,
 	);
 });

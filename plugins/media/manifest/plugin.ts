@@ -557,8 +557,8 @@ export const mediaPlugin = definePlugin({
 	userBootstrap: [
 		{
 			slug: "initialize-workspace",
-			scriptSlug: "bootstrap.media-workspace",
 			description: "Initialize the user's media workspace",
+			entities: [{ properties: {}, name: "Media Library", entitySchemaSlug: "media-library" }],
 		},
 	],
 	metadata: {

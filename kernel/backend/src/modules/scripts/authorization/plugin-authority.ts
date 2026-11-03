@@ -18,10 +18,12 @@ export type PluginSandboxAuthority = Schema.Schema.Type<typeof PluginSandboxAuth
 export const pluginSandboxAuthority = (manifest: PluginManifest): PluginSandboxAuthority => ({
 	configSchema: manifest.configSchema,
 	packageId: manifest.metadata.packageId,
-	userBootstrapScriptSlugs: manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
 	scriptKinds: Object.fromEntries(manifest.scripts.map(({ kind, slug }) => [slug, kind])),
 	workflowScripts: Object.fromEntries(
 		manifest.workflows.map(({ slug, scriptSlug }) => [slug, scriptSlug]),
+	),
+	userBootstrapScriptSlugs: manifest.userBootstrap.flatMap((entry) =>
+		"scriptSlug" in entry ? [entry.scriptSlug] : [],
 	),
 	schemaScope: {
 		signalSchemaSlugs: manifest.signalSchemas.map(({ slug }) => slug),

@@ -55,6 +55,7 @@ import {
 	EntitiesServiceMigrationLive,
 	EntitiesServiceRuntimeLive,
 	EntityGraphCollectorLive,
+	PluginBootstrapEntitiesRuntimeLive,
 } from "#modules/entities/layer";
 import {
 	TranslateEntityAttemptWorkflowDefinitionsLive,
@@ -294,6 +295,7 @@ const ServicesWithTestSupportLive = Layer.merge(
 	ServicesLive,
 	TestSupportServicesLive.pipe(Layer.provide(StagedRuntimeSandboxExecutorLive)),
 ).pipe(
+	Layer.provide(PluginBootstrapEntitiesRuntimeLive),
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
 	Layer.provide(AdmittedWorkflowCatalogueLive),
 );
@@ -425,7 +427,7 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 	UserLifecycleWorkflowOperationsProvidedLive.pipe(Layer.provide(AdmittedWorkflowCatalogueLive)),
 	Layer.provide(UserBootstrapWorkflowOperationsLive, UserBootstrapLive),
 	PluginInstallationWorkflowOperationsProvidedLive,
-);
+).pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive));
 
 export const RuntimeDependenciesLive = Layer.provideMerge(
 	Layer.provideMerge(

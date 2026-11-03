@@ -392,9 +392,11 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			}) {
 				const row = yield* findSystemManifestField(input.pluginId, "userBootstrap");
 				const bootstrap = row?.value.find(({ slug }) => slug === input.bootstrapSlug);
-				const script =
-					row && bootstrap ? yield* findRevisionScript(row.revisionId, bootstrap.scriptSlug) : null;
-				return bootstrap && script ? { script, bootstrap } : null;
+				if (!row || !bootstrap || !("scriptSlug" in bootstrap)) {
+					return null;
+				}
+				const script = yield* findRevisionScript(row.revisionId, bootstrap.scriptSlug);
+				return script ? { script, bootstrap } : null;
 			});
 			const listSystemCronSchedules = Effect.fn(function* () {
 				const rows = yield* listSystemManifestField("crons");
@@ -499,6 +501,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				}
 				const entries = yield* Effect.forEach(active.userBootstrap, (entry) =>
 					Effect.gen(function* () {
+						if ("entities" in entry) {
+							return { slug: entry.slug, entities: entry.entities };
+						}
 						const script = yield* findRevisionScript(active.revisionId, entry.scriptSlug);
 						return { slug: entry.slug, scriptId: script?.id ?? null };
 					}),
@@ -506,7 +511,9 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				return {
 					entries,
 					health: state.health,
+					pluginId: state.pluginId,
 					pluginScope: active.scope,
+					installedAt: state.createdAt,
 					activationId: active.activationId,
 					userId: UserId.make(state.userId),
 				};
@@ -522,6 +529,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							pluginId: schema.pluginInstallation.pluginId,
 							isHidden: schema.pluginInstallation.isHidden,
 							installationId: schema.pluginInstallation.id,
+							installedAt: schema.pluginInstallation.createdAt,
 							userBootstrap: schema.pluginRevision.userBootstrap,
 							scriptIds: sql<
 								Record<string, string>
@@ -548,6 +556,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						isHidden,
 						pluginId,
 						scriptIds,
+						installedAt,
 						activationId,
 						userBootstrap,
 						installationId,
@@ -555,11 +564,18 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						health,
 						isHidden,
 						pluginId,
+						installedAt,
 						activationId,
 						installationId,
-						entries: userBootstrap.map(({ slug, scriptSlug }) => {
-							const scriptId = scriptIds[scriptSlug];
-							return { slug, scriptId: scriptId ? SandboxScriptId.make(scriptId) : null };
+						entries: userBootstrap.map((entry) => {
+							if ("entities" in entry) {
+								return { slug: entry.slug, entities: entry.entities };
+							}
+							const scriptId = scriptIds[entry.scriptSlug];
+							return {
+								slug: entry.slug,
+								scriptId: scriptId ? SandboxScriptId.make(scriptId) : null,
+							};
 						}),
 					}),
 				);

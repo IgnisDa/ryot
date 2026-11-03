@@ -1,6 +1,7 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
+import { PluginUserBootstrapEntity } from "@ryot-app/contract/modules/plugins/manifest";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -16,6 +17,7 @@ import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
+import { PluginBootstrapEntities } from "./bootstrap-entities";
 import { PluginInstallationRepository } from "./repository";
 
 const PluginInstallationWorkflowPayload = Schema.Struct({
@@ -28,11 +30,14 @@ const PluginInstallationBootstrap = Schema.Struct({
 	userId: UserId,
 	accountGeneration: AccountGeneration,
 	entries: Schema.Array(
-		Schema.Struct({
-			slug: Schema.String,
-			scriptId: SandboxScriptId,
-			pluginRevision: ScriptPluginRevision,
-		}),
+		Schema.Union([
+			Schema.Struct({
+				slug: Schema.String,
+				scriptId: SandboxScriptId,
+				pluginRevision: ScriptPluginRevision,
+			}),
+			Schema.Struct({ slug: Schema.String, entities: Schema.Array(PluginUserBootstrapEntity) }),
+		]),
 	),
 });
 type PluginInstallationBootstrap = typeof PluginInstallationBootstrap.Type;
@@ -75,6 +80,14 @@ type PluginInstallationWorkflowOperationsValue = {
 		activationId: string,
 		entrySlug: string,
 	) => Effect.Effect<void, InternalError>;
+	ensureBootstrapEntities: (input: {
+		readonly userId: UserId;
+		readonly entrySlug: string;
+		readonly activationId: string;
+		readonly installationId: string;
+		readonly accountGeneration: AccountGeneration;
+		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
+	}) => Effect.Effect<void, InternalError>;
 	runBootstrapEntry: (input: {
 		readonly userId: UserId;
 		readonly entrySlug: string;
@@ -113,6 +126,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const invalidator = yield* PluginCatalogInvalidator;
 		const database = yield* DatabaseSession;
 		const installations = yield* PluginInstallationRepository;
+		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const receipts = yield* MutationReceipts.make;
 
 		const begin = (installationId: string, activationId: string) =>
@@ -137,6 +151,10 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 										return { entries, accountGeneration, userId: resolved.userId };
 									}
 									for (const entry of resolved.entries) {
+										if (entry.entities) {
+											entries.push({ slug: entry.slug, entities: entry.entities });
+											continue;
+										}
 										if (!entry.scriptId) {
 											return yield* internalError(
 												`Plugin installation bootstrap script is unavailable: ${entry.slug}`,
@@ -271,11 +289,40 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 				`Plugin installation bootstrap entry failed: ${input.entrySlug}`,
 			);
 
+		const ensureBootstrapEntities = (
+			input: Parameters<PluginInstallationWorkflowOperationsValue["ensureBootstrapEntities"]>[0],
+		) =>
+			asInternal(
+				Effect.gen(function* () {
+					const installation = yield* installations.findById(input.installationId);
+					if (!installation) {
+						return yield* internalError("Plugin installation is unavailable");
+					}
+					yield* bootstrapEntities.ensure({
+						userId: input.userId,
+						entities: input.entities,
+						entrySlug: input.entrySlug,
+						installedAt: installation.createdAt,
+						installationId: input.installationId,
+						accountGeneration: input.accountGeneration,
+						pluginId: PluginId.make(installation.pluginId),
+						executionId: pluginInstallationBootstrapExecutionId(
+							input.installationId,
+							input.activationId,
+							input.entrySlug,
+						),
+					});
+					return yield* Effect.void;
+				}),
+				`Plugin installation bootstrap entry failed: ${input.entrySlug}`,
+			);
+
 		return {
 			fail,
 			begin,
 			complete,
 			runBootstrapEntry,
+			ensureBootstrapEntities,
 			releaseBootstrapEntry: (installationId, activationId, entrySlug) =>
 				asInternal(
 					sandbox.releaseWorkflowRegistration(
@@ -315,19 +362,33 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 
 		const { userId, entries, accountGeneration } = started.success;
 		for (const [index, entry] of entries.entries()) {
-			const executed = yield* operations
-				.runBootstrapEntry({
-					userId,
-					accountGeneration,
-					entrySlug: entry.slug,
-					scriptId: entry.scriptId,
-					activationId: payload.activationId,
-					pluginRevision: entry.pluginRevision,
-					installationId: payload.installationId,
-				})
-				.pipe(Effect.result);
+			const executed = yield* (
+				"entities" in entry
+					? makeActivity({
+							success: Schema.Void satisfies DurableSchema,
+							error: InternalError satisfies DurableSchema,
+							name: `ensure-bootstrap-entities-${entry.slug}`,
+							execute: operations.ensureBootstrapEntities({
+								userId,
+								accountGeneration,
+								entrySlug: entry.slug,
+								entities: entry.entities,
+								activationId: payload.activationId,
+								installationId: payload.installationId,
+							}),
+						}).pipe(Activity.retry({ times: 3 }))
+					: operations.runBootstrapEntry({
+							userId,
+							accountGeneration,
+							entrySlug: entry.slug,
+							scriptId: entry.scriptId,
+							activationId: payload.activationId,
+							pluginRevision: entry.pluginRevision,
+							installationId: payload.installationId,
+						})
+			).pipe(Effect.result);
 			if (Result.isFailure(executed)) {
-				for (const skipped of entries.slice(index + 1)) {
+				for (const skipped of entries.slice(index + 1).filter((next) => "scriptId" in next)) {
 					yield* makeActivity({
 						name: `release-bootstrap-${skipped.slug}`,
 						success: Schema.Void satisfies DurableSchema,

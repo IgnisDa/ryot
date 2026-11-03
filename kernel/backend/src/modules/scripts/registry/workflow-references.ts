@@ -146,7 +146,9 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 					!script ||
 					(initialization &&
 						(script.metadata.kind !== "script" ||
-							!script.userBootstrap.some((entry) => entry.scriptSlug === script.slug)))
+							!script.userBootstrap.some(
+								(entry) => "scriptSlug" in entry && entry.scriptSlug === script.slug,
+							)))
 				) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "script-mismatch",

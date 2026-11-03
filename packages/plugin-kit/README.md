@@ -201,7 +201,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `providers`            | Logical provider names, information, and root entity schemas               |
 | `workflows`            | Public workflow slugs                                                      |
 | `operations`           | Public user- or integration-authenticated operations                       |
-| `userBootstrap`        | Per-user bootstrap dispatches for system and private plugins               |
+| `userBootstrap`        | Per-user bootstrap entities or scripts for system and private plugins      |
 | `crons`                | Scheduled system-subject dispatches                                        |
 | `importSources`        | Payload, single-file, or named-file workflow inputs                        |
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                      |
@@ -361,6 +361,10 @@ Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
 script input. Private plugins may initialize their own user entities through `userBootstrap`; they
 cannot write global domain data or declare deployment-owned `httpRateLimits` or `oauthProviders`.
+
+A `userBootstrap` entry either names a direct script or lists `entities`, each with a name, one of
+the plugin's own entity schemas, and properties valid for it. The kernel ensures declared entities
+itself, one per schema and user, without running a script. Use a script only when setup needs logic.
 
 The compiler derives local host capabilities from each entry's reachable code, including helpers,
 closures, and forwarding methods. Executable dependencies do not merge authority: children use their

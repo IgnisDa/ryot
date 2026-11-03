@@ -11,6 +11,10 @@ import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import {
+	PluginBootstrapEntities,
+	type PluginBootstrapEntitiesInput,
+} from "#modules/plugins/installations/bootstrap-entities";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
@@ -24,17 +28,25 @@ import { databaseLayer } from "#testing/effect";
 
 import { makePluginUserBootstrapDispatcher, userBootstrapExecutionId } from "./plugin-dispatch";
 
-const normalizedPlugin = (pluginName: string, entries: PluginManifest["userBootstrap"]) => {
+type BootstrapEntry = PluginManifest["userBootstrap"][number];
+
+const normalizedPlugin = (pluginName: string, entries: ReadonlyArray<BootstrapEntry>) => {
 	const base = fixtureManifest(PluginPackageId.make(`test/${pluginName}`));
 	const declared = base.scripts[0];
 	assert(declared);
-	const scripts = entries.map((entry) => ({
-		...declared,
-		slug: entry.scriptSlug,
-		kind: "script" as const,
-		name: entry.description,
-		entry: `${entry.scriptSlug}.sandbox.ts`,
-	}));
+	const scripts = entries.flatMap((entry) =>
+		"scriptSlug" in entry
+			? [
+					{
+						...declared,
+						slug: entry.scriptSlug,
+						kind: "script" as const,
+						name: entry.description,
+						entry: `${entry.scriptSlug}.sandbox.ts`,
+					},
+				]
+			: [],
+	);
 	const manifest: PluginManifest = {
 		...base,
 		scripts,
@@ -74,29 +86,47 @@ const plugins = [
 		{ slug: "first", description: "First", scriptSlug: "bootstrap.first" },
 	]),
 	normalizedPlugin("sample", [{ slug: "only", description: "Only", scriptSlug: "bootstrap.only" }]),
+	normalizedPlugin("seeded", [
+		{
+			slug: "library",
+			description: "Library",
+			entities: [{ properties: {}, name: "Library", entitySchemaSlug: "library" }],
+		},
+	]),
 ];
+
+const installedAt = new Date("2026-01-02T03:04:05.000Z");
 
 const systemInstallation = (pluginName: string) => {
 	const plugin = plugins.find(({ name }) => name === pluginName);
 	assert(plugin);
 	return {
+		installedAt,
 		health: "ready",
 		isHidden: false,
 		pluginId: plugin.id,
 		activationId: `${plugin.id}-activation`,
 		installationId: `${pluginName}-installation`,
-		entries: plugin.manifest.userBootstrap.map(({ slug, scriptSlug }) => ({
-			slug,
-			scriptId: SandboxScriptId.make(`${scriptSlug}-id`),
-		})),
+		entries: plugin.manifest.userBootstrap.map((entry) =>
+			"entities" in entry
+				? { slug: entry.slug, entities: entry.entities }
+				: { slug: entry.slug, scriptId: SandboxScriptId.make(`${entry.scriptSlug}-id`) },
+		),
 	} satisfies Effect.Success<
 		ReturnType<PluginRuntimeResolver["Service"]["resolveUserInstallationBootstraps"]>
 	>[number];
 };
 
+const ensuredEntities: Array<PluginBootstrapEntitiesInput> = [];
+
+const recordedBootstrapEntities = Layer.succeed(PluginBootstrapEntities)({
+	ensure: (input) => Effect.sync(() => void ensuredEntities.push(input)),
+});
+
 const layerFor = (installed: Array<ReturnType<typeof systemInstallation>>) =>
 	Layer.mergeAll(
 		databaseLayer,
+		recordedBootstrapEntities,
 		Layer.mock(PluginInstallationRepository)({
 			completeSystemInitialization: () => Effect.succeed(true),
 			completeNoEntryInitializations: () => Effect.succeed([]),
@@ -125,7 +155,7 @@ const layerFor = (installed: Array<ReturnType<typeof systemInstallation>>) =>
 				const bootstrap = plugins
 					.find(({ id }) => id === pluginId)
 					?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
-				return bootstrap
+				return bootstrap && "scriptSlug" in bootstrap
 					? Effect.succeed({
 							bootstrap,
 							script: {
@@ -439,10 +469,11 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 									Effect.map((installed) =>
 										installed.map((captured) => ({
 											...captured,
-											entries: captured.entries.map((entry) => ({
-												...entry,
-												scriptId: SandboxScriptId.make(`${entry.slug}-old`),
-											})),
+											entries: captured.entries.map((entry) =>
+												entry.entities
+													? entry
+													: { ...entry, scriptId: SandboxScriptId.make(`${entry.slug}-old`) },
+											),
 										})),
 									),
 								),
@@ -511,7 +542,7 @@ const bootstrappedPackage = (slug: string, bootstrapSlugs: Array<string>) => {
 		...value,
 		manifest: {
 			...value.manifest,
-			userBootstrap: bootstrapSlugs.map((bootstrapSlug) => ({
+			userBootstrap: bootstrapSlugs.map((bootstrapSlug): BootstrapEntry => ({
 				slug: bootstrapSlug,
 				description: bootstrapSlug,
 				scriptSlug: `${slug}.task`,
@@ -520,7 +551,50 @@ const bootstrappedPackage = (slug: string, bootstrapSlugs: Array<string>) => {
 	};
 };
 
-layer(revisionDatabaseLayer)((test) => {
+layer(layerFor([systemInstallation("seeded")]))((test) => {
+	test.effect("ensures declared entities in the kernel's name without running a script", () =>
+		Effect.gen(function* () {
+			const marks: Array<
+				Parameters<PluginInstallationRepository["Service"]["completeSystemInitialization"]>[0]
+			> = [];
+			const repository = yield* PluginInstallationRepository;
+			const dispatcher = yield* makePluginUserBootstrapDispatcher(() =>
+				Effect.die("No bootstrap script should run"),
+			).pipe(
+				Effect.provideService(PluginInstallationRepository, {
+					...repository,
+					completeSystemInitialization: (input) =>
+						Effect.sync(() => {
+							marks.push(input);
+							return true;
+						}),
+				}),
+			);
+			const userId = UserId.make("user-1");
+			const accountGeneration = { userId, token: "test-account-generation" };
+			ensuredEntities.length = 0;
+			yield* dispatcher.dispatchAll(userId, accountGeneration);
+			expect(ensuredEntities).toEqual<unknown>([
+				{
+					userId,
+					installedAt,
+					accountGeneration,
+					entrySlug: "library",
+					pluginId: "seeded-id",
+					installationId: "seeded-installation",
+					entities: [{ properties: {}, name: "Library", entitySchemaSlug: "library" }],
+					executionId: userBootstrapExecutionId(userId, "seeded-id", "library", accountGeneration),
+				},
+			]);
+			expect(marks).toEqual<unknown>([
+				{ userId, activationId: "seeded-id-activation", installationId: "seeded-installation" },
+			]);
+		}),
+		testTimeout,
+	);
+});
+
+layer(Layer.merge(revisionDatabaseLayer, recordedBootstrapEntities))((test) => {
 	test.effect(
 		"initializes a user's installations with and without bootstrap entries",
 		() =>

@@ -157,6 +157,7 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 		const workflowSlugs = new Set<string>();
 		const operationSlugs = new Set<string>();
 		const userBootstrapSlugs = new Set<string>();
+		const userBootstrapEntitySchemas = new Set<string>();
 		for (const definition of manifest.entitySchemas) {
 			yield* assertSlug("entity schema", definition.slug);
 			const groupIssue = pluginEventGroupIssue(definition.eventSchemas);
@@ -224,6 +225,34 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 				return yield* fail(`Duplicate user bootstrap slug: ${entry.slug}`);
 			}
 			userBootstrapSlugs.add(entry.slug);
+			if ("entities" in entry) {
+				for (const entity of entry.entities) {
+					const definition = manifest.entitySchemas.find(
+						({ slug }) => slug === entity.entitySchemaSlug,
+					);
+					if (!definition) {
+						return yield* fail(
+							`User bootstrap ${entry.slug} references unknown entity schema: ${entity.entitySchemaSlug}`,
+						);
+					}
+					if (userBootstrapEntitySchemas.has(entity.entitySchemaSlug)) {
+						return yield* fail(
+							`User bootstrap declares entity schema more than once: ${entity.entitySchemaSlug}`,
+						);
+					}
+					userBootstrapEntitySchemas.add(entity.entitySchemaSlug);
+					const parsed = parseAppSchemaPropertiesSafe({
+						properties: entity.properties,
+						propertiesSchema: definition.propertiesSchema,
+					});
+					if (!parsed.success) {
+						return yield* fail(
+							`User bootstrap ${entry.slug} entity ${entity.name} has invalid properties: ${formatPropertyIssues(parsed.issues)}`,
+						);
+					}
+				}
+				continue;
+			}
 			yield* assertReference("User bootstrap", entry.scriptSlug, scriptSlugs);
 			if (manifest.scripts.find(({ slug }) => slug === entry.scriptSlug)?.kind !== "script") {
 				return yield* fail(
@@ -477,6 +506,9 @@ export const validatePluginExecutableScripts = (plugin: {
 }) =>
 	Effect.gen(function* () {
 		for (const entry of plugin.manifest.userBootstrap) {
+			if (!("scriptSlug" in entry)) {
+				continue;
+			}
 			const script = plugin.scripts.find(({ slug }) => slug === entry.scriptSlug);
 			if (!script) {
 				return yield* fail(
