@@ -37,6 +37,12 @@ plugin pin, account token, step, and current job. Each note keeps `revision` and
 `projectedRevision`. A request upserts notes for the named source entities and advances their
 revision; the processor result is visible only while both are equal.
 
+Declared `inputs` mark notes from the source transaction. `LifecycleWork.admit`, bound in the entities
+module, calls `RelationshipProjectionService.admitInputs` for each change trigger: an event of a listed
+schema marks the user's links from its session entity, or its entity; a created link of the schema
+marks itself when `relationshipCreate` is set. It binds, marks and arranges the step in that
+transaction and returns the job for dispatch after commit.
+
 `requestRelationshipProjections` marks the execution user's links. The owning plugin may call
 `requestRelationshipProjectionsForAllUsers`, which repeats the request for every user holding a
 link from the named sources. Both accept at most 100 source entity IDs and admit work through the

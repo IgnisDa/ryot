@@ -812,3 +812,23 @@ and script executions count the rows created by the flow.
 The `backlog` event no longer runs either membership hook or the nested event workflow the second one started; the
 summary refresh and history reconciliation remain, for parts 3 and 4. Signup, no-hook events, reads and workouts are
 unchanged within noise: a workout save creates no exercises, so the fitness rule does not apply to it.
+
+## Run `probesB3` (projection inputs)
+
+Flow probes on the VM with relationship projection inputs declared. Medians, net of idle background.
+
+| Flow | Run | Caller | Statements | Transactions | DB exec | Workflows | Hook runs | Scripts |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Event, `backlog` | `probesB0` | 644 ms | 1,008 | 423 | 212 ms | 19 | 3 | 5 |
+| | `probesB2` | 423 ms | 772 | 221 | 141 ms | 16 | 2 | 4 |
+| | `probesB3` | 451 ms | 662 | 159 | 125 ms | 13 | 1 | 3 |
+| Review operation | `probesB0` | 2,151 ms | 2,349 | 776 | 604 ms | 47 | 9 | 13 |
+| | `probesB2` | 1,337 ms | 1,312 | 433 | 397 ms | 27 | 5 | 8 |
+| | `probesB3` | 1,279 ms | 1,224 | 332 | 365 ms | 24 | 4 | 7 |
+| 50 events, no hooks | `probesB2` | 689 ms | 1,515 | 16 | 146 ms | 2 | 0 | 0 |
+| | `probesB3` | 738 ms | 1,561 | 56 | 169 ms | 2 | 0 | 0 |
+
+The `backlog` event's remaining hook is `media.reconcile-history`, which step 10 replaces. Each plugin event now
+reads its plugin's projection input declarations, about one statement per event in the 50-event batch; step 8's
+in-process revision cache is where that read goes. Caller times moved within noise.
+

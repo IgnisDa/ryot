@@ -1,12 +1,17 @@
 import { expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RelationshipProjectionStepInput } from "@ryot-app/contract/modules/relationships/projections";
 import {
 	AutomationExecutionId,
 	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
 	PluginId,
+	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -19,7 +24,7 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { lifecycleTrigger, rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { BackgroundWorkService, BackgroundWorkWorkflow } from "#modules/background-work/service";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
@@ -63,6 +68,7 @@ const relationshipSchema: PluginManifest["relationshipSchemas"][number] = {
 	propertiesSchema: { fields: {} },
 	projection: {
 		scriptSlug: processorScriptSlug,
+		inputs: { relationshipCreate: true, eventSchemaSlugs: ["changed"] },
 		propertiesSchema: {
 			unknownKeys: "strict",
 			fields: { score: { type: "number", label: "Score", description: "Computed score" } },
@@ -102,9 +108,7 @@ const fixturePackage = (): NormalizedPlugin => {
 			signalSchemas: [],
 			scripts: [{ ...script, entry }],
 			relationshipSchemas: [relationshipSchema],
-			entitySchemas: [
-				{ ...entitySchema, eventSchemas: [], slug: entitySchemaSlug, name: "Fixture record" },
-			],
+			entitySchemas: [{ ...entitySchema, slug: entitySchemaSlug, name: "Fixture record" }],
 		},
 	};
 };
@@ -316,6 +320,82 @@ const jobStatus = (id: string) =>
 		);
 		return job?.status ?? null;
 	});
+
+const changeTrigger = (id: string, payload: AutomationTriggerPayload) =>
+	Effect.gen(function* () {
+		const fixture = yield* ProjectionFixture;
+		return yield* lifecycleTrigger(command(id, fixture.principal), userId, payload);
+	});
+
+const eventChange = (
+	pluginId: PluginId,
+	entityId: EntityId,
+	eventSchemaSlug: string,
+): AutomationTriggerPayload => ({
+	resource: "event",
+	category: "change",
+	operation: "create",
+	after: {
+		entityId,
+		properties: {},
+		sessionEntityId: null,
+		eventSchemaPluginId: pluginId,
+		entitySchemaPluginId: pluginId,
+		createdAt: "2026-10-05T00:00:00.000Z",
+		updatedAt: "2026-10-05T00:00:00.000Z",
+		occurredAt: "2026-10-05T00:00:00.000Z",
+		id: EventId.make(`${entityId}-${eventSchemaSlug}`),
+		eventSchemaSlug: EventSchemaSlug.make(eventSchemaSlug),
+		entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+	},
+});
+
+layer(testLayer)((test) => {
+	test.effect("marks the notes a declared input event or a new link makes stale", () =>
+		Effect.gen(function* () {
+			const { sources, fixture } = yield* seedLinks("inputs", 2);
+			const [first, second] = sources;
+			assert(first && second);
+			const session = yield* DatabaseSession;
+			const service = yield* RelationshipProjectionService;
+			const workId = relationshipProjectionWorkId({
+				userId,
+				relationshipSchemaSlug,
+				relationshipSchemaPluginId: fixture.pluginId,
+			});
+			const admit = (id: string, payload: AutomationTriggerPayload) =>
+				session.transaction(
+					Effect.flatMap(changeTrigger(id, payload), (trigger) => service.admitInputs(trigger)),
+				);
+			expect(yield* admit("other", eventChange(fixture.pluginId, first, "other"))).toEqual([]);
+			expect(yield* admit("changed", eventChange(fixture.pluginId, first, "changed"))).toHaveLength(
+				1,
+			);
+			expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual([
+				`${first}-link`,
+			]);
+			yield* admit("link", {
+				category: "change",
+				operation: "create",
+				resource: "relationship",
+				after: {
+					properties: {},
+					sourceEntityId: second,
+					relationshipSchemaSlug,
+					createdAt: "2026-10-05T00:00:00.000Z",
+					updatedAt: "2026-10-05T00:00:00.000Z",
+					id: RelationshipId.make(`${second}-link`),
+					relationshipSchemaPluginId: fixture.pluginId,
+					targetEntityId: EntityId.make("inputs-target"),
+				},
+			});
+			expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual([
+				`${first}-link`,
+				`${second}-link`,
+			]);
+		}),
+	);
+});
 
 layer(testLayer)((test) => {
 	test.effect(

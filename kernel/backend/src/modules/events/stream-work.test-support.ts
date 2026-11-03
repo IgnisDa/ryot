@@ -26,15 +26,16 @@ import { BackgroundWorkService, BackgroundWorkWorkflow } from "#modules/backgrou
 import { runBackgroundWorkWorkflow } from "#modules/background-work/workflow";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
+import { DeclaredLifecycleWorkLive } from "#modules/entities/lifecycle-work";
+import { PluginMembershipWrites } from "#modules/entities/plugin-memberships";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { EventMembershipWrites } from "#modules/events/memberships";
 import { EventMutations } from "#modules/events/mutations";
 import { EventProjectionRepository } from "#modules/events/projection-repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { eventStreamId, EventStreamRepository } from "#modules/events/stream-repository";
-import { EventStreamLifecycleWorkLive, EventStreamWorkService } from "#modules/events/stream-work";
+import { EventStreamWorkService } from "#modules/events/stream-work";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -400,12 +401,12 @@ export const streamWorkTestLayer = Layer.unwrap(
 				),
 			),
 		);
-		const lifecycleWorkLayer = EventStreamLifecycleWorkLive.pipe(
+		const lifecycleWorkLayer = DeclaredLifecycleWorkLive.pipe(
 			Layer.provide(
 				Layer.mergeAll(
 					serviceLayer,
 					backgroundLayer,
-					EventMembershipWrites.layer.pipe(
+					PluginMembershipWrites.layer.pipe(
 						Layer.provide(Layer.mergeAll(EventsRepository.layer, RelationshipsRepository.layer)),
 						Layer.provide(sharedDependencies),
 					),

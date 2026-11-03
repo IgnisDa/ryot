@@ -19,13 +19,13 @@ import { Context, DateTime, Effect, Layer } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import { EntitiesRepository } from "#modules/entities/repository";
+import { EventsRepository } from "#modules/events/repository";
 import { snapshot as relationshipSnapshot } from "#modules/relationships/mutation-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { EventsRepository } from "./repository";
+import { EntitiesRepository } from "./repository";
 
 type Candidate = Member & { readonly accepts: (membership: PluginMembership) => boolean };
 
@@ -46,8 +46,8 @@ const isKernelCollectionAdd = (event: {
 	event.entitySchemaSlug === "collection" &&
 	event.eventSchemaSlug === "add-entity-to-collection";
 
-export class EventMembershipWrites extends Context.Service<EventMembershipWrites>()(
-	"@ryot-app/kernel-backend/modules/events/memberships/EventMembershipWrites",
+export class PluginMembershipWrites extends Context.Service<PluginMembershipWrites>()(
+	"@ryot-app/kernel-backend/modules/entities/plugin-memberships/PluginMembershipWrites",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
@@ -197,7 +197,7 @@ export class EventMembershipWrites extends Context.Service<EventMembershipWrites
 				return written.snapshot;
 			});
 
-			const derive = Effect.fn("EventMembershipWrites.derive")(function* (
+			const derive = Effect.fn("PluginMembershipWrites.derive")(function* (
 				trigger: AutomationTrigger,
 			) {
 				const userId = trigger.scopeUserId;

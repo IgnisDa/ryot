@@ -42,10 +42,11 @@ the code from before the phase (`probes.md`).
 The moves from `redesign.md`, in the order that removes the most work first. Flow probes after each step, and
 the suite after steps 7, 8 and 9.
 
-**7. Declarative plugin effects.** Done in this order, each its own commit: bootstrap entities (done), membership
-rules, projection inputs written in the source transaction, dirty-subject work. See
-[`design-declared-effects.md`](design-declared-effects.md). Check: no after hook on a backlog create,
-no script on signup, and summaries still match live values.
+**7. Declarative plugin effects.** Bootstrap entities, membership rules and projection inputs are done, each its
+own commit; see [`design-declared-effects.md`](design-declared-effects.md). Dirty-subject work moved into step 10:
+its only consumer is history correction, which step 10 reshapes, and steps 8 and 9 change the job plumbing it would
+sit on. Check: no script on signup, summaries still match live values, and a backlog create runs only the history
+reconciliation hook until step 10 removes it.
 
 **8. Commands are one transaction.** Direct policy calls, one receipt per command, revisions cached in process,
 set-based batches. Check: about 25 statements and under 30 ms for a no-hook event, and a 150-set workout save far
@@ -55,7 +56,9 @@ below today's 9,601 statements.
 being rewritten for the new shape.
 
 **10. History correction.** Evidence moves off the single library row, and a subject's changes apply in one commit.
-Check: the 4 liveness tests pass and the 60-subject case stops serializing.
+The dirty-subject work from step 7 replaces `media.reconcile-history` here, keyed by the subject rules that hook
+applies today. Check: the 4 liveness tests pass, the 60-subject case stops serializing, and no after hook runs on a
+backlog create.
 
 **11. Plugin installs.** Profile first, then install in one transaction, move one pointer for a system plugin
 change, and remove per-user fan-out. The `plugin`, `plugin_revision` and `plugin_installation` tables keep their

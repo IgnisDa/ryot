@@ -432,6 +432,15 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 					relationship.projection,
 					relationship.propertiesSchema,
 				);
+				for (const slug of relationship.projection.inputs?.eventSchemaSlugs ?? []) {
+					if (
+						!manifest.entitySchemas.some((schema) =>
+							schema.eventSchemas.some((event) => event.slug === slug),
+						)
+					) {
+						return yield* fail(`Relationship projection input schema ${slug} is not declared`);
+					}
+				}
 			}
 		}
 		for (const hook of manifest.hooks) {

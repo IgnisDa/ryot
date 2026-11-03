@@ -115,6 +115,18 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		projection: {
 			scriptSlug: LIBRARY_SUMMARY_SCRIPT_SLUG,
 			propertiesSchema: librarySummaryPropertiesSchema,
+			inputs: {
+				relationshipCreate: true,
+				eventSchemaSlugs: [
+					"progress",
+					"complete",
+					"backlog",
+					"on_hold",
+					"dropped",
+					"list-state",
+					"review",
+				],
+			},
 		},
 		propertiesSchema: {
 			fields: {

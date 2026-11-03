@@ -11,7 +11,7 @@ import type {
 	PluginEventProjection,
 	PluginImportSource,
 	PluginIntegrationProvider,
-	PluginProjection,
+	PluginRelationshipProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
@@ -113,9 +113,9 @@ export const definitionRelationshipSchema = snakeCase.table(
 		...definitionColumns(),
 		sourceEntitySchemaSlug: text(),
 		targetEntitySchemaSlug: text(),
-		projection: jsonb().$type<PluginProjection>(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		retention: text().$type<PluginRelationshipRetention>(),
+		projection: jsonb().$type<PluginRelationshipProjection>(),
 		userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 	},
@@ -443,8 +443,8 @@ const eventSchemaColumns = () => ({
 const relationshipSchemaColumns = () => ({
 	sourceEntitySchemaSlug: text(),
 	targetEntitySchemaSlug: text(),
-	projection: jsonb().$type<PluginProjection>(),
 	propertiesSchema: jsonb().$type<AppSchema>().notNull(),
+	projection: jsonb().$type<PluginRelationshipProjection>(),
 	userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
 });
 

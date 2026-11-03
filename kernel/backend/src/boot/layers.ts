@@ -52,6 +52,7 @@ import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
 import { EnrichmentRecovery } from "#modules/entities/enrichment/recovery";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import {
+	DeclaredLifecycleWorkProvidedLive,
 	EntitiesServiceMigrationLive,
 	EntitiesServiceRuntimeLive,
 	EntityGraphCollectorLive,
@@ -77,7 +78,6 @@ import { InterestServicesLive } from "#modules/entities/watches/layer";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
 	EventsServiceLive,
-	EventStreamLifecycleWorkProvidedLive,
 	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
@@ -286,9 +286,7 @@ const ServicesLive = Layer.mergeAll(
 ).pipe(
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
-	Layer.provideMerge(
-		EventStreamLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive)),
-	),
+	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive))),
 );
 
 const ServicesWithTestSupportLive = Layer.merge(
@@ -394,9 +392,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	PluginInstallationMigrationLive,
 	IntegrationsRepository.layer,
 ).pipe(
-	Layer.provideMerge(
-		EventStreamLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive)),
-	),
+	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive))),
 	Layer.provideMerge(ReminderEntityLifecycleLive),
 	Layer.provideMerge(AdmittedWorkflowCatalogueLive),
 	Layer.provideMerge(WorkflowEngineLive),

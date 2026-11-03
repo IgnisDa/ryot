@@ -26,7 +26,6 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCausation } from "#modules/automations/lifecycle/command";
-import { LifecycleWork } from "#modules/automations/lifecycle/planning";
 import type { BackgroundWorkInput } from "#modules/background-work/model";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
@@ -45,7 +44,6 @@ import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
 import { resolveEventCreateItemScopes } from "./event-creation";
-import { EventMembershipWrites } from "./memberships";
 import { EventProjectionRepository } from "./projection-repository";
 import {
 	type EventStreamBindingDeclaration,
@@ -725,17 +723,3 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
-
-export const EventStreamLifecycleWorkLive = Layer.effect(
-	LifecycleWork,
-	Effect.gen(function* () {
-		const streams = yield* EventStreamWorkService;
-		const background = yield* BackgroundWorkService;
-		const memberships = yield* EventMembershipWrites;
-		return LifecycleWork.of({
-			admit: streams.admitChange,
-			derive: memberships.derive,
-			dispatch: (ids) => Effect.forEach(ids, (id) => background.dispatch(id), { discard: true }),
-		});
-	}),
-);

@@ -235,8 +235,12 @@ User-scoped links, events, and `entity-id` properties in user-owned data always 
 Set `projection: { scriptSlug, propertiesSchema }` on a relationship schema to keep derived,
 per-user values next to each user-owned link, such as a library title's status. The processor is a
 read-only script of the same plugin with a strict output schema of at most 20 fields disjoint from
-the relationship properties. Call `host.requestRelationshipProjections({ relationshipSchemaSlug,
-sourceEntityIds })` from a user execution when source data changes; the owning plugin may call
+the relationship properties. Declare `inputs: { eventSchemaSlugs, relationshipCreate }` when the
+values depend on the plugin's events or on the link existing: the kernel marks the links from an
+event's session entity, or its entity, whenever an event of a listed schema is created, updated or
+deleted, and marks a new link, in the same transaction and without a hook. For other changes, call
+`host.requestRelationshipProjections({ relationshipSchemaSlug, sourceEntityIds })` from a user
+execution; the owning plugin may call
 `host.requestRelationshipProjectionsForAllUsers` with the same arguments when shared data changes.
 Each processor step receives at most 100 `{ relationshipId, sourceEntityId, targetEntityId }` items
 and returns one `{ relationshipId, properties }` update per item; use

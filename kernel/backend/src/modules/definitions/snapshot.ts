@@ -7,7 +7,7 @@ import {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
 	PluginEventProjection,
-	PluginProjection,
+	PluginRelationshipProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
@@ -85,10 +85,10 @@ export const RelationshipSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
-	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),
+	projection: Schema.optional(PluginRelationshipProjection),
 	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 

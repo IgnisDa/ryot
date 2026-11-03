@@ -1,7 +1,7 @@
 # Design: declared plugin effects (step 7)
 
-Status: bootstrap entities and membership rules built; projection inputs and dirty-subject work proposed, in that
-order. The owner approved step 7 in [`order-of-work.md`](order-of-work.md) and left the order to me.
+Status: bootstrap entities, membership rules and projection inputs built; dirty-subject work moved into step 10 of
+[`order-of-work.md`](order-of-work.md). The owner approved step 7 and left the order to me.
 
 ## What a media `backlog` event runs today
 
@@ -46,28 +46,41 @@ memberships: [{
   bootstrap-declared schema so each user has exactly one, `entityCreate` is a subset of the members, and the record
   event belongs to every member schema. An event of the record schema never joins, so it cannot loop.
 - **Applied in the source transaction.** `LifecyclePlanner.planChange` plans a change trigger, then calls
-  `LifecycleWork.derive`, which the events module binds to `EventMembershipWrites`. It reads the active revision's
+  `LifecycleWork.derive`, which the entities module binds to `PluginMembershipWrites`. It reads the active revision's
   rules for an installed plugin, finds the user's target, locks and inserts the relationship and, for a new one,
   writes the record event with a deterministic ID dated at the relationship's creation. Each derived write's trigger
   is planned the same way, so the summary and history hooks still see it until parts 3 and 4 replace them.
 - **Removed:** the three media membership hooks, the fitness one, their scripts, and the nested event workflow.
 
-## 3. Projection inputs
+## 3. Projection inputs (built)
 
 A relationship projection declares the writes that make it stale:
 
 ```ts
 projection: {
   scriptSlug, propertiesSchema,
-  inputs: { events: [...eventSchemaSlugs], via: "session-or-entity", relationshipCreate: true },
+  inputs: { eventSchemaSlugs: ["progress", "complete", ...], relationshipCreate: true },
 }
 ```
 
-The event commit marks the notes of the user's links from the event's session entity, or its entity, and admits
-the projection work, in the same transaction. This is what `requestRelationshipProjections` does today from a
-hook. Relationship creates of the schema mark their own note. Removes `library-summary-refresh`.
+- **Validation:** every input slug is an event schema of one of the plugin's entity schemas.
+- **Applied in the source transaction.** `LifecycleWork.admit` already ran for every change trigger to admit event
+  stream work. It now also calls `RelationshipProjectionService.admitInputs`, which reads the plugin's input
+  declarations for the user, marks the links from the event's session entity or entity, or the created link,
+  arranges the step and returns the job for dispatch after commit. Membership relationships are derived after their
+  source event is planned, so `relationshipCreate` is what gives a new title its note.
+- **Module boundary.** Events and relationships do not import each other, so the `LifecycleWork` binding and the
+  membership writes moved to the entities module, which already depends on both.
+- **Removed:** `media.library-summary-refresh` and its script. `media.entity-updated` and
+  `media.relationship-sync` still request summaries for property and containment changes.
 
-## 4. Dirty-subject work
+## 4. Dirty-subject work (moved to step 10)
+
+`reconcile-history` is more than plumbing: it maps episodes to their show or podcast, skips completion-keyed
+creates except on episodes, carries the created event IDs as live sources, and forces a pass when a show or podcast
+status signal arrives. Its consumer, history correction, requeues on conflicts against the library row that step
+10 removes. Building the primitive now would mean shaping it around a request step 10 replaces, on job plumbing
+steps 8 and 9 replace, so it lands with step 10. The proposal stands:
 
 A plugin declares user work keyed by subject, run once per subject however many writes mark it:
 

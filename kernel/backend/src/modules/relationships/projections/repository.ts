@@ -421,6 +421,31 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				return rows.map((row) => row.userId);
 			});
 
+			const inputSchemas = Effect.fn("RelationshipProjectionRepository.inputSchemas")(function* (
+				userId: string,
+				pluginId: string,
+			) {
+				const rows = yield* session.run((db) =>
+					db
+						.select({
+							slug: schema.userRelationshipSchema.slug,
+							projection: schema.userRelationshipSchema.projection,
+						})
+						.from(schema.userRelationshipSchema)
+						.where(
+							and(
+								eq(schema.userRelationshipSchema.userId, userId),
+								eq(schema.userRelationshipSchema.pluginId, pluginId),
+								eq(schema.userRelationshipSchema.isEffective, true),
+								sql`${schema.userRelationshipSchema.projection} -> 'inputs' is not null`,
+							),
+						),
+				);
+				return rows.flatMap(({ slug, projection }) =>
+					projection?.inputs ? [{ slug, inputs: projection.inputs }] : [],
+				);
+			});
+
 			return {
 				bind,
 				mark,
@@ -431,6 +456,7 @@ export class RelationshipProjectionRepository extends Context.Service<Relationsh
 				reserve,
 				claimable,
 				invalidate,
+				inputSchemas,
 				currentClaim,
 				recordBinding,
 				get: readState,

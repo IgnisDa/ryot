@@ -1,12 +1,17 @@
 import { Layer } from "effect";
 
 import { LifecycleServicesLive, MigrationLifecycleServicesLive } from "#modules/automations/layer";
+import { BackgroundWorkService } from "#modules/background-work/service";
 import { EventSchemaReaderLive } from "#modules/definitions/layer";
-import { EventsServiceLive } from "#modules/events/layer";
+import { EventsServiceLive, EventStreamWorkServiceLive } from "#modules/events/layer";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
+import { RelationshipProjectionServiceLive } from "#modules/relationships/layer";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 
+import { DeclaredLifecycleWorkLive } from "./lifecycle-work";
 import { PluginBootstrapEntitiesLive } from "./plugin-bootstrap-entities";
+import { PluginMembershipWrites } from "./plugin-memberships";
 import { EntitiesRepositoryLive } from "./repository";
 import { EntityGraphCollector } from "./retention/collector";
 import { EntityRetentionRepository } from "./retention/repository";
@@ -55,4 +60,24 @@ export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(
 
 export const EntityGraphCollectorLive = EntityGraphCollector.layer.pipe(
 	Layer.provide(EntityRetentionRepository.layer),
+);
+
+export const DeclaredLifecycleWorkProvidedLive = DeclaredLifecycleWorkLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			EventStreamWorkServiceLive,
+			RelationshipProjectionServiceLive,
+			BackgroundWorkService.layer,
+			PluginMembershipWrites.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						EventsRepository.layer,
+						EntitiesRepositoryLive,
+						EventSchemaReaderLive,
+						RelationshipsRepository.layer,
+					),
+				),
+			),
+		),
+	),
 );

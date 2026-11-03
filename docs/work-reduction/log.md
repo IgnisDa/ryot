@@ -474,3 +474,10 @@
   `LifecycleWork.derive`. Four hooks and their scripts went. A `backlog` event fell from 644 ms and 1,008 statements
   to 423 ms and 772, and a review from 47 workflows to 27 (`probesB2`). The kernel test "stalls" turned out to be
   Vitest's output held in Turbo's pipe until exit; `vm-unit.sh` no longer watches output on Turbo runs.
+- Projection inputs landed. A relationship projection declares the event schemas and link creates that make it
+  stale, and `LifecycleWork.admit` marks its notes in the source transaction; Media dropped
+  `library-summary-refresh`. The `LifecycleWork` binding and membership writes moved to the entities module, which
+  keeps events and relationships free of each other. A `backlog` event is down to one hook run and 662 statements
+  (`probesB3`). Dirty-subject work moved into step 10, since history correction is its only consumer and step 10
+  reshapes it.
+

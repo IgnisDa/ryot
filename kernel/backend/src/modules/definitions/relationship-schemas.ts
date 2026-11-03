@@ -1,5 +1,5 @@
 import type {
-	PluginProjection,
+	PluginRelationshipProjection,
 	PluginRelationshipUserWritePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -24,9 +24,9 @@ type RelationshipSchemaScope = {
 	readonly pluginId: null | string;
 	readonly id: RelationshipSchemaSlug;
 	readonly propertiesSchema: AppSchema;
-	readonly projection?: undefined | PluginProjection;
 	readonly sourceEntitySchemaSlug: null | EntitySchemaSlug;
 	readonly targetEntitySchemaSlug: null | EntitySchemaSlug;
+	readonly projection?: undefined | PluginRelationshipProjection;
 	readonly userWritePolicy?: undefined | PluginRelationshipUserWritePolicy;
 };
 

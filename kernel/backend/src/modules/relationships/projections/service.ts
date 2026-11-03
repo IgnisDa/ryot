@@ -1,4 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { PluginRelationshipProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { RelationshipProjectionRequest } from "@ryot-app/contract/modules/relationships/projections";
 import {
@@ -29,6 +31,47 @@ import { makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 
 import { type RelationshipProjectionKey, RelationshipProjectionRepository } from "./repository";
+
+type RelationshipProjectionInputs = NonNullable<PluginRelationshipProjection["inputs"]>;
+
+const inputSources = (trigger: AutomationTrigger) => {
+	const change = trigger.payload;
+	if (change?.category !== "change" || change.operation === "batch") {
+		return null;
+	}
+	if (change.resource === "relationship") {
+		if (change.operation !== "create") {
+			return null;
+		}
+		const { after } = change;
+		return after.relationshipSchemaPluginId !== null
+			? {
+					pluginId: after.relationshipSchemaPluginId,
+					sources: (inputs: RelationshipProjectionInputs, slug: string) =>
+						inputs.relationshipCreate && slug === after.relationshipSchemaSlug
+							? [after.sourceEntityId]
+							: [],
+				}
+			: null;
+	}
+	if (change.resource !== "event") {
+		return null;
+	}
+	const events = [
+		...(change.operation === "create" ? [] : [change.before]),
+		...(change.operation === "delete" ? [] : [change.after]),
+	].filter((event) => event.eventSchemaPluginId !== null);
+	const [first] = events;
+	return first?.eventSchemaPluginId
+		? {
+				pluginId: first.eventSchemaPluginId,
+				sources: (inputs: RelationshipProjectionInputs) =>
+					events
+						.filter((event) => inputs.eventSchemaSlugs.includes(event.eventSchemaSlug))
+						.map((event) => event.sessionEntityId ?? event.entityId),
+			}
+		: null;
+};
 
 const RelationshipProjectionClaim = Schema.Struct({
 	id: Schema.String,
@@ -434,7 +477,42 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 				);
 			});
 
-			return { process, request, reconcile, requestForAllUsers };
+			/** Marks the notes a change makes stale, in its transaction, returning jobs to dispatch after commit. */
+			const admitInputs = Effect.fn("RelationshipProjectionService.admitInputs")(function* (
+				trigger: AutomationTrigger,
+			) {
+				const userId = trigger.scopeUserId;
+				const input = userId === null ? null : inputSources(trigger);
+				if (userId === null || input === null) {
+					return [];
+				}
+				const jobIds: string[] = [];
+				for (const { slug, inputs } of yield* repository.inputSchemas(userId, input.pluginId)) {
+					const sources = [...new Set(input.sources(inputs, slug))];
+					if (sources.length === 0) {
+						continue;
+					}
+					const key = {
+						userId,
+						relationshipSchemaSlug: slug,
+						relationshipSchemaPluginId: input.pluginId,
+					};
+					const binding = yield* currentBinding(key);
+					if (!binding) {
+						continue;
+					}
+					yield* background.lockAccount(binding.accountGeneration);
+					const id = yield* repository.bind(key, binding.persisted);
+					yield* repository.mark(key, sources);
+					const jobId = yield* arrange(id, true);
+					if (jobId) {
+						jobIds.push(jobId);
+					}
+				}
+				return jobIds;
+			});
+
+			return { process, request, reconcile, admitInputs, requestForAllUsers };
 		}),
 	},
 ) {

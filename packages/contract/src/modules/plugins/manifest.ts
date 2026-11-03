@@ -376,14 +376,26 @@ export const PluginRelationshipRetention = Schema.Literals(["root", "composition
 
 export type PluginRelationshipRetention = Schema.Schema.Type<typeof PluginRelationshipRetention>;
 
+export const PluginRelationshipProjection = strictStruct({
+	...PluginProjection.fields,
+	inputs: Schema.optional(
+		strictStruct({
+			relationshipCreate: Schema.Boolean,
+			eventSchemaSlugs: Schema.Array(pluginManifestSlug),
+		}),
+	),
+});
+
+export type PluginRelationshipProjection = Schema.Schema.Type<typeof PluginRelationshipProjection>;
+
 export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
-	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),
+	projection: Schema.optional(PluginRelationshipProjection),
 	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 

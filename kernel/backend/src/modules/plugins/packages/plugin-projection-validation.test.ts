@@ -81,6 +81,27 @@ it.effect(
 			).toEqual([
 				"Relationship projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
 			]);
+		const withInputs = (eventSchemaSlugs: ReadonlyArray<string>) => {
+			const fixture = manifestWithRelationshipProjection(["executeRyotql"], { score });
+			const [relationship] = fixture.relationshipSchemas;
+			assert(relationship);
+			return {
+				...fixture,
+				relationshipSchemas: [
+					{
+						...relationship,
+						projection: {
+							...relationship.projection,
+							inputs: { eventSchemaSlugs, relationshipCreate: true },
+						},
+					},
+				],
+			};
+		};
+		yield* validatePluginManifestReferences(withInputs(["changed"]));
+		expect(
+			issuesOf(yield* Effect.exit(validatePluginManifestReferences(withInputs(["missing"])))),
+		).toEqual(["Relationship projection input schema missing is not declared"]);
 		}),
 	testTimeout,
 );
