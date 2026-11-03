@@ -132,7 +132,7 @@ const instanceAdminLayer = (options: {
 					}),
 					Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: () => Effect.void }),
 					Layer.mock(SavedViewsService)({}),
-					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.void }),
+					Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: () => Effect.succeed([]) }),
 					options.lifecycle ?? defaultUserLifecycleServiceLayer,
 				).pipe(Layer.provideMerge(selectingDatabaseLayer(options.rows))),
 			),

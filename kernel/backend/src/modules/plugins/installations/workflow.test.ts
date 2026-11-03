@@ -197,9 +197,11 @@ const workflowLayer = (input: {
 			}) =>
 				Layer.mergeAll(
 					Layer.succeed(PluginBootstrapEntities)({
+						dispatch: (plans) => pushOrder(`dispatch:${plans.join(",")}`),
 						ensure: (ensured) =>
 							Effect.sync(() => void ensuredEntities.push(ensured)).pipe(
 								Effect.andThen(pushOrder(`ensure:${ensured.entrySlug}`)),
+								Effect.as([`plan:${ensured.entrySlug}`]),
 							),
 					}),
 					Layer.mock(PluginRuntimeResolver)({
@@ -453,7 +455,12 @@ layer(
 			const fake = yield* FakeInstallationWorkflow;
 			ensuredEntities.length = 0;
 			yield* runWorkflow;
-			expect(yield* fake.order).toEqual(["ensure:library", "health:ready", "invalidate"]);
+			expect(yield* fake.order).toEqual([
+				"ensure:library",
+				"dispatch:plan:library",
+				"health:ready",
+				"invalidate",
+			]);
 			expect(ensuredEntities).toEqual<unknown>([
 				{
 					userId,

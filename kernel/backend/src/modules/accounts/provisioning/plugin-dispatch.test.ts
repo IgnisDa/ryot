@@ -120,7 +120,12 @@ const systemInstallation = (pluginName: string) => {
 const ensuredEntities: Array<PluginBootstrapEntitiesInput> = [];
 
 const recordedBootstrapEntities = Layer.succeed(PluginBootstrapEntities)({
-	ensure: (input) => Effect.sync(() => void ensuredEntities.push(input)),
+	dispatch: () => Effect.die("Signup dispatches bootstrap plans from its workflow body"),
+	ensure: (input) =>
+		Effect.sync(() => {
+			ensuredEntities.push(input);
+			return [`plan:${input.entrySlug}`];
+		}),
 });
 
 const layerFor = (installed: Array<ReturnType<typeof systemInstallation>>) =>
@@ -573,7 +578,7 @@ layer(layerFor([systemInstallation("seeded")]))((test) => {
 			const userId = UserId.make("user-1");
 			const accountGeneration = { userId, token: "test-account-generation" };
 			ensuredEntities.length = 0;
-			yield* dispatcher.dispatchAll(userId, accountGeneration);
+			expect(yield* dispatcher.dispatchAll(userId, accountGeneration)).toEqual(["plan:library"]);
 			expect(ensuredEntities).toEqual<unknown>([
 				{
 					userId,

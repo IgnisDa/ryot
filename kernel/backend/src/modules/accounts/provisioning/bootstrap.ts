@@ -42,10 +42,10 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 					}),
 				);
 				if (shouldSkip) {
-					return yield* Effect.void;
+					return [];
 				}
 				yield* pluginInstallations.provisionSystemInstallations(accountGeneration);
-				yield* pluginBootstrap.dispatchAll(user, accountGeneration);
+				const plans = yield* pluginBootstrap.dispatchAll(user, accountGeneration);
 				yield* session.transaction(
 					Effect.gen(function* () {
 						yield* receipts.admitAccount(accountGeneration);
@@ -59,7 +59,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 						yield* accounts.markBootstrapComplete(userId, avatar);
 					}),
 				);
-				return yield* Effect.void;
+				return plans;
 			});
 
 			return { perform, listIncomplete: accounts.listIncompleteBootstraps };

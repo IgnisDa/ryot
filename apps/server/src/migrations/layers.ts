@@ -10,7 +10,9 @@ import { renameLegacyTables } from "./rename-tables";
 export const LegacyTableRenameLive = Layer.effectDiscard(renameLegacyTables);
 
 const LegacyUserBootstrapLive = Layer.effect(UserBootstrap, UserBootstrap.make).pipe(
-	Layer.provide(Layer.succeed(PluginUserBootstrapDispatcher, { dispatchAll: () => Effect.void })),
+	Layer.provide(
+		Layer.succeed(PluginUserBootstrapDispatcher, { dispatchAll: () => Effect.succeed([]) }),
+	),
 	Layer.provide(AuthRepository.layer),
 );
 

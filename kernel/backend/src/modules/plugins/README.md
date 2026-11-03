@@ -69,7 +69,8 @@ installation workflow. Guarded lifecycle completion sets readiness and initializ
 A bootstrap entry that declares entities runs no script. Signup and the installation workflow hand it to
 the `PluginBootstrapEntities` port, which boot binds to the entity service. It ensures the entities with
 kernel authority, under a receipt keyed by the installation and entry, dated at the installation's
-creation so a retry replays the same command.
+creation so a retry replays the same command. The ensure runs in an activity and returns the hook dispatch
+plans its writes made; the calling workflow body dispatches them.
 
 ## System plugin synchronization
 

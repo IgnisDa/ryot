@@ -1856,7 +1856,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						}),
 					),
 			);
-			const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
+			const commitUserEntities = Effect.fn("EntitiesService.commitUserEntities")(function* (
 				userId: UserId,
 				items: ReadonlyArray<EnsureUserEntityItem>,
 				lifecycle: DomainLifecycleCommand,
@@ -1891,17 +1891,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					.peek(aggregateReceipt, aggregateResult)
 					.pipe(Effect.mapError(receiptConflict));
 				if (recordedBatch) {
-					return yield* Effect.forEach(recordedBatch.result, (item) =>
-						execution
-							.dispatch(item.dispatch)
-							.pipe(
-								Effect.map((warnings) => ({
-									warnings,
-									entityId: item.entityId,
-									wasInserted: item.wasInserted,
-								})),
-							),
-					);
+					return recordedBatch.result;
 				}
 				const entries = items.map((item) => {
 					const command = itemCommand(
@@ -2079,6 +2069,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}),
 					mutationUserIds(lifecycle, userId),
 				);
+				return committed;
+			});
+			const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
+				userId: UserId,
+				items: ReadonlyArray<EnsureUserEntityItem>,
+				lifecycle: DomainLifecycleCommand,
+			) {
+				const committed = yield* commitUserEntities(userId, items, lifecycle);
 				return yield* Effect.forEach(committed, (item) =>
 					Effect.gen(function* () {
 						return {
@@ -2460,6 +2458,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				getByIdAnyScope,
 				replayCreateStep,
 				prepareCreateStep,
+				commitUserEntities,
 				ensureUserEntities,
 				prepareReferenceStep,
 				upsertGlobalEntities,

@@ -21,7 +21,10 @@ const executionId = "user-bootstrap-6-user-1";
 
 class RecordedBootstrapWorkflow extends Context.Service<
 	RecordedBootstrapWorkflow,
-	{ readonly attempts: Effect.Effect<number> }
+	{
+		readonly attempts: Effect.Effect<number>;
+		readonly dispatched: Effect.Effect<ReadonlyArray<ReadonlyArray<unknown>>>;
+	}
 >()(
 	"@ryot-app/kernel-backend/modules/accounts/provisioning/workflow.test/RecordedBootstrapWorkflow",
 ) {}
@@ -29,29 +32,34 @@ class RecordedBootstrapWorkflow extends Context.Service<
 const retryingWorkflowLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const attempts = yield* Ref.make(0);
+		const dispatched = yield* Ref.make<ReadonlyArray<ReadonlyArray<unknown>>>([]);
 		const instance = WorkflowInstance.initial(UserBootstrapWorkflow, executionId);
 		const engine = makeWorkflowActivityEngine(instance);
 		return Layer.mergeAll(
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.succeed(WorkflowEngine, engine),
 			Layer.mock(UserBootstrapWorkflowOperations, {
+				dispatch: (plans) => Ref.update(dispatched, (all) => [...all, plans]),
 				perform: () =>
 					Ref.updateAndGet(attempts, (count) => count + 1).pipe(
 						Effect.flatMap((attempt) =>
 							attempt === 1
 								? Effect.fail(internalError("temporary bootstrap failure"))
-								: Effect.void,
+								: Effect.succeed([`plan-${attempt}`]),
 						),
 					),
 			}),
-			Layer.succeed(RecordedBootstrapWorkflow, { attempts: Ref.get(attempts) }),
+			Layer.succeed(RecordedBootstrapWorkflow, {
+				attempts: Ref.get(attempts),
+				dispatched: Ref.get(dispatched),
+			}),
 		);
 	}),
 );
 
 layer(retryingWorkflowLayer)((test) => {
 	test.effect(
-		"retries a failed bootstrap attempt and then succeeds",
+		"retries a failed bootstrap attempt, then dispatches its plans from the body",
 		() =>
 			Effect.gen(function* () {
 				const workflow = yield* Effect.forkChild(
@@ -65,6 +73,7 @@ layer(retryingWorkflowLayer)((test) => {
 				const recorded = yield* RecordedBootstrapWorkflow;
 
 				expect(yield* recorded.attempts).toBe(2);
+				expect(yield* recorded.dispatched).toEqual([["plan-2"]]);
 			}),
 		testTimeout,
 	);

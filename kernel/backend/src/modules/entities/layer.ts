@@ -38,7 +38,7 @@ export const EntitiesServiceRuntimeLive = EntitiesService.layerRuntime.pipe(
 );
 
 export const PluginBootstrapEntitiesRuntimeLive = PluginBootstrapEntitiesLive.pipe(
-	Layer.provide(EntitiesServiceRuntimeLive),
+	Layer.provide(Layer.merge(EntitiesServiceRuntimeLive, LifecycleServicesLive)),
 );
 
 export const EntitiesServiceMigrationLive = EntitiesService.layerMigration.pipe(

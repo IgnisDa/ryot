@@ -17,7 +17,7 @@ import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
-import { PluginBootstrapEntities } from "./bootstrap-entities";
+import { PluginBootstrapDispatch, PluginBootstrapEntities } from "./bootstrap-entities";
 import { PluginInstallationRepository } from "./repository";
 
 const PluginInstallationWorkflowPayload = Schema.Struct({
@@ -61,6 +61,7 @@ export const pluginInstallationBootstrapExecutionId = (
 	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${activationId.length}-${activationId}-${entrySlug.length}-${entrySlug}`;
 
 type PluginInstallationWorkflowOperationsValue = {
+	dispatchBootstrapEntities: (plans: PluginBootstrapDispatch) => Effect.Effect<void, InternalError>;
 	complete: (
 		installationId: string,
 		activationId: string,
@@ -87,7 +88,7 @@ type PluginInstallationWorkflowOperationsValue = {
 		readonly installationId: string;
 		readonly accountGeneration: AccountGeneration;
 		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
-	}) => Effect.Effect<void, InternalError>;
+	}) => Effect.Effect<PluginBootstrapDispatch, InternalError>;
 	runBootstrapEntry: (input: {
 		readonly userId: UserId;
 		readonly entrySlug: string;
@@ -298,7 +299,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 					if (!installation) {
 						return yield* internalError("Plugin installation is unavailable");
 					}
-					yield* bootstrapEntities.ensure({
+					return yield* bootstrapEntities.ensure({
 						userId: input.userId,
 						entities: input.entities,
 						entrySlug: input.entrySlug,
@@ -312,7 +313,6 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 							input.entrySlug,
 						),
 					});
-					return yield* Effect.void;
 				}),
 				`Plugin installation bootstrap entry failed: ${input.entrySlug}`,
 			);
@@ -323,6 +323,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			complete,
 			runBootstrapEntry,
 			ensureBootstrapEntities,
+			dispatchBootstrapEntities: bootstrapEntities.dispatch,
 			releaseBootstrapEntry: (installationId, activationId, entrySlug) =>
 				asInternal(
 					sandbox.releaseWorkflowRegistration(
@@ -365,9 +366,9 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 			const executed = yield* (
 				"entities" in entry
 					? makeActivity({
-							success: Schema.Void satisfies DurableSchema,
 							error: InternalError satisfies DurableSchema,
 							name: `ensure-bootstrap-entities-${entry.slug}`,
+							success: PluginBootstrapDispatch satisfies DurableSchema,
 							execute: operations.ensureBootstrapEntities({
 								userId,
 								accountGeneration,
@@ -376,7 +377,18 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 								activationId: payload.activationId,
 								installationId: payload.installationId,
 							}),
-						}).pipe(Activity.retry({ times: 3 }))
+						}).pipe(
+							Activity.retry({ times: 3 }),
+							Effect.flatMap((plans) =>
+								operations
+									.dispatchBootstrapEntities(plans)
+									.pipe(
+										Effect.catchCause((cause) =>
+											Effect.logError("plugin installation bootstrap hook dispatch failed", cause),
+										),
+									),
+							),
+						)
 					: operations.runBootstrapEntry({
 							userId,
 							accountGeneration,

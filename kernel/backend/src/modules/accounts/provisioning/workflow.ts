@@ -6,6 +6,10 @@ import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect"
 import { DurableClock, Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#boot/workflow-engine";
+import {
+	PluginBootstrapDispatch,
+	PluginBootstrapEntities,
+} from "#modules/plugins/installations/bootstrap-entities";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { UserBootstrap } from "./bootstrap";
@@ -26,10 +30,11 @@ export const UserBootstrapWorkflow = Workflow.make("UserBootstrapWorkflow", {
 export class UserBootstrapWorkflowOperations extends Context.Service<
 	UserBootstrapWorkflowOperations,
 	{
+		dispatch: (plans: PluginBootstrapDispatch) => Effect.Effect<void, InternalError>;
 		perform: (
 			userId: UserId,
 			accountGeneration: AccountGeneration,
-		) => Effect.Effect<void, InternalError>;
+		) => Effect.Effect<PluginBootstrapDispatch, InternalError>;
 	}
 >()(
 	"@ryot-app/kernel-backend/modules/accounts/provisioning/workflow/UserBootstrapWorkflowOperations",
@@ -39,7 +44,9 @@ export const UserBootstrapWorkflowOperationsLive = Layer.effect(
 	UserBootstrapWorkflowOperations,
 	Effect.gen(function* () {
 		const bootstrap = yield* UserBootstrap;
+		const bootstrapEntities = yield* PluginBootstrapEntities;
 		return {
+			dispatch: bootstrapEntities.dispatch,
 			perform: (userId: UserId, accountGeneration: AccountGeneration) =>
 				bootstrap.perform(userId, accountGeneration).pipe(
 					Effect.catchCauseIf(
@@ -67,7 +74,7 @@ export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(funct
 		makeActivity({
 			name: `bootstrap-user-${attemptNumber}`,
 			error: InternalError satisfies DurableSchema,
-			success: Schema.Void satisfies DurableSchema,
+			success: PluginBootstrapDispatch satisfies DurableSchema,
 			execute: operations.perform(payload.userId, payload.accountGeneration),
 		}).pipe(Effect.result);
 	let result = yield* performAttempt(attempt);
@@ -83,6 +90,15 @@ export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(funct
 		attempt += 1;
 		result = yield* performAttempt(attempt);
 	}
+	yield* operations
+		.dispatch(result.success)
+		.pipe(
+			Effect.catchCause((cause) =>
+				Effect.logError("user bootstrap hook dispatch failed", cause).pipe(
+					Effect.annotateLogs({ userId: payload.userId }),
+				),
+			),
+		);
 });
 
 export const UserBootstrapWorkflowDefinitionsLive = implementWorkflow(
