@@ -178,6 +178,7 @@ describe("RyotQL wildcard projections", () => {
 					"externalId",
 					"id",
 					"name",
+					"occursAt",
 					"populatedAt",
 					"populationStatus",
 					"properties",
