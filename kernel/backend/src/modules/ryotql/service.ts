@@ -43,7 +43,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
 								);
 								yield* transaction.execute(
-									sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
+									sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true), set_config('jit', 'off', true)`,
 								);
 								let catalog: ReadonlyArray<PluginBinding> = [];
 								if (pluginIdentityReferences(validated.value).length > 0) {
