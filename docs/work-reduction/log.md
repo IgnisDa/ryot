@@ -449,4 +449,8 @@
 - The owner confirmed the plugin section and JIT off for RyotQL reads. `legacy3` captured query plans: All Shows
   computes display fields for all 9,208 catalog shows before paging, and upcoming and the calendar read the whole
   episode catalog. `order-of-work.md` proposes the sequence for the owner's review.
+- Phase 0 of `order-of-work.md`: `collection-detail` and `entity-reminders` passed 3 of 3 runs alone, so they are
+  treated as flaky under load until the next full suite says otherwise. `library-check.sh` reproduces the
+  `legacy2` pattern on `tmp/file2.sql`: 3 of 3 page loads killed with JIT on, 0 of 3 off. Its timings shared the CPU
+  with another project's test, so they run slower than `legacy2`.
 
