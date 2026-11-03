@@ -103,7 +103,7 @@ export const relationship = snakeCase.table(
 			table.relationshipSchemaPluginId,
 			table.relationshipSchemaSlug,
 		),
-		index("relationship_source_entity_id_idx").on(table.sourceEntityId),
+		index("relationship_source_schema_idx").on(table.sourceEntityId, table.relationshipSchemaSlug),
 		index("relationship_target_entity_id_idx").on(table.targetEntityId),
 		index("relationship_properties_idx").using("gin", table.properties),
 		index("relationship_collection_order_idx")
