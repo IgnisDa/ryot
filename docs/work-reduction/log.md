@@ -464,4 +464,8 @@
   test missing `occursAt`, now fixed. Reruns and an alternation with code from before Phase A put the rest down to
   the 4 known liveness tests and to load. The non-e2e tests pass on the VM apart from the flaky backup memory
   test, once the VM has swap for linting. The local real-data containers and plan files were removed.
-
+- Phase B started with step 7. User bootstrap entries can declare entities, which the kernel ensures without a
+  script, and Media and Fitness dropped their bootstrap scripts. Signup fell from 5 workflows and 2 scripts to 1
+  and 0, and from 672 ms to 356 ms of API CPU (`probesB1`). A reset-account e2e test caught hook dispatch inside an
+  activity; the write now returns its plans for the workflow body. `design-declared-effects.md` proposes the rest
+  of step 7.

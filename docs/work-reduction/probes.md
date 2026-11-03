@@ -768,3 +768,29 @@ without them `tsgolint` was killed for memory while linting the kernel backend. 
 two files open that then passed alone 3 of 3 times in 3 s each. The last run passed every task except the known
 backup memory test, at 537,583,616 bytes against its 536,870,912 limit: 3,023 of 3,024 kernel tests.
 
+
+## Runs `probesB0` and `probesB1` (Phase B baseline, then bootstrap entities)
+
+Flow probes on the VM. `probesB0` is `dc3b525d1d`, after Phase A; `probesB1` is `3e2d6b4f73`, with bootstrap
+entities declared. Medians, net of idle background.
+
+| Flow | Caller | Statements | Transactions | DB exec | API CPU | Workflows | Scripts |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Signup, `probesB0` | 705 ms | 457 | 214 | 119 ms | 672 ms | 5 | 2 |
+| Signup, `probesB1` | 495 ms | 268 | 93 | 31 ms | 356 ms | 1 | 0 |
+| Event, `backlog` | 644 ms | 1,008 | 423 | 212 ms | 1,034 ms | 19 | 5 |
+| Event, no hooks | 199 ms | 148 | 82 | 64 ms | 112 ms | 2 | 0 |
+| 50 events, no hooks | 754 ms | 1,472 | 52 | 198 ms | 535 ms | 2 | 0 |
+| Review operation | 2,151 ms | 2,349 | 776 | 604 ms | 2,242 ms | 47 | 13 |
+| Workout, 1 set | 1,238 ms | 754 | 206 | 271 ms | 856 ms | 11 | 4 |
+| Workout editor save, 10 × 15 | 5,500 ms | 9,599 | 1,074 | 1,323 ms | 4,783 ms | 58 | 13 |
+
+Rows other than signup are `probesB0`; they are unchanged in `probesB1` within noise. Signup is the cost nearly
+every e2e test pays at least once, so the 316 ms of API CPU saved per signup applies across the suite.
+
+### Non-e2e test stalls
+
+Two of four recent kernel test runs on the VM stopped producing output for 10 minutes and were killed, one of them
+on code from before these changes. Memory sampling in a later run showed at most 296 MB of swap in use and at least
+4.5 GB available, so the stalls are not memory pressure. The open files differed each time and passed alone. The
+cause is not traced; a rerun has passed each time.

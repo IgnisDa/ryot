@@ -42,8 +42,9 @@ the code from before the phase (`probes.md`).
 The moves from `redesign.md`, in the order that removes the most work first. Flow probes after each step, and
 the suite after steps 7, 8 and 9.
 
-**7. Declarative plugin effects.** Done in this order, each its own commit: bootstrap entities, membership rules,
-projection inputs written in the source transaction, dirty-subject work. Check: no after hook on a backlog create,
+**7. Declarative plugin effects.** Done in this order, each its own commit: bootstrap entities (done), membership
+rules, projection inputs written in the source transaction, dirty-subject work. See
+[`design-declared-effects.md`](design-declared-effects.md). Check: no after hook on a backlog create,
 no script on signup, and summaries still match live values.
 
 **8. Commands are one transaction.** Direct policy calls, one receipt per command, revisions cached in process,
