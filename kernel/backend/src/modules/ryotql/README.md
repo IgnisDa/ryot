@@ -128,6 +128,8 @@ Ungrouped aggregates return one item without page info and accept no cursor. Gro
 
 Correlated aggregates with an identical query set in the same scope are fused into one `CROSS JOIN LATERAL` that computes all their measures once per outer row; selections, ordering, and cursor predicates reference its columns. Aggregates inside join conditions or JSON element operators stay scalar subqueries.
 
+A lateral aggregate runs once per row before PostgreSQL can filter, sort, or limit. When neither the filter nor the order reads one, a rows query first picks the page's root rows in a `ryotqlPage` CTE without it, and the full query runs over only those rows.
+
 Inside a fused aggregate with only inner table joins, a reference is hoisted into a materialized CTE evaluated once per statement when its own predicates form a closed date range, or when it does not depend on the outer row and joins another reference on typed JSON casts of its columns. The CTE applies those local predicates and precomputes the cast keys.
 
 Catalog sources return their `from` fragment plus named CTEs; the executor owns CTE names, merges them for the whole statement, and emits one `WITH` clause. A cast of a JSON object path to text, number, or boolean is one silent `jsonb_path_query_first` call, and a cast of a subquery operand evaluates the subquery once.
@@ -142,3 +144,5 @@ Catalog sources return their `from` fragment plus named CTEs; the executor owns 
 | Grouped aggregate rows                 |      1,000 |
 | Include depth / correlated query depth |      3 / 3 |
 | Transaction-local statement timeout    | 30 seconds |
+
+Each read transaction also turns JIT off locally. Generated statements are large enough that compiling them costs far more than it saves, and the compiled code can exhaust a memory-limited PostgreSQL.

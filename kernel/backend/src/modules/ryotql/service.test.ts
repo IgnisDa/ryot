@@ -173,7 +173,33 @@ layer(makeServiceLayer())((test) => {
 				expect(statement.match(/CROSS JOIN LATERAL/g)).toHaveLength(1);
 				expect(statement).toMatch(/("aggregate\d+_0"\."v0") AS "f0v", \1 AS "f1v"/);
 				expect(statement).toMatch(/"aggregate\d+_0"\."v0" AS "o0"/);
+				expect(statement).not.toContain('"ryotqlPage"');
 			}),
+		testTimeout,
+	);
+
+	test.effect("picks the page before running aggregates only its fields read", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const subject = table("entity", "subject");
+			const source = table("event", "source");
+			const sourceScope = { where: eq(column(source, "entityId"), column(subject, "id")) };
+			yield* service.executeForUser("user-1", null, "plugin", {
+				queries: {
+					ranking: rows(subject, {
+						orderBy: [ascending(column(subject, "name"))],
+						fields: [field("events", count(source, sourceScope))],
+					}),
+				},
+			});
+			const statements = yield* (yield* RecordedStatements).statements;
+			const statement = statements.find((value) => value.includes('"ryotqlPage"'));
+			assert(statement);
+			const [page, outer] = statement.split('FROM "ryotqlPage"');
+			assert(page && outer);
+			expect(page).not.toContain("CROSS JOIN LATERAL");
+			expect(outer).toContain("CROSS JOIN LATERAL");
+		}),
 		testTimeout,
 	);
 
@@ -357,6 +383,7 @@ layer(makeServiceLayer())((test) => {
 				const statements = yield* (yield* RecordedStatements).statements;
 				expect(statements[0]).toBe("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 				expect(statements[1]).toContain("set_config('statement_timeout'");
+			expect(statements[1]).toContain("set_config('jit', 'off', true)");
 				expect(statements.slice(2)).toHaveLength(2);
 				expect(statements[2]).toMatch(/"user_id" = \$\d+ OR "user_id" IS NULL/);
 				expect(statements[2]).not.toContain("COUNT(*)");

@@ -46,6 +46,7 @@ import {
 	planQuery,
 	planScopes,
 	type QuerySet,
+	referencedGroups,
 } from "./planner";
 import type { ExpandedInclude, ExpandedNamedQuery, ExpandedRowsOutput } from "./validator";
 
@@ -901,6 +902,7 @@ const querySetSql = (
 	query: QuerySet,
 	ctx: Context,
 	additionalConditions: readonly SqlFragment[] = [],
+	page?: { readonly rootSource?: SqlFragment; readonly groups?: ReadonlySet<string> },
 ): SqlFragment => {
 	const { scope } = ctx;
 	const joinCtx: Context = { ...ctx, fused: false };
@@ -925,9 +927,10 @@ const querySetSql = (
 	};
 	const root = lookupTable(scope, query.from.alias);
 	const rootSource =
-		scope.materializedRoot === undefined
+		page?.rootSource ??
+		(scope.materializedRoot === undefined
 			? tableSource(scope, query.from.alias, root)
-			: identifier(scope.materializedRoot);
+			: identifier(scope.materializedRoot));
 	const joins = (query.joins ?? []).map((join) => {
 		if (join.type === "jsonElements") {
 			const elements = lookupTable(scope, join.alias);
@@ -941,7 +944,10 @@ const querySetSql = (
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
 		return sql`${joinType} ${tableSource(scope, join.table.alias, joined)} ${sql.raw(joined.sqlAlias)} ON ${condition(join.on, joinCtx)}`;
 	});
-	const aggregates = [...scope.groups.values()].map((group) => {
+	const groups = [...scope.groups].flatMap(([key, group]) =>
+		page?.groups === undefined || page.groups.has(key) ? [group] : [],
+	);
+	const aggregates = groups.map((group) => {
 		const groupCtx: Context = { ...ctx, scope: group.scope };
 		const measures = [...group.measures.values()].map(
 			({ alias, aggregation }) =>
@@ -1309,6 +1315,47 @@ const compileCursorColumn = (expr: ScalarExpression, ctx: Context) => {
 		: value;
 };
 
+// A lateral aggregate runs once per row before PostgreSQL can filter, sort or limit. When neither
+// the filter nor the order reads one, a cheaper query picks the page's root rows first, and the full
+// query runs over only those. Orders end in primary keys, so both pick the same rows.
+const pagedRoot = (
+	query: RowsQuery,
+	plan: PlannedScope,
+	orders: readonly Order[],
+	ctx: Context,
+	cursorCondition: readonly SqlFragment[],
+) => {
+	const groups = referencedGroups(
+		[...(query.where ? [query.where] : []), ...orders.map((order) => order.expr)],
+		plan,
+	);
+	const root = lookupTable(plan, query.from.alias);
+	if (groups.size === plan.groups.size || root.table.primaryKey.length === 0) {
+		return undefined;
+	}
+	const keys = root.table.primaryKey.map((field) =>
+		compileExpression({ field, type: "column", tableAlias: query.from.alias }, ctx),
+	);
+	const names = keys.map((_, index) => identifier(`k${index}`));
+	const alias = sql.raw(root.sqlAlias);
+	return {
+		rootSource: sql`(
+			SELECT ${alias}.* FROM ${tableSource(plan, query.from.alias, root)} ${alias}
+			WHERE (${sql.join(keys, sql`, `)}) IN (SELECT ${sql.join(names, sql`, `)} FROM "ryotqlPage")
+			OFFSET 0
+		)`,
+		cte: sql`"ryotqlPage" AS MATERIALIZED (
+			SELECT ${sql.join(
+				keys.map((key, index) => sql`${key} AS ${names[index]}`),
+				sql`, `,
+			)}
+			${querySetSql(query, ctx, cursorCondition, { groups })}
+			ORDER BY ${expressionOrderSql(orders, ctx)}
+			LIMIT ${query.output.pagination.limit + 1}
+		)`,
+	};
+};
+
 const compileRowsQuery = (
 	query: RowsQuery,
 	plan: PlannedScope,
@@ -1327,14 +1374,16 @@ const compileRowsQuery = (
 	);
 	const columns = [...fieldColumns, ...includeColumns, ...orderColumns];
 	const cursorCondition = cursor ? [compileCursorPredicate(orders, cursor, ctx)] : [];
+	const paged = pagedRoot(query, plan, orders, ctx, cursorCondition);
 	return withCtes(
 		plan,
 		sql`
 		SELECT ${sql.join(columns, sql`, `)}
-		${querySetSql(query, ctx, cursorCondition)}
+		${querySetSql(query, ctx, cursorCondition, paged && { rootSource: paged.rootSource })}
 		ORDER BY ${expressionOrderSql(orders, ctx)}
 		LIMIT ${query.output.pagination.limit + 1}
 	`,
+		paged ? [paged.cte] : [],
 	);
 };
 

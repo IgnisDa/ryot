@@ -560,6 +560,21 @@ const planScope = (
 	return scope;
 };
 
+// Fused aggregates a filter or ordering reads have to run before a page can be chosen.
+export const referencedGroups = (nodes: readonly Node[], scope: PlannedScope) => {
+	const keys = new Set<string>();
+	const visit = (node: Node): void => {
+		const { row, element, correlated: query } = operands(node);
+		[...row, ...element].forEach(visit);
+		const key = query ? stableStringify(query.query) : undefined;
+		if (key !== undefined && scope.groups.has(key)) {
+			keys.add(key);
+		}
+	};
+	nodes.forEach(visit);
+	return keys;
+};
+
 export const planQuery = (
 	query: ExpandedNamedQuery,
 	execution: RyotQLExecutionScope,
