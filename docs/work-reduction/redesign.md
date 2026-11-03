@@ -1,8 +1,8 @@
 # Redesign proposal: remove the cascade
 
-Status: direction agreed with the owner, including plugins and JIT. Nothing here is implemented, and
-implementation waits for the owner's go-ahead on [`order-of-work.md`](order-of-work.md), which sets the
-sequence. It replaces the ordering in [`strategy.md`](strategy.md), whose target design was only partly built.
+Status: direction agreed with the owner, including plugins and JIT. [`order-of-work.md`](order-of-work.md)
+sets the sequence and tracks what is done. It replaces the ordering in [`strategy.md`](strategy.md), whose target
+design was only partly built.
 
 ## Decisions
 
@@ -43,11 +43,10 @@ still takes 9,601 statements and 59 workflows. So the direction is:
    a transaction, a system plugin change touches one pointer, and authority is cached by revision.
 4. **Reads scale with the page, not the library.** RyotQL filters, sorts and limits before it computes
    display fields, filterable state moves to indexed columns, and the plugin and installation gate runs once
-   per query instead of once per row. Stored library summaries also
-   have to hold what lists sort on: `timesCompleted`, `lastCompletedAt` and `userRating` are still computed
-   per row from events. RyotQL reads turn JIT off in their own transaction, which leaves other SQL
-   unchanged; `legacy2` found no read that JIT clearly helped. This does not make the home page safe alone:
-   `upcoming` still hits the 30 s limit with JIT off.
+   per query instead of once per row. Computing `timesCompleted`, `lastCompletedAt` and `userRating` from events
+   stays, because picking the page first put those sorts under 1 s (`a4`–`a6`). RyotQL reads turn JIT off in their
+   own transaction, which leaves other SQL unchanged; `legacy2` found no read that JIT clearly helped. This does
+   not make the home page safe alone: `upcoming` still hits the 30 s limit with JIT off.
 
 Every read of stored state needs a check against a real library before it changes. The lists to cover are
 the All saved views, home rails, calendar, analytics and monitoring schedules. Add a repeatable check

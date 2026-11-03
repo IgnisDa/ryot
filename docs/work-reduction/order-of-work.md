@@ -1,10 +1,12 @@
 # Order of work
 
-Status: for the owner's review. Nothing here has started. It replaces the ordering in
-[`redesign.md`](redesign.md), whose direction and evidence still apply.
+Status: agreed with the owner. Steps 0–2 are done; step 5 waits on the owner's decision on
+[`design-indexed-date.md`](design-indexed-date.md). It replaces the ordering in [`redesign.md`](redesign.md),
+whose direction and evidence still apply.
 
 Each step lands on its own, with `[reduce-work]` commits, and has to meet its check before the next starts.
-"Library check" means the reads in step 0 on `tmp/file2.sql`. "Flow probes" and "suite" run on the VM.
+"Library check" means the reads in step 0 on `tmp/file2.sql`, run with `LIBRARY_CHECK_TODAY` at the dump's date and
+at a busy week, because a dump's date windows empty out as it ages. "Flow probes" and "suite" run on the VM.
 
 ## Phase 0: make the checks repeatable
 
@@ -23,13 +25,12 @@ These fix what real users hit now, and do not depend on the write redesign.
 | --- | --- | --- | --- |
 | **1. JIT off for reads** | `jit=off` in the RyotQL transaction, next to `statement_timeout` | `legacy2`: 3 of 3 page loads killed with JIT on, 0 of 3 off | No kill in 3 page loads at 1 GB |
 | **2. Compute the page first** | RyotQL filters, sorts and limits first, then computes display fields for the page's rows only | `legacy3`: 607,521 episode visits for 21 rows; the name sort needs 2,708 | Default view and stored-value sorts under 1 s |
-| **3. Store what lists sort on** | `timesCompleted`, `lastCompletedAt` and `userRating` join the stored summary | `librarySummary` computes them per row from events | Those sorts under 1 s; stored values match live values on both dumps |
-| **4. One gate per query** | The plugin and installation check runs once, not per row | `legacy3`: flat rail does 29,460 projection and installation lookups for 1 row | Flat rails under 100 ms |
-| **5. Indexed dates** | Upcoming and calendar start from an indexed date, not by parsing every episode | `legacy3`: 644,137 episode dates cast to return 4 rows | Each under 500 ms |
+| **3. Store what lists sort on** | Dropped: `a4`–`a6` have those sorts under 1 s without it | `timesCompleted` also depends on asynchronous stream contributions, so storing it would need a new kernel trigger | |
+| **4. One gate per query** | The plugin and installation check runs once, not per row. Decide after step 5: flat rails are at 135 ms | `legacy3`: flat rail does 29,460 projection and installation lookups for 1 row | Flat rails under 100 ms |
+| **5. Indexed dates** | Upcoming and calendar start from an indexed date, not by parsing every episode | `a5`, `a6`: `upcoming` fails at 30 s; prototype in `probes.md` | Each under 500 ms on both dates |
 | **6. Memory and background load** | Trace the background query that slows reads, then bound concurrent reads if still needed | `upcoming`: 4.5 s alone, 20–28 s beside it | Whole home page under 2 s, no kill at 1 GB under background load |
 
-Step 5 needs a small design note first, because the kernel has to index a plugin's date without knowing the
-plugin: a generic declared property is the likely shape.
+Step 5 needs a decision first: see [`design-indexed-date.md`](design-indexed-date.md).
 
 **Phase check:** the whole suite still passes, because tiny libraries do not exercise these paths. This phase is
 not expected to shorten it much.

@@ -453,4 +453,8 @@
   treated as flaky under load until the next full suite says otherwise. `library-check.sh` reproduces the
   `legacy2` pattern on `tmp/file2.sql`: 3 of 3 page loads killed with JIT on, 0 of 3 off. Its timings shared the CPU
   with another project's test, so they run slower than `legacy2`.
+- Steps 1 and 2 of `order-of-work.md` landed, with a composite relationship index on source and schema. Uncontended,
+  every list sort is under 1 s, which drops step 3. `a4` looked good only because the dump has aged: its week held 10
+  episodes. On the dump's date and in a busy week, `upcoming` still fails at 30 s and takes the page with it. The
+  prototype in `probes.md` shows an index alone does not fix this, and `design-indexed-date.md` proposes the rest.
 

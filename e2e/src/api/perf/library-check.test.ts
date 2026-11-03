@@ -58,6 +58,8 @@ const OUT = String(process.env.LIBRARY_CHECK_OUT);
 const DATABASE_URL = String(process.env.E2E_DATABASE_URL);
 const ROUNDS = (process.env.LIBRARY_CHECK_ROUNDS ?? "server").split(",");
 const PAGES = (process.env.LIBRARY_CHECK_PAGES ?? "server").split(",").filter(Boolean);
+const ONLY = process.env.LIBRARY_CHECK_ONLY?.split(",");
+const TODAY = process.env.LIBRARY_CHECK_TODAY;
 const STATEMENT_LIMIT_MS = 29_000;
 const DAY_MS = 86_400_000;
 
@@ -117,7 +119,7 @@ const midnightAfter = (now: number, days: number) =>
 const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 	const { pluginId } = yield* findMediaEntitySchema(client, "show");
 	const reference = { pluginId, kind: "local" as const };
-	const now = yield* Clock.currentTimeMillis;
+	const now = TODAY ? Date.parse(TODAY) : yield* Clock.currentTimeMillis;
 	const today = dayOf(now);
 	const midnight = (days: number) => midnightAfter(now, days);
 	const timeZone = yield* Schema.decodeEffect(TimeZone)("UTC").pipe(Effect.orDie);
@@ -328,7 +330,7 @@ describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 				for (const group of groups) {
 					let client = yield* session(group.userId);
 					for (const [label, run] of Object.entries(group.reads)) {
-						if (limited.has(`${mode}:${label}`)) {
+						if (limited.has(`${mode}:${label}`) || ONLY?.includes(label) === false) {
 							continue;
 						}
 						yield* admin(AnyRows, "select pg_stat_statements_reset()");

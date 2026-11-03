@@ -28,6 +28,7 @@ outside it, in the kernel's durability, planning, and bookkeeping layers.
 | `vm-e2e.sh ID [files]` | VM, root, systemd | One measured e2e run: vitest JSON, pg_stat_statements of the shared database, OTEL span metrics, vmstat/docker/ps samples, server and PostgreSQL logs. |
 | `library-check.sh` | local | Real-library reads on a restored dump, in disposable containers: `setup`, `serve`, `run`, `stop`, `destroy`. Dumps hold real user data, so this never runs on the VM. |
 | `library-report.py` | local | Per-read medians, failures and whole-page loads from a `library-check.sh` result. |
+| `library-explain.py` | local | Replays the largest statement of each read with `EXPLAIN`, for `library-check.sh plans`. |
 | `lockwatch.sh` | VM | Lock waiters of the shared database every 2 s: advisory key, wait time, blockers' queries. |
 | `cpuprofile.py` | local | Attribute a Bun `.cpuprofile` by package, function and marker. |
 | `pgwatch.sh`, `analyze.py`, `otel/collector.yml` | VM / local | Adopted from the earlier perf audit (`tmp/perf-audit`). |
@@ -54,6 +55,8 @@ it, but systemd's default `OOMPolicy=stop` would stop the whole run on that kill
 ## Findings and plan
 
 - [`redesign.md`](redesign.md): the current proposal, built on the `probes11` decomposition.
+- [`order-of-work.md`](order-of-work.md): the agreed sequence and what is done.
+- [`design-indexed-date.md`](design-indexed-date.md): indexed dates for upcoming and the calendar, for decision.
 - [`strategy.md`](strategy.md): the first diagnosis, target design and slices.
 - [`probes.md`](probes.md): per-flow measurements and the backend CPU profile.
 - [`durability-requirements.md`](durability-requirements.md): guarantees the product tests.

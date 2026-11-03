@@ -653,3 +653,60 @@ the times, and identical buffer counts took 37–143 s, so the loop counts are t
   query looks like a signal schedule, but its source and frequency were not traced.
 - **Memory settings:** PostgreSQL ran with defaults, `shared_buffers=128MB` and `work_mem=4MB`.
 
+## Runs `a2`–`a6` (library check after steps 1 and 2, laptop)
+
+`tmp/file2.sql` at a 1 GB Postgres limit, with the user holding 14,708 titles. `a2` and `a3` shared the CPU with
+another project's test; `a4`–`a6` had the machine to themselves. Times in ms, median of 3 rounds.
+
+**The date a check runs on matters.** The dump's last event is 2026-07-15, and the catalog lists 38 show episodes
+for November 2026 against about 2,700 for October 2025. `a4` ran on today's date, so its week held 10 episodes and
+its `upcoming` and calendar figures flatter the code. `library-check.sh` now takes `LIBRARY_CHECK_TODAY`, which `a5`
+and `a6` use. SQL `current_date` still reads the real clock, so stored-state rules see today.
+
+| Read | `p0` unchanged, JIT off, contended | `a3` steps 1, 2 and index, contended | `a4` sparse week | `a5` dump date | `a6` busy week |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `upcoming` | fails at 30 s | 21,281 | 4,487 | **fails at 30 s** | **fails at 30 s** |
+| Show calendar | fails at 30 s | 7,567 | 3,169 | 3,295 | 3,262 |
+| `continue-show` | 19,058 | 3,431 | 1,230 | 1,063 | 1,005 |
+| All Shows, default | fails at 30 s | 2,330 | 819 | 791 | 780 |
+| All Movies, default | 2,467 | 2,321 | 452 | 417 | 396 |
+| `backlog-show` | 5,443 | 1,110 | 220 | 222 | 212 |
+| `continue-flat` | 228 | 183 | 136 | 135 | 138 |
+| Reads that failed | 20, across both JIT modes | 2 | 0 | 1 | 1 |
+| Whole page | killed 3 of 3 with JIT on | 27–31 s | 4.6–4.8 s | fails at 30 s, 3 of 3 | fails at 30 s, 3 of 3 |
+| Backends killed | 3 of 3 with JIT on | 0 | 0 | 0 | 0 |
+| Peak Postgres memory | | 984 MiB | 746 MiB | 870 MiB | 826 MiB |
+
+- Every saved-view sort is under 1 s on all three dates, including `timesCompleted`, `lastCompletedAt` and
+  `userRating`, which are still computed from events. Storing them is no longer needed for the read targets.
+- The composite relationship index took `backlog-show` from 6.7 s to 0.31 s and the All Shows page selection from
+  4.66 s to 0.52 s when replayed alone.
+- `upcoming` is the only read failing, and it alone fails the page. With it gone, the slowest read in a page is
+  `continue-show` at 1.5–2.0 s.
+
+### Prototype: an indexed date on the real SQL
+
+An expression index on `(entity_schema_slug, publish date)`, with the captured SQL rewritten to read it. A stored
+column would be read the same way. Removed from the database afterwards.
+
+| Read and window | Today's code | Index | Index, date-first join order |
+| --- | ---: | ---: | ---: |
+| `upcoming`, 10 episodes in the catalog's week | 4,291 | 45 | |
+| `upcoming`, dump date | fails at 30 s | 3,097 | |
+| `upcoming`, busy week | over 120,000 | over 120,000 and 208,621, on two busy weeks | |
+| Show calendar, sparse month | 3,273 | 2.5 | |
+| Show calendar, dump month | 3,295 | 8 | 6 |
+| Show calendar, busy month | 3,360 | 3,500 | 120 |
+
+- **`upcoming` in a busy week:** the page is chosen in 0.5 s. The 208 s is one display field, the per-title `total`:
+  the hoisted date window is rescanned for each relationship row, 51,481 times over about 700 rows, and the episode
+  state check runs on each of those 36 M rows. So an index alone does not fix it, and hoisting makes it worse.
+- **Show calendar in a busy month:** Postgres estimates 54 library titles for the 14,708 real ones, so it starts
+  from the library and visits 441,130 episodes even with the index. Forcing the written order, date first, gives 120 ms.
+
+### `streaming-memory.test.ts`
+
+The kernel suite on the VM (`kernel2`) passed 3,019 of 3,020. The failure was this backup test, at 558,608,384 bytes
+against a 536,870,912 limit. It does not reach the changed RyotQL code, and the index is in Postgres, not the
+measured process. Alone on the VM: current code failed 1 of 4, code from before the changes failed 0 of 4.
+

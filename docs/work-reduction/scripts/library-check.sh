@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Real-library reads, on the owner's machine only: dumps hold real user data and stay local.
+# A dump ages: set LIBRARY_CHECK_TODAY=YYYY-MM-DD to the dump's date, or date windows hold almost no rows.
 #   library-check.sh setup DUMP        Restore DUMP into disposable containers and migrate it.
 #   library-check.sh serve             Start the server and wait for stored summaries to settle.
 #   library-check.sh run ID [ROUNDS] [PAGES]
 #                                      ROUNDS and PAGES are comma lists of jit modes: on, off or
 #                                      server (leave the setting alone). Writes tmp/library-check/ID.jsonl.
+#   library-check.sh plans ID READS    EXPLAIN (ANALYZE, BUFFERS) the comma list of READS, without a time
+#                                      limit, into tmp/library-check/ID-*.plan. Stop other work first.
 #   library-check.sh stop              Stop the server and containers, keeping the data.
 #   library-check.sh destroy           Remove the containers and their volumes.
 set -uo pipefail
@@ -97,6 +100,23 @@ run)
 	echo "peak memory: $(awk '{print $2}' "$state/$id.stats" | sort -n | tail -1)"
 	echo "backends killed:"; docker logs --since "$since" wr-legacy-pg 2>&1 | grep 'terminated by signal' | cut -c1-90
 	;;
+plans)
+	id="$2"; only="$3"
+	load_env
+	pg "alter system set log_statement = 'all'" >/dev/null; pg "alter system set log_parameter_max_length = -1" >/dev/null
+	pg "select pg_reload_conf()" >/dev/null
+	since="$(date -u +%FT%TZ)"
+	(cd "$root/e2e" && RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$state/$id.jsonl" LIBRARY_CHECK_ROUNDS=server LIBRARY_CHECK_PAGES= LIBRARY_CHECK_ONLY="$only" \
+		E2E_DATABASE_URL="$DATABASE_URL" E2E_API_URL=http://127.0.0.1:3999/api E2E_FRONTEND_URL=http://127.0.0.1:3999 \
+		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file --bun run vitest run \
+		--config vitest.library-check.config.ts > "$state/$id.out" 2>&1)
+	echo "exit $?"
+	pg "alter system reset log_statement" >/dev/null; pg "alter system reset log_parameter_max_length" >/dev/null
+	pg "select pg_reload_conf()" >/dev/null
+	docker logs --since "$since" wr-legacy-pg > "$state/$id.log" 2>&1
+	python3 -I "$here/library-explain.py" "$state" "$id"
+	rm -f "$state/$id.log"
+	;;
 stop)
 	[ -f "$state/server.pid" ] && kill "$(cat "$state/server.pid")" 2>/dev/null
 	rm -f "$state/server.pid"
@@ -108,5 +128,5 @@ destroy)
 	docker volume rm wr-legacy-pg-data wr-legacy-s3-data >/dev/null 2>&1
 	rm -rf "$state"
 	;;
-*) sed -n 2,8p "$0"; exit 64 ;;
+*) sed -n 2,12p "$0"; exit 64 ;;
 esac
