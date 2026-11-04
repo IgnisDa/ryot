@@ -64,7 +64,7 @@
 		"drizzle-kit": "0.31.11",
 		"rehype-slug": "6.0.0",
 		"remark-frontmatter": "5.0.0",
-		"remark-mdx-frontmatter": "5.2.0",
+		"remark-mdx-frontmatter": "6.0.0",
 		"rollup": "4.67.5",
 		"tailwindcss": "4.3.4",
 		"vite": "8.3.5"

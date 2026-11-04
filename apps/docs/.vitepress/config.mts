@@ -5,7 +5,7 @@ import { defineConfig } from "vitepress";
 
 const getSourceFiles = (dir: string) =>
 	fs
-		.readdirSync(path.resolve(__dirname, `../src/${dir}`))
+		.readdirSync(path.resolve(import.meta.dirname, `../src/${dir}`))
 		.filter((file) => !["overview.md", "community.md", "data-json.md"].includes(file) && file.endsWith(".md"))
 		.sort()
 		.map((file) => {
