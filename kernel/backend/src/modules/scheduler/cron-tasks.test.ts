@@ -4,7 +4,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
-import { runTasks } from "./cron-workflow";
+import { runTasks } from "./cron-tasks";
 import type { CronTask } from "./types";
 
 it.effect(

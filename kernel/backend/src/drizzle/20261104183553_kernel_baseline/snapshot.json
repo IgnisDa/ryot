@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "af05cf0b-513e-486d-9b3f-e6b0d59017bf",
+	"id": "da079d76-4f25-4679-a992-d7982e6af31d",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -606,6 +606,19 @@
 				"n|rel|public.integration_auto_disable_claim",
 				"n|type|public.integration_auto_disable_claim",
 				"n|rel|public.integration_auto_disable_claim_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "job"],
+			"writes": [
+				"s|tbl|public.job",
+				"n|tbl|public.job",
+				"e|tbl|public.job",
+				"n|rel|public.job",
+				"n|type|public.job",
+				"n|rel|public.job_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -2530,6 +2543,57 @@
 				"n|sch|public",
 				"n|col|public.integration_auto_disable_claim.integration_id"
 			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "job", "job_queued_key_unique"],
+			"writes": [
+				"s|idx|public.job_queued_key_unique",
+				"n|idx|public.job_queued_key_unique",
+				"e|idx|public.job_queued_key_unique",
+				"n|rel|public.job_queued_key_unique"
+			],
+			"reads": ["n|tbl|public.job", "n|sch|public", "n|col|public.job.kind", "n|col|public.job.key"]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "job", "job_claim_idx"],
+			"writes": [
+				"s|idx|public.job_claim_idx",
+				"n|idx|public.job_claim_idx",
+				"e|idx|public.job_claim_idx",
+				"n|rel|public.job_claim_idx"
+			],
+			"reads": [
+				"n|tbl|public.job",
+				"n|sch|public",
+				"n|col|public.job.kind",
+				"n|col|public.job.priority",
+				"n|col|public.job.run_at",
+				"n|col|public.job.id"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "job", "job_running_idx"],
+			"writes": [
+				"s|idx|public.job_running_idx",
+				"n|idx|public.job_running_idx",
+				"e|idx|public.job_running_idx",
+				"n|rel|public.job_running_idx"
+			],
+			"reads": ["n|tbl|public.job", "n|sch|public", "n|col|public.job.locked_until"]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "job", "job_failed_idx"],
+			"writes": [
+				"s|idx|public.job_failed_idx",
+				"n|idx|public.job_failed_idx",
+				"e|idx|public.job_failed_idx",
+				"n|rel|public.job_failed_idx"
+			],
+			"reads": ["n|tbl|public.job", "n|sch|public", "n|col|public.job.updated_at"]
 		},
 		{
 			"statementType": "create_index",
@@ -5583,6 +5647,25 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "job"],
+			"writes": [
+				"s|fk|public.job.job_user_id_user_id_fkey",
+				"n|fk|public.job.job_user_id_user_id_fkey",
+				"e|fk|public.job.job_user_id_user_id_fkey",
+				"n|con|public.job.job_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.job",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.job.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "kernel_script"],
 			"writes": [
 				"s|fk|public.kernel_script.kernel_script_script_id_sandbox_script_id_fkey",
@@ -7456,6 +7539,7 @@
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
+		{ "schema": "public", "name": "job", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "jwks", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "kernel_script", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "managed_asset", "isRlsEnabled": false, "entityType": "tables" },
@@ -13711,6 +13795,188 @@
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "error",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "key",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "kind",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "locked_until",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "attempts",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "priority",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "max_attempts",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "payload",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "run_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "updated_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "status",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -22383,6 +22649,106 @@
 		},
 		{
 			"schema": "public",
+			"table": "job",
+			"name": "job_queued_key_unique",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "kind",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "key", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": true,
+			"where": "\"status\" = 'queued' and \"key\" is not null",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "job_claim_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "kind",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "priority",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "run_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": false,
+			"where": "\"status\" = 'queued'",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "job_running_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "locked_until",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": "\"status\" = 'running'",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "job_failed_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "updated_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": "\"status\" = 'failed'",
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
 			"table": "managed_asset",
 			"name": "managed_asset_owner_user_id_idx",
 			"nameExplicit": true,
@@ -25541,6 +25907,19 @@
 		},
 		{
 			"schema": "public",
+			"table": "job",
+			"name": "job_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "kernel_script",
 			"name": "kernel_script_script_id_sandbox_script_id_fkey",
 			"nameExplicit": false,
@@ -26913,6 +27292,14 @@
 		},
 		{
 			"schema": "public",
+			"table": "job",
+			"name": "job_pkey",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
 			"table": "jwks",
 			"name": "jwks_pkey",
 			"columns": ["id"],
@@ -27860,6 +28247,13 @@
 			"table": "integration",
 			"name": "integration_webhook_token_lot_check",
 			"value": "(\"lot\" = 'sink') = (\"webhook_token\" is not null)",
+			"entityType": "checks"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "job_status_check",
+			"value": "\"status\" in ('queued', 'running', 'failed')",
 			"entityType": "checks"
 		},
 		{

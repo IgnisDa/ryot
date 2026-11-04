@@ -1,5 +1,6 @@
 export * from "./core";
 export * from "./auth";
+export * from "./jobs";
 export * from "./views";
 export * from "./events";
 export * from "./backups";

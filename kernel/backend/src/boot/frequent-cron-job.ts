@@ -30,19 +30,18 @@ import type { PluginInstallationService } from "#modules/plugins/installations/s
 import { pluginInstallationFrequentTask } from "#modules/plugins/installations/sweep";
 import { RelationshipProjectionService } from "#modules/relationships/projections/service";
 import { ReminderWorker } from "#modules/reminders/worker";
-import {
-	type CronRunPayload,
-	FrequentCronWorkflow,
-	runTasks,
-} from "#modules/scheduler/cron-workflow";
+import { runTasks } from "#modules/scheduler/cron-tasks";
+import { FrequentCronJob, scheduleFrequentCron } from "#modules/scheduler/frequent-cron";
 import type { CronTask } from "#modules/scheduler/types";
 import { SignalScheduleWorker } from "#modules/signal-schedules/worker";
 import type { DatabaseSession } from "#platform/db/session";
-import { implementWorkflow } from "#platform/workflow/scope";
+import { JobQueue } from "#platform/jobs/queue";
+import { registerJobHandler } from "#platform/jobs/worker";
 
 const frequentCronTasks: ReadonlyArray<
 	CronTask<
 		never,
+		| JobQueue
 		| BackupsService
 		| WorkflowEngine
 		| ImportsService
@@ -75,6 +74,13 @@ const frequentCronTasks: ReadonlyArray<
 				yield* service.cleanupExpiredArtifacts(100);
 			}).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("backup cleanup listing failed", cause)),
+			),
+	},
+	{
+		name: "failed-job-retention",
+		run: () =>
+			Effect.flatMap(JobQueue, (queue) => queue.pruneFailed(500)).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("failed job retention failed", cause)),
 			),
 	},
 	{
@@ -172,16 +178,10 @@ const frequentCronTasks: ReadonlyArray<
 	pluginInstallationFrequentTask,
 ];
 
-const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(
-	function* (_payload: CronRunPayload, executionId: string) {
-		yield* Effect.annotateCurrentSpan({ executionId });
-		yield* runTasks(frequentCronTasks, { executionId });
-	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "FrequentCronWorkflow" }),
-);
-
-export const FrequentCronWorkflowDefinitionsLive = implementWorkflow(
-	FrequentCronWorkflow,
-	runFrequentCronWorkflow,
+// Each run queues the next occurrence before its tasks, so a failed task never stops the schedule.
+export const FrequentCronJobLive = registerJobHandler(FrequentCronJob, (_payload, job) =>
+	scheduleFrequentCron.pipe(
+		Effect.andThen(runTasks(frequentCronTasks, { executionId: job.id })),
+		Effect.annotateLogs({ jobId: job.id, job: FrequentCronJob.name }),
+	),
 );

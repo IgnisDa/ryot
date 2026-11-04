@@ -664,6 +664,24 @@ CREATE TABLE "integration_auto_disable_claim" (
 	"integration_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "job" (
+	"error" text,
+	"key" text,
+	"id" text PRIMARY KEY,
+	"kind" text NOT NULL,
+	"locked_until" timestamp(3) with time zone,
+	"attempts" integer NOT NULL,
+	"priority" integer NOT NULL,
+	"max_attempts" integer NOT NULL,
+	"payload" jsonb NOT NULL,
+	"run_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"status" text NOT NULL,
+	"user_id" text,
+	CONSTRAINT "job_status_check" CHECK ("status" in ('queued', 'running', 'failed'))
+);
+--> statement-breakpoint
 CREATE TABLE "jwks" (
 	"alg" text,
 	"crv" text,
@@ -1472,6 +1490,10 @@ CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disab
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
 CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhook_token");--> statement-breakpoint
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "job_queued_key_unique" ON "job" ("kind","key") WHERE "status" = 'queued' and "key" is not null;--> statement-breakpoint
+CREATE INDEX "job_claim_idx" ON "job" ("kind","priority","run_at","id") WHERE "status" = 'queued';--> statement-breakpoint
+CREATE INDEX "job_running_idx" ON "job" ("locked_until") WHERE "status" = 'running';--> statement-breakpoint
+CREATE INDEX "job_failed_idx" ON "job" ("updated_at") WHERE "status" = 'failed';--> statement-breakpoint
 CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_id");--> statement-breakpoint
 CREATE INDEX "managed_asset_check_after_idx" ON "managed_asset" ("check_after") WHERE "retired_at" is null;--> statement-breakpoint
 CREATE INDEX "managed_asset_retired_at_idx" ON "managed_asset" ("retired_at") WHERE "retired_at" is not null;--> statement-breakpoint
@@ -1638,6 +1660,7 @@ ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_user_id_integ
 ALTER TABLE "integration" ADD CONSTRAINT "integration_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_Q1xPD5Jsz3qI_fkey" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_disable_claim_TMe6DSsXf5GU_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "job" ADD CONSTRAINT "job_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "kernel_script" ADD CONSTRAINT "kernel_script_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "migration_report_detail" ADD CONSTRAINT "migration_report_detail_report_seq_migration_report_seq_fkey" FOREIGN KEY ("report_seq") REFERENCES "migration_report"("seq") ON DELETE CASCADE;--> statement-breakpoint

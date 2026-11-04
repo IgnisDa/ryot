@@ -35,6 +35,10 @@ the caller's transaction. It executes neither sandbox code nor workflows; execut
 commit. Provider population composes the import workflow, and external event creation runs
 before-stage policies before committing pinned after hooks.
 
+Background work that needs no replay is a row in the [job queue](src/platform/jobs/README.md),
+queued in the transaction that causes it. The frequent cron is one such job and queues its own next
+occurrence.
+
 Activities and workflows use `makeActivity` and `implementWorkflow` from
 `src/platform/workflow/scope.ts` and run on the kernel's
 [PostgreSQL workflow engine](src/platform/workflow/README.md). `LifecycleExecution.after` and `executePolicy` fail inside activity

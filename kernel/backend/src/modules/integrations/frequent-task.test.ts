@@ -3,10 +3,9 @@ import { expect } from "bun:test";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { FrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { integrationsFrequentTask } from "./frequent-task";
@@ -16,7 +15,6 @@ layer(mutationAdmissionTestLayer)((test) => {
 		"dispatches the sync workflow with a tick-derived execution id",
 		() => {
 			const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
-			const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
 			const engine = makeWorkflowEngine({
 				execute: (_workflow, options) => {
 					captured.push(options);
@@ -26,7 +24,6 @@ layer(mutationAdmissionTestLayer)((test) => {
 
 			return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
 				Effect.provideService(WorkflowEngine, engine),
-				Effect.provideService(WorkflowInstance, instance),
 				Effect.map(() => {
 					expect(captured).toMatchObject([
 						{
@@ -44,12 +41,10 @@ layer(mutationAdmissionTestLayer)((test) => {
 	test.effect(
 		"swallows an enqueue failure so the cron tick keeps running",
 		() => {
-			const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
 			const engine = makeWorkflowEngine({ execute: () => Effect.die("enqueue boom") });
 
 			return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
 				Effect.provideService(WorkflowEngine, engine),
-				Effect.provideService(WorkflowInstance, instance),
 				Effect.exit,
 				Effect.map((exit) => {
 					expect(exit._tag).toBe("Success");

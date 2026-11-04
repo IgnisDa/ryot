@@ -1,47 +1,44 @@
-import { Clock, Duration, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Clock, DateTime, Duration, Effect, Layer, Schema } from "effect";
 
 import { AppConfig } from "#platform/config/service";
+import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 
 import { DEFAULT_FREQUENT_INTERVAL, parseFrequentSchedule } from "./cron";
-import { FrequentCronWorkflow } from "./cron-workflow";
 
-export const frequentCronExecutionId = (intervalMs: number, scheduledAt: number) =>
-	`frequent-cron-${intervalMs}-${scheduledAt}`;
+export const FrequentCronJob = makeJobKind("frequent-cron", { payload: Schema.Struct({}) });
+
+// One queued occurrence per key, so every process can schedule it and the job runs once per interval.
+export const scheduleFrequentCron = Effect.gen(function* () {
+	const config = yield* AppConfig;
+	if (config.scheduler.disableDispatchers) {
+		return;
+	}
+	const queue = yield* JobQueue;
+	const interval = Duration.toMillis(
+		parseFrequentSchedule(config.scheduler.frequentCronJobsSchedule) ?? DEFAULT_FREQUENT_INTERVAL,
+	);
+	const nowMs = yield* Clock.currentTimeMillis;
+	const runAt = DateTime.toDateUtc(
+		DateTime.makeUnsafe((Math.floor(nowMs / interval) + 1) * interval),
+	);
+	yield* queue.enqueue(FrequentCronJob, {}, { runAt, key: FrequentCronJob.name });
+});
 
 export const FrequentCronSchedulerLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-
 		if (config.scheduler.disableDispatchers) {
 			yield* Effect.logInfo("frequent cron scheduler disabled");
 			return;
 		}
-
-		const engine = yield* WorkflowEngine;
-
 		const configuredSchedule = config.scheduler.frequentCronJobsSchedule;
-		const interval = parseFrequentSchedule(configuredSchedule);
-		if (interval === null) {
+		if (parseFrequentSchedule(configuredSchedule) === null) {
 			yield* Effect.logWarning("frequent cron schedule unsupported").pipe(
 				Effect.annotateLogs({ configuredSchedule, fallback: "every 5 minutes" }),
 			);
 		}
-		const intervalMs = Duration.toMillis(interval ?? DEFAULT_FREQUENT_INTERVAL);
-
-		// Every replica sleeps to the same interval boundary and derives the execution id from it, so
-		// one occurrence enqueues one durable workflow no matter how many processes run the scheduler
-		// or when they started.
-		const tick = Effect.gen(function* () {
-			const nowMs = yield* Clock.currentTimeMillis;
-			const scheduledAt = (Math.floor(nowMs / intervalMs) + 1) * intervalMs;
-			yield* Effect.sleep(Duration.millis(scheduledAt - nowMs));
-			const executionId = frequentCronExecutionId(intervalMs, scheduledAt);
-			yield* engine
-				.execute(FrequentCronWorkflow, { executionId, discard: true, payload: { executionId } })
-				.pipe(Effect.catchCause((cause) => Effect.logError("frequent cron enqueue failed", cause)));
-		});
-
-		yield* tick.pipe(Effect.forever, Effect.forkScoped);
+		yield* scheduleFrequentCron.pipe(
+			Effect.catchCause((cause) => Effect.logError("frequent cron scheduling failed", cause)),
+		);
 	}),
 );

@@ -168,6 +168,8 @@ import { MigrationsComplete } from "#platform/db/migrate";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
 import { EgressHttpClientLive } from "#platform/egress/http-client";
+import { JobQueue } from "#platform/jobs/queue";
+import { JobHandlers, JobWorkerLive } from "#platform/jobs/worker";
 import { ObservabilityLive } from "#platform/observability/observability";
 import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
@@ -178,7 +180,7 @@ import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 
 import { AdmittedWorkflowCatalogueLive } from "./admitted-workflows";
-import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
+import { FrequentCronJobLive } from "./frequent-cron-job";
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { ProjectionFinalizerLive } from "./projection-finalizer";
@@ -219,9 +221,12 @@ const CoreInfrastructureDependenciesLive = BaseInfrastructureServicesLive.pipe(
 
 const PersistedQueueLive = PersistedQueue.layer.pipe(Layer.provide(SandboxExecutionQueueStoreLive));
 
-const ApplicationInfrastructureLive = Layer.merge(PersistedQueueLive, WorkflowEngineLive).pipe(
-	Layer.provideMerge(CoreInfrastructureDependenciesLive),
-);
+const ApplicationInfrastructureLive = Layer.mergeAll(
+	PersistedQueueLive,
+	WorkflowEngineLive,
+	JobQueue.layer,
+	JobHandlers.layer,
+).pipe(Layer.provideMerge(CoreInfrastructureDependenciesLive));
 
 // Content lifecycle services cross the plugin/definition boundary during writes.
 const ContentLifecycleRepositoriesLive = Layer.merge(
@@ -393,10 +398,10 @@ const RuntimeSchedulersLive = Layer.mergeAll(
 	),
 );
 
-const RuntimeWorkLive = Layer.merge(
-	RuntimeWorkflowDefinitionsLive,
-	FrequentCronWorkflowDefinitionsLive,
-);
+// Handlers register before the worker starts claiming.
+const RuntimeJobsLive = JobWorkerLive.pipe(Layer.provide(FrequentCronJobLive));
+
+const RuntimeWorkLive = Layer.merge(RuntimeWorkflowDefinitionsLive, RuntimeJobsLive);
 
 const RuntimeLive = Layer.mergeAll(
 	RuntimeWorkLive,
