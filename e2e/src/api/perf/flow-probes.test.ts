@@ -11,13 +11,25 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Duration, Effect, FileSystem, Schema } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
+import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
+import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { invokeOperation } from "~/fixtures/kernel/operations";
 import {
-	installPrivatePlugin,
+	namespaceInstallation,
+	pluginNamespacePackages,
+} from "~/fixtures/kernel/plugin-namespaces";
+import {
 	PRIVATE_PLUGIN_CONFIG_KEY,
 	PRIVATE_PLUGIN_SECRET_KEY,
+	privatePluginPackage,
+	settledPrivateInstallation,
 } from "~/fixtures/kernel/private-plugin";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
+import { uploadPrivatePluginPackage } from "~/fixtures/kernel/temporary-archive";
+import {
+	installTestSupportSystemPlugin,
+	updateTestSupportSystemPlugin,
+} from "~/fixtures/kernel/test-plugin";
 import {
 	createExerciseEntityFixture,
 	createMeasurementMetric,
@@ -328,13 +340,31 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
 				}
-				// A private plugin upload and install, settled until the installation leaves `installing`.
-				yield* repeat("plugin-install-private", 3, () =>
-					installPrivatePlugin({
-						client,
-						config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha", [PRIVATE_PLUGIN_SECRET_KEY]: "token" },
-					}),
-				);
+				// A private plugin compiled and uploaded, then installed and settled until it leaves `installing`.
+				for (let index = 0; index < 3; index++) {
+					const uploadToken = yield* probe(
+						"plugin-upload-private",
+						uploadPrivatePluginPackage(client, privatePluginPackage({})),
+					);
+					yield* probe(
+						"plugin-install-private",
+						client
+							.call((c) =>
+								c.plugins.install({
+									payload: {
+										uploadToken,
+										config: {
+											[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
+											[PRIVATE_PLUGIN_SECRET_KEY]: "token",
+										},
+									},
+								}),
+							)
+							.pipe(
+								Effect.flatMap((installed) => settledPrivateInstallation(client, installed.id)),
+							),
+					);
+				}
 				// One ended show with every episode logged at once, as in the overlapping-chains liveness test.
 				const show = yield* seedShow(client, {
 					properties: { productionStatus: "Ended" },
@@ -467,6 +497,31 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				yield* repeat("workout-editor-save-1x5", 3, () => editorSave(1, 5));
 				yield* repeat("workout-editor-save-5x5", 3, () => editorSave(5, 5));
 				yield* repeat("workout-editor-save-10x15", 3, () => editorSave(10, 15));
+				// Last, because these system plugins stay installed: their bootstrap entities block uninstalling them.
+				for (let index = 0; index < 3; index++) {
+					const packages = pluginNamespacePackages();
+					const original = yield* compilePluginPackage(packages.a);
+					const next = yield* compilePluginPackage(packages.a2);
+					const system = yield* probe(
+						"plugin-system-install",
+						installTestSupportSystemPlugin(original),
+					);
+					yield* probe(
+						"plugin-system-reconcile",
+						getApiClient().adminCall((contract) =>
+							contract.testSupport.reconcilePluginInstallations(),
+						),
+					);
+					const installed = yield* namespaceInstallation(client, system.pluginId);
+					yield* probe(
+						"plugin-system-change",
+						updateTestSupportSystemPlugin({
+							...next,
+							pluginId: system.pluginId,
+							contentHash: installed.contentHash,
+						}),
+					);
+				}
 			}),
 		1_800_000,
 	);

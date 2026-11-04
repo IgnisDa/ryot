@@ -1069,3 +1069,23 @@ A revision's manifest never changes, so `PluginRepository` keeps decoded manifes
 | `private-plugins`, wall                   |     120 s |       90 s |
 
 The caller's remaining time is mostly compiling the package in the test process before upload.
+
+## Runs `probesP3` and `probesP6` (install call and system package changes on their own)
+
+`plugin-install-private` now times only the install call and its settling; `plugin-upload-private` times compiling
+and uploading the package. `probesP6` adds three system plugin cycles at the end of the run, with packages compiled
+before timing: install, reconcile installations, then change to a new revision. They come last because the plugins
+stay installed: their bootstrap entities block uninstalling them.
+
+| Flow                                    |      Caller | Statements |  Server CPU |
+| --------------------------------------- | ----------: | ---------: | ----------: |
+| Private plugin upload, compile included |   1.6–1.8 s |       4–10 |     0–0.7 s |
+| Private plugin install                  | 0.35–0.96 s |        140 |   0.2–0.3 s |
+| System plugin install                   | 0.64–0.72 s |        145 |   0.4–0.6 s |
+| Reconcile, 7 user installations         | 0.41–0.45 s |      1,760 |  1.35–1.4 s |
+| System plugin change                    | 0.57–0.65 s |        190 | 0.33–0.45 s |
+
+- **Against step 11's check:** `full12` measured `POST /plugins` at 1,254 ms and a system package change at 3,674 ms,
+  means under suite load. Idle, the install call and the change are now under 1 s.
+- **Per-user fan-out remains:** reconciling one system plugin starts a `PluginInstallationWorkflow` per user, with a
+  script execution and a durable host-service workflow each, about 250 statements per user.

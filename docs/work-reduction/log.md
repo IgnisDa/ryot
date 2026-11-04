@@ -523,3 +523,30 @@
 - Step 11 starts with plugin installs. `PluginRepository` keeps decoded manifests by revision ID, the immutable half
   of step 8 move 4; install server CPU fell from 1.0–1.4 s to 0.25–0.4 s (`probesP2`). The VM sync now runs
   `wxt prepare`, since builds resolve the browser extension's project reference through WXT's generated tsconfig.
+
+## 2026-11-04
+
+- `full23` tried a faster first recheck in `pollUntil` and was reverted: 44 min against `full22`'s 43. It exposed a
+  race in `query-recipes-results`' podcast lifecycle test, which now waits for history correction.
+- `full22`'s 43 minutes come mostly from scheduling: the API group's test time would fit in about 20 minutes on 6
+  workers, but the longest files start last and run their tests one after another.
+- Step 11: the install call now settles in 0.35–0.96 s and a system package change returns in 0.57–0.65 s, both
+  idle (`probesP6`). Installing in one transaction, moving one pointer for a system change and removing the per-user
+  fan-out were not built; reconcile still runs a workflow and a script per user.
+- Work stopped here at the owner's request. Totals since `probes2` and `full12`:
+  - Signup 915 statements to 265 and 1.1 s of server CPU to 0.45 s; a `backlog` event 2,440 to 373 and 1.8 s to
+    0.54 s; a review 6,040 to 955 and 4.3 s to 1.25 s; a 25-set workout 2,850 to 825. The 150-set workout editor
+    save, first measured in `probesB0`, went from 9,599 statements and 5.5 s to 4,331 and 3.1 s.
+  - History correction for 20 movies: 37,320 statements and 24 s to settle, to 20,507 and 13 s; a 70-episode show
+    77,873 and 55 s to 46,400 and 29 s.
+  - On the 14,708-title library: the home page failed at 30 s or was killed for memory, and now loads in 0.7–2.0 s;
+    `upcoming` failed at 30 s and takes 75–189 ms.
+  - The whole suite: 50 min with 7 failures, to 43 min with 4, all passing alone; the history-correction liveness
+    tests pass under full load.
+- Open:
+  - Step 11's remaining moves.
+  - Step 8 moves 3 (one receipt per command) and 4's authority half.
+  - Step 9 move 3 (one job table).
+  - Phase C steps 12–14: the suite is still at 43 min against the 20-minute target.
+  - The load-sensitive failures in `media-book`, `entity-reminders` and `sidecar-recovery`.
+  - Whether a show should still run one correction job per episode.
