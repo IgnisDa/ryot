@@ -14,19 +14,16 @@ import { EventsService } from "./service";
 import { EventStreamRepository } from "./stream-repository";
 import { EventStreamWorkService } from "./stream-work";
 
-const eventsServiceDependencies = Layer.mergeAll(
-	EventsRepository.layer,
-	EntitiesRepositoryLive,
-	DomainWriteChecksLive,
-	EventSchemaReaderLive,
-	LifecycleServicesLive,
-);
-
-export const EventsServiceLive = EventsService.layer.pipe(Layer.provide(eventsServiceDependencies));
-
-/** The events service that HTTP routes use; its HTTP creates run policies directly. */
-export const EventsServiceWithDirectPoliciesLive = EventsService.layerWithDirectPolicies.pipe(
-	Layer.provide(eventsServiceDependencies),
+export const EventsServiceLive = EventsService.layer.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			EventsRepository.layer,
+			EntitiesRepositoryLive,
+			DomainWriteChecksLive,
+			EventSchemaReaderLive,
+			LifecycleServicesLive,
+		),
+	),
 );
 
 export const EventMutationsLive = EventMutations.layer.pipe(

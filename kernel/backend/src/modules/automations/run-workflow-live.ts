@@ -36,9 +36,10 @@ import { automationRunLane } from "#modules/automations/lifecycle/command";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { executeScriptDirectly, ScriptExecutionService } from "#modules/scripts/executions/service";
-import { DirectScriptDeferred, DirectScriptExecutor } from "#modules/scripts/executions/workflow";
+import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -49,7 +50,7 @@ import {
 	AutomationAttemptRepository,
 	type FinalizeAutomationAttempt,
 } from "./attempt-repository";
-import { AUTOMATION_IMMEDIATE_TIMEOUT_MS } from "./execution";
+import { AUTOMATION_IMMEDIATE_TIMEOUT_MS, DirectPolicyAttempts } from "./execution";
 import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";
 import { automationPayloadPluginId, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
@@ -746,6 +747,15 @@ export const runAutomationAttemptDirect = Effect.fn("AutomationRunDirect")(funct
 		),
 	);
 });
+
+export const DirectPolicyAttemptsInstalledLive = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const context = yield* Effect.context<AutomationRunWorkflowOperations>();
+		yield* (yield* DirectPolicyAttempts).install((payload) =>
+			runAutomationAttemptDirect(payload).pipe(Effect.provideContext(context)),
+		);
+	}),
+);
 
 export const AutomationRunWorkflowDefinitionsLive = implementWorkflow(
 	AutomationRunWorkflow,

@@ -18,6 +18,7 @@ import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { ProjectionFinalizerLive } from "#boot/projection-finalizer";
+import { DirectPolicyAttempts } from "#modules/automations/execution";
 import { LifecycleServicesLive } from "#modules/automations/layer";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import type { BackgroundWorkInput } from "#modules/background-work/model";
@@ -414,7 +415,7 @@ export const streamWorkTestLayer = Layer.unwrap(
 			),
 		);
 		const lifecycleLayer = LifecycleServicesLive.pipe(
-			Layer.provide(lifecycleWorkLayer),
+			Layer.provide(Layer.merge(lifecycleWorkLayer, DirectPolicyAttempts.layer)),
 			Layer.provide(sharedDependencies),
 		);
 		const eventsServiceLayer = Layer.merge(EventsService.layer, EventMutations.layer).pipe(

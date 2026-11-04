@@ -7,6 +7,7 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { Activity, DurableDeferred, DurableQueue } from "effect/workflow";
@@ -127,8 +128,19 @@ export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* 
 
 export type SandboxExecutionResolutionMode = "exact" | "active";
 
+/** A direct run reached work that only `ScriptExecutionWorkflow`'s queue and replay loop can wait for. */
+export class DirectScriptDeferred extends Schema.TaggedError<
+	DirectScriptDeferred,
+	{ readonly brand: unique symbol }
+>()("DirectScriptDeferred", {}) {}
+
+// A direct run may be nested in a parked isolate's host call, and a parked isolate keeps its admission lease, so
+// it never waits long for one: two parked parents waiting on each other's leases would deadlock.
+const DIRECT_ADMISSION_WAIT = Duration.millis(SANDBOX_LIMITS.replay.shortWaitMs);
+
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
+	admission: "queued" | "direct" = "queued",
 ) {
 	yield* Effect.annotateCurrentSpan({
 		executionId: payload.executionId,
@@ -149,7 +161,19 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			if (inspection === null) {
 				return yield* new SandboxProjectionMissing();
 			}
-			const lease = yield* sandbox.reserve(payload.principal, payload.lane);
+			const reservation = sandbox.reserve(payload.principal, payload.lane);
+			const lease = yield* admission === "queued"
+				? reservation
+				: reservation.pipe(
+						Effect.timeoutOrElse({
+							duration: DIRECT_ADMISSION_WAIT,
+							orElse: () => Effect.fail(new DirectScriptDeferred()),
+						}),
+						Effect.catchIf(
+							(error) => error instanceof SandboxRunError && error.kind === "resource-unavailable",
+							() => Effect.fail(new DirectScriptDeferred()),
+						),
+					);
 			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
 
 			const artifact = yield* artifacts.get(payload.principal);

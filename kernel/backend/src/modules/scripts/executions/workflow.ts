@@ -56,6 +56,7 @@ import {
 	SandboxWorkflowReferenceRepository,
 } from "../registry/workflow-references";
 import {
+	DirectScriptDeferred,
 	executeSandboxExecution,
 	processSandboxExecutionQueue,
 	type SandboxExecutionQueuePayload,
@@ -1100,16 +1101,19 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 		}
 	}).pipe(Effect.catchCause((cause) => Effect.logWarning("Direct script release failed", cause)));
 	return yield* Effect.gen(function* () {
-		const replay = yield* executeSandboxExecution({
-			startedAt,
-			principal,
-			journalLength: 0,
-			lane: payload.lane,
-			context: payload.input,
-			workflowExecutionId: executionId,
-			executionId: `${executionId}-replay-0`,
-			...(payload.grants ? { grants: payload.grants } : {}),
-		});
+		const replay = yield* executeSandboxExecution(
+			{
+				startedAt,
+				principal,
+				journalLength: 0,
+				lane: payload.lane,
+				context: payload.input,
+				workflowExecutionId: executionId,
+				executionId: `${executionId}-replay-0`,
+				...(payload.grants ? { grants: payload.grants } : {}),
+			},
+			"direct",
+		);
 		if (replay.pendingInline.length > 0) {
 			yield* dispatcher.cancelInline(executionId, replay.pendingInline);
 			return yield* new DirectScriptDeferred();
@@ -1144,12 +1148,6 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 		);
 	}).pipe(Effect.scoped, Effect.ensuring(release));
 });
-
-/** A direct run reached a host call that settles only in `ScriptExecutionWorkflow`'s replay loop. */
-export class DirectScriptDeferred extends Schema.TaggedError<
-	DirectScriptDeferred,
-	{ readonly brand: unique symbol }
->()("DirectScriptDeferred", {}) {}
 
 export class DirectScriptExecutor extends Context.Service<
 	DirectScriptExecutor,

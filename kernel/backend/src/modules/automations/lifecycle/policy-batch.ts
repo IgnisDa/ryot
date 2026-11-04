@@ -9,10 +9,9 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { runAutomationAttemptDirect } from "#modules/automations/run-workflow-live";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -327,36 +326,9 @@ const applyPolicies = Effect.fnUntraced(function* <R1, R2>(
 	);
 });
 
-const executeDirectPolicy =
-	(execution: LifecycleExecution["Service"]) => (policy: BatchPolicyInput) =>
-		runAutomationAttemptDirect({ ...policy, attemptNumber: 1, acceptedPatches: [] }).pipe(
-			Effect.flatMap((result) =>
-				result.attempt?.status === "succeeded" &&
-				result.policyOutput !== null &&
-				"items" in result.policyOutput
-					? Effect.succeed(result.policyOutput)
-					: Effect.fail(
-							new AutomationPolicyExecutionError({
-								runId: policy.runId,
-								code: "policy-execution-failed",
-							}),
-						),
-			),
-			Effect.catchTags({
-				DirectScriptDeferred: () => execution.executeBatchPolicy(policy),
-				DbError: () =>
-					Effect.fail(
-						new AutomationPolicyExecutionError({
-							runId: policy.runId,
-							code: "policy-execution-failed",
-						}),
-					),
-			}),
-		);
-
 /**
- * Runs a planned batch's policies in the caller's fiber, each as a direct attempt, for a command whose source write
- * has not begun; a failure leaves the remaining queued policies skipped.
+ * Runs a planned batch's policies outside a workflow, for a command whose source write has not begun; a failure
+ * leaves the remaining queued policies skipped.
  */
 export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
 	input: typeof PolicyBatchPayload.Type,
@@ -366,7 +338,7 @@ export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
 	return yield* applyPolicies(
 		input,
 		plan,
-		executeDirectPolicy(execution),
+		execution.executeBatchPolicy,
 		(_name, execute) => execute,
 	).pipe(
 		Effect.onError(() =>
@@ -378,36 +350,6 @@ export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
 		),
 	);
 });
-
-/** Runs policy batches directly where boot provides the direct sandbox; `run` is null elsewhere. */
-export class DirectPolicies extends Context.Service<
-	DirectPolicies,
-	{
-		readonly run:
-			| null
-			| ((
-					input: typeof PolicyBatchPayload.Type,
-					plan: PolicyBatchPlan,
-			  ) => Effect.Effect<
-					PolicyBatchResult,
-					Effect.Error<ReturnType<typeof runPolicyBatchDirect>>
-			  >);
-	}
->()("@ryot-app/kernel-backend/modules/automations/lifecycle/policy-batch/DirectPolicies") {
-	static readonly unavailable = Layer.succeed(this, { run: null });
-
-	static readonly layer = Layer.effect(
-		this,
-		Effect.gen(function* () {
-			const context =
-				yield* Effect.context<Effect.Services<ReturnType<typeof runPolicyBatchDirect>>>();
-			return {
-				run: (input: typeof PolicyBatchPayload.Type, plan: PolicyBatchPlan) =>
-					runPolicyBatchDirect(input, plan).pipe(Effect.provideContext(context)),
-			};
-		}),
-	);
-}
 
 export const PolicyBatchWorkflowLive = implementWorkflow(
 	PolicyBatchWorkflow,

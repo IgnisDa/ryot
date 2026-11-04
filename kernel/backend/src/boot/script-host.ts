@@ -5,6 +5,7 @@ import { AuthRepository } from "#modules/accounts/auth/repository";
 import { makeAuthScriptHost } from "#modules/accounts/auth/script-host";
 import { ManagedAssetsServiceLive } from "#modules/assets/layer";
 import { makeAssetsScriptHost } from "#modules/assets/script-host";
+import { DirectPolicyAttempts } from "#modules/automations/execution";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { makeSignalScriptHost } from "#modules/automations/script-host";
 import { BackgroundWorkService } from "#modules/background-work/service";
@@ -152,23 +153,29 @@ export const RuntimeSandboxExecutorLive = SandboxExecutor.layer.pipe(
 	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
 );
 
-export const SandboxDurableHostServicesLive = SandboxDurableHostServiceWorkflowLive.pipe(
-	Layer.provideMerge(
-		SandboxDurableHostDispatcherLive.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					ScriptHostImplementationsLive,
-					NotificationsServiceLive,
-					SandboxSubmissionCommands.layer,
-					PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
-					ProviderHttpAdmissionService.layer,
-				),
-			),
+const SandboxDurableHostDispatcherProvidedLive = SandboxDurableHostDispatcherLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			ScriptHostImplementationsLive,
+			NotificationsServiceLive,
+			SandboxSubmissionCommands.layer,
+			PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
+			ProviderHttpAdmissionService.layer,
 		),
 	),
-	Layer.provide(SandboxExecutionAuthorityLive),
+	Layer.provideMerge(SandboxExecutionAuthorityLive),
 	Layer.provide(SandboxRepository.layer),
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(PluginRepository.layer),
 	Layer.provide(DefinitionRepository.layer),
+);
+
+export const SandboxDurableHostServicesLive = SandboxDurableHostServiceWorkflowLive.pipe(
+	Layer.provideMerge(SandboxDurableHostDispatcherProvidedLive),
+);
+
+// Direct policy scripts only read, so their dispatcher's lifecycle services run no policies. Its own instances
+// keep the shared lifecycle services from depending on the direct attempts that depend on this dispatcher.
+export const DirectScriptDispatcherLive = Layer.fresh(
+	SandboxDurableHostDispatcherProvidedLive.pipe(Layer.provide(DirectPolicyAttempts.layer)),
 );

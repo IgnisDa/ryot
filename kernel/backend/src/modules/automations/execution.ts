@@ -2,7 +2,18 @@ import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schema } from "effect";
+import {
+	Cause,
+	Clock,
+	Context,
+	Duration,
+	Effect,
+	Layer,
+	Option,
+	Ref,
+	Schema,
+	type Scope,
+} from "effect";
 import { DurableClock, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -14,6 +25,7 @@ import { LifecyclePersistenceError, LifecycleWork } from "#modules/automations/l
 import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
 import { startWorkflowDeadline } from "#platform/workflow/deadline";
 import {
@@ -29,6 +41,7 @@ import {
 	AutomationRunSettlement,
 	AutomationRunWorkflow,
 	type AutomationRunWorkflowPayload,
+	type AutomationRunWorkflowResult,
 	settledAutomationRunResult,
 } from "./run-workflow";
 
@@ -153,6 +166,42 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 	}),
 );
 
+type DirectPolicyAttempt = (
+	payload: AutomationRunWorkflowPayload,
+) => Effect.Effect<AutomationRunWorkflowResult, DbError | DirectScriptDeferred>;
+
+/**
+ * Runs a first policy attempt in the caller's fiber; `DirectScriptDeferred` hands it to `AutomationRunWorkflow`.
+ * Migrations and the runtime share one layer graph and its memoized lifecycle services, so the runtime installs the
+ * attempt once its sandbox exists; until then, and wherever nothing installs it, every attempt defers.
+ */
+export class DirectPolicyAttempts extends Context.Service<
+	DirectPolicyAttempts,
+	{
+		readonly attempt: DirectPolicyAttempt;
+		readonly install: (attempt: DirectPolicyAttempt) => Effect.Effect<void, never, Scope.Scope>;
+	}
+>()("@ryot-app/kernel-backend/modules/automations/execution/DirectPolicyAttempts") {
+	static readonly layer = Layer.effect(
+		this,
+		Effect.gen(function* () {
+			const installed = yield* Ref.make(Option.none<DirectPolicyAttempt>());
+			return {
+				install: (attempt) =>
+					Effect.acquireRelease(Ref.set(installed, Option.some(attempt)), () =>
+						Ref.set(installed, Option.none()),
+					),
+				attempt: (payload) =>
+					Effect.flatMap(Ref.get(installed), (attempt) =>
+						Option.isNone(attempt)
+							? Effect.fail(new DirectScriptDeferred())
+							: attempt.value(payload),
+					),
+			};
+		}),
+	);
+}
+
 const requireWorkflowBody = (operation: string) =>
 	Effect.flatMap(ActivityBody, (inActivity) =>
 		inActivity
@@ -172,6 +221,7 @@ export const LifecycleExecutionLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const notifications = yield* WorkflowExecutionNotifications;
 		const work = yield* LifecycleWork;
+		const attempts = yield* DirectPolicyAttempts;
 		const inWorkflow = <A, E>(
 			instance: WorkflowInstance["Service"],
 			effect: Effect.Effect<A, E, WorkflowEngine | WorkflowInstance>,
@@ -246,7 +296,7 @@ export const LifecycleExecutionLive = Layer.effect(
 				payloads,
 				(payload) => {
 					const { state } = states.get(payload.runId) ?? { state: "closed" };
-					return Effect.map(awaitsDispatch(state, payload), (awaited) => ({ awaited }));
+					return Effect.map(awaitsDispatch(state, payload), (awaited) => ({ state, awaited }));
 				},
 				{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
 			);
@@ -328,6 +378,44 @@ export const LifecycleExecutionLive = Layer.effect(
 					? inWorkflow(instance.value, awaitInWorkflow(name, required, deadline))
 					: awaitOutside(required, deadline),
 			);
+		// In a workflow the direct attempt is journaled, so a replay never runs it again on a different path.
+		const runPolicy = Effect.fnUntraced(function* (
+			name: string,
+			payload: AutomationRunWorkflowPayload,
+		) {
+			const direct = attempts.attempt(payload).pipe(
+				Effect.map((result) => ({ result, _tag: "completed" as const })),
+				Effect.catchTag("DirectScriptDeferred", () => Effect.succeed(null)),
+			);
+			const instance = yield* Effect.serviceOption(WorkflowInstance);
+			const settled = Option.isNone(instance)
+				? yield* direct
+				: yield* inWorkflow(
+						instance.value,
+						makeActivity({
+							error: DbError,
+							execute: direct,
+							name: `direct-${name}`,
+							success: Schema.NullOr(AutomationRunSettlement),
+						}),
+					);
+			if (settled !== null) {
+				return settled;
+			}
+			const deadline = yield* startDeadline(name);
+			const [dispatch] = yield* dispatchRuns([payload]);
+			// Executing a claimed run takes over a claim left by a direct attempt whose process died; a run another
+			// tree owns cannot join this one and settles as pending.
+			const awaited =
+				dispatch !== undefined &&
+				(dispatch.awaited || (dispatch.state === "claimed" && Option.isSome(instance)));
+			const [settlement] = yield* settleRequired(
+				name,
+				dispatch ? [{ payload, awaited }] : [],
+				deadline,
+			);
+			return settlement;
+		});
 		const after = Effect.fnUntraced(function* ({
 			runs,
 			triggerId,
@@ -407,13 +495,7 @@ export const LifecycleExecutionLive = Layer.effect(
 								acceptedBatchPatches,
 								activeItemIdentities,
 							};
-							const deadline = yield* startDeadline(`policy-${runId}`);
-							const [dispatch] = yield* dispatchRuns([payload]);
-							const [settlement] = yield* settleRequired(
-								`policy-${runId}`,
-								dispatch ? [{ payload, ...dispatch }] : [],
-								deadline,
-							);
+							const settlement = yield* runPolicy(`policy-${runId}`, payload);
 							const output =
 								settlement?._tag === "completed" &&
 								settlement.result.attempt?.status === "succeeded"
@@ -435,14 +517,11 @@ export const LifecycleExecutionLive = Layer.effect(
 				requireWorkflowBody("executePolicy").pipe(
 					Effect.andThen(
 						Effect.gen(function* () {
-							const payload = { runId, acceptedPatches, attemptNumber: 1 };
-							const deadline = yield* startDeadline(`policy-${runId}`);
-							const [dispatch] = yield* dispatchRuns([payload]);
-							const [settlement] = yield* settleRequired(
-								`policy-${runId}`,
-								dispatch ? [{ payload, ...dispatch }] : [],
-								deadline,
-							);
+							const settlement = yield* runPolicy(`policy-${runId}`, {
+								runId,
+								acceptedPatches,
+								attemptNumber: 1,
+							});
 							return settlement?._tag === "completed" &&
 								settlement.result.attempt?.status === "succeeded" &&
 								settlement.result.policyOutput !== null &&

@@ -26,6 +26,7 @@ import {
 	UploadServicesLive,
 } from "#modules/assets/layer";
 import { ManagedAssetsRepository } from "#modules/assets/storage/managed-assets-repository";
+import { DirectPolicyAttempts } from "#modules/automations/execution";
 import {
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
@@ -35,8 +36,10 @@ import {
 	PolicyBatchWorkflowProvidedLive,
 	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
-import { DirectPolicies } from "#modules/automations/lifecycle/policy-batch";
-import { AutomationRunWorkflowDefinitionsLive } from "#modules/automations/run-workflow-live";
+import {
+	AutomationRunWorkflowDefinitionsLive,
+	DirectPolicyAttemptsInstalledLive,
+} from "#modules/automations/run-workflow-live";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackgroundWorkWorkflowLive } from "#modules/background-work/workflow";
 import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/workflow";
@@ -74,12 +77,11 @@ import {
 	ProviderEntitySearchServiceLive,
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 } from "#modules/entities/providers/layer";
-import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { InterestServicesLive } from "#modules/entities/watches/layer";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
-	EventsServiceWithDirectPoliciesLive,
+	EventsServiceLive,
 	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
@@ -180,7 +182,11 @@ import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions
 import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { ProjectionFinalizerLive } from "./projection-finalizer";
-import { RuntimeSandboxExecutorLive, SandboxDurableHostServicesLive } from "./script-host";
+import {
+	DirectScriptDispatcherLive,
+	RuntimeSandboxExecutorLive,
+	SandboxDurableHostServicesLive,
+} from "./script-host";
 import { ServerLive } from "./server";
 
 const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer, BunCrypto.layerSecureRandom);
@@ -255,7 +261,7 @@ const AutomationRunOperationsLive = Layer.provide(
 				Layer.mergeAll(
 					SandboxWorkflowDependenciesLive,
 					ExecutableArtifacts.layer,
-					SandboxDurableHostServicesLive,
+					DirectScriptDispatcherLive,
 				),
 			),
 		),
@@ -271,7 +277,7 @@ const ServicesLive = Layer.mergeAll(
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
 	EntityEnrichmentServiceLive,
-	EventsServiceWithDirectPoliciesLive,
+	EventsServiceLive,
 	EventStreamWorkServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 	RelationshipProjectionServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 	InstanceAdminServiceLive,
@@ -324,15 +330,6 @@ const ServicesLive = Layer.mergeAll(
 ).pipe(
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
-	// Every events service built here, including the ones other services build, runs policies directly.
-	Layer.provide(
-		DirectPolicies.layer.pipe(
-			Layer.provide(
-				Layer.mergeAll(AutomationRunOperationsLive, EntitiesRepositoryLive, LifecycleServicesLive),
-			),
-			Layer.provide(StagedRuntimeSandboxExecutorLive),
-		),
-	),
 	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive))),
 );
 
@@ -401,7 +398,12 @@ const RuntimeWorkLive = Layer.merge(
 	FrequentCronWorkflowDefinitionsLive,
 );
 
-const RuntimeLive = Layer.mergeAll(RuntimeWorkLive, ServerLive, RuntimeSchedulersLive);
+const RuntimeLive = Layer.mergeAll(
+	RuntimeWorkLive,
+	ServerLive,
+	RuntimeSchedulersLive,
+	DirectPolicyAttemptsInstalledLive,
+);
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsServiceLive,
@@ -421,6 +423,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	IntegrationsRepository.layer,
 ).pipe(
 	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive))),
+	Layer.provideMerge(DirectPolicyAttempts.layer),
 	Layer.provideMerge(ReminderEntityLifecycleLive),
 	Layer.provideMerge(AdmittedWorkflowCatalogueLive),
 	Layer.provideMerge(WorkflowEngineLive),

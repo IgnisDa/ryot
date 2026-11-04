@@ -493,4 +493,9 @@
   calls, which first surfaced as policy failures and a hung test; a deferred direct attempt now releases its claim
   and runs through the workflow. A `complete` event fell from 1,375 statements to 1,178 and a one-set workout from
   11 workflows to 5 (`probesB6`).
+- Direct policies widened to every caller. `LifecycleExecution` tries the attempt itself, journaled inside
+  workflows, and falls back to the existing dispatch; a direct run waits at most 1 s for admission, since a
+  parked isolate keeps its lease. The first build shared one memoized lifecycle instance between migrations and
+  the runtime, which left direct attempts off everywhere; the runtime now installs them once the sandbox exists.
+  The workout save fell from 59 workflows to 51 and 13 script executions to 9 (`probesB8`).
 

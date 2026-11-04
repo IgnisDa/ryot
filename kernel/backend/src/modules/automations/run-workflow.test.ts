@@ -29,7 +29,7 @@ import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { DirectScriptDeferred } from "#modules/scripts/executions/workflow";
+import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";

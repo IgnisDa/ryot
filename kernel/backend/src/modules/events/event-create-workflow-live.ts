@@ -17,12 +17,13 @@ import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecycleDispatchPlan, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
-	DirectPolicies,
 	planPolicyBatch,
 	type PolicyBatchResult,
 	PolicyBatchWorkflow,
+	runPolicyBatchDirect,
 	unchangedPolicyBatch,
 } from "#modules/automations/lifecycle/policy-batch";
+import type { EntitiesRepository } from "#modules/entities/repository";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
@@ -210,7 +211,7 @@ const createResult = (
 
 /**
  * Creates up to one chunk of events without `EventCreateWorkflow`: in one transaction when no policy matches, or
- * around directly run policies when `DirectPolicies` is provided. Returns none when the create needs the workflow;
+ * in two around the policies, run outside a workflow. Returns none when the create needs the workflow;
  * a decline leaves nothing the workflow would not find again under the same command identity.
  */
 export const makeDirectEventCreate = Effect.gen(function* () {
@@ -218,7 +219,7 @@ export const makeDirectEventCreate = Effect.gen(function* () {
 	const execution = yield* LifecycleExecution;
 	const mutations = yield* EventMutations;
 	const planner = yield* LifecyclePlanner;
-	const { run: runPolicies } = yield* DirectPolicies;
+	const policyContext = yield* Effect.context<EntitiesRepository | LifecycleExecution>();
 	return Effect.fn("EventCreate.direct")(function* (payload: EventCreateWorkflowPayload) {
 		if (payload.payload.length > chunkSize) {
 			return Option.none();
@@ -310,17 +311,18 @@ export const makeDirectEventCreate = Effect.gen(function* () {
 					if (plan.trigger === null) {
 						return yield* commit(prepared, unchangedPolicyBatch(policyBatch, null));
 					}
-					if (plan.trigger.blockedReason || runPolicies === null) {
+					if (plan.trigger.blockedReason) {
 						return yield* new DirectCreateDeclined();
 					}
-					return { plan, prepared, policyBatch, runPolicies, kind: "policies" as const };
+					return { plan, prepared, policyBatch, kind: "policies" as const };
 				}),
 			)
 			.pipe(Effect.orElseSucceed(() => null));
 		const written =
 			started === null || started.kind === "written"
 				? started
-				: yield* started.runPolicies(started.policyBatch, started.plan).pipe(
+				: yield* runPolicyBatchDirect(started.policyBatch, started.plan).pipe(
+						Effect.provideContext(policyContext),
 						Effect.flatMap((validated) =>
 							mutations.transaction(commit(started.prepared, validated)).pipe(
 								Effect.catchIf(

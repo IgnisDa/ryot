@@ -33,6 +33,7 @@ import {
 	AUTOMATION_IMMEDIATE_TIMEOUT_MS,
 	AutomationExecutionOperations,
 	AutomationExecutionOperationsLive,
+	DirectPolicyAttempts,
 	LifecycleExecutionLive,
 	OUTSIDE_WORKFLOW_BACKSTOP,
 } from "./execution";
@@ -105,7 +106,7 @@ const parentLive = Layer.unwrap(
 const executionLayer = Layer.mergeAll(parentLive, runWorkflowLive).pipe(
 	Layer.provideMerge(
 		LifecycleExecutionLive.pipe(
-			Layer.provide(noLifecycleWorkLayer),
+			Layer.provide(Layer.merge(noLifecycleWorkLayer, DirectPolicyAttempts.layer)),
 			Layer.provide(
 				Layer.unwrap(
 					Effect.map(RunControl, (control) =>

@@ -14,7 +14,7 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { implementWorkflow } from "#platform/workflow/scope";
 import { postgresWorkflowEngineTestLayer } from "#testing/workflow-engine";
 
-import { LifecycleExecutionLive } from "./execution";
+import { DirectPolicyAttempts, LifecycleExecutionLive } from "./execution";
 import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 import {
 	behave,
@@ -64,7 +64,7 @@ it.layer(
 					Layer.mergeAll(waitingParentLive, runWorkflowLive).pipe(
 						Layer.provideMerge(
 							LifecycleExecutionLive.pipe(
-								Layer.provide(noLifecycleWorkLayer),
+								Layer.provide(Layer.merge(noLifecycleWorkLayer, DirectPolicyAttempts.layer)),
 								Layer.provide(Layer.mock(DatabaseSession)({})),
 							),
 						),

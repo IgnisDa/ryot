@@ -888,3 +888,20 @@ batch when its lane cannot reserve it, and the direct run reported that as a fai
 found the policy failed or still claimed. Deferred runs now release their claim and hand the policy to the
 workflow; the 13 policy e2e files then passed 3 runs of 3.
 
+## Run `probesB8` (direct policies for every caller)
+
+Flow probes on the VM with step 9's first move widened from HTTP event creates to every policy, including those
+script writes start. `probesB7` ran while migrations and the runtime shared one memoized lifecycle instance whose
+direct attempts were never available, and is discarded. Medians against `probesB6`.
+
+| Flow | Run | Caller | Statements | DB exec | API CPU | Workflows | Automation runs | Script executions |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Workout editor save, 10 × 15 | `probesB6` | 5,874 ms | 9,937 | 1,380 ms | 3,960 ms | 59 | 11 | 13 |
+| | `probesB8` | 5,211 ms | 9,642 | 1,411 ms | 3,540 ms | 51 | 7 | 9 |
+| Review operation | `probesB6` | 1,276 ms | 1,224 | 362 ms | 1,030 ms | 24 | 4 | 7 |
+| | `probesB8` | 1,133 ms | 1,185 | 371 ms | 870 ms | 22 | 3 | 6 |
+| Event, `complete` | `probesB6` | 790 ms | 1,178 | 255 ms | 860 ms | 21 | 2 | 8 |
+| | `probesB8` | 749 ms | 1,174 | 264 ms | 880 ms | 21 | 2 | 8 |
+
+The workout save's four policies now run without a run or script workflow; its 7 remaining runs are after hooks.
+

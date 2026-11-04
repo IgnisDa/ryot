@@ -1,6 +1,6 @@
 # Design: scripts run once (step 9)
 
-Status: move 1 built for HTTP event creates (`probesB6`); moves 2 and 3 proposed. Step 9 of [`order-of-work.md`](order-of-work.md), taken before step 8's moves 3–5, with step 8's
+Status: move 1 built (`probesB6`, `probesB8`); moves 2 and 3 proposed. Step 9 of [`order-of-work.md`](order-of-work.md), taken before step 8's moves 3–5, with step 8's
 direct policy calls folded in. Builds on [`design-run-once.md`](design-run-once.md), whose steps 1 and 2 are in.
 
 ## Why now
@@ -39,25 +39,20 @@ The queue worker's own execution path already reserves an admission lease from `
    `AutomationRunWorkflow`, `ScriptExecutionWorkflow`, queue hop or journal. The attempt rows stay, so logs and
    failures read as today. `PolicyBatchWorkflow` becomes a plain function, and step 8's direct create widens to
    creates that match policies.
-   Built: `DirectPolicies` runs them for HTTP event creates. A run that reaches a host call only the replay loop
-   settles, which the inline host defers routinely under load, releases its claim and runs that policy through
-   `AutomationRunWorkflow`. Policies started from script writes and entity commands still take the workflow until
-   move 2 and step 8's command moves.
+   Built: `LifecycleExecution.executePolicy` and `executeBatchPolicy` try a direct attempt first for every caller:
+   HTTP event creates, script writes, user commands, event workflows, imports and collections. In a workflow the
+   attempt is a journaled activity. A direct run waits at most 1 s for admission and defers when it reaches a host
+   call only the replay loop settles; a deferred attempt releases its claim and the existing dispatch runs the
+   policy through `AutomationRunWorkflow`. The runtime installs the attempt into `DirectPolicyAttempts` once its
+   sandbox exists; migrations and tests leave it empty, so they defer.
 2. **Writes settle in the run.** A script's write runs in its own transaction from the queue worker and appends one
    journal row in that transaction, keyed by the host-call index, and the script continues in the same isolate. On
    a crash, the next run reads the journal and skips completed calls, so replay happens only for recovery. Writes
    that start policies now settle too, because policies no longer need queue slots. `SandboxDurableHostServiceWorkflow`
    remains only for calls that truly wait: durable sleeps, child script workflows and external deliveries.
-   Measured after move 1 (`probesB6`), the 10 × 15 workout save's 59 workflows are 11 automation runs, 4 policy
-   batches and 10 relationship preparations started by script writes, 16 host-call workflows, and 13 script
-   executions taking 22 sandbox runs. Most of it is policies that script writes start, so the move starts there.
-   A parked isolate releases its CPU slot but keeps its admission lease, and global concurrency defaults to 2:
-   a write that waited for a nested policy run while its parent is parked could deadlock against another parked
-   parent. That is why today a write that needs a policy suspends and the parent run ends. The first slice
-   therefore adds a reservation that never waits: a policy inside a script write runs directly only when a lease
-   is free at once, as a journaled activity in the write's workflow, and otherwise takes today's path. A direct
-   attempt claimed by a process that died is left to the reconciler's stale-claim handling, which the slice must
-   cover before it lands.
+   After move 1 (`probesB8`), the 10 × 15 workout save's 51 workflows are 7 after-hook runs, 4 policy batches and
+   10 relationship preparations, 16 host-call workflows, and 9 script executions. The host-call workflows and
+   replays are what this move removes.
 3. **One job table.** `automation_run`, `background_work` and the projection work rows become one job model with
    attempts, deadlines and a coalescing key, drained by a worker loop. Scripts with external effects keep the durable
    engine.
@@ -69,6 +64,9 @@ tests rewritten for the new shape pass (`order-of-work.md`). Flow probes after e
 
 ## Risks
 
+- **Nested admission.** A parked isolate keeps its admission lease while its CPU slot is free, and global
+  concurrency defaults to 2, so a direct run never waits more than 1 s for a lease: two parked parents waiting on
+  each other would otherwise deadlock.
 - **Admission while a request waits on a policy.** The request holds its connection-free wait on an admission
   lease, as the queue worker does; the interactive lane keeps its share. Policy deadlines stay as today.
 - **Crash between a write and its journal row.** Both commit in one transaction, so a recovered run sees either both
