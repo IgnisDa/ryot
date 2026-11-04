@@ -1001,3 +1001,12 @@ the e2e runner now runs both groups.)
 - **`entity-reminders`**, `Malformed value` filling a `datetime-local` input, as in `full12`.
 - **`sidecar-recovery`**, mid-import recovery: the user core process restarted once more than expected
   (generation 9, expected 8).
+
+## Runs `probesH7` and `probesH8` (one ended show, 70 episodes)
+
+A new probe, `media-show-70-episodes`, logs every episode of an ended 70-episode show in one activity entry, the shape
+of the overlapping-chains liveness test. `probesH7` measured 218 user commands, 90 correction jobs, 77,873 statements
+and 55 s to settle: the coverage phase wrote an episode's coverage row in one step, then spent a second step only to
+confirm it and move the cursor. In `probesH8` a coverage pass that writes nothing continues to the next source in
+the same step, up to 25 a step: 148 user commands, 81 jobs, 61,863 statements and 36 s. `cv1`, the media backup,
+event and analytics files: 63 of 63 passed; the overlapping-chains test took 132 s against 160 s in `mb1`.

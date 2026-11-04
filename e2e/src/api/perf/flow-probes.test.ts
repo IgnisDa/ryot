@@ -25,8 +25,11 @@ import {
 import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
+	logMediaActivity,
+	seedShow,
 } from "~/fixtures/plugins/media";
 import { describe, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 const RUN_FLOW_PROBES = process.env.RUN_FLOW_PROBES === "1";
 const FLOW_PROBE_OUT = process.env.FLOW_PROBE_OUT;
@@ -320,6 +323,32 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
 				}
+				// One ended show with every episode logged at once, as in the overlapping-chains liveness test.
+				const show = yield* seedShow(client, {
+					properties: { productionStatus: "Ended" },
+					seasons: [
+						{
+							seasonNumber: 1,
+							episodes: Array.from({ length: 70 }, (_, index) => ({
+								episodeNumber: index + 1,
+								publishDate: "2020-01-01",
+							})),
+						},
+					],
+				});
+				yield* probe(
+					"media-show-70-episodes",
+					logMediaActivity(client, {
+						submittedAt: nowIso(),
+						submissionId: yield* randomUuid,
+						entry: {
+							kind: "episodes",
+							parentEntityId: show.show.id,
+							episodeEntityIds: show.episodes.map((episode) => episode.id),
+							when: { kind: "date", finishedOn: "2026-01-01T12:00:00.000Z" },
+						},
+					}),
+				);
 				// History correction fans out per subject, as in the 60-subject liveness test.
 				const movies = yield* Effect.forEach(
 					Array.from({ length: 20 }),
