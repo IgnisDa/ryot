@@ -71,6 +71,43 @@ afterEach(() => {
 
 describe("Effect-native React definitions", () => {
 	it.live(
+		"pauses an infinite query without discarding its loaded pages or repeating its request",
+		() =>
+			Effect.gen(function* () {
+				let requests = 0;
+				const query = createRyotQuery<undefined, { readonly items: readonly string[] }>(() =>
+					Effect.sync(() => {
+						requests += 1;
+						return { items: ["loaded"] };
+					}),
+				);
+				const View = ({ enabled }: { readonly enabled: boolean }) => {
+					const result = useRyotInfiniteQuery(query, undefined, {
+						enabled,
+						initialPageParam: null,
+						getNextPageParam: () => null,
+						getPageInput: () => undefined,
+					});
+					return <p>{result.data?.items.join(",") ?? "pending"}</p>;
+				};
+				const { root, clock, container } = render(<View enabled={false} />);
+				expect(requests).toBe(0);
+				for (const enabled of [true, false, true]) {
+					act(() =>
+						root.render(
+							<RyotProvider runtime={clock.runtime}>
+								<View enabled={enabled} />
+							</RyotProvider>,
+						),
+					);
+					yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("loaded")));
+					expect(requests).toBe(1);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"interrupts superseded pagination requests even when the base query normally stays cached",
 		() =>
 			Effect.gen(function* () {

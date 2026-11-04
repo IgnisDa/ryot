@@ -127,13 +127,12 @@ export const useRyotInfiniteQuery = <QueryInput, Input, Page, Param, Failure ext
 		() => ({
 			query,
 			client,
-			enabled,
 			registry,
 			inputKey,
 			mode: options.mode,
 			initialPageParam: options.initialPageParam,
 		}),
-		[query, registry, client, enabled, inputKey, options.mode, options.initialPageParam],
+		[query, registry, client, inputKey, options.mode, options.initialPageParam],
 	);
 	const result = usePagination<Page, Param>({
 		enabled,

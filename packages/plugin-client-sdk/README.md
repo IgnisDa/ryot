@@ -209,7 +209,7 @@ The hook owns page accumulation and registers one refresh handler; callers do no
 query refresh for the same collection. Query-declared entity interests cover all loaded pages.
 
 `useRyotInfiniteQuery` also accepts `enabled`; while it is false nothing loads and page refreshes
-are no-ops.
+are no-ops. Disabling preserves loaded pages; changing the selection resets pagination.
 
 `usePagination` provides the same state machine for Effect-returning loaders outside `RyotProvider`,
 including token-scoped administration and numbered provider searches. Its optional `enabled` flag
