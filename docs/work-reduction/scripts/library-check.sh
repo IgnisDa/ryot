@@ -103,8 +103,8 @@ run)
 	since="$(date -u +%FT%TZ)"
 	(cd "$root/e2e" && RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$out" LIBRARY_CHECK_ROUNDS="$rounds" LIBRARY_CHECK_PAGES="$pages" \
 		E2E_DATABASE_URL="$DATABASE_URL" E2E_API_URL=http://127.0.0.1:3999/api E2E_FRONTEND_URL=http://127.0.0.1:3999 \
-		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file --bun run vitest run \
-		--config vitest.library-check.config.ts > "$state/$id.out" 2>&1)
+		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file test --timeout 7200000 \
+		src/api/perf/library-check.test.ts > "$state/$id.out" 2>&1)
 	echo "exit $?"
 	kill "$stats" 2>/dev/null
 	python3 -I "$here/library-report.py" "$out"
@@ -119,8 +119,8 @@ plans)
 	since="$(date -u +%FT%TZ)"
 	(cd "$root/e2e" && RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$state/$id.jsonl" LIBRARY_CHECK_ROUNDS=server LIBRARY_CHECK_PAGES= LIBRARY_CHECK_ONLY="$only" \
 		E2E_DATABASE_URL="$DATABASE_URL" E2E_API_URL=http://127.0.0.1:3999/api E2E_FRONTEND_URL=http://127.0.0.1:3999 \
-		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file --bun run vitest run \
-		--config vitest.library-check.config.ts > "$state/$id.out" 2>&1)
+		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file test --timeout 7200000 \
+		src/api/perf/library-check.test.ts > "$state/$id.out" 2>&1)
 	echo "exit $?"
 	pg "alter system reset log_statement" >/dev/null; pg "alter system reset log_parameter_max_length" >/dev/null
 	pg "select pg_reload_conf()" >/dev/null
