@@ -41,9 +41,7 @@ import {
 } from "#modules/automations/run-workflow-live";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackgroundWorkWorkflowLive } from "#modules/background-work/workflow";
-import { ExportBackupWorkflowDefinitionsLive } from "#modules/backups/export/workflow";
-import { BackupServicesLive, BackupWorkflowOperationsLive } from "#modules/backups/layer";
-import { RestoreBackupWorkflowDefinitionsLive } from "#modules/backups/restore/workflow";
+import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import {
 	CollectionMembershipWorkflowDefinitionsLive,
@@ -366,9 +364,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	),
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	DataImportWorkflowDefinitionsProvidedLive,
-	ExportBackupWorkflowDefinitionsLive,
 	IngestionCaptureWorkflowDefinitionsProvidedLive,
-	RestoreBackupWorkflowDefinitionsLive,
 	UserBootstrapWorkflowDefinitionsLive,
 	PluginInstallationWorkflowDefinitionsLive,
 	Layer.provide(
@@ -402,6 +398,7 @@ const RuntimeJobsLive = JobWorkerLive.pipe(
 			FrequentCronJobLive,
 			NotificationDeliveryJobProvidedLive,
 			UserLifecycleJobProvidedLive,
+			BackupJobsLive,
 		),
 	),
 );
@@ -460,7 +457,6 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 		TranslateEntityWorkflowOperationsLive,
 		Layer.merge(ScriptExecutionServiceLive, PluginRuntimeResolverLive),
 	),
-	BackupWorkflowOperationsLive,
 	Layer.provide(UserBootstrapWorkflowOperationsLive, UserBootstrapLive),
 	PluginInstallationWorkflowOperationsProvidedLive,
 ).pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive));

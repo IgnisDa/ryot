@@ -6,11 +6,11 @@ import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { JobQueue } from "#platform/jobs/queue";
 import { DownloadTickets } from "#platform/storage/download-tickets";
-import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#testing/effect";
+import { databaseLayer, type MockOverrides } from "#testing/effect";
 
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { BackupsRepository } from "./runs/repository";
@@ -75,9 +75,8 @@ const makeLayer = (input: {
 	BackupsService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				databaseLayer,
+				JobQueue.layer.pipe(Layer.provideMerge(databaseLayer)),
 				Layer.mock(BackupStaging, { recoverAbandoned: () => Effect.void }),
-				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.mock(BackupAccountCleanliness, {
 					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
 				}),

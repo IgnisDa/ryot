@@ -9,15 +9,17 @@ import {
 } from "@ryot-app/contract/modules/backups/schemas";
 import type { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import type { Schema } from "effect";
+import { Cause, Context, DateTime, Effect, Layer } from "effect";
 
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { DownloadTickets } from "#platform/storage/download-tickets";
 
-import { ExportBackupWorkflow } from "./export/workflow";
+import { ExportBackupJob } from "./export/job";
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
-import { RestoreBackupWorkflow } from "./restore/workflow";
+import { RestoreBackupJob } from "./restore/job";
 import { BackupsRepository } from "./runs/repository";
 import { BackupStaging } from "./staging";
 
@@ -53,7 +55,8 @@ export class BackupsService extends Context.Service<BackupsService>()(
 	"@ryot-app/kernel-backend/modules/backups/service/BackupsService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
+			const database = yield* DatabaseSession;
+			const jobs = yield* JobQueue;
 			const uploads = yield* ObjectStorageService;
 			const repository = yield* BackupsRepository;
 			const staging = yield* BackupStaging;
@@ -62,30 +65,32 @@ export class BackupsService extends Context.Service<BackupsService>()(
 
 			const assertAccountIsClean = (userId: UserId) => cleanliness.assertAccountIsClean(userId);
 
+			// The run and its job commit together, so every pending run has a job to start it.
+			const startRun = (
+				userId: UserId,
+				kind: "export" | "restore",
+				enqueue: (runId: BackupRunId) => Effect.Effect<boolean, DbError | Schema.SchemaError>,
+			) =>
+				mapDbToInternal(
+					database
+						.transaction(
+							Effect.gen(function* () {
+								const run = yield* repository.createRun({ kind, userId });
+								yield* enqueue(run.id);
+								return run;
+							}),
+						)
+						.pipe(
+							Effect.catchTags({ SchemaError: Effect.die, DatabaseSessionStateError: Effect.die }),
+						),
+				);
+
 			const createExport = Effect.fn("BackupsService.createExport")(function* (
 				user: CurrentUserValue,
 			) {
-				const run = yield* mapDbToInternal(
-					repository.createRun({ kind: "export", userId: user.id }),
+				const run = yield* startRun(user.id, "export", (runId) =>
+					jobs.enqueue(ExportBackupJob, { runId, userId: user.id }, { userId: user.id }),
 				);
-				const dispatched = yield* engine
-					.execute(ExportBackupWorkflow, {
-						discard: true,
-						executionId: run.id,
-						payload: { runId: run.id, userId: user.id },
-					})
-					.pipe(Effect.result);
-				if (Result.isFailure(dispatched)) {
-					yield* Effect.logError("backup export dispatch failed", dispatched.failure);
-					yield* mapDbToInternal(
-						repository.failRun({
-							runId: run.id,
-							userId: user.id,
-							failure: { operation: "export", code: "unexpected-failure" },
-						}),
-					);
-					return yield* new BackupInternalError({ reason: { code: "export-dispatch-failed" } });
-				}
 				return { id: run.id };
 			});
 
@@ -94,27 +99,13 @@ export class BackupsService extends Context.Service<BackupsService>()(
 				body: CreateRestoreBody,
 			) {
 				yield* mapDbToInternal(assertAccountIsClean(user.id));
-				const run = yield* mapDbToInternal(
-					repository.createRun({ userId: user.id, kind: "restore" }),
+				const run = yield* startRun(user.id, "restore", (runId) =>
+					jobs.enqueue(
+						RestoreBackupJob,
+						{ runId, userId: user.id, uploadToken: body.uploadToken },
+						{ userId: user.id },
+					),
 				);
-				const dispatched = yield* engine
-					.execute(RestoreBackupWorkflow, {
-						discard: true,
-						executionId: run.id,
-						payload: { runId: run.id, userId: user.id, uploadToken: body.uploadToken },
-					})
-					.pipe(Effect.result);
-				if (Result.isFailure(dispatched)) {
-					yield* Effect.logError("backup restore dispatch failed", dispatched.failure);
-					yield* mapDbToInternal(
-						repository.failRun({
-							runId: run.id,
-							userId: user.id,
-							failure: { operation: "restore", code: "unexpected-failure" },
-						}),
-					);
-					return yield* new BackupInternalError({ reason: { code: "restore-dispatch-failed" } });
-				}
 				return { id: run.id };
 			});
 

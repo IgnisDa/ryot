@@ -28,12 +28,8 @@ import { archiveFixtureInput } from "../archive/archive.test-support";
 import { BackupsRepository } from "../runs/repository";
 import { BackupStaging } from "../staging";
 import { BackupAccountCleanliness } from "./account-cleanliness";
+import { BackupRestoreError, RestoreBackupOperations, RestoreBackupOperationsLive } from "./job";
 import { BackupRestorePersistence } from "./persistence";
-import {
-	BackupWorkflowError,
-	RestoreBackupWorkflowOperations,
-	RestoreBackupWorkflowOperationsLive,
-} from "./workflow";
 import { BackupRestoreWriter } from "./writer";
 
 type Scenario =
@@ -53,7 +49,7 @@ class RestoreDatabaseHarness extends Context.Service<
 		readonly configure: (scenario: Scenario) => Effect.Effect<void>;
 	}
 >()(
-	"@ryot-app/kernel-backend/modules/backups/restore/workflow.integration.test/RestoreDatabaseHarness",
+	"@ryot-app/kernel-backend/modules/backups/restore/job.integration.test/RestoreDatabaseHarness",
 ) {}
 
 const profile = {
@@ -67,7 +63,7 @@ const profile = {
 };
 const restoredReminderDate = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 const archiveLocator = { intentId: "restore-intent", key: "temporary/restore.zip" };
-const failure = new BackupWorkflowError({
+const failure = new BackupRestoreError({
 	failure: { operation: "restore", code: "unexpected-failure" },
 });
 
@@ -228,7 +224,7 @@ const dependencies = Layer.unwrap(
 	}),
 ).pipe(Layer.provide(revisionDatabaseLayer));
 
-const operationsLayer = RestoreBackupWorkflowOperationsLive.pipe(
+const operationsLayer = RestoreBackupOperationsLive.pipe(
 	Layer.provideMerge(dependencies),
 	Layer.provide(BunFileSystem.layer),
 	Layer.provide(
@@ -266,7 +262,7 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 			Effect.gen(function* () {
 				const payload = yield* prepare("success");
 				const repository = yield* BackupsRepository;
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				const database = yield* DatabaseSession;
 				yield* repository.updateProgress({ ...payload, progress: 90 });
 				yield* operations.restore(payload, archiveLocator);
@@ -324,7 +320,7 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 			() =>
 				Effect.gen(function* () {
 					const payload = yield* prepare(scenario);
-					const operations = yield* RestoreBackupWorkflowOperations;
+					const operations = yield* RestoreBackupOperations;
 					yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
 					const database = yield* DatabaseSession;
 					const [unchanged] = yield* database.run((db) =>
@@ -360,7 +356,7 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 			() =>
 				Effect.gen(function* () {
 					const payload = yield* prepare(scenario);
-					yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+					yield* (yield* RestoreBackupOperations).restore(payload, archiveLocator);
 					expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
 						progress: 100,
 						status: "completed",
@@ -411,7 +407,7 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 		() =>
 			Effect.gen(function* () {
 				const payload = yield* prepare("commit-interrupt");
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				const fiber = yield* operations.restore(payload, archiveLocator).pipe(Effect.forkChild);
 				yield* (yield* RestoreDatabaseHarness).committed;
 				yield* Fiber.interrupt(fiber);
@@ -462,7 +458,7 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 		() =>
 			Effect.gen(function* () {
 				const payload = yield* prepare("deadlock");
-				yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+				yield* (yield* RestoreBackupOperations).restore(payload, archiveLocator);
 				expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
 					progress: 100,
 					status: "completed",

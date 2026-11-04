@@ -14,10 +14,10 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
+import { ExportBackupJobLive, ExportBackupOperationsLive } from "./export/job";
 import { BackupExportSnapshot } from "./export/snapshot";
-import { ExportBackupWorkflowOperationsLive } from "./export/workflow";
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
-import { RestoreBackupWorkflowOperationsLive } from "./restore/workflow";
+import { RestoreBackupJobLive, RestoreBackupOperationsLive } from "./restore/job";
 import { BackupRestoreWriter } from "./restore/writer";
 import { BackupsRepository } from "./runs/repository";
 import { BackupsService } from "./service";
@@ -84,8 +84,9 @@ export const BackupServicesLive = Layer.mergeAll(
 	),
 );
 
-export const BackupWorkflowOperationsLive = Layer.merge(
-	ExportBackupWorkflowOperationsLive.pipe(
+export const BackupJobsLive = Layer.merge(
+	ExportBackupJobLive.pipe(
+		Layer.provide(ExportBackupOperationsLive),
 		Layer.provide(
 			Layer.mergeAll(
 				BackupsRepository.layer,
@@ -95,7 +96,8 @@ export const BackupWorkflowOperationsLive = Layer.merge(
 			),
 		),
 	),
-	RestoreBackupWorkflowOperationsLive.pipe(
+	RestoreBackupJobLive.pipe(
+		Layer.provide(RestoreBackupOperationsLive),
 		Layer.provide(
 			Layer.mergeAll(
 				BackupsRepository.layer,

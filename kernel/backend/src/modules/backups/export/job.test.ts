@@ -9,11 +9,10 @@ import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferenc
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { DatabaseSession } from "#platform/db/session";
-import { databaseLayer, makeAppConfigLayer, makeWorkflowActivityEngine } from "#testing/effect";
+import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
 
 import { ARCHIVE_LIMITS } from "../archive/archive";
 import { BackupArchiveError } from "../archive/error";
@@ -21,13 +20,8 @@ import { STREAMED_SECTION_PATHS } from "../archive/sections";
 import { IncrementalSha256 } from "../archive/streaming";
 import { BackupsRepository } from "../runs/repository";
 import { BackupStaging } from "../staging";
+import { ExportBackupOperations, ExportBackupOperationsLive, runExportBackupJob } from "./job";
 import { BackupExportSnapshot } from "./snapshot";
-import {
-	ExportBackupWorkflow,
-	ExportBackupWorkflowOperations,
-	ExportBackupWorkflowOperationsLive,
-	runExportBackupWorkflow,
-} from "./workflow";
 
 const runId = BackupRunId.make("run-1");
 const userId = UserId.make("user-1");
@@ -35,48 +29,42 @@ const userId = UserId.make("user-1");
 class FakeExportOperations extends Context.Service<
 	FakeExportOperations,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("@ryot-app/kernel-backend/modules/backups/export/workflow.test/FakeExportOperations") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/job.test/FakeExportOperations") {}
 
 class FakeExportCleanup extends Context.Service<
 	FakeExportCleanup,
 	{ readonly deletes: Effect.Effect<number>; readonly failures: Effect.Effect<number> }
->()("@ryot-app/kernel-backend/modules/backups/export/workflow.test/FakeExportCleanup") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/job.test/FakeExportCleanup") {}
 
-const instance = WorkflowInstance.initial(ExportBackupWorkflow, runId);
-
-const recordingOperationsLayer = Layer.mergeAll(
-	Layer.succeed(WorkflowInstance, instance),
-	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
-			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
-			return Layer.merge(
-				Layer.succeed(FakeExportOperations, { calls: Ref.get(calls) }),
-				Layer.mock(ExportBackupWorkflowOperations, {
-					fail: () => record("fail"),
-					complete: () => record("complete"),
-					begin: () => record("begin").pipe(Effect.as(true)),
-					build: () =>
-						record("build").pipe(
-							Effect.as({
-								provider: "local" as const,
-								key: "temporary/run-1.zip",
-								expiresAt: "2026-08-24T12:00:00.000Z",
-							}),
-						),
-				}),
-			);
-		}),
-	),
+const recordingOperationsLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
+		return Layer.merge(
+			Layer.succeed(FakeExportOperations, { calls: Ref.get(calls) }),
+			Layer.mock(ExportBackupOperations, {
+				fail: () => record("fail"),
+				complete: () => record("complete"),
+				begin: () => record("begin").pipe(Effect.as(true)),
+				build: () =>
+					record("build").pipe(
+						Effect.as({
+							provider: "local" as const,
+							key: "temporary/run-1.zip",
+							expiresAt: "2026-08-24T12:00:00.000Z",
+						}),
+					),
+			}),
+		);
+	}),
 );
 
 layer(recordingOperationsLayer)((test) => {
 	test.effect(
-		"runs export side effects only through backup workflow operations",
+		"runs export side effects only through backup export operations",
 		() =>
 			Effect.gen(function* () {
-				yield* runExportBackupWorkflow({ runId, userId }, runId);
+				yield* runExportBackupJob({ runId, userId }, { id: "job", attempt: 1 });
 				expect(yield* (yield* FakeExportOperations).calls).toEqual(["begin", "build", "complete"]);
 			}),
 		testTimeout,
@@ -86,7 +74,7 @@ layer(recordingOperationsLayer)((test) => {
 		"passes expected archive failures through workflow activities to failure recording",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* ExportBackupWorkflowOperations;
+				const operations = yield* ExportBackupOperations;
 				const calls = yield* FakeExportOperations;
 				const before = yield* calls.calls;
 				const failure = new BackupArchiveError({
@@ -96,8 +84,8 @@ layer(recordingOperationsLayer)((test) => {
 					reason: "entry_too_large",
 					message: "Record exceeds the limit",
 				});
-				yield* runExportBackupWorkflow({ runId, userId }, runId).pipe(
-					Effect.provideService(ExportBackupWorkflowOperations, {
+				yield* runExportBackupJob({ runId, userId }, { id: "job", attempt: 1 }).pipe(
+					Effect.provideService(ExportBackupOperations, {
 						...operations,
 						build: (payload) =>
 							operations.build(payload).pipe(Effect.andThen(Effect.fail(failure))),
@@ -136,7 +124,7 @@ const completedRun = {
 	startedAt: "2026-08-23T12:01:00.000Z",
 };
 
-const ambiguousCompletionLayer = ExportBackupWorkflowOperationsLive.pipe(
+const ambiguousCompletionLayer = ExportBackupOperationsLive.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			makeAppConfigLayer(),
@@ -195,7 +183,7 @@ layer(ambiguousCompletionLayer)((test) => {
 		"preserves an artifact after an ambiguous export completion",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* ExportBackupWorkflowOperations;
+				const operations = yield* ExportBackupOperations;
 				const cleanup = yield* FakeExportCleanup;
 				const error = yield* operations.complete({ runId, userId }, artifact).pipe(Effect.flip);
 				expect(error._tag).toBe("InternalError");
@@ -210,9 +198,9 @@ layer(ambiguousCompletionLayer)((test) => {
 class ExportFailureRecorder extends Context.Service<
 	ExportFailureRecorder,
 	{ readonly failure: Effect.Effect<null | BackupRunFailure> }
->()("@ryot-app/kernel-backend/modules/backups/export/workflow.test/ExportFailureRecorder") {}
+>()("@ryot-app/kernel-backend/modules/backups/export/job.test/ExportFailureRecorder") {}
 
-const archiveFailureLayer = ExportBackupWorkflowOperationsLive.pipe(
+const archiveFailureLayer = ExportBackupOperationsLive.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			makeAppConfigLayer(),
@@ -271,7 +259,7 @@ layer(archiveFailureLayer)((test) => {
 		"preserves an archive limit failure when storage masks the stream error",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* ExportBackupWorkflowOperations;
+				const operations = yield* ExportBackupOperations;
 				const error = yield* operations.build({ runId, userId }).pipe(Effect.flip);
 				expect(error).toBeInstanceOf(BackupArchiveError);
 				yield* operations.fail({ runId, userId }, error);

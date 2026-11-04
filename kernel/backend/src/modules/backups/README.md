@@ -2,6 +2,8 @@
 
 Account export and restore use the deterministic `ryot-backup` version 1 archive. `archive/` owns the wire format, `export/` builds it, and `restore/` writes it into a clean account.
 
+Creating a run queues its `backup-export` or `backup-restore` [job](../../platform/jobs/README.md) in the same transaction. A failed step settles the run as failed; only a lost process retries the job, and its idempotent steps resume the run.
+
 ## Archive Contract
 
 A backup is a non-Zip64 ZIP with entries in this order:
@@ -109,7 +111,7 @@ After the complete event stream is inserted, restore checks declared event-group
 set-based SQL. It does not load account history into memory or recapture immutable recorded properties
 from current metadata. An inconsistent group rolls back the restore as an invalid event archive entry.
 
-`restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
+`restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the restore's transaction.
 
 `export/repository.ts` reads stored built-in overrides independently of executable saved-view catalogs. Export uses the retained private manifest to keep quarantined view state without exposing its client code.
 
@@ -138,7 +140,7 @@ Client page compositions are derived from restored compiled artifacts and curren
 Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 
 Account restore retains user-owned canonical data, relationships, event facts, and required snapshot
-dependencies. Enrichment requests, generated translations, and workflow state are not exported.
+dependencies. Enrichment requests, generated translations, and job and workflow state are not exported.
 Snapshot translation overlays supplied by an archive bind their source generation to the destination
 entity's current canonical generation. Dependencies have no related-completion stamp; foreground
 interest rechecks them lazily. The archive version and entry layout remain unchanged.
@@ -159,4 +161,4 @@ retained removal fences. Channels and delivery ledgers are not portable and are 
 
 ## Failure Contract
 
-Expected archive, limit, and restore failures persist their module-owned kebab-case code and structured parameters on the run. They are not flattened to prose across workflow boundaries. Localized copy is client-owned and never persisted; unexpected causes and raw diagnostics remain in backend logs.
+Expected archive, limit, and restore failures persist their module-owned kebab-case code and structured parameters on the run. They are not flattened to prose across job boundaries. Localized copy is client-owned and never persisted; unexpected causes and raw diagnostics remain in backend logs.

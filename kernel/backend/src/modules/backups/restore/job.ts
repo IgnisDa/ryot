@@ -7,10 +7,8 @@ import {
 	type BackupRunFailure as BackupRunFailureValue,
 } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
-import { Workflow } from "effect/workflow";
+import { Context, Duration, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 
-import type { DurableSchema } from "#boot/workflow-engine";
 import {
 	ManagedAssetsService,
 	type StagedPermanentAsset,
@@ -20,7 +18,8 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import { makeJobKind } from "#platform/jobs/queue";
+import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { validateArchiveStream } from "../archive/archive";
 import { archiveFailure, BackupArchiveError } from "../archive/error";
@@ -29,26 +28,25 @@ import { BackupStaging } from "../staging";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import { BackupRestoreWriter, RequiredBackupPluginUnavailable } from "./writer";
 
-const RestoreBackupWorkflowPayload = Schema.Struct({
+const RestoreBackupPayload = Schema.Struct({
 	userId: UserId,
 	runId: BackupRunId,
 	uploadToken: Schema.String,
 });
-type RestoreBackupWorkflowPayload = typeof RestoreBackupWorkflowPayload.Type;
+type RestoreBackupPayload = typeof RestoreBackupPayload.Type;
 
 const ClaimedArchive = Schema.Struct({ key: Schema.String, intentId: Schema.String });
 type ClaimedArchive = typeof ClaimedArchive.Type;
 
-export class BackupWorkflowError extends Schema.TaggedError<
-	BackupWorkflowError,
+export class BackupRestoreError extends Schema.TaggedError<
+	BackupRestoreError,
 	{ readonly brand: unique symbol }
->()("BackupWorkflowError", { failure: BackupRunFailure }) {}
+>()("BackupRestoreError", { failure: BackupRunFailure }) {}
 
-export const RestoreBackupWorkflow = Workflow.make("RestoreBackupWorkflow", {
-	idempotencyKey: ({ runId }) => runId,
-	success: Schema.Void satisfies DurableSchema,
-	error: BackupWorkflowError satisfies DurableSchema,
-	payload: RestoreBackupWorkflowPayload satisfies DurableSchema,
+export const RestoreBackupJob = makeJobKind("backup-restore", {
+	maxAttempts: 3,
+	lease: Duration.minutes(5),
+	payload: RestoreBackupPayload,
 });
 
 const restoreFailure = (error: unknown): BackupRunFailureValue => {
@@ -74,48 +72,46 @@ const restoreFailure = (error: unknown): BackupRunFailureValue => {
 	return { operation: "restore", code: "unexpected-failure" };
 };
 
-const asWorkflowError = <A, E, R>(
+const asRestoreError = <A, E, R>(
 	effect: Effect.Effect<A, E, R>,
 	failure: BackupRunFailureValue,
 	classify: (error: E) => BackupRunFailureValue = () => failure,
 ) =>
 	effect.pipe(
 		Effect.tapError((error) => Effect.logError("backup restore operation failed", error)),
-		Effect.mapError((error) => new BackupWorkflowError({ failure: classify(error) })),
+		Effect.mapError((error) => new BackupRestoreError({ failure: classify(error) })),
 		Effect.catchDefect((defect) =>
 			Effect.logError("backup restore operation defect", defect).pipe(
-				Effect.andThen(Effect.fail(new BackupWorkflowError({ failure }))),
+				Effect.andThen(Effect.fail(new BackupRestoreError({ failure }))),
 			),
 		),
 	);
 
-type RestoreBackupWorkflowOperationsValue = {
-	begin: (payload: RestoreBackupWorkflowPayload) => Effect.Effect<boolean, BackupWorkflowError>;
-	claim: (
-		payload: RestoreBackupWorkflowPayload,
-	) => Effect.Effect<ClaimedArchive, BackupWorkflowError>;
+type RestoreBackupOperationsValue = {
+	begin: (payload: RestoreBackupPayload) => Effect.Effect<boolean, BackupRestoreError>;
+	claim: (payload: RestoreBackupPayload) => Effect.Effect<ClaimedArchive, BackupRestoreError>;
 	restore: (
-		payload: RestoreBackupWorkflowPayload,
+		payload: RestoreBackupPayload,
 		archive: ClaimedArchive,
-	) => Effect.Effect<void, BackupWorkflowError>;
+	) => Effect.Effect<void, BackupRestoreError>;
 	cleanup: (
-		payload: RestoreBackupWorkflowPayload,
+		payload: RestoreBackupPayload,
 		archive: ClaimedArchive,
-	) => Effect.Effect<void, BackupWorkflowError>;
+	) => Effect.Effect<void, BackupRestoreError>;
 	fail: (
-		payload: RestoreBackupWorkflowPayload,
-		error: BackupWorkflowError,
+		payload: RestoreBackupPayload,
+		error: BackupRestoreError,
 		archive?: ClaimedArchive,
-	) => Effect.Effect<void, BackupWorkflowError>;
+	) => Effect.Effect<void, BackupRestoreError>;
 };
 
-export class RestoreBackupWorkflowOperations extends Context.Service<
-	RestoreBackupWorkflowOperations,
-	RestoreBackupWorkflowOperationsValue
->()("@ryot-app/kernel-backend/modules/backups/restore/workflow/RestoreBackupWorkflowOperations") {}
+export class RestoreBackupOperations extends Context.Service<
+	RestoreBackupOperations,
+	RestoreBackupOperationsValue
+>()("@ryot-app/kernel-backend/modules/backups/restore/job/RestoreBackupOperations") {}
 
-export const RestoreBackupWorkflowOperationsLive = Layer.effect(
-	RestoreBackupWorkflowOperations,
+export const RestoreBackupOperationsLive = Layer.effect(
+	RestoreBackupOperations,
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const database = yield* DatabaseSession;
@@ -129,8 +125,8 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 		const objectStorage = yield* ObjectStorageService;
 		const cleanliness = yield* BackupAccountCleanliness;
 
-		const begin = (payload: RestoreBackupWorkflowPayload) =>
-			asWorkflowError(
+		const begin = (payload: RestoreBackupPayload) =>
+			asRestoreError(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (run?.kind !== "restore" || run.status === "failed") {
@@ -152,16 +148,16 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 				restoreFailure,
 			);
 
-		const claim = (payload: RestoreBackupWorkflowPayload) =>
-			asWorkflowError(
+		const claim = (payload: RestoreBackupPayload) =>
+			asRestoreError(
 				uploadIntents
 					.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId)
 					.pipe(Effect.map(({ locator, intentId }) => ({ intentId, key: locator.key }))),
 				{ code: "upload-unavailable" },
 			);
 
-		const restore = (payload: RestoreBackupWorkflowPayload, archive: ClaimedArchive) =>
-			asWorkflowError(
+		const restore = (payload: RestoreBackupPayload, archive: ClaimedArchive) =>
+			asRestoreError(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (!run) {
@@ -312,8 +308,8 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 				restoreFailure,
 			);
 
-		const cleanup = (payload: RestoreBackupWorkflowPayload, archive: ClaimedArchive) =>
-			asWorkflowError(
+		const cleanup = (payload: RestoreBackupPayload, archive: ClaimedArchive) =>
+			asRestoreError(
 				Effect.gen(function* () {
 					yield* uploadIntents.deleteTemporaryUpload(archive.intentId).pipe(
 						Effect.retry(Schedule.recurs(2)),
@@ -329,11 +325,11 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 			);
 
 		const fail = (
-			payload: RestoreBackupWorkflowPayload,
-			error: BackupWorkflowError,
+			payload: RestoreBackupPayload,
+			error: BackupRestoreError,
 			archive?: ClaimedArchive,
 		) =>
-			asWorkflowError(
+			asRestoreError(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
 					if (run?.status !== "completed") {
@@ -348,78 +344,41 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 				{ operation: "restore", code: "unexpected-failure" },
 			);
 
-		return { fail, claim, begin, restore, cleanup } satisfies RestoreBackupWorkflowOperationsValue;
+		return { fail, claim, begin, restore, cleanup } satisfies RestoreBackupOperationsValue;
 	}),
 );
 
-export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
-	function* (payload: RestoreBackupWorkflowPayload, executionId: string) {
+// A failed step settles the run itself; only a lost process makes the job retry, and the steps are
+// idempotent so the retry resumes the run.
+export const runRestoreBackupJob = Effect.fn("RestoreBackupJob")(
+	function* (payload: RestoreBackupPayload, job: JobContext) {
 		yield* Effect.annotateCurrentSpan({
-			executionId,
+			jobId: job.id,
 			runId: payload.runId,
 			userId: payload.userId,
 		});
-		const operations = yield* RestoreBackupWorkflowOperations;
-		const started = yield* makeActivity({
-			name: "begin-backup-restore",
-			execute: operations.begin(payload),
-			success: Schema.Boolean satisfies DurableSchema,
-			error: BackupWorkflowError satisfies DurableSchema,
-		}).pipe(Effect.result);
+		const operations = yield* RestoreBackupOperations;
+		const started = yield* Effect.result(operations.begin(payload));
 		if (Result.isFailure(started)) {
-			yield* makeActivity({
-				name: "fail-unstarted-backup-restore",
-				success: Schema.Void satisfies DurableSchema,
-				error: BackupWorkflowError satisfies DurableSchema,
-				execute: operations.fail(payload, started.failure),
-			});
+			yield* operations.fail(payload, started.failure);
 			return;
 		}
 		if (!started.success) {
 			return;
 		}
-		const claimed = yield* makeActivity({
-			name: "claim-backup-restore",
-			execute: operations.claim(payload),
-			success: ClaimedArchive satisfies DurableSchema,
-			error: BackupWorkflowError satisfies DurableSchema,
-		}).pipe(Effect.result);
+		const claimed = yield* Effect.result(operations.claim(payload));
 		if (Result.isFailure(claimed)) {
-			yield* makeActivity({
-				name: "fail-unclaimed-backup-restore",
-				success: Schema.Void satisfies DurableSchema,
-				error: BackupWorkflowError satisfies DurableSchema,
-				execute: operations.fail(payload, claimed.failure),
-			});
+			yield* operations.fail(payload, claimed.failure);
 			return;
 		}
-		const restored = yield* makeActivity({
-			name: "write-backup-restore",
-			success: Schema.Void satisfies DurableSchema,
-			error: BackupWorkflowError satisfies DurableSchema,
-			execute: operations.restore(payload, claimed.success),
-		}).pipe(Effect.result);
+		const restored = yield* Effect.result(operations.restore(payload, claimed.success));
 		if (Result.isFailure(restored)) {
-			yield* makeActivity({
-				name: "fail-backup-restore",
-				success: Schema.Void satisfies DurableSchema,
-				error: BackupWorkflowError satisfies DurableSchema,
-				execute: operations.fail(payload, restored.failure, claimed.success),
-			});
+			yield* operations.fail(payload, restored.failure, claimed.success);
 			return;
 		}
-		yield* makeActivity({
-			name: "cleanup-backup-restore",
-			success: Schema.Void satisfies DurableSchema,
-			error: BackupWorkflowError satisfies DurableSchema,
-			execute: operations.cleanup(payload, claimed.success),
-		});
+		yield* operations.cleanup(payload, claimed.success);
 	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "RestoreBackupWorkflow" }),
+	(effect, payload) => Effect.annotateLogs(effect, { runId: payload.runId }),
 );
 
-export const RestoreBackupWorkflowDefinitionsLive = implementWorkflow(
-	RestoreBackupWorkflow,
-	runRestoreBackupWorkflow,
-);
+export const RestoreBackupJobLive = registerJobHandler(RestoreBackupJob, runRestoreBackupJob);

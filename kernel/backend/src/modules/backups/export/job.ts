@@ -1,14 +1,23 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
-import { Workflow } from "effect/workflow";
+import {
+	Context,
+	DateTime,
+	Duration,
+	Effect,
+	FileSystem,
+	Layer,
+	Result,
+	Schema,
+	Stream,
+} from "effect";
 
-import type { DurableSchema } from "#boot/workflow-engine";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import { makeJobKind } from "#platform/jobs/queue";
+import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { ARCHIVE_LIMITS, createArchiveStream } from "../archive/archive";
 import { archiveFailure, BackupArchiveError } from "../archive/error";
@@ -20,11 +29,11 @@ const BACKUP_APP_VERSION = "backend-v1";
 const EXPORT_EXPIRY_MILLIS = 24 * 60 * 60 * 1_000;
 const dateFromMillis = (milliseconds: number) => new Date(milliseconds);
 const MAX_ARCHIVE_BYTES = ARCHIVE_LIMITS.maxTotalUncompressedBytes + 64 * 1024 * 1024;
-const ExportBackupWorkflowError = Schema.Union([InternalError, BackupArchiveError]);
-type ExportBackupWorkflowError = typeof ExportBackupWorkflowError.Type;
+const ExportBackupError = Schema.Union([InternalError, BackupArchiveError]);
+type ExportBackupError = typeof ExportBackupError.Type;
 
-const ExportBackupWorkflowPayload = Schema.Struct({ userId: UserId, runId: BackupRunId });
-type ExportBackupWorkflowPayload = typeof ExportBackupWorkflowPayload.Type;
+const ExportBackupPayload = Schema.Struct({ userId: UserId, runId: BackupRunId });
+type ExportBackupPayload = typeof ExportBackupPayload.Type;
 
 const ExportArtifact = Schema.Struct({
 	key: Schema.String,
@@ -33,11 +42,10 @@ const ExportArtifact = Schema.Struct({
 });
 type ExportArtifact = typeof ExportArtifact.Type;
 
-export const ExportBackupWorkflow = Workflow.make("ExportBackupWorkflow", {
-	idempotencyKey: ({ runId }) => runId,
-	success: Schema.Void satisfies DurableSchema,
-	error: ExportBackupWorkflowError satisfies DurableSchema,
-	payload: ExportBackupWorkflowPayload satisfies DurableSchema,
+export const ExportBackupJob = makeJobKind("backup-export", {
+	maxAttempts: 3,
+	lease: Duration.minutes(5),
+	payload: ExportBackupPayload,
 });
 
 const asExportError = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
@@ -55,31 +63,27 @@ const asExportError = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string)
 		),
 	);
 
-type ExportBackupWorkflowOperationsValue = {
-	begin: (
-		payload: ExportBackupWorkflowPayload,
-	) => Effect.Effect<boolean, ExportBackupWorkflowError>;
-	build: (
-		payload: ExportBackupWorkflowPayload,
-	) => Effect.Effect<ExportArtifact, ExportBackupWorkflowError>;
+type ExportBackupOperationsValue = {
+	begin: (payload: ExportBackupPayload) => Effect.Effect<boolean, ExportBackupError>;
+	build: (payload: ExportBackupPayload) => Effect.Effect<ExportArtifact, ExportBackupError>;
 	complete: (
-		payload: ExportBackupWorkflowPayload,
+		payload: ExportBackupPayload,
 		artifact: ExportArtifact,
-	) => Effect.Effect<void, ExportBackupWorkflowError>;
+	) => Effect.Effect<void, ExportBackupError>;
 	fail: (
-		payload: ExportBackupWorkflowPayload,
-		error: ExportBackupWorkflowError,
+		payload: ExportBackupPayload,
+		error: ExportBackupError,
 		artifact?: ExportArtifact,
-	) => Effect.Effect<void, ExportBackupWorkflowError>;
+	) => Effect.Effect<void, ExportBackupError>;
 };
 
-export class ExportBackupWorkflowOperations extends Context.Service<
-	ExportBackupWorkflowOperations,
-	ExportBackupWorkflowOperationsValue
->()("@ryot-app/kernel-backend/modules/backups/export/workflow/ExportBackupWorkflowOperations") {}
+export class ExportBackupOperations extends Context.Service<
+	ExportBackupOperations,
+	ExportBackupOperationsValue
+>()("@ryot-app/kernel-backend/modules/backups/export/job/ExportBackupOperations") {}
 
-export const ExportBackupWorkflowOperationsLive = Layer.effect(
-	ExportBackupWorkflowOperations,
+export const ExportBackupOperationsLive = Layer.effect(
+	ExportBackupOperations,
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const database = yield* DatabaseSession;
@@ -90,7 +94,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 		const snapshotService = yield* BackupExportSnapshot;
 		const localTempDir = config.fileStorage.localTempDir;
 
-		const begin = (payload: ExportBackupWorkflowPayload) =>
+		const begin = (payload: ExportBackupPayload) =>
 			asExportError(
 				Effect.gen(function* () {
 					const run = yield* repository.getRunById(payload);
@@ -108,7 +112,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 				"Backup export could not start",
 			);
 
-		const build = (payload: ExportBackupWorkflowPayload) =>
+		const build = (payload: ExportBackupPayload) =>
 			asExportError(
 				Effect.gen(function* () {
 					const existing = yield* repository.getArtifactById(payload);
@@ -232,7 +236,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 				"Backup export failed",
 			);
 
-		const complete = (payload: ExportBackupWorkflowPayload, artifact: ExportArtifact) =>
+		const complete = (payload: ExportBackupPayload, artifact: ExportArtifact) =>
 			asExportError(
 				Effect.gen(function* () {
 					const completed = yield* repository.completeRun({
@@ -251,8 +255,8 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 			);
 
 		const fail = (
-			payload: ExportBackupWorkflowPayload,
-			error: ExportBackupWorkflowError,
+			payload: ExportBackupPayload,
+			error: ExportBackupError,
 			artifact?: ExportArtifact,
 		) =>
 			asExportError(
@@ -278,71 +282,39 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 				"Backup export failure could not be recorded",
 			);
 
-		return { fail, begin, build, complete } satisfies ExportBackupWorkflowOperationsValue;
+		return { fail, begin, build, complete } satisfies ExportBackupOperationsValue;
 	}),
 );
 
-export const runExportBackupWorkflow = Effect.fn("ExportBackupWorkflow")(
-	function* (payload: ExportBackupWorkflowPayload, executionId: string) {
+// A failed step settles the run itself; only a lost process makes the job retry, and the steps are
+// idempotent so the retry resumes the run.
+export const runExportBackupJob = Effect.fn("ExportBackupJob")(
+	function* (payload: ExportBackupPayload, job: JobContext) {
 		yield* Effect.annotateCurrentSpan({
-			executionId,
+			jobId: job.id,
 			runId: payload.runId,
 			userId: payload.userId,
 		});
-		const operations = yield* ExportBackupWorkflowOperations;
-		const started = yield* makeActivity({
-			name: "begin-backup-export",
-			execute: operations.begin(payload),
-			success: Schema.Boolean satisfies DurableSchema,
-			error: ExportBackupWorkflowError satisfies DurableSchema,
-		}).pipe(Effect.result);
+		const operations = yield* ExportBackupOperations;
+		const started = yield* Effect.result(operations.begin(payload));
 		if (Result.isFailure(started)) {
-			yield* makeActivity({
-				name: "fail-unstarted-backup-export",
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload, started.failure),
-				error: ExportBackupWorkflowError satisfies DurableSchema,
-			});
+			yield* operations.fail(payload, started.failure);
 			return;
 		}
 		if (!started.success) {
 			return;
 		}
-		const built = yield* makeActivity({
-			name: "build-backup-export",
-			execute: operations.build(payload),
-			success: ExportArtifact satisfies DurableSchema,
-			error: ExportBackupWorkflowError satisfies DurableSchema,
-		}).pipe(Effect.result);
+		const built = yield* Effect.result(operations.build(payload));
 		if (Result.isFailure(built)) {
-			yield* makeActivity({
-				name: "fail-backup-export",
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload, built.failure),
-				error: ExportBackupWorkflowError satisfies DurableSchema,
-			});
+			yield* operations.fail(payload, built.failure);
 			return;
 		}
-		const completed = yield* makeActivity({
-			name: "complete-backup-export",
-			success: Schema.Void satisfies DurableSchema,
-			execute: operations.complete(payload, built.success),
-			error: ExportBackupWorkflowError satisfies DurableSchema,
-		}).pipe(Effect.result);
+		const completed = yield* Effect.result(operations.complete(payload, built.success));
 		if (Result.isFailure(completed)) {
-			yield* makeActivity({
-				name: "fail-completed-backup-export",
-				success: Schema.Void satisfies DurableSchema,
-				error: ExportBackupWorkflowError satisfies DurableSchema,
-				execute: operations.fail(payload, completed.failure, built.success),
-			});
+			yield* operations.fail(payload, completed.failure, built.success);
 		}
 	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "ExportBackupWorkflow" }),
+	(effect, payload) => Effect.annotateLogs(effect, { runId: payload.runId }),
 );
 
-export const ExportBackupWorkflowDefinitionsLive = implementWorkflow(
-	ExportBackupWorkflow,
-	runExportBackupWorkflow,
-);
+export const ExportBackupJobLive = registerJobHandler(ExportBackupJob, runExportBackupJob);

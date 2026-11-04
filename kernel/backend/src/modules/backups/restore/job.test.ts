@@ -11,7 +11,6 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { CryptoHasher } from "bun";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Stream } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
@@ -19,26 +18,20 @@ import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
-import {
-	databaseLayer,
-	makeAppConfigLayer,
-	makeWorkflowActivityEngine,
-	type MockOverrides,
-} from "#testing/effect";
+import { databaseLayer, makeAppConfigLayer, type MockOverrides } from "#testing/effect";
 
 import { createArchiveStream } from "../archive/archive";
 import { archiveFixtureInput } from "../archive/archive.test-support";
 import { archivePluginDefinitionContract } from "../archive/schemas";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
-import { memoryStagingLayer } from "./staging.test-support";
 import {
-	BackupWorkflowError,
-	RestoreBackupWorkflow,
-	RestoreBackupWorkflowOperations,
-	RestoreBackupWorkflowOperationsLive,
-	runRestoreBackupWorkflow,
-} from "./workflow";
+	BackupRestoreError,
+	RestoreBackupOperations,
+	RestoreBackupOperationsLive,
+	runRestoreBackupJob,
+} from "./job";
+import { memoryStagingLayer } from "./staging.test-support";
 import { BackupRestoreWriter, preflightProvenance, resolveRequiredPluginIds } from "./writer";
 
 const localTempDir = "/tmp/ryot-backup-restore-tests";
@@ -90,13 +83,13 @@ class FakeRestoreDependencies extends Context.Service<
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly stagedObjects: Effect.Effect<ReadonlySet<string>>;
 	}
->()("@ryot-app/kernel-backend/modules/backups/restore/workflow.test/FakeRestoreDependencies") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/job.test/FakeRestoreDependencies") {}
 
 const makeLayer = (
 	overrides: (fake: RestoreFake) => RestoreDependencyOverrides,
 	fileSystem: Layer.Layer<FileSystem.FileSystem> = BunFileSystem.layer,
 ) =>
-	RestoreBackupWorkflowOperationsLive.pipe(
+	RestoreBackupOperationsLive.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				fileSystem,
@@ -248,7 +241,7 @@ layer(
 		"fails a missing system requirement before asset staging or account writes",
 		() =>
 			Effect.gen(function* () {
-				const error = yield* (yield* RestoreBackupWorkflowOperations)
+				const error = yield* (yield* RestoreBackupOperations)
 					.restore(payload, archiveLocator)
 					.pipe(Effect.flip);
 				expect(error.failure).toMatchObject({
@@ -274,7 +267,7 @@ layer(
 		"replays a running restore without changing its start state",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				expect(yield* operations.begin(payload)).toBe(true);
 				expect(
 					(yield* (yield* FakeRestoreDependencies).calls).filter((call) => call === "cleanliness"),
@@ -304,7 +297,7 @@ layer(
 		"uses the restore run as the durable temporary upload claimant",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				expect(yield* operations.claim(payload)).toMatchObject({ intentId: "intent-id" });
 				expect((yield* (yield* FakeRestoreDependencies).calls).at(-1)).toBe(`claimant:${runId}`);
 			}),
@@ -325,7 +318,7 @@ layer(
 		"skips begin, archive validation and mutation after completion",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				expect(yield* operations.begin(payload)).toBe(false);
 				yield* operations.restore(payload, archiveLocator);
 			}),
@@ -348,7 +341,7 @@ layer(
 		"retries unavailable temporary cleanup without accessing run persistence",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				yield* operations.cleanup(payload, archiveLocator);
 				expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
 					"delete",
@@ -404,7 +397,7 @@ layer(
 		"keeps a committed restore successful when spool cleanup fails",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				yield* operations.restore(payload, archiveLocator);
 			}),
 		testTimeout,
@@ -455,7 +448,7 @@ layer(
 		"retries a deadlocked restore transaction",
 		() =>
 			Effect.gen(function* () {
-				yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+				yield* (yield* RestoreBackupOperations).restore(payload, archiveLocator);
 				expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
 			}),
 		testTimeout,
@@ -494,7 +487,7 @@ layer(
 		"records a forbidden restored asset reference as an invalid archive entry",
 		() =>
 			Effect.gen(function* () {
-				const error = yield* (yield* RestoreBackupWorkflowOperations)
+				const error = yield* (yield* RestoreBackupOperations)
 					.restore(payload, archiveLocator)
 					.pipe(Effect.flip);
 				expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
@@ -524,7 +517,7 @@ layer(
 		"stops before plugin persistence and asset staging when package preflight fails",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
 				const calls = yield* (yield* FakeRestoreDependencies).calls;
 				expect(calls).not.toContain("persist");
@@ -555,10 +548,10 @@ layer(
 		"records a safe specific failure before best-effort temporary cleanup",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				yield* operations.fail(
 					payload,
-					new BackupWorkflowError({
+					new BackupRestoreError({
 						failure: {
 							requiredVersion: "2",
 							code: "required-plugin-unavailable",
@@ -660,7 +653,7 @@ layer(
 						sql`create table ${sql.identifier(rollbackSchema)}.restore_row (id text primary key)`,
 					),
 				);
-				const operations = yield* RestoreBackupWorkflowOperations;
+				const operations = yield* RestoreBackupOperations;
 				const error = yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
 				expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
 				const rows = yield* session.run((db) =>
@@ -688,30 +681,24 @@ layer(
 class FakeRestoreOperations extends Context.Service<
 	FakeRestoreOperations,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("@ryot-app/kernel-backend/modules/backups/restore/workflow.test/FakeRestoreOperations") {}
+>()("@ryot-app/kernel-backend/modules/backups/restore/job.test/FakeRestoreOperations") {}
 
-const restoreInstance = WorkflowInstance.initial(RestoreBackupWorkflow, runId);
-
-const recordingOperationsLayer = Layer.mergeAll(
-	Layer.succeed(WorkflowInstance, restoreInstance),
-	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(restoreInstance)),
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
-			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
-			return Layer.mergeAll(
-				Layer.succeed(FakeRestoreOperations, { calls: Ref.get(calls) }),
-				Layer.mock(RestoreBackupWorkflowOperations, {
-					fail: () => record("fail"),
-					restore: () => record("restore"),
-					cleanup: () => record("cleanup"),
-					begin: () => record("begin").pipe(Effect.as(true)),
-					claim: () =>
-						record("claim").pipe(Effect.as({ intentId: "intent", key: "temporary/input.zip" })),
-				}),
-			);
-		}),
-	),
+const recordingOperationsLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
+		return Layer.mergeAll(
+			Layer.succeed(FakeRestoreOperations, { calls: Ref.get(calls) }),
+			Layer.mock(RestoreBackupOperations, {
+				fail: () => record("fail"),
+				restore: () => record("restore"),
+				cleanup: () => record("cleanup"),
+				begin: () => record("begin").pipe(Effect.as(true)),
+				claim: () =>
+					record("claim").pipe(Effect.as({ intentId: "intent", key: "temporary/input.zip" })),
+			}),
+		);
+	}),
 );
 
 layer(recordingOperationsLayer)((test) => {
@@ -719,7 +706,10 @@ layer(recordingOperationsLayer)((test) => {
 		"runs restore claim, direct writes, and cleanup without application hooks",
 		() =>
 			Effect.gen(function* () {
-				yield* runRestoreBackupWorkflow({ runId, userId, uploadToken: "token" }, runId);
+				yield* runRestoreBackupJob(
+					{ runId, userId, uploadToken: "token" },
+					{ id: "job", attempt: 1 },
+				);
 				expect(yield* (yield* FakeRestoreOperations).calls).toEqual([
 					"begin",
 					"claim",
