@@ -101,11 +101,36 @@ const decodeStoredManifest = (manifest: unknown, packageId: string) =>
 		),
 	);
 
+const decodedManifestLimit = 256;
+
+// A revision's manifest never changes, and decoding a large one dominates plugin reads, so decoded manifests are
+// kept by revision ID.
+const makeManifestDecoder = () => {
+	const decoded = new Map<string, PluginManifest>();
+	return (revisionId: string, manifest: unknown, packageId: string) => {
+		const cached = decoded.get(revisionId);
+		if (cached) {
+			return Effect.succeed(cached);
+		}
+		return Effect.tap(decodeStoredManifest(manifest, packageId), (value) =>
+			Effect.sync(() => {
+				const oldest = decoded.keys().next();
+				if (decoded.size >= decodedManifestLimit && !oldest.done) {
+					decoded.delete(oldest.value);
+				}
+				decoded.set(revisionId, value);
+			}),
+		);
+	};
+};
+type ManifestDecoder = ReturnType<typeof makeManifestDecoder>;
+
 const toLoadedRevision = Effect.fn(function* (
 	row: RevisionRow,
 	scripts: ReadonlyArray<{ readonly slug: string; readonly contentHash: string }>,
+	decode: ManifestDecoder,
 ) {
-	const manifest = yield* decodeStoredManifest(row.manifest, row.packageId);
+	const manifest = yield* decode(row.id, row.manifest, row.packageId);
 	const storedHashes = new Map(scripts.map((script) => [script.slug, script.contentHash]));
 	const compiledHashes: Record<string, string> = {};
 	const descriptors: Array<PluginScriptDescriptor> = [];
@@ -131,7 +156,7 @@ const toLoadedRevision = Effect.fn(function* (
 	} satisfies LoadedPluginRevision;
 });
 
-const loadRevisionsForSession = (database: DatabaseSession["Service"]) =>
+const loadRevisionsForSession = (database: DatabaseSession["Service"], decode: ManifestDecoder) =>
 	Effect.fn("PluginRepository.loadRevisions")(function* (ids: ReadonlyArray<string>) {
 		const rows = yield* database.run((db) =>
 			db
@@ -158,6 +183,7 @@ const loadRevisionsForSession = (database: DatabaseSession["Service"]) =>
 			toLoadedRevision(
 				row,
 				scripts.filter(({ pluginRevisionId }) => pluginRevisionId === row.id),
+				decode,
 			),
 		);
 	});
@@ -204,7 +230,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const loadRevisions = loadRevisionsForSession(database);
+			const decodeManifest = makeManifestDecoder();
+			const loadRevisions = loadRevisionsForSession(database, decodeManifest);
 			const lookupRevision = lookupRevisionForSession(loadRevisions);
 			const configs = yield* PluginConfigRevisions;
 			const definitions = yield* DefinitionRepository;
@@ -798,7 +825,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 				if (!revision) {
 					return yield* new DbError({ message: `Plugin ${pluginId} has no active revision` });
 				}
-				const manifest = yield* decodeStoredManifest(revision.manifest, pluginId);
+				const manifest = yield* decodeManifest(revision.id, revision.manifest, pluginId);
 				const scriptRows = yield* database.run((db) =>
 					db
 						.select({
@@ -897,7 +924,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 					if (!revision?.clientArtifactHash) {
 						return null;
 					}
-					const manifest = yield* decodeStoredManifest(revision.manifest, revision.packageId);
+					const manifest = yield* decodeManifest(revisionId, revision.manifest, revision.packageId);
 					if (!manifest.client) {
 						return yield* new DbError({
 							message: `Plugin ${revision.packageId} has a client artifact without a client manifest`,

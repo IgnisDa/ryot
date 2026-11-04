@@ -520,3 +520,6 @@
   20, 20,287 and 15 s; one 70-episode show from 218, 77,873 and 55 s to 78, 46,286 and 34 s. `completionKey` is a
   plain string now, since it no longer names an event, so backups restore it. `full22` passed every
   history-correction test under full load.
+- Step 11 starts with plugin installs. `PluginRepository` keeps decoded manifests by revision ID, the immutable half
+  of step 8 move 4; install server CPU fell from 1.0–1.4 s to 0.25–0.4 s (`probesP2`). The VM sync now runs
+  `wxt prepare`, since builds resolve the browser extension's project reference through WXT's generated tsconfig.

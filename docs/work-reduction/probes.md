@@ -1050,3 +1050,22 @@ about 20 minutes on 6 workers, but took 34; the browser group took 8.
 - The rest of the gap is time outside tests: process start per file and the 19 isolated servers' setup.
 - Levers, none applied: start the longest files first, split the two long files (each split of an
   isolated-harness file adds a server), or run independent tests in a file concurrently.
+
+## Runs `probesP1`, `pp1`, `probesP2` and `pp2` (decoded manifests kept by revision)
+
+`flow-probes` gains `plugin-install-private`: upload and install a private plugin, settled until it leaves
+`installing`. Before (`probesP1`): 2.5–3.4 s for the caller, 1.0–1.4 s of server CPU, about 145 statements and
+130 ms of database time. A CPU profile of `private-plugins` (`pp1`) put 10.6 s of the server's 23.5 s in
+`decodeStoredManifest`, which decoded a revision's stored manifest with Effect Schema on every read.
+
+A revision's manifest never changes, so `PluginRepository` keeps decoded manifests by revision ID, up to 256.
+
+| Measure                                   |    Before |      After |
+| ----------------------------------------- | --------: | ---------: |
+| Install, caller                           | 2.5–3.4 s |  2.0–2.5 s |
+| Install, server CPU                       | 1.0–1.4 s | 0.25–0.4 s |
+| `private-plugins`, server CPU             |    23.5 s |     13.7 s |
+| `private-plugins`, `decodeStoredManifest` |    10.6 s |      0.2 s |
+| `private-plugins`, wall                   |     120 s |       90 s |
+
+The caller's remaining time is mostly compiling the package in the test process before upload.

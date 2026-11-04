@@ -26,5 +26,7 @@ mv .synced-files.new .synced-files
 echo "$rev" > .synced-revision
 chown -R 1001:1001 "$dest"
 sudo -u ryot-backend -H bash -lc "cd $dest && bun install --frozen-lockfile >/dev/null"
+# The extension's tsconfig extends WXT's generated one, which builds that resolve project references need.
+sudo -u ryot-backend -H bash -lc "cd $dest/apps/browser-extension && bunx wxt prepare >/dev/null"
 echo "synced $rev"
 EOF
