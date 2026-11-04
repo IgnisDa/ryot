@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { isbot } from "isbot";
 import { renderToReadableStream } from "react-dom/server";
-import { type AppLoadContext, type EntryContext, ServerRouter } from "react-router";
+import { type EntryContext, ServerRouter } from "react-router";
 
 import { WebsiteFailure } from "~/lib/effect.server";
 import { runPromise } from "~/lib/runtime.server";
@@ -13,7 +13,6 @@ export default function handleRequest(
 	responseStatusCode: number,
 	responseHeaders: Headers,
 	reactRouterContext: EntryContext,
-	_loadContext: AppLoadContext,
 ) {
 	return runPromise(
 		Effect.gen(function* () {
