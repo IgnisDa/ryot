@@ -6,27 +6,23 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
-import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginBootstrapEntities, type PluginBootstrapEntitiesInput } from "./bootstrap-entities";
-import { PluginInstallationRepository } from "./repository";
 import {
 	pluginInstallationBootstrapExecutionId,
-	pluginInstallationExecutionId,
-	PluginInstallationWorkflow,
-	PluginInstallationWorkflowOperations,
-	PluginInstallationWorkflowOperationsLive,
-	runPluginInstallationWorkflow,
-} from "./workflow";
+	PluginInstallationJobOperations,
+	PluginInstallationJobOperationsLive,
+	runPluginInstallationJob,
+} from "./job";
+import { PluginInstallationRepository } from "./repository";
 
 const userId = UserId.make("user-1");
 const installationId = "installation-1";
@@ -41,13 +37,7 @@ const pluginRevision = {
 	userBootstrapScriptSlugs: ["first", "second"],
 };
 
-it("keeps lifecycle executions distinct for each installation and activation", () => {
-	expect(pluginInstallationExecutionId("installation-2", activationId)).not.toBe(
-		pluginInstallationExecutionId(installationId, activationId),
-	);
-	expect(pluginInstallationExecutionId(installationId, "replacement")).not.toBe(
-		pluginInstallationExecutionId(installationId, activationId),
-	);
+it("keeps bootstrap executions distinct for each installation", () => {
 	expect(pluginInstallationBootstrapExecutionId("installation-2", activationId, "first")).not.toBe(
 		pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
 	);
@@ -111,7 +101,7 @@ class InstallationWorkflowFakeState extends Context.Service<
 		readonly registrations: Ref.Ref<ReadonlyArray<WorkflowRegistration>>;
 	}
 >()(
-	"@ryot-app/kernel-backend/modules/plugins/installations/workflow.test/InstallationWorkflowFakeState",
+	"@ryot-app/kernel-backend/modules/plugins/installations/job.test/InstallationWorkflowFakeState",
 ) {}
 
 class FakeInstallationWorkflow extends Context.Service<
@@ -126,9 +116,7 @@ class FakeInstallationWorkflow extends Context.Service<
 		readonly registrations: Effect.Effect<ReadonlyArray<WorkflowRegistration>>;
 		readonly resolveBootstrapWith: (bootstrap: ResolvedBootstrap) => Effect.Effect<void>;
 	}
->()(
-	"@ryot-app/kernel-backend/modules/plugins/installations/workflow.test/FakeInstallationWorkflow",
-) {}
+>()("@ryot-app/kernel-backend/modules/plugins/installations/job.test/FakeInstallationWorkflow") {}
 
 const workflowLayer = (input: {
 	readonly bootstrap: ResolvedBootstrap;
@@ -150,16 +138,13 @@ const workflowLayer = (input: {
 			const seeds = yield* Ref.make<ReadonlyArray<string>>([]);
 			const didQuarantine = yield* Ref.make(false);
 			const pushOrder = (entry: string) => Ref.update(order, (all) => [...all, entry]);
-			const instance = WorkflowInstance.initial(PluginInstallationWorkflow, installationId);
-			return Context.make(WorkflowInstance, instance).pipe(
-				Context.add(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-				Context.add(PluginCatalogInvalidator, {
-					all: Effect.void,
-					recordAll: Effect.void,
-					recordUser: () => Effect.void,
-					deliverPending: () => Effect.void,
-					user: () => pushOrder("invalidate"),
-				}),
+			return Context.make(PluginCatalogInvalidator, {
+				all: Effect.void,
+				recordAll: Effect.void,
+				recordUser: () => Effect.void,
+				deliverPending: () => Effect.void,
+				user: () => pushOrder("invalidate"),
+			}).pipe(
 				Context.add(FakeInstallationWorkflow, {
 					order: Ref.get(order),
 					seeds: Ref.get(seeds),
@@ -337,14 +322,17 @@ const workflowLayer = (input: {
 				),
 		),
 	);
-	return PluginInstallationWorkflowOperationsLive.pipe(
+	return PluginInstallationJobOperationsLive.pipe(
 		Layer.provide(mocks),
 		Layer.provideMerge(fakes),
 		Layer.provideMerge(mutationAdmissionTestLayer),
 	);
 };
 
-const runWorkflow = runPluginInstallationWorkflow({ activationId, installationId }, "execution-1");
+const runWorkflow = runPluginInstallationJob(
+	{ activationId, installationId },
+	{ attempt: 1, id: "installation-job" },
+);
 
 layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 	test.effect(
@@ -615,7 +603,7 @@ layer(workflowLayer({ bootstrap: resolved(), quarantineAfterFirstSeed: true }))(
 		() =>
 			Effect.gen(function* () {
 				const fake = yield* FakeInstallationWorkflow;
-				const operations = yield* PluginInstallationWorkflowOperations;
+				const operations = yield* PluginInstallationJobOperations;
 				yield* runWorkflow;
 				expect(yield* fake.seeds).toEqual(["first-id"]);
 				expect(yield* fake.isInitialized).toBe(false);
@@ -625,14 +613,9 @@ layer(workflowLayer({ bootstrap: resolved(), quarantineAfterFirstSeed: true }))(
 				yield* operations.fail(installationId, activationId, "late old failure");
 				expect(yield* fake.isInitialized).toBe(false);
 				expect(yield* fake.healthUpdates).toEqual([]);
-				const executionId = pluginInstallationExecutionId(installationId, recoveredActivation);
-				const instance = WorkflowInstance.initial(PluginInstallationWorkflow, executionId);
-				yield* runPluginInstallationWorkflow(
+				yield* runPluginInstallationJob(
 					{ installationId, activationId: recoveredActivation },
-					executionId,
-				).pipe(
-					Effect.provideService(WorkflowInstance, instance),
-					Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+					{ attempt: 1, id: "recovered-installation-job" },
 				);
 				expect(yield* fake.seeds).toEqual(["first-id", "second-id"]);
 				expect(yield* fake.isInitialized).toBe(true);

@@ -14,6 +14,7 @@ import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { UserBootstrap } from "./bootstrap";
+import { UserBootstrapJobLive } from "./job";
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 import { UserBootstrapScheduling } from "./scheduling";
 
@@ -36,6 +37,10 @@ export const UserBootstrapLive = UserBootstrap.layer.pipe(
 			AuthRepository.layer,
 		),
 	),
+);
+
+export const UserBootstrapJobProvidedLive = UserBootstrapJobLive.pipe(
+	Layer.provide(UserBootstrapLive),
 );
 
 export const UserBootstrapSchedulingLive = UserBootstrapScheduling.layer.pipe(

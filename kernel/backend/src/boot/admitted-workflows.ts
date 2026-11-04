@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { PolicyBatchWorkflow } from "#modules/automations/lifecycle/policy-batch";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import { BackgroundWorkWorkflow } from "#modules/background-work/service";
@@ -55,7 +54,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		BackgroundWorkWorkflow,
 		SandboxDurableHostServiceWorkflow,
 		CollectionMembershipWorkflow,
-		UserBootstrapWorkflow,
 		UserCommandWorkflow,
 		UserEntityPreparationWorkflow,
 		UserRelationshipPreparationWorkflow,

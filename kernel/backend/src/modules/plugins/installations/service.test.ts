@@ -44,13 +44,13 @@ import { validateSystemPluginSet } from "../packages/system-set";
 import type { StoredPlugin } from "../packages/types";
 import { fixtureClientArtifact } from "../source.test-support";
 import { fixtureManifest, testPluginPackageId } from "../test-support";
+import { PluginInstallationLifecycleDispatcher } from "./job";
 import {
 	type PluginInstallationHydratedState,
 	PluginInstallationRepository,
 	type PluginPrivateInstallationRow,
 } from "./repository";
 import { PluginInstallationService } from "./service";
-import { PluginInstallationLifecycleDispatcher } from "./workflow";
 
 const userId = UserId.make("user-1");
 const bytes = (value: string) => new TextEncoder().encode(value);

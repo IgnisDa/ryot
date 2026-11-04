@@ -8,9 +8,11 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { ImportsRepository } from "#modules/imports/repository";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -77,6 +79,8 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 			Layer.provide(ingestionRetirementTestLayer),
 			Layer.provide(
 				Layer.mergeAll(
+					Layer.mock(UserBootstrap)({}),
+					Layer.mock(PluginBootstrapEntities)({}),
 					WorkflowExecutionNotifications.layer,
 					Layer.succeed(WorkflowEngine, engine),
 					Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([])),

@@ -64,13 +64,13 @@ the retained revision. Normal compatible upgrades do not drain admitted work.
 `isInitialized` records successful installation bootstrap separately from availability and visibility.
 Quarantine and ordinary revision changes preserve it. Explicit recovery of a completed installation
 does not reseed it; incomplete recovery uses a fresh private activation token and the existing
-installation workflow. Guarded lifecycle completion sets readiness and initialization together.
+installation job. Guarded lifecycle completion sets readiness and initialization together.
 
-A bootstrap entry that declares entities runs no script. Signup and the installation workflow hand it to
-the `PluginBootstrapEntities` port, which boot binds to the entity service. It ensures the entities with
-kernel authority, under a receipt keyed by the installation and entry, dated at the installation's
-creation so a retry replays the same command. The ensure runs in an activity and returns the hook dispatch
-plans its writes made; the calling workflow body dispatches them.
+A bootstrap entry that declares entities runs no script. The user bootstrap and the installation job
+hand it to the `PluginBootstrapEntities` port, which boot binds to the entity service. It ensures
+the entities with kernel authority, under a receipt keyed by the installation and entry, dated at the
+installation's creation so a retry replays the same command. The ensure returns the hook dispatch plans its
+writes made, and the caller dispatches them after the ensure commits.
 
 ## System plugin synchronization
 

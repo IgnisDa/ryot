@@ -43,7 +43,7 @@ import {
 } from "#modules/accounts/lifecycle/job";
 import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
 import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
-import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
+import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
 	noHooksFixture,
@@ -66,6 +66,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { pinReferences, seedPinTargets } from "#modules/mutations/receipts.test-support";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
@@ -1666,9 +1667,6 @@ describe("Event lifecycle PostgreSQL", () => {
 										}),
 									)
 								: Effect.gen(function* () {
-										if (workflow._tag === UserBootstrapWorkflow._tag) {
-											return undefined;
-										}
 										if (workflow._tag !== EventCreateWorkflow._tag) {
 											return yield* Effect.die(`Unexpected workflow: ${workflow._tag}`);
 										}
@@ -1783,6 +1781,20 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(UserLifecycleRepository, repository),
 							Effect.provideService(ObjectStorageService, storage),
 							Effect.provideService(WorkflowEngine, recordingEngine),
+							Effect.provideService(
+								UserBootstrap,
+								UserBootstrap.of({
+									perform: () => Effect.succeed([]),
+									listIncomplete: () => Effect.succeed([]),
+								}),
+							),
+							Effect.provideService(
+								PluginBootstrapEntities,
+								PluginBootstrapEntities.of({
+									dispatch: () => Effect.void,
+									ensure: () => Effect.succeed([]),
+								}),
+							),
 						),
 						UserLifecycleJobOperations,
 					);

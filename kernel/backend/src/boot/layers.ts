@@ -12,13 +12,9 @@ import {
 } from "#modules/accounts/lifecycle/layer";
 import { UserSettingsServiceLive } from "#modules/accounts/preferences/layer";
 import {
-	UserBootstrapLive,
+	UserBootstrapJobProvidedLive,
 	UserBootstrapSchedulingLive,
 } from "#modules/accounts/provisioning/layer";
-import {
-	UserBootstrapWorkflowDefinitionsLive,
-	UserBootstrapWorkflowOperationsLive,
-} from "#modules/accounts/provisioning/workflow";
 import {
 	ManagedAssetCollectorLive,
 	ObjectStorageServiceLive,
@@ -119,8 +115,8 @@ import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginInstallationJobLive } from "#modules/plugins/installations/job";
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installations/sweep";
-import { PluginInstallationWorkflowDefinitionsLive } from "#modules/plugins/installations/workflow";
 import {
 	PluginIngestionServiceLive,
 	PluginInstallationMigrationLive,
@@ -129,7 +125,7 @@ import {
 } from "#modules/plugins/layer";
 import {
 	OperationsServiceLive,
-	PluginInstallationWorkflowOperationsProvidedLive,
+	PluginInstallationJobOperationsProvidedLive,
 } from "#modules/plugins/operations/layer";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
@@ -364,8 +360,6 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	DataImportWorkflowDefinitionsProvidedLive,
 	IngestionCaptureWorkflowDefinitionsProvidedLive,
-	UserBootstrapWorkflowDefinitionsLive,
-	PluginInstallationWorkflowDefinitionsLive,
 	Layer.provide(
 		IntegrationWorkflowDefinitionsLive,
 		Layer.mergeAll(
@@ -396,9 +390,11 @@ const RuntimeJobsLive = JobWorkerLive.pipe(
 		Layer.mergeAll(
 			FrequentCronJobLive,
 			NotificationDeliveryJobProvidedLive,
-			UserLifecycleJobProvidedLive,
+			UserLifecycleJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
 			BackupJobsLive,
 			IntegrationSyncJobProvidedLive,
+			UserBootstrapJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
+			PluginInstallationJobLive,
 		),
 	),
 );
@@ -457,8 +453,7 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 		TranslateEntityWorkflowOperationsLive,
 		Layer.merge(ScriptExecutionServiceLive, PluginRuntimeResolverLive),
 	),
-	Layer.provide(UserBootstrapWorkflowOperationsLive, UserBootstrapLive),
-	PluginInstallationWorkflowOperationsProvidedLive,
+	PluginInstallationJobOperationsProvidedLive,
 ).pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive));
 
 export const RuntimeDependenciesLive = Layer.provideMerge(

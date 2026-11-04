@@ -1,30 +1,30 @@
-import { InternalError, internalError } from "@ryot-app/contract/errors";
+import type { InternalError } from "@ryot-app/contract/errors";
+import { internalError } from "@ryot-app/contract/errors";
 import { PluginUserBootstrapEntity } from "@ryot-app/contract/modules/plugins/manifest";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
-import { Activity, Workflow } from "effect/workflow";
-import { WorkflowEngine, type WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
-import type { DurableSchema } from "#boot/workflow-engine";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import { JobQueue, makeJobKind } from "#platform/jobs/queue";
+import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
-import { PluginBootstrapDispatch, PluginBootstrapEntities } from "./bootstrap-entities";
+import type { PluginBootstrapDispatch } from "./bootstrap-entities";
+import { PluginBootstrapEntities } from "./bootstrap-entities";
 import { PluginInstallationRepository } from "./repository";
 
-const PluginInstallationWorkflowPayload = Schema.Struct({
+const PluginInstallationPayload = Schema.Struct({
 	activationId: Schema.String,
 	installationId: Schema.String,
 });
-type PluginInstallationWorkflowPayload = typeof PluginInstallationWorkflowPayload.Type;
+type PluginInstallationPayload = typeof PluginInstallationPayload.Type;
 
 const PluginInstallationBootstrap = Schema.Struct({
 	userId: UserId,
@@ -42,16 +42,12 @@ const PluginInstallationBootstrap = Schema.Struct({
 });
 type PluginInstallationBootstrap = typeof PluginInstallationBootstrap.Type;
 
-export const PluginInstallationWorkflow = Workflow.make("PluginInstallationWorkflow", {
-	success: Schema.Void satisfies DurableSchema,
-	error: InternalError satisfies DurableSchema,
-	payload: PluginInstallationWorkflowPayload satisfies DurableSchema,
-	idempotencyKey: ({ activationId, installationId }) =>
-		pluginInstallationExecutionId(installationId, activationId),
+export const PluginInstallationJob = makeJobKind("plugin-installation", {
+	concurrency: 4,
+	maxAttempts: 3,
+	lease: Duration.minutes(5),
+	payload: PluginInstallationPayload,
 });
-
-export const pluginInstallationExecutionId = (installationId: string, activationId: string) =>
-	`plugin-installation-${installationId.length}-${installationId}-${activationId.length}-${activationId}`;
 
 export const pluginInstallationBootstrapExecutionId = (
 	installationId: string,
@@ -60,7 +56,7 @@ export const pluginInstallationBootstrapExecutionId = (
 ) =>
 	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${activationId.length}-${activationId}-${entrySlug.length}-${entrySlug}`;
 
-type PluginInstallationWorkflowOperationsValue = {
+type PluginInstallationJobOperationsValue = {
 	dispatchBootstrapEntities: (plans: PluginBootstrapDispatch) => Effect.Effect<void, InternalError>;
 	complete: (
 		installationId: string,
@@ -81,14 +77,6 @@ type PluginInstallationWorkflowOperationsValue = {
 		activationId: string,
 		entrySlug: string,
 	) => Effect.Effect<void, InternalError>;
-	ensureBootstrapEntities: (input: {
-		readonly userId: UserId;
-		readonly entrySlug: string;
-		readonly activationId: string;
-		readonly installationId: string;
-		readonly accountGeneration: AccountGeneration;
-		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
-	}) => Effect.Effect<PluginBootstrapDispatch, InternalError>;
 	runBootstrapEntry: (input: {
 		readonly userId: UserId;
 		readonly entrySlug: string;
@@ -97,16 +85,21 @@ type PluginInstallationWorkflowOperationsValue = {
 		readonly scriptId: SandboxScriptId;
 		readonly accountGeneration: AccountGeneration;
 		readonly pluginRevision: ScriptPluginRevision;
-	}) => Effect.Effect<void, InternalError, WorkflowEngine | WorkflowInstance>;
+	}) => Effect.Effect<void, InternalError>;
+	ensureBootstrapEntities: (input: {
+		readonly userId: UserId;
+		readonly entrySlug: string;
+		readonly activationId: string;
+		readonly installationId: string;
+		readonly accountGeneration: AccountGeneration;
+		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
+	}) => Effect.Effect<PluginBootstrapDispatch, InternalError>;
 };
 
-/** @effect-expect-leaking WorkflowEngine | WorkflowInstance */
-export class PluginInstallationWorkflowOperations extends Context.Service<
-	PluginInstallationWorkflowOperations,
-	PluginInstallationWorkflowOperationsValue
->()(
-	"@ryot-app/kernel-backend/modules/plugins/installations/workflow/PluginInstallationWorkflowOperations",
-) {}
+export class PluginInstallationJobOperations extends Context.Service<
+	PluginInstallationJobOperations,
+	PluginInstallationJobOperationsValue
+>()("@ryot-app/kernel-backend/modules/plugins/installations/job/PluginInstallationJobOperations") {}
 
 const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
@@ -117,8 +110,8 @@ const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 		Effect.mapError(() => internalError(message)),
 	);
 
-export const PluginInstallationWorkflowOperationsLive = Layer.effect(
-	PluginInstallationWorkflowOperations,
+export const PluginInstallationJobOperationsLive = Layer.effect(
+	PluginInstallationJobOperations,
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* ScriptExecutionService;
@@ -261,7 +254,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			);
 
 		const runBootstrapEntry = (
-			input: Parameters<PluginInstallationWorkflowOperationsValue["runBootstrapEntry"]>[0],
+			input: Parameters<PluginInstallationJobOperationsValue["runBootstrapEntry"]>[0],
 		) =>
 			asInternal(
 				Effect.gen(function* () {
@@ -291,7 +284,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			);
 
 		const ensureBootstrapEntities = (
-			input: Parameters<PluginInstallationWorkflowOperationsValue["ensureBootstrapEntities"]>[0],
+			input: Parameters<PluginInstallationJobOperationsValue["ensureBootstrapEntities"]>[0],
 		) =>
 			asInternal(
 				Effect.gen(function* () {
@@ -331,28 +324,22 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 					),
 					"Plugin installation bootstrap pin could not be released",
 				),
-		} satisfies PluginInstallationWorkflowOperationsValue;
+		} satisfies PluginInstallationJobOperationsValue;
 	}),
 );
 
-export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkflow")(
-	function* (payload: PluginInstallationWorkflowPayload, executionId: string) {
-		yield* Effect.annotateCurrentSpan({ executionId, installationId: payload.installationId });
-		const operations = yield* PluginInstallationWorkflowOperations;
+export const runPluginInstallationJob = Effect.fn("PluginInstallationJob")(
+	function* (payload: PluginInstallationPayload, job: JobContext) {
+		yield* Effect.annotateCurrentSpan({ jobId: job.id, installationId: payload.installationId });
+		const operations = yield* PluginInstallationJobOperations;
 		const markFailed = (healthReason: string) =>
-			makeActivity({
-				name: "fail-plugin-installation",
-				error: InternalError satisfies DurableSchema,
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.installationId, payload.activationId, healthReason),
-			}).pipe(Activity.retry({ times: 3 }));
+			operations
+				.fail(payload.installationId, payload.activationId, healthReason)
+				.pipe(Effect.retry({ times: 3 }));
 
-		const started = yield* makeActivity({
-			name: "begin-plugin-installation",
-			error: InternalError satisfies DurableSchema,
-			execute: operations.begin(payload.installationId, payload.activationId),
-			success: Schema.NullOr(PluginInstallationBootstrap) satisfies DurableSchema,
-		}).pipe(Activity.retry({ times: 3 }), Effect.result);
+		const started = yield* operations
+			.begin(payload.installationId, payload.activationId)
+			.pipe(Effect.retry({ times: 3 }), Effect.result);
 		if (Result.isFailure(started)) {
 			yield* markFailed("Plugin installation could not be started");
 			return;
@@ -365,30 +352,30 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 		for (const [index, entry] of entries.entries()) {
 			const executed = yield* (
 				"entities" in entry
-					? makeActivity({
-							error: InternalError satisfies DurableSchema,
-							name: `ensure-bootstrap-entities-${entry.slug}`,
-							success: PluginBootstrapDispatch satisfies DurableSchema,
-							execute: operations.ensureBootstrapEntities({
+					? operations
+							.ensureBootstrapEntities({
 								userId,
 								accountGeneration,
 								entrySlug: entry.slug,
 								entities: entry.entities,
 								activationId: payload.activationId,
 								installationId: payload.installationId,
-							}),
-						}).pipe(
-							Activity.retry({ times: 3 }),
-							Effect.flatMap((plans) =>
-								operations
-									.dispatchBootstrapEntities(plans)
-									.pipe(
-										Effect.catchCause((cause) =>
-											Effect.logError("plugin installation bootstrap hook dispatch failed", cause),
+							})
+							.pipe(
+								Effect.retry({ times: 3 }),
+								Effect.flatMap((plans) =>
+									operations
+										.dispatchBootstrapEntities(plans)
+										.pipe(
+											Effect.catchCause((cause) =>
+												Effect.logError(
+													"plugin installation bootstrap hook dispatch failed",
+													cause,
+												),
+											),
 										),
-									),
-							),
-						)
+								),
+							)
 					: operations.runBootstrapEntry({
 							userId,
 							accountGeneration,
@@ -401,46 +388,35 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 			).pipe(Effect.result);
 			if (Result.isFailure(executed)) {
 				for (const skipped of entries.slice(index + 1).filter((next) => "scriptId" in next)) {
-					yield* makeActivity({
-						name: `release-bootstrap-${skipped.slug}`,
-						success: Schema.Void satisfies DurableSchema,
-						error: InternalError satisfies DurableSchema,
-						execute: operations.releaseBootstrapEntry(
-							payload.installationId,
-							payload.activationId,
-							skipped.slug,
-						),
-					}).pipe(Activity.retry({ times: 3 }));
+					yield* operations
+						.releaseBootstrapEntry(payload.installationId, payload.activationId, skipped.slug)
+						.pipe(Effect.retry({ times: 3 }));
 				}
 				yield* markFailed(`Plugin installation bootstrap failed: ${entry.slug}`);
 				return;
 			}
 		}
 
-		const completed = yield* makeActivity({
-			name: "complete-plugin-installation",
-			error: InternalError satisfies DurableSchema,
-			success: Schema.Void satisfies DurableSchema,
-			execute: operations.complete(payload.installationId, payload.activationId, userId),
-		}).pipe(Activity.retry({ times: 5 }), Effect.result);
+		const completed = yield* operations
+			.complete(payload.installationId, payload.activationId, userId)
+			.pipe(Effect.retry({ times: 5 }), Effect.result);
 		if (Result.isFailure(completed)) {
 			yield* markFailed("Plugin installation could not be completed");
 		}
 	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "PluginInstallationWorkflow" }),
+	(effect, payload) => Effect.annotateLogs(effect, { installationId: payload.installationId }),
 );
 
-export const PluginInstallationWorkflowDefinitionsLive = implementWorkflow(
-	PluginInstallationWorkflow,
-	runPluginInstallationWorkflow,
+export const PluginInstallationJobLive = registerJobHandler(
+	PluginInstallationJob,
+	runPluginInstallationJob,
 );
 
 export class PluginInstallationLifecycleDispatcher extends Context.Service<PluginInstallationLifecycleDispatcher>()(
-	"@ryot-app/kernel-backend/modules/plugins/installations/workflow/PluginInstallationLifecycleDispatcher",
+	"@ryot-app/kernel-backend/modules/plugins/installations/job/PluginInstallationLifecycleDispatcher",
 	{
 		make: Effect.succeed({
-			dispatch: (_input: PluginInstallationWorkflowPayload): Effect.Effect<void, InternalError> =>
+			dispatch: (_input: PluginInstallationPayload): Effect.Effect<void, InternalError> =>
 				Effect.void,
 		}),
 	},
@@ -451,19 +427,15 @@ export class PluginInstallationLifecycleDispatcher extends Context.Service<Plugi
 export const PluginInstallationLifecycleDispatcherLive = Layer.effect(
 	PluginInstallationLifecycleDispatcher,
 	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
+		const jobs = yield* JobQueue;
 		return {
-			dispatch: (payload: PluginInstallationWorkflowPayload) =>
-				engine
-					.execute(PluginInstallationWorkflow, {
-						payload,
-						discard: true,
-						executionId: pluginInstallationExecutionId(
-							payload.installationId,
-							payload.activationId,
-						),
+			dispatch: (payload: PluginInstallationPayload) =>
+				jobs
+					.enqueue(PluginInstallationJob, payload, {
+						key: `${payload.installationId}:${payload.activationId}`,
 					})
 					.pipe(
+						Effect.asVoid,
 						Effect.mapError(() =>
 							internalError("Plugin installation lifecycle could not be dispatched"),
 						),

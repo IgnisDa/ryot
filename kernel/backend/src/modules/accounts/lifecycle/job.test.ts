@@ -12,9 +12,11 @@ import type { SecureRandom } from "effect/crypto";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { ImportsRepository } from "#modules/imports/repository";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -223,7 +225,14 @@ const liveOperationsLayer = <R, E>(dependencies: {
 			Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
 			Layer.provide(workflowAccountsTestLayer),
 			Layer.provide(WorkflowExecutionNotifications.layer),
-			Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
+			Layer.provideMerge(
+				Layer.mergeAll(
+					Layer.mock(WorkflowEngine)({}),
+					Layer.mock(UserBootstrap)({}),
+					Layer.mock(PluginBootstrapEntities)({}),
+					dependencies.overrides,
+				),
+			),
 			Layer.provideMerge(dependencies.database),
 		),
 		BunCrypto.layerSecureRandom,

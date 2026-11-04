@@ -19,12 +19,12 @@ import {
 	PluginCatalogInvalidatorLive,
 	PluginInvalidationSubscriber,
 } from "./catalog/events";
-import { PluginInstallationRepository } from "./installations/repository";
-import { PluginInstallationService } from "./installations/service";
 import {
 	PluginInstallationLifecycleDispatcher,
 	PluginInstallationLifecycleDispatcherLive,
-} from "./installations/workflow";
+} from "./installations/job";
+import { PluginInstallationRepository } from "./installations/repository";
+import { PluginInstallationService } from "./installations/service";
 import { PluginBackupRestore } from "./packages/backup-restore";
 import { PluginIngestionLock } from "./packages/ingestion-lock";
 import { PluginIngestionRetirement } from "./packages/ingestion-retirement";

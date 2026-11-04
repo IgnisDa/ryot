@@ -10,12 +10,12 @@ import { Cause, Context, DateTime, Effect, Layer, Option, Result } from "effect"
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { userBootstrapWorkflowExecutionId } from "#modules/accounts/provisioning/scheduling";
-import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
+import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
+import { bootstrapUser } from "#modules/accounts/provisioning/job";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { DatabaseSession } from "#platform/db/session";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 import { WorkflowAccounts } from "#platform/workflow/account";
@@ -66,6 +66,8 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const engine = yield* WorkflowEngine;
 		const notifications = yield* WorkflowExecutionNotifications;
 		const receipts = yield* MutationReceipts.make;
+		const bootstrap = yield* UserBootstrap;
+		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const accounts = yield* WorkflowAccounts;
 		const ingestion = yield* IngestionExecution;
 
@@ -185,11 +187,10 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 			asInternal(
 				Effect.gen(function* () {
 					const accountGeneration = yield* receipts.currentAccount(userId);
-					const executionId = userBootstrapWorkflowExecutionId(userId, accountGeneration);
-					return yield* dispatchAdmittedWorkflow(engine, UserBootstrapWorkflow, accountGeneration, {
-						executionId,
-						payload: { userId, accountGeneration },
-					}).pipe(Effect.asVoid);
+					yield* bootstrapUser(userId, accountGeneration).pipe(
+						Effect.provideService(UserBootstrap, bootstrap),
+						Effect.provideService(PluginBootstrapEntities, bootstrapEntities),
+					);
 				}),
 				"Reset user bootstrap failed",
 			);

@@ -35,12 +35,11 @@ Disable, deletion, and password reset revoke browser sessions and OAuth token re
 
 ## Account Bootstrap
 
-Creation, reset, and reconciliation share one bootstrap workflow identity per account generation.
-Creation schedules it without waiting; reset waits for the same execution before enabling the
-recreated user. Plugin bootstrap execution identities also include that account generation. A later
-recreation gets a fresh generation, and retired generations cannot commit bootstrap work.
-Reset joins bootstrap as an independent workflow root, not as a lifecycle child: creation or
-reconciliation can already own that execution.
+Creation and the frequent cron's reconciliation of incomplete users queue one `user-bootstrap` job
+keyed by the account generation, so they coalesce while it is queued; creation does not wait for it.
+Reset runs the same bootstrap inside its own job, before enabling the recreated user.
+Plugin bootstrap execution identities also include that account generation. A later recreation gets a
+fresh generation, and retired generations cannot commit bootstrap work.
 
 ## Impersonation
 

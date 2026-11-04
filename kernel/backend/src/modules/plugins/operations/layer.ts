@@ -8,8 +8,8 @@ import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/wo
 
 import { PluginCatalogInvalidatorLive } from "../catalog/events";
 import { PluginRuntimeResolverLive } from "../catalog/runtime-resolver";
+import { PluginInstallationJobOperationsLive } from "../installations/job";
 import { PluginInstallationRepository } from "../installations/repository";
-import { PluginInstallationWorkflowOperationsLive } from "../installations/workflow";
 import { PluginRepository } from "../packages/repository";
 import { OperationsService } from "./service";
 
@@ -27,16 +27,15 @@ export const OperationsServiceLive = OperationsService.layer.pipe(
 	),
 );
 
-export const PluginInstallationWorkflowOperationsProvidedLive =
-	PluginInstallationWorkflowOperationsLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				PluginRuntimeResolverLive,
-				ScriptExecutionServiceLive,
-				SandboxRepository.layer,
-				SandboxWorkflowReferenceRepository.layer,
-				PluginCatalogInvalidatorLive,
-				PluginInstallationRepository.layer,
-			),
+export const PluginInstallationJobOperationsProvidedLive = PluginInstallationJobOperationsLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			PluginRuntimeResolverLive,
+			ScriptExecutionServiceLive,
+			SandboxRepository.layer,
+			SandboxWorkflowReferenceRepository.layer,
+			PluginCatalogInvalidatorLive,
+			PluginInstallationRepository.layer,
 		),
-	);
+	),
+);

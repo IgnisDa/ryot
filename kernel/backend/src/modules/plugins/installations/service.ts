@@ -59,8 +59,8 @@ import {
 	validatePluginScriptEntries,
 } from "../packages/validation";
 import { PluginUserSettingsWriter } from "../preferences/user-settings-writer";
+import { PluginInstallationLifecycleDispatcher } from "./job";
 import { PluginInstallationRepository, type PluginInstallationRow } from "./repository";
-import { PluginInstallationLifecycleDispatcher } from "./workflow";
 
 type PrivatePluginPackageInput = PluginArchivePackage | { readonly uploadToken: string };
 
