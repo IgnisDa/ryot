@@ -1038,3 +1038,15 @@ that takes seconds, not by the first recheck. `query-recipes-results`' podcast l
 waits returned before history correction wrote the episode completions it then asserted, a race the 500 ms first
 delay had hidden. The change is reverted. Also failed: `private-plugins`' one-installation-row test at the 180 s
 timeout, and three browser tests at 30 s locator waits.
+
+### Where `full22`'s 43 minutes go
+
+Per-file test time from `full22`: 8,954 test-seconds, against 11,043 in `full15`. The API group's 7,180 would take
+about 20 minutes on 6 workers, but took 34; the browser group took 8.
+
+- Bun starts files in argument order, and the VM script passes them alphabetically, so the media files start last.
+  `lifecycle-query-recipes` (427 s, 22 tests in sequence, on its own isolated server) is the last file running, and
+  `history-correction-liveness` (668 s, 5 tests in sequence) runs through the second half.
+- The rest of the gap is time outside tests: process start per file and the 19 isolated servers' setup.
+- Levers, none applied: start the longest files first, split the two long files (each split of an
+  isolated-harness file adds a server), or run independent tests in a file concurrently.
