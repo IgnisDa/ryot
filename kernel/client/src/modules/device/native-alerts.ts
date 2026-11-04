@@ -2,6 +2,8 @@ import type { LocalNotificationsPlugin } from "@capacitor/local-notifications";
 import type { PluginDeviceRequest } from "@ryot-app/plugin-client-contract";
 import { Clock, DateTime, Effect } from "effect";
 
+import { platformError } from "#/modules/device/service";
+
 type NativeAlerts = Pick<
 	LocalNotificationsPlugin,
 	| "update"
@@ -16,8 +18,14 @@ export const cancelNativeAlert = Effect.fn("cancelNativeAlert")(function* (
 	platform: Pick<LocalNotificationsPlugin, "cancel" | "removeDeliveredNotificationsById">,
 	id: number,
 ) {
-	yield* Effect.tryPromise(() => platform.cancel({ notifications: [{ id }] }));
-	yield* Effect.tryPromise(() => platform.removeDeliveredNotificationsById({ ids: [id] }));
+	yield* Effect.tryPromise({
+		catch: platformError,
+		try: () => platform.cancel({ notifications: [{ id }] }),
+	});
+	yield* Effect.tryPromise({
+		catch: platformError,
+		try: () => platform.removeDeliveredNotificationsById({ ids: [id] }),
+	});
 });
 
 export const removeDeliveredNativeAlerts = Effect.fn("removeDeliveredNativeAlerts")(function* (
@@ -26,10 +34,16 @@ export const removeDeliveredNativeAlerts = Effect.fn("removeDeliveredNativeAlert
 		"getDeliveredNotifications" | "removeDeliveredNotificationsById"
 	>,
 ) {
-	const delivered = yield* Effect.tryPromise(() => platform.getDeliveredNotifications());
+	const delivered = yield* Effect.tryPromise({
+		catch: platformError,
+		try: () => platform.getDeliveredNotifications(),
+	});
 	const ids = delivered.notifications.map(({ id }) => id);
 	if (ids.length > 0) {
-		yield* Effect.tryPromise(() => platform.removeDeliveredNotificationsById({ ids }));
+		yield* Effect.tryPromise({
+			catch: platformError,
+			try: () => platform.removeDeliveredNotificationsById({ ids }),
+		});
 	}
 });
 
@@ -39,9 +53,15 @@ export const scheduleNativeAlert = Effect.fn("scheduleNativeAlert")(function* (
 	id: number,
 	request: Extract<PluginDeviceRequest, { action: "schedule" }>,
 ) {
-	let permission = yield* Effect.tryPromise(() => platform.checkPermissions());
+	let permission = yield* Effect.tryPromise({
+		catch: platformError,
+		try: () => platform.checkPermissions(),
+	});
 	if (permission.display === "prompt" || permission.display === "prompt-with-rationale") {
-		permission = yield* Effect.tryPromise(() => platform.requestPermissions());
+		permission = yield* Effect.tryPromise({
+			catch: platformError,
+			try: () => platform.requestPermissions(),
+		});
 	}
 	if (permission.display !== "granted") {
 		return { status: "denied" } as const;
@@ -51,25 +71,31 @@ export const scheduleNativeAlert = Effect.fn("scheduleNativeAlert")(function* (
 	}
 	const exact =
 		!android ||
-		(yield* Effect.tryPromise(() => platform.checkExactNotificationSetting())).exact_alarm ===
-			"granted";
+		(yield* Effect.tryPromise({
+			catch: platformError,
+			try: () => platform.checkExactNotificationSetting(),
+		})).exact_alarm === "granted";
 	if (android) {
-		yield* Effect.tryPromise(() =>
-			platform.createChannel({
-				importance: 4,
-				vibration: false,
-				name: "Timer alerts",
-				id: "scheduled-audible",
-			}),
-		);
-		yield* Effect.tryPromise(() =>
-			platform.createChannel({
-				importance: 2,
-				vibration: false,
-				id: "scheduled-silent",
-				name: "Silent timer alerts",
-			}),
-		);
+		yield* Effect.tryPromise({
+			catch: platformError,
+			try: () =>
+				platform.createChannel({
+					importance: 4,
+					vibration: false,
+					name: "Timer alerts",
+					id: "scheduled-audible",
+				}),
+		});
+		yield* Effect.tryPromise({
+			catch: platformError,
+			try: () =>
+				platform.createChannel({
+					importance: 2,
+					vibration: false,
+					id: "scheduled-silent",
+					name: "Silent timer alerts",
+				}),
+		});
 	}
 	let sound: string | undefined;
 	if (request.audible) {
@@ -92,14 +118,20 @@ export const scheduleNativeAlert = Effect.fn("scheduleNativeAlert")(function* (
 			at: DateTime.toDateUtc(DateTime.makeUnsafe(request.deadline)),
 		},
 	};
-	const result = yield* Effect.tryPromise(() =>
-		platform.schedule({ notifications: [notification] }),
-	);
+	const result = yield* Effect.tryPromise({
+		catch: platformError,
+		try: () => platform.schedule({ notifications: [notification] }),
+	});
 	if (android && exact) {
-		yield* Effect.tryPromise(() =>
-			platform.update({ notifications: [{ ...notification, isExactNotification: true }] }),
-		);
-		const current = yield* Effect.tryPromise(() => platform.checkExactNotificationSetting());
+		yield* Effect.tryPromise({
+			catch: platformError,
+			try: () =>
+				platform.update({ notifications: [{ ...notification, isExactNotification: true }] }),
+		});
+		const current = yield* Effect.tryPromise({
+			catch: platformError,
+			try: () => platform.checkExactNotificationSetting(),
+		});
 		return {
 			status: current.exact_alarm === "granted" && !result.warning ? "scheduled" : "inexact",
 		} as const;

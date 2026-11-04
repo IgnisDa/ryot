@@ -7,6 +7,7 @@ import {
 	createYoutubeMusicClient,
 	type YoutubeiHost,
 } from "@ryot-app/plugin-backend-sdk/youtubei";
+import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 
 let approvedDependencyRuntimeCalls = 0;
@@ -38,7 +39,7 @@ describe("Youtubei sandbox adapter", () => {
 			Effect.gen(function* () {
 				const { fetch, requests } = yield* makeFetchHarness;
 
-				yield* Effect.tryPromise(() =>
+				yield* Effect.promise(() =>
 					fetch(new URL("https://example.com/resource?x=1"), {
 						method: "POST",
 						body: "URL body",
@@ -66,7 +67,7 @@ describe("Youtubei sandbox adapter", () => {
 					headers: { "x-old": "remove", "content-type": "old/type" },
 				});
 
-				yield* Effect.tryPromise(() =>
+				yield* Effect.promise(() =>
 					fetch(input, {
 						method: "put",
 						headers: [["X-New", "  replacement  "]],
@@ -115,7 +116,7 @@ describe("Youtubei sandbox adapter", () => {
 			Effect.gen(function* () {
 				const { fetch, requests } = yield* makeFetchHarness;
 
-				yield* Effect.tryPromise(() =>
+				yield* Effect.promise(() =>
 					fetch("https://example.com/resource", { body: body(), method: "POST" }),
 				);
 
@@ -133,7 +134,7 @@ describe("Youtubei sandbox adapter", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { fetch, requests } = yield* makeFetchHarness;
-				yield* Effect.tryPromise(() =>
+				yield* Effect.promise(() =>
 					fetch(
 						new Request("https://example.com/resource", {
 							method: "POST",
@@ -160,7 +161,7 @@ describe("Youtubei sandbox adapter", () => {
 			Effect.gen(function* () {
 				const { fetch, requests } = yield* makeFetchHarness;
 
-				yield* Effect.tryPromise(() =>
+				yield* Effect.promise(() =>
 					fetch(new Request("https://www.youtube.com/resource", { body: "old", method: "POST" }), {
 						method: "put",
 						headers: [["X-New", " replacement "]],
@@ -197,14 +198,14 @@ describe("Youtubei sandbox adapter", () => {
 						headers: { "content-type": "application/custom" },
 					});
 					if (consumed) {
-						yield* Effect.tryPromise(() => input.text());
+						yield* Effect.promise(() => input.text());
 					}
 
-					yield* Effect.tryPromise(() => fetch(input, { method: "POST", body: "replacement" }));
+					yield* Effect.promise(() => fetch(input, { method: "POST", body: "replacement" }));
 
 					expect(input.bodyUsed).toBe(consumed);
 					if (!consumed) {
-						const original = yield* Effect.tryPromise(() => input.text());
+						const original = yield* Effect.promise(() => input.text());
 						expect(original).toBe("original");
 					}
 					expect(requests).toEqual([
@@ -229,10 +230,10 @@ describe("Youtubei sandbox adapter", () => {
 					},
 				});
 
-				const error = yield* Effect.flip(
-					Effect.tryPromise(() => fetch("https://example.com/resource", { body, method: "POST" })),
+				const error = yield* promiseRejection(() =>
+					fetch("https://example.com/resource", { body, method: "POST" }),
 				);
-				expect(error.cause).toMatchObject({ cause: failure });
+				expect(error).toMatchObject({ cause: failure });
 				expect(requests).toEqual([]);
 			}),
 		));
@@ -241,12 +242,10 @@ describe("Youtubei sandbox adapter", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { fetch, requests } = yield* makeFetchHarness;
-				const error = yield* Effect.flip(
-					Effect.tryPromise(() =>
-						fetch("https://example.com/resource", { headers: { "invalid header": "value" } }),
-					),
+				const error = yield* promiseRejection(() =>
+					fetch("https://example.com/resource", { headers: { "invalid header": "value" } }),
 				);
-				expect(error.cause).toEqual<unknown>(objectContaining({ cause: anyOf(TypeError) }));
+				expect(error).toEqual<unknown>(objectContaining({ cause: anyOf(TypeError) }));
 				expect(requests).toEqual([]);
 			}),
 		));
@@ -322,7 +321,7 @@ describe("Youtubei sandbox adapter", () => {
 					retrieveInnertubeConfig: false,
 				});
 
-				yield* Effect.tryPromise(() => client.session.http.fetch(new URL(url)));
+				yield* Effect.promise(() => client.session.http.fetch(new URL(url)));
 
 				expect(origins).toEqual([expectedOrigin]);
 			}),
@@ -357,10 +356,10 @@ describe("Youtubei sandbox adapter", () => {
 					retrieveInnertubeConfig: false,
 				});
 
-				const failure = yield* Effect.flip(
-					Effect.tryPromise(() => client.actions.execute("/pending", { value: 1 })),
+				const failure = yield* promiseRejection(() =>
+					client.actions.execute("/pending", { value: 1 }),
 				);
-				expect(failure.cause).toBe(pending);
+				expect(failure).toBe(pending);
 			}),
 		));
 });

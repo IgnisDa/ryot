@@ -35,18 +35,16 @@ export class ReusableCapabilityGrantStore extends Context.Service<ReusableCapabi
 								"base64url",
 							);
 							yield* redis.set(input.grantKey(sha256Hex(fresh)), input.payload, input.ttlSeconds);
-							const stored = yield* Effect.tryPromise(() =>
+							const stored = yield* Effect.promise(() =>
 								redis.client.set(input.reuseKey, fresh, "EX", input.ttlSeconds, "NX"),
-							).pipe(Effect.orDie);
+							);
 							token = stored ? fresh : yield* redis.get(input.reuseKey);
 						}
 						if (!token) {
 							continue;
 						}
 						const grantId = sha256Hex(token);
-						const ttl = yield* Effect.tryPromise(() =>
-							redis.client.ttl(input.grantKey(grantId)),
-						).pipe(Effect.orDie);
+						const ttl = yield* Effect.promise(() => redis.client.ttl(input.grantKey(grantId)));
 						if (ttl <= 0) {
 							yield* redis.releaseLease(input.reuseKey, token);
 							continue;

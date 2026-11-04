@@ -3,7 +3,7 @@ import type { RowItem, RowsResult, RyotQLResult } from "@ryot-app/contract/modul
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
-import { requireString, resultToEffect } from "~/support/assertions";
+import { requireString } from "~/support/assertions";
 import type { HarnessTarget } from "~/support/harness-target";
 
 import type { Client } from "./auth";
@@ -18,7 +18,7 @@ export const executeRyotQL = (client: Client, document: RyotQLPayload) =>
 export const executeRyotQLRecipe = <Success>(client: Client, recipe: PreparedRecipe<Success>) =>
 	Effect.gen(function* () {
 		const response = yield* executeRyotQL(client, recipe.document);
-		return yield* resultToEffect(recipe.decode(response)).pipe(Effect.orDie);
+		return yield* Effect.fromResult(recipe.decode(response)).pipe(Effect.orDie);
 	});
 
 export const executeAdminRyotQLRecipe = <Success>(
@@ -29,7 +29,7 @@ export const executeAdminRyotQLRecipe = <Success>(
 		const response = yield* getApiClient(target).adminCall((contract) =>
 			contract.adminRyotql.execute({ payload: recipe.document }),
 		);
-		return yield* resultToEffect(recipe.decode(response)).pipe(Effect.orDie);
+		return yield* Effect.fromResult(recipe.decode(response)).pipe(Effect.orDie);
 	});
 
 type PagedRecipe<Item> = (after: string | undefined) => PreparedRecipe<RecipePage<Item>>;

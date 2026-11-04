@@ -1,9 +1,14 @@
 import { BadRequest, badRequest } from "@ryot-app/contract/errors";
 import { S3Client } from "bun";
-import { Context, Effect, Layer, Option, Redacted, Stream } from "effect";
+import { Context, Effect, Layer, Option, Redacted, Schema, Stream } from "effect";
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from "effect/http";
 
 import { AppConfig } from "../config/service";
+
+class S3DeleteFailed extends Schema.TaggedError<
+	S3DeleteFailed,
+	{ readonly brand: unique symbol }
+>()("S3DeleteFailed", { missing: Schema.Boolean }) {}
 
 const isMissingObjectError = (error: unknown) => {
 	if (typeof error !== "object" || error === null) {
@@ -82,9 +87,10 @@ export class S3Service extends Context.Service<S3Service>()(
 
 			const statObject = Effect.fn("S3Service.statObject")(function* (key: string) {
 				const configuredClient = yield* requireConfigured;
-				return yield* Effect.tryPromise(() => configuredClient.file(key).stat()).pipe(
-					Effect.mapError(() => badRequest("S3 upload object is missing or invalid")),
-				);
+				return yield* Effect.tryPromise({
+					try: () => configuredClient.file(key).stat(),
+					catch: () => badRequest("S3 upload object is missing or invalid"),
+				});
 			});
 
 			const openObject = Effect.fn("S3Service.openObject")(function* (key: string) {
@@ -120,9 +126,9 @@ export class S3Service extends Context.Service<S3Service>()(
 				);
 				yield* upload.pipe(
 					Effect.catchCause((cause) =>
-						Effect.tryPromise(() =>
+						Effect.promise(() =>
 							Promise.resolve(writer.end(new Error("S3 object write failed"))),
-						).pipe(Effect.ignore, Effect.andThen(Effect.failCause(cause))),
+						).pipe(Effect.ignoreCause, Effect.andThen(Effect.failCause(cause))),
 					),
 				);
 			});
@@ -170,11 +176,12 @@ export class S3Service extends Context.Service<S3Service>()(
 
 			const deleteObject = Effect.fn("S3Service.deleteObject")(function* (key: string) {
 				const configuredClient = yield* requireConfigured;
-				yield* Effect.tryPromise(() => configuredClient.file(key).delete()).pipe(
+				yield* Effect.tryPromise({
+					try: () => configuredClient.file(key).delete(),
+					catch: (cause) => new S3DeleteFailed({ missing: isMissingObjectError(cause) }),
+				}).pipe(
 					Effect.catch((error) =>
-						isMissingObjectError(error)
-							? Effect.void
-							: Effect.fail(badRequest("S3 object deletion failed")),
+						error.missing ? Effect.void : Effect.fail(badRequest("S3 object deletion failed")),
 					),
 				);
 			});

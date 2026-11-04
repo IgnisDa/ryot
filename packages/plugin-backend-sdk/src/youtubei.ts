@@ -1,5 +1,5 @@
 import { withApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
-import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { Innertube, Platform, type Types } from "youtubei.js/web";
 
 import type { ScriptHost } from "./core/script-host";
@@ -13,6 +13,17 @@ export type YoutubeiClientOptions = {
 	readonly retrieveInnertubeConfig?: boolean;
 };
 
+export class YoutubeiClientError extends Schema.TaggedError<
+	YoutubeiClientError,
+	{ readonly brand: unique symbol }
+>()("YoutubeiClientError", { cause: Schema.Unknown, message: Schema.String }) {}
+
+const youtubeiClientError = (cause: unknown) =>
+	new YoutubeiClientError({
+		cause,
+		message: cause instanceof Error ? cause.message : "YouTube client request failed",
+	});
+
 const isHostError = (error: unknown): error is { message: string } =>
 	typeof asRecord(error)?.["message"] === "string";
 
@@ -20,13 +31,17 @@ const makeFetch = (host: YoutubeiHost): Types.FetchFunction =>
 	Object.assign(
 		(...[input, init]: Parameters<Types.FetchFunction>) =>
 			Effect.gen(function* () {
-				const request = yield* Effect.try(() =>
-					input instanceof Platform.shim.Request
-						? new Platform.shim.Request(input, init)
-						: new Platform.shim.Request(typeof input === "string" ? input : input.href, init),
-				);
+				const request = yield* Effect.try({
+					catch: youtubeiClientError,
+					try: () =>
+						input instanceof Platform.shim.Request
+							? new Platform.shim.Request(input, init)
+							: new Platform.shim.Request(typeof input === "string" ? input : input.href, init),
+				});
 				const body =
-					request.body === null ? undefined : yield* Effect.tryPromise(() => request.text());
+					request.body === null
+						? undefined
+						: yield* Effect.tryPromise({ try: () => request.text(), catch: youtubeiClientError });
 				const headers = Object.fromEntries(request.headers);
 				if (new URL(request.url).origin === "https://www.youtube.com") {
 					headers["origin"] = "https://www.youtube.com";
@@ -74,48 +89,56 @@ export const createYoutubeMusicClient = (
 	language?: string,
 	options?: YoutubeiClientOptions,
 ) =>
-	Effect.tryPromise(() =>
-		withApprovedDependencyRuntime(() =>
-			Innertube.create({
-				fetch: makeFetch(host),
-				generate_session_locally: true,
-				...(options?.retrieveInnertubeConfig === false ? { retrieve_innertube_config: false } : {}),
-				...(options?.retrievePlayer === false ? { retrieve_player: false } : {}),
-				...(language ? { lang: language } : {}),
-			}),
-		),
-	).pipe(Effect.map(wrapClient));
+	Effect.tryPromise({
+		catch: youtubeiClientError,
+		try: () =>
+			withApprovedDependencyRuntime(() =>
+				Innertube.create({
+					fetch: makeFetch(host),
+					generate_session_locally: true,
+					...(options?.retrieveInnertubeConfig === false
+						? { retrieve_innertube_config: false }
+						: {}),
+					...(options?.retrievePlayer === false ? { retrieve_player: false } : {}),
+					...(language ? { lang: language } : {}),
+				}),
+			),
+	}).pipe(Effect.map(wrapClient));
 
 export const createYoutubeHistoryClient = (
 	host: YoutubeiHost,
 	authCookie: string,
 	timezone: string,
 ) =>
-	Effect.tryPromise(() =>
-		withApprovedDependencyRuntime(() =>
-			Innertube.create({
-				timezone,
-				cookie: authCookie,
-				fetch: makeFetch(host),
-				retrieve_player: false,
-				generate_session_locally: true,
-				retrieve_innertube_config: false,
-			}),
-		),
-	).pipe(
+	Effect.tryPromise({
+		catch: youtubeiClientError,
+		try: () =>
+			withApprovedDependencyRuntime(() =>
+				Innertube.create({
+					timezone,
+					cookie: authCookie,
+					fetch: makeFetch(host),
+					retrieve_player: false,
+					generate_session_locally: true,
+					retrieve_innertube_config: false,
+				}),
+			),
+	}).pipe(
 		Effect.map((client) => ({
 			getHistory: () =>
-				Effect.tryPromise(() =>
-					withApprovedDependencyRuntime(() => {
-						client.session.context.client.utcOffsetMinutes =
-							DateTime.zonedOffset(DateTime.makeZonedUnsafe(new Date(), { timeZone: timezone })) /
-							60_000;
-						return client.actions.execute("/browse", {
-							client: "YTMUSIC",
-							params: "oggECgIIAQ%3D%3D",
-							browseId: "FEmusic_history",
-						});
-					}),
-				).pipe(Effect.map((response) => response.data)),
+				Effect.tryPromise({
+					catch: youtubeiClientError,
+					try: () =>
+						withApprovedDependencyRuntime(() => {
+							client.session.context.client.utcOffsetMinutes =
+								DateTime.zonedOffset(DateTime.makeZonedUnsafe(new Date(), { timeZone: timezone })) /
+								60_000;
+							return client.actions.execute("/browse", {
+								client: "YTMUSIC",
+								params: "oggECgIIAQ%3D%3D",
+								browseId: "FEmusic_history",
+							});
+						}),
+				}).pipe(Effect.map((response) => response.data)),
 		})),
 	);

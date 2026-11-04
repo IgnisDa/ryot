@@ -211,7 +211,7 @@ it.live("shows the minimal interstitial while loading a plugin on desktop and mo
 						Effect.gen(function* () {
 							yield* Deferred.succeed(loadingDocument, undefined);
 							yield* Deferred.await(releaseDocument);
-							yield* Effect.tryPromise(() => route.continue());
+							yield* Effect.promise(() => route.continue());
 						}),
 					),
 				),

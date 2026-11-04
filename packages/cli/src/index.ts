@@ -409,7 +409,6 @@ const program = Command.run(cli, { version: "0.0.0" });
 if (import.meta.main) {
 	BunRuntime.runMain(
 		program.pipe(
-			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The CLI main module is the runtime entrypoint
 			Effect.provide(
 				Layer.mergeAll(
 					BunServices.layer,

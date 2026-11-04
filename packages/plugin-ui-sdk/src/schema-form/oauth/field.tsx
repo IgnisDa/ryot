@@ -1,9 +1,15 @@
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { useLayoutEffect, useRef, useState } from "react";
 
 import { Button } from "../../index";
 import { FieldMessage } from "../../text-field";
 import type { SchemaOAuthConnect, SchemaOAuthConnectOutcome } from "./connect";
+
+class OAuthConnectRejected extends Schema.TaggedError<
+	OAuthConnectRejected,
+	{ readonly brand: unique symbol }
+>()("OAuthConnectRejected", { cause: Schema.Unknown }) {}
 
 const CONNECT_FAILURE_MESSAGE = "Couldn't connect. Try again.";
 
@@ -69,7 +75,10 @@ export function SchemaOAuthField(props: {
 		});
 		setState({ status: "connecting" });
 		void Effect.runPromise(
-			Effect.tryPromise(() => pending).pipe(
+			Effect.tryPromise({
+				try: () => pending,
+				catch: (cause) => new OAuthConnectRejected({ cause }),
+			}).pipe(
 				Effect.orElseSucceed((): SchemaOAuthConnectOutcome => ({
 					kind: "failed",
 					message: CONNECT_FAILURE_MESSAGE,

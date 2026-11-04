@@ -285,7 +285,7 @@ layer(
 	liveOperationsLayer({
 		database: isolatedDatabaseLayer("lifecycle_object_cleanup"),
 		overrides: Layer.mergeAll(
-			Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
+			Layer.mock(AuthService)({ handler: () => Promise.reject(new Error("unused")) }),
 			Layer.effect(
 				UserLifecycleRepository,
 				Effect.map(UserLifecycleRepository.make, (repository) => ({
@@ -366,7 +366,7 @@ const resetIdentityLayer = Layer.unwrap(
 					),
 			}),
 			Layer.mock(AuthService)({
-				handler: () => Effect.die("unused").pipe(Effect.runPromise),
+				handler: () => Promise.reject(new Error("unused")),
 				updateAuthUserDisabled: (_id, data) =>
 					record(data.disabledAt === null ? "enabled" : "disabled"),
 				requestPasswordResetLink: () =>
@@ -453,7 +453,7 @@ const transactionProbeLayer = Layer.unwrap(
 						Effect.as(undefined),
 					),
 			}),
-			Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
+			Layer.mock(AuthService)({ handler: () => Promise.reject(new Error("unused")) }),
 			Layer.mock(ObjectStorageService)({}),
 			Layer.succeed(RecordedCompletionTransaction, { usedTransaction: Ref.get(usedTransaction) }),
 		);

@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
-import { Effect, Result } from "effect";
+import { Effect, Exit, Result } from "effect";
 import { Client } from "pg";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
@@ -96,19 +96,19 @@ layer(revisionDatabaseLayer)((test) => {
 					}
 					const openConnection = Effect.gen(function* () {
 						const client = new Client({ connectionString: yield* testDatabaseUrl });
-						yield* Effect.tryPromise(() => client.connect());
+						yield* Effect.promise(() => client.connect());
 						return client;
 					});
 					const left = yield* Effect.acquireRelease(openConnection, (client) =>
-						Effect.tryPromise(() => client.end()).pipe(Effect.orDie),
+						Effect.promise(() => client.end()),
 					);
 					const right = yield* Effect.acquireRelease(openConnection, (client) =>
-						Effect.tryPromise(() => client.end()).pipe(Effect.orDie),
+						Effect.promise(() => client.end()),
 					);
 					yield* Effect.forEach(
 						[left, right],
 						(client) =>
-							Effect.tryPromise(() =>
+							Effect.promise(() =>
 								client.query("select set_config('search_path', $1, false)", [schemaRow.schemaName]),
 							),
 						{ discard: true, concurrency: "unbounded" },
@@ -116,8 +116,8 @@ layer(revisionDatabaseLayer)((test) => {
 					const inserted = yield* Effect.forEach(
 						[left, right],
 						(client, index) =>
-							Effect.result(
-								Effect.tryPromise(() =>
+							Effect.exit(
+								Effect.promise(() =>
 									client.query(
 										"insert into entity (id, name, entity_schema_slug, external_id) values ($1, 'Item', 'item', 'shared')",
 										[`concurrent-${index}`],
@@ -126,8 +126,8 @@ layer(revisionDatabaseLayer)((test) => {
 							),
 						{ concurrency: "unbounded" },
 					);
-					expect(inserted.filter(Result.isSuccess)).toHaveLength(1);
-					expect(inserted.filter(Result.isFailure)).toHaveLength(1);
+					expect(inserted.filter(Exit.isSuccess)).toHaveLength(1);
+					expect(inserted.filter(Exit.isFailure)).toHaveLength(1);
 				}),
 			),
 		testTimeout,

@@ -15,7 +15,7 @@
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.3.4",
-		"effect": "4.1.0",
+		"effect": "4.1.2",
 		"lucide-react": "0.563.0",
 		"react": "19.2.6",
 		"react-dom": "19.2.6",

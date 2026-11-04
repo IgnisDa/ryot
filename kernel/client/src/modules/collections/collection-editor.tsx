@@ -71,7 +71,7 @@ const saveCollection = createRyotHostMutation<
 			const saved = yield* input.save.action === "create"
 				? api.create(hostServices.scope, input.save.request)
 				: api.update(hostServices.scope, input.save.request);
-			yield* Effect.tryPromise(input.invalidate).pipe(Effect.ignore);
+			yield* Effect.promise(input.invalidate).pipe(Effect.ignoreCause);
 			input.onSaved(saved.id);
 		}),
 	{ hostServices: KernelHostServices },
@@ -92,7 +92,7 @@ const deleteCollection = createRyotHostMutation<
 			.runSync(CollectionsApi)
 			.delete(hostServices.scope, { payload: { collectionId: input.collectionId } })
 			.pipe(
-				Effect.andThen(() => Effect.tryPromise(input.invalidate).pipe(Effect.ignore)),
+				Effect.andThen(() => Effect.promise(input.invalidate).pipe(Effect.ignoreCause)),
 				Effect.andThen(() => Effect.sync(input.onDeleted)),
 			),
 	{ hostServices: KernelHostServices },

@@ -32,7 +32,7 @@
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"effect": "4.1.0",
+		"effect": "4.1.2",
 		"fflate": "0.8.3"
 	},
 	"devDependencies": {

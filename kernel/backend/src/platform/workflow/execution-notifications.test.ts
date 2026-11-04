@@ -36,7 +36,7 @@ const namedPubsubClientLines = (
 	client: RedisService["Service"]["client"],
 	connectionName: string,
 ) =>
-	Effect.tryPromise(() => client.call("CLIENT", "LIST", "TYPE", "PUBSUB")).pipe(
+	Effect.promise(() => client.call("CLIENT", "LIST", "TYPE", "PUBSUB")).pipe(
 		Effect.flatMap(Schema.decodeUnknownEffect(Schema.String)),
 		Effect.map((response) =>
 			response.split("\n").filter((line) => line.split(" ").includes(`name=${connectionName}`)),
@@ -155,7 +155,7 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 					};
 					const waiter = yield* second.listen(identity);
 
-					yield* Effect.tryPromise(() =>
+					yield* Effect.promise(() =>
 						publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, "malformed"),
 					);
 					expect(
@@ -192,9 +192,7 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 					const recoveryWaiter = yield* notifications.listen(identity);
 					const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
 
-					yield* Effect.tryPromise(() =>
-						publisher.client.call("CLIENT", "KILL", "ID", subscriberId),
-					);
+					yield* Effect.promise(() => publisher.client.call("CLIENT", "KILL", "ID", subscriberId));
 					expect(
 						Option.isSome(
 							yield* Effect.timeoutOption(recoveryWaiter, "5 seconds").pipe(TestClock.withLive),
@@ -207,7 +205,7 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 					};
 					const freshWaiter = yield* notifications.listen(freshIdentity);
 					const message = yield* encodeWorkflowExecutionNotificationMessage(freshIdentity);
-					yield* Effect.tryPromise(() =>
+					yield* Effect.promise(() =>
 						publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, message),
 					);
 					expect(
@@ -239,9 +237,7 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 					).pipe(Effect.provideService(Scope.Scope, subscriberScope));
 					const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
 
-					yield* Effect.tryPromise(() =>
-						publisher.client.call("CLIENT", "KILL", "ID", subscriberId),
-					);
+					yield* Effect.promise(() => publisher.client.call("CLIENT", "KILL", "ID", subscriberId));
 					yield* Effect.sleep("20 millis").pipe(TestClock.withLive);
 					yield* Scope.close(subscriberScope, Exit.void);
 					expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);

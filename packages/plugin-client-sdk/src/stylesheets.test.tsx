@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { assert } from "@ryot-app/testing/assert";
+import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
@@ -60,8 +61,8 @@ describe("lazy presentation stylesheets", () => {
 				const loading = loadStylesheet(href);
 				document.querySelector(`link[href="${href}"]`)?.dispatchEvent(new Event("error"));
 				yield* Effect.map(
-					Effect.tryPromise(() => loading).pipe(Effect.flip),
-					({ cause: error }) => {
+					promiseRejection(() => loading),
+					(error) => {
 						assert(error instanceof Error);
 						expect(error.message).toContain("Client stylesheet failed to load");
 					},
@@ -93,8 +94,8 @@ describe("lazy presentation stylesheets", () => {
 					window.dispatchEvent(new Event("load"));
 				}
 				yield* Effect.map(
-					Effect.tryPromise(() => loading).pipe(Effect.flip),
-					({ cause: error }) => {
+					promiseRejection(() => loading),
+					(error) => {
 						assert(error instanceof Error);
 						expect(error.message).toContain("Client stylesheet failed to load");
 					},

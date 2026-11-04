@@ -57,13 +57,13 @@
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"@effect/atom-react": "4.1.0",
+		"@effect/atom-react": "4.1.2",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
-		"effect": "4.1.0",
+		"effect": "4.1.2",
 		"react": "19.2.6",
 		"react-dom": "19.2.6"
 	},

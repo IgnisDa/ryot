@@ -455,7 +455,7 @@ const makeAuthInstance = (args: {
 								const message = yield* Schema.encodeEffect(ImpersonationEndedMessage)({
 									sessionId: session.id,
 								});
-								yield* Effect.tryPromise(() =>
+								yield* Effect.promise(() =>
 									args.redis.publish(redisKeys.impersonationEndedChannel, message),
 								);
 							}),

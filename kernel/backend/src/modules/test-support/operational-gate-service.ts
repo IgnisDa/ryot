@@ -258,9 +258,9 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				let maxJournalEntries = 0;
 				for (const executionId of executionIds) {
 					const fields = new Set(
-						yield* Effect.tryPromise(() =>
+						yield* Effect.promise(() =>
 							redis.client.hkeys(redisKeys.sandboxWorkflowJournal(executionId)),
-						).pipe(Effect.orDie),
+						),
 					);
 					if (fields.size === 0) {
 						continue;

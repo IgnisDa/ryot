@@ -31,7 +31,7 @@ export class HmacSigner extends Context.Service<HmacSigner>()(
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const signingKey = yield* Effect.tryPromise(() =>
+			const signingKey = yield* Effect.promise(() =>
 				crypto.subtle.importKey(
 					"raw",
 					new TextEncoder().encode(Redacted.value(config.server.adminAccessToken)),
@@ -39,12 +39,12 @@ export class HmacSigner extends Context.Service<HmacSigner>()(
 					false,
 					["sign", "verify"],
 				),
-			).pipe(Effect.orDie);
+			);
 
 			const sign = Effect.fn("HmacSigner.sign")(function* (payload: string) {
-				const signature = yield* Effect.tryPromise(() =>
+				const signature = yield* Effect.promise(() =>
 					crypto.subtle.sign("HMAC", signingKey, new TextEncoder().encode(payload)),
-				).pipe(Effect.orDie);
+				);
 				return encodeBase64Url(new Uint8Array(signature));
 			});
 
@@ -53,9 +53,9 @@ export class HmacSigner extends Context.Service<HmacSigner>()(
 				if (bytes === null) {
 					return false;
 				}
-				return yield* Effect.tryPromise(() =>
+				return yield* Effect.promise(() =>
 					crypto.subtle.verify("HMAC", signingKey, bytes, new TextEncoder().encode(payload)),
-				).pipe(Effect.orDie);
+				);
 			});
 
 			return { sign, verify };

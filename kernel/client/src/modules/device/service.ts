@@ -29,7 +29,7 @@ export class DevicePlatformError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("DevicePlatformError", { cause: Schema.Unknown }) {}
 
-const platformError = (cause: unknown) => new DevicePlatformError({ cause });
+export const platformError = (cause: unknown) => new DevicePlatformError({ cause });
 
 export class DevicePlatform extends Context.Service<
 	DevicePlatform,

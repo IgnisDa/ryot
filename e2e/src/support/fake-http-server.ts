@@ -1,5 +1,5 @@
 import { BunHttpServer } from "@effect/platform-bun";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { acquireInChildScope, makeTestResourceScope } from "./resource-scope";
@@ -24,7 +24,8 @@ export const startFakeHttpServerScoped = (
 			Effect.gen(function* () {
 				const request = yield* HttpServerRequest.toWeb(yield* HttpServerRequest.HttpServerRequest);
 				const reqUrl = new URL(request.url);
-				const body = yield* Effect.tryPromise((): Promise<unknown> => request.json()).pipe(
+				const body = yield* Effect.promise(() => request.text()).pipe(
+					Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))),
 					Effect.orElseSucceed(() => null),
 				);
 				recorded.push({

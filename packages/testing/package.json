@@ -49,10 +49,10 @@
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.1.0",
+		"@effect/platform-bun": "4.1.2",
 		"@testing-library/react": "16.3.3",
 		"@types/jsdom": "30.0.0",
-		"effect": "4.1.0",
+		"effect": "4.1.2",
 		"jsdom": "30.0.1"
 	},
 	"devDependencies": {

@@ -147,7 +147,7 @@ export const generateClientDocument = Effect.fn("Pages.generateDocument")(functi
 		artifacts.set(hash, description);
 		access.set(hash, store.isPublic(hash) ? "public" : (yield* grants.issue(userId, hash)).token);
 	}
-	return yield* Effect.try(() =>
+	return yield* Effect.sync(() =>
 		renderClientDocument(manifest, artifacts, access, compositionHash),
-	).pipe(Effect.orDie);
+	);
 });

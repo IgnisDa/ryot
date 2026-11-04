@@ -16,6 +16,7 @@ import {
 } from "@ryot-app/plugin-ui-sdk/sync";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 import {
 	Component,
 	type ComponentType,
@@ -102,19 +103,24 @@ export type EntityPresentationRegistration = {
 };
 
 type BatchInput = readonly EntityReference[];
+
 type PreparedPresentation =
 	{ readonly success: false } | { readonly success: true; readonly data: unknown };
 type PresentationRuntime = {
 	readonly definition: EntityPresentationDefinition;
 	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
 };
-
 type PresentationEntry = {
 	readonly load: () => void;
 	readonly subscribe: (listener: () => void) => () => void;
 	readonly getRuntime: () => undefined | PresentationRuntime;
 	readonly getSnapshot: () => "idle" | "ready" | "failed" | "loading";
 };
+
+class PresentationLoadError extends Schema.TaggedError<
+	PresentationLoadError,
+	{ readonly brand: unique symbol }
+>()("PresentationLoadError", { cause: Schema.Unknown }) {}
 
 const registryKey = (
 	ownerPluginId: string,
@@ -155,7 +161,10 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 					state = "loading";
 					notify();
 					void Effect.runFork(
-						Effect.tryPromise(registration.load).pipe(
+						Effect.tryPromise({
+							try: registration.load,
+							catch: (cause) => new PresentationLoadError({ cause }),
+						}).pipe(
 							Effect.flatMap((definition) =>
 								Effect.sync(() => {
 									const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(

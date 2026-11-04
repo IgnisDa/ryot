@@ -165,11 +165,10 @@ layer(queueLayer, { excludeTestServices: true })((test) => {
 			Effect.gen(function* () {
 				const { client } = yield* RedisService;
 				yield* Effect.addFinalizer(() =>
-					Effect.tryPromise(() => client.keys(`${prefix}*`)).pipe(
+					Effect.promise(() => client.keys(`${prefix}*`)).pipe(
 						Effect.flatMap((keys) =>
-							keys.length === 0 ? Effect.void : Effect.tryPromise(() => client.del(...keys)),
+							keys.length === 0 ? Effect.void : Effect.promise(() => client.del(...keys)),
 						),
-						Effect.orDie,
 					),
 				);
 				const engine = yield* WorkflowEngine;
@@ -187,7 +186,7 @@ layer(queueLayer, { excludeTestServices: true })((test) => {
 				);
 				yield* eventually(
 					Effect.map(
-						Effect.tryPromise(() => client.hlen(queueKeys.items)),
+						Effect.promise(() => client.hlen(queueKeys.items)),
 						(queued) => queued === BACKGROUND_BACKLOG,
 					),
 				);
@@ -196,7 +195,7 @@ layer(queueLayer, { excludeTestServices: true })((test) => {
 				yield* eventually(Effect.sync(() => control.starts.length === 1));
 				yield* Effect.sleep(300);
 				expect(control.starts.map((start) => start.lane)).toEqual(["background"]);
-				expect(yield* Effect.tryPromise(() => client.scard(queueKeys.pending))).toBe(1);
+				expect(yield* Effect.promise(() => client.scard(queueKeys.pending))).toBe(1);
 
 				yield* engine.execute(LaneWorkflow, {
 					executionId: "interactive-0",

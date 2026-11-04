@@ -101,7 +101,7 @@ const fakeLayer = Layer.unwrap(
 				isActiveRevision: () => Effect.succeed(true),
 			}),
 			Layer.mock(AuthService)({
-				handler: () => Effect.die("unused").pipe(Effect.runPromise),
+				handler: () => Promise.reject(new Error("unused")),
 				resolveRequestCredential: () =>
 					Effect.succeed({
 						authorization: {

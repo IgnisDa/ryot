@@ -19,6 +19,11 @@ const PRO_KEY_VERIFICATION_TIMEOUT_MS = 5_000;
 
 const ProKeyMeta = Schema.Struct({ expiry: Schema.optional(Schema.DateTimeUtcFromString) });
 
+class ProKeyVerificationError extends Schema.TaggedError<
+	ProKeyVerificationError,
+	{ readonly brand: unique symbol }
+>()("ProKeyVerificationError", { cause: Schema.Unknown }) {}
+
 const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
@@ -40,7 +45,10 @@ const makeProKeyService = (options: { readonly httpClient?: HTTPClient } = {}) =
 				return false;
 			}
 
-			const response = yield* Effect.tryPromise(() => client.keys.verifyKey({ key })).pipe(
+			const response = yield* Effect.tryPromise({
+				try: () => client.keys.verifyKey({ key }),
+				catch: (cause) => new ProKeyVerificationError({ cause }),
+			}).pipe(
 				Effect.tapError(() => Effect.logWarning("Failed to verify Pro Key.")),
 				Effect.option,
 			);

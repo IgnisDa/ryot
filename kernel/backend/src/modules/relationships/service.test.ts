@@ -718,12 +718,12 @@ describe("Relationships lifecycle owner", () => {
 										if (runs.length === 0) {
 											return [];
 										}
-										const rows = yield* Effect.tryPromise(() =>
+										const rows = yield* Effect.promise(() =>
 											observer.query(
 												"select plugin_revision_id as revision from automation_run where trigger_id = $1",
 												[triggerId],
 											),
-										).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+										);
 										expect(rows.rows).toEqual([
 											{ revision: installed.revisionId },
 											{ revision: installed.revisionId },
@@ -1665,11 +1665,13 @@ describe("Relationships lifecycle owner", () => {
 										expect(yield* tx.select().from(tables.relationship)).toHaveLength(1);
 										expect(yield* tx.select().from(tables.automationTrigger)).toHaveLength(2);
 										expect(yield* tx.select().from(tables.automationRun)).toHaveLength(2);
-										const invisible = yield* Effect.tryPromise(() =>
-											observer.query(
-												"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
-											),
-										).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+										const invisible = yield* Effect.tryPromise({
+											catch: () => new DbError({ message: "Observer failed" }),
+											try: () =>
+												observer.query(
+													"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
+												),
+										});
 										expect(invisible.rows).toEqual([{ runs: 0, triggers: 0, relationships: 0 }]);
 										if (rollback) {
 											return yield* new DbError({ message: "Rollback provider group" });
@@ -1704,11 +1706,13 @@ describe("Relationships lifecycle owner", () => {
 						expect(entityRows.map(({ id }) => id).sort()).toEqual(baselineEntityIds);
 
 						const work = yield* persistGroup("commit", false);
-						const visible = yield* Effect.tryPromise(() =>
-							observer.query(
-								"select (select count(*)::int from entity) as entities, (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
-							),
-						).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+						const visible = yield* Effect.tryPromise({
+							catch: () => new DbError({ message: "Observer failed" }),
+							try: () =>
+								observer.query(
+									"select (select count(*)::int from entity) as entities, (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger) as triggers, (select count(*)::int from automation_run) as runs",
+								),
+						});
 						expect(visible.rows).toEqual([
 							{ runs: 2, triggers: 2, relationships: 1, entities: baselineEntityIds.length + 1 },
 						]);

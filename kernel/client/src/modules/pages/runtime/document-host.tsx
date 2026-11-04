@@ -15,7 +15,7 @@ import {
 	useRouter,
 	useRouterState,
 } from "@tanstack/react-router";
-import { Effect, Match } from "effect";
+import { Effect, Match, Schema } from "effect";
 import {
 	type ReactNode,
 	useCallback,
@@ -76,6 +76,11 @@ import type { FileRoutesById } from "#/routeTree.gen";
 import type { ClientRuntime } from "#/runtime";
 
 const MAX_RETAINED_FRAMES = 3;
+class DocumentReloadError extends Schema.TaggedError<
+	DocumentReloadError,
+	{ readonly brand: unique symbol }
+>()("DocumentReloadError", { cause: Schema.Unknown }) {}
+
 const pluginRouteIds = new Set<string>([
 	"/_authenticated/p/$publisher/$name",
 	"/_authenticated/e/$entityId",
@@ -362,7 +367,10 @@ export function ClientPageDocumentHost() {
 			};
 			setReloadRequest(request);
 			Effect.runFork(
-				Effect.tryPromise(() => router.invalidate()).pipe(
+				Effect.tryPromise({
+					try: () => router.invalidate(),
+					catch: (cause) => new DocumentReloadError({ cause }),
+				}).pipe(
 					Effect.catch(() =>
 						Effect.sync(() =>
 							setReloadRequest((current) => (current === request ? undefined : current)),
@@ -676,7 +684,7 @@ function ClientPageFrame(props: {
 				const operation = Effect.gen(function* () {
 					if (request.action === "create") {
 						const response = yield* ryot.collections.create(request.input);
-						yield* Effect.tryPromise(() => router.invalidate()).pipe(Effect.ignore);
+						yield* Effect.promise(() => router.invalidate()).pipe(Effect.ignoreCause);
 						return { response, outcome: "success" } as const;
 					}
 					if (request.action === "upsert-membership") {

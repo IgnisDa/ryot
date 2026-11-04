@@ -5,7 +5,11 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
-import { subscribeEntityWatchLifecycle, subscribeNativeResume } from "./transport";
+import {
+	NativeResumeListenerError,
+	subscribeEntityWatchLifecycle,
+	subscribeNativeResume,
+} from "./transport";
 
 describe("entity interest live lifecycle", () => {
 	it.live(
@@ -108,7 +112,9 @@ describe("entity interest live lifecycle", () => {
 						window,
 						document: new EventTarget(),
 						listenResume: () =>
-							Effect.tryPromise(() => Promise.reject(new Error("native unavailable"))),
+							Effect.fail(
+								new NativeResumeListenerError({ cause: new Error("native unavailable") }),
+							),
 					},
 				);
 				yield* Effect.promise(() => Promise.resolve());

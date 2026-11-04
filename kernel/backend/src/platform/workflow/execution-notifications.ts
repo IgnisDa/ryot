@@ -90,7 +90,7 @@ export class WorkflowExecutionNotifications extends Context.Service<WorkflowExec
 				const decoded = decodeWorkflowExecutionNotificationMessage(message);
 				return decoded._tag === "Some" ? hub.publish(decoded.value) : Effect.void;
 			};
-			const subscribe = Effect.tryPromise(() =>
+			const subscribe = Effect.promise(() =>
 				subscriber.subscribe(redisKeys.workflowExecutionNotificationChannel),
 			);
 			const recover = subscribe.pipe(

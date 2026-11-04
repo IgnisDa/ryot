@@ -4,6 +4,8 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
+import { mediaFailureMessage } from "../../lib/error-message";
+import { MediaSandboxError } from "../../lib/failures";
 import { getTmdbAccessToken } from "../../lib/vendors/tmdb";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
@@ -82,83 +84,92 @@ export default defineScript({
 			}
 			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
-			const parsed = yield* Effect.try(() => {
-				const payload = jsonRecord(multipartPayload(input.rawBody, input.contentType));
-				const metadata = asRecord(payload["Metadata"]);
-				if (!metadata) {
-					throw new Error("missing metadata");
-				}
-				const settings = asRecord(integration.providerSpecifics);
-				const username =
-					typeof settings?.["username"] === "string" ? settings["username"].trim() : "";
-				if (username && asRecord(payload["Account"])?.["title"] !== username) {
-					return emptyResult();
-				}
-				const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
-				if (!["play", "stop", "pause", "resume", "scrobble"].includes(event)) {
-					return emptyResult();
-				}
-				if (metadata["viewOffset"] == null && !["play", "scrobble"].includes(event)) {
-					return emptyResult();
-				}
-				let lot: null | "show" | "movie" = null;
-				if (metadata["type"] === "episode" || metadata["librarySectionType"] === "show") {
-					lot = "show";
-				}
-				if (metadata["type"] === "movie" || metadata["librarySectionType"] === "movie") {
-					lot = "movie";
-				}
-				if (!lot) {
-					return failureResult("Plex webhook payload has an unsupported media type");
-				}
-				let percent = progressPercent(Number(metadata["viewOffset"]), Number(metadata["duration"]));
-				if (event === "scrobble") {
-					percent = 100;
-				} else if (event === "play" && metadata["viewOffset"] == null) {
-					percent = 0;
-				}
-				if (percent === undefined) {
-					return failureResult("Plex webhook payload is missing playback timing data");
-				}
-				const guids = Array.isArray(metadata["Guid"])
-					? metadata["Guid"].flatMap((value) => {
-							const guid = typeof value === "string" ? value : asRecord(value)?.["id"];
-							return typeof guid === "string" ? [guid] : [];
-						})
-					: [];
-				const guidId = (prefix: string) =>
-					guids
-						.map((guid) => guid.match(new RegExp(`^${prefix}://(\\w+)`, "i"))?.[1])
-						.find(Boolean);
-				const id = guidId("tmdb") ?? textValue(metadata["Provider_tmdb"]);
-				if (!id) {
-					return failureResult("Plex webhook payload is missing a TMDB identifier");
-				}
-				const label = textValue(metadata["title"]) ?? id;
-				if (lot === "movie") {
-					return { id, lot, label, percent };
-				}
-				const locator = showEpisodeRef(Number(metadata["parentIndex"]), Number(metadata["index"]));
-				if (!locator) {
-					return failureResult("Plex webhook payload is missing show episode coordinates");
-				}
-				const seriesName = textValue(metadata["grandparentTitle"]);
-				const externalIds = (
-					[
-						["imdb", "imdb_id"],
-						["tvdb", "tvdb_id"],
-					] as const
-				).flatMap(([prefix, source]) => {
-					const externalId = guidId(prefix);
-					return externalId ? [[externalId, source] as const] : [];
-				});
-				return {
-					lot,
-					percent,
-					locator,
-					label: seriesName ?? label,
-					episode: { seriesName, externalIds, episodeId: id, seasonNumber: locator.seasonNumber },
-				};
+			const parsed = yield* Effect.try({
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+				try: () => {
+					const payload = jsonRecord(multipartPayload(input.rawBody, input.contentType));
+					const metadata = asRecord(payload["Metadata"]);
+					if (!metadata) {
+						throw new Error("missing metadata");
+					}
+					const settings = asRecord(integration.providerSpecifics);
+					const username =
+						typeof settings?.["username"] === "string" ? settings["username"].trim() : "";
+					if (username && asRecord(payload["Account"])?.["title"] !== username) {
+						return emptyResult();
+					}
+					const event = (textValue(payload["event"]) ?? "").toLowerCase().replace(/^media\./, "");
+					if (!["play", "stop", "pause", "resume", "scrobble"].includes(event)) {
+						return emptyResult();
+					}
+					if (metadata["viewOffset"] == null && !["play", "scrobble"].includes(event)) {
+						return emptyResult();
+					}
+					let lot: null | "show" | "movie" = null;
+					if (metadata["type"] === "episode" || metadata["librarySectionType"] === "show") {
+						lot = "show";
+					}
+					if (metadata["type"] === "movie" || metadata["librarySectionType"] === "movie") {
+						lot = "movie";
+					}
+					if (!lot) {
+						return failureResult("Plex webhook payload has an unsupported media type");
+					}
+					let percent = progressPercent(
+						Number(metadata["viewOffset"]),
+						Number(metadata["duration"]),
+					);
+					if (event === "scrobble") {
+						percent = 100;
+					} else if (event === "play" && metadata["viewOffset"] == null) {
+						percent = 0;
+					}
+					if (percent === undefined) {
+						return failureResult("Plex webhook payload is missing playback timing data");
+					}
+					const guids = Array.isArray(metadata["Guid"])
+						? metadata["Guid"].flatMap((value) => {
+								const guid = typeof value === "string" ? value : asRecord(value)?.["id"];
+								return typeof guid === "string" ? [guid] : [];
+							})
+						: [];
+					const guidId = (prefix: string) =>
+						guids
+							.map((guid) => guid.match(new RegExp(`^${prefix}://(\\w+)`, "i"))?.[1])
+							.find(Boolean);
+					const id = guidId("tmdb") ?? textValue(metadata["Provider_tmdb"]);
+					if (!id) {
+						return failureResult("Plex webhook payload is missing a TMDB identifier");
+					}
+					const label = textValue(metadata["title"]) ?? id;
+					if (lot === "movie") {
+						return { id, lot, label, percent };
+					}
+					const locator = showEpisodeRef(
+						Number(metadata["parentIndex"]),
+						Number(metadata["index"]),
+					);
+					if (!locator) {
+						return failureResult("Plex webhook payload is missing show episode coordinates");
+					}
+					const seriesName = textValue(metadata["grandparentTitle"]);
+					const externalIds = (
+						[
+							["imdb", "imdb_id"],
+							["tvdb", "tvdb_id"],
+						] as const
+					).flatMap(([prefix, source]) => {
+						const externalId = guidId(prefix);
+						return externalId ? [[externalId, source] as const] : [];
+					});
+					return {
+						lot,
+						percent,
+						locator,
+						label: seriesName ?? label,
+						episode: { seriesName, externalIds, episodeId: id, seasonNumber: locator.seasonNumber },
+					};
+				},
 			}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Plex webhook payload")));
 			if ("entityGroups" in parsed) {
 				return parsed;

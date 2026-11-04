@@ -241,7 +241,7 @@ const makeLayer = (input: {
 						),
 				}),
 				Layer.mock(AuthService)({
-					handler: () => Effect.die("unused").pipe(Effect.runPromise),
+					handler: () => Promise.reject(new Error("unused")),
 					resolveRequestCredential: () =>
 						input.currentUserId
 							? Effect.succeed({

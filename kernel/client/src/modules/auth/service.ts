@@ -1,6 +1,6 @@
 import { Browser } from "@capacitor/browser";
 import type { AccessClass, ImpersonationSession } from "@ryot-app/contract/oauth";
-import { Context, Effect, Layer, Result } from "effect";
+import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import type { Authorization } from "#/modules/auth/authorization";
@@ -30,6 +30,11 @@ export type AuthSessionSnapshot =
 				readonly image: null | string;
 			};
 	  };
+
+class EndSessionOpenError extends Schema.TaggedError<
+	EndSessionOpenError,
+	{ readonly brand: unique symbol }
+>()("EndSessionOpenError", { cause: Schema.Unknown }) {}
 
 export const toAuthSessionState = (session: SettledAuthSession) =>
 	session.status === "authenticated"
@@ -128,9 +133,11 @@ export class AuthService extends Context.Service<AuthService>()(
 					return false;
 				}
 				if (client.nativeApplicationId !== null) {
-					return yield* Effect.tryPromise(() => Browser.open({ url: endSessionUrl })).pipe(
-						Effect.as(true),
-						Effect.orElseSucceed(() => false),
+					return yield* Effect.isSuccess(
+						Effect.tryPromise({
+							try: () => Browser.open({ url: endSessionUrl }),
+							catch: (cause) => new EndSessionOpenError({ cause }),
+						}),
 					);
 				}
 				yield* Effect.sync(() => window.location.assign(endSessionUrl));

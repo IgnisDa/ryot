@@ -270,9 +270,7 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()(
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const evaluate = (script: string, keys: readonly string[], args: readonly string[]) =>
-				Effect.tryPromise(() => redis.client.eval(script, keys.length, ...keys, ...args)).pipe(
-					Effect.orDie,
-				);
+				Effect.promise(() => redis.client.eval(script, keys.length, ...keys, ...args));
 			const openSession = Effect.fn("EntityWatchStore.openSession")(function* (input: {
 				readonly userId: UserId;
 				readonly sessionId: string;
@@ -405,13 +403,13 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()(
 			const getSessionMetadata = Effect.fn("EntityWatchStore.getSessionMetadata")(function* (
 				sessionIds: readonly string[],
 			) {
-				const rows = yield* Effect.tryPromise(() =>
+				const rows = yield* Effect.promise(() =>
 					Promise.all(
 						sessionIds.map((sessionId) =>
 							redis.client.hgetall(redisKeys.entityWatchSession(sessionId)),
 						),
 					),
-				).pipe(Effect.orDie);
+				);
 				const metadata: SessionMetadata[] = [];
 				for (let index = 0; index < rows.length; index += 1) {
 					const row = rows[index];
@@ -442,17 +440,15 @@ export class EntityWatchStore extends Context.Service<EntityWatchStore>()(
 				function* (entityId: string) {
 					const key = redisKeys.entityWatchSessions(entityId);
 					const now = yield* Clock.currentTimeMillis;
-					yield* Effect.tryPromise(() => redis.client.zremrangebyscore(key, "-inf", now)).pipe(
-						Effect.orDie,
-					);
-					const sessionIds = yield* Effect.tryPromise(() =>
+					yield* Effect.promise(() => redis.client.zremrangebyscore(key, "-inf", now));
+					const sessionIds = yield* Effect.promise(() =>
 						redis.client.zrangebyscore(key, now, "+inf"),
-					).pipe(Effect.orDie);
+					);
 					const metadata = yield* getSessionMetadata(sessionIds);
 					const existing = new Set(metadata.map(({ sessionId }) => sessionId));
 					const missing = sessionIds.filter((sessionId) => !existing.has(sessionId));
 					if (missing.length > 0) {
-						yield* Effect.tryPromise(() => redis.client.zrem(key, ...missing)).pipe(Effect.orDie);
+						yield* Effect.promise(() => redis.client.zrem(key, ...missing));
 					}
 					return metadata.map(({ sessionId }) => sessionId);
 				},

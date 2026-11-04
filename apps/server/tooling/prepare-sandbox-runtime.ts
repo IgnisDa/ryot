@@ -397,7 +397,4 @@ const smoke = Effect.gen(function* () {
 	return undefined;
 }).pipe(Effect.withSpan("production-native-sandbox-smoke"));
 
-BunRuntime.runMain(
-	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The native sandbox smoke is a command-line entrypoint
-	smoke.pipe(Effect.provide(RuntimeSmokeLive)),
-);
+BunRuntime.runMain(smoke.pipe(Effect.provide(RuntimeSmokeLive)));

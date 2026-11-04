@@ -51,13 +51,13 @@ export class ClientPageCompositionService extends Context.Service<ClientPageComp
 					}
 					descriptions.set(hash, description);
 				}
-				const manifest = yield* Effect.try(() =>
+				const manifest = yield* Effect.sync(() =>
 					composeClientPage({
 						artifacts: descriptions,
 						identity: graph.identity,
 						runtimeEntries: image.runtime.entries,
 					}),
-				).pipe(Effect.orDie);
+				);
 				const compositionHash = sha256Hex(stableStringify(manifest));
 				yield* repository.createComposition({
 					manifest,

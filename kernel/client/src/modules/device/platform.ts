@@ -11,9 +11,7 @@ import {
 	removeDeliveredNativeAlerts,
 	scheduleNativeAlert,
 } from "#/modules/device/native-alerts";
-import { DevicePlatform, DevicePlatformError } from "#/modules/device/service";
-
-const platformError = (cause: unknown) => new DevicePlatformError({ cause });
+import { DevicePlatform, platformError } from "#/modules/device/service";
 
 export const DevicePlatformLive = Layer.effect(
 	DevicePlatform,
@@ -40,9 +38,7 @@ export const DevicePlatformLive = Layer.effect(
 		return {
 			haptic: (kind) => (kind === "selection" ? selectionHaptic : impactHaptic),
 			cancel: (id) =>
-				native
-					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))
-					: Effect.sync(() => cancelWeb(id)),
+				native ? cancelNativeAlert(LocalNotifications, id) : Effect.sync(() => cancelWeb(id)),
 			listen: (tap, foreground, receivedAlert) =>
 				Effect.gen(function* () {
 					yield* Effect.acquireRelease(
@@ -79,26 +75,30 @@ export const DevicePlatformLive = Layer.effect(
 					awakeWanted = enabled;
 					const generation = ++awakeGeneration;
 					if (native) {
-						yield* Effect.tryPromise(() =>
-							enabled ? KeepAwake.keepAwake() : KeepAwake.allowSleep(),
-						);
+						yield* Effect.tryPromise({
+							catch: platformError,
+							try: () => (enabled ? KeepAwake.keepAwake() : KeepAwake.allowSleep()),
+						});
 						return;
 					}
 					if (!enabled) {
 						const previous = wakeLock;
 						wakeLock = undefined;
 						if (previous) {
-							yield* Effect.tryPromise(() => previous.release());
+							yield* Effect.tryPromise({ catch: platformError, try: () => previous.release() });
 						}
 					} else if ("wakeLock" in navigator && document.visibilityState === "visible") {
-						const lock = yield* Effect.tryPromise(() => navigator.wakeLock.request("screen"));
+						const lock = yield* Effect.tryPromise({
+							catch: platformError,
+							try: () => navigator.wakeLock.request("screen"),
+						});
 						if (awakeWanted && generation === awakeGeneration) {
 							wakeLock = lock;
 						} else {
-							yield* Effect.tryPromise(() => lock.release());
+							yield* Effect.tryPromise({ catch: platformError, try: () => lock.release() });
 						}
 					}
-				}).pipe(Effect.mapError(platformError)),
+				}),
 			schedule: (id, request) =>
 				Effect.gen(function* () {
 					if (Date.parse(request.deadline) <= (yield* Clock.currentTimeMillis)) {
@@ -110,7 +110,10 @@ export const DevicePlatformLive = Layer.effect(
 						}
 						const permission =
 							Notification.permission === "default"
-								? yield* Effect.tryPromise(() => Notification.requestPermission())
+								? yield* Effect.tryPromise({
+										catch: platformError,
+										try: () => Notification.requestPermission(),
+									})
 								: Notification.permission;
 						if (permission !== "granted") {
 							return { status: "denied" } as const;
@@ -145,7 +148,7 @@ export const DevicePlatformLive = Layer.effect(
 						return { status: "inexact" } as const;
 					}
 					return yield* scheduleNativeAlert(LocalNotifications, android, id, request);
-				}).pipe(Effect.mapError(platformError)),
+				}),
 		};
 	}),
 );

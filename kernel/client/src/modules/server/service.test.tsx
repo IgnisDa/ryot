@@ -57,12 +57,8 @@ describe("server service", () => {
 					const dependencies = yield* FakeServerDependencies;
 					expect(yield* service.selected).toBe<unknown>(window.location.origin);
 
-					const failed = yield* service
-						.connect(origin)
-						.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
-					const succeeded = yield* service
-						.connect(origin)
-						.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
+					const failed = yield* service.connect(origin).pipe(Effect.isSuccess);
+					const succeeded = yield* service.connect(origin).pipe(Effect.isSuccess);
 
 					expect(failed).toBe(false);
 					expect(succeeded).toBe(true);

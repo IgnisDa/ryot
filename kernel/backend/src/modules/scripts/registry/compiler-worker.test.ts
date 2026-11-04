@@ -42,7 +42,7 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 					"@ryot-app/plugin-backend-compiler/worker",
 					import.meta.url,
 				);
-				const build = yield* Effect.tryPromise(() =>
+				const build = yield* Effect.promise(() =>
 					Bun.build({
 						target: "bun",
 						outdir: outputDirectory,

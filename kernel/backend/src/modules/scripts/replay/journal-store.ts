@@ -211,18 +211,22 @@ export const pinSandboxJournal = (
 		if (fault !== undefined || pin === undefined || chunk < 0 || chunk >= pin[1]) {
 			return fail("failed");
 		}
-		return Effect.tryPromise(() =>
-			redis.client.callBuffer(
-				"EVAL",
-				readChunkScript,
-				"1",
-				redisKeys.sandboxWorkflowJournal(executionId),
-				String(index),
-				String(chunk),
-				encodePin(pin),
-				String(Math.min(SANDBOX_JOURNAL_CHUNK_BYTES, pin[0] - chunk * SANDBOX_JOURNAL_CHUNK_BYTES)),
-			),
-		).pipe(
+		return Effect.tryPromise({
+			catch: () => journalFailure("Sandbox journal chunk read failed"),
+			try: () =>
+				redis.client.callBuffer(
+					"EVAL",
+					readChunkScript,
+					"1",
+					redisKeys.sandboxWorkflowJournal(executionId),
+					String(index),
+					String(chunk),
+					encodePin(pin),
+					String(
+						Math.min(SANDBOX_JOURNAL_CHUNK_BYTES, pin[0] - chunk * SANDBOX_JOURNAL_CHUNK_BYTES),
+					),
+				),
+		}).pipe(
 			Effect.flatMap(Schema.decodeUnknownEffect(chunkResponse)),
 			Effect.matchEffect({
 				onFailure: () => fail("failed"),

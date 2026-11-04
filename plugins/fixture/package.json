@@ -30,7 +30,7 @@
 		"@types/react-dom": "19.2.3",
 		"@voila.dev/effect-bun-test": "4.0.4",
 		"clsx": "2.1.1",
-		"effect": "4.1.0",
+		"effect": "4.1.2",
 		"jsdom": "30.0.1",
 		"react": "19.2.6",
 		"react-dom": "19.2.6"

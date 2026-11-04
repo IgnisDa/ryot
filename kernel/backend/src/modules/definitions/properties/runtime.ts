@@ -167,7 +167,7 @@ const parsePropertySchemaInput = (
 	labels: { propertiesLabel: string },
 ): Effect.Effect<AppSchema, PropertyValidationError> => {
 	const decoded = decodeAppSchemaEither(input, createPropertySchemaMessage(labels.propertiesLabel));
-	return Result.isSuccess(decoded) ? Effect.succeed(decoded.success) : Effect.fail(decoded.failure);
+	return Effect.fromResult(decoded);
 };
 
 export const parseLabeledPropertySchemaInput = (input: unknown, propertiesLabel: string) =>

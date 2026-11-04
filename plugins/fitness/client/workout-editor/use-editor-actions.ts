@@ -268,7 +268,7 @@ export function useEditorActions(input: {
 		occurrence: WorkoutEditorOccurrence,
 		rows: WorkoutHistorySetResult["items"],
 	) => {
-		let firstSetId: string | undefined;
+		const appendedSets: { firstId: string | undefined } = { firstId: undefined };
 		const appended = change((draft) =>
 			updateOccurrence(draft, occurrence.clientId, (current) => {
 				if (current.exerciseId !== occurrence.exerciseId) {
@@ -278,7 +278,7 @@ export function useEditorActions(input: {
 					const set = historySetForOccurrence(row, current, crypto.randomUUID());
 					return set === undefined ? [] : [{ ...set, included: draft.mode.kind === "historical" }];
 				});
-				firstSetId = sets[0]?.clientId;
+				appendedSets.firstId = sets[0]?.clientId;
 				return sets.length === 0
 					? current
 					: { ...current, isCollapsed: false, sets: [...current.sets, ...sets] };
@@ -286,8 +286,8 @@ export function useEditorActions(input: {
 		);
 		if (appended) {
 			feedback("add-set");
-			if (firstSetId !== undefined) {
-				scrollTo(`set-${firstSetId}`);
+			if (appendedSets.firstId !== undefined) {
+				scrollTo(`set-${appendedSets.firstId}`);
 			}
 		}
 		closeOverlay();

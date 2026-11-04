@@ -22,7 +22,7 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const userCoreProcess = Effect.fnUntraced(function* (backendPid: number) {
 	const command = Bun.spawn(["ps", "-axo", "pid,ppid,args"], { stdout: "pipe" });
-	const output = yield* Effect.tryPromise(() => new Response(command.stdout).text());
+	const output = yield* Effect.promise(() => new Response(command.stdout).text());
 	expect(yield* Effect.promise(() => command.exited)).toBe(0);
 	const matches = output.split("\n").flatMap((line) => {
 		const fields = line.trim().split(/\s+/);

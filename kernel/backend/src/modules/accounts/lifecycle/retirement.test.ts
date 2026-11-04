@@ -94,7 +94,7 @@ const runRetirement = Effect.fnUntraced(function* (workflowName: string, calls: 
 						listUserMutationWork: () =>
 							Effect.succeed([{ workflowName, executionId: "suspended-before-write" }]),
 					}),
-					Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
+					Layer.mock(AuthService)({ handler: () => Promise.reject(new Error("unused")) }),
 					Layer.mock(ObjectStorageService)({}),
 				),
 			),

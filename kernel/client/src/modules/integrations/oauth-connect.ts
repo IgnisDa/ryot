@@ -108,7 +108,7 @@ export class OAuthConnectPlatform extends Context.Service<
 			};
 		},
 		browser: {
-			close: Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore),
+			close: Effect.promise(() => Browser.close()).pipe(Effect.ignoreCause),
 			open: (url) =>
 				Effect.tryPromise({
 					try: () => Browser.open({ url }),

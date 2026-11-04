@@ -163,24 +163,24 @@ const isolatedDatabase = Effect.gen(function* () {
 	const observer = yield* Effect.acquireRelease(
 		Effect.gen(function* () {
 			const client = new Client({ connectionString: url });
-			yield* Effect.tryPromise(() => client.connect());
+			yield* Effect.promise(() => client.connect());
 			return client;
 		}),
 		(client) => Effect.promise(() => client.end()),
 	);
-	yield* Effect.tryPromise(() =>
+	yield* Effect.promise(() =>
 		observer.query(
 			`INSERT INTO "user" (id,name,email,account_generation) VALUES ($1,'Owner','event@example.test','test-account-generation');`,
 			[userId],
 		),
 	);
-	yield* Effect.tryPromise(() =>
+	yield* Effect.promise(() =>
 		observer.query(
 			`INSERT INTO entity (id,name,entity_schema_slug,properties) VALUES ($1,'Subject','record','{}'),($2,'Moved','record','{}')`,
 			[entityId, movedId],
 		),
 	);
-	yield* Effect.tryPromise(() =>
+	yield* Effect.promise(() =>
 		observer.query(
 			`INSERT INTO sandbox_script (id,slug,name,source,content_hash,compiled_code,metadata) VALUES ('script','fixture','Fixture','','hash','','{}')`,
 		),
@@ -1720,7 +1720,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								deleteUserSessions: () => Effect.void,
 								revokeUserOAuthTokens: () => Effect.void,
 								revokePasswordResetLinks: () => Effect.void,
-								handler: () => Effect.die("unused").pipe(Effect.runPromise),
+								handler: () => Promise.reject(new Error("unused")),
 								requestPasswordResetLink: (email) =>
 									Effect.succeed({ email, resetUrl: "https://example.test/reset" }),
 								updateAuthUserDisabled: (id, data) =>
@@ -2172,7 +2172,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							properties: { rating: 1 },
 							absentProperties: ["missing"],
 						};
-						yield* Effect.tryPromise(() =>
+						yield* Effect.promise(() =>
 							fixture.observer.query(
 								'UPDATE event SET properties = \'{"note":"after","rating":1}\'::jsonb, updated_at = $2 WHERE id = $1',
 								[eventId, "2026-09-16T00:00:00.000Z"],
@@ -2525,7 +2525,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						const repository = yield* EventsRepository;
 						const { observer } = yield* LifecycleDatabase;
 						const eventId = EventId.make("database-timestamp-event");
-						yield* Effect.tryPromise(() =>
+						yield* Effect.promise(() =>
 							observer.query(
 								`INSERT INTO event (id,user_id,entity_id,event_schema_slug,properties,occurred_at,created_at,updated_at) VALUES ($1,$2,$3,$4,'{"rating":1}',$5,$5,$5)`,
 								[eventId, userId, entityId, eventSchemaSlug, "2026-09-15T00:00:00.000123Z"],

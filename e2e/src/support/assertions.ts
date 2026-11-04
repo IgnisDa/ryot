@@ -1,5 +1,3 @@
-import { Effect, Result } from "effect";
-
 export function requirePresent<T>(value: T, message: string): NonNullable<T> {
 	if (!value) {
 		throw new Error(message);
@@ -79,6 +77,3 @@ export function assertCompleted<T extends { status: string }>(
 function isNonEmptyArray<T>(arr: readonly T[]): arr is [T, ...T[]] {
 	return arr.length > 0;
 }
-
-export const resultToEffect = <A, E>(result: Result.Result<A, E>) =>
-	Result.isSuccess(result) ? Effect.succeed(result.success) : Effect.fail(result.failure);

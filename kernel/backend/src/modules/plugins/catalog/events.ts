@@ -193,7 +193,7 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 			const subscriber = redis.client.duplicate();
 			yield* Effect.addFinalizer(() =>
 				Effect.sync(() => subscriber.removeAllListeners()).pipe(
-					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
+					Effect.andThen(Effect.promise(() => subscriber.quit()).pipe(Effect.ignoreCause)),
 				),
 			);
 			const channels = [redisKeys.pluginCatalogUserChannel, redisKeys.pluginCatalogChannel];
@@ -213,7 +213,7 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 					yield* hub.broadcast(decoded.success.userId);
 				}
 			});
-			const subscribeAndBroadcast = Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(
+			const subscribeAndBroadcast = Effect.promise(() => subscriber.subscribe(...channels)).pipe(
 				Effect.andThen(hub.broadcastAll()),
 			);
 			const recover = subscribeAndBroadcast.pipe(

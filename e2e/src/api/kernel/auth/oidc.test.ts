@@ -39,7 +39,7 @@ const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", im
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const listUsers = (target: HarnessTarget, email: string) =>
 	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 50, search: email }), target);
-const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
+const attempt = <A>(run: () => Promise<A>) => Effect.promise(run);
 
 const countUsersByEmail = (target: HarnessTarget, email: string) =>
 	listUsers(target, email).pipe(Effect.map((data) => data.total));

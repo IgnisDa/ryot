@@ -237,9 +237,10 @@ describe("API observability", () => {
 				"correlated workflow completion log",
 				Effect.gen(function* () {
 					const logPath = requireLogFile();
-					const contents = yield* Effect.tryPromise(() => Bun.file(logPath).text()).pipe(
-						Effect.orElseSucceed(() => ""),
-					);
+					const logFile = Bun.file(logPath);
+					const contents = (yield* Effect.promise(() => logFile.exists()))
+						? yield* Effect.promise(() => logFile.text())
+						: "";
 					return (
 						contents
 							.split("\n")
@@ -256,9 +257,10 @@ describe("API observability", () => {
 				"correlated HTTP response log",
 				Effect.gen(function* () {
 					const logPath = requireLogFile();
-					const contents = yield* Effect.tryPromise(() => Bun.file(logPath).text()).pipe(
-						Effect.orElseSucceed(() => ""),
-					);
+					const logFile = Bun.file(logPath);
+					const contents = (yield* Effect.promise(() => logFile.exists()))
+						? yield* Effect.promise(() => logFile.text())
+						: "";
 					return (
 						contents
 							.split("\n")

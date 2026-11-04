@@ -63,7 +63,7 @@ export function settleProgress(frame: ScreenFrame, from: number, to: number) {
 
 	return Effect.forEach(
 		animations,
-		(animation) => Effect.ignore(Effect.tryPromise(() => animation.finished)),
+		(animation) => Effect.ignoreCause(Effect.promise(() => animation.finished)),
 		{ discard: true, concurrency: "unbounded" },
 	);
 }

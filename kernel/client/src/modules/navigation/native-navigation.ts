@@ -6,21 +6,34 @@ import {
 	createDeepLinkBridge,
 	type DeepLinkClaims,
 	type DeepLinkNavigator,
+	NativeAppError,
 	type NativeAppSource,
 } from "#/modules/navigation/deep-link";
 
 export const nativeListener = <E>(add: Effect.Effect<PluginListenerHandle, E>) =>
 	Effect.map(add, (listener) => () => void listener.remove());
 
+const nativeAppError = (cause: unknown) => new NativeAppError({ cause });
+
 const capacitorAppSource: NativeAppSource = {
 	exitApp: () => void App.exitApp(),
 	getLaunchUrl: () =>
-		Effect.tryPromise(() => App.getLaunchUrl()).pipe(Effect.map((launch) => launch?.url ?? null)),
+		Effect.tryPromise({ catch: nativeAppError, try: () => App.getLaunchUrl() }).pipe(
+			Effect.map((launch) => launch?.url ?? null),
+		),
 	onBackButton: (handler) =>
-		nativeListener(Effect.tryPromise(() => App.addListener("backButton", () => handler()))),
+		nativeListener(
+			Effect.tryPromise({
+				catch: nativeAppError,
+				try: () => App.addListener("backButton", () => handler()),
+			}),
+		),
 	onUrlOpen: (handler) =>
 		nativeListener(
-			Effect.tryPromise(() => App.addListener("appUrlOpen", (event) => handler(event.url))),
+			Effect.tryPromise({
+				catch: nativeAppError,
+				try: () => App.addListener("appUrlOpen", (event) => handler(event.url)),
+			}),
 		),
 };
 

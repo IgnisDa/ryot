@@ -3,14 +3,14 @@ import { expect } from "bun:test";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Cause, Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http";
 import { IpNetwork } from "effect/net";
 
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { EgressDenied, egressHttpClientLayer } from "./http-client";
-import { EgressResolver } from "./resolver";
+import { EgressResolutionError, EgressResolver } from "./resolver";
 
 type CapturedFetch = Readonly<{
 	url: string;
@@ -75,7 +75,7 @@ const recordingLayer = Layer.effectContext(
 					Ref.update(lookups, (all) => [...all, hostname]).pipe(
 						Effect.andThen(
 							RESOLUTIONS[hostname] === undefined
-								? Effect.fail(new Cause.UnknownError("unresolvable"))
+								? Effect.fail(new EgressResolutionError({ hostname }))
 								: Effect.succeed(RESOLUTIONS[hostname]),
 						),
 					),

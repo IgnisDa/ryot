@@ -166,11 +166,10 @@ export const migrateIntegrationProgressCache = (input: {
 						["script", input.scriptSlug],
 						claimKey,
 					);
-					return Effect.tryPromise(() =>
+					return Effect.promise(() =>
 						redis.client.set(key, persistentClaimEnvelope, "EX", ttlSeconds, "NX"),
 					).pipe(
 						Effect.tap((result) => Effect.sync(() => (keysCreated += result === null ? 0 : 1))),
-						Effect.orDie,
 					);
 				},
 				{ concurrency: 20 },

@@ -344,7 +344,4 @@ const program = Effect.gen(function* () {
 	return yield* Effect.void;
 });
 
-BunRuntime.runMain(
-	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The protocol fixture generator is a command-line entrypoint
-	program.pipe(Effect.provide(BunServices.layer)),
-);
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));

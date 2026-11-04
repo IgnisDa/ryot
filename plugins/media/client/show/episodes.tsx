@@ -523,7 +523,7 @@ function ShowSeasonHeader(props: {
 }
 
 const persistOrder = (write: Promise<void>) => {
-	Effect.runFork(Effect.ignore(Effect.tryPromise(() => write)));
+	Effect.runFork(Effect.ignoreCause(Effect.promise(() => write)));
 };
 
 /** Resolves the device's stored episode order before the seasons query runs. */

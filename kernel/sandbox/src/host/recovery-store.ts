@@ -7,6 +7,9 @@ export class SandboxRecoveryStoreError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("SandboxRecoveryStoreError", { message: Schema.String }) {}
 
+const recoveryStoreUnavailable = () =>
+	new SandboxRecoveryStoreError({ message: "Recovery store unavailable" });
+
 const RECOVERY_LIMIT = 3;
 
 const recoveryStateSchema = Schema.Struct({
@@ -105,18 +108,20 @@ export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>(
 					validatedArgument === undefined
 						? [operation, identity.instance, identity.pinHash]
 						: [operation, identity.instance, identity.pinHash, validatedArgument];
-				const result = yield* Effect.tryPromise(() =>
-					redis.client.eval(
-						recoveryScript,
-						1,
-						sandboxRedisKeys.recovery(identity.executionId),
-						...args,
-					),
-				).pipe(
-					Effect.timeout("2 seconds"),
-					Effect.mapError(
-						() => new SandboxRecoveryStoreError({ message: "Recovery store unavailable" }),
-					),
+				const result = yield* Effect.tryPromise({
+					catch: recoveryStoreUnavailable,
+					try: () =>
+						redis.client.eval(
+							recoveryScript,
+							1,
+							sandboxRedisKeys.recovery(identity.executionId),
+							...args,
+						),
+				}).pipe(
+					Effect.timeoutOrElse({
+						duration: "2 seconds",
+						orElse: () => Effect.fail(recoveryStoreUnavailable()),
+					}),
 				);
 				if (result === "identity-mismatch") {
 					return yield* new SandboxRecoveryStoreError({ message: "Recovery identity mismatch" });

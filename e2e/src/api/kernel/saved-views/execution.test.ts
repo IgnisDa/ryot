@@ -44,7 +44,7 @@ import {
 	insertLibraryMembership,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
-import { assertPresent, requirePresent, resultToEffect } from "~/support/assertions";
+import { assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const subject = table("entity", "subject");
@@ -58,7 +58,7 @@ const countSavedView = Effect.fn(function* (
 ) {
 	const settings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(view.settings);
 	const dataSources = requirePresent(view.dataSources, "Saved view has no data sources");
-	const recipe = yield* resultToEffect(
+	const recipe = yield* Effect.fromResult(
 		entityBrowserCountRecipe(dataSources, settings, { browse: [] }),
 	);
 	return yield* executeRyotQLRecipe(client, recipe);
@@ -296,7 +296,7 @@ describe("saved views execution", () => {
 			const now = yield* DateTime.now;
 
 			const matching = Effect.fn(function* (filter: Filter) {
-				const page = yield* resultToEffect(
+				const page = yield* Effect.fromResult(
 					entityBrowserRecipe({
 						now,
 						browse,
@@ -305,7 +305,7 @@ describe("saved views execution", () => {
 						queryDocument: persistedSources,
 					}),
 				);
-				const count = yield* resultToEffect(
+				const count = yield* Effect.fromResult(
 					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, browse, filter }),
 				);
 				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(
@@ -465,7 +465,7 @@ describe("saved views execution", () => {
 			const now = yield* DateTime.now;
 
 			const matching = Effect.fn(function* (filter: Filter) {
-				const page = yield* resultToEffect(
+				const page = yield* Effect.fromResult(
 					entityBrowserRecipe({
 						now,
 						browse,
@@ -474,7 +474,7 @@ describe("saved views execution", () => {
 						queryDocument: persistedSources,
 					}),
 				);
-				const count = yield* resultToEffect(
+				const count = yield* Effect.fromResult(
 					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, browse, filter }),
 				);
 				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(

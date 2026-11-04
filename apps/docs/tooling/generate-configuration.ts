@@ -11,7 +11,7 @@ await Effect.runPromise(
 		const manifests = yield* Effect.forEach(
 			shipped,
 			({ archive }) =>
-				Effect.tryPromise(() => Bun.file(archive).bytes()).pipe(
+				Effect.promise(() => Bun.file(archive).bytes()).pipe(
 					Effect.flatMap(readPluginArchive),
 					Effect.map(({ manifest }) => manifest),
 				),
@@ -22,7 +22,7 @@ await Effect.runPromise(
 			schema: manifest.configSchema,
 			packageId: manifest.metadata.packageId,
 		}));
-		yield* Effect.tryPromise(() =>
+		yield* Effect.promise(() =>
 			Bun.write(
 				new URL("../src/includes/app-backend-config-schema.md", import.meta.url),
 				renderConfigReference(appConfigDefinition, plugins),

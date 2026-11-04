@@ -95,12 +95,12 @@ export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber
 				}
 			});
 			subscriber.on("ready", () => {
-				runFork(Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(Effect.ignore));
+				runFork(Effect.promise(() => subscriber.subscribe(...channels)).pipe(Effect.ignoreCause));
 			});
-			yield* Effect.tryPromise(() => subscriber.subscribe(...channels)).pipe(Effect.orDie);
+			yield* Effect.promise(() => subscriber.subscribe(...channels));
 			yield* Effect.addFinalizer(() =>
 				Effect.sync(() => subscriber.removeAllListeners()).pipe(
-					Effect.andThen(Effect.tryPromise(() => subscriber.quit()).pipe(Effect.ignore)),
+					Effect.andThen(Effect.promise(() => subscriber.quit()).pipe(Effect.ignoreCause)),
 				),
 			);
 

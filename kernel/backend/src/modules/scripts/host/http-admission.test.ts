@@ -29,7 +29,7 @@ import {
 type Client = RedisService["Service"]["client"];
 type Admission = Effect.Success<ReturnType<typeof makeProviderHttpAdmission>>;
 
-const call = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
+const call = <A>(run: () => Promise<A>) => Effect.promise(run);
 
 const usePolicy = Effect.fnUntraced(function* (
 	overrides: Partial<ProviderHttpAdmissionDeclaration> = {},

@@ -2,6 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-client-contract";
 import { assert } from "@ryot-app/testing/assert";
+import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result } from "effect";
@@ -86,8 +87,8 @@ const harness = (
 
 const rejects = (message: string, dependencies: CompositionDependencies) =>
 	Effect.map(
-		Effect.tryPromise(() => bootstrapComposition(dependencies)).pipe(Effect.flip),
-		({ cause: error }) => {
+		promiseRejection(() => bootstrapComposition(dependencies)),
+		(error) => {
 			assert(error instanceof Error);
 			expect(error.message).toContain(new Error(message).message);
 		},
@@ -139,10 +140,13 @@ describe("composition bootstrap", () => {
 				const load = section.load;
 				expect(section.ownerPluginId).toBe<unknown>("private-owner");
 				expect(registrations?.[1]?.load).toBeNull();
-				yield* Effect.map(Effect.tryPromise(() => load()).pipe(Effect.flip), ({ cause: error }) => {
-					assert(error instanceof Error);
-					expect(error.message).toContain("Module failed: /section.js");
-				});
+				yield* Effect.map(
+					promiseRejection(() => load()),
+					(error) => {
+						assert(error instanceof Error);
+						expect(error.message).toContain("Module failed: /section.js");
+					},
+				);
 				failures.splice(0);
 				yield* Effect.map(
 					Effect.promise(() => load()),
@@ -437,8 +441,8 @@ describe("composition bootstrap", () => {
 				expect(recorded.stylesheets).toEqual(["/a.css", "/b.css"]);
 				expect(recorded.loaded).toEqual(["/page.js"]);
 				yield* Effect.map(
-					Effect.tryPromise(() => list.load()).pipe(Effect.flip),
-					({ cause: error }) => {
+					promiseRejection(() => list.load()),
+					(error) => {
 						assert(error instanceof Error);
 						expect(error.message).toContain(
 							"Client composition export is missing: /page.js#absent",
@@ -508,8 +512,8 @@ describe("composition bootstrap presentations", () => {
 				Effect.gen(function* () {
 					const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: value } });
 					yield* Effect.map(
-						Effect.tryPromise(() => load()).pipe(Effect.flip),
-						({ cause: error }) => {
+						promiseRejection(() => load()),
+						(error) => {
 							assert(error instanceof Error);
 							expect(error.message).toContain(
 								"Client composition export is invalid: /presentation.js#itemGrid",
@@ -529,10 +533,13 @@ describe("composition bootstrap presentations", () => {
 					{ "/presentation.js": { itemGrid: presentation } },
 					{ stylesheets: ["/grid.css"] },
 				);
-				yield* Effect.map(Effect.tryPromise(() => load()).pipe(Effect.flip), ({ cause: error }) => {
-					assert(error instanceof Error);
-					expect(error.message).toContain("Stylesheet failed: /grid.css");
-				});
+				yield* Effect.map(
+					promiseRejection(() => load()),
+					(error) => {
+						assert(error instanceof Error);
+						expect(error.message).toContain("Stylesheet failed: /grid.css");
+					},
+				);
 				expect(recorded.loaded).not.toContain("/presentation.js");
 			}),
 		testTimeout,
@@ -543,10 +550,13 @@ describe("composition bootstrap presentations", () => {
 		() =>
 			Effect.gen(function* () {
 				const { load } = yield* registrationsFor({}, { modules: ["/presentation.js"] });
-				yield* Effect.map(Effect.tryPromise(() => load()).pipe(Effect.flip), ({ cause: error }) => {
-					assert(error instanceof Error);
-					expect(error.message).toContain("Module failed: /presentation.js");
-				});
+				yield* Effect.map(
+					promiseRejection(() => load()),
+					(error) => {
+						assert(error instanceof Error);
+						expect(error.message).toContain("Module failed: /presentation.js");
+					},
+				);
 			}),
 		testTimeout,
 	);

@@ -250,7 +250,7 @@ export const relationshipDatabaseLayer = (
 			const observer = yield* Effect.acquireRelease(
 				Effect.gen(function* () {
 					const client = new Client({ connectionString: url });
-					yield* Effect.tryPromise(() => client.connect());
+					yield* Effect.promise(() => client.connect());
 					return client;
 				}),
 				(client) => Effect.promise(() => client.end()),

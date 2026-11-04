@@ -2,6 +2,8 @@ import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/drive
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
+import { mediaFailureMessage } from "../../lib/error-message";
+import { MediaSandboxError } from "../../lib/failures";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
 import {
@@ -20,49 +22,52 @@ export const manifest = defineManifest({
 });
 
 export const parseKodi = (rawBody: string, occurredAt: string) =>
-	Effect.try(() => {
-		const payload = jsonRecord(rawBody);
-		const lot = payload["lot"];
-		const progress = payload["progress"];
-		const rawId = payload["identifier"];
-		if (
-			(lot !== "movie" && lot !== "show") ||
-			typeof progress !== "number" ||
-			!Number.isFinite(progress)
-		) {
-			return failureResult("Could not parse Kodi webhook payload");
-		}
-		let id = "";
-		if (typeof rawId === "string") {
-			id = rawId.trim();
-		}
-		if (typeof rawId === "number" && Number.isFinite(rawId)) {
-			id = String(rawId);
-		}
-		if (!id) {
-			return failureResult("Kodi webhook payload is missing a TMDB identifier");
-		}
-		const locator =
-			lot === "show"
-				? showEpisodeRef(
-						typeof payload["show_season_number"] === "number"
-							? payload["show_season_number"]
-							: undefined,
-						typeof payload["show_episode_number"] === "number"
-							? payload["show_episode_number"]
-							: undefined,
-					)
-				: undefined;
-		if (lot === "show" && !locator) {
-			return failureResult("Kodi webhook payload is missing show episode coordinates");
-		}
-		return progressResult({
-			occurredAt,
-			consumedOn: "Kodi",
-			progressPercent: progress,
-			entityRef: resolvedMediaRef(lot, "tmdb", id, id),
-			...(locator ? { unresolvedEpisode: locator } : {}),
-		});
+	Effect.try({
+		catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+		try: () => {
+			const payload = jsonRecord(rawBody);
+			const lot = payload["lot"];
+			const progress = payload["progress"];
+			const rawId = payload["identifier"];
+			if (
+				(lot !== "movie" && lot !== "show") ||
+				typeof progress !== "number" ||
+				!Number.isFinite(progress)
+			) {
+				return failureResult("Could not parse Kodi webhook payload");
+			}
+			let id = "";
+			if (typeof rawId === "string") {
+				id = rawId.trim();
+			}
+			if (typeof rawId === "number" && Number.isFinite(rawId)) {
+				id = String(rawId);
+			}
+			if (!id) {
+				return failureResult("Kodi webhook payload is missing a TMDB identifier");
+			}
+			const locator =
+				lot === "show"
+					? showEpisodeRef(
+							typeof payload["show_season_number"] === "number"
+								? payload["show_season_number"]
+								: undefined,
+							typeof payload["show_episode_number"] === "number"
+								? payload["show_episode_number"]
+								: undefined,
+						)
+					: undefined;
+			if (lot === "show" && !locator) {
+				return failureResult("Kodi webhook payload is missing show episode coordinates");
+			}
+			return progressResult({
+				occurredAt,
+				consumedOn: "Kodi",
+				progressPercent: progress,
+				entityRef: resolvedMediaRef(lot, "tmdb", id, id),
+				...(locator ? { unresolvedEpisode: locator } : {}),
+			});
+		},
 	}).pipe(Effect.orElseSucceed(() => failureResult("Could not parse Kodi webhook payload")));
 
 export default defineScript({

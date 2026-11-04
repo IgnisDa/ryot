@@ -24,12 +24,7 @@ import {
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
-import {
-	assertCondition,
-	assertPresent,
-	requirePresent,
-	resultToEffect,
-} from "~/support/assertions";
+import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Media genres", () => {
@@ -123,7 +118,7 @@ describe("Media genres", () => {
 					const ids: string[] = [];
 					let after: string | undefined;
 					for (;;) {
-						const recipe = yield* resultToEffect(
+						const recipe = yield* Effect.fromResult(
 							entityBrowserRecipe({
 								now,
 								after,

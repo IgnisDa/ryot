@@ -50,7 +50,7 @@ const program = Effect.gen(function* () {
 
 	yield* fs.makeDirectory(activityLogo, { recursive: true });
 	yield* Effect.forEach([1, 2, 3], (scale) =>
-		Effect.tryPromise(() =>
+		Effect.promise(() =>
 			sharp(path.join(client, "assets/logo.png"))
 				.trim()
 				.resize(24 * scale, 24 * scale, { fit: "contain", background: "#00000000" })
@@ -118,15 +118,10 @@ const program = Effect.gen(function* () {
 
 	// `index.html` links these two directly. `capacitor-assets` only writes into the native projects,
 	// and its `--pwa` mode emits a whole Apple splash set under names of its own.
-	yield* Effect.tryPromise(() =>
-		sharp(source).resize(64).png().toFile(path.join(web, "favicon.png")),
-	);
-	yield* Effect.tryPromise(() =>
+	yield* Effect.promise(() => sharp(source).resize(64).png().toFile(path.join(web, "favicon.png")));
+	yield* Effect.promise(() =>
 		sharp(source).resize(180).png().toFile(path.join(web, "apple-touch-icon.png")),
 	);
 });
 
-BunRuntime.runMain(
-	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Native asset generation is a command-line entrypoint
-	program.pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-);
+BunRuntime.runMain(program.pipe(Effect.scoped, Effect.provide(BunServices.layer)));

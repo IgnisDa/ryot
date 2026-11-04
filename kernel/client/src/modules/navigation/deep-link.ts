@@ -1,5 +1,5 @@
 import { OAUTH_NATIVE_APPLICATION_IDS } from "@ryot-app/contract/oauth";
-import { type Cause, Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 export type DeepLinkNavigator = {
 	readonly back: () => void;
@@ -10,14 +10,17 @@ export type DeepLinkNavigator = {
 
 export type NativeAppSource = {
 	readonly exitApp: () => void;
-	readonly getLaunchUrl: () => Effect.Effect<null | string, Cause.UnknownError>;
-	readonly onBackButton: (handler: () => void) => Effect.Effect<() => void, Cause.UnknownError>;
-	readonly onUrlOpen: (
-		handler: (url: string) => void,
-	) => Effect.Effect<() => void, Cause.UnknownError>;
+	readonly getLaunchUrl: () => Effect.Effect<null | string, NativeAppError>;
+	readonly onBackButton: (handler: () => void) => Effect.Effect<() => void, NativeAppError>;
+	readonly onUrlOpen: (handler: (url: string) => void) => Effect.Effect<() => void, NativeAppError>;
 };
 
 type DeepLinkClaim = (rawUrl: string) => void;
+
+export class NativeAppError extends Schema.TaggedError<
+	NativeAppError,
+	{ readonly brand: unique symbol }
+>()("NativeAppError", { cause: Schema.Unknown }) {}
 
 export const makeDeepLinkClaims = () => {
 	const claims = new Map<string, Set<DeepLinkClaim>>();

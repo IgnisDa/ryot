@@ -7,6 +7,9 @@ export class SandboxCrashStoreError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("SandboxCrashStoreError", { message: Schema.String }) {}
 
+const crashStoreUnavailable = () =>
+	new SandboxCrashStoreError({ message: "Crash store unavailable" });
+
 const responseSchema = Schema.Literals(["allowed", "probation", "blocked", "recorded", "stale"]);
 const decodeResponse = Schema.decodeUnknownEffect(responseSchema);
 const identitySchema = Schema.Array(Schema.String.check(Schema.isNonEmpty())).check(
@@ -92,11 +95,14 @@ export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()(
 					return yield* new SandboxCrashStoreError({ message: "Invalid crash ownership" });
 				}
 				const keys = validated.flatMap(sandboxProtectionKeys);
-				const result = yield* Effect.tryPromise(() =>
-					redis.client.eval(crashScript, keys.length, ...keys, operation, argument),
-				).pipe(
-					Effect.timeout("2 seconds"),
-					Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store unavailable" })),
+				const result = yield* Effect.tryPromise({
+					catch: crashStoreUnavailable,
+					try: () => redis.client.eval(crashScript, keys.length, ...keys, operation, argument),
+				}).pipe(
+					Effect.timeoutOrElse({
+						duration: "2 seconds",
+						orElse: () => Effect.fail(crashStoreUnavailable()),
+					}),
 				);
 				return yield* decodeResponse(result).pipe(
 					Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store is corrupt" })),

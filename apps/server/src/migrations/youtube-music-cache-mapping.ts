@@ -103,11 +103,10 @@ export const migrateYoutubeMusicCache = (input: {
 					if (ttlSeconds <= 0) {
 						return Effect.void;
 					}
-					return Effect.tryPromise(() =>
+					return Effect.promise(() =>
 						redis.client.set(key, persistentClaimEnvelope, "EX", ttlSeconds, "NX"),
 					).pipe(
 						Effect.tap((result) => Effect.sync(() => (keysCreated += result === null ? 0 : 1))),
-						Effect.orDie,
 					);
 				},
 				{ concurrency: 20 },

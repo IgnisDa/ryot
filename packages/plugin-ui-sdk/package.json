@@ -54,7 +54,7 @@
 		"@tanstack/react-hotkeys": "0.10.0",
 		"@types/mdast": "4.0.4",
 		"clsx": "2.1.1",
-		"effect": "4.1.0",
+		"effect": "4.1.2",
 		"lucide-react": "1.37.0",
 		"mdast-util-directive": "3.1.1",
 		"mdast-util-from-markdown": "2.1.0",
@@ -67,7 +67,7 @@
 	},
 	"devDependencies": {
 		"bun-types": "1.4.4",
-		"@effect/platform-bun": "4.1.0",
+		"@effect/platform-bun": "4.1.2",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/react": "16.3.3",
 		"@types/react": "19.2.15",

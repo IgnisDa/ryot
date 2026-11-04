@@ -80,8 +80,8 @@ const lifecycleServiceLayer = (options: {
 							deleteUserSessions: () => record("sessions"),
 							revokeUserOAuthTokens: () => record("oauth"),
 							updateAuthUserDisabled: () => record("disable"),
+							handler: () => Promise.reject(new Error("unused")),
 							revokePasswordResetLinks: () => record("reset-links"),
-							handler: () => Effect.die("unused").pipe(Effect.runPromise),
 							purgeApiKeyCaches: (_userId, apiKeys) =>
 								record(`keys:${apiKeys.map(({ id }) => id).join(",")}`).pipe(Effect.as(undefined)),
 						}),

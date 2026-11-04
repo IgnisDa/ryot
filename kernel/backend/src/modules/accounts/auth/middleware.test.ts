@@ -151,7 +151,7 @@ it.effect(
 			const resolved = yield* resolveCredential(
 				{ kind: "oauth", token: "token" },
 				() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
-				() => Effect.die("unused").pipe(Effect.runPromise),
+				() => Promise.reject(new Error("unused")),
 				() => Effect.succeed(userRecord),
 			);
 			expect(resolved).toEqual(resolvedOAuth);
@@ -165,7 +165,7 @@ it.effect(
 		Effect.gen(function* () {
 			const resolved = yield* resolveCredential(
 				{ key: "key", kind: "api-key" },
-				() => Effect.die("unused").pipe(Effect.runPromise),
+				() => Promise.reject(new Error("unused")),
 				() =>
 					Promise.resolve({
 						valid: true,
@@ -191,7 +191,7 @@ it.effect(
 				resolveCredential(
 					{ kind: "oauth", token: "token" },
 					() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
-					() => Effect.die("unused").pipe(Effect.runPromise),
+					() => Promise.reject(new Error("unused")),
 					() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
 				),
 			);
@@ -207,7 +207,7 @@ it.effect(
 			const error = yield* Effect.flip(
 				resolveCredential(
 					{ key: "key", kind: "api-key" },
-					() => Effect.die("unused").pipe(Effect.runPromise),
+					() => Promise.reject(new Error("unused")),
 					() =>
 						Promise.resolve({
 							valid: true,
@@ -226,7 +226,7 @@ const oauth = (clientId: string, userId = "user-1") =>
 	resolveCredential(
 		{ kind: "oauth", token: "token" },
 		() => Promise.resolve({ sub: userId, client_id: clientId }),
-		() => Effect.die("unused").pipe(Effect.runPromise),
+		() => Promise.reject(new Error("unused")),
 		() => Effect.succeed({ ...userRecord, id: userId }),
 		"user-1",
 	);
@@ -234,7 +234,7 @@ const oauth = (clientId: string, userId = "user-1") =>
 const apiKey = (userId: string, demoAccountId: null | string) =>
 	resolveCredential(
 		{ key: "key", kind: "api-key" },
-		() => Effect.die("unused").pipe(Effect.runPromise),
+		() => Promise.reject(new Error("unused")),
 		() => Promise.resolve({ valid: true, error: null, key: { id: "key-1", referenceId: userId } }),
 		() => Effect.succeed({ ...userRecord, id: userId }),
 		demoAccountId,
@@ -334,7 +334,7 @@ it.effect(
 				resolveCredential(
 					{ kind: "oauth", token: "old-session-token" },
 					() => Promise.resolve({ sub: "user-1" }),
-					() => Effect.die("unused").pipe(Effect.runPromise),
+					() => Promise.reject(new Error("unused")),
 					() => Effect.succeed(userRecord),
 				),
 			);
@@ -345,7 +345,7 @@ it.effect(
 					resolveCredential(
 						{ kind: "oauth", token: "token" },
 						() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
-						() => Effect.die("unused").pipe(Effect.runPromise),
+						() => Promise.reject(new Error("unused")),
 						() => Effect.succeed(user),
 					),
 				);
@@ -362,7 +362,7 @@ it.effect(
 			const error = yield* Effect.flip(
 				resolveCredential(
 					{ key: "key", kind: "api-key" },
-					() => Effect.die("unused").pipe(Effect.runPromise),
+					() => Promise.reject(new Error("unused")),
 					() =>
 						Promise.resolve({
 							key: null,

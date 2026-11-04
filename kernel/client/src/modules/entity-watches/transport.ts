@@ -1,6 +1,6 @@
 import { App } from "@capacitor/app";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
-import { type Cause, Context, Effect, Fiber, Layer } from "effect";
+import { Context, Effect, Fiber, Layer, Schema } from "effect";
 
 export type InterestSocket = Pick<EventTarget, "addEventListener"> & {
 	close(): void;
@@ -9,11 +9,19 @@ export type InterestSocket = Pick<EventTarget, "addEventListener"> & {
 
 type ListenNativeResume = (
 	notify: () => void,
-) => Effect.Effect<undefined | PluginListenerHandle, Cause.UnknownError>;
+) => Effect.Effect<undefined | PluginListenerHandle, NativeResumeListenerError>;
+
+export class NativeResumeListenerError extends Schema.TaggedError<
+	NativeResumeListenerError,
+	{ readonly brand: unique symbol }
+>()("NativeResumeListenerError", { cause: Schema.Unknown }) {}
 
 const listenNativeResume: ListenNativeResume = (notify) =>
 	Capacitor.isNativePlatform()
-		? Effect.tryPromise(() => App.addListener("resume", notify))
+		? Effect.tryPromise({
+				try: () => App.addListener("resume", notify),
+				catch: (cause) => new NativeResumeListenerError({ cause }),
+			})
 		: Effect.undefined;
 
 export const subscribeNativeResume = (
@@ -35,9 +43,9 @@ export const subscribeNativeResume = (
 		Effect.runFork(
 			Fiber.join(native).pipe(
 				Effect.flatMap((listener) =>
-					listener === undefined ? Effect.void : Effect.tryPromise(() => listener.remove()),
+					listener === undefined ? Effect.void : Effect.promise(() => listener.remove()),
 				),
-				Effect.ignore,
+				Effect.ignoreCause,
 			),
 		);
 	};

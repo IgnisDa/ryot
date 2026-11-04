@@ -20,7 +20,7 @@ export function useHostScreenSession<Request, Outcome extends HostScreenOutcome>
 				resume(Effect.succeed(cancelled));
 				return Effect.void;
 			}
-			let completed = false;
+			const completion = { done: false };
 			const clear = () => {
 				if (pending.current !== complete) {
 					return;
@@ -29,10 +29,10 @@ export function useHostScreenSession<Request, Outcome extends HostScreenOutcome>
 				setSession((current) => (current?.complete === complete ? null : current));
 			};
 			const complete = (outcome: Outcome) => {
-				if (completed) {
+				if (completion.done) {
 					return;
 				}
-				completed = true;
+				completion.done = true;
 				clear();
 				if (outcome.kind === cancelled.kind) {
 					options.onDismiss?.();
@@ -43,8 +43,8 @@ export function useHostScreenSession<Request, Outcome extends HostScreenOutcome>
 			setSession({ request, complete });
 			options.onOpen?.(request);
 			return Effect.sync(() => {
-				if (!completed && pending.current === complete) {
-					completed = true;
+				if (!completion.done && pending.current === complete) {
+					completion.done = true;
 					clear();
 					options.onDismiss?.();
 				}

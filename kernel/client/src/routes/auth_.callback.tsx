@@ -56,7 +56,7 @@ export const Route = createFileRoute("/auth_/callback")({
 					return yield* new OAuthTokenError({ reason: "invalid-callback" });
 				}
 				if (client.nativeApplicationId !== null) {
-					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
+					yield* Effect.promise(() => Browser.close()).pipe(Effect.ignoreCause);
 				}
 				const tokens = yield* OAuthTokenService;
 				if (search.error) {

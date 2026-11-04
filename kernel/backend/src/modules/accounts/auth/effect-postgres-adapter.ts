@@ -417,7 +417,7 @@ export const effectPostgresAuthAdapter = (args: {
 										>();
 										const adapter = makeFactory(transactionContext, false)(options);
 										contexts.set(adapter, transactionContext);
-										return yield* Effect.tryPromise(() => callback(adapter));
+										return yield* Effect.promise(() => callback(adapter));
 									}),
 								),
 							)

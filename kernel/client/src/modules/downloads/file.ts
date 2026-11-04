@@ -63,9 +63,9 @@ const nativeFilePorts: Parameters<typeof makeNativeFileDownload>[1] = {
 			Effect.asVoid,
 		),
 	remove: (path) =>
-		Effect.tryPromise(() =>
+		Effect.promise(() =>
 			Filesystem.rmdir({ path, recursive: true, directory: Directory.Cache }),
-		).pipe(Effect.ignore),
+		).pipe(Effect.ignoreCause),
 	create: (path) =>
 		Effect.tryPromise({
 			catch: nativeError,

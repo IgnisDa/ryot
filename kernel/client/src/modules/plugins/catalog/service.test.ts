@@ -4,6 +4,7 @@ import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
+import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -165,8 +166,9 @@ describe("plugin catalog service", () => {
 			const catalog = runtime.runPromise(
 				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
 			);
-			return Effect.map(Effect.tryPromise(() => catalog).pipe(Effect.flip), ({ cause: error }) =>
-				expect(error).toBeInstanceOf(PluginCatalogError),
+			return Effect.map(
+				promiseRejection(() => catalog),
+				(error) => expect(error).toBeInstanceOf(PluginCatalogError),
 			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 		},
 		testTimeout,

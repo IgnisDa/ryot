@@ -17,7 +17,7 @@ const build = Effect.gen(function* () {
 	const unkeyRootKey = yield* encodeStringLiteral(
 		yield* Config.String("UNKEY_ROOT_KEY").pipe(Config.withDefault("")),
 	);
-	yield* Effect.tryPromise(() =>
+	yield* Effect.promise(() =>
 		Bun.build({
 			target: "bun",
 			splitting: true,
@@ -30,7 +30,7 @@ const build = Effect.gen(function* () {
 			define: { "process.env.RYOT_VERSION": version, "process.env.UNKEY_ROOT_KEY": unkeyRootKey },
 		}),
 	);
-	yield* Effect.tryPromise(() =>
+	yield* Effect.promise(() =>
 		Bun.build({
 			target: "bun",
 			sourcemap: "linked",
@@ -41,6 +41,5 @@ const build = Effect.gen(function* () {
 });
 
 BunRuntime.runMain(
-	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The server build is a command-line entrypoint
 	build.pipe(Effect.provide(Layer.merge(BunServices.layer, pluginBackendCompilerPlatformLayer))),
 );

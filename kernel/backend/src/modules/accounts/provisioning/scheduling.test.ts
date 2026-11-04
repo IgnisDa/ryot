@@ -78,7 +78,7 @@ const recordingSchedulingLayer = Layer.unwrap(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					Layer.mock(UserBootstrap)({}),
-					Layer.mock(AuthService)({ handler: () => Effect.die("unused").pipe(Effect.runPromise) }),
+					Layer.mock(AuthService)({ handler: () => Promise.reject(new Error("unused")) }),
 					Layer.mock(UserLifecycleRepository)({}),
 					Layer.mock(ObjectStorageService)({}),
 					Layer.mock(IngestionExecution)({}),

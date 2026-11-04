@@ -24,6 +24,7 @@ import {
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
+import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime, Result } from "effect";
@@ -397,8 +398,9 @@ describe("kernel Ryot client", () => {
 				const runtime = makeRuntime(failure);
 				const client = createKernelRyotClient(runtime, scope, theme);
 				const query = Effect.runPromise(client.data.query(recipe));
-				return Effect.map(Effect.tryPromise(() => query).pipe(Effect.flip), ({ cause: error }) =>
-					expect(error).toMatchObject({ reason: "query-failed" }),
+				return Effect.map(
+					promiseRejection(() => query),
+					(error) => expect(error).toMatchObject({ reason: "query-failed" }),
 				).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 			},
 			testTimeout,
@@ -411,8 +413,9 @@ describe("kernel Ryot client", () => {
 			const runtime = makeRuntime(new TypeError("private network detail"));
 			const client = createKernelRyotClient(runtime, scope, theme);
 			const query = Effect.runPromise(client.data.query(recipe));
-			return Effect.map(Effect.tryPromise(() => query).pipe(Effect.flip), ({ cause: error }) =>
-				expect(error).toMatchObject({ reason: "transport" }),
+			return Effect.map(
+				promiseRejection(() => query),
+				(error) => expect(error).toMatchObject({ reason: "transport" }),
 			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 		},
 		testTimeout,
@@ -436,10 +439,13 @@ describe("kernel Ryot client", () => {
 
 			controller.abort(reason);
 
-			return Effect.map(Effect.tryPromise(() => query).pipe(Effect.flip), ({ cause: error }) => {
-				assert(error instanceof Error);
-				expect(error.message).toMatch(/interrupted/);
-			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+			return Effect.map(
+				promiseRejection(() => query),
+				(error) => {
+					assert(error instanceof Error);
+					expect(error.message).toMatch(/interrupted/);
+				},
+			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 		},
 		testTimeout,
 	);
@@ -501,8 +507,8 @@ describe("kernel Ryot client", () => {
 			controller.abort(reason);
 
 			return Effect.map(
-				Effect.tryPromise(() => resolution).pipe(Effect.flip),
-				({ cause: error }) => {
+				promiseRejection(() => resolution),
+				(error) => {
 					assert(error instanceof Error);
 					expect(error.message).toMatch(/interrupted/);
 				},

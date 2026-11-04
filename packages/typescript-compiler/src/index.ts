@@ -41,6 +41,15 @@ export class TypeScriptProjectError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("TypeScriptProjectError", { message: Schema.String }) {}
 
+export const typeScriptRequest = <A>(request: () => Promise<A>) =>
+	Effect.tryPromise({
+		try: request,
+		catch: (cause) =>
+			new TypeScriptProjectError({
+				message: `TypeScript request failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+			}),
+	});
+
 const diagnosticSeverity = (category: DiagnosticCategory) => {
 	if (category === DiagnosticCategory.Warning) {
 		return "warning" as const;
@@ -124,7 +133,7 @@ export const withTypeScriptProject = <A, E, R>(
 		Effect.sync(() => new API({ fs, cwd: "/", tsserverPath: options.tsserverPath })),
 		(api) =>
 			Effect.gen(function* () {
-				const snapshot = yield* Effect.tryPromise(() =>
+				const snapshot = yield* typeScriptRequest(() =>
 					api.updateSnapshot({ openProjects: [virtualConfigFile] }),
 				);
 				const project = snapshot.getProject(virtualConfigFile);
@@ -136,7 +145,7 @@ export const withTypeScriptProject = <A, E, R>(
 
 				const program = project.program;
 				const loadedSourceFiles = yield* Effect.forEach(Object.keys(options.files), (path) =>
-					Effect.tryPromise(() => program.getSourceFile(virtualPath(path))),
+					typeScriptRequest(() => program.getSourceFile(virtualPath(path))),
 				);
 				const files = loadedSourceFiles.filter((file) => file !== undefined);
 				const entrySourceFiles = Object.fromEntries(
@@ -153,18 +162,18 @@ export const withTypeScriptProject = <A, E, R>(
 
 				const projectDiagnostics = yield* Effect.all(
 					[
-						Effect.tryPromise(() => program.getProgramDiagnostics()),
-						Effect.tryPromise(() => program.getGlobalDiagnostics()),
-						Effect.tryPromise(() => program.getSemanticDiagnostics()),
-						Effect.tryPromise(() => program.getConfigFileParsingDiagnostics()),
+						typeScriptRequest(() => program.getProgramDiagnostics()),
+						typeScriptRequest(() => program.getGlobalDiagnostics()),
+						typeScriptRequest(() => program.getSemanticDiagnostics()),
+						typeScriptRequest(() => program.getConfigFileParsingDiagnostics()),
 					],
 					{ concurrency: "unbounded" },
 				);
 				const fileDiagnostics = yield* Effect.forEach(files, (file) =>
 					Effect.all(
 						[
-							Effect.tryPromise(() => program.getBindDiagnostics(file.fileName)),
-							Effect.tryPromise(() => program.getSyntacticDiagnostics(file.fileName)),
+							typeScriptRequest(() => program.getBindDiagnostics(file.fileName)),
+							typeScriptRequest(() => program.getSyntacticDiagnostics(file.fileName)),
 						],
 						{ concurrency: "unbounded" },
 					),

@@ -3,7 +3,7 @@ import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { StatusMessage, useValueChange } from "@ryot-app/plugin-ui-sdk";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import {
 	Component,
 	type ComponentType,
@@ -37,6 +37,11 @@ export type AnalyticsSectionRegistration = {
 	readonly ownerPluginId: PluginId;
 	readonly load: null | (() => Promise<ComponentType<AnalyticsSectionProps>>);
 };
+
+class AnalyticsSectionLoadError extends Schema.TaggedError<
+	AnalyticsSectionLoadError,
+	{ readonly brand: unique symbol }
+>()("AnalyticsSectionLoadError", { cause: Schema.Unknown }) {}
 
 const AnalyticsSectionsContext = createContext<readonly AnalyticsSectionRegistration[]>([]);
 
@@ -97,7 +102,10 @@ const SectionContent = ({
 			return undefined;
 		}
 		return schedule.run(
-			Effect.tryPromise(load).pipe(
+			Effect.tryPromise({
+				try: load,
+				catch: (cause) => new AnalyticsSectionLoadError({ cause }),
+			}).pipe(
 				Effect.match({
 					onFailure: () => setLoaded({ state: "failed" }),
 					onSuccess: (component) => setLoaded({ component, state: "ready" }),

@@ -3,6 +3,8 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { resolvedMediaRef } from "../../imports/source-helpers";
+import { mediaFailureMessage } from "../../lib/error-message";
+import { MediaSandboxError } from "../../lib/failures";
 import { captureIntegrationRecords } from "../artifacts";
 import { IntegrationArtifactOutput } from "../schemas";
 import {
@@ -55,57 +57,60 @@ export default defineScript({
 			}
 			const occurredAt = yield* executionStartedAt(execution);
 			const integration = yield* host.getCurrentIntegration();
-			return yield* Effect.try(() => {
-				const payload = jsonRecord(input.rawBody);
-				const data = asRecord(payload["data"]) ?? payload;
-				const settings = asRecord(integration.providerSpecifics);
-				const url = typeof payload["url"] === "string" ? payload["url"] : undefined;
-				const disabled = Array.isArray(settings?.["disabledSites"])
-					? settings["disabledSites"].filter((site): site is string => typeof site === "string")
-					: [];
-				if (
-					url &&
-					disabled.some((site) =>
-						new URL(url).hostname
-							.toLowerCase()
-							.replace(/^www\./, "")
-							.endsWith(site.toLowerCase().replace(/^www\./, "")),
-					)
-				) {
-					return emptyResult();
-				}
-				const lot = data["lot"];
-				const id =
-					typeof data["identifier"] === "string" || typeof data["identifier"] === "number"
-						? String(data["identifier"]).trim()
-						: "";
-				const progress =
-					typeof data["progress"] === "string" ? Number(data["progress"]) : data["progress"];
-				if (
-					(lot !== "movie" && lot !== "show") ||
-					!id ||
-					typeof progress !== "number" ||
-					!Number.isFinite(progress)
-				) {
-					return failureResult("Could not parse browser extension webhook payload");
-				}
-				const locator =
-					lot === "show"
-						? showEpisodeRef(
-								Number(data["show_season_number"]),
-								Number(data["show_episode_number"]),
-							)
-						: undefined;
-				if (lot === "show" && !locator) {
-					return failureResult("Browser extension payload is missing show episode coordinates");
-				}
-				return progressResult({
-					occurredAt,
-					progressPercent: progress,
-					consumedOn: hostname(url),
-					entityRef: resolvedMediaRef(lot, "tmdb", id, id),
-					...(locator ? { unresolvedEpisode: locator } : {}),
-				});
+			return yield* Effect.try({
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+				try: () => {
+					const payload = jsonRecord(input.rawBody);
+					const data = asRecord(payload["data"]) ?? payload;
+					const settings = asRecord(integration.providerSpecifics);
+					const url = typeof payload["url"] === "string" ? payload["url"] : undefined;
+					const disabled = Array.isArray(settings?.["disabledSites"])
+						? settings["disabledSites"].filter((site): site is string => typeof site === "string")
+						: [];
+					if (
+						url &&
+						disabled.some((site) =>
+							new URL(url).hostname
+								.toLowerCase()
+								.replace(/^www\./, "")
+								.endsWith(site.toLowerCase().replace(/^www\./, "")),
+						)
+					) {
+						return emptyResult();
+					}
+					const lot = data["lot"];
+					const id =
+						typeof data["identifier"] === "string" || typeof data["identifier"] === "number"
+							? String(data["identifier"]).trim()
+							: "";
+					const progress =
+						typeof data["progress"] === "string" ? Number(data["progress"]) : data["progress"];
+					if (
+						(lot !== "movie" && lot !== "show") ||
+						!id ||
+						typeof progress !== "number" ||
+						!Number.isFinite(progress)
+					) {
+						return failureResult("Could not parse browser extension webhook payload");
+					}
+					const locator =
+						lot === "show"
+							? showEpisodeRef(
+									Number(data["show_season_number"]),
+									Number(data["show_episode_number"]),
+								)
+							: undefined;
+					if (lot === "show" && !locator) {
+						return failureResult("Browser extension payload is missing show episode coordinates");
+					}
+					return progressResult({
+						occurredAt,
+						progressPercent: progress,
+						consumedOn: hostname(url),
+						entityRef: resolvedMediaRef(lot, "tmdb", id, id),
+						...(locator ? { unresolvedEpisode: locator } : {}),
+					});
+				},
 			}).pipe(
 				Effect.orElseSucceed(() =>
 					failureResult("Could not parse browser extension webhook payload"),

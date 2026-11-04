@@ -1,4 +1,11 @@
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+
+class WorkoutSoundError extends Schema.TaggedError<
+	WorkoutSoundError,
+	{ readonly brand: unique symbol }
+>()("WorkoutSoundError", { cause: Schema.Unknown }) {}
+
+const soundError = (cause: unknown) => new WorkoutSoundError({ cause });
 
 const soundSources = {
 	check: new URL("./sounds/check.mp3", import.meta.url).href,
@@ -45,8 +52,8 @@ export const createWorkoutEditorSounds = (
 			},
 		};
 	},
-	load: (source: string) => Effect.Effect<ArrayBuffer, unknown> = (source) =>
-		Effect.tryPromise(() => loadSound(source)),
+	load: (source: string) => Effect.Effect<ArrayBuffer, WorkoutSoundError> = (source) =>
+		Effect.tryPromise({ catch: soundError, try: () => loadSound(source) }),
 ) => {
 	const buffers = new Map<WorkoutEditorSound, AudioBuffer>();
 	const sources = new Set<SoundSource>();
@@ -57,9 +64,14 @@ export const createWorkoutEditorSounds = (
 		if (disposed) {
 			return undefined;
 		}
-		const current = yield* Effect.try(() => (context ??= createContext()));
+		const current = yield* Effect.try({
+			catch: soundError,
+			try: () => (context ??= createContext()),
+		});
 		if (current.state !== "running") {
-			yield* Effect.tryPromise(() => current.resume()).pipe(Effect.timeout("2 seconds"));
+			yield* Effect.tryPromise({ catch: soundError, try: () => current.resume() }).pipe(
+				Effect.timeout("2 seconds"),
+			);
 		}
 		return current;
 	});
@@ -79,7 +91,7 @@ export const createWorkoutEditorSounds = (
 			const current = context;
 			return current === undefined
 				? Effect.void
-				: Effect.tryPromise(() => current.close()).pipe(Effect.ignore);
+				: Effect.promise(() => current.close()).pipe(Effect.ignoreCause);
 		},
 		play: (sound: WorkoutEditorSound, muted: boolean) =>
 			Effect.gen(function* () {
@@ -93,7 +105,10 @@ export const createWorkoutEditorSounds = (
 				let buffer = buffers.get(sound);
 				if (buffer === undefined) {
 					const data = yield* load(soundSources[sound]);
-					buffer = yield* Effect.tryPromise(() => current.decodeAudioData(data));
+					buffer = yield* Effect.tryPromise({
+						catch: soundError,
+						try: () => current.decodeAudioData(data),
+					});
 					buffers.set(sound, buffer);
 				}
 				if (isDisposed()) {
@@ -101,25 +116,28 @@ export const createWorkoutEditorSounds = (
 				}
 				const decoded = buffer;
 				const services = yield* Effect.context();
-				return yield* Effect.try(() => {
-					const source = current.createBufferSource();
-					source.buffer = decoded;
-					source.addEventListener(
-						"ended",
-						() => {
-							sources.delete(source);
-							source.disconnect();
-							if (sources.size === 0 && !isDisposed()) {
-								Effect.runForkWith(services)(
-									Effect.tryPromise(() => current.suspend()).pipe(Effect.ignore),
-								);
-							}
-						},
-						{ once: true },
-					);
-					sources.add(source);
-					source.start();
-					return true;
+				return yield* Effect.try({
+					catch: soundError,
+					try: () => {
+						const source = current.createBufferSource();
+						source.buffer = decoded;
+						source.addEventListener(
+							"ended",
+							() => {
+								sources.delete(source);
+								source.disconnect();
+								if (sources.size === 0 && !isDisposed()) {
+									Effect.runForkWith(services)(
+										Effect.promise(() => current.suspend()).pipe(Effect.ignoreCause),
+									);
+								}
+							},
+							{ once: true },
+						);
+						sources.add(source);
+						source.start();
+						return true;
+					},
 				});
 			}).pipe(Effect.orElseSucceed(() => false)),
 	};

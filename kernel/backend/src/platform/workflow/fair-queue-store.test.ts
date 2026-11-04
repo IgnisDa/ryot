@@ -44,7 +44,7 @@ const withIsolatedRegistry = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 
 const settle = Effect.sleep(250);
 
-const call = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
+const call = <A>(run: () => Promise<A>) => Effect.promise(run);
 
 const readKey = Effect.fnUntraced(function* (client: Client, key: string) {
 	const type = yield* call(() => client.type(key));

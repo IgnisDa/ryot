@@ -5,8 +5,12 @@ import {
 } from "@ryot-app/contract/modules/scripts/wire";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import { SANDBOX_SDK_INTRINSICS } from "@ryot-app/plugin-backend-sdk/intrinsics";
-import type { TypeScriptProjectAccess } from "@ryot-app/typescript-compiler";
-import { type Cause, Effect } from "effect";
+import {
+	type TypeScriptProjectAccess,
+	type TypeScriptProjectError,
+	typeScriptRequest,
+} from "@ryot-app/typescript-compiler";
+import { Effect } from "effect";
 import * as ts from "typescript/unstable/ast";
 import { SymbolFlags, type Type, TypeFlags } from "typescript/unstable/async";
 
@@ -17,8 +21,6 @@ import {
 	sandboxDiagnosticAt,
 } from "./compiler-diagnostics";
 import { SANDBOX_COMPILER_LIMITS } from "./limits";
-
-const checkerQuery = <A>(call: () => Promise<A>) => Effect.tryPromise(call);
 
 const children = (node: ts.Node) => {
 	const result: ts.Node[] = [];
@@ -44,7 +46,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		checker.getAliasedSymbol(symbol);
 	type BoundedQuery = <A>(
 		call: () => Promise<A>,
-	) => Effect.Effect<A, Cause.UnknownError | PluginBackendCompilerFailure>;
+	) => Effect.Effect<A, TypeScriptProjectError | PluginBackendCompilerFailure>;
 	const symbols = new Map<ts.Node, Awaited<ReturnType<typeof getSymbolAtLocation>>>();
 	const types = new Map<ts.Node, Awaited<ReturnType<typeof getTypeAtLocation>>>();
 	const declarationCache = new Map<
@@ -105,7 +107,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				if (steps > maximumSteps) {
 					return yield* analysisLimit();
 				}
-				return yield* checkerQuery(call);
+				return yield* typeScriptRequest(call);
 			});
 		const checkSteps = () => (steps > maximumSteps ? Effect.fail(analysisLimit()) : Effect.void);
 		const files = new Set(project.sourceFiles.map((file) => file.fileName));
@@ -161,7 +163,10 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		});
 		const stringValues = Effect.fnUntraced(function* (
 			type: Type | undefined,
-		): Effect.fn.Return<string[] | undefined, Cause.UnknownError | PluginBackendCompilerFailure> {
+		): Effect.fn.Return<
+			string[] | undefined,
+			TypeScriptProjectError | PluginBackendCompilerFailure
+		> {
 			if (!type) {
 				return undefined;
 			}
@@ -192,7 +197,10 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		});
 		const expressions = Effect.fnUntraced(function* (
 			expression: ts.Expression,
-		): Effect.fn.Return<string[] | undefined, Cause.UnknownError | PluginBackendCompilerFailure> {
+		): Effect.fn.Return<
+			string[] | undefined,
+			TypeScriptProjectError | PluginBackendCompilerFailure
+		> {
 			if (ts.isArrayLiteralExpression(expression)) {
 				const result: string[] = [];
 				for (const element of expression.elements) {
@@ -318,7 +326,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		const visit = Effect.fnUntraced(function* (
 			node: ts.Node,
 			receiver: string | boolean = false,
-		): Effect.fn.Return<void, Cause.UnknownError | PluginBackendCompilerFailure> {
+		): Effect.fn.Return<void, TypeScriptProjectError | PluginBackendCompilerFailure> {
 			const selections = visitedReceivers.get(node) ?? new Set<string | boolean>();
 			if (
 				(receiver !== false ? selections.has(receiver) : visited.has(node)) ||
@@ -701,7 +709,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		]);
 		const visitInitialization = Effect.fnUntraced(function* (
 			node: ts.Node,
-		): Effect.fn.Return<void, Cause.UnknownError | PluginBackendCompilerFailure> {
+		): Effect.fn.Return<void, TypeScriptProjectError | PluginBackendCompilerFailure> {
 			if (
 				ts.isTypeNode(node) ||
 				ts.isFunctionDeclaration(node) ||
@@ -764,7 +772,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 		});
 		const initialize = Effect.fnUntraced(function* (
 			file: ts.SourceFile,
-		): Effect.fn.Return<void, Cause.UnknownError | PluginBackendCompilerFailure> {
+		): Effect.fn.Return<void, TypeScriptProjectError | PluginBackendCompilerFailure> {
 			if (initialized.has(file)) {
 				return;
 			}

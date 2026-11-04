@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect";
 
 const ShippedPluginPackageIds = Schema.fromJsonString(Schema.Array(PluginPackageId));
 
-export const readShippedPlugins = Effect.tryPromise(() =>
+export const readShippedPlugins = Effect.promise(() =>
 	Bun.file(new URL("../shipped-plugins.json", import.meta.url)).text(),
 ).pipe(
 	Effect.flatMap(Schema.decodeEffect(ShippedPluginPackageIds)),
