@@ -1,4 +1,5 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { type AnalyticsSectionProps, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
@@ -12,7 +13,10 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -150,7 +154,7 @@ describe("fitness analytics section", () => {
 				const page = mountSection(clock);
 				try {
 					const settingsRequest = yield* Effect.promise(() => waitForSettingsRequest(page));
-					expect(settingsRequest.pluginId).toBe("fitness-owner");
+					expect(settingsRequest.pluginId).toBe<unknown>("fitness-owner");
 					expect(screen.getByRole("status").textContent).toContain(
 						"Loading fitness display preferences",
 					);
@@ -224,192 +228,204 @@ describe("fitness analytics section", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("retries initial settings failure and blocks query mounting for malformed settings", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountSection(clock);
-			try {
-				const first = yield* Effect.promise(() => waitForSettingsRequest(page));
-				replyFailure(page, first.requestId);
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByRole("alert").textContent).toContain(
-							"Could not load fitness display preferences",
+	it.live(
+		"retries initial settings failure and blocks query mounting for malformed settings",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountSection(clock);
+				try {
+					const first = yield* Effect.promise(() => waitForSettingsRequest(page));
+					replyFailure(page, first.requestId);
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByRole("alert").textContent).toContain(
+								"Could not load fitness display preferences",
+							),
 						),
-					),
-				);
-				expect(page.queryRequests()).toHaveLength(0);
-
-				act(() => {
-					fireEvent.click(
-						screen.getByRole("button", { name: "Retry fitness display preferences" }),
 					);
-				});
-				const retry = yield* Effect.promise(() => waitForSettingsRequest(page, 1));
-				replySettings(page, retry.requestId, { ...preferences, unitSystem: "unknown" });
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("alert").textContent).toContain("are invalid")),
-				);
-				expect(page.queryRequests()).toHaveLength(0);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+					expect(page.queryRequests()).toHaveLength(0);
+
+					act(() => {
+						fireEvent.click(
+							screen.getByRole("button", { name: "Retry fitness display preferences" }),
+						);
+					});
+					const retry = yield* Effect.promise(() => waitForSettingsRequest(page, 1));
+					replySettings(page, retry.requestId, { ...preferences, unitSystem: "unknown" });
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByRole("alert").textContent).toContain("are invalid")),
+					);
+					expect(page.queryRequests()).toHaveLength(0);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
-	it.live("preserves the selected tab across scope changes and resets it on owner change", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountSection(clock);
-			try {
-				const firstSettings = yield* Effect.promise(() => waitForSettingsRequest(page));
-				replySettings(page, firstSettings.requestId, preferences);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("workoutTrend").length).toBeGreaterThan(0)),
-				);
-				const initialTrendCount = page.queryRequests("workoutTrend").length;
-				const firstTrendRequest = yield* Effect.promise(() => waitForTrendRequest(page, 0));
+	it.live(
+		"preserves the selected tab across scope changes and resets it on owner change",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountSection(clock);
+				try {
+					const firstSettings = yield* Effect.promise(() => waitForSettingsRequest(page));
+					replySettings(page, firstSettings.requestId, preferences);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("workoutTrend").length).toBeGreaterThan(0)),
+					);
+					const initialTrendCount = page.queryRequests("workoutTrend").length;
+					const firstTrendRequest = yield* Effect.promise(() => waitForTrendRequest(page, 0));
 
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Change reporting scope" }));
-				});
-				const nextTrendRequest = yield* Effect.promise(() =>
-					waitForTrendRequest(page, initialTrendCount),
-				);
-				expect(queryText(nextTrendRequest)).not.toBe(queryText(firstTrendRequest));
-				expect(screen.getByRole("tab", { name: "Workouts" }).getAttribute("aria-selected")).toBe(
-					"true",
-				);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Change reporting scope" }));
+					});
+					const nextTrendRequest = yield* Effect.promise(() =>
+						waitForTrendRequest(page, initialTrendCount),
+					);
+					expect(queryText(nextTrendRequest)).not.toBe(queryText(firstTrendRequest));
+					expect(screen.getByRole("tab", { name: "Workouts" }).getAttribute("aria-selected")).toBe(
+						"true",
+					);
 
-				act(() => {
-					fireEvent.click(screen.getByRole("tab", { name: "Rankings" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							screen.getByRole("tab", { name: "Rankings" }).getAttribute("aria-selected"),
-						).toBe("true"),
-					),
-				);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Change owner" }));
-				});
-				const secondSettings = yield* Effect.promise(() => waitForSettingsRequest(page, 1));
-				expect(secondSettings.pluginId).toBe("fitness-other");
-				replySettings(page, secondSettings.requestId, preferences);
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							screen.getByRole("tab", { name: "Workouts" }).getAttribute("aria-selected"),
-						).toBe("true"),
-					),
-				);
-				yield* Effect.promise(() =>
-					waitFor(() => {
-						const requests = page.queryRequests("workoutTrend");
-						const latest = requests.at(-1);
-						assert(latest);
-						expect(queryText(latest)).toContain("fitness-other");
-					}),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+					act(() => {
+						fireEvent.click(screen.getByRole("tab", { name: "Rankings" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								screen.getByRole("tab", { name: "Rankings" }).getAttribute("aria-selected"),
+							).toBe("true"),
+						),
+					);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Change owner" }));
+					});
+					const secondSettings = yield* Effect.promise(() => waitForSettingsRequest(page, 1));
+					expect(secondSettings.pluginId).toBe<unknown>("fitness-other");
+					replySettings(page, secondSettings.requestId, preferences);
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								screen.getByRole("tab", { name: "Workouts" }).getAttribute("aria-selected"),
+							).toBe("true"),
+						),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							const requests = page.queryRequests("workoutTrend");
+							const latest = requests.at(-1);
+							assert(latest);
+							expect(queryText(latest)).toContain("fitness-other");
+						}),
+					);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
-	it.live("closes an open drill when its reporting scope changes and ignores its late reply", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountSection(clock);
-			try {
-				const settingsRequest = yield* Effect.promise(() => waitForSettingsRequest(page));
-				replySettings(page, settingsRequest.requestId, preferences);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
-				);
-				act(() => {
-					fireEvent.click(screen.getByRole("tab", { name: "Rankings" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(1)),
-				);
-				const rankingRequest = page.queryRequests("ranking")[0];
-				assert(rankingRequest);
-				page.replyQuery(rankingRequest.requestId, {
-					outcome: "success",
-					response: targetRankingResponse,
-				});
-				const triggerName = "View workouts contributing to Upper back";
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("button", { name: triggerName })).toBeDefined()),
-				);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: triggerName }));
-				});
-				const drillRequest = yield* Effect.promise(() =>
-					waitFor(() => {
-						const request = page
-							.queryRequests("workouts")
-							.find((item) => queryText(item).includes("target-back"));
-						assert(request);
-						return request;
-					}),
-				);
-				expect(screen.getByRole("dialog", { name: /Upper back/ })).toBeDefined();
+	it.live(
+		"closes an open drill when its reporting scope changes and ignores its late reply",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountSection(clock);
+				try {
+					const settingsRequest = yield* Effect.promise(() => waitForSettingsRequest(page));
+					replySettings(page, settingsRequest.requestId, preferences);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByRole("tablist")).toBeDefined()),
+					);
+					act(() => {
+						fireEvent.click(screen.getByRole("tab", { name: "Rankings" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(1)),
+					);
+					const rankingRequest = page.queryRequests("ranking")[0];
+					assert(rankingRequest);
+					page.replyQuery(rankingRequest.requestId, {
+						outcome: "success",
+						response: targetRankingResponse,
+					});
+					const triggerName = "View workouts contributing to Upper back";
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByRole("button", { name: triggerName })).toBeDefined()),
+					);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: triggerName }));
+					});
+					const drillRequest = yield* Effect.promise(() =>
+						waitFor(() => {
+							const request = page
+								.queryRequests("workouts")
+								.find((item) => queryText(item).includes("target-back"));
+							assert(request);
+							return request;
+						}),
+					);
+					expect(screen.getByRole("dialog", { name: /Upper back/ })).toBeDefined();
 
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Change reporting scope" }));
-				});
-				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							page
-								.clientMessages()
-								.filter(
-									(message) =>
-										message.type === "ryotql-cancel" &&
-										message.requestId === drillRequest.requestId,
-								),
-						).toHaveLength(1),
-					),
-				);
-				page.replyQuery(drillRequest.requestId, {
-					outcome: "success",
-					response: {
-						data: {
-							workouts: {
-								type: "rows",
-								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-								items: [
-									{
-										activeDuration: null,
-										id: "late-drill-workout",
-										name: "Late drill workout",
-										startedAt: "2026-01-01T00:00:00.000Z",
-									},
-								],
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Change reporting scope" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								page
+									.clientMessages()
+									.filter(
+										(message) =>
+											message.type === "ryotql-cancel" &&
+											message.requestId === drillRequest.requestId,
+									),
+							).toHaveLength(1),
+						),
+					);
+					page.replyQuery(drillRequest.requestId, {
+						outcome: "success",
+						response: {
+							data: {
+								workouts: {
+									type: "rows",
+									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+									items: [
+										{
+											activeDuration: null,
+											id: "late-drill-workout",
+											name: "Late drill workout",
+											startedAt: "2026-01-01T00:00:00.000Z",
+										},
+									],
+								},
 							},
 						},
-					},
-				});
-				yield* waitForMessagePortMacrotask;
-				expect(screen.queryByRole("dialog")).toBeNull();
-				expect(screen.queryByText("Late drill workout")).toBeNull();
-				expect(
-					page
-						.queryRequests("workouts")
-						.filter((request) => queryText(request).includes("target-back")),
-				).toHaveLength(1);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+					});
+					yield* waitForMessagePortMacrotask;
+					expect(screen.queryByRole("dialog")).toBeNull();
+					expect(screen.queryByText("Late drill workout")).toBeNull();
+					expect(
+						page
+							.queryRequests("workouts")
+							.filter((request) => queryText(request).includes("target-back")),
+					).toHaveLength(1);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 });

@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { userMediaLibraryRecipe } from "./user-media-library";
 
@@ -81,7 +82,7 @@ describe("user media library recipe", () => {
 	it("decodes the user library entity id", () => {
 		expect(
 			Result.getOrThrow(userMediaLibraryRecipe({ kind: "self" }).decode(userMediaLibraryResponse)),
-		).toEqual({ entityId: "library-1" });
+		).toEqual<unknown>({ entityId: "library-1" });
 	});
 
 	it("rejects a malformed selected field", () => {

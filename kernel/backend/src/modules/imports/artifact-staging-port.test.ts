@@ -1,9 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
 import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer } from "effect";
-import { assert } from "vitest";
 
 import { makeUserPrincipal } from "#modules/scripts/authorization/principal.test-support";
 
@@ -101,7 +104,7 @@ it.effect(
 				new Uint8Array([2]),
 			];
 			expect(yield* stage(outputs)).toEqual(["handle-0", "handle-1", "handle-2"]);
-			expect(staged).toEqual(
+			expect(staged).toEqual<unknown>(
 				outputs.map((bytes, outputIndex) => ({
 					bytes,
 					outputIndex,
@@ -112,59 +115,71 @@ it.effect(
 				})),
 			);
 			for (const [index, entry] of staged.entries()) {
-				expect(entry.bytes).toBe(outputs[index]);
+				expect(entry.bytes).toBe<unknown>(outputs[index]);
 			}
 		}).pipe(Effect.scoped);
 	},
+	testTimeout,
 );
 
-it.effect("rejects buffers above the import limit before staging them", () => {
-	const staged: StageInput[] = [];
-	return Effect.gen(function* () {
-		const port = yield* makeStagingPort(staged);
-		const stage = yield* port.prepare(input);
-		assert(stage !== null);
-		const error = yield* Effect.flip(stage([new Uint8Array(4 * 1024 * 1024 + 1)]));
-		expect(error.message).toBe("Staged artifact exceeds its byte limit");
-		expect(staged).toEqual([]);
-	}).pipe(Effect.scoped);
-});
-
-it.effect("does not return partial handles or stage later outputs after a sink failure", () => {
-	const staged: StageInput[] = [];
-	return Effect.gen(function* () {
-		const port = yield* makeStagingPort(staged, {
-			stage: (entry) =>
-				entry.outputIndex === 1
-					? Effect.fail(new ImportRunError({ message: "Second output failed" }))
-					: Effect.succeed("first-handle"),
-		});
-		const stage = yield* port.prepare(input);
-		assert(stage !== null);
-		const error = yield* Effect.flip(
-			stage([new Uint8Array([1]), new Uint8Array([2]), new Uint8Array([3])]),
-		);
-		expect(error.message).toBe("Second output failed");
-		expect(staged.map((entry) => entry.outputIndex)).toEqual([0, 1]);
-	}).pipe(Effect.scoped);
-});
-
-it.effect("keeps owner status and revision pins authoritative before accepting any bytes", () =>
-	Effect.gen(function* () {
-		for (const invalidOwner of [
-			{ ...owner, status: "completed" as const },
-			{ ...owner, pins: { ...pins, pluginRevisionId: "changed" } },
-			{ ...owner, pins: { ...pins, pluginConfigRevisionId: "changed" } },
-		]) {
-			const staged: StageInput[] = [];
-			const port = yield* makeStagingPort(staged, { owner: invalidOwner });
-			const error = yield* Effect.flip(port.prepare(input));
-			expect(error.message).toBe(
-				invalidOwner.status === "completed"
-					? "Staged artifact owner is not running"
-					: "Staged artifact execution pins changed",
-			);
+it.effect(
+	"rejects buffers above the import limit before staging them",
+	() => {
+		const staged: StageInput[] = [];
+		return Effect.gen(function* () {
+			const port = yield* makeStagingPort(staged);
+			const stage = yield* port.prepare(input);
+			assert(stage !== null);
+			const error = yield* Effect.flip(stage([new Uint8Array(4 * 1024 * 1024 + 1)]));
+			expect(error.message).toBe("Staged artifact exceeds its byte limit");
 			expect(staged).toEqual([]);
-		}
-	}).pipe(Effect.scoped),
+		}).pipe(Effect.scoped);
+	},
+	testTimeout,
+);
+
+it.effect(
+	"does not return partial handles or stage later outputs after a sink failure",
+	() => {
+		const staged: StageInput[] = [];
+		return Effect.gen(function* () {
+			const port = yield* makeStagingPort(staged, {
+				stage: (entry) =>
+					entry.outputIndex === 1
+						? Effect.fail(new ImportRunError({ message: "Second output failed" }))
+						: Effect.succeed("first-handle"),
+			});
+			const stage = yield* port.prepare(input);
+			assert(stage !== null);
+			const error = yield* Effect.flip(
+				stage([new Uint8Array([1]), new Uint8Array([2]), new Uint8Array([3])]),
+			);
+			expect(error.message).toBe("Second output failed");
+			expect(staged.map((entry) => entry.outputIndex)).toEqual([0, 1]);
+		}).pipe(Effect.scoped);
+	},
+	testTimeout,
+);
+
+it.effect(
+	"keeps owner status and revision pins authoritative before accepting any bytes",
+	() =>
+		Effect.gen(function* () {
+			for (const invalidOwner of [
+				{ ...owner, status: "completed" as const },
+				{ ...owner, pins: { ...pins, pluginRevisionId: "changed" } },
+				{ ...owner, pins: { ...pins, pluginConfigRevisionId: "changed" } },
+			]) {
+				const staged: StageInput[] = [];
+				const port = yield* makeStagingPort(staged, { owner: invalidOwner });
+				const error = yield* Effect.flip(port.prepare(input));
+				expect(error.message).toBe(
+					invalidOwner.status === "completed"
+						? "Staged artifact owner is not running"
+						: "Staged artifact execution pins changed",
+				);
+				expect(staged).toEqual([]);
+			}
+		}).pipe(Effect.scoped),
+	testTimeout,
 );

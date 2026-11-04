@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import definition, { manifest } from "./ensure-fitness-library-membership.sandbox";
 
@@ -85,34 +88,40 @@ const recordingHost = () => {
 it.effect.each([
 	{ label: "entity creation", input: entityCreate("exercise") },
 	{ label: "provider import", input: providerImport("exercise") },
-])("adds the exercise to the fitness library on $label", ({ input }) =>
-	Effect.gen(function* () {
-		const { host, changes } = recordingHost();
-		expect(yield* definition.run(yield* input, host)).toBeNull();
-		expect(changes).toEqual([
-			[
-				{
-					deletes: [],
-					creates: [
-						{
-							properties: {},
-							propertiesMode: "merge",
-							targetEntityId: "library-1",
-							sourceEntityId: "exercise-1",
-							relationshipSchemaSlug: "in-fitness-library",
-						},
-					],
-				},
-			],
-		]);
-	}),
+])(
+	"adds the exercise to the fitness library on $label",
+	({ input }) =>
+		Effect.gen(function* () {
+			const { host, changes } = recordingHost();
+			expect(yield* definition.run(yield* input, host)).toBeNull();
+			expect(changes).toEqual([
+				[
+					{
+						deletes: [],
+						creates: [
+							{
+								properties: {},
+								propertiesMode: "merge",
+								targetEntityId: "library-1",
+								sourceEntityId: "exercise-1",
+								relationshipSchemaSlug: "in-fitness-library",
+							},
+						],
+					},
+				],
+			]);
+		}),
+	testTimeout,
 );
 
-it.effect("ignores entities that are not exercises", () =>
-	Effect.gen(function* () {
-		const { host, changes } = recordingHost();
-		expect(yield* definition.run(yield* entityCreate("workout"), host)).toBeNull();
-		expect(yield* definition.run(yield* providerImport("workout"), host)).toBeNull();
-		expect(changes).toEqual([]);
-	}),
+it.effect(
+	"ignores entities that are not exercises",
+	() =>
+		Effect.gen(function* () {
+			const { host, changes } = recordingHost();
+			expect(yield* definition.run(yield* entityCreate("workout"), host)).toBeNull();
+			expect(yield* definition.run(yield* providerImport("workout"), host)).toBeNull();
+			expect(changes).toEqual([]);
+		}),
+	testTimeout,
 );

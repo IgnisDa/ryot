@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { and, castDate, column, gte, literal, lt, table } from "@ryot-app/plugin-kit/ryotql";
 import { calendarPeriod, TimeZone } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
 
 import { bookRecipes } from "./book-recipes";
 import { consumptionPeriod } from "./consumption-recipes";

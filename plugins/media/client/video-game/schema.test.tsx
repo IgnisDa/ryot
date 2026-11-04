@@ -1,5 +1,6 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { videoGameRecipes } from "../../shared/video-game-recipes";
 import {

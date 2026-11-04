@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationExecutionId,
@@ -7,12 +8,15 @@ import {
 	EventId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { assert } from "@ryot-app/testing/assert";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import {
 	makeRecordingTracer,
 	maxBindParameter,
 	recordedStatements,
 } from "@ryot-app/testing/recording-tracer";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, inArray, type SQL, sql } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Schema, type Tracer } from "effect";
 import { Workflow } from "effect/workflow";
@@ -252,115 +256,149 @@ layer(
 				expect(dispatched).toEqual(["old-generation", "new-generation"]);
 				expect(written).toEqual(["new-generation"]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("rechecks admission and ownership when a workflow owner is already recorded", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			const account = { token: "original", userId: UserId.make("registered-workflow-owner") };
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id: account.userId,
-						name: "Workflow owner",
-						accountGeneration: account.token,
-						email: "registered-workflow-owner@example.test",
-					}),
-			);
-			yield* receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow");
-			yield* receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow");
-			yield* session.run((db) =>
-				db
-					.update(tables.user)
-					.set({ accountGeneration: "replacement" })
-					.where(eq(tables.user.id, account.userId)),
-			);
-			expect(
-				(yield* Effect.flip(
-					receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow"),
-				)).message,
-			).toBe("Mutation command belongs to a retired account");
-			expect(
-				(yield* Effect.flip(
-					receipts.registerWorkflow(
-						{ ...account, token: "replacement" },
-						"ReplayWorkflow",
-						"registered-workflow",
-					),
-				)).message,
-			).toBe("Workflow belongs to another account generation");
-		}),
-	);
-
-	test.effect("allows only one account to own concurrent registrations of a workflow", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			const accounts = [
-				{ token: "first", userId: UserId.make("workflow-race-first") },
-				{ token: "second", userId: UserId.make("workflow-race-second") },
-			];
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values(
-						accounts.map((account) => ({
+	test.effect(
+		"rechecks admission and ownership when a workflow owner is already recorded",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				const account = { token: "original", userId: UserId.make("registered-workflow-owner") };
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
 							id: account.userId,
-							name: account.token,
+							name: "Workflow owner",
 							accountGeneration: account.token,
-							email: `${account.userId}@example.test`,
-						})),
-					),
-			);
-			const exits = yield* Effect.forEach(
-				accounts,
-				(account) =>
-					Effect.exit(
-						receipts.registerWorkflow(account, "ConcurrentWorkflow", "workflow-owner-race"),
-					),
-				{ concurrency: "unbounded" },
-			);
-			expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);
-			expect(exits.filter((exit) => exit._tag === "Failure")).toHaveLength(1);
-			const rows = yield* session.run((db) =>
-				db
-					.select({ userId: tables.mutationReceipt.ownerUserId })
-					.from(tables.mutationReceipt)
-					.where(eq(tables.mutationReceipt.executionId, "workflow-owner-race")),
-			);
-			expect(rows).toHaveLength(1);
-			const winner = accounts.find((_account, index) => exits[index]?._tag === "Success");
-			const loser = accounts.find((_account, index) => exits[index]?._tag === "Failure");
-			assert(winner !== undefined && loser !== undefined);
-			expect(rows[0]?.userId).toBe(winner.userId);
-			yield* receipts.registerWorkflow(winner, "ConcurrentWorkflow", "workflow-owner-race");
-			expect(
-				(yield* Effect.flip(
-					receipts.registerWorkflow(loser, "ConcurrentWorkflow", "workflow-owner-race"),
-				)).message,
-			).toBe("Workflow belongs to another account generation");
-		}),
+							email: "registered-workflow-owner@example.test",
+						}),
+				);
+				yield* receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow");
+				yield* receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow");
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ accountGeneration: "replacement" })
+						.where(eq(tables.user.id, account.userId)),
+				);
+				expect(
+					(yield* Effect.flip(
+						receipts.registerWorkflow(account, "ReplayWorkflow", "registered-workflow"),
+					)).message,
+				).toBe("Mutation command belongs to a retired account");
+				expect(
+					(yield* Effect.flip(
+						receipts.registerWorkflow(
+							{ ...account, token: "replacement" },
+							"ReplayWorkflow",
+							"registered-workflow",
+						),
+					)).message,
+				).toBe("Workflow belongs to another account generation");
+			}),
+		testTimeout,
 	);
 
-	test.effect("commits source and receipt together and replays after the source is deleted", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id: owner,
-						name: "Owner",
-						email: "receipt@example.test",
-						accountGeneration: "test-account-generation",
-					})
-					.onConflictDoNothing(),
-			);
-			const failed = yield* session
-				.transaction(
+	test.effect(
+		"allows only one account to own concurrent registrations of a workflow",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				const accounts = [
+					{ token: "first", userId: UserId.make("workflow-race-first") },
+					{ token: "second", userId: UserId.make("workflow-race-second") },
+				];
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values(
+							accounts.map((account) => ({
+								id: account.userId,
+								name: account.token,
+								accountGeneration: account.token,
+								email: `${account.userId}@example.test`,
+							})),
+						),
+				);
+				const exits = yield* Effect.forEach(
+					accounts,
+					(account) =>
+						Effect.exit(
+							receipts.registerWorkflow(account, "ConcurrentWorkflow", "workflow-owner-race"),
+						),
+					{ concurrency: "unbounded" },
+				);
+				expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);
+				expect(exits.filter((exit) => exit._tag === "Failure")).toHaveLength(1);
+				const rows = yield* session.run((db) =>
+					db
+						.select({ userId: tables.mutationReceipt.ownerUserId })
+						.from(tables.mutationReceipt)
+						.where(eq(tables.mutationReceipt.executionId, "workflow-owner-race")),
+				);
+				expect(rows).toHaveLength(1);
+				const winner = accounts.find((_account, index) => exits[index]?._tag === "Success");
+				const loser = accounts.find((_account, index) => exits[index]?._tag === "Failure");
+				assert(winner !== undefined && loser !== undefined);
+				expect(rows[0]?.userId).toBe(winner.userId);
+				yield* receipts.registerWorkflow(winner, "ConcurrentWorkflow", "workflow-owner-race");
+				expect(
+					(yield* Effect.flip(
+						receipts.registerWorkflow(loser, "ConcurrentWorkflow", "workflow-owner-race"),
+					)).message,
+				).toBe("Workflow belongs to another account generation");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"commits source and receipt together and replays after the source is deleted",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							id: owner,
+							name: "Owner",
+							email: "receipt@example.test",
+							accountGeneration: "test-account-generation",
+						})
+						.onConflictDoNothing(),
+				);
+				const failed = yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db
+									.insert(tables.entity)
+									.values({
+										id: entityId,
+										userId: owner,
+										name: "Record",
+										entitySchemaSlug: "record",
+									}),
+							);
+							yield* receipts.insert({
+								dispatch: [],
+								result: { entityId },
+								identity: identity("Record"),
+							});
+							return yield* new DbError({ message: "Rollback source and receipt" });
+						}),
+					)
+					.pipe(Effect.flip);
+				expect(failed.message).toBe("Rollback source and receipt");
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				expect(yield* session.transaction(receipts.lookup(identity("Record"), Result))).toBeNull();
+
+				yield* session.transaction(
 					Effect.gen(function* () {
 						yield* session.run((db) =>
 							db
@@ -377,101 +415,91 @@ layer(
 							result: { entityId },
 							identity: identity("Record"),
 						});
-						return yield* new DbError({ message: "Rollback source and receipt" });
 					}),
-				)
-				.pipe(Effect.flip);
-			expect(failed.message).toBe("Rollback source and receipt");
-			expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-			expect(yield* session.transaction(receipts.lookup(identity("Record"), Result))).toBeNull();
-
-			yield* session.transaction(
-				Effect.gen(function* () {
-					yield* session.run((db) =>
-						db
-							.insert(tables.entity)
-							.values({ id: entityId, userId: owner, name: "Record", entitySchemaSlug: "record" }),
-					);
-					yield* receipts.insert({
-						dispatch: [],
-						result: { entityId },
-						identity: identity("Record"),
-					});
-				}),
-			);
-			expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
-			expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
-			yield* session.run((db) => db.delete(tables.entity).where(eq(tables.entity.id, entityId)));
-			expect(yield* session.transaction(receipts.lookup(identity("Record"), Result))).toEqual({
-				dispatch: [],
-				result: { entityId },
-			});
-			expect(
-				yield* session.transaction(receipts.lookup(identity("Changed"), Result)).pipe(Effect.flip),
-			).toMatchObject({
-				receiptId: identity("Record").id,
-				_tag: "MutationReceiptIdentityConflict",
-			});
-			expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-		}),
+				);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
+				yield* session.run((db) => db.delete(tables.entity).where(eq(tables.entity.id, entityId)));
+				expect(yield* session.transaction(receipts.lookup(identity("Record"), Result))).toEqual({
+					dispatch: [],
+					result: { entityId },
+				});
+				expect(
+					yield* session
+						.transaction(receipts.lookup(identity("Changed"), Result))
+						.pipe(Effect.flip),
+				).toMatchObject({
+					receiptId: identity("Record").id,
+					_tag: "MutationReceiptIdentityConflict",
+				});
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("counts only committed event-item receipts and ignores decision rows", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: owner, name: "Owner", email: "receipt-progress@example.test" })
-					.onConflictDoNothing(),
-			);
-			const eventCommand = { ...command, itemIdentity: "event:0" };
-			const eventReceipt = mutationReceiptIdentity({
-				ownerUserId: owner,
-				scopeUserId: owner,
-				command: eventCommand,
-				input: { properties: {} },
-				commandKind: "event:create",
-			});
-			const batchId = receipts.batchIdentity({
-				command,
-				resource: "event",
-				ownerUserId: owner,
-				identity: ["events"],
-			});
-			yield* session.transaction(
-				Effect.gen(function* () {
-					const decision = yield* receipts.beginBatch({ pins: [], maxItems: 2, identity: batchId });
-					expect(decision.candidateCount).toBe(0);
-					yield* receipts.insert({
-						dispatch: [],
-						batchIndex: 0,
-						batchId: batchId.id,
-						identity: eventReceipt,
-						result: { eventId: EventId.make("event-0") },
-					});
-					yield* receipts.insert({
-						result: null,
-						dispatch: [],
-						batchIndex: 1,
-						batchId: batchId.id,
-						identity: mutationReceiptIdentity({
-							input: {},
-							ownerUserId: owner,
-							scopeUserId: owner,
-							commandKind: "event:noop",
-							command: { ...command, itemIdentity: "skipped:1" },
-						}),
-					});
-					yield* receipts.sealBatch(batchId, []);
-				}),
-			);
-			expect(yield* receipts.countWrittenEvents(owner, command.causation.executionId)).toEqual({
-				dispatch: [],
-				writtenCount: 1,
-			});
-		}),
+	test.effect(
+		"counts only committed event-item receipts and ignores decision rows",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: owner, name: "Owner", email: "receipt-progress@example.test" })
+						.onConflictDoNothing(),
+				);
+				const eventCommand = { ...command, itemIdentity: "event:0" };
+				const eventReceipt = mutationReceiptIdentity({
+					ownerUserId: owner,
+					scopeUserId: owner,
+					command: eventCommand,
+					input: { properties: {} },
+					commandKind: "event:create",
+				});
+				const batchId = receipts.batchIdentity({
+					command,
+					resource: "event",
+					ownerUserId: owner,
+					identity: ["events"],
+				});
+				yield* session.transaction(
+					Effect.gen(function* () {
+						const decision = yield* receipts.beginBatch({
+							pins: [],
+							maxItems: 2,
+							identity: batchId,
+						});
+						expect(decision.candidateCount).toBe(0);
+						yield* receipts.insert({
+							dispatch: [],
+							batchIndex: 0,
+							batchId: batchId.id,
+							identity: eventReceipt,
+							result: { eventId: EventId.make("event-0") },
+						});
+						yield* receipts.insert({
+							result: null,
+							dispatch: [],
+							batchIndex: 1,
+							batchId: batchId.id,
+							identity: mutationReceiptIdentity({
+								input: {},
+								ownerUserId: owner,
+								scopeUserId: owner,
+								commandKind: "event:noop",
+								command: { ...command, itemIdentity: "skipped:1" },
+							}),
+						});
+						yield* receipts.sealBatch(batchId, []);
+					}),
+				);
+				expect(yield* receipts.countWrittenEvents(owner, command.causation.executionId)).toEqual({
+					dispatch: [],
+					writtenCount: 1,
+				});
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -540,6 +568,7 @@ layer(
 					}),
 				);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -583,7 +612,7 @@ layer(
 					const contents = yield* session.transaction(
 						receipts.batchContents(batch, Schema.Struct({ index: Schema.Int })),
 					);
-					expect(contents.pins).toEqual(
+					expect(contents.pins).toEqual<unknown>(
 						pins.map(({ payload, references }) => ({ payload, references })),
 					);
 					expect(contents.candidateCount).toBe(count);
@@ -602,37 +631,43 @@ layer(
 					expect(receiptInsertStatements(replaySpans)).toEqual([]);
 				}
 			}),
+		testTimeout,
 	);
 
-	test.effect("decodes every candidate before inserting the decision or any candidates", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			yield* seedPinTargets();
-			const batch = receipts.batchIdentity({
-				resource: "entity",
-				ownerUserId: setOwner,
-				identity: ["invalid-bulk-pin"],
-				command: { ...command, accountGeneration: setAccount },
-			});
-			const lastIndex = insertChunkSize(tables.mutationReceipt);
-			const pins = batchPins("invalid-bulk-pin", lastIndex + 1, (index) =>
-				index === lastIndex ? undefined : { index },
-			);
-			const spans: Tracer.Span[] = [];
-			expect(
-				yield* session
-					.transaction(
-						receipts
-							.beginBatch({ pins, maxItems: 1, identity: batch })
-							.pipe(Effect.withTracer(makeRecordingTracer(spans))),
-					)
-					.pipe(Effect.flip),
-			).toMatchObject({ _tag: "DbError", message: stringContaining("Invalid batch pin") });
-			expect(receiptInsertStatements(spans)).toEqual([]);
-			expect(yield* receiptRowIds([batch.id, ...pins.map(({ id }) => id)])).toEqual([]);
-		}),
+	test.effect(
+		"decodes every candidate before inserting the decision or any candidates",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				yield* seedPinTargets();
+				const batch = receipts.batchIdentity({
+					resource: "entity",
+					ownerUserId: setOwner,
+					identity: ["invalid-bulk-pin"],
+					command: { ...command, accountGeneration: setAccount },
+				});
+				const lastIndex = insertChunkSize(tables.mutationReceipt);
+				const pins = batchPins("invalid-bulk-pin", lastIndex + 1, (index) =>
+					index === lastIndex ? undefined : { index },
+				);
+				const spans: Tracer.Span[] = [];
+				expect(
+					yield* session
+						.transaction(
+							receipts
+								.beginBatch({ pins, maxItems: 1, identity: batch })
+								.pipe(Effect.withTracer(makeRecordingTracer(spans))),
+						)
+						.pipe(Effect.flip),
+				).toEqual<unknown>(
+					objectContaining({ _tag: "DbError", message: stringContaining("Invalid batch pin") }),
+				);
+				expect(receiptInsertStatements(spans)).toEqual([]);
+				expect(yield* receiptRowIds([batch.id, ...pins.map(({ id }) => id)])).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -676,6 +711,7 @@ layer(
 						.pipe(Effect.flip),
 				).toMatchObject({ receiptId: batch.id, _tag: "MutationReceiptIdentityConflict" });
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -728,6 +764,7 @@ layer(
 					expect(yield* session.transaction(receipts.lookup(stored, Result))).toEqual(hit);
 				}
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -812,61 +849,65 @@ layer(
 					}),
 				);
 			}),
+		testTimeout,
 	);
 
-	test.effect("serializes concurrent attempts for the same receipt identity", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: owner, name: "Owner", email: "receipt-concurrent@example.test" })
-					.onConflictDoNothing(),
-			);
-			const concurrent = mutationReceiptIdentity({
-				ownerUserId: owner,
-				scopeUserId: owner,
-				commandKind: "entity:create",
-				input: { entityId, name: "Concurrent" },
-				command: { ...command, itemIdentity: "concurrent-command" },
-			});
-			const inserted = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const started = yield* Deferred.make<void>();
-			const finished = yield* Deferred.make<void>();
-			const first = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						expect(yield* receipts.lookup(concurrent, Result)).toBeNull();
-						yield* receipts.insert({ dispatch: [], result: { entityId }, identity: concurrent });
-						yield* Deferred.succeed(inserted, undefined);
-						yield* Deferred.await(release);
-					}),
-				),
-			);
-			yield* Deferred.await(inserted);
-			const second = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						yield* Deferred.succeed(started, undefined);
-						const replay = yield* receipts.lookup(concurrent, Result);
-						yield* Deferred.succeed(finished, undefined);
-						return replay;
-					}),
-				),
-			);
-			yield* Deferred.await(started);
-			expect(yield* Deferred.isDone(finished)).toBe(false);
-			yield* Deferred.succeed(release, undefined);
-			yield* Fiber.join(first);
-			expect(yield* Fiber.join(second)).toEqual({ dispatch: [], result: { entityId } });
-			expect(
-				(yield* session.run((db) => db.select().from(tables.mutationReceipt))).filter(
-					({ id, receiptType }) => id === concurrent.id && receiptType === "item",
-				),
-			).toHaveLength(1);
-		}),
+	test.effect(
+		"serializes concurrent attempts for the same receipt identity",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: owner, name: "Owner", email: "receipt-concurrent@example.test" })
+						.onConflictDoNothing(),
+				);
+				const concurrent = mutationReceiptIdentity({
+					ownerUserId: owner,
+					scopeUserId: owner,
+					commandKind: "entity:create",
+					input: { entityId, name: "Concurrent" },
+					command: { ...command, itemIdentity: "concurrent-command" },
+				});
+				const inserted = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const started = yield* Deferred.make<void>();
+				const finished = yield* Deferred.make<void>();
+				const first = yield* Effect.forkScoped(
+					session.transaction(
+						Effect.gen(function* () {
+							expect(yield* receipts.lookup(concurrent, Result)).toBeNull();
+							yield* receipts.insert({ dispatch: [], result: { entityId }, identity: concurrent });
+							yield* Deferred.succeed(inserted, undefined);
+							yield* Deferred.await(release);
+						}),
+					),
+				);
+				yield* Deferred.await(inserted);
+				const second = yield* Effect.forkScoped(
+					session.transaction(
+						Effect.gen(function* () {
+							yield* Deferred.succeed(started, undefined);
+							const replay = yield* receipts.lookup(concurrent, Result);
+							yield* Deferred.succeed(finished, undefined);
+							return replay;
+						}),
+					),
+				);
+				yield* Deferred.await(started);
+				expect(yield* Deferred.isDone(finished)).toBe(false);
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(first);
+				expect(yield* Fiber.join(second)).toEqual({ dispatch: [], result: { entityId } });
+				expect(
+					(yield* session.run((db) => db.select().from(tables.mutationReceipt))).filter(
+						({ id, receiptType }) => id === concurrent.id && receiptType === "item",
+					),
+				).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -951,109 +992,124 @@ layer(
 					yield* session.transaction(receipts.lookup(receiptFor(next.token), Result)),
 				).toBeNull();
 			}),
+		testTimeout,
 	);
 
-	test.effect("looks up a set of receipts exactly as sequential lookups would", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const [first, second, missing] = ["set-first", "set-second", "set-missing"].map((name) =>
-				setIdentity(name),
-			);
-			assert(first && second && missing);
-			yield* session.transaction(receipts.insertMany([record(first), record(second)]));
-			const sequential = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
-				session.transaction(
-					Effect.forEach(identities, (receipt) => receipts.lookup(receipt, Result)),
+	test.effect(
+		"looks up a set of receipts exactly as sequential lookups would",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const [first, second, missing] = ["set-first", "set-second", "set-missing"].map((name) =>
+					setIdentity(name),
 				);
-			const many = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
-				session.transaction(receipts.lookupMany(identities, Result));
-			const replayed = [first, missing, second, first];
-			expect(yield* many(replayed)).toEqual([hit, null, hit, hit]);
-			expect(yield* many(replayed)).toEqual(yield* sequential(replayed));
-			const conflicted = [first, missing, second, { ...first, inputFingerprint: "changed" }];
-			const conflict = yield* many(conflicted).pipe(Effect.flip);
-			expect(conflict).toMatchObject({
-				receiptId: first.id,
-				_tag: "MutationReceiptIdentityConflict",
-			});
-			expect(conflict).toEqual(yield* sequential(conflicted).pipe(Effect.flip));
-			expect(yield* many([])).toEqual([]);
-		}),
+				assert(first && second && missing);
+				yield* session.transaction(receipts.insertMany([record(first), record(second)]));
+				const sequential = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+					session.transaction(
+						Effect.forEach(identities, (receipt) => receipts.lookup(receipt, Result)),
+					);
+				const many = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+					session.transaction(receipts.lookupMany(identities, Result));
+				const replayed = [first, missing, second, first];
+				expect(yield* many(replayed)).toEqual([hit, null, hit, hit]);
+				expect(yield* many(replayed)).toEqual(yield* sequential(replayed));
+				const conflicted = [first, missing, second, { ...first, inputFingerprint: "changed" }];
+				const conflict = yield* many(conflicted).pipe(Effect.flip);
+				expect(conflict).toMatchObject({
+					receiptId: first.id,
+					_tag: "MutationReceiptIdentityConflict",
+				});
+				expect(conflict).toEqual(yield* sequential(conflicted).pipe(Effect.flip));
+				expect(yield* many([])).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("inserts a set of receipts that a later transaction replays", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const identities = ["insert-many-a", "insert-many-b", "insert-many-c"].map((name) =>
-				setIdentity(name),
-			);
-			yield* session.transaction(
-				receipts.insertMany(
-					identities.map((receipt, batchIndex) => ({ ...record(receipt), batchIndex })),
-				),
-			);
-			expect(yield* session.transaction(receipts.lookupMany(identities, Result))).toEqual([
-				hit,
-				hit,
-				hit,
-			]);
-			expect(
-				yield* session.transaction(receipts.lookupMany(identities.toReversed(), Result)),
-			).toEqual([hit, hit, hit]);
-		}),
+	test.effect(
+		"inserts a set of receipts that a later transaction replays",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const identities = ["insert-many-a", "insert-many-b", "insert-many-c"].map((name) =>
+					setIdentity(name),
+				);
+				yield* session.transaction(
+					receipts.insertMany(
+						identities.map((receipt, batchIndex) => ({ ...record(receipt), batchIndex })),
+					),
+				);
+				expect(yield* session.transaction(receipts.lookupMany(identities, Result))).toEqual([
+					hit,
+					hit,
+					hit,
+				]);
+				expect(
+					yield* session.transaction(receipts.lookupMany(identities.toReversed(), Result)),
+				).toEqual([hit, hit, hit]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects duplicate receipt identities before inserting any of the set", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const unique = setIdentity("duplicate-unique");
-			const repeated = setIdentity("duplicate-repeated");
-			expect(
-				yield* session
-					.transaction(
-						receipts.insertMany([
-							record(unique),
-							record(repeated),
-							record({ ...repeated, inputFingerprint: "changed" }),
-						]),
-					)
-					.pipe(Effect.flip),
-			).toMatchObject({ message: "Mutation receipt batch repeats an identity" });
-			expect(yield* receiptRowIds([unique.id, repeated.id])).toEqual([]);
-		}),
+	test.effect(
+		"rejects duplicate receipt identities before inserting any of the set",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const unique = setIdentity("duplicate-unique");
+				const repeated = setIdentity("duplicate-repeated");
+				expect(
+					yield* session
+						.transaction(
+							receipts.insertMany([
+								record(unique),
+								record(repeated),
+								record({ ...repeated, inputFingerprint: "changed" }),
+							]),
+						)
+						.pipe(Effect.flip),
+				).toMatchObject({ message: "Mutation receipt batch repeats an identity" });
+				expect(yield* receiptRowIds([unique.id, repeated.id])).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a set after its account generation changes, as lookup does", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			const retired = { token: "retired-generation", userId: UserId.make("receipt-set-retired") };
-			yield* seedAccount(retired);
-			const receipt = setIdentity("retired-set", retired);
-			yield* session.run((db) =>
-				db
-					.update(tables.user)
-					.set({ accountGeneration: "replacement-generation" })
-					.where(eq(tables.user.id, retired.userId)),
-			);
-			const expected = yield* session
-				.transaction(receipts.lookup(receipt, Result))
-				.pipe(Effect.flip);
-			expect(expected).toMatchObject({ message: "Mutation command belongs to a retired account" });
-			expect(
-				yield* session.transaction(receipts.lookupMany([receipt], Result)).pipe(Effect.flip),
-			).toEqual(expected);
-			expect(
-				yield* session.transaction(receipts.insertMany([record(receipt)])).pipe(Effect.flip),
-			).toEqual(expected);
-			expect(yield* receiptRowIds([receipt.id])).toEqual([]);
-		}),
+	test.effect(
+		"rejects a set after its account generation changes, as lookup does",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				const retired = { token: "retired-generation", userId: UserId.make("receipt-set-retired") };
+				yield* seedAccount(retired);
+				const receipt = setIdentity("retired-set", retired);
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ accountGeneration: "replacement-generation" })
+						.where(eq(tables.user.id, retired.userId)),
+				);
+				const expected = yield* session
+					.transaction(receipts.lookup(receipt, Result))
+					.pipe(Effect.flip);
+				expect(expected).toMatchObject({
+					message: "Mutation command belongs to a retired account",
+				});
+				expect(
+					yield* session.transaction(receipts.lookupMany([receipt], Result)).pipe(Effect.flip),
+				).toEqual<unknown>(expected);
+				expect(
+					yield* session.transaction(receipts.insertMany([record(receipt)])).pipe(Effect.flip),
+				).toEqual<unknown>(expected);
+				expect(yield* receiptRowIds([receipt.id])).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -1081,218 +1137,239 @@ layer(
 						yield* session
 							.transaction(receipts.lookupMany([valid, mismatched], Result))
 							.pipe(Effect.flip),
-					).toEqual(expected);
+					).toEqual<unknown>(expected);
 					expect(
 						yield* session.transaction(receipts.insert(record(mismatched))).pipe(Effect.flip),
-					).toEqual(expected);
+					).toEqual<unknown>(expected);
 					expect(
 						yield* session
 							.transaction(receipts.insertMany([record(valid), record(mismatched)]))
 							.pipe(Effect.flip),
-					).toEqual(expected);
+					).toEqual<unknown>(expected);
 					expect(yield* receiptRowIds([valid.id, mismatched.id])).toEqual([]);
 				}
 			}),
+		testTimeout,
 	);
 
-	test.effect("raises the earliest error in input order across conflicts and scope checks", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const stored = setIdentity("error-order-stored");
-			yield* session.transaction(receipts.insert(record(stored)));
-			const conflict = { ...stored, inputFingerprint: "changed" };
-			const scoped = {
-				...setIdentity("error-order-scoped"),
-				scopeUserId: UserId.make("receipt-set-other"),
-			};
-			const lookupMany = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
-				session.transaction(receipts.lookupMany(identities, Result)).pipe(Effect.flip);
-			const sequential = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
-				session
-					.transaction(Effect.forEach(identities, (receipt) => receipts.lookup(receipt, Result)))
-					.pipe(Effect.flip);
-			const conflictFirst = yield* lookupMany([stored, conflict, scoped]);
-			expect(conflictFirst).toMatchObject({
-				receiptId: stored.id,
-				_tag: "MutationReceiptIdentityConflict",
-			});
-			expect(conflictFirst).toEqual(yield* sequential([stored, conflict, scoped]));
-			const scopeFirst = yield* lookupMany([stored, scoped, conflict]);
-			expect(scopeFirst).toMatchObject({
-				message: "Mutation command account identity does not match its scope",
-			});
-			expect(scopeFirst).toEqual(yield* sequential([stored, scoped, conflict]));
-		}),
+	test.effect(
+		"raises the earliest error in input order across conflicts and scope checks",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const stored = setIdentity("error-order-stored");
+				yield* session.transaction(receipts.insert(record(stored)));
+				const conflict = { ...stored, inputFingerprint: "changed" };
+				const scoped = {
+					...setIdentity("error-order-scoped"),
+					scopeUserId: UserId.make("receipt-set-other"),
+				};
+				const lookupMany = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+					session.transaction(receipts.lookupMany(identities, Result)).pipe(Effect.flip);
+				const sequential = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+					session
+						.transaction(Effect.forEach(identities, (receipt) => receipts.lookup(receipt, Result)))
+						.pipe(Effect.flip);
+				const conflictFirst = yield* lookupMany([stored, conflict, scoped]);
+				expect(conflictFirst).toMatchObject({
+					receiptId: stored.id,
+					_tag: "MutationReceiptIdentityConflict",
+				});
+				expect(conflictFirst).toEqual(yield* sequential([stored, conflict, scoped]));
+				const scopeFirst = yield* lookupMany([stored, scoped, conflict]);
+				expect(scopeFirst).toMatchObject({
+					message: "Mutation command account identity does not match its scope",
+				});
+				expect(scopeFirst).toEqual(yield* sequential([stored, scoped, conflict]));
+			}),
+		testTimeout,
 	);
 
-	test.effect("locks overlapping sets in sorted order so concurrent transactions finish", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const low = { ...setIdentity("overlap-low"), id: "overlap-a" };
-			const high = { ...setIdentity("overlap-high"), id: "overlap-b" };
-			const { release } = yield* holdReceiptLock(low.id);
-			const ascending = yield* Effect.forkScoped(
-				session.transaction(receipts.lookupMany([low, high], Result)),
-			);
-			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
-			const descending = yield* Effect.forkScoped(
-				session.transaction(receipts.lookupMany([high, low], Result)),
-			);
-			expect(yield* waitForAdvisoryWaiters(2)).toBe(true);
-			yield* release;
-			expect(yield* Fiber.join(ascending)).toEqual([null, null]);
-			expect(yield* Fiber.join(descending)).toEqual([null, null]);
-		}),
+	test.effect(
+		"locks overlapping sets in sorted order so concurrent transactions finish",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const low = { ...setIdentity("overlap-low"), id: "overlap-a" };
+				const high = { ...setIdentity("overlap-high"), id: "overlap-b" };
+				const { release } = yield* holdReceiptLock(low.id);
+				const ascending = yield* Effect.forkScoped(
+					session.transaction(receipts.lookupMany([low, high], Result)),
+				);
+				expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+				const descending = yield* Effect.forkScoped(
+					session.transaction(receipts.lookupMany([high, low], Result)),
+				);
+				expect(yield* waitForAdvisoryWaiters(2)).toBe(true);
+				yield* release;
+				expect(yield* Fiber.join(ascending)).toEqual([null, null]);
+				expect(yield* Fiber.join(descending)).toEqual([null, null]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("locks receipt keys in code-unit order rather than input or collation order", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const lower = { ...setIdentity("lock-order-lower"), id: "lock-order-a" };
-			const upper = { ...setIdentity("lock-order-upper"), id: "Lock-order-B" };
-			const { release } = yield* holdReceiptLock(lower.id);
-			const waiting = yield* Effect.forkScoped(
-				session.transaction(receipts.lookupMany([lower, upper], Result)),
-			);
-			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
-			const [upperLock] = yield* session.transaction(
-				session.run((db) =>
-					db.execute<{ readonly locked: boolean }>(
-						sql`select pg_try_advisory_xact_lock(hashtext(${`mutation-receipt:${upper.id}`})) as locked`,
-						"objects",
+	test.effect(
+		"locks receipt keys in code-unit order rather than input or collation order",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const lower = { ...setIdentity("lock-order-lower"), id: "lock-order-a" };
+				const upper = { ...setIdentity("lock-order-upper"), id: "Lock-order-B" };
+				const { release } = yield* holdReceiptLock(lower.id);
+				const waiting = yield* Effect.forkScoped(
+					session.transaction(receipts.lookupMany([lower, upper], Result)),
+				);
+				expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+				const [upperLock] = yield* session.transaction(
+					session.run((db) =>
+						db.execute<{ readonly locked: boolean }>(
+							sql`select pg_try_advisory_xact_lock(hashtext(${`mutation-receipt:${upper.id}`})) as locked`,
+							"objects",
+						),
 					),
-				),
-			);
-			expect(upperLock?.locked).toBe(false);
-			yield* release;
-			expect(yield* Fiber.join(waiting)).toEqual([null, null]);
-		}),
+				);
+				expect(upperLock?.locked).toBe(false);
+				yield* release;
+				expect(yield* Fiber.join(waiting)).toEqual([null, null]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("serializes a set lookup with a concurrent single lookup of the same receipt", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const shared = setIdentity("serialize-lookup-shared");
-			const other = setIdentity("serialize-lookup-other");
-			const inserted = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const writer = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						expect(yield* receipts.lookup(shared, Result)).toBeNull();
-						yield* receipts.insert(record(shared));
-						yield* Deferred.succeed(inserted, undefined);
-						yield* Deferred.await(release);
-					}),
-				),
-			);
-			yield* Deferred.await(inserted);
-			const reader = yield* Effect.forkScoped(
-				session.transaction(receipts.lookupMany([other, shared], Result)),
-			);
-			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
-			yield* Deferred.succeed(release, undefined);
-			yield* Fiber.join(writer);
-			expect(yield* Fiber.join(reader)).toEqual([null, hit]);
-		}),
-	);
-
-	test.effect("takes its own receipt locks when inserting a set without a prior lookup", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* seedAccount(setAccount);
-			const shared = setIdentity("serialize-insert-shared");
-			const inserted = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const writer = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						yield* receipts.insertMany([
-							record(setIdentity("serialize-insert-other")),
-							record(shared),
-						]);
-						yield* Deferred.succeed(inserted, undefined);
-						yield* Deferred.await(release);
-					}),
-				),
-			);
-			yield* Deferred.await(inserted);
-			const reader = yield* Effect.forkScoped(session.transaction(receipts.lookup(shared, Result)));
-			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
-			yield* Deferred.succeed(release, undefined);
-			yield* Fiber.join(writer);
-			expect(yield* Fiber.join(reader)).toEqual(hit);
-		}),
-	);
-
-	test.effect("prunes old receipts that no live workflow or pending batch can replay", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
-			yield* session.run((db) =>
-				db.insert(tables.workflowExecution).values([
-					{
-						status: "active",
-						workflowName: "Live",
-						rootWorkflowName: "Live",
-						executionId: "prune-live-root",
-						rootExecutionId: "prune-live-root",
-					},
-					{
-						expiredAt: old,
-						completedAt: old,
-						status: "succeeded",
-						workflowName: "Expired",
-						rootWorkflowName: "Expired",
-						executionId: "prune-expired-root",
-						rootExecutionId: "prune-expired-root",
-					},
-				]),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.mutationReceipt)
-					.values([
-						pruneReceipt("prune-old"),
-						pruneReceipt("prune-recent", { recordedAt: sql`now() - interval '13 days'` }),
-						pruneReceipt("prune-live-item", { rootExecutionId: "prune-live-root" }),
-						pruneReceipt("prune-expired-item", { rootExecutionId: "prune-expired-root" }),
-						pruneReceipt("prune-pending-batch", { receiptType: "batch-decision" }),
-						pruneReceipt("prune-pending-batch-item", { batchId: "prune-pending-batch" }),
-						pruneReceipt("prune-pending-batch-candidate", {
-							batchId: "prune-pending-batch",
-							receiptType: "batch-candidate",
+	test.effect(
+		"serializes a set lookup with a concurrent single lookup of the same receipt",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const shared = setIdentity("serialize-lookup-shared");
+				const other = setIdentity("serialize-lookup-other");
+				const inserted = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const writer = yield* Effect.forkScoped(
+					session.transaction(
+						Effect.gen(function* () {
+							expect(yield* receipts.lookup(shared, Result)).toBeNull();
+							yield* receipts.insert(record(shared));
+							yield* Deferred.succeed(inserted, undefined);
+							yield* Deferred.await(release);
 						}),
-						pruneReceipt("prune-sealed-batch", { receiptType: "batch-decision" }),
+					),
+				);
+				yield* Deferred.await(inserted);
+				const reader = yield* Effect.forkScoped(
+					session.transaction(receipts.lookupMany([other, shared], Result)),
+				);
+				expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(writer);
+				expect(yield* Fiber.join(reader)).toEqual([null, hit]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"takes its own receipt locks when inserting a set without a prior lookup",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const shared = setIdentity("serialize-insert-shared");
+				const inserted = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const writer = yield* Effect.forkScoped(
+					session.transaction(
+						Effect.gen(function* () {
+							yield* receipts.insertMany([
+								record(setIdentity("serialize-insert-other")),
+								record(shared),
+							]);
+							yield* Deferred.succeed(inserted, undefined);
+							yield* Deferred.await(release);
+						}),
+					),
+				);
+				yield* Deferred.await(inserted);
+				const reader = yield* Effect.forkScoped(
+					session.transaction(receipts.lookup(shared, Result)),
+				);
+				expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(writer);
+				expect(yield* Fiber.join(reader)).toEqual(hit);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"prunes old receipts that no live workflow or pending batch can replay",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* session.run((db) =>
+					db.insert(tables.workflowExecution).values([
+						{
+							status: "active",
+							workflowName: "Live",
+							rootWorkflowName: "Live",
+							executionId: "prune-live-root",
+							rootExecutionId: "prune-live-root",
+						},
+						{
+							expiredAt: old,
+							completedAt: old,
+							status: "succeeded",
+							workflowName: "Expired",
+							rootWorkflowName: "Expired",
+							executionId: "prune-expired-root",
+							rootExecutionId: "prune-expired-root",
+						},
 					]),
-			);
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.mutationReceipt)
+						.values([
+							pruneReceipt("prune-old"),
+							pruneReceipt("prune-recent", { recordedAt: sql`now() - interval '13 days'` }),
+							pruneReceipt("prune-live-item", { rootExecutionId: "prune-live-root" }),
+							pruneReceipt("prune-expired-item", { rootExecutionId: "prune-expired-root" }),
+							pruneReceipt("prune-pending-batch", { receiptType: "batch-decision" }),
+							pruneReceipt("prune-pending-batch-item", { batchId: "prune-pending-batch" }),
+							pruneReceipt("prune-pending-batch-candidate", {
+								batchId: "prune-pending-batch",
+								receiptType: "batch-candidate",
+							}),
+							pruneReceipt("prune-sealed-batch", { receiptType: "batch-decision" }),
+						]),
+				);
 
-			expect(yield* receipts.pruneRetired(100)).toBe(3);
+				expect(yield* receipts.pruneRetired(100)).toBe(3);
 
-			const remaining = yield* session.run((db) =>
-				db
-					.select({ id: tables.mutationReceipt.id })
-					.from(tables.mutationReceipt)
-					.where(sql`${tables.mutationReceipt.id} like 'prune-%'`),
-			);
-			expect(new Set(remaining.map(({ id }) => id))).toEqual(
-				new Set([
-					"prune-recent",
-					"prune-live-item",
-					"prune-pending-batch",
-					"prune-pending-batch-item",
-					"prune-pending-batch-candidate",
-				]),
-			);
-		}),
+				const remaining = yield* session.run((db) =>
+					db
+						.select({ id: tables.mutationReceipt.id })
+						.from(tables.mutationReceipt)
+						.where(sql`${tables.mutationReceipt.id} like 'prune-%'`),
+				);
+				expect(new Set(remaining.map(({ id }) => id))).toEqual(
+					new Set([
+						"prune-recent",
+						"prune-live-item",
+						"prune-pending-batch",
+						"prune-pending-batch-item",
+						"prune-pending-batch-candidate",
+					]),
+				);
+			}),
+		testTimeout,
 	);
 });

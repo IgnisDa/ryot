@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { NotFound, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	PluginConfigRevisionId,
@@ -9,6 +10,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -151,23 +154,26 @@ const installedScriptRepository = mockRepository({
 });
 
 layer(makeServiceLayer({ repository: installedScriptRepository }))((test) => {
-	test.effect("executes an installed script as the explicit user", () =>
-		Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			yield* service.enqueue(executingUserId, { scriptId, context: {} }, "interactive");
-			const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
+	test.effect(
+		"executes an installed script as the explicit user",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				yield* service.enqueue(executingUserId, { scriptId, context: {} }, "interactive");
+				const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
 
-			expect(execution?.workflow).toBe(ScriptExecutionWorkflow);
-			expect(execution?.options.payload).toMatchObject({
-				scriptId,
-				resultMode: "execution",
-				subject: {
-					type: "user",
-					userId: executingUserId,
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-				},
-			});
-		}),
+				expect(execution?.workflow).toBe(ScriptExecutionWorkflow);
+				expect(execution?.options.payload).toMatchObject({
+					scriptId,
+					resultMode: "execution",
+					subject: {
+						type: "user",
+						userId: executingUserId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -183,24 +189,27 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("executes provider scripts through the universal workflow", () =>
-		Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			yield* service.enqueue(executingUserId, { scriptId, context: {} }, "interactive");
-			const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
+	test.effect(
+		"executes provider scripts through the universal workflow",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				yield* service.enqueue(executingUserId, { scriptId, context: {} }, "interactive");
+				const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
 
-			expect(execution?.workflow).toBe(ScriptExecutionWorkflow);
-			expect(execution?.options.payload).toMatchObject({
-				scriptId,
-				input: {},
-				resolutionMode: "exact",
-				subject: {
-					type: "user",
-					userId: executingUserId,
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-				},
-			});
-		}),
+				expect(execution?.workflow).toBe(ScriptExecutionWorkflow);
+				expect(execution?.options.payload).toMatchObject({
+					scriptId,
+					input: {},
+					resolutionMode: "exact",
+					subject: {
+						type: "user",
+						userId: executingUserId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -211,30 +220,33 @@ layer(
 			Effect.fail(new SandboxRunError({ kind: "script-failure", message: "script failed" })),
 	}),
 )((test) => {
-	test.effect("returns a failure-bearing result when universal script execution fails", () =>
-		Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			const result = yield* service.executeScript({
-				scriptId,
-				input: {},
-				lane: "interactive",
-				executionId: "script-execution",
-				subject: {
-					type: "user",
-					userId: executingUserId,
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-				},
-			});
-			expect(result).toEqual({
-				logs: [],
-				value: null,
-				status: "completed",
-				error: { phase: "execute", kind: "script-failure", message: "script failed" },
-			});
-			expect(
-				(yield* (yield* SandboxExecutorCalls).executions).at(-1)?.options.payload,
-			).toMatchObject({ resultMode: "execution" });
-		}),
+	test.effect(
+		"returns a failure-bearing result when universal script execution fails",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				const result = yield* service.executeScript({
+					scriptId,
+					input: {},
+					lane: "interactive",
+					executionId: "script-execution",
+					subject: {
+						type: "user",
+						userId: executingUserId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+					},
+				});
+				expect(result).toEqual({
+					logs: [],
+					value: null,
+					status: "completed",
+					error: { phase: "execute", kind: "script-failure", message: "script failed" },
+				});
+				expect(
+					(yield* (yield* SandboxExecutorCalls).executions).at(-1)?.options.payload,
+				).toMatchObject({ resultMode: "execution" });
+			}),
+		testTimeout,
 	);
 });
 
@@ -246,16 +258,19 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("rejects inactive plugin scripts before starting the workflow", () =>
-		Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			const exit = yield* Effect.exit(
-				service.enqueue(executingUserId, { scriptId, context: {} }, "interactive"),
-			);
+	test.effect(
+		"rejects inactive plugin scripts before starting the workflow",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				const exit = yield* Effect.exit(
+					service.enqueue(executingUserId, { scriptId, context: {} }, "interactive"),
+				);
 
-			assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
-			expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
-		}),
+				assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
+				expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -265,19 +280,23 @@ layer(
 		workflow: engineLayer(() => Effect.succeedNone),
 	}),
 )((test) => {
-	test.effect("polls a job only for its explicit executing user", () => {
-		const otherUserId = UserId.make("user-2");
-		return Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			const { jobId } = yield* service.enqueue(executingUserId, { scriptId }, "interactive");
+	test.effect(
+		"polls a job only for its explicit executing user",
+		() => {
+			const otherUserId = UserId.make("user-2");
+			return Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				const { jobId } = yield* service.enqueue(executingUserId, { scriptId }, "interactive");
 
-			expect(yield* service.getResult(executingUserId, jobId)).toEqual({ status: "pending" });
-			assertExitFails(
-				yield* Effect.exit(service.getResult(otherUserId, jobId)),
-				new NotFound({ message: "Sandbox job not found" }),
-			);
-		});
-	});
+				expect(yield* service.getResult(executingUserId, jobId)).toEqual({ status: "pending" });
+				assertExitFails(
+					yield* Effect.exit(service.getResult(otherUserId, jobId)),
+					new NotFound({ message: "Sandbox job not found" }),
+				);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const completedResult = {
@@ -321,6 +340,7 @@ for (const lane of ["interactive", "background"] as const) {
 						error: { phase: "execute", kind: "script-failure", message: "reported failure" },
 					});
 				}),
+			testTimeout,
 		);
 	});
 }
@@ -345,81 +365,87 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("resolves and executes a manifest workflow with an exact script pin", () =>
-		Effect.gen(function* () {
-			const executionId = resolutionExecutionId;
-			const service = yield* ScriptExecutionService;
-			const resolvedScriptId = yield* service.resolveWorkflowScript({
-				executionId,
-				userId: executingUserId,
-				pluginId: "example-plugin-id",
-				workflowSlug: "example-import-resolution",
-				pluginInstallationId: "example-installation-id",
-			});
-			const result = yield* service.executeWorkflow({
-				executionId,
-				lane: "interactive",
-				scriptId: resolvedScriptId,
-				input: { items: [], scriptId: "attempted-override" },
-				subject: {
-					type: "user",
+	test.effect(
+		"resolves and executes a manifest workflow with an exact script pin",
+		() =>
+			Effect.gen(function* () {
+				const executionId = resolutionExecutionId;
+				const service = yield* ScriptExecutionService;
+				const resolvedScriptId = yield* service.resolveWorkflowScript({
+					executionId,
 					userId: executingUserId,
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-				},
-			});
-			const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
-
-			expect(result).toEqual({ results: [] });
-			expect(execution?.workflow).toBe(ScriptExecutionWorkflow);
-			expect(execution?.options).toMatchObject({
-				executionId,
-				payload: {
-					scriptId,
-					resolutionMode: "exact",
+					pluginId: "example-plugin-id",
+					workflowSlug: "example-import-resolution",
+					pluginInstallationId: "example-installation-id",
+				});
+				const result = yield* service.executeWorkflow({
+					executionId,
+					lane: "interactive",
+					scriptId: resolvedScriptId,
 					input: { items: [], scriptId: "attempted-override" },
 					subject: {
 						type: "user",
 						userId: executingUserId,
 						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 					},
-				},
-			});
-		}),
+				});
+				const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
+
+				expect(result).toEqual({ results: [] });
+				expect(execution?.workflow).toBe(ScriptExecutionWorkflow);
+				expect(execution?.options).toMatchObject({
+					executionId,
+					payload: {
+						scriptId,
+						resolutionMode: "exact",
+						input: { items: [], scriptId: "attempted-override" },
+						subject: {
+							type: "user",
+							userId: executingUserId,
+							accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+						},
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ repository: mockRepository({}) }))((test) => {
-	test.effect("rejects workflow input above the workflow limit before dispatch", () =>
-		Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			const oversizedInput = "a".repeat(80 * 1024);
-			const oversizedInputBytes = jsonByteLength(oversizedInput);
-			if (oversizedInputBytes === null) {
-				throw new Error("Expected oversized input to be JSON");
-			}
-			const exit = yield* Effect.exit(
-				service.executeWorkflow({
-					scriptId,
-					lane: "interactive",
-					input: oversizedInput,
-					executionId: "oversized-workflow",
-					subject: {
-						type: "user",
-						userId: executingUserId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					},
-				}),
-			);
+	test.effect(
+		"rejects workflow input above the workflow limit before dispatch",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ScriptExecutionService;
+				const oversizedInput = "a".repeat(80 * 1024);
+				const oversizedInputBytes = jsonByteLength(oversizedInput);
+				if (oversizedInputBytes === null) {
+					throw new Error("Expected oversized input to be JSON");
+				}
+				const exit = yield* Effect.exit(
+					service.executeWorkflow({
+						scriptId,
+						lane: "interactive",
+						input: oversizedInput,
+						executionId: "oversized-workflow",
+						subject: {
+							type: "user",
+							userId: executingUserId,
+							accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+						},
+					}),
+				);
 
-			assertExitFails(
-				exit,
-				new SandboxRunError({
-					kind: "invalid-input",
-					message: `Sandbox definition context is ${oversizedInputBytes} UTF-8 bytes and exceeds 65536 UTF-8 bytes`,
-				}),
-			);
-			expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
-		}),
+				assertExitFails(
+					exit,
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: `Sandbox definition context is ${oversizedInputBytes} UTF-8 bytes and exceeds 65536 UTF-8 bytes`,
+					}),
+				);
+				expect(yield* (yield* SandboxExecutorCalls).executions).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -531,6 +557,7 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 					configRevisionId: "fixture-config-1",
 				});
 			}),
+		testTimeout,
 	);
 });
 
@@ -569,49 +596,55 @@ const pluginWorkflowOptions = {
 };
 
 layer(makeServiceLayer(pluginWorkflowOptions))((test) => {
-	test.effect("pins a plugin workflow before accepted dispatch can wait for a worker", () =>
-		Effect.gen(function* () {
-			const service = yield* ScriptExecutionService;
-			const calls = yield* SandboxExecutorCalls;
-			expect(
-				yield* service.enqueuePluginWorkflow({
-					input: {},
-					executingUserId,
-					lane: "interactive",
-					pluginId: "fixture",
-					workflowSlug: "workflow",
-					executionId: "queued-workflow",
-					pluginInstallationId: "fixture-installation",
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-				}),
-			).toBe("queued-workflow");
-			expect((yield* calls.executions).map(({ referenceLive }) => referenceLive)).toEqual([true]);
-			expect(yield* calls.events).toEqual(["lock", "register", "accepted"]);
-			expect(yield* calls.referenceLive).toBe(true);
-		}),
-	);
-});
-
-layer(makeServiceLayer({ ...pluginWorkflowOptions, execute: () => Effect.fail("enqueue failed") }))(
-	(test) => {
-		test.effect("releases a new dispatch pin when workflow enqueue fails", () =>
+	test.effect(
+		"pins a plugin workflow before accepted dispatch can wait for a worker",
+		() =>
 			Effect.gen(function* () {
 				const service = yield* ScriptExecutionService;
-				yield* Effect.exit(
-					service.enqueuePluginWorkflow({
+				const calls = yield* SandboxExecutorCalls;
+				expect(
+					yield* service.enqueuePluginWorkflow({
 						input: {},
 						executingUserId,
 						lane: "interactive",
 						pluginId: "fixture",
 						workflowSlug: "workflow",
-						executionId: "failed-enqueue",
+						executionId: "queued-workflow",
 						pluginInstallationId: "fixture-installation",
 						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 					}),
-				);
-				const events = yield* (yield* SandboxExecutorCalls).events;
-				expect(events.filter((event) => event === "release")).toHaveLength(1);
+				).toBe("queued-workflow");
+				expect((yield* calls.executions).map(({ referenceLive }) => referenceLive)).toEqual([true]);
+				expect(yield* calls.events).toEqual(["lock", "register", "accepted"]);
+				expect(yield* calls.referenceLive).toBe(true);
 			}),
+		testTimeout,
+	);
+});
+
+layer(makeServiceLayer({ ...pluginWorkflowOptions, execute: () => Effect.fail("enqueue failed") }))(
+	(test) => {
+		test.effect(
+			"releases a new dispatch pin when workflow enqueue fails",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* ScriptExecutionService;
+					yield* Effect.exit(
+						service.enqueuePluginWorkflow({
+							input: {},
+							executingUserId,
+							lane: "interactive",
+							pluginId: "fixture",
+							workflowSlug: "workflow",
+							executionId: "failed-enqueue",
+							pluginInstallationId: "fixture-installation",
+							accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+						}),
+					);
+					const events = yield* (yield* SandboxExecutorCalls).events;
+					expect(events.filter((event) => event === "release")).toHaveLength(1);
+				}),
+			testTimeout,
 		);
 	},
 );

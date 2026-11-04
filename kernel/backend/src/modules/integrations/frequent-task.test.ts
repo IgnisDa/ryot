@@ -1,4 +1,7 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -9,42 +12,50 @@ import { makeWorkflowEngine } from "#testing/effect";
 import { integrationsFrequentTask } from "./frequent-task";
 
 layer(mutationAdmissionTestLayer)((test) => {
-	test.effect("dispatches the sync workflow with a tick-derived execution id", () => {
-		const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
-		const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
-		const engine = makeWorkflowEngine({
-			execute: (_workflow, options) => {
-				captured.push(options);
-				return Effect.succeed(options.executionId);
-			},
-		});
+	test.effect(
+		"dispatches the sync workflow with a tick-derived execution id",
+		() => {
+			const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
+			const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
+			const engine = makeWorkflowEngine({
+				execute: (_workflow, options) => {
+					captured.push(options);
+					return Effect.succeed(options.executionId);
+				},
+			});
 
-		return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
-			Effect.provideService(WorkflowEngine, engine),
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.map(() => {
-				expect(captured).toMatchObject([
-					{
-						discard: true,
-						executionId: "exec-int-integrations-sync",
-						payload: { userId: null, executionId: "exec-int-integrations-sync" },
-					},
-				]);
-			}),
-		);
-	});
+			return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
+				Effect.provideService(WorkflowEngine, engine),
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.map(() => {
+					expect(captured).toMatchObject([
+						{
+							discard: true,
+							executionId: "exec-int-integrations-sync",
+							payload: { userId: null, executionId: "exec-int-integrations-sync" },
+						},
+					]);
+				}),
+			);
+		},
+		testTimeout,
+	);
 
-	test.effect("swallows an enqueue failure so the cron tick keeps running", () => {
-		const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
-		const engine = makeWorkflowEngine({ execute: () => Effect.die("enqueue boom") });
+	test.effect(
+		"swallows an enqueue failure so the cron tick keeps running",
+		() => {
+			const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
+			const engine = makeWorkflowEngine({ execute: () => Effect.die("enqueue boom") });
 
-		return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
-			Effect.provideService(WorkflowEngine, engine),
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.exit,
-			Effect.map((exit) => {
-				expect(exit._tag).toBe("Success");
-			}),
-		);
-	});
+			return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
+				Effect.provideService(WorkflowEngine, engine),
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.exit,
+				Effect.map((exit) => {
+					expect(exit._tag).toBe("Success");
+				}),
+			);
+		},
+		testTimeout,
+	);
 });

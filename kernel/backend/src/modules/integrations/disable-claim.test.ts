@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -71,11 +74,14 @@ layer(
 		disableForUserIfEnabled: () => Effect.die("retry attempted the transition again"),
 	})),
 )((test) => {
-	test.effect("recognizes a committed auto-disable claim when its activity retries", () =>
-		Effect.gen(function* () {
-			const service = yield* IntegrationsService;
-			expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
-		}),
+	test.effect(
+		"recognizes a committed auto-disable claim when its activity retries",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* IntegrationsService;
+				expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
@@ -86,15 +92,18 @@ layer(
 		insertAutoDisableClaim: (input) => record(`claim:${input.importRunId}:${input.integrationId}`),
 	})),
 )((test) => {
-	test.effect("persists the winning transition claim atomically", () =>
-		Effect.gen(function* () {
-			const service = yield* IntegrationsService;
-			expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
-			expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual([
-				"disable",
-				"claim:run-1:integration-1",
-			]);
-		}),
+	test.effect(
+		"persists the winning transition claim atomically",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* IntegrationsService;
+				expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
+				expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual([
+					"disable",
+					"claim:run-1:integration-1",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -105,11 +114,14 @@ layer(
 		insertAutoDisableClaim: () => Effect.die("losing run inserted a claim"),
 	})),
 )((test) => {
-	test.effect("does not claim a transition won by another run", () =>
-		Effect.gen(function* () {
-			const service = yield* IntegrationsService;
-			expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(false);
-			expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual(["check", "check"]);
-		}),
+	test.effect(
+		"does not claim a transition won by another run",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* IntegrationsService;
+				expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(false);
+				expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual(["check", "check"]);
+			}),
+		testTimeout,
 	);
 });

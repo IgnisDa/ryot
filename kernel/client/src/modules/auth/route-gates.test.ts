@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { decodeServerOrigin, ServerOrigin } from "#/api/origin";
@@ -27,16 +30,22 @@ describe("authentication route gates", () => {
 		});
 	});
 
-	it.effect("allows a restored session with a canonical scope", () =>
-		Effect.gen(function* () {
-			expect(
-				decideProtectedRoute(
-					yield* decodeServerOrigin(" https://one.test/ "),
-					{ userId: "user-1", status: "authenticated" },
-					"/library",
-				),
-			).toEqual({ action: "allow", scope: { userId: "user-1", serverUrl: "https://one.test" } });
-		}),
+	it.effect(
+		"allows a restored session with a canonical scope",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					decideProtectedRoute(
+						yield* decodeServerOrigin(" https://one.test/ "),
+						{ userId: "user-1", status: "authenticated" },
+						"/library",
+					),
+				).toEqual<unknown>({
+					action: "allow",
+					scope: { userId: "user-1", serverUrl: "https://one.test" },
+				});
+			}),
+		testTimeout,
 	);
 
 	it("returns an authenticated auth visit to a safe destination or root", () => {

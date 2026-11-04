@@ -62,7 +62,7 @@ describe("Whiskey namespace workspaces", () => {
 						originalView.identity.contributors.filter(
 							(contributor) => contributor.kind === "plugin",
 						),
-					).toEqual(
+					).toEqual<unknown>(
 						arrayContaining([
 							objectContaining({
 								pluginId: a.pluginId,
@@ -76,7 +76,7 @@ describe("Whiskey namespace workspaces", () => {
 							}),
 						]),
 					);
-					expect(originalView.identity.operationTargets).toEqual(
+					expect(originalView.identity.operationTargets).toEqual<unknown>(
 						arrayContaining([
 							{
 								pluginId: a.pluginId,

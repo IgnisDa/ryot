@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	MediaMonitoringEnableInput,
@@ -66,24 +69,26 @@ describe("media monitoring operations", () => {
 				});
 				expect(documents).toHaveLength(1);
 				expect(Schema.is(RyotQLDocument)(documents[0])).toBe(true);
-				expect(documents[0]).toMatchObject({
-					queries: {
-						targets: {
-							where: { type: "and" },
-							from: { table: "entity", alias: "entity" },
-							output: {
-								type: "rows",
-								pagination: { limit: 3 },
-								include: [
-									objectContaining({
-										key: "monitoringLibraries",
-										from: { table: "relationship", alias: "monitoringRelationship" },
-									}),
-								],
-							},
-						},
-					},
-				});
+				expect(documents[0]).toEqual<unknown>(
+					objectContaining({
+						queries: objectContaining({
+							targets: objectContaining({
+								where: objectContaining({ type: "and" }),
+								from: objectContaining({ table: "entity", alias: "entity" }),
+								output: objectContaining({
+									type: "rows",
+									pagination: objectContaining({ limit: 3 }),
+									include: [
+										objectContaining({
+											key: "monitoringLibraries",
+											from: { table: "relationship", alias: "monitoringRelationship" },
+										}),
+									],
+								}),
+							}),
+						}),
+					}),
+				);
 				const nodes = ryotqlDocumentNodes(documents[0]);
 				expect(nodes).toContainEqual(
 					objectContaining({
@@ -108,69 +113,73 @@ describe("media monitoring operations", () => {
 				);
 				expect(nodes).not.toContain("show-season");
 			}),
+		testTimeout,
 	);
 
-	it.live("enables valid targets with one atomic relationship batch and no user id", () =>
-		Effect.gen(function* () {
-			const changes: unknown[] = [];
-			const documents: unknown[] = [];
-			const host = defineSandboxTestHost(enableManifest, {
-				changeUserRelationships: (batches) =>
-					Effect.sync(() => {
-						changes.push(batches);
-						return [{ created: 2, deleted: 0 }];
-					}),
-				executeRyotql: (document) =>
-					Effect.gen(function* () {
-						documents.push(document);
-						const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
-						return "mediaLibrary" in query.queries
-							? libraryRows([{ entityId: "library-1" }])
-							: rows([target("entity-a")]);
-					}),
-			});
+	it.live(
+		"enables valid targets with one atomic relationship batch and no user id",
+		() =>
+			Effect.gen(function* () {
+				const changes: unknown[] = [];
+				const documents: unknown[] = [];
+				const host = defineSandboxTestHost(enableManifest, {
+					changeUserRelationships: (batches) =>
+						Effect.sync(() => {
+							changes.push(batches);
+							return [{ created: 2, deleted: 0 }];
+						}),
+					executeRyotql: (document) =>
+						Effect.gen(function* () {
+							documents.push(document);
+							const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
+							return "mediaLibrary" in query.queries
+								? libraryRows([{ entityId: "library-1" }])
+								: rows([target("entity-a")]);
+						}),
+				});
 
-			expect(
-				yield* runSandboxTestScript(
-					enableDefinition,
-					{ entityIds: ["entity-a", "missing"] },
-					host,
-					execution,
-				),
-			).toEqual({
-				results: [
-					{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-					{ status: "notFound", entityId: "missing" },
-				],
-			});
-			expect(changes).toEqual([
-				[
-					{
-						deletes: [],
-						creates: [
-							{
-								properties: {},
-								propertiesMode: "merge",
-								sourceEntityId: "entity-a",
-								targetEntityId: "library-1",
-								relationshipSchemaSlug: "in-media-library",
-							},
-							{
-								properties: {},
-								propertiesMode: "merge",
-								sourceEntityId: "entity-a",
-								targetEntityId: "library-1",
-								relationshipSchemaSlug: "media-monitoring",
-							},
-						],
-					},
-				],
-			]);
-			expect(documents).toHaveLength(2);
-			for (const document of documents) {
-				expect(Schema.is(RyotQLDocument)(document)).toBe(true);
-			}
-		}),
+				expect(
+					yield* runSandboxTestScript(
+						enableDefinition,
+						{ entityIds: ["entity-a", "missing"] },
+						host,
+						execution,
+					),
+				).toEqual({
+					results: [
+						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+						{ status: "notFound", entityId: "missing" },
+					],
+				});
+				expect(changes).toEqual([
+					[
+						{
+							deletes: [],
+							creates: [
+								{
+									properties: {},
+									propertiesMode: "merge",
+									sourceEntityId: "entity-a",
+									targetEntityId: "library-1",
+									relationshipSchemaSlug: "in-media-library",
+								},
+								{
+									properties: {},
+									propertiesMode: "merge",
+									sourceEntityId: "entity-a",
+									targetEntityId: "library-1",
+									relationshipSchemaSlug: "media-monitoring",
+								},
+							],
+						},
+					],
+				]);
+				expect(documents).toHaveLength(2);
+				for (const document of documents) {
+					expect(Schema.is(RyotQLDocument)(document)).toBe(true);
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -217,29 +226,33 @@ describe("media monitoring operations", () => {
 					],
 				]);
 			}),
+		testTimeout,
 	);
 
-	it.effect("bounds operation batches and validates aligned result variants", () =>
-		Effect.gen(function* () {
-			yield* Effect.flip(Schema.decodeEffect(MediaMonitoringEnableInput)({ entityIds: [] }));
-			yield* Effect.flip(
-				Schema.decodeEffect(MediaMonitoringEnableInput)({
-					entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
-				}),
-			);
-			expect(
-				yield* Schema.decodeEffect(MediaMonitoringOutput)({
+	it.effect(
+		"bounds operation batches and validates aligned result variants",
+		() =>
+			Effect.gen(function* () {
+				yield* Effect.flip(Schema.decodeEffect(MediaMonitoringEnableInput)({ entityIds: [] }));
+				yield* Effect.flip(
+					Schema.decodeEffect(MediaMonitoringEnableInput)({
+						entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
+					}),
+				);
+				expect(
+					yield* Schema.decodeEffect(MediaMonitoringOutput)({
+						results: [
+							{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+							{ status: "notFound", entityId: "missing" },
+						],
+					}),
+				).toEqual({
 					results: [
 						{ status: "found", entityId: "entity-a", isMediaMonitored: true },
 						{ status: "notFound", entityId: "missing" },
 					],
-				}),
-			).toEqual({
-				results: [
-					{ status: "found", entityId: "entity-a", isMediaMonitored: true },
-					{ status: "notFound", entityId: "missing" },
-				],
-			});
-		}),
+				});
+			}),
+		testTimeout,
 	);
 });

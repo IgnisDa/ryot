@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
 import {
@@ -83,7 +84,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 				// The resolvable episode's progress lands on the episode, never the show.
 				const episodeEvents = yield* waitForEventSlugs(client, episodeId, "progress");
 				const showEvents = yield* listEventSlugs(client, showId);
-				expect(episodeEvents).toContain("progress");
+				expect(episodeEvents).toContain(EventSchemaSlug.make("progress"));
 				expect(showEvents).not.toContain("progress");
 				const reviews = yield* listEventsForEntity(client, showId, undefined, 20, {
 					eventSchemaSlug: "review",

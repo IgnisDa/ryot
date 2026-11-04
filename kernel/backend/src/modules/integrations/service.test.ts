@@ -1,5 +1,6 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { describe, expect, it, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
@@ -15,6 +16,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Logger, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -285,18 +288,21 @@ describe("update", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("preserves a stored secret omitted from a provider settings update", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				const updated = yield* service.update(muIntegration.userId, muIntegration.id, {
-					providerSpecifics: { kind: "mu", baseUrl: "https://new.example.com" },
-				});
+		test.effect(
+			"preserves a stored secret omitted from a provider settings update",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					const updated = yield* service.update(muIntegration.userId, muIntegration.id, {
+						providerSpecifics: { kind: "mu", baseUrl: "https://new.example.com" },
+					});
 
-				expect(updated).toEqual({ id: muIntegration.id });
-				expect(
-					(yield* (yield* FakeIntegrationDependencies).storedIntegration)?.providerSpecifics,
-				).toEqual({ kind: "mu", token: "stored-token", baseUrl: "https://new.example.com" });
-			}),
+					expect(updated).toEqual({ id: muIntegration.id });
+					expect(
+						(yield* (yield* FakeIntegrationDependencies).storedIntegration)?.providerSpecifics,
+					).toEqual({ kind: "mu", token: "stored-token", baseUrl: "https://new.example.com" });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -331,20 +337,23 @@ describe("update", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("does not expose stored settings to a replacement provider owner", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				const error = yield* Effect.flip(
-					service.update(sharedProviderIntegration.userId, sharedProviderIntegration.id, {
-						providerSpecifics: { token: "replacement-token" },
-					}),
-				);
+		test.effect(
+			"does not expose stored settings to a replacement provider owner",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					const error = yield* Effect.flip(
+						service.update(sharedProviderIntegration.userId, sharedProviderIntegration.id, {
+							providerSpecifics: { token: "replacement-token" },
+						}),
+					);
 
-				expect(error).toMatchObject({
-					reason: { code: "provider-not-found", provider: "shared-provider" },
-				});
-				expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual([]);
-			}),
+					expect(error).toMatchObject({
+						reason: { code: "provider-not-found", provider: "shared-provider" },
+					});
+					expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -396,6 +405,7 @@ describe("update", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 });
@@ -427,17 +437,20 @@ describe("create", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("returns only the id without fetching client detail after persisting secrets", () =>
-			Effect.gen(function* () {
-				const result = yield* (yield* IntegrationsService).create(user, {
-					providerSpecifics: { token: "create-secret" },
-					provider: { ...pushProvider.reference, slug: pushProvider.slug },
-				});
-				expect(result).toEqual({ id: makeIntegration().id });
-				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toEqual({
-					token: "create-secret",
-				});
-			}),
+		test.effect(
+			"returns only the id without fetching client detail after persisting secrets",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* (yield* IntegrationsService).create(user, {
+						providerSpecifics: { token: "create-secret" },
+						provider: { ...pushProvider.reference, slug: pushProvider.slug },
+					});
+					expect(result).toEqual({ id: makeIntegration().id });
+					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toEqual({
+						token: "create-secret",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -465,23 +478,26 @@ describe("create", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("fails with pro-key-required when the provider requires an unvalidated key", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				const exit = yield* Effect.exit(
-					service.create(user, {
-						providerSpecifics: {},
-						provider: { ...proSinkProvider.reference, slug: "pro-sink" },
-					}),
-				);
+		test.effect(
+			"fails with pro-key-required when the provider requires an unvalidated key",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					const exit = yield* Effect.exit(
+						service.create(user, {
+							providerSpecifics: {},
+							provider: { ...proSinkProvider.reference, slug: "pro-sink" },
+						}),
+					);
 
-				assertExitFails(
-					exit,
-					new IntegrationRequestError({
-						reason: { provider: "pro-sink", code: "pro-key-required" },
-					}),
-				);
-			}),
+					assertExitFails(
+						exit,
+						new IntegrationRequestError({
+							reason: { provider: "pro-sink", code: "pro-key-required" },
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -511,16 +527,19 @@ describe("installation availability", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("retains a webhook without dispatch while its installation is unavailable", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				const accepted = yield* service.handleWebhook({
-					rawBody: "{}",
-					webhookToken: testWebhookToken,
-					contentType: "application/json",
-				});
-				expect(accepted).toEqual({ runId: makeRun("completed").id });
-			}),
+		test.effect(
+			"retains a webhook without dispatch while its installation is unavailable",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					const accepted = yield* service.handleWebhook({
+						rawBody: "{}",
+						webhookToken: testWebhookToken,
+						contentType: "application/json",
+					});
+					expect(accepted).toEqual({ runId: makeRun("completed").id });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -542,11 +561,14 @@ describe("installation availability", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("skips scheduled yank runs for an unavailable system installation", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
-			}),
+		test.effect(
+			"skips scheduled yank runs for an unavailable system installation",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -614,55 +636,67 @@ describe("prepareYankRuns", () => {
 		});
 
 	layer(layerFor(true))((test) => {
-		test.effect("admits an idle yank integration as a yank-owned run", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
-				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-					source: "theta",
-					integrationId: yankIntegration.id,
-					pluginInstallationId: "example-installation-id",
-				});
-			}),
+		test.effect(
+			"admits an idle yank integration as a yank-owned run",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
+					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
+						source: "theta",
+						integrationId: yankIntegration.id,
+						pluginInstallationId: "example-installation-id",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(layerFor(false))((test) => {
-		test.effect("skips a yank integration the database refused to admit", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
-			}),
+		test.effect(
+			"skips a yank integration the database refused to admit",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(layerFor(true, false))((test) => {
-		test.effect("rechecks missing setup on each tick without creating reports", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
-				expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
-				expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual(
-					Array.from({ length: 2 }, () => ({
-						method: "evaluateIntegration",
-						input: {
-							settings: {},
-							providerSlug: "theta",
-							userId: yankIntegration.userId,
-							integrationId: yankIntegration.id,
-							installationId: "example-installation-id",
-						},
-					})),
-				);
-			}),
+		test.effect(
+			"rechecks missing setup on each tick without creating reports",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
+					expect(yield* service.prepareYankRuns(null, null)).toBeUndefined();
+					expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual(
+						Array.from({ length: 2 }, () => ({
+							method: "evaluateIntegration",
+							input: {
+								settings: {},
+								providerSlug: "theta",
+								userId: yankIntegration.userId,
+								integrationId: yankIntegration.id,
+								installationId: "example-installation-id",
+							},
+						})),
+					);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(layerFor(true, true, true))((test) => {
-		test.effect("waits without admitting when the executable is unavailable", () =>
-			Effect.gen(function* () {
-				expect(yield* (yield* IntegrationsService).prepareYankRuns(null, null)).toBeUndefined();
-			}),
+		test.effect(
+			"waits without admitting when the executable is unavailable",
+			() =>
+				Effect.gen(function* () {
+					expect(yield* (yield* IntegrationsService).prepareYankRuns(null, null)).toBeUndefined();
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -701,15 +735,18 @@ describe("releaseRecoveryRun", () => {
 				}),
 			}),
 		)((test) => {
-			test.effect(`cancels a disabled account's ${status} run with pins=${pinned}`, () =>
-				Effect.gen(function* () {
-					const service = yield* IntegrationsService;
-					expect(yield* service.releaseRecoveryRun({ ...scope, integrationId })).toBe(false);
-					expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual([
-						{ input: scope, method: "cancel" },
-						{ method: "settle", input: { scope, status: "cancelled" } },
-					]);
-				}),
+			test.effect(
+				`cancels a disabled account's ${status} run with pins=${pinned}`,
+				() =>
+					Effect.gen(function* () {
+						const service = yield* IntegrationsService;
+						expect(yield* service.releaseRecoveryRun({ ...scope, integrationId })).toBe(false);
+						expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual([
+							{ input: scope, method: "cancel" },
+							{ method: "settle", input: { scope, status: "cancelled" } },
+						]);
+					}),
+				testTimeout,
 			);
 		});
 	}
@@ -724,12 +761,15 @@ describe("releaseRecoveryRun", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("releases an active account's pinned pending run", () =>
-			Effect.gen(function* () {
-				expect(
-					yield* (yield* IntegrationsService).releaseRecoveryRun({ ...scope, integrationId }),
-				).toBe(true);
-			}),
+		test.effect(
+			"releases an active account's pinned pending run",
+			() =>
+				Effect.gen(function* () {
+					expect(
+						yield* (yield* IntegrationsService).releaseRecoveryRun({ ...scope, integrationId }),
+					).toBe(true);
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -773,36 +813,39 @@ describe("handleWebhook", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("logs admission constraint failures without request or database contents", () =>
-			Effect.gen(function* () {
-				const messages: unknown[] = [];
-				const logger = Logger.make<unknown, void>((entry) => {
-					messages.push(entry.message);
-				});
-				const service = yield* IntegrationsService;
-				const error = yield* Effect.flip(
-					service.handleWebhook({
-						rawBody: "private-webhook-body",
-						contentType: "application/json",
-						webhookToken: IntegrationWebhookToken.make("private-webhook-token"),
-					}),
-				).pipe(Effect.provideService(Logger.CurrentLoggers, new Set([logger])));
+		test.effect(
+			"logs admission constraint failures without request or database contents",
+			() =>
+				Effect.gen(function* () {
+					const messages: unknown[] = [];
+					const logger = Logger.make<unknown, void>((entry) => {
+						messages.push(entry.message);
+					});
+					const service = yield* IntegrationsService;
+					const error = yield* Effect.flip(
+						service.handleWebhook({
+							rawBody: "private-webhook-body",
+							contentType: "application/json",
+							webhookToken: IntegrationWebhookToken.make("private-webhook-token"),
+						}),
+					).pipe(Effect.provideService(Logger.CurrentLoggers, new Set([logger])));
 
-				expect(error).toMatchObject({
-					_tag: "IntegrationRequestError",
-					reason: { code: "queue-unavailable", operation: "integration-webhook-admission" },
-				});
-				expect(messages).toEqual([
-					[
-						"Integration webhook admission failed",
-						{
-							code: "23514",
-							constraint: "import_run_block_check",
-							integrationId: admissionIntegration.id,
-						},
-					],
-				]);
-			}),
+					expect(error).toMatchObject({
+						_tag: "IntegrationRequestError",
+						reason: { code: "queue-unavailable", operation: "integration-webhook-admission" },
+					});
+					expect(messages).toEqual([
+						[
+							"Integration webhook admission failed",
+							{
+								code: "23514",
+								constraint: "import_run_block_check",
+								integrationId: admissionIntegration.id,
+							},
+						],
+					]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -860,6 +903,7 @@ describe("handleWebhook", () => {
 						},
 					});
 				}),
+			testTimeout,
 		);
 	});
 	layer(
@@ -867,21 +911,24 @@ describe("handleWebhook", () => {
 			dependencies: () => ({ repository: { getByWebhookToken: () => Effect.succeed(null) } }),
 		}),
 	)((test) => {
-		test.effect("rejects an unknown webhook token", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				const error = yield* Effect.flip(
-					service.handleWebhook({
-						rawBody: "{}",
-						contentType: "application/json",
-						webhookToken: IntegrationWebhookToken.make("unknown-webhook-token"),
-					}),
-				);
-				expect(error).toMatchObject({
-					_tag: "IntegrationNotFoundError",
-					reason: { code: "integration-webhook-not-found" },
-				});
-			}),
+		test.effect(
+			"rejects an unknown webhook token",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					const error = yield* Effect.flip(
+						service.handleWebhook({
+							rawBody: "{}",
+							contentType: "application/json",
+							webhookToken: IntegrationWebhookToken.make("unknown-webhook-token"),
+						}),
+					);
+					expect(error).toMatchObject({
+						_tag: "IntegrationNotFoundError",
+						reason: { code: "integration-webhook-not-found" },
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -922,18 +969,21 @@ describe("handleWebhook", () => {
 				}),
 			}),
 		)((test) => {
-			test.effect(`classifies ${code} before making the delivery recoverable`, () =>
-				Effect.gen(function* () {
-					yield* (yield* IntegrationsService).handleWebhook({
-						rawBody: "{}",
-						webhookToken: testWebhookToken,
-						contentType: "application/json",
-					});
-					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)).toMatchObject({
-						method: "admitWebhook",
-						input: { failureReason: { code } },
-					});
-				}),
+			test.effect(
+				`classifies ${code} before making the delivery recoverable`,
+				() =>
+					Effect.gen(function* () {
+						yield* (yield* IntegrationsService).handleWebhook({
+							rawBody: "{}",
+							webhookToken: testWebhookToken,
+							contentType: "application/json",
+						});
+						expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)).toMatchObject({
+							method: "admitWebhook",
+							input: { failureReason: { code } },
+						});
+					}),
+				testTimeout,
 			);
 		});
 	}
@@ -955,20 +1005,23 @@ describe("handleWebhook", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("admits sink runs without idle exclusion", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				expect(
-					yield* service.handleWebhook({
-						rawBody: "{}",
-						webhookToken: testWebhookToken,
-						contentType: "application/json",
-					}),
-				).toEqual({ runId: makeRun("completed").id });
-				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-					integration: { lot: "sink", id: sinkIntegration.id, provider: "sample-sink" },
-				});
-			}),
+		test.effect(
+			"admits sink runs without idle exclusion",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					expect(
+						yield* service.handleWebhook({
+							rawBody: "{}",
+							webhookToken: testWebhookToken,
+							contentType: "application/json",
+						}),
+					).toEqual({ runId: makeRun("completed").id });
+					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
+						integration: { lot: "sink", id: sinkIntegration.id, provider: "sample-sink" },
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1022,6 +1075,7 @@ describe("handleWebhook", () => {
 					});
 					expect(calls.at(-1)?.input).not.toHaveProperty("payload.webhook");
 				}),
+			testTimeout,
 		);
 	});
 });
@@ -1056,21 +1110,24 @@ describe("syncAll", () => {
 			}),
 		}),
 	)((test) => {
-		test.effect("dispatches a user-scoped integration sync", () =>
-			Effect.gen(function* () {
-				const userId = UserId.make("sync-user");
-				const result = yield* (yield* IntegrationsService).syncAll({
-					userId,
-					token: "test-account-generation",
-				});
+		test.effect(
+			"dispatches a user-scoped integration sync",
+			() =>
+				Effect.gen(function* () {
+					const userId = UserId.make("sync-user");
+					const result = yield* (yield* IntegrationsService).syncAll({
+						userId,
+						token: "test-account-generation",
+					});
 
-				expect(result.executionId).toMatch(/^integration-sync-/);
-				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-					discard: true,
-					executionId: result.executionId,
-					payload: { userId, executionId: result.executionId },
-				});
-			}),
+					expect(result.executionId).toMatch(/^integration-sync-/);
+					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
+						discard: true,
+						executionId: result.executionId,
+						payload: { userId, executionId: result.executionId },
+					});
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -1112,27 +1169,32 @@ describe("managed asset settings", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("rejects another user's managed asset on integration create and update", () =>
-			Effect.gen(function* () {
-				const service = yield* IntegrationsService;
-				const foreign = yield* insertManagedAsset(UserId.make("integration-asset-foreign"));
-				const forbidden = new IntegrationRequestError({ reason: { code: "asset-forbidden" } });
-				assertExitFails(
-					yield* Effect.exit(
-						service.create(user, {
-							providerSpecifics: { image: foreign },
-							provider: { ...assetProvider.reference, slug: assetProvider.slug },
-						}),
-					),
-					forbidden,
-				);
-				assertExitFails(
-					yield* Effect.exit(
-						service.update(user.id, assetIntegration.id, { providerSpecifics: { image: foreign } }),
-					),
-					forbidden,
-				);
-			}),
+		test.effect(
+			"rejects another user's managed asset on integration create and update",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* IntegrationsService;
+					const foreign = yield* insertManagedAsset(UserId.make("integration-asset-foreign"));
+					const forbidden = new IntegrationRequestError({ reason: { code: "asset-forbidden" } });
+					assertExitFails(
+						yield* Effect.exit(
+							service.create(user, {
+								providerSpecifics: { image: foreign },
+								provider: { ...assetProvider.reference, slug: assetProvider.slug },
+							}),
+						),
+						forbidden,
+					);
+					assertExitFails(
+						yield* Effect.exit(
+							service.update(user.id, assetIntegration.id, {
+								providerSpecifics: { image: foreign },
+							}),
+						),
+						forbidden,
+					);
+				}),
+			testTimeout,
 		);
 	});
 });

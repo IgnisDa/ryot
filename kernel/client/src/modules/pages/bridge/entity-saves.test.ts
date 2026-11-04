@@ -1,4 +1,5 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { EntityEditorRefused } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
@@ -9,6 +10,8 @@ import {
 	PluginId,
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -68,41 +71,47 @@ const outcome = (request: EntityEditorSaveRequest) =>
 
 describe("plugin entity saves", () => {
 	layer(PluginEntitySaves.layer.pipe(Layer.provide(entitiesApi)))((test) => {
-		test.effect("refuses schemas whose owner does not contribute to the document", () =>
-			Effect.gen(function* () {
-				calls.length = 0;
-				for (const owner of [
-					{ kind: "plugin" as const, pluginId: PluginId.make("plugin-2") },
-					{ kind: "kernel" as const },
-				]) {
-					expect(yield* outcome(requestFor(owner))).toEqual({
-						outcome: "failure",
-						reason: "invalid-request",
-					});
-				}
-				expect(calls).toEqual([]);
-			}),
+		test.effect(
+			"refuses schemas whose owner does not contribute to the document",
+			() =>
+				Effect.gen(function* () {
+					calls.length = 0;
+					for (const owner of [
+						{ kind: "plugin" as const, pluginId: PluginId.make("plugin-2") },
+						{ kind: "kernel" as const },
+					]) {
+						expect(yield* outcome(requestFor(owner))).toEqual({
+							outcome: "failure",
+							reason: "invalid-request",
+						});
+					}
+					expect(calls).toEqual([]);
+				}),
+			testTimeout,
 		);
 
-		test.effect("saves for a contributing owner and classifies endpoint failures", () =>
-			Effect.gen(function* () {
-				calls.length = 0;
-				const request = requestFor({ kind: "plugin", pluginId: contributor });
-				expect(yield* outcome(request)).toEqual({
-					outcome: "success",
-					output: { kind: "saved", entityId: "entity-1" },
-				});
-				expect(calls).toEqual([request]);
+		test.effect(
+			"saves for a contributing owner and classifies endpoint failures",
+			() =>
+				Effect.gen(function* () {
+					calls.length = 0;
+					const request = requestFor({ kind: "plugin", pluginId: contributor });
+					expect(yield* outcome(request)).toEqual<unknown>({
+						outcome: "success",
+						output: { kind: "saved", entityId: "entity-1" },
+					});
+					expect(calls).toEqual([request]);
 
-				failures.push(
-					new EntityEditorRefused({ message: "reused" }),
-					new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-					new Error("network"),
-				);
-				for (const reason of ["entity-save-failed", "entity-save-failed", "transport"]) {
-					expect(yield* outcome(request)).toEqual({ reason, outcome: "failure" });
-				}
-			}),
+					failures.push(
+						new EntityEditorRefused({ message: "reused" }),
+						new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+						new Error("network"),
+					);
+					for (const reason of ["entity-save-failed", "entity-save-failed", "transport"]) {
+						expect(yield* outcome(request)).toEqual<unknown>({ reason, outcome: "failure" });
+					}
+				}),
+			testTimeout,
 		);
 	});
 });

@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { automationContext } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./notification.sandbox";
@@ -137,4 +140,5 @@ it.effect.each(cases)(
 					}),
 				);
 		}),
+	testTimeout,
 );

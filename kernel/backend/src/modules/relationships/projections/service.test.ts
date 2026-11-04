@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RelationshipProjectionStepInput } from "@ryot-app/contract/modules/relationships/projections";
@@ -10,7 +11,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -314,202 +318,223 @@ const jobStatus = (id: string) =>
 	});
 
 layer(testLayer)((test) => {
-	test.effect("projects requested relationships", () =>
-		Effect.gen(function* () {
-			const { sources, fixture } = yield* seedLinks("requested", 2);
-			const [first, second] = sources;
-			assert(first && second);
-			const workId = yield* request("requested", [first]);
-			expect(workId).toBe(
-				relationshipProjectionWorkId({
+	test.effect(
+		"projects requested relationships",
+		() =>
+			Effect.gen(function* () {
+				const { sources, fixture } = yield* seedLinks("requested", 2);
+				const [first, second] = sources;
+				assert(first && second);
+				const workId = yield* request("requested", [first]);
+				expect(workId).toBe(
+					relationshipProjectionWorkId({
+						userId,
+						relationshipSchemaSlug,
+						relationshipSchemaPluginId: fixture.pluginId,
+					}),
+				);
+				const { job, input } = yield* startCurrent(workId);
+				expect(job.purpose).toBe("relationship-projection");
+				expect(job.execution.subject.type).toBe("projection");
+				expect(input).toEqual<unknown>({
+					relationshipSchemaSlug,
+					relationships: [
+						{
+							sourceEntityId: first,
+							relationshipId: `${first}-link`,
+							targetEntityId: "requested-target",
+						},
+					],
+				});
+
+				yield* publish(job, scoreAll(input, 7));
+
+				expect(yield* notes(workId)).toEqual([
+					{
+						revision: 1,
+						projectedRevision: 1,
+						properties: { score: 7 },
+						relationshipId: `${first}-link`,
+					},
+				]);
+				expect(yield* jobStatus(job.id)).toBe("succeeded");
+				expect(
+					(yield* (yield* RelationshipProjectionRepository).get(workId))?.currentJobId,
+				).toBeNull();
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect(
+		"keeps a note pending when its source changes during processing",
+		() =>
+			Effect.gen(function* () {
+				const { sources } = yield* seedLinks("stale", 1);
+				const [source] = sources;
+				assert(source);
+				const workId = yield* request("stale-first", [source]);
+				const { job, input } = yield* startCurrent(workId);
+				yield* request("stale-second", [source]);
+
+				yield* publish(job, scoreAll(input, 3));
+
+				const [note] = yield* notes(workId);
+				expect(note?.revision).toBe(2);
+				expect(note?.projectedRevision).toBeNull();
+				const next = yield* (yield* RelationshipProjectionRepository).get(workId);
+				assert(next?.currentJobId);
+				expect(next.currentJobId).not.toBe(job.id);
+				expect(next.status).toBe("queued");
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect(
+		"rejects output that does not cover its claim exactly",
+		() =>
+			Effect.gen(function* () {
+				const { sources } = yield* seedLinks("coverage", 1);
+				const [source] = sources;
+				assert(source);
+				const workId = yield* request("coverage", [source]);
+				const { job } = yield* startCurrent(workId);
+				assertExitFails(
+					yield* Effect.exit(publish(job, { updates: [] })),
+					new DbError({
+						message: "Relationship projection processor must return each claimed relationship once",
+					}),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						publish(job, {
+							updates: [{ properties: { score: "high" }, relationshipId: `${source}-link` }],
+						}),
+					),
+					new DbError({ message: "Projection output does not match its declared schema" }),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect(
+		"re-projects every note after the processor binding changes",
+		() =>
+			Effect.gen(function* () {
+				const { sources, fixture } = yield* seedLinks("rebind", 2);
+				const workId = yield* request("rebind", sources);
+				const repository = yield* RelationshipProjectionRepository;
+				const work = yield* repository.get(workId);
+				assert(work);
+				yield* (yield* DatabaseSession).transaction(
+					repository.bind(
+						{ userId, relationshipSchemaSlug, relationshipSchemaPluginId: fixture.pluginId },
+						{
+							pluginPin: work.pluginPin,
+							accountToken: work.accountToken,
+							outputSchema: work.outputSchema,
+							processorScriptId: "rebuilt-processor",
+							pluginRevisionId: work.pluginRevisionId,
+						},
+					),
+				);
+
+				expect(
+					(yield* notes(workId)).map(({ revision, projectedRevision }) => ({
+						revision,
+						projectedRevision,
+					})),
+				).toEqual([
+					{ revision: 2, projectedRevision: null },
+					{ revision: 2, projectedRevision: null },
+				]);
+				expect((yield* repository.get(workId))?.currentJobId).toBeNull();
+			}),
+		testTimeout,
+	);
+});
+
+layer(testLayer)((test) => {
+	test.effect(
+		"reconciliation fills notes for new links and leaves an idle tick empty",
+		() =>
+			Effect.gen(function* () {
+				const { sources, fixture } = yield* seedLinks("reconcile", 3);
+				const workId = relationshipProjectionWorkId({
 					userId,
 					relationshipSchemaSlug,
 					relationshipSchemaPluginId: fixture.pluginId,
-				}),
-			);
-			const { job, input } = yield* startCurrent(workId);
-			expect(job.purpose).toBe("relationship-projection");
-			expect(job.execution.subject.type).toBe("projection");
-			expect(input).toEqual({
-				relationshipSchemaSlug,
-				relationships: [
-					{
-						sourceEntityId: first,
-						relationshipId: `${first}-link`,
-						targetEntityId: "requested-target",
-					},
-				],
-			});
+				});
+				const service = yield* RelationshipProjectionService;
+				const repository = yield* RelationshipProjectionRepository;
 
-			yield* publish(job, scoreAll(input, 7));
+				yield* service.reconcile();
 
-			expect(yield* notes(workId)).toEqual([
-				{
-					revision: 1,
-					projectedRevision: 1,
-					properties: { score: 7 },
-					relationshipId: `${first}-link`,
-				},
-			]);
-			expect(yield* jobStatus(job.id)).toBe("succeeded");
-			expect(
-				(yield* (yield* RelationshipProjectionRepository).get(workId))?.currentJobId,
-			).toBeNull();
-		}),
+				expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual(
+					sources.map((source) => `${source}-link`),
+				);
+				expect(yield* repository.bindingDeclarations({ limit: 100 })).toEqual([]);
+
+				const later = yield* seedLinks("reconcile-later", 1);
+				expect(yield* repository.bindingDeclarations({ limit: 100 })).toHaveLength(1);
+				yield* service.reconcile();
+
+				expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual(
+					[...sources, ...later.sources].map((source) => `${source}-link`).sort(),
+				);
+				expect(yield* repository.bindingDeclarations({ limit: 100 })).toEqual([]);
+			}),
+		testTimeout,
 	);
-});
 
-layer(testLayer)((test) => {
-	test.effect("keeps a note pending when its source changes during processing", () =>
-		Effect.gen(function* () {
-			const { sources } = yield* seedLinks("stale", 1);
-			const [source] = sources;
-			assert(source);
-			const workId = yield* request("stale-first", [source]);
-			const { job, input } = yield* startCurrent(workId);
-			yield* request("stale-second", [source]);
+	test.effect(
+		"keeps a declaration stale when a link arrives after it was read",
+		() =>
+			Effect.gen(function* () {
+				const { fixture } = yield* seedLinks("late", 1);
+				const repository = yield* RelationshipProjectionRepository;
+				const [declaration] = yield* repository.bindingDeclarations({ limit: 100 });
+				assert(declaration);
+				const { hasRelationships: _, ...read } = declaration;
 
-			yield* publish(job, scoreAll(input, 3));
-
-			const [note] = yield* notes(workId);
-			expect(note?.revision).toBe(2);
-			expect(note?.projectedRevision).toBeNull();
-			const next = yield* (yield* RelationshipProjectionRepository).get(workId);
-			assert(next?.currentJobId);
-			expect(next.currentJobId).not.toBe(job.id);
-			expect(next.status).toBe("queued");
-		}),
-	);
-});
-
-layer(testLayer)((test) => {
-	test.effect("rejects output that does not cover its claim exactly", () =>
-		Effect.gen(function* () {
-			const { sources } = yield* seedLinks("coverage", 1);
-			const [source] = sources;
-			assert(source);
-			const workId = yield* request("coverage", [source]);
-			const { job } = yield* startCurrent(workId);
-			assertExitFails(
-				yield* Effect.exit(publish(job, { updates: [] })),
-				new DbError({
-					message: "Relationship projection processor must return each claimed relationship once",
-				}),
-			);
-			assertExitFails(
-				yield* Effect.exit(
-					publish(job, {
-						updates: [{ properties: { score: "high" }, relationshipId: `${source}-link` }],
-					}),
-				),
-				new DbError({ message: "Projection output does not match its declared schema" }),
-			);
-		}),
-	);
-});
-
-layer(testLayer)((test) => {
-	test.effect("re-projects every note after the processor binding changes", () =>
-		Effect.gen(function* () {
-			const { sources, fixture } = yield* seedLinks("rebind", 2);
-			const workId = yield* request("rebind", sources);
-			const repository = yield* RelationshipProjectionRepository;
-			const work = yield* repository.get(workId);
-			assert(work);
-			yield* (yield* DatabaseSession).transaction(
-				repository.bind(
+				yield* repository.invalidate([
 					{ userId, relationshipSchemaSlug, relationshipSchemaPluginId: fixture.pluginId },
-					{
-						pluginPin: work.pluginPin,
-						accountToken: work.accountToken,
-						outputSchema: work.outputSchema,
-						processorScriptId: "rebuilt-processor",
-						pluginRevisionId: work.pluginRevisionId,
-					},
-				),
-			);
+				]);
+				yield* repository.recordBinding(read);
 
-			expect(
-				(yield* notes(workId)).map(({ revision, projectedRevision }) => ({
-					revision,
-					projectedRevision,
-				})),
-			).toEqual([
-				{ revision: 2, projectedRevision: null },
-				{ revision: 2, projectedRevision: null },
-			]);
-			expect((yield* repository.get(workId))?.currentJobId).toBeNull();
-		}),
+				expect(yield* repository.bindingDeclarations({ limit: 100 })).toMatchObject([
+					{ userId, relationshipSchemaSlug, hasRelationships: true },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(testLayer)((test) => {
-	test.effect("reconciliation fills notes for new links and leaves an idle tick empty", () =>
-		Effect.gen(function* () {
-			const { sources, fixture } = yield* seedLinks("reconcile", 3);
-			const workId = relationshipProjectionWorkId({
-				userId,
-				relationshipSchemaSlug,
-				relationshipSchemaPluginId: fixture.pluginId,
-			});
-			const service = yield* RelationshipProjectionService;
-			const repository = yield* RelationshipProjectionRepository;
-
-			yield* service.reconcile();
-
-			expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual(
-				sources.map((source) => `${source}-link`),
-			);
-			expect(yield* repository.bindingDeclarations({ limit: 100 })).toEqual([]);
-
-			const later = yield* seedLinks("reconcile-later", 1);
-			expect(yield* repository.bindingDeclarations({ limit: 100 })).toHaveLength(1);
-			yield* service.reconcile();
-
-			expect((yield* notes(workId)).map(({ relationshipId }) => relationshipId)).toEqual(
-				[...sources, ...later.sources].map((source) => `${source}-link`).sort(),
-			);
-			expect(yield* repository.bindingDeclarations({ limit: 100 })).toEqual([]);
-		}),
-	);
-
-	test.effect("keeps a declaration stale when a link arrives after it was read", () =>
-		Effect.gen(function* () {
-			const { fixture } = yield* seedLinks("late", 1);
-			const repository = yield* RelationshipProjectionRepository;
-			const [declaration] = yield* repository.bindingDeclarations({ limit: 100 });
-			assert(declaration);
-			const { hasRelationships: _, ...read } = declaration;
-
-			yield* repository.invalidate([
-				{ userId, relationshipSchemaSlug, relationshipSchemaPluginId: fixture.pluginId },
-			]);
-			yield* repository.recordBinding(read);
-
-			expect(yield* repository.bindingDeclarations({ limit: 100 })).toMatchObject([
-				{ userId, relationshipSchemaSlug, hasRelationships: true },
-			]);
-		}),
-	);
-});
-
-layer(testLayer)((test) => {
-	test.effect("fans out to every user holding the relationship", () =>
-		Effect.gen(function* () {
-			const { sources, fixture } = yield* seedLinks("fan-out", 1);
-			const service = yield* RelationshipProjectionService;
-			expect(
-				yield* service.requestForAllUsers({
-					pluginPin: fixture.pluginPin,
-					request: { relationshipSchemaSlug, sourceEntityIds: sources },
-				}),
-			).toBe(1);
-			expect(
-				yield* service.requestForAllUsers({
-					pluginPin: fixture.pluginPin,
-					request: { relationshipSchemaSlug, sourceEntityIds: [EntityId.make("unlinked")] },
-				}),
-			).toBe(0);
-		}),
+	test.effect(
+		"fans out to every user holding the relationship",
+		() =>
+			Effect.gen(function* () {
+				const { sources, fixture } = yield* seedLinks("fan-out", 1);
+				const service = yield* RelationshipProjectionService;
+				expect(
+					yield* service.requestForAllUsers({
+						pluginPin: fixture.pluginPin,
+						request: { relationshipSchemaSlug, sourceEntityIds: sources },
+					}),
+				).toBe(1);
+				expect(
+					yield* service.requestForAllUsers({
+						pluginPin: fixture.pluginPin,
+						request: { relationshipSchemaSlug, sourceEntityIds: [EntityId.make("unlinked")] },
+					}),
+				).toBe(0);
+			}),
+		testTimeout,
 	);
 });

@@ -797,7 +797,7 @@ describe("Media episodic lifecycle query recipes", () => {
 					},
 					target,
 				);
-				expect(relationships.map((relationship) => relationship.targetEntityId)).toEqual([
+				expect(relationships.map((relationship) => relationship.targetEntityId)).toEqual<unknown>([
 					firstEpisode.id,
 				]);
 				expect(relationships.map((relationship) => relationship.targetEntityId)).not.toContain(
@@ -1309,7 +1309,7 @@ describe("Media lifecycle list recipes", () => {
 					config: showEpisodicKindConfig,
 				}),
 			);
-			expect(shows.items).toEqual([
+			expect(shows.items).toEqual<unknown>([
 				objectContaining({
 					id: show.id,
 					state: "in_progress",
@@ -1327,7 +1327,7 @@ describe("Media lifecycle list recipes", () => {
 					config: podcastEpisodicKindConfig,
 				}),
 			);
-			expect(podcasts.items).toEqual([
+			expect(podcasts.items).toEqual<unknown>([
 				objectContaining({
 					id: podcast.id,
 					latestActivityAt: "2026-06-03T02:00:00.000Z",

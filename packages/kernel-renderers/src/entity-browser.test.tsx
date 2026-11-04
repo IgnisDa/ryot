@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
@@ -14,7 +15,9 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result, Schema } from "effect";
 
 import CollectionBrowserPage from "./collection-browser";
@@ -134,640 +137,725 @@ describe("entity browser", () => {
 		return Promise.all(clocks.splice(0).map((clock) => clock.dispose()));
 	});
 
-	it.live("titles the screen with the saved view and announces its shipped chrome", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("1 result")),
-			);
+	it.live(
+		"titles the screen with the saved view and announces its shipped chrome",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 result")),
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("heading", { level: 1, name: "All Items" })).toBeTruthy(),
-				),
-			);
-			const search = screen.getByRole("searchbox", { name: "Search All Items" });
-			expect(search.getAttribute("aria-keyshortcuts")).toBe("/");
-			const filters = screen.getByRole("button", { name: /Filters/ });
-			expect(filters.hasAttribute("disabled")).toBe(false);
-			expect(filters.getAttribute("aria-label")).toBe("Filters, 0 active filters");
-			expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
-			const add = screen.getByRole("button", { name: "Add" });
-			expect(add.getAttribute("aria-keyshortcuts")).toBe("A");
-			expect(screen.getByRole("radio", { name: "Grid view" })).toBeTruthy();
-			expect(screen.getByRole("radio", { name: "Table view" })).toBeTruthy();
-			fireEvent.click(filters);
-			const dialog = yield* Effect.promise(() =>
-				waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
-			);
-			expect(dialog.textContent).toContain("Add filter");
-			expect(screen.getByRole("button", { name: /^Sort by/ })).toBeTruthy();
-			expect(dialog.textContent).not.toContain("View as");
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { level: 1, name: "All Items" })).toBeTruthy(),
+					),
+				);
+				const search = screen.getByRole("searchbox", { name: "Search All Items" });
+				expect(search.getAttribute("aria-keyshortcuts")).toBe("/");
+				const filters = screen.getByRole("button", { name: /Filters/ });
+				expect(filters.hasAttribute("disabled")).toBe(false);
+				expect(filters.getAttribute("aria-label")).toBe("Filters, 0 active filters");
+				expect(screen.queryByRole("button", { name: /^Sort by/ })).toBeNull();
+				const add = screen.getByRole("button", { name: "Add" });
+				expect(add.getAttribute("aria-keyshortcuts")).toBe("A");
+				expect(screen.getByRole("radio", { name: "Grid view" })).toBeTruthy();
+				expect(screen.getByRole("radio", { name: "Table view" })).toBeTruthy();
+				fireEvent.click(filters);
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
+				);
+				expect(dialog.textContent).toContain("Add filter");
+				expect(screen.getByRole("button", { name: /^Sort by/ })).toBeTruthy();
+				expect(dialog.textContent).not.toContain("View as");
+			}),
+		testTimeout,
 	);
 
-	it.live("shows the invalid-configuration state for settings the browser schema rejects", () =>
-		Effect.gen(function* () {
-			const { subject: _subject, ...withoutSubject } = browserSettings;
-			openBrowser({ settings: withoutSubject });
-			yield* Effect.promise(() =>
-				screen.findByText("This entity browser configuration is invalid."),
-			);
-		}),
+	it.live(
+		"shows the invalid-configuration state for settings the browser schema rejects",
+		() =>
+			Effect.gen(function* () {
+				const { subject: _subject, ...withoutSubject } = browserSettings;
+				openBrowser({ settings: withoutSubject });
+				yield* Effect.promise(() =>
+					screen.findByText("This entity browser configuration is invalid."),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("renders plugin presentation data from the ordered browser request", () =>
-		Effect.gen(function* () {
-			const presentation = defineEntityPresentation<string>({
-				component: ({ data }) => <p>{`Presented ${data}`}</p>,
-				loader: () => Effect.die("Embedded presentation should not load"),
-				prepare: ({ sources, references }) =>
-					Result.all(
-						Object.fromEntries(
-							references.map(({ entityId }) => {
-								const value = sources.get(entityId)?.["name"];
-								return [
-									entityId,
-									typeof value === "string"
-										? Result.succeed(value)
-										: Result.fail(new Error("Missing presentation name")),
-								];
+	it.live(
+		"renders plugin presentation data from the ordered browser request",
+		() =>
+			Effect.gen(function* () {
+				const presentation = defineEntityPresentation<string>({
+					component: ({ data }) => <p>{`Presented ${data}`}</p>,
+					loader: () => Effect.die("Embedded presentation should not load"),
+					prepare: ({ sources, references }) =>
+						Result.all(
+							Object.fromEntries(
+								references.map(({ entityId }) => {
+									const value = sources.get(entityId)?.["name"];
+									return [
+										entityId,
+										typeof value === "string"
+											? Result.succeed(value)
+											: Result.fail(new Error("Missing presentation name")),
+									];
+								}),
+							),
+						),
+				});
+				const page = openBrowser({
+					entityPresentations: [
+						{
+							layout: "grid",
+							ownerPluginId: "fixture",
+							entitySchemaSlug: "item",
+							load: () => Promise.resolve(presentation),
+						},
+					],
+				});
+				const request = yield* browserRequest(page, 0);
+				replyBrowser(page, request.requestId, [
+					browserRow("item-2", "Second"),
+					browserRow("item-1", "First"),
+				]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.container?.textContent).toContain("Presented SecondPresented First"),
+					),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"registers its page shortcuts upward and opens provider search on a kernel press",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual({
+							type: "page-shortcuts",
+							shortcuts: ["/", "A", "F"],
+						}),
+					),
+				);
+				page.send({ shortcut: "A", type: "page-shortcut-press" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								type: "pick-entity-screen",
+								schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
 							}),
 						),
 					),
-			});
-			const page = openBrowser({
-				entityPresentations: [
-					{
-						layout: "grid",
-						ownerPluginId: "fixture",
-						entitySchemaSlug: "item",
-						load: () => Promise.resolve(presentation),
-					},
-				],
-			});
-			const request = yield* browserRequest(page, 0);
-			replyBrowser(page, request.requestId, [
-				browserRow("item-2", "Second"),
-				browserRow("item-1", "First"),
-			]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.container?.textContent).toContain("Presented SecondPresented First"),
-				),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-		}),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("registers its page shortcuts upward and opens provider search on a kernel press", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						type: "page-shortcuts",
-						shortcuts: ["/", "A", "F"],
-					}),
-				),
-			);
-			page.send({ shortcut: "A", type: "page-shortcut-press" });
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual(
-						objectContaining({
-							type: "pick-entity-screen",
-							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
-						}),
-					),
-				),
-			);
-		}),
-	);
-
-	it.live("navigates to the configured plugin route instead of opening provider search", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({
-				search: "search=ignored-query",
-				settings: {
-					...browserSettings,
-					addAction: {
-						type: "plugin-route",
-						path: "/items/item-1",
-						search: { tab: "history" },
-						packageId: PluginPackageId.make("test/target"),
-					},
-				},
-			});
-			yield* Effect.promise(() => answerBrowser(page, answered, []));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
-				),
-			);
-
-			fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						mode: "push",
-						type: "navigate",
-						target: {
-							kind: "plugin-route",
+	it.live(
+		"navigates to the configured plugin route instead of opening provider search",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({
+					search: "search=ignored-query",
+					settings: {
+						...browserSettings,
+						addAction: {
+							type: "plugin-route",
 							path: "/items/item-1",
-							search: "tab=history",
-							packageId: "test/target",
+							search: { tab: "history" },
+							packageId: PluginPackageId.make("test/target"),
 						},
-					}),
-				),
-			);
-			expect(page.clientMessages()).not.toContainEqual(
-				objectContaining({ type: "pick-entity-screen" }),
-			);
-		}),
-	);
+					},
+				});
+				yield* Effect.promise(() => answerBrowser(page, answered, []));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
+					),
+				);
 
-	it.live("counts every result on demand and reports the total beside the loaded count", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "Example")], true, "cursor-1"),
-			);
-
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("1+ results")),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
-			);
-			const count = page.queryRequests("entityBrowserCount")[0];
-			if (!count) {
-				throw new Error("The count action never issued a request");
-			}
-			page.replyQuery(count.requestId, {
-				outcome: "success",
-				response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 42 }] } } },
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("1 of 42 results")),
-			);
-		}),
-	);
-
-	it.live("shows each collection card's total member count", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openCollectionBrowser();
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [
-					collectionBrowserRow("collection-1", "Favorites"),
-					collectionBrowserRow("collection-2", "Empty"),
-				]),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					expect(
-						page.container?.querySelector('[data-entity-id="collection-1"]')?.textContent,
-					).toContain("2 items");
-					expect(
-						page.container?.querySelector('[data-entity-id="collection-2"]')?.textContent,
-					).toContain("0 items");
-				}),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-		}),
-	);
-
-	it.live("offers an online search that seeds the provider query when nothing matches", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({ search: "search=example" });
-			yield* Effect.promise(() => answerBrowser(page, answered, []));
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual(
-						objectContaining({
-							initialQuery: "example",
-							type: "pick-entity-screen",
-							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
+				fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>({
+							mode: "push",
+							type: "navigate",
+							target: {
+								kind: "plugin-route",
+								path: "/items/item-1",
+								search: "tab=history",
+								packageId: "test/target",
+							},
 						}),
 					),
-				),
-			);
-		}),
+				);
+				expect(page.clientMessages()).not.toContainEqual(
+					objectContaining({ type: "pick-entity-screen" }),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("invites the first import from an empty view", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, []));
+	it.live(
+		"counts every result on demand and reports the total beside the loaded count",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")], true, "cursor-1"),
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "All Items is empty" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Search online" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual(
-						objectContaining({
-							type: "pick-entity-screen",
-							schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1+ results")),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
+				);
+				const count = page.queryRequests("entityBrowserCount")[0];
+				if (!count) {
+					throw new Error("The count action never issued a request");
+				}
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 42 }] } } },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 of 42 results")),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows each collection card's total member count",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openCollectionBrowser();
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [
+						collectionBrowserRow("collection-1", "Favorites"),
+						collectionBrowserRow("collection-2", "Empty"),
+					]),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(
+							page.container?.querySelector('[data-entity-id="collection-1"]')?.textContent,
+						).toContain("2 items");
+						expect(
+							page.container?.querySelector('[data-entity-id="collection-2"]')?.textContent,
+						).toContain("0 items");
+					}),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers an online search that seeds the provider query when nothing matches",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({ search: "search=example" });
+				yield* Effect.promise(() => answerBrowser(page, answered, []));
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								initialQuery: "example",
+								type: "pick-entity-screen",
+								schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
+							}),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"invites the first import from an empty view",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() => answerBrowser(page, answered, []));
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { name: "All Items is empty" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Search online" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								type: "pick-entity-screen",
+								schema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
+							}),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"builds table columns from settings instead of the first row",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({ search: "layout=table" });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getAllByRole("columnheader")).toHaveLength(2)),
+				);
+				expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
+					"Name",
+					"Year",
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"hands the compact layout its own search row, options sheet, and add affordance",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				page.navigate(routeLocation("/v/all-items", ""), { compact: true });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Add to this view" })).toBeTruthy(),
+					),
+				);
+				expect(screen.queryByRole("button", { name: /^Add$/ })).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "View options, 0 active filters" }));
+				const sheet = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("dialog", { name: "View options" })),
+				);
+				expect(sheet.textContent).toContain("Add filter");
+
+				fireEvent.click(screen.getByRole("button", { name: "Close view options" }));
+				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
+				fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("searchbox", { name: "Search All Items" })).toBeTruthy(),
+					),
+				);
+				expect(screen.getByRole("button", { name: "Exit search" })).toBeTruthy();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"debounces draft search for 300ms instead of querying per keystroke",
+		() =>
+			Effect.gen(function* () {
+				const clock = testClock();
+				const answered = new Set<string>();
+				const page = openBrowser({ clock, search: "panel=details" });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+				const search = screen.getByRole("searchbox", { name: "Search All Items" });
+
+				fireEvent.change(search, { target: { value: "p" } });
+				fireEvent.change(search, { target: { value: "pi" } });
+				fireEvent.change(search, { target: { value: "pir" } });
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				yield* Effect.promise(() => clock.advance(299));
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+
+				yield* Effect.promise(() => clock.advance(1));
+				const request = yield* browserRequest(page, 1);
+				expect(yield* encodeJson(request.document)).toContain("pir");
+				replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual({
+							mode: "replace",
+							type: "page-search",
+							update: { sort: null, filters: null, search: "pir" },
 						}),
 					),
-				),
-			);
-		}),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("builds table columns from settings instead of the first row", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({ search: "layout=table" });
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getAllByRole("columnheader")).toHaveLength(2)),
-			);
-			expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual([
-				"Name",
-				"Year",
-			]);
-		}),
+	it.live(
+		"preserves ongoing typing when a completed search is echoed through the URL",
+		() =>
+			Effect.gen(function* () {
+				const clock = testClock();
+				const page = openBrowser({ clock });
+				const initial = yield* browserRequest(page, 0);
+				replyBrowser(page, initial.requestId, []);
+				const search = yield* Effect.promise(() =>
+					screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Items" }),
+				);
+				search.focus();
+				fireEvent.change(search, { target: { value: "the" } });
+				yield* Effect.promise(() => clock.advance(300));
+				const request = yield* browserRequest(page, 1);
+				fireEvent.change(search, { target: { value: "the office" } });
+				replyBrowser(page, request.requestId, []);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual({
+							mode: "replace",
+							type: "page-search",
+							update: { sort: null, filters: null, search: "the" },
+						}),
+					),
+				);
+				page.navigate(routeLocation("/v/all-items", "search=the"));
+				yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the office")));
+				expect(document.activeElement).toBe(search);
+				yield* Effect.promise(() => clock.advance(300));
+				const next = yield* browserRequest(page, 2);
+				expect(yield* encodeJson(next.document)).toContain("the office");
+			}),
+		testTimeout,
 	);
 
-	it.live("hands the compact layout its own search row, options sheet, and add affordance", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			page.navigate(routeLocation("/v/all-items", ""), { compact: true });
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Add to this view" })).toBeTruthy(),
-				),
-			);
-			expect(screen.queryByRole("button", { name: /^Add$/ })).toBeNull();
-			fireEvent.click(screen.getByRole("button", { name: "View options, 0 active filters" }));
-			const sheet = yield* Effect.promise(() =>
-				waitFor(() => screen.getByRole("dialog", { name: "View options" })),
-			);
-			expect(sheet.textContent).toContain("Add filter");
-
-			fireEvent.click(screen.getByRole("button", { name: "Close view options" }));
-			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
-			fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("searchbox", { name: "Search All Items" })).toBeTruthy(),
-				),
-			);
-			expect(screen.getByRole("button", { name: "Exit search" })).toBeTruthy();
-		}),
+	it.live(
+		"keeps a newer committed search when an older URL update arrives",
+		() =>
+			Effect.gen(function* () {
+				const clock = testClock();
+				const page = openBrowser({ clock });
+				const initial = yield* browserRequest(page, 0);
+				replyBrowser(page, initial.requestId, []);
+				const search = yield* Effect.promise(() =>
+					screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Items" }),
+				);
+				fireEvent.change(search, { target: { value: "the" } });
+				yield* Effect.promise(() => clock.advance(300));
+				const first = yield* browserRequest(page, 1);
+				replyBrowser(page, first.requestId, []);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual({
+							mode: "replace",
+							type: "page-search",
+							update: { sort: null, filters: null, search: "the" },
+						}),
+					),
+				);
+				fireEvent.change(search, { target: { value: "the office" } });
+				yield* Effect.promise(() => clock.advance(300));
+				const second = yield* browserRequest(page, 2);
+				page.navigate(routeLocation("/v/all-items", "search=the"));
+				replyBrowser(page, second.requestId, []);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual({
+							mode: "replace",
+							type: "page-search",
+							update: { sort: null, filters: null, search: "the office" },
+						}),
+					),
+				);
+				expect(search.value).toBe("the office");
+				page.navigate(routeLocation("/v/all-items", "search=the+office"));
+				page.navigate(routeLocation("/v/all-items", "search=the"));
+				yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the")));
+			}),
+		testTimeout,
 	);
 
-	it.live("debounces draft search for 300ms instead of querying per keystroke", () =>
-		Effect.gen(function* () {
-			const clock = testClock();
-			const answered = new Set<string>();
-			const page = openBrowser({ clock, search: "panel=details" });
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-			const search = screen.getByRole("searchbox", { name: "Search All Items" });
+	it.live(
+		"commits Enter immediately and debounces clearing the draft",
+		() =>
+			Effect.gen(function* () {
+				const clock = testClock();
+				const answered = new Set<string>();
+				const page = openBrowser({ clock });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+				const search = screen.getByRole("searchbox", { name: "Search All Items" });
 
-			fireEvent.change(search, { target: { value: "p" } });
-			fireEvent.change(search, { target: { value: "pi" } });
-			fireEvent.change(search, { target: { value: "pir" } });
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-			yield* Effect.promise(() => clock.advance(299));
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				fireEvent.change(search, { target: { value: "example" } });
+				const form = search.closest("form");
+				if (!form) {
+					throw new Error("Search input is not inside its form");
+				}
+				fireEvent.submit(form);
+				const searched = yield* browserRequest(page, 1);
+				replyBrowser(page, searched.requestId, [browserRow("item-1", "Example")]);
+				fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
+						).toBe(""),
+					),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(2);
 
-			yield* Effect.promise(() => clock.advance(1));
-			const request = yield* browserRequest(page, 1);
-			expect(yield* encodeJson(request.document)).toContain("pir");
-			replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						mode: "replace",
-						type: "page-search",
-						update: { sort: null, filters: null, search: "pir" },
-					}),
-				),
-			);
-		}),
+				yield* Effect.promise(() => clock.advance(300));
+				yield* browserRequest(page, 2);
+			}),
+		testTimeout,
 	);
 
-	it.live("preserves ongoing typing when a completed search is echoed through the URL", () =>
-		Effect.gen(function* () {
-			const clock = testClock();
-			const page = openBrowser({ clock });
-			const initial = yield* browserRequest(page, 0);
-			replyBrowser(page, initial.requestId, []);
-			const search = yield* Effect.promise(() =>
-				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Items" }),
-			);
-			search.focus();
-			fireEvent.change(search, { target: { value: "the" } });
-			yield* Effect.promise(() => clock.advance(300));
-			const request = yield* browserRequest(page, 1);
-			fireEvent.change(search, { target: { value: "the office" } });
-			replyBrowser(page, request.requestId, []);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						mode: "replace",
-						type: "page-search",
-						update: { sort: null, filters: null, search: "the" },
-					}),
-				),
-			);
-			page.navigate(routeLocation("/v/all-items", "search=the"));
-			yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the office")));
-			expect(document.activeElement).toBe(search);
-			yield* Effect.promise(() => clock.advance(300));
-			const next = yield* browserRequest(page, 2);
-			expect(yield* encodeJson(next.document)).toContain("the office");
-		}),
+	it.live(
+		"keeps search focus through the committed query result lifecycle",
+		() =>
+			Effect.gen(function* () {
+				const clock = testClock();
+				const answered = new Set<string>();
+				const page = openBrowser({ clock });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+				const search = screen.getByRole("searchbox", { name: "Search All Items" });
+				search.focus();
+				fireEvent.change(search, { target: { value: "pir" } });
+
+				yield* Effect.promise(() => clock.advance(300));
+				const request = yield* browserRequest(page, 1);
+				expect(document.activeElement).toBe(search);
+				replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("Pirate Cinema")),
+				);
+				expect(document.activeElement).toBe(search);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps a newer committed search when an older URL update arrives", () =>
-		Effect.gen(function* () {
-			const clock = testClock();
-			const page = openBrowser({ clock });
-			const initial = yield* browserRequest(page, 0);
-			replyBrowser(page, initial.requestId, []);
-			const search = yield* Effect.promise(() =>
-				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Items" }),
-			);
-			fireEvent.change(search, { target: { value: "the" } });
-			yield* Effect.promise(() => clock.advance(300));
-			const first = yield* browserRequest(page, 1);
-			replyBrowser(page, first.requestId, []);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						mode: "replace",
-						type: "page-search",
-						update: { sort: null, filters: null, search: "the" },
-					}),
-				),
-			);
-			fireEvent.change(search, { target: { value: "the office" } });
-			yield* Effect.promise(() => clock.advance(300));
-			const second = yield* browserRequest(page, 2);
-			page.navigate(routeLocation("/v/all-items", "search=the"));
-			replyBrowser(page, second.requestId, []);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						mode: "replace",
-						type: "page-search",
-						update: { sort: null, filters: null, search: "the office" },
-					}),
-				),
-			);
-			expect(search.value).toBe("the office");
-			page.navigate(routeLocation("/v/all-items", "search=the+office"));
-			page.navigate(routeLocation("/v/all-items", "search=the"));
-			yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the")));
-		}),
+	it.live(
+		"applies external URL search to both the draft and committed query",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({ search: "panel=details" });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+
+				page.navigate(routeLocation("/v/all-items", "panel=details&search=external"));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
+						).toBe("external"),
+					),
+				);
+				const request = yield* browserRequest(page, 1);
+				expect(yield* encodeJson(request.document)).toContain("external");
+			}),
+		testTimeout,
 	);
 
-	it.live("commits Enter immediately and debounces clearing the draft", () =>
-		Effect.gen(function* () {
-			const clock = testClock();
-			const answered = new Set<string>();
-			const page = openBrowser({ clock });
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-			const search = screen.getByRole("searchbox", { name: "Search All Items" });
+	it.live(
+		"requests one cursor page per load-more click and never before a click",
+		() =>
+			Effect.gen(function* () {
+				const page = openBrowser();
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
+					),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
 
-			fireEvent.change(search, { target: { value: "example" } });
-			const form = search.closest("form");
-			if (!form) {
-				throw new Error("Search input is not inside its form");
-			}
-			fireEvent.submit(form);
-			const searched = yield* browserRequest(page, 1);
-			replyBrowser(page, searched.requestId, [browserRow("item-1", "Example")]);
-			fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
-					).toBe(""),
-				),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(2);
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				const second = yield* browserRequest(page, 1);
+				expect(
+					screen.getByRole("button", { name: "Loading more results" }).getAttribute("aria-busy"),
+				).toBe("true");
+				expect(yield* encodeJson(second.document)).toContain("cursor-1");
+				replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(2);
 
-			yield* Effect.promise(() => clock.advance(300));
-			yield* browserRequest(page, 2);
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				const third = yield* browserRequest(page, 2);
+				expect(yield* encodeJson(third.document)).toContain("cursor-2");
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps search focus through the committed query result lifecycle", () =>
-		Effect.gen(function* () {
-			const clock = testClock();
-			const answered = new Set<string>();
-			const page = openBrowser({ clock });
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
-			const search = screen.getByRole("searchbox", { name: "Search All Items" });
-			search.focus();
-			fireEvent.change(search, { target: { value: "pir" } });
+	it.live(
+		"refreshes a one-page browser with exactly one page",
+		() =>
+			Effect.gen(function* () {
+				const page = openBrowser();
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("item-1", "Original")], true, "cursor-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("Original")),
+				);
 
-			yield* Effect.promise(() => clock.advance(300));
-			const request = yield* browserRequest(page, 1);
-			expect(document.activeElement).toBe(search);
-			replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("Pirate Cinema")),
-			);
-			expect(document.activeElement).toBe(search);
-		}),
+				page.send({ type: "page-refresh" });
+				const refreshed = yield* browserRequest(page, 1);
+				expect(page.container?.textContent).toContain("Original");
+				expect(
+					screen.getByRole("button", { name: "Load more results" }).getAttribute("aria-busy"),
+				).toBeNull();
+				expect(screen.queryByRole("button", { name: "Loading more results" })).toBeNull();
+				replyBrowser(
+					page,
+					refreshed.requestId,
+					[browserRow("item-2", "Refreshed")],
+					true,
+					"fresh-1",
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("Refreshed")),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("applies external URL search to both the draft and committed query", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({ search: "panel=details" });
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "Example")]));
+	it.live(
+		"replays exactly the manually loaded page depth during refresh",
+		() =>
+			Effect.gen(function* () {
+				const page = openBrowser();
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				const second = yield* browserRequest(page, 1);
+				replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
+				);
 
-			page.navigate(routeLocation("/v/all-items", "panel=details&search=external"));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
-					).toBe("external"),
-				),
-			);
-			const request = yield* browserRequest(page, 1);
-			expect(yield* encodeJson(request.document)).toContain("external");
-		}),
+				page.send({ type: "page-refresh" });
+				const replayFirst = yield* browserRequest(page, 2);
+				replyBrowser(
+					page,
+					replayFirst.requestId,
+					[browserRow("item-1", "One updated")],
+					true,
+					"fresh-1",
+				);
+				const replaySecond = yield* browserRequest(page, 3);
+				expect(yield* encodeJson(replaySecond.document)).toContain("fresh-1");
+				replyBrowser(
+					page,
+					replaySecond.requestId,
+					[browserRow("item-2", "Two updated")],
+					true,
+					"fresh-2",
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("Two updated")),
+				);
+				expect(page.queryRequests("entityBrowser")).toHaveLength(4);
+			}),
+		testTimeout,
 	);
 
-	it.live("requests one cursor page per load-more click and never before a click", () =>
-		Effect.gen(function* () {
-			const page = openBrowser();
-			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
-				),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+	it.live(
+		"does not leak loaded state between mounts of the same saved view",
+		() =>
+			Effect.gen(function* () {
+				const firstPage = openBrowser({ savedViewId: "shared-view" });
+				const first = yield* browserRequest(firstPage, 0);
+				replyBrowser(
+					firstPage,
+					first.requestId,
+					[browserRow("item-old", "Old mount")],
+					true,
+					"old-1",
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				const second = yield* browserRequest(firstPage, 1);
+				replyBrowser(firstPage, second.requestId, [browserRow("item-old-2", "Old second page")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(firstPage.container?.textContent).toContain("Old second page")),
+				);
+				firstPage.dispose();
 
-			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const second = yield* browserRequest(page, 1);
-			expect(
-				screen.getByRole("button", { name: "Loading more results" }).getAttribute("aria-busy"),
-			).toBe("true");
-			expect(yield* encodeJson(second.document)).toContain("cursor-1");
-			replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(2);
-
-			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const third = yield* browserRequest(page, 2);
-			expect(yield* encodeJson(third.document)).toContain("cursor-2");
-		}),
-	);
-
-	it.live("refreshes a one-page browser with exactly one page", () =>
-		Effect.gen(function* () {
-			const page = openBrowser();
-			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("item-1", "Original")], true, "cursor-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("Original")),
-			);
-
-			page.send({ type: "page-refresh" });
-			const refreshed = yield* browserRequest(page, 1);
-			expect(page.container?.textContent).toContain("Original");
-			expect(
-				screen.getByRole("button", { name: "Load more results" }).getAttribute("aria-busy"),
-			).toBeNull();
-			expect(screen.queryByRole("button", { name: "Loading more results" })).toBeNull();
-			replyBrowser(page, refreshed.requestId, [browserRow("item-2", "Refreshed")], true, "fresh-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("Refreshed")),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(2);
-		}),
-	);
-
-	it.live("replays exactly the manually loaded page depth during refresh", () =>
-		Effect.gen(function* () {
-			const page = openBrowser();
-			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const second = yield* browserRequest(page, 1);
-			replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
-			);
-
-			page.send({ type: "page-refresh" });
-			const replayFirst = yield* browserRequest(page, 2);
-			replyBrowser(
-				page,
-				replayFirst.requestId,
-				[browserRow("item-1", "One updated")],
-				true,
-				"fresh-1",
-			);
-			const replaySecond = yield* browserRequest(page, 3);
-			expect(yield* encodeJson(replaySecond.document)).toContain("fresh-1");
-			replyBrowser(
-				page,
-				replaySecond.requestId,
-				[browserRow("item-2", "Two updated")],
-				true,
-				"fresh-2",
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toContain("Two updated")),
-			);
-			expect(page.queryRequests("entityBrowser")).toHaveLength(4);
-		}),
-	);
-
-	it.live("does not leak loaded state between mounts of the same saved view", () =>
-		Effect.gen(function* () {
-			const firstPage = openBrowser({ savedViewId: "shared-view" });
-			const first = yield* browserRequest(firstPage, 0);
-			replyBrowser(
-				firstPage,
-				first.requestId,
-				[browserRow("item-old", "Old mount")],
-				true,
-				"old-1",
-			);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			const second = yield* browserRequest(firstPage, 1);
-			replyBrowser(firstPage, second.requestId, [browserRow("item-old-2", "Old second page")]);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(firstPage.container?.textContent).toContain("Old second page")),
-			);
-			firstPage.dispose();
-
-			const secondPage = openBrowser({ savedViewId: "shared-view" });
-			expect(secondPage.container?.textContent).not.toContain("Old mount");
-			const fresh = yield* browserRequest(secondPage, 0);
-			replyBrowser(
-				secondPage,
-				fresh.requestId,
-				[browserRow("item-new", "New mount")],
-				true,
-				"new-1",
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(secondPage.container?.textContent).toContain("New mount")),
-			);
-			secondPage.send({ type: "page-refresh" });
-			const refresh = yield* browserRequest(secondPage, 1);
-			replyBrowser(
-				secondPage,
-				refresh.requestId,
-				[browserRow("item-new", "New mount refreshed")],
-				true,
-				"newer-1",
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(secondPage.container?.textContent).toContain("New mount refreshed")),
-			);
-			expect(secondPage.queryRequests("entityBrowser")).toHaveLength(2);
-		}),
+				const secondPage = openBrowser({ savedViewId: "shared-view" });
+				expect(secondPage.container?.textContent).not.toContain("Old mount");
+				const fresh = yield* browserRequest(secondPage, 0);
+				replyBrowser(
+					secondPage,
+					fresh.requestId,
+					[browserRow("item-new", "New mount")],
+					true,
+					"new-1",
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(secondPage.container?.textContent).toContain("New mount")),
+				);
+				secondPage.send({ type: "page-refresh" });
+				const refresh = yield* browserRequest(secondPage, 1);
+				replyBrowser(
+					secondPage,
+					refresh.requestId,
+					[browserRow("item-new", "New mount refreshed")],
+					true,
+					"newer-1",
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(secondPage.container?.textContent).toContain("New mount refreshed")),
+				);
+				expect(secondPage.queryRequests("entityBrowser")).toHaveLength(2);
+			}),
+		testTimeout,
 	);
 });
 
@@ -916,316 +1004,357 @@ describe("entity browser sorting", () => {
 					screen.findByRole("button", { name: "Sort direction: Newest first" }),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("restores URL direction in compact options and follows external navigation", () =>
-		Effect.gen(function* () {
-			const page = openBrowser({ search: "sort=year-asc" });
-			page.navigate(routeLocation("/v/all-items", "sort=year-asc"), { compact: true });
-			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("one", "One")]);
-			yield* openFilters("View options");
-			expect(screen.getByRole("button", { name: "Sort by: Release year" })).toBeTruthy();
-			fireEvent.click(screen.getByRole("button", { name: "Sort direction: Oldest first" }));
-			const next = yield* browserRequest(page, 1);
-			replyBrowser(page, next.requestId, [browserRow("two", "Two")]);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(pageSearchUpdates(page).at(-1)?.update["sort"]).toBe("year-desc")),
-			);
-			page.navigate(routeLocation("/v/all-items", "sort=name-desc"), { compact: true });
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Sort direction: Z–A" }));
-			page.navigate(routeLocation("/v/all-items", "sort=missing-desc"), { compact: true });
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Sort by: Default order" }));
-			expect(
-				screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
-			).toBe(true);
-		}),
+	it.live(
+		"restores URL direction in compact options and follows external navigation",
+		() =>
+			Effect.gen(function* () {
+				const page = openBrowser({ search: "sort=year-asc" });
+				page.navigate(routeLocation("/v/all-items", "sort=year-asc"), { compact: true });
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("one", "One")]);
+				yield* openFilters("View options");
+				expect(screen.getByRole("button", { name: "Sort by: Release year" })).toBeTruthy();
+				fireEvent.click(screen.getByRole("button", { name: "Sort direction: Oldest first" }));
+				const next = yield* browserRequest(page, 1);
+				replyBrowser(page, next.requestId, [browserRow("two", "Two")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(pageSearchUpdates(page).at(-1)?.update["sort"]).toBe("year-desc")),
+				);
+				page.navigate(routeLocation("/v/all-items", "sort=name-desc"), { compact: true });
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Sort direction: Z–A" }));
+				page.navigate(routeLocation("/v/all-items", "sort=missing-desc"), { compact: true });
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Sort by: Default order" }),
+				);
+				expect(
+					screen.getByRole("button", { name: "Sort direction: Default" }).hasAttribute("disabled"),
+				).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 describe("entity browser filters", () => {
 	afterEach(() => disposePluginBridges());
 
-	it.live("shares the page and pending count across unrelated location and dialog updates", () =>
-		Effect.gen(function* () {
-			const search = filtersParam(statusRule);
-			const page = openBrowser({ search });
-			const first = yield* browserRequest(page, 0);
-			replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Count all" })),
-			);
-			const count = yield* Effect.promise(() =>
-				waitFor(() => {
-					const request = page.queryRequests("entityBrowserCount")[0];
-					if (request === undefined) {
-						throw new Error("Count request was not issued");
-					}
-					return request;
-				}),
-			);
-
-			page.navigate(routeLocation("/v/all-items", `${search}&panel=details`));
-			yield* openFilters();
-			yield* waitForMessagePortMacrotask;
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-			expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
-			expect(screen.getByRole("button", { name: "Counting..." })).toBeTruthy();
-
-			page.replyQuery(count.requestId, {
-				outcome: "success",
-				response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 9 }] } } },
-			});
-			yield* Effect.promise(() => screen.findByText("1 of 9 results"));
-			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
-			page.navigate(routeLocation("/v/all-items", search));
-			yield* openFilters();
-			yield* waitForMessagePortMacrotask;
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-			expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
-			expect(screen.getByText("1 of 9 results")).toBeTruthy();
-		}),
-	);
-
-	it.live("applies a completed rule to the query, the URL and the accessible filter count", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			yield* openFilters();
-			yield* addFilter("Status");
-			fireEvent.click(screen.getByRole("button", { name: "Status values" }));
-			fireEvent.click(
-				yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Read" }))),
-			);
-
-			const filtered = yield* browserRequest(page, 1);
-			const document = yield* encodeJson(filtered.document);
-			expect(document).toContain('"read"');
-			expect(document).toContain("status");
-			replyBrowser(page, filtered.requestId, [browserRow("item-2", "Two")]);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule)),
-			);
-			expect(pageSearchUpdates(page).at(-1)?.mode).toBe("replace");
-			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
-			expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
-			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
-				"Status is any of Read",
-			);
-		}),
-	);
-
-	it.live("keeps an incomplete rule out of the query", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			yield* openFilters();
-			yield* addFilter("Year");
-			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-			expect(lastFiltersUpdate(page)).toBeUndefined();
-			expect(screen.getByRole("button", { name: "Filters, 0 active filters" })).toBeTruthy();
-		}),
-	);
-
-	it.live("removes a rule from its chip and clears every filter", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({
-				search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
-			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
-						"Year is between 1990 and 2000",
-					),
-				),
-			);
-			expect(screen.getByRole("button", { name: "Filters, 2 active filters" })).toBeTruthy();
-
-			fireEvent.click(screen.getByRole("button", { name: "Remove Status filter" }));
-			const single = yield* browserRequest(page, 1);
-			replyBrowser(page, single.requestId, [browserRow("item-1", "One")]);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(yearRule)),
-			);
-
-			fireEvent.click(screen.getByRole("button", { name: "Clear" }));
-			const cleared = yield* browserRequest(page, 2);
-			replyBrowser(page, cleared.requestId, [browserRow("item-1", "One")]);
-			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
-			expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
-		}),
-	);
-
-	it.live("toggles the group between match all and match any", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({
-				search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
-			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			yield* openFilters();
-			fireEvent.click(screen.getByRole("radio", { name: "Match any" }));
-			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
-						type: "or",
-						filters: [statusRule, yearRule],
+	it.live(
+		"shares the page and pending count across unrelated location and dialog updates",
+		() =>
+			Effect.gen(function* () {
+				const search = filtersParam(statusRule);
+				const page = openBrowser({ search });
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("item-1", "One")], true, "cursor-1");
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Count all" })),
+				);
+				const count = yield* Effect.promise(() =>
+					waitFor(() => {
+						const request = page.queryRequests("entityBrowserCount")[0];
+						if (request === undefined) {
+							throw new Error("Count request was not issued");
+						}
+						return request;
 					}),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
-			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
-				"Match any",
-			);
-		}),
+				);
+
+				page.navigate(routeLocation("/v/all-items", `${search}&panel=details`));
+				yield* openFilters();
+				yield* waitForMessagePortMacrotask;
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
+				expect(screen.getByRole("button", { name: "Counting..." })).toBeTruthy();
+
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 9 }] } } },
+				});
+				yield* Effect.promise(() => screen.findByText("1 of 9 results"));
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				page.navigate(routeLocation("/v/all-items", search));
+				yield* openFilters();
+				yield* waitForMessagePortMacrotask;
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
+				expect(screen.getByText("1 of 9 results")).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("offers Clear filters when the applied filters match nothing", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({ search: filtersParam(statusRule) });
-			yield* Effect.promise(() => answerBrowser(page, answered, []));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
-				),
-			);
-			expect(page.container?.textContent).toContain("match the current filters");
-			fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
-			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
-			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
-		}),
-	);
-
-	it.live("sends the applied filter with Count all", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({ search: filtersParam(statusRule) });
-			yield* Effect.promise(() =>
-				answerBrowser(page, answered, [browserRow("item-1", "One")], true, "cursor-1"),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("button", { name: "Count all" })).toBeTruthy()),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
-			);
-			const count = page.queryRequests("entityBrowserCount")[0];
-			const document = yield* encodeJson(count?.document);
-			expect(document).toContain('"read"');
-			expect(document).toContain("status");
-		}),
-	);
-
-	it.live("shows a nested filter as one removable custom chip", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({
-				search: filtersParam({
-					type: "and",
-					filters: [statusRule, { type: "or", filters: [yearRule, statusRule] }],
-				}),
-			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("button", { name: "Custom filter" })).toBeTruthy()),
-			);
-			expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
-			fireEvent.click(screen.getByRole("button", { name: "Remove custom filter" }));
-			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
-			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
-		}),
-	);
-
-	it.live("labels relationship chips with resolved names and the count form while pending", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser({
-				search: filtersParam({ field: "authors", operator: "anyOf", values: ["p-1", "p-2"] }),
-			});
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			const lookup = yield* Effect.promise(() =>
-				waitFor(() => {
-					const found = page.queryRequests("choices").at(-1);
-					if (!found) {
-						throw new Error("No choices lookup was issued");
-					}
-					return found;
-				}),
-			);
-			const document = yield* encodeJson(lookup.document);
-			expect(document).toContain("p-1");
-			expect(document).toContain("p-2");
-			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
-				"Authors: 2 selected",
-			);
-			expect(page.container?.textContent).not.toContain("p-1");
-			replyChoices(page, lookup.requestId, [
-				{ id: "p-1", name: "Ann" },
-				{ id: "p-2", name: "Bo" },
-			]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
-						"Authors includes any of Ann, Bo",
+	it.live(
+		"applies a completed rule to the query, the URL and the accessible filter count",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				yield* openFilters();
+				yield* addFilter("Status");
+				fireEvent.click(screen.getByRole("button", { name: "Status values" }));
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						waitFor(() => screen.getByRole("checkbox", { name: "Read" })),
 					),
-				),
-			);
-		}),
+				);
+
+				const filtered = yield* browserRequest(page, 1);
+				const document = yield* encodeJson(filtered.document);
+				expect(document).toContain('"read"');
+				expect(document).toContain("status");
+				replyBrowser(page, filtered.requestId, [browserRow("item-2", "Two")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule)),
+				);
+				expect(pageSearchUpdates(page).at(-1)?.mode).toBe("replace");
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+					"Status is any of Read",
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("lists relationship choices from the choices recipe in the rule editor", () =>
-		Effect.gen(function* () {
-			const answered = new Set<string>();
-			const page = openBrowser();
-			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
-			yield* openFilters();
-			yield* addFilter("Authors");
-			fireEvent.click(screen.getByRole("button", { name: /^Authors values/ }));
-			const lookup = yield* Effect.promise(() =>
-				waitFor(() => {
-					const found = page.queryRequests("choices").at(-1);
-					if (!found) {
-						throw new Error("No choices request");
-					}
-					return found;
-				}),
-			);
-			replyChoices(page, lookup.requestId, [{ id: "p-1", name: "Ann" }]);
-			fireEvent.click(
-				yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Ann" }))),
-			);
-			const request = yield* browserRequest(page, 1);
-			replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
-						values: ["p-1"],
-						field: "authors",
-						operator: "anyOf",
+	it.live(
+		"keeps an incomplete rule out of the query",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				yield* openFilters();
+				yield* addFilter("Year");
+				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(lastFiltersUpdate(page)).toBeUndefined();
+				expect(screen.getByRole("button", { name: "Filters, 0 active filters" })).toBeTruthy();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"removes a rule from its chip and clears every filter",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({
+					search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
+				});
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+							"Year is between 1990 and 2000",
+						),
+					),
+				);
+				expect(screen.getByRole("button", { name: "Filters, 2 active filters" })).toBeTruthy();
+
+				fireEvent.click(screen.getByRole("button", { name: "Remove Status filter" }));
+				const single = yield* browserRequest(page, 1);
+				replyBrowser(page, single.requestId, [browserRow("item-1", "One")]);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(yearRule)),
+				);
+
+				fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+				const cleared = yield* browserRequest(page, 2);
+				replyBrowser(page, cleared.requestId, [browserRow("item-1", "One")]);
+				yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
+				expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"toggles the group between match all and match any",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({
+					search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
+				});
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				yield* openFilters();
+				fireEvent.click(screen.getByRole("radio", { name: "Match any" }));
+				const request = yield* browserRequest(page, 1);
+				replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
+							type: "or",
+							filters: [statusRule, yearRule],
+						}),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+					"Match any",
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers Clear filters when the applied filters match nothing",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({ search: filtersParam(statusRule) });
+				yield* Effect.promise(() => answerBrowser(page, answered, []));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { name: "No matches in All Items" })).toBeTruthy(),
+					),
+				);
+				expect(page.container?.textContent).toContain("match the current filters");
+				fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+				const request = yield* browserRequest(page, 1);
+				replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
+				yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"sends the applied filter with Count all",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({ search: filtersParam(statusRule) });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "One")], true, "cursor-1"),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByRole("button", { name: "Count all" })).toBeTruthy()),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
+				);
+				const count = page.queryRequests("entityBrowserCount")[0];
+				const document = yield* encodeJson(count?.document);
+				expect(document).toContain('"read"');
+				expect(document).toContain("status");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows a nested filter as one removable custom chip",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({
+					search: filtersParam({
+						type: "and",
+						filters: [statusRule, { type: "or", filters: [yearRule, statusRule] }],
 					}),
-				),
-			);
-		}),
+				});
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByRole("button", { name: "Custom filter" })).toBeTruthy()),
+				);
+				expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+				fireEvent.click(screen.getByRole("button", { name: "Remove custom filter" }));
+				const request = yield* browserRequest(page, 1);
+				replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
+				yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
+			}),
+		testTimeout,
 	);
 
-	it.live("offers the automatic Collections field on a collection browser", () =>
-		Effect.gen(function* () {
-			const page = openCollectionBrowser();
-			const request = yield* browserRequest(page, 0);
-			replyBrowser(page, request.requestId, [collectionBrowserRow("c-1", "Favorites")]);
-			yield* openFilters();
-			const rule = yield* addFilter("Collections");
-			expect(rule.textContent).toContain("Collections");
-		}),
+	it.live(
+		"labels relationship chips with resolved names and the count form while pending",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({
+					search: filtersParam({ field: "authors", operator: "anyOf", values: ["p-1", "p-2"] }),
+				});
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				const lookup = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page.queryRequests("choices").at(-1);
+						if (!found) {
+							throw new Error("No choices lookup was issued");
+						}
+						return found;
+					}),
+				);
+				const document = yield* encodeJson(lookup.document);
+				expect(document).toContain("p-1");
+				expect(document).toContain("p-2");
+				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+					"Authors: 2 selected",
+				);
+				expect(page.container?.textContent).not.toContain("p-1");
+				replyChoices(page, lookup.requestId, [
+					{ id: "p-1", name: "Ann" },
+					{ id: "p-2", name: "Bo" },
+				]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+							"Authors includes any of Ann, Bo",
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"lists relationship choices from the choices recipe in the rule editor",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
+				yield* openFilters();
+				yield* addFilter("Authors");
+				fireEvent.click(screen.getByRole("button", { name: /^Authors values/ }));
+				const lookup = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page.queryRequests("choices").at(-1);
+						if (!found) {
+							throw new Error("No choices request");
+						}
+						return found;
+					}),
+				);
+				replyChoices(page, lookup.requestId, [{ id: "p-1", name: "Ann" }]);
+				fireEvent.click(
+					yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Ann" }))),
+				);
+				const request = yield* browserRequest(page, 1);
+				replyBrowser(page, request.requestId, [browserRow("item-1", "One")]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
+							values: ["p-1"],
+							field: "authors",
+							operator: "anyOf",
+						}),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers the automatic Collections field on a collection browser",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollectionBrowser();
+				const request = yield* browserRequest(page, 0);
+				replyBrowser(page, request.requestId, [collectionBrowserRow("c-1", "Favorites")]);
+				yield* openFilters();
+				const rule = yield* addFilter("Collections");
+				expect(rule.textContent).toContain("Collections");
+			}),
+		testTimeout,
 	);
 });

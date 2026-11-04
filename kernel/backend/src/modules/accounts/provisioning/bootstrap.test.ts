@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Effect, Layer, Ref } from "effect";
 
@@ -130,18 +133,22 @@ layer(bootstrapLayer())((test) => {
 				expect(yield* fake.defaultRuleUserIds).toEqual([userId]);
 				expect(yield* fake.completed).toBe(true);
 			}),
+		testTimeout,
 	);
 });
 
 layer(bootstrapLayer({ bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z") }))((test) => {
-	test.effect("short-circuits when the completion marker is already set", () =>
-		Effect.gen(function* () {
-			yield* performBootstrap(userId);
+	test.effect(
+		"short-circuits when the completion marker is already set",
+		() =>
+			Effect.gen(function* () {
+				yield* performBootstrap(userId);
 
-			const fake = yield* FakeBootstrapDependencies;
-			expect(yield* fake.dispatchedUserIds).toEqual([]);
-			expect(yield* fake.defaultRuleUserIds).toEqual([]);
-		}),
+				const fake = yield* FakeBootstrapDependencies;
+				expect(yield* fake.dispatchedUserIds).toEqual([]);
+				expect(yield* fake.defaultRuleUserIds).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -153,16 +160,19 @@ layer(
 				: Effect.void,
 	}),
 )((test) => {
-	test.effect("does not complete after plugin failure and reruns the plugin safely on retry", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeBootstrapDependencies;
-			const first = yield* Effect.exit(performBootstrap(userId));
-			expect(first._tag).toBe("Failure");
-			expect(yield* fake.completed).toBe(false);
+	test.effect(
+		"does not complete after plugin failure and reruns the plugin safely on retry",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeBootstrapDependencies;
+				const first = yield* Effect.exit(performBootstrap(userId));
+				expect(first._tag).toBe("Failure");
+				expect(yield* fake.completed).toBe(false);
 
-			yield* performBootstrap(userId);
-			expect(yield* fake.dispatchedUserIds).toHaveLength(2);
-			expect(yield* fake.completed).toBe(true);
-		}),
+				yield* performBootstrap(userId);
+				expect(yield* fake.dispatchedUserIds).toHaveLength(2);
+				expect(yield* fake.completed).toBe(true);
+			}),
+		testTimeout,
 	);
 });

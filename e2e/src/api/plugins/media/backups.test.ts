@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -66,9 +67,9 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			100,
 		);
 		expect(sourceEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-			"add-to-media-library",
-			"progress",
-			"progress",
+			EventSchemaSlug.make("add-to-media-library"),
+			EventSchemaSlug.make("progress"),
+			EventSchemaSlug.make("progress"),
 		]);
 		const sourceProgressEvents = sourceEvents.filter(
 			({ eventSchemaSlug }) => eventSchemaSlug === fixture.progressEventSchemaSlug,
@@ -85,9 +86,9 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			100,
 		);
 		expect(sourceLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-			"completion-occurrence",
-			"completion-occurrence",
-			"history-correction",
+			EventSchemaSlug.make("completion-occurrence"),
+			EventSchemaSlug.make("completion-occurrence"),
+			EventSchemaSlug.make("history-correction"),
 		]);
 		const correction = requirePresent(
 			sourceLibraryEvents.find(({ eventSchemaSlug }) => eventSchemaSlug === "history-correction"),
@@ -117,7 +118,7 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			sourceLibraryEvents
 				.filter(({ eventSchemaSlug }) => eventSchemaSlug === "completion-occurrence")
 				.map(({ properties }) => properties),
-		).toEqual(arrayContaining(occurrenceFacts));
+		).toEqual<unknown>(arrayContaining(occurrenceFacts));
 		const { bytes } = yield* exportAndDownloadBackup(source.client);
 		const archivedEvents = yield* readBackupSection(bytes, "events.ndjson");
 		const archivedLibraryEvents = sourceLibraryEvents.filter(
@@ -129,7 +130,7 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			{ entityId: sourceLibraryId, events: archivedLibraryEvents },
 		]) {
 			for (const event of events) {
-				expect(archivedEvents).toContainEqual(
+				expect(archivedEvents).toContainEqual<unknown>(
 					objectContaining({ ...event, entityId, sessionEntityId: event.sessionEntityId ?? null }),
 				);
 			}
@@ -147,7 +148,7 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			undefined,
 			100,
 		);
-		expect(restoredEvents).toEqual(
+		expect(restoredEvents).toEqual<unknown>(
 			sourceEvents.map(({ properties, occurredAt: at, eventSchemaSlug, sessionEntityId }) => ({
 				properties,
 				occurredAt: at,
@@ -165,8 +166,8 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			100,
 		);
 		expect(restoredLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-			"completion-occurrence",
-			"completion-occurrence",
+			EventSchemaSlug.make("completion-occurrence"),
+			EventSchemaSlug.make("completion-occurrence"),
 		]);
 		for (const [index, fact] of facts.entries()) {
 			const restoredProgress = requirePresent(

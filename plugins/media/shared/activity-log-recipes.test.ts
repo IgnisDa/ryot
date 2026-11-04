@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
@@ -5,7 +7,6 @@ import {
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import {
@@ -139,7 +140,7 @@ describe("media activity log context recipe", () => {
 		const context = Result.getOrThrow(
 			decodeContext(targetRow({ schemaSlug: "podcast", podcastNextUp: includeRows([nextUp]) })),
 		);
-		expect(context?.nextUp).toEqual(nextUp);
+		expect(context?.nextUp).toEqual<unknown>(nextUp);
 	});
 
 	it("has no next-up episode for flat media", () => {
@@ -187,12 +188,17 @@ describe("show season episode choices recipe", () => {
 		expect(nodes).toContainEqual({ value: 2, type: "literal" });
 		expect(nodes).toContainEqual({ type: "literal", value: "show-1" });
 		expect(nodes).not.toContainEqual({ type: "currentDate" });
-		expect(recipe.document.queries["episodes"]?.output).toMatchObject({
-			orderBy: [
-				{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
-				{ direction: "asc", expr: objectContaining({ field: "id" }) },
-			],
-		});
+		expect(recipe.document.queries["episodes"]?.output).toEqual<unknown>(
+			objectContaining({
+				orderBy: [
+					objectContaining({
+						direction: "asc",
+						expr: objectContaining({ type: "cast", target: "number" }),
+					}),
+					objectContaining({ direction: "asc", expr: objectContaining({ field: "id" }) }),
+				],
+			}),
+		);
 	});
 
 	it("decodes the labelled choices", () => {
@@ -203,9 +209,9 @@ describe("show season episode choices recipe", () => {
 			state: "complete",
 			publishDate: "2024-01-01",
 		};
-		expect(Result.getOrThrow(recipe.decode({ data: { episodes: rows([choice]) } })).items).toEqual([
-			choice,
-		]);
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { episodes: rows([choice]) } })).items,
+		).toEqual<unknown>([choice]);
 	});
 });
 
@@ -266,6 +272,6 @@ describe("episodic earlier unwatched recipe", () => {
 					},
 				}),
 			),
-		).toEqual({ hasMore: true, items: [earlier], nextCursor: "next" });
+		).toEqual<unknown>({ hasMore: true, items: [earlier], nextCursor: "next" });
 	});
 });

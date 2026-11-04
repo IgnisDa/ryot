@@ -169,7 +169,7 @@ describe("RyotQL JSON array operators", () => {
 				"Show First",
 			]);
 			expect(firstPage.pageInfo.hasMore).toBe(true);
-			expect(firstPage.pageInfo.nextCursor).toEqual(anyOf(String));
+			expect(firstPage.pageInfo.nextCursor).toEqual<unknown>(anyOf(String));
 
 			const secondPage = yield* executeRyotQL(
 				client,

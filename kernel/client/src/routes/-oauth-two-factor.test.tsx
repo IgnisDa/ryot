@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
@@ -112,111 +115,129 @@ const signIn = (user: ReturnType<typeof userEvent.setup>) =>
 	});
 
 describe("Hosted two-factor management", () => {
-	it.live("refuses a mismatched frontend origin before sign-in", () =>
-		Effect.gen(function* () {
-			mountTwoFactor("/oauth/two-factor", {}, systemConfig("https://configured.example"));
+	it.live(
+		"refuses a mismatched frontend origin before sign-in",
+		() =>
+			Effect.gen(function* () {
+				mountTwoFactor("/oauth/two-factor", {}, systemConfig("https://configured.example"));
 
-			yield* Effect.promise(() => screen.findByText("Server configuration mismatch"));
-			expect(screen.queryByLabelText("Password")).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByText("Server configuration mismatch"));
+				expect(screen.queryByLabelText("Password")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("explains that management needs password sign-in", () =>
-		Effect.gen(function* () {
-			mountTwoFactor("/oauth/two-factor", {}, systemConfig(window.location.origin, true));
+	it.live(
+		"explains that management needs password sign-in",
+		() =>
+			Effect.gen(function* () {
+				mountTwoFactor("/oauth/two-factor", {}, systemConfig(window.location.origin, true));
 
-			yield* Effect.promise(() => screen.findByText("Two-factor authentication unavailable"));
-			expect(screen.queryByLabelText("Password")).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByText("Two-factor authentication unavailable"));
+				expect(screen.queryByLabelText("Password")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("requires a fresh sign-in and reuses its password for setup", () =>
-		Effect.gen(function* () {
-			const enabled: string[] = [];
-			const { user, calls } = mountTwoFactor("/oauth/two-factor", {
-				enableTwoFactor: (password) =>
-					Effect.sync(() => {
-						enabled.push(password);
-						return {
-							backupCodes: [],
-							secret: "JBSWY3DPEHPK3PXP",
-							totpURI: "otpauth://totp/Ryot?secret=JBSWY3DPEHPK3PXP",
-						};
-					}),
-			});
+	it.live(
+		"requires a fresh sign-in and reuses its password for setup",
+		() =>
+			Effect.gen(function* () {
+				const enabled: string[] = [];
+				const { user, calls } = mountTwoFactor("/oauth/two-factor", {
+					enableTwoFactor: (password) =>
+						Effect.sync(() => {
+							enabled.push(password);
+							return {
+								backupCodes: [],
+								secret: "JBSWY3DPEHPK3PXP",
+								totpURI: "otpauth://totp/Ryot?secret=JBSWY3DPEHPK3PXP",
+							};
+						}),
+				});
 
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Welcome back" }));
-			expect(screen.queryByRole("group", { name: "Authentication mode" })).toBeNull();
-			yield* signIn(user);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Welcome back" }));
+				expect(screen.queryByRole("group", { name: "Authentication mode" })).toBeNull();
+				yield* signIn(user);
 
-			const setup = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Set up authenticator app" }),
-			);
-			expect(calls).toEqual(["sign-in:login:user@ryot.example", "session"]);
-			expect(screen.queryByLabelText("Password")).toBeNull();
-			yield* Effect.promise(() => user.click(setup));
-			yield* Effect.promise(() => screen.findByLabelText("Authenticator code"));
-			expect(enabled).toEqual(["Sup3rSecret"]);
-		}),
+				const setup = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Set up authenticator app" }),
+				);
+				expect(calls).toEqual(["sign-in:login:user@ryot.example", "session"]);
+				expect(screen.queryByLabelText("Password")).toBeNull();
+				yield* Effect.promise(() => user.click(setup));
+				yield* Effect.promise(() => screen.findByLabelText("Authenticator code"));
+				expect(enabled).toEqual(["Sup3rSecret"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("completes the two-factor challenge before showing the enabled actions", () =>
-		Effect.gen(function* () {
-			const verified: string[] = [];
-			const { user } = mountTwoFactor("/oauth/two-factor", {
-				twoFactorSession: Effect.succeed({ twoFactorEnabled: true }),
-				submitCredentials: () =>
-					Effect.succeed({ _tag: "TwoFactor", methods: ["totp", "backupCode"] } as const),
-				verifyTwoFactor: (method, code) =>
-					Effect.sync(() => {
-						verified.push(`${method}:${code}`);
-					}),
-			});
+	it.live(
+		"completes the two-factor challenge before showing the enabled actions",
+		() =>
+			Effect.gen(function* () {
+				const verified: string[] = [];
+				const { user } = mountTwoFactor("/oauth/two-factor", {
+					twoFactorSession: Effect.succeed({ twoFactorEnabled: true }),
+					submitCredentials: () =>
+						Effect.succeed({ _tag: "TwoFactor", methods: ["totp", "backupCode"] } as const),
+					verifyTwoFactor: (method, code) =>
+						Effect.sync(() => {
+							verified.push(`${method}:${code}`);
+						}),
+				});
 
-			yield* Effect.promise(() => screen.findByLabelText("Password"));
-			yield* signIn(user);
-			const code = yield* Effect.promise(() => screen.findByLabelText("Authenticator code"));
-			yield* Effect.promise(() => user.type(code, "123456"));
-			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Verify" })));
+				yield* Effect.promise(() => screen.findByLabelText("Password"));
+				yield* signIn(user);
+				const code = yield* Effect.promise(() => screen.findByLabelText("Authenticator code"));
+				yield* Effect.promise(() => user.type(code, "123456"));
+				yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Verify" })));
 
-			yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Disable two-factor authentication" }),
-			);
-			expect(screen.getByRole("button", { name: "Regenerate backup codes" })).not.toBeNull();
-			expect(verified).toEqual(["totp:123456"]);
-		}),
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Disable two-factor authentication" }),
+				);
+				expect(screen.getByRole("button", { name: "Regenerate backup codes" })).not.toBeNull();
+				expect(verified).toEqual(["totp:123456"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("signs out and returns to account settings when opened from settings", () =>
-		Effect.gen(function* () {
-			const { user, calls, router } = mountTwoFactor("/oauth/two-factor?from=settings");
+	it.live(
+		"signs out and returns to account settings when opened from settings",
+		() =>
+			Effect.gen(function* () {
+				const { user, calls, router } = mountTwoFactor("/oauth/two-factor?from=settings");
 
-			yield* Effect.promise(() => screen.findByLabelText("Password"));
-			yield* signIn(user);
-			const done = yield* Effect.promise(() => screen.findByRole("button", { name: "Done" }));
-			yield* Effect.promise(() => user.click(done));
+				yield* Effect.promise(() => screen.findByLabelText("Password"));
+				yield* signIn(user);
+				const done = yield* Effect.promise(() => screen.findByRole("button", { name: "Done" }));
+				yield* Effect.promise(() => user.click(done));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(router.state.location.pathname).toBe("/settings/account")),
-			);
-			expect(calls.at(-1)).toBe("sign-out");
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(router.state.location.pathname).toBe("/settings/account")),
+				);
+				expect(calls.at(-1)).toBe("sign-out");
+			}),
+		testTimeout,
 	);
 
-	it.live("signs out and asks to close the window when opened directly", () =>
-		Effect.gen(function* () {
-			const { user, calls, router } = mountTwoFactor("/oauth/two-factor");
+	it.live(
+		"signs out and asks to close the window when opened directly",
+		() =>
+			Effect.gen(function* () {
+				const { user, calls, router } = mountTwoFactor("/oauth/two-factor");
 
-			yield* Effect.promise(() => screen.findByLabelText("Password"));
-			yield* signIn(user);
-			const done = yield* Effect.promise(() => screen.findByRole("button", { name: "Done" }));
-			yield* Effect.promise(() => user.click(done));
+				yield* Effect.promise(() => screen.findByLabelText("Password"));
+				yield* signIn(user);
+				const done = yield* Effect.promise(() => screen.findByRole("button", { name: "Done" }));
+				yield* Effect.promise(() => user.click(done));
 
-			yield* Effect.promise(() =>
-				screen.findByText("You can close this window and return to Ryot."),
-			);
-			expect(calls.at(-1)).toBe("sign-out");
-			expect(router.state.location.pathname).toBe("/oauth/two-factor");
-		}),
+				yield* Effect.promise(() =>
+					screen.findByText("You can close this window and return to Ryot."),
+				);
+				expect(calls.at(-1)).toBe("sign-out");
+				expect(router.state.location.pathname).toBe("/oauth/two-factor");
+			}),
+		testTimeout,
 	);
 });

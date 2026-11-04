@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { expect, it } from "vitest";
 
 import type { ImportSourceItem } from "#/modules/imports/service";
 import { importSourceEntry, importSourceKey } from "#/modules/imports/source-selection";

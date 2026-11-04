@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { Context } from "effect";
 import { HttpApi } from "effect/http-api";
-import { describe, expect, it } from "vitest";
 
 import { AuthMiddleware } from "./auth-middleware";
 import { AppContract } from "./contract";

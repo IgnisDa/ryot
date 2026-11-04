@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result, Schema } from "effect";
 
 import {
@@ -38,61 +41,70 @@ const numberField = (extra: Record<string, unknown>) => ({
 });
 
 describe("AppSchema number normalization", () => {
-	it.effect("requires a round definition", () =>
-		Effect.flip(
-			Schema.decodeEffect(AppSchema)({ fields: { progress: numberField({ normalize: {} }) } }),
-		),
+	it.effect(
+		"requires a round definition",
+		() =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({ fields: { progress: numberField({ normalize: {} }) } }),
+			),
+		testTimeout,
 	);
 });
 
 describe("AppSchema presentation metadata", () => {
-	it.effect("accepts visibility rules", () =>
-		Effect.gen(function* () {
-			expect(
-				yield* Schema.decodeEffect(AppSchema)({
-					rules: [
-						{
-							path: ["secret"],
-							kind: "visibility",
-							visibility: { hidden: true },
-							when: { value: true, operator: "neq", path: ["advanced"] },
+	it.effect(
+		"accepts visibility rules",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					yield* Schema.decodeEffect(AppSchema)({
+						rules: [
+							{
+								path: ["secret"],
+								kind: "visibility",
+								visibility: { hidden: true },
+								when: { value: true, operator: "neq", path: ["advanced"] },
+							},
+						],
+						fields: {
+							secret: { type: "string", label: "Secret", description: "An advanced secret" },
+							advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
 						},
-					],
-					fields: {
-						secret: { type: "string", label: "Secret", description: "An advanced secret" },
-						advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
-					},
-				}),
-			).toMatchObject({ rules: [{ kind: "visibility", visibility: { hidden: true } }] });
-		}),
+					}),
+				).toMatchObject({ rules: [{ kind: "visibility", visibility: { hidden: true } }] });
+			}),
+		testTimeout,
 	);
 
-	it.effect("orders positioned fields stably and leaves position optional", () =>
-		Effect.gen(function* () {
-			const schema = yield* Schema.decodeEffect(AppSchema)({
-				fields: {
-					last: { label: "Last", type: "string", description: "Last" },
-					alsoLast: { type: "string", label: "Also last", description: "Also last" },
-					first: { position: 1, type: "string", label: "First", description: "First" },
-					second: { position: 2, type: "string", label: "Second", description: "Second" },
-					secondTie: {
-						position: 2,
-						type: "string",
-						label: "Second tie",
-						description: "Second tie",
+	it.effect(
+		"orders positioned fields stably and leaves position optional",
+		() =>
+			Effect.gen(function* () {
+				const schema = yield* Schema.decodeEffect(AppSchema)({
+					fields: {
+						last: { label: "Last", type: "string", description: "Last" },
+						alsoLast: { type: "string", label: "Also last", description: "Also last" },
+						first: { position: 1, type: "string", label: "First", description: "First" },
+						second: { position: 2, type: "string", label: "Second", description: "Second" },
+						secondTie: {
+							position: 2,
+							type: "string",
+							label: "Second tie",
+							description: "Second tie",
+						},
 					},
-				},
-			});
+				});
 
-			expect(getOrderedAppSchemaFieldEntries(schema.fields).map(([key]) => key)).toEqual([
-				"first",
-				"second",
-				"secondTie",
-				"last",
-				"alsoLast",
-			]);
-			expect(schema.fields.last?.position).toBeUndefined();
-		}),
+				expect(getOrderedAppSchemaFieldEntries(schema.fields).map(([key]) => key)).toEqual([
+					"first",
+					"second",
+					"secondTie",
+					"last",
+					"alsoLast",
+				]);
+				expect(schema.fields.last?.position).toBeUndefined();
+			}),
+		testTimeout,
 	);
 
 	it.effect.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
@@ -103,6 +115,7 @@ describe("AppSchema presentation metadata", () => {
 					fields: { value: { position, type: "string", label: "Value", description: "Value" } },
 				}),
 			),
+		testTimeout,
 	);
 
 	it.effect.each([
@@ -111,14 +124,17 @@ describe("AppSchema presentation metadata", () => {
 		{ kind: "timezone" },
 		{ kind: "upload", allowedFileExtensions: ["csv", "json"] },
 		{ kind: "oauth-connection", provider: "example-service" },
-	])("accepts the $kind string format", (format) =>
-		Effect.gen(function* () {
-			expect(
-				yield* Schema.decodeEffect(AppSchema)({
-					fields: { value: { format, type: "string", label: "Value", description: "A value" } },
-				}),
-			).toMatchObject({ fields: { value: { format } } });
-		}),
+	])(
+		"accepts the $kind string format",
+		(format) =>
+			Effect.gen(function* () {
+				expect(
+					yield* Schema.decodeEffect(AppSchema)({
+						fields: { value: { format, type: "string", label: "Value", description: "A value" } },
+					}),
+				).toMatchObject({ fields: { value: { format } } });
+			}),
+		testTimeout,
 	);
 
 	it.effect.each(["entity-id", "relationship-id"] as const)(
@@ -138,6 +154,7 @@ describe("AppSchema presentation metadata", () => {
 					}),
 				).toMatchObject({ fields: { value: { reference: { kind, required: true } } } });
 			}),
+		testTimeout,
 	);
 
 	it.effect.each([{ kind: "entity" }, { required: false, kind: "entity-id" }])(
@@ -155,33 +172,40 @@ describe("AppSchema presentation metadata", () => {
 					},
 				}),
 			),
+		testTimeout,
 	);
 
-	it.effect("rejects reference metadata on non-string properties", () =>
-		Effect.flip(
-			Schema.decodeEffect(AppSchema)({
-				fields: { value: numberField({ reference: { kind: "entity-id" } }) },
-			}),
-		),
+	it.effect(
+		"rejects reference metadata on non-string properties",
+		() =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: { value: numberField({ reference: { kind: "entity-id" } }) },
+				}),
+			),
+		testTimeout,
 	);
 
 	it.effect.each([
 		{ kind: "upload", allowedFileExtensions: ["json"] },
 		{ kind: "oauth-connection", provider: "example-service" },
-	])("rejects defaults for the $kind string format", (format) =>
-		Effect.flip(
-			Schema.decodeEffect(AppSchema)({
-				fields: {
-					file: {
-						format,
-						label: "File",
-						type: "string",
-						description: "A file",
-						defaultValue: "export.json",
+	])(
+		"rejects defaults for the $kind string format",
+		(format) =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: {
+						file: {
+							format,
+							label: "File",
+							type: "string",
+							description: "A file",
+							defaultValue: "export.json",
+						},
 					},
-				},
-			}),
-		),
+				}),
+			),
+		testTimeout,
 	);
 
 	it.effect.each([
@@ -191,19 +215,22 @@ describe("AppSchema presentation metadata", () => {
 		{ allowedFileExtensions: ["CSV"] },
 		{ allowedFileExtensions: [".csv"] },
 		{ allowedFileExtensions: ["csv", "csv"] },
-	])("rejects invalid upload extensions %#", ({ allowedFileExtensions }) =>
-		Effect.flip(
-			Schema.decodeEffect(AppSchema)({
-				fields: {
-					file: {
-						label: "File",
-						type: "string",
-						description: "A file",
-						format: { kind: "upload", allowedFileExtensions },
+	])(
+		"rejects invalid upload extensions %#",
+		({ allowedFileExtensions }) =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: {
+						file: {
+							label: "File",
+							type: "string",
+							description: "A file",
+							format: { kind: "upload", allowedFileExtensions },
+						},
 					},
-				},
-			}),
-		),
+				}),
+			),
+		testTimeout,
 	);
 });
 
@@ -242,12 +269,14 @@ describe("AppSchema rule semantics", () => {
 		expect(getAppPropertyDefinitionAtPath(schema.fields, [])).toBeUndefined();
 	});
 
-	it.each([
-		["__proto__", "toString"],
-		["constructor"],
-		["settings", "__proto__", "toString"],
-		["enabled", "toString"],
-	])("ignores inherited rule path segments %j", (...path) => {
+	test.each(
+		[
+			["__proto__", "toString"],
+			["constructor"],
+			["settings", "__proto__", "toString"],
+			["enabled", "toString"],
+		].map((path) => ({ path })),
+	)("ignores inherited rule path segments %j", ({ path }) => {
 		expect(getAppPropertyDefinitionAtPath(schema.fields, path)).toBeUndefined();
 		expect(getAppSchemaValueAtPath({ settings: {}, enabled: true }, path)).toBeUndefined();
 	});
@@ -261,7 +290,7 @@ describe("AppSchema rule semantics", () => {
 		expect(getAppSchemaValueAtPath(values, ["__proto__", "secret"])).toBe("value");
 	});
 
-	it.each([
+	test.each([
 		["all", { operator: "all", conditions: [{ path: ["present"], operator: "exists" }] }, true],
 		[
 			"any",
@@ -399,7 +428,7 @@ describe("AppSchema rule semantics", () => {
 		);
 	});
 
-	it.each([
+	test.each([
 		[undefined, true],
 		[null, true],
 		["", false],
@@ -412,20 +441,23 @@ describe("AppSchema rule semantics", () => {
 });
 
 describe("AppSchema enum choices", () => {
-	it.effect("accepts labeled static and dynamic choices", () =>
-		Effect.gen(function* () {
-			expect(
-				yield* Schema.decodeEffect(AppSchema)({
-					fields: {
-						region: enumField({ kind: "dynamic", source: "regions" }),
-						status: enumField(
-							{ kind: "static", values: [{ value: "active", label: "Active" }] },
-							"active",
-						),
-					},
-				}),
-			).toMatchObject({ fields: { status: { defaultValue: "active" } } });
-		}),
+	it.effect(
+		"accepts labeled static and dynamic choices",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					yield* Schema.decodeEffect(AppSchema)({
+						fields: {
+							region: enumField({ kind: "dynamic", source: "regions" }),
+							status: enumField(
+								{ kind: "static", values: [{ value: "active", label: "Active" }] },
+								"active",
+							),
+						},
+					}),
+				).toMatchObject({ fields: { status: { defaultValue: "active" } } });
+			}),
+		testTimeout,
 	);
 
 	it.effect.each([
@@ -456,23 +488,28 @@ describe("AppSchema enum choices", () => {
 			name: "enum array dynamic default",
 			field: enumArrayField({ kind: "dynamic", source: "statuses" }, ["active"]),
 		},
-	])("rejects $name", ({ field }) =>
-		Effect.flip(Schema.decodeEffect(AppSchema)({ fields: { status: field } })),
+	])(
+		"rejects $name",
+		({ field }) => Effect.flip(Schema.decodeEffect(AppSchema)({ fields: { status: field } })),
+		testTimeout,
 	);
 
-	it.effect("does not accept the removed options property", () =>
-		Effect.flip(
-			Schema.decodeEffect(AppSchema)({
-				fields: {
-					status: {
-						type: "enum",
-						label: "Status",
-						options: ["active"],
-						description: "Status value",
+	it.effect(
+		"does not accept the removed options property",
+		() =>
+			Effect.flip(
+				Schema.decodeEffect(AppSchema)({
+					fields: {
+						status: {
+							type: "enum",
+							label: "Status",
+							options: ["active"],
+							description: "Status value",
+						},
 					},
-				},
-			}),
-		),
+				}),
+			),
+		testTimeout,
 	);
 
 	it("materializes dynamic choices recursively and preserves static fields", () => {
@@ -528,78 +565,87 @@ describe("AppSchema enum choices", () => {
 		}
 	});
 
-	it.effect("reports missing and invalid dynamic choice sources", () =>
-		Effect.gen(function* () {
-			const schema = yield* Schema.decodeEffect(AppSchema)({
-				fields: { status: enumField({ kind: "dynamic", source: "statuses" }) },
-			});
+	it.effect(
+		"reports missing and invalid dynamic choice sources",
+		() =>
+			Effect.gen(function* () {
+				const schema = yield* Schema.decodeEffect(AppSchema)({
+					fields: { status: enumField({ kind: "dynamic", source: "statuses" }) },
+				});
 
-			const missing = materializeAppSchemaChoices(schema, {});
-			expect(Result.isFailure(missing)).toBe(true);
-			if (Result.isFailure(missing)) {
-				expect(missing.failure).toEqual([
-					{
-						source: "statuses",
-						path: ["fields", "status", "choices", "source"],
-						message: "Choice source 'statuses' for field 'status' was not provided",
-					},
-				]);
-			}
+				const missing = materializeAppSchemaChoices(schema, {});
+				expect(Result.isFailure(missing)).toBe(true);
+				if (Result.isFailure(missing)) {
+					expect(missing.failure).toEqual([
+						{
+							source: "statuses",
+							path: ["fields", "status", "choices", "source"],
+							message: "Choice source 'statuses' for field 'status' was not provided",
+						},
+					]);
+				}
 
-			const invalid = materializeAppSchemaChoices(schema, {
-				statuses: [{ value: "active" }, { value: "active" }],
-			});
-			expect(Result.isFailure(invalid)).toBe(true);
-			if (Result.isFailure(invalid)) {
-				expect(invalid.failure).toEqual([
-					{
-						source: "statuses",
-						path: ["fields", "status", "choices", "values"],
-						message:
-							"Choice source 'statuses' for field 'status' contains invalid or duplicate choice values",
-					},
-				]);
-			}
-		}),
+				const invalid = materializeAppSchemaChoices(schema, {
+					statuses: [{ value: "active" }, { value: "active" }],
+				});
+				expect(Result.isFailure(invalid)).toBe(true);
+				if (Result.isFailure(invalid)) {
+					expect(invalid.failure).toEqual([
+						{
+							source: "statuses",
+							path: ["fields", "status", "choices", "values"],
+							message:
+								"Choice source 'statuses' for field 'status' contains invalid or duplicate choice values",
+						},
+					]);
+				}
+			}),
+		testTimeout,
 	);
 });
 
 describe("AppSchema immutable properties", () => {
 	const text = { label: "Name", type: "string", description: "A name" };
 
-	it.effect("collects the immutable top-level properties", () =>
-		Effect.gen(function* () {
-			const schema = yield* Schema.decodeEffect(AppSchema)({
-				fields: { other: text, kind: { ...text, immutable: true } },
-			});
+	it.effect(
+		"collects the immutable top-level properties",
+		() =>
+			Effect.gen(function* () {
+				const schema = yield* Schema.decodeEffect(AppSchema)({
+					fields: { other: text, kind: { ...text, immutable: true } },
+				});
 
-			expect(collectImmutableProperties(schema)).toEqual(["kind"]);
-		}),
+				expect(collectImmutableProperties(schema)).toEqual(["kind"]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects immutable on nested object properties and array items", () =>
-		Effect.gen(function* () {
-			const immutable = { ...text, immutable: true };
+	it.effect(
+		"rejects immutable on nested object properties and array items",
+		() =>
+			Effect.gen(function* () {
+				const immutable = { ...text, immutable: true };
 
-			yield* Effect.flip(
-				Schema.decodeEffect(AppSchema)({
-					fields: {
-						group: {
-							type: "object",
-							label: "Group",
-							description: "A group",
-							properties: { inner: immutable },
+				yield* Effect.flip(
+					Schema.decodeEffect(AppSchema)({
+						fields: {
+							group: {
+								type: "object",
+								label: "Group",
+								description: "A group",
+								properties: { inner: immutable },
+							},
 						},
-					},
-				}),
-			);
-			yield* Effect.flip(
-				Schema.decodeEffect(AppSchema)({
-					fields: {
-						list: { type: "array", label: "List", items: immutable, description: "A list" },
-					},
-				}),
-			);
-		}),
+					}),
+				);
+				yield* Effect.flip(
+					Schema.decodeEffect(AppSchema)({
+						fields: {
+							list: { type: "array", label: "List", items: immutable, description: "A list" },
+						},
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });

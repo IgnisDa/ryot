@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	definitionKey,
 	definitionOwner,
@@ -14,10 +15,12 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
-import { assert, describe } from "vitest";
 
 import {
 	withLifecycleBatchPlanning,
@@ -309,7 +312,7 @@ describe("Relationship set-based mutation pipeline", () => {
 							scope === "user"
 								? yield* pipeline.commitBatch(pending)
 								: yield* pipeline.commitReconciliation(pending);
-						expect(committed.result).toEqual(
+						expect(committed.result).toEqual<unknown>(
 							scope === "user"
 								? { created: 2, updated: 1, deleted: 1 }
 								: { created: 2, updated: 1, deleted: 1, upserted: 4 },
@@ -341,7 +344,7 @@ describe("Relationship set-based mutation pipeline", () => {
 							["delete", deleted.id],
 							["noop", unchanged.id],
 						]) {
-							expect(itemResults).toContainEqual(
+							expect(itemResults).toContainEqual<unknown>(
 								objectContaining({ operation, relationship: objectContaining({ id }) }),
 							);
 						}
@@ -383,89 +386,99 @@ describe("Relationship set-based mutation pipeline", () => {
 						expect(hostReplay).toEqual(committed);
 						expect(yield* mutationState).toEqual(before);
 					}),
+				testTimeout,
 			);
 		});
 	}
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("commits and replays empty and no-op aggregates without hook history", () =>
-			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
-				yield* service.create(baseInput, command("zero-seed"));
-				for (const [id, batches] of [
-					["zero-empty", [{ creates: [], deletes: [] }]],
-					[
-						"zero-noop",
+		test.effect(
+			"commits and replays empty and no-op aggregates without hook history",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* RelationshipsService;
+					yield* service.create(baseInput, command("zero-seed"));
+					for (const [id, batches] of [
+						["zero-empty", [{ creates: [], deletes: [] }]],
 						[
-							{
-								deletes: [{ ...baseInput, targetEntityId: sourceEntityId }],
-								creates: [{ ...baseInput, propertiesMode: "replace" as const }],
-							},
+							"zero-noop",
+							[
+								{
+									deletes: [{ ...baseInput, targetEntityId: sourceEntityId }],
+									creates: [{ ...baseInput, propertiesMode: "replace" as const }],
+								},
+							],
 						],
-					],
-				] as const) {
-					const first = yield* service.changeUser(userId, batches, command(id));
-					expect(first).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [] }]);
+					] as const) {
+						const first = yield* service.changeUser(userId, batches, command(id));
+						expect(first).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [] }]);
+						const before = yield* mutationState;
+						expect(
+							before.receipts.find(
+								({ executionId, commandKind, receiptType }) =>
+									executionId === id &&
+									commandKind === "relationship:change-user" &&
+									receiptType === "batch-decision",
+							)?.result,
+						).toBe("sealed");
+						expect(yield* service.changeUser(userId, batches, command(id))).toEqual(first);
+						expect(yield* mutationState).toEqual(before);
+					}
+					expect(yield* service.changeUser(userId, [], command("zero-batches"))).toEqual([]);
+					expect(yield* service.reconcileGlobal([], command("zero-groups"))).toEqual([]);
+					const group = reconciliationGroup(baseInput, [], 1);
+					expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
+						{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
+					]);
 					const before = yield* mutationState;
-					expect(
-						before.receipts.find(
-							({ executionId, commandKind, receiptType }) =>
-								executionId === id &&
-								commandKind === "relationship:change-user" &&
-								receiptType === "batch-decision",
-						)?.result,
-					).toBe("sealed");
-					expect(yield* service.changeUser(userId, batches, command(id))).toEqual(first);
+					expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
+						{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
+					]);
 					expect(yield* mutationState).toEqual(before);
-				}
-				expect(yield* service.changeUser(userId, [], command("zero-batches"))).toEqual([]);
-				expect(yield* service.reconcileGlobal([], command("zero-groups"))).toEqual([]);
-				const group = reconciliationGroup(baseInput, [], 1);
-				expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
-					{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
-				]);
-				const before = yield* mutationState;
-				expect(yield* service.reconcileGlobal([group], command("zero-group"))).toEqual([
-					{ created: 0, updated: 0, deleted: 0, upserted: 0, warnings: [] },
-				]);
-				expect(yield* mutationState).toEqual(before);
-				expect(before.triggers).toEqual([]);
-				expect(
-					before.receipts
-						.filter(({ receiptType }) => receiptType === "batch-decision")
-						.every(({ result }) => result === "sealed"),
-				).toBe(true);
-			}),
+					expect(before.triggers).toEqual([]);
+					expect(
+						before.receipts
+							.filter(({ receiptType }) => receiptType === "batch-decision")
+							.every(({ result }) => result === "sealed"),
+					).toBe(true);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("keeps a concurrent ensure from overwriting existing relationship metadata", () =>
-			Effect.gen(function* () {
-				const repository = yield* RelationshipsRepository;
-				const policyInput = yield* installPolicyFixture();
-				const pipeline = yield* pipelineWith(yield* policyLifecycle());
-				const [mutation] = yield* userMutations(
-					policyInput,
-					[policyInput.targetEntityId],
-					"ensure-race",
-					{ rank: 2 },
-				);
-				assert(mutation);
-				const prepared = yield* pipeline.prepareSingle({ ...mutation, mode: "ensure" });
-				assert(prepared._tag === "PoliciesRequired");
-				const [pendingItem] = prepared.pending.items;
-				expect(pendingItem?.receipt.commandKind).toBe("relationship:ensure");
+		test.effect(
+			"keeps a concurrent ensure from overwriting existing relationship metadata",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* RelationshipsRepository;
+					const policyInput = yield* installPolicyFixture();
+					const pipeline = yield* pipelineWith(yield* policyLifecycle());
+					const [mutation] = yield* userMutations(
+						policyInput,
+						[policyInput.targetEntityId],
+						"ensure-race",
+						{ rank: 2 },
+					);
+					assert(mutation);
+					const prepared = yield* pipeline.prepareSingle({ ...mutation, mode: "ensure" });
+					assert(prepared._tag === "PoliciesRequired");
+					const [pendingItem] = prepared.pending.items;
+					expect(pendingItem?.receipt.commandKind).toBe("relationship:ensure");
 
-				const existingProperties = { rank: 9, labels: ["saved"] };
-				yield* repository.createRelationship({ ...mutation.input, properties: existingProperties });
-				const pending = yield* pipeline.applyPolicies(prepared.pending);
-				const committed = yield* pipeline.commitSingle(pending);
-				expect(committed.result).toMatchObject({
-					operation: "noop",
-					relationship: { properties: existingProperties },
-				});
-			}),
+					const existingProperties = { rank: 9, labels: ["saved"] };
+					yield* repository.createRelationship({
+						...mutation.input,
+						properties: existingProperties,
+					});
+					const pending = yield* pipeline.applyPolicies(prepared.pending);
+					const committed = yield* pipeline.commitSingle(pending);
+					expect(committed.result).toMatchObject({
+						operation: "noop",
+						relationship: { properties: existingProperties },
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -529,314 +542,355 @@ describe("Relationship set-based mutation pipeline", () => {
 						expect(large).toBe(small);
 					}
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("rejects an entity deleted between plan and commit on every path", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const service = yield* RelationshipsService;
-				const repository = yield* RelationshipsRepository;
-				const pipeline = yield* RelationshipMutationPipeline;
-				const policyInput = yield* installPolicyFixture();
-				const [ordinary, reconciled, preparedCreate, preparedDelete] = yield* insertEntities([
-					"deleted-ordinary",
-					"deleted-reconciled",
-					"deleted-prepared-create",
-					"deleted-prepared-delete",
-				]);
-				const [policy] = yield* insertEntities(
-					["deleted-policy"],
-					userId,
-					policyInput.relationshipSchemaPluginId,
-				);
-				assert(ordinary && policy && reconciled && preparedCreate && preparedDelete);
+		test.effect(
+			"rejects an entity deleted between plan and commit on every path",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const service = yield* RelationshipsService;
+					const repository = yield* RelationshipsRepository;
+					const pipeline = yield* RelationshipMutationPipeline;
+					const policyInput = yield* installPolicyFixture();
+					const [ordinary, reconciled, preparedCreate, preparedDelete] = yield* insertEntities([
+						"deleted-ordinary",
+						"deleted-reconciled",
+						"deleted-prepared-create",
+						"deleted-prepared-delete",
+					]);
+					const [policy] = yield* insertEntities(
+						["deleted-policy"],
+						userId,
+						policyInput.relationshipSchemaPluginId,
+					);
+					assert(ordinary && policy && reconciled && preparedCreate && preparedDelete);
 
-				const [mutation] = yield* userMutations(baseInput, [ordinary], "deleted-ordinary");
-				assert(mutation);
-				yield* deleteEntity(session, ordinary);
-				expect(yield* pipeline.prepareSingle(mutation).pipe(Effect.flip)).toEqual(
-					entityNotFound(ordinary),
-				);
+					const [mutation] = yield* userMutations(baseInput, [ordinary], "deleted-ordinary");
+					assert(mutation);
+					yield* deleteEntity(session, ordinary);
+					expect(yield* pipeline.prepareSingle(mutation).pipe(Effect.flip)).toEqual(
+						entityNotFound(ordinary),
+					);
 
-				const policyService = yield* relationshipsServiceWith(
-					yield* policyLifecycle(
-						deleteEntity(session, policy).pipe(Effect.as({ action: "allow" as const })),
-					),
-				);
-				expect(
-					yield* policyService
-						.createUser(
-							userId,
-							{ ...policyInput, targetEntityId: policy },
-							command("deleted-policy"),
-						)
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(policy, policyInput.sourceEntityId));
+					const policyService = yield* relationshipsServiceWith(
+						yield* policyLifecycle(
+							deleteEntity(session, policy).pipe(Effect.as({ action: "allow" as const })),
+						),
+					);
+					expect(
+						yield* policyService
+							.createUser(
+								userId,
+								{ ...policyInput, targetEntityId: policy },
+								command("deleted-policy"),
+							)
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(policy, policyInput.sourceEntityId));
 
-				yield* deleteEntity(session, reconciled);
-				expect(
-					yield* session
-						.transaction(
-							service.persistPlannedReconciliation(
-								[reconciliationGroup(baseInput, [reconciled], 1)],
-								command("deleted-reconciled"),
-								{ userId, scope: "user" },
-							),
-						)
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(reconciled));
+					yield* deleteEntity(session, reconciled);
+					expect(
+						yield* session
+							.transaction(
+								service.persistPlannedReconciliation(
+									[reconciliationGroup(baseInput, [reconciled], 1)],
+									command("deleted-reconciled"),
+									{ userId, scope: "user" },
+								),
+							)
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(reconciled));
 
-				const creation = yield* service.prepareUserCreate(
-					{ ...baseInput, targetEntityId: preparedCreate },
-					command("deleted-prepared-create"),
-				);
-				assert(creation);
-				yield* deleteEntity(session, preparedCreate);
-				expect(
-					yield* session.transaction(service.persistPreparedUserCreate(creation)).pipe(Effect.flip),
-				).toEqual(entityNotFound(preparedCreate));
+					const creation = yield* service.prepareUserCreate(
+						{ ...baseInput, targetEntityId: preparedCreate },
+						command("deleted-prepared-create"),
+					);
+					assert(creation);
+					yield* deleteEntity(session, preparedCreate);
+					expect(
+						yield* session
+							.transaction(service.persistPreparedUserCreate(creation))
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(preparedCreate));
 
-				yield* repository.createRelationship({ ...baseInput, targetEntityId: preparedDelete });
-				const deletion = yield* service.prepareUserDelete(
-					{ ...baseInput, targetEntityId: preparedDelete },
-					command("deleted-prepared-delete"),
-				);
-				assert(deletion);
-				yield* deleteEntity(session, preparedDelete);
-				expect(
-					yield* session.transaction(service.persistPreparedUserDelete(deletion)).pipe(Effect.flip),
-				).toEqual(entityNotFound(preparedDelete));
-				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-			}),
+					yield* repository.createRelationship({ ...baseInput, targetEntityId: preparedDelete });
+					const deletion = yield* service.prepareUserDelete(
+						{ ...baseInput, targetEntityId: preparedDelete },
+						command("deleted-prepared-delete"),
+					);
+					assert(deletion);
+					yield* deleteEntity(session, preparedDelete);
+					expect(
+						yield* session
+							.transaction(service.persistPreparedUserDelete(deletion))
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(preparedDelete));
+					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("rejects another user's private entity on every path", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const service = yield* RelationshipsService;
-				const pipeline = yield* RelationshipMutationPipeline;
-				const policyInput = yield* installPolicyFixture();
-				const policyPipeline = yield* pipelineWith(yield* policyLifecycle());
-				const foreign = yield* insertForeignEntity;
-				const foreignInput = { ...baseInput, targetEntityId: foreign };
-				const [ordinaryMutation] = yield* userMutations(baseInput, [foreign], "foreign-ordinary");
-				const [policyMutation] = yield* userMutations(policyInput, [foreign], "foreign-policy");
-				assert(ordinaryMutation && policyMutation);
+		test.effect(
+			"rejects another user's private entity on every path",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const service = yield* RelationshipsService;
+					const pipeline = yield* RelationshipMutationPipeline;
+					const policyInput = yield* installPolicyFixture();
+					const policyPipeline = yield* pipelineWith(yield* policyLifecycle());
+					const foreign = yield* insertForeignEntity;
+					const foreignInput = { ...baseInput, targetEntityId: foreign };
+					const [ordinaryMutation] = yield* userMutations(baseInput, [foreign], "foreign-ordinary");
+					const [policyMutation] = yield* userMutations(policyInput, [foreign], "foreign-policy");
+					assert(ordinaryMutation && policyMutation);
 
-				expect(yield* pipeline.prepareSingle(ordinaryMutation).pipe(Effect.flip)).toEqual(
-					entityNotFound(foreign),
-				);
-				expect(yield* policyPipeline.prepareSingle(policyMutation).pipe(Effect.flip)).toEqual(
-					entityNotFound(foreign, policyInput.sourceEntityId),
-				);
-				expect(
-					yield* session
-						.transaction(
-							service.persistPlannedReconciliation(
-								[reconciliationGroup(baseInput, [foreign], 1)],
-								command("foreign-reconciled"),
-								{ userId, scope: "user" },
-							),
-						)
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(foreign));
-				expect(
-					yield* service
-						.prepareUserCreate(foreignInput, command("foreign-create"))
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(foreign));
-				expect(
-					yield* service
-						.prepareUserDelete(foreignInput, command("foreign-delete"))
-						.pipe(Effect.flip),
-				).toEqual(entityNotFound(foreign));
-				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-			}),
+					expect(yield* pipeline.prepareSingle(ordinaryMutation).pipe(Effect.flip)).toEqual(
+						entityNotFound(foreign),
+					);
+					expect(yield* policyPipeline.prepareSingle(policyMutation).pipe(Effect.flip)).toEqual(
+						entityNotFound(foreign, policyInput.sourceEntityId),
+					);
+					expect(
+						yield* session
+							.transaction(
+								service.persistPlannedReconciliation(
+									[reconciliationGroup(baseInput, [foreign], 1)],
+									command("foreign-reconciled"),
+									{ userId, scope: "user" },
+								),
+							)
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(foreign));
+					expect(
+						yield* service
+							.prepareUserCreate(foreignInput, command("foreign-create"))
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(foreign));
+					expect(
+						yield* service
+							.prepareUserDelete(foreignInput, command("foreign-delete"))
+							.pipe(Effect.flip),
+					).toEqual(entityNotFound(foreign));
+					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("keeps a missing relationship schema typed in prepared mutations", () =>
-			Effect.gen(function* () {
-				const service = yield* RelationshipsService;
-				const missing = {
-					...baseInput,
-					relationshipSchema: {
-						...baseInput.relationshipSchema,
-						slug: RelationshipSchemaSlug.make("missing-link"),
-					},
-				};
-				expect(
-					yield* service.prepareUserDelete(missing, command("missing-delete")).pipe(Effect.flip),
-				).toEqual(
-					new RelationshipNotFound({
-						reason: { schema: missing.relationshipSchema, code: "relationship-schema-not-found" },
-					}),
-				);
-				expect(
-					yield* service.prepareUserCreate(missing, command("missing-create")).pipe(Effect.flip),
-				).toEqual(concurrentChange);
-			}),
+		test.effect(
+			"keeps a missing relationship schema typed in prepared mutations",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* RelationshipsService;
+					const missing = {
+						...baseInput,
+						relationshipSchema: {
+							...baseInput.relationshipSchema,
+							slug: RelationshipSchemaSlug.make("missing-link"),
+						},
+					};
+					expect(
+						yield* service.prepareUserDelete(missing, command("missing-delete")).pipe(Effect.flip),
+					).toEqual(
+						new RelationshipNotFound({
+							reason: { schema: missing.relationshipSchema, code: "relationship-schema-not-found" },
+						}),
+					);
+					expect(
+						yield* service.prepareUserCreate(missing, command("missing-create")).pipe(Effect.flip),
+					).toEqual(concurrentChange);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("detects a selector match committed between plan and commit", () =>
-			Effect.gen(function* () {
-				const repository = yield* RelationshipsRepository;
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					db
-						.insert(tables.user)
-						.values({ id: "owner", name: "Plugin owner", email: "owner@example.test" }),
-				);
-				const globalInput = yield* installPolicyFixture(null);
-				const service = yield* relationshipsServiceWith(
-					yield* policyLifecycle(
-						repository
-							.createRelationship({
-								scope: "global",
-								properties: { rank: 2 },
-								sourceEntityId: globalInput.sourceEntityId,
-								targetEntityId: globalInput.sourceEntityId,
-								relationshipSchemaSlug: globalInput.relationshipSchemaSlug,
-								relationshipSchemaPluginId: globalInput.relationshipSchemaPluginId,
-							})
-							.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
-					),
-				);
-				expect(
-					yield* service
-						.reconcileGlobal(
-							[reconciliationGroup(globalInput, [globalInput.targetEntityId], 1)],
-							command("selector-race"),
-						)
-						.pipe(Effect.flip),
-				).toEqual(concurrentChange);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.relationship))).map(
-						({ targetEntityId }) => targetEntityId,
-					),
-				).toEqual([globalInput.sourceEntityId]);
-			}),
+		test.effect(
+			"detects a selector match committed between plan and commit",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* RelationshipsRepository;
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						db
+							.insert(tables.user)
+							.values({ id: "owner", name: "Plugin owner", email: "owner@example.test" }),
+					);
+					const globalInput = yield* installPolicyFixture(null);
+					const service = yield* relationshipsServiceWith(
+						yield* policyLifecycle(
+							repository
+								.createRelationship({
+									scope: "global",
+									properties: { rank: 2 },
+									sourceEntityId: globalInput.sourceEntityId,
+									targetEntityId: globalInput.sourceEntityId,
+									relationshipSchemaSlug: globalInput.relationshipSchemaSlug,
+									relationshipSchemaPluginId: globalInput.relationshipSchemaPluginId,
+								})
+								.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
+						),
+					);
+					expect(
+						yield* service
+							.reconcileGlobal(
+								[reconciliationGroup(globalInput, [globalInput.targetEntityId], 1)],
+								command("selector-race"),
+							)
+							.pipe(Effect.flip),
+					).toEqual(concurrentChange);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.relationship))).map(
+							({ targetEntityId }) => targetEntityId,
+						),
+					).toEqual([globalInput.sourceEntityId]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer({ mutableRelationshipSchema: true }))((test) => {
-		test.effect("rejects a relationship schema change between plan and commit", () =>
-			Effect.gen(function* () {
-				const catalog = yield* RelationshipFixture;
-				const session = yield* DatabaseSession;
-				const service = yield* RelationshipsService;
-				const prepared = yield* service.prepareUserCreate(baseInput, command("schema-change"));
-				assert(prepared);
-				yield* catalog.updateRelationshipSchema;
-				expect(
-					yield* session.transaction(service.persistPreparedUserCreate(prepared)).pipe(Effect.flip),
-				).toEqual(concurrentChange);
-				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-			}),
+		test.effect(
+			"rejects a relationship schema change between plan and commit",
+			() =>
+				Effect.gen(function* () {
+					const catalog = yield* RelationshipFixture;
+					const session = yield* DatabaseSession;
+					const service = yield* RelationshipsService;
+					const prepared = yield* service.prepareUserCreate(baseInput, command("schema-change"));
+					assert(prepared);
+					yield* catalog.updateRelationshipSchema;
+					expect(
+						yield* session
+							.transaction(service.persistPreparedUserCreate(prepared))
+							.pipe(Effect.flip),
+					).toEqual(concurrentChange);
+					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("rejects a plugin revision change between plan and commit", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const service = yield* RelationshipsService;
-				const original = revisionPackage("revised-writer", "v1", "revised-entity");
-				const installed = yield* installRevisionPackage(original, userId);
-				const slug = RelationshipSchemaSlug.make("revised-writer-link");
-				const prepared = yield* service.prepareUserCreate(
-					{
-						userId,
-						scope: "user",
-						properties: {},
-						...(yield* ownedEndpoints(installed, "revised-entity", "user")),
-						relationshipSchema: { slug, owner: definitionOwner(installed.pluginId) },
-					},
-					command("revised-writer"),
-				);
-				assert(prepared);
-				const revised = revisionPackage(
-					"revised-writer",
-					"v2",
-					"revised-entity",
-					original.manifest.metadata.packageId,
-				);
-				const [link] = revised.manifest.relationshipSchemas;
-				assert(link);
-				const next = yield* installRevisionPackage(
-					{
-						...revised,
-						manifest: { ...revised.manifest, relationshipSchemas: [{ ...link, propertiesSchema }] },
-					},
-					userId,
-				);
-				expect(next.revisionId).not.toBe(installed.revisionId);
-				expect(
-					yield* session.transaction(service.persistPreparedUserCreate(prepared)).pipe(Effect.flip),
-				).toEqual(concurrentChange);
-				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-			}),
-		);
-	});
-
-	layer(relationshipDatabaseLayer())((test) => {
-		test.effect("rejects policy-transformed properties invalid under the pinned schema", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const policyInput = yield* installPolicyFixture();
-				const service = yield* relationshipsServiceWith(
-					yield* policyLifecycle(
-						Effect.succeed({
-							action: "transform" as const,
-							patch: {
-								resource: "relationship" as const,
-								draft: { properties: { remove: [], set: { rank: "invalid" } } },
+		test.effect(
+			"rejects a plugin revision change between plan and commit",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const service = yield* RelationshipsService;
+					const original = revisionPackage("revised-writer", "v1", "revised-entity");
+					const installed = yield* installRevisionPackage(original, userId);
+					const slug = RelationshipSchemaSlug.make("revised-writer-link");
+					const prepared = yield* service.prepareUserCreate(
+						{
+							userId,
+							scope: "user",
+							properties: {},
+							...(yield* ownedEndpoints(installed, "revised-entity", "user")),
+							relationshipSchema: { slug, owner: definitionOwner(installed.pluginId) },
+						},
+						command("revised-writer"),
+					);
+					assert(prepared);
+					const revised = revisionPackage(
+						"revised-writer",
+						"v2",
+						"revised-entity",
+						original.manifest.metadata.packageId,
+					);
+					const [link] = revised.manifest.relationshipSchemas;
+					assert(link);
+					const next = yield* installRevisionPackage(
+						{
+							...revised,
+							manifest: {
+								...revised.manifest,
+								relationshipSchemas: [{ ...link, propertiesSchema }],
 							},
-						}),
-					),
-				);
-				expect(
-					yield* service
-						.createUser(userId, policyInput, command("invalid-transform"))
-						.pipe(Effect.flip),
-				).toMatchObject({ reason: { code: "invalid-properties" } });
-				expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-			}),
+						},
+						userId,
+					);
+					expect(next.revisionId).not.toBe(installed.revisionId);
+					expect(
+						yield* session
+							.transaction(service.persistPreparedUserCreate(prepared))
+							.pipe(Effect.flip),
+					).toEqual(concurrentChange);
+					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
+		test.effect(
+			"rejects policy-transformed properties invalid under the pinned schema",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const policyInput = yield* installPolicyFixture();
+					const service = yield* relationshipsServiceWith(
+						yield* policyLifecycle(
+							Effect.succeed({
+								action: "transform" as const,
+								patch: {
+									resource: "relationship" as const,
+									draft: { properties: { remove: [], set: { rank: "invalid" } } },
+								},
+							}),
+						),
+					);
+					expect(
+						yield* service
+							.createUser(userId, policyInput, command("invalid-transform"))
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "invalid-properties" } });
+					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(relationshipDatabaseLayer({ holdLocks: /hashtextextended/ }))((test) => {
-		test.effect("serializes overlapping relationship batches without deadlocks", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const service = yield* RelationshipsService;
-				const log = yield* StatementLog;
-				const targets = yield* insertEntities(["overlap-1", "overlap-2", "overlap-3", "overlap-4"]);
-				yield* Effect.all(
-					[
-						service.changeUser(userId, overlappingBatch(targets, 1), command("overlap-forward")),
-						service.changeUser(
-							userId,
-							overlappingBatch(targets.toReversed(), 2),
-							command("overlap-reverse"),
-						),
-					],
-					{ concurrency: "unbounded" },
-				);
-				expect(yield* log.errorCodes).not.toContain("40P01");
-				const rows = yield* session.run((db) => db.select().from(tables.relationship));
-				expect(rows.map(({ targetEntityId }) => targetEntityId).sort()).toEqual(
-					[...targets].sort(),
-				);
-				expect(new Set(rows.map(({ properties }) => JSON.stringify(properties))).size).toBe(1);
-			}),
+		test.effect(
+			"serializes overlapping relationship batches without deadlocks",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const service = yield* RelationshipsService;
+					const log = yield* StatementLog;
+					const targets = yield* insertEntities([
+						"overlap-1",
+						"overlap-2",
+						"overlap-3",
+						"overlap-4",
+					]);
+					yield* Effect.all(
+						[
+							service.changeUser(userId, overlappingBatch(targets, 1), command("overlap-forward")),
+							service.changeUser(
+								userId,
+								overlappingBatch(targets.toReversed(), 2),
+								command("overlap-reverse"),
+							),
+						],
+						{ concurrency: "unbounded" },
+					);
+					expect(yield* log.errorCodes).not.toContain("40P01");
+					const rows = yield* session.run((db) => db.select().from(tables.relationship));
+					expect(rows.map(({ targetEntityId }) => targetEntityId).sort()).toEqual(
+						[...targets].sort(),
+					);
+					expect(new Set(rows.map(({ properties }) => JSON.stringify(properties))).size).toBe(1);
+				}),
+			testTimeout,
 		);
 	});
 });

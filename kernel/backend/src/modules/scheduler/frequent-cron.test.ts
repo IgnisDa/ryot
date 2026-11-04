@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Duration, Effect, Layer, Queue, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -33,67 +36,79 @@ const schedulerLayer = (captured: Queue.Queue<CapturedRun>, frequentCronJobsSche
 
 const minuteMs = Duration.toMillis(Duration.minutes(1));
 
-it.effect("enqueues one deterministic run per interval bucket", () =>
-	Effect.gen(function* () {
-		const captured = yield* makeCapture();
+it.effect(
+	"enqueues one deterministic run per interval bucket",
+	() =>
+		Effect.gen(function* () {
+			const captured = yield* makeCapture();
 
-		yield* Layer.build(schedulerLayer(captured, "every minute"));
+			yield* Layer.build(schedulerLayer(captured, "every minute"));
 
-		yield* TestClock.adjust(Duration.minutes(1));
-		const first = yield* Queue.take(captured);
-		expect(first.executionId).toBe(frequentCronExecutionId(minuteMs, minuteMs));
-		expect(first.payload.executionId).toBe(first.executionId);
+			yield* TestClock.adjust(Duration.minutes(1));
+			const first = yield* Queue.take(captured);
+			expect(first.executionId).toBe(frequentCronExecutionId(minuteMs, minuteMs));
+			expect(first.payload.executionId).toBe(first.executionId);
 
-		yield* TestClock.adjust(Duration.minutes(1));
-		const second = yield* Queue.take(captured);
-		expect(second.executionId).toBe(frequentCronExecutionId(minuteMs, 2 * minuteMs));
-		expect(second.payload.executionId).toBe(second.executionId);
-	}),
+			yield* TestClock.adjust(Duration.minutes(1));
+			const second = yield* Queue.take(captured);
+			expect(second.executionId).toBe(frequentCronExecutionId(minuteMs, 2 * minuteMs));
+			expect(second.payload.executionId).toBe(second.executionId);
+		}),
+	testTimeout,
 );
 
-it.effect("two schedulers sharing a bucket enqueue the same execution id", () =>
-	Effect.gen(function* () {
-		const captured = yield* makeCapture();
+it.effect(
+	"two schedulers sharing a bucket enqueue the same execution id",
+	() =>
+		Effect.gen(function* () {
+			const captured = yield* makeCapture();
 
-		yield* Layer.build(schedulerLayer(captured, "every minute"));
-		yield* TestClock.adjust(Duration.seconds(30));
-		yield* Layer.build(schedulerLayer(captured, "every minute"));
-		yield* TestClock.adjust(Duration.seconds(30));
+			yield* Layer.build(schedulerLayer(captured, "every minute"));
+			yield* TestClock.adjust(Duration.seconds(30));
+			yield* Layer.build(schedulerLayer(captured, "every minute"));
+			yield* TestClock.adjust(Duration.seconds(30));
 
-		const first = yield* Queue.take(captured);
-		const second = yield* Queue.take(captured);
-		expect(first.executionId).toBe(frequentCronExecutionId(minuteMs, minuteMs));
-		expect(second.executionId).toBe(first.executionId);
-	}),
+			const first = yield* Queue.take(captured);
+			const second = yield* Queue.take(captured);
+			expect(first.executionId).toBe(frequentCronExecutionId(minuteMs, minuteMs));
+			expect(second.executionId).toBe(first.executionId);
+		}),
+	testTimeout,
 );
 
-it.effect("does not enqueue when dispatchers are disabled", () =>
-	Effect.gen(function* () {
-		const captured = yield* makeCapture();
-		const engine = makeCapturingEngine(captured);
-		const layer = FrequentCronSchedulerLive.pipe(
-			Layer.provide(Layer.succeed(WorkflowEngine, engine)),
-			Layer.provide(makeAppConfigLayer({ scheduler: { disableDispatchers: true } })),
-		);
+it.effect(
+	"does not enqueue when dispatchers are disabled",
+	() =>
+		Effect.gen(function* () {
+			const captured = yield* makeCapture();
+			const engine = makeCapturingEngine(captured);
+			const layer = FrequentCronSchedulerLive.pipe(
+				Layer.provide(Layer.succeed(WorkflowEngine, engine)),
+				Layer.provide(makeAppConfigLayer({ scheduler: { disableDispatchers: true } })),
+			);
 
-		yield* Layer.build(layer);
-		yield* TestClock.adjust(Duration.minutes(10));
+			yield* Layer.build(layer);
+			yield* TestClock.adjust(Duration.minutes(10));
 
-		expect(yield* Queue.size(captured)).toBe(0);
-	}),
+			expect(yield* Queue.size(captured)).toBe(0);
+		}),
+	testTimeout,
 );
 
-it.effect("falls back to the default 5-minute interval for an unsupported schedule", () =>
-	Effect.gen(function* () {
-		const captured = yield* makeCapture();
+it.effect(
+	"falls back to the default 5-minute interval for an unsupported schedule",
+	() =>
+		Effect.gen(function* () {
+			const captured = yield* makeCapture();
 
-		yield* Layer.build(schedulerLayer(captured, "every fortnight"));
+			yield* Layer.build(schedulerLayer(captured, "every fortnight"));
 
-		yield* TestClock.adjust(Duration.minutes(1));
-		expect(yield* Queue.size(captured)).toBe(0);
+			yield* TestClock.adjust(Duration.minutes(1));
+			expect(yield* Queue.size(captured)).toBe(0);
 
-		yield* TestClock.adjust(Duration.minutes(4));
-		const first = yield* Queue.take(captured);
-		expect(first.executionId).toBe(frequentCronExecutionId(5 * minuteMs, 5 * minuteMs));
-	}),
+			yield* TestClock.adjust(Duration.minutes(4));
+			const first = yield* Queue.take(captured);
+			expect(first.executionId).toBe(frequentCronExecutionId(5 * minuteMs, 5 * minuteMs));
+		}),
+	testTimeout,
 );

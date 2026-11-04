@@ -1,7 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	buildSubmission,

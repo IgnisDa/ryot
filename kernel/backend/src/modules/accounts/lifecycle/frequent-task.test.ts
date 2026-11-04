@@ -1,4 +1,7 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { userLifecycleFrequentTask } from "./frequent-task";
@@ -22,21 +25,27 @@ const recordingLifecycleLayer = Layer.unwrap(
 );
 
 layer(recordingLifecycleLayer)((test) => {
-	test.effect("reconciles pending lifecycle outbox rows on a frequent tick", () =>
-		Effect.gen(function* () {
-			yield* userLifecycleFrequentTask.run({ executionId: "tick-1" });
-			expect(yield* (yield* RecordedReconcileLimit).limit).toBe(100);
-		}),
+	test.effect(
+		"reconciles pending lifecycle outbox rows on a frequent tick",
+		() =>
+			Effect.gen(function* () {
+				yield* userLifecycleFrequentTask.run({ executionId: "tick-1" });
+				expect(yield* (yield* RecordedReconcileLimit).limit).toBe(100);
+			}),
+		testTimeout,
 	);
 });
 
 layer(Layer.mock(UserLifecycleService)({ reconcilePending: () => Effect.die("database down") }))(
 	(test) => {
-		test.effect("keeps the frequent tick alive when reconciliation fails", () =>
-			userLifecycleFrequentTask.run({ executionId: "tick-1" }).pipe(
-				Effect.exit,
-				Effect.map((exit) => expect(exit._tag).toBe("Success")),
-			),
+		test.effect(
+			"keeps the frequent tick alive when reconciliation fails",
+			() =>
+				userLifecycleFrequentTask.run({ executionId: "tick-1" }).pipe(
+					Effect.exit,
+					Effect.map((exit) => expect(exit._tag).toBe("Success")),
+				),
+			testTimeout,
 		);
 	},
 );

@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunCrypto, BunServices } from "@effect/platform-bun";
-import { assert, expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
@@ -9,8 +10,11 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import {
 	Cause,
 	Deferred,
@@ -405,34 +409,37 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 
 const completedSleep0: ScriptInlineProgress = { value: null, request: sleep0, _tag: "Completed" };
 
-it.effect("deferred_inline_batch_reuses_completed_members_before_ordered_append", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		const envelope: WorkflowReplayEnvelope = {
-			journalLength: 0,
-			state: "pending",
-			requests: sleepRequests,
-		};
-		const first = yield* h.fresh(envelope, payload, [completedSleep0]).body;
-		assert(first._tag === "Suspended");
-		expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
-		expect(h.clockSchedules.map(({ name }) => name)).toEqual(["sandbox-workflow-sleep-1"]);
-		const scheduledClock = h.clockSchedules[0];
-		assert(scheduledClock !== undefined);
-		expect(Duration.toMillis(scheduledClock.duration)).toBe(5_000);
-		expect(h.appends).toEqual([]);
+it.effect(
+	"deferred_inline_batch_reuses_completed_members_before_ordered_append",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			const envelope: WorkflowReplayEnvelope = {
+				journalLength: 0,
+				state: "pending",
+				requests: sleepRequests,
+			};
+			const first = yield* h.fresh(envelope, payload, [completedSleep0]).body;
+			assert(first._tag === "Suspended");
+			expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
+			expect(h.clockSchedules.map(({ name }) => name)).toEqual(["sandbox-workflow-sleep-1"]);
+			const scheduledClock = h.clockSchedules[0];
+			assert(scheduledClock !== undefined);
+			expect(Duration.toMillis(scheduledClock.duration)).toBe(5_000);
+			expect(h.appends).toEqual([]);
 
-		const clock = DurableClock.make({
-			name: "sandbox-workflow-sleep-1",
-			duration: Duration.millis(5_000),
-		});
-		h.slots.set(clock.deferred.name, Exit.succeed(undefined));
-		const resumed = yield* h.fresh(envelope).body;
-		assert(resumed._tag === "Complete");
-		expect(yield* resumed.exit).toBe("done");
-		expect(h.clockSchedules.map(({ name }) => name)).not.toContain("sandbox-workflow-sleep-0");
-		expect(h.appends).toEqual(["0:2"]);
-	}),
+			const clock = DurableClock.make({
+				name: "sandbox-workflow-sleep-1",
+				duration: Duration.millis(5_000),
+			});
+			h.slots.set(clock.deferred.name, Exit.succeed(undefined));
+			const resumed = yield* h.fresh(envelope).body;
+			assert(resumed._tag === "Complete");
+			expect(yield* resumed.exit).toBe("done");
+			expect(h.clockSchedules.map(({ name }) => name)).not.toContain("sandbox-workflow-sleep-0");
+			expect(h.appends).toEqual(["0:2"]);
+		}),
+	testTimeout,
 );
 
 const invalidInlineProgressCases: ReadonlyArray<{
@@ -475,6 +482,7 @@ it.effect.each(invalidInlineProgressCases)(
 			expect(h.slots.size).toBe(0);
 			expect(h.appends).toEqual([]);
 		}),
+	testTimeout,
 );
 
 const retainedHttpPhases = httpProgressPhases(httpDeclaration);
@@ -517,37 +525,41 @@ it.effect.each(retainedHttpPhases)(
 			expect(yield* resumed.exit).toBe("done");
 			expect(dispatchProgress).toEqual([progress]);
 		}),
+	testTimeout,
 );
 
-it.effect("deferred_inline_http_cancels_retained_progress_once_on_parent_interruption", () =>
-	Effect.gen(function* () {
-		const dispatchStarted = Deferred.makeUnsafe<void>();
-		const cancellations: Array<{
-			executionId: string;
-			progress: ReadonlyArray<SandboxInlineProgress>;
-		}> = [];
-		const dispatcher = SandboxDurableHostDispatcher.of({
-			settleInline: () => Effect.die("unused"),
-			dispatch: () =>
-				Deferred.succeed(dispatchStarted, undefined).pipe(Effect.andThen(Effect.never)),
-			cancelInline: (cancelledExecutionId, progress) =>
-				Effect.sync(() => {
-					cancellations.push({ progress, executionId: cancelledExecutionId });
-				}),
-		});
-		const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
-		const envelope: WorkflowReplayEnvelope = {
-			journalLength: 0,
-			state: "pending",
-			requests: [httpRequest],
-		};
-		const attempt = h.fresh(envelope, payload, [httpPending]);
-		const running = yield* Effect.forkChild(attempt.body);
-		yield* Deferred.await(dispatchStarted);
-		attempt.instance.interrupted = true;
-		yield* Fiber.interrupt(running);
-		expect(cancellations).toEqual([{ executionId, progress: [httpPending] }]);
-	}),
+it.effect(
+	"deferred_inline_http_cancels_retained_progress_once_on_parent_interruption",
+	() =>
+		Effect.gen(function* () {
+			const dispatchStarted = Deferred.makeUnsafe<void>();
+			const cancellations: Array<{
+				executionId: string;
+				progress: ReadonlyArray<SandboxInlineProgress>;
+			}> = [];
+			const dispatcher = SandboxDurableHostDispatcher.of({
+				settleInline: () => Effect.die("unused"),
+				dispatch: () =>
+					Deferred.succeed(dispatchStarted, undefined).pipe(Effect.andThen(Effect.never)),
+				cancelInline: (cancelledExecutionId, progress) =>
+					Effect.sync(() => {
+						cancellations.push({ progress, executionId: cancelledExecutionId });
+					}),
+			});
+			const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
+			const envelope: WorkflowReplayEnvelope = {
+				journalLength: 0,
+				state: "pending",
+				requests: [httpRequest],
+			};
+			const attempt = h.fresh(envelope, payload, [httpPending]);
+			const running = yield* Effect.forkChild(attempt.body);
+			yield* Deferred.await(dispatchStarted);
+			attempt.instance.interrupted = true;
+			yield* Fiber.interrupt(running);
+			expect(cancellations).toEqual([{ executionId, progress: [httpPending] }]);
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -568,6 +580,7 @@ it.effect(
 			expect(h.mutations).toEqual([0, 1]);
 			expect(h.appends).toEqual(["0:2"]);
 		}),
+	testTimeout,
 );
 
 type Harness = ReturnType<typeof makeHarness>;
@@ -689,22 +702,26 @@ it.effect.each(divergedTraceCases)(
 				yield* Effect.exit(result.exit),
 				new SandboxRunError({ message, kind: "script-failure" }),
 			);
-			expect(h.dispatches).toEqual(dispatches);
+			expect(h.dispatches).toEqual<unknown>(dispatches);
 		}),
+	testTimeout,
 );
 
-it.effect("keeps child cancellation attached to the original parent instance", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.state.waitInChild = true;
-		const attempt = h.fresh();
-		const running = yield* Effect.forkChild(attempt.body);
-		yield* Deferred.await(h.childStarted);
-		attempt.instance.interrupted = true;
-		yield* Fiber.interrupt(running);
-		expect(h.interrupted).toEqual([`${executionId}-child-child-1-1`]);
-		expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
-	}),
+it.effect(
+	"keeps child cancellation attached to the original parent instance",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			h.state.waitInChild = true;
+			const attempt = h.fresh();
+			const running = yield* Effect.forkChild(attempt.body);
+			yield* Deferred.await(h.childStarted);
+			attempt.instance.interrupted = true;
+			yield* Fiber.interrupt(running);
+			expect(h.interrupted).toEqual([`${executionId}-child-child-1-1`]);
+			expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
+		}),
+	testTimeout,
 );
 
 it.effect.each(["beforeStoreCrash", "afterStoreCrash"] as const)(
@@ -728,6 +745,7 @@ it.effect.each(["beforeStoreCrash", "afterStoreCrash"] as const)(
 				window === "afterStoreCrash" ? 1 : 2,
 			);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -744,145 +762,171 @@ it.effect(
 			expect(h.dispatches).toEqual([0, 1, 0, 1]);
 			expect(h.mutations).toEqual([0, 1]);
 		}),
+	testTimeout,
 );
 
-it.effect("allows concurrent misses while deterministic child owners retain the same result", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.state.blocked = false;
-		h.state.forceCacheMiss = true;
-		const results = yield* Effect.all([h.fresh().body, h.fresh().body], {
-			concurrency: "unbounded",
-		});
-		for (const result of results) {
+it.effect(
+	"allows concurrent misses while deterministic child owners retain the same result",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			h.state.blocked = false;
+			h.state.forceCacheMiss = true;
+			const results = yield* Effect.all([h.fresh().body, h.fresh().body], {
+				concurrency: "unbounded",
+			});
+			for (const result of results) {
+				assert(result._tag === "Complete");
+				expect(yield* result.exit).toBe("done");
+			}
+			expect(h.dispatches.filter((index) => index === 0)).toHaveLength(2);
+			expect(h.mutations).toEqual([0, 1]);
+			expect([...h.slots.keys()].sort()).toEqual(["sandbox-request-0", "sandbox-request-1"]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"does not complete a request whose child effect fails",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			h.state.childFailure = true;
+			const result = yield* h.fresh().body;
 			assert(result._tag === "Complete");
-			expect(yield* result.exit).toBe("done");
-		}
-		expect(h.dispatches.filter((index) => index === 0)).toHaveLength(2);
-		expect(h.mutations).toEqual([0, 1]);
-		expect([...h.slots.keys()].sort()).toEqual(["sandbox-request-0", "sandbox-request-1"]);
-	}),
+			assertExitFails(
+				yield* Effect.exit(result.exit),
+				new SandboxRunError({ kind: "script-failure", message: "child-failed" }),
+			);
+			expect(h.slots.size).toBe(0);
+		}),
+	testTimeout,
 );
 
-it.effect("does not complete a request whose child effect fails", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.state.childFailure = true;
-		const result = yield* h.fresh().body;
-		assert(result._tag === "Complete");
-		assertExitFails(
-			yield* Effect.exit(result.exit),
-			new SandboxRunError({ kind: "script-failure", message: "child-failed" }),
-		);
-		expect(h.slots.size).toBe(0);
-	}),
+it.effect(
+	"keeps the durable step limit before dispatch or completion",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			const oversized = Array.from({ length: 1_001 }, (_, index) => requestAt(index));
+			const result = yield* h.fresh({ journalLength: 0, state: "pending", requests: oversized })
+				.body;
+			assert(result._tag === "Complete");
+			assertExitFails(
+				yield* Effect.exit(result.exit),
+				new SandboxRunError({
+					kind: "script-failure",
+					message: "Sandbox workflow exceeded the maximum of 1000 durable steps",
+				}),
+			);
+			expect(h.dispatches).toEqual([]);
+			expect(h.slots.size).toBe(0);
+		}),
+	testTimeout,
 );
 
-it.effect("keeps the durable step limit before dispatch or completion", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		const oversized = Array.from({ length: 1_001 }, (_, index) => requestAt(index));
-		const result = yield* h.fresh({ journalLength: 0, state: "pending", requests: oversized }).body;
-		assert(result._tag === "Complete");
-		assertExitFails(
-			yield* Effect.exit(result.exit),
-			new SandboxRunError({
-				kind: "script-failure",
-				message: "Sandbox workflow exceeded the maximum of 1000 durable steps",
-			}),
-		);
-		expect(h.dispatches).toEqual([]);
-		expect(h.slots.size).toBe(0);
-	}),
-);
-
-it.effect("applies the journal entry byte limit to checkpoint hits", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.slots.set(
-			"sandbox-request-0",
-			Exit.succeed({
-				targetScriptId: null,
-				entry: {
-					request: firstRequest,
-					value: "x".repeat(SANDBOX_LIMITS.bridge.durableResponseBytes),
-				},
-			}),
-		);
-		h.state.blocked = false;
-		const result = yield* h.fresh().body;
-		assert(result._tag === "Complete");
-		assertExitFails(
-			yield* Effect.exit(result.exit),
-			new SandboxRunError({
-				kind: "script-failure",
-				message: `Sandbox workflow durable journal entry exceeds ${SANDBOX_LIMITS.bridge.durableResponseBytes} UTF-8 bytes`,
-			}),
-		);
-		expect(h.appends).toEqual([]);
-		expect(h.dispatches).toEqual([1]);
-	}),
+it.effect(
+	"applies the journal entry byte limit to checkpoint hits",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			h.slots.set(
+				"sandbox-request-0",
+				Exit.succeed({
+					targetScriptId: null,
+					entry: {
+						request: firstRequest,
+						value: "x".repeat(SANDBOX_LIMITS.bridge.durableResponseBytes),
+					},
+				}),
+			);
+			h.state.blocked = false;
+			const result = yield* h.fresh().body;
+			assert(result._tag === "Complete");
+			assertExitFails(
+				yield* Effect.exit(result.exit),
+				new SandboxRunError({
+					kind: "script-failure",
+					message: `Sandbox workflow durable journal entry exceeds ${SANDBOX_LIMITS.bridge.durableResponseBytes} UTF-8 bytes`,
+				}),
+			);
+			expect(h.appends).toEqual([]);
+			expect(h.dispatches).toEqual([1]);
+		}),
+	testTimeout,
 );
 
 it.effect.each([
 	{ value: null },
 	{ value: { state: "failure", error: { message: "recorded", data: { reason: "denied" } } } },
-])("retains returned JSON value %j", ({ value }) =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.state.value = value;
-		yield* h.fresh().body;
-		const stored = h.slots.get("sandbox-request-0");
-		assert(stored !== undefined);
-		assert(Exit.isSuccess(stored));
-		expect(stored.value).toEqual({ targetScriptId: null, entry: { value, request: firstRequest } });
-	}),
+])(
+	"retains returned JSON value %j",
+	({ value }) =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			h.state.value = value;
+			yield* h.fresh().body;
+			const stored = h.slots.get("sandbox-request-0");
+			assert(stored !== undefined);
+			assert(Exit.isSuccess(stored));
+			expect(stored.value).toEqual({
+				targetScriptId: null,
+				entry: { value, request: firstRequest },
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("rejects invalid returned JSON before completing the slot", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		h.state.value = undefined;
-		const result = yield* h.fresh().body;
-		assert(result._tag === "Complete");
-		const exit = yield* Effect.exit(result.exit);
-		assert(exit._tag === "Failure");
-		const error = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
-		assert(error instanceof SandboxRunError);
-		expect(error.kind).toBe("invalid-output");
-		expect(error.message).toContain("Sandbox workflow durable result is invalid");
-		expect(h.slots.size).toBe(0);
-	}),
+it.effect(
+	"rejects invalid returned JSON before completing the slot",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			h.state.value = undefined;
+			const result = yield* h.fresh().body;
+			assert(result._tag === "Complete");
+			const exit = yield* Effect.exit(result.exit);
+			assert(exit._tag === "Failure");
+			const error = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
+			assert(error instanceof SandboxRunError);
+			expect(error.kind).toBe("invalid-output");
+			expect(error.message).toContain("Sandbox workflow durable result is invalid");
+			expect(h.slots.size).toBe(0);
+		}),
+	testTimeout,
 );
 
-it.effect("checks account generation before a persisted completion can be read", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		yield* h.fresh().body;
-		h.state.retired = true;
-		const readCount = h.reads.length;
-		const userId = UserId.make("retired-checkpoint-user");
-		const retired: ScriptExecutionWorkflowPayload = {
-			...payload,
-			subject: {
-				userId,
-				type: "user",
-				accountGeneration: { userId, token: "test-account-generation" },
-			},
-		};
-		const attempt = h.fresh(undefined, retired);
-		const exit = yield* attempt.provide(
-			Effect.exit(runScriptExecutionWorkflow(retired, executionId)),
-		);
-		assertExitFails(
-			exit,
-			new SandboxRunError({
-				kind: "infrastructure",
-				message: "Mutation command belongs to a retired account",
-			}),
-		);
-		expect(h.reads).toHaveLength(readCount);
-	}),
+it.effect(
+	"checks account generation before a persisted completion can be read",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			yield* h.fresh().body;
+			h.state.retired = true;
+			const readCount = h.reads.length;
+			const userId = UserId.make("retired-checkpoint-user");
+			const retired: ScriptExecutionWorkflowPayload = {
+				...payload,
+				subject: {
+					userId,
+					type: "user",
+					accountGeneration: { userId, token: "test-account-generation" },
+				},
+			};
+			const attempt = h.fresh(undefined, retired);
+			const exit = yield* attempt.provide(
+				Effect.exit(runScriptExecutionWorkflow(retired, executionId)),
+			);
+			assertExitFails(
+				exit,
+				new SandboxRunError({
+					kind: "infrastructure",
+					message: "Mutation command belongs to a retired account",
+				}),
+			);
+			expect(h.reads).toHaveLength(readCount);
+		}),
+	testTimeout,
 );
 
 it.layer(

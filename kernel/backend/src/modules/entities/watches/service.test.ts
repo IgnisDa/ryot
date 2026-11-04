@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { InterestReconciler } from "./reconciler";
@@ -108,45 +111,51 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("removes filtered memberships and carries tokens for terminal updates", () =>
-		Effect.gen(function* () {
-			const service = yield* InterestService;
-			const result = yield* service.reconcile({ pending, principal, sessionId: "session-1" });
+	test.effect(
+		"removes filtered memberships and carries tokens for terminal updates",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* InterestService;
+				const result = yield* service.reconcile({ pending, principal, sessionId: "session-1" });
 
-			expect(yield* (yield* FakeInterestCalls).events).toEqual([
-				"reconcile:100",
-				"remove:entity-99",
-				"mark:0",
-				"reconcile:1",
-				"remove:",
-				"mark:0",
-			]);
-			expect(result).toHaveLength(100);
-			expect(result.some(({ message }) => message.entityId === "entity-99")).toBe(false);
-			expect(result.at(-1)).toEqual({
-				pending: { revision: 2, priority: "visible", entityId: "entity-100" },
-				message: { reason: "populated", type: "entity-updated", entityId: "entity-100" },
-			});
-		}),
+				expect(yield* (yield* FakeInterestCalls).events).toEqual([
+					"reconcile:100",
+					"remove:entity-99",
+					"mark:0",
+					"reconcile:1",
+					"remove:",
+					"mark:0",
+				]);
+				expect(result).toHaveLength(100);
+				expect(result.some(({ message }) => message.entityId === "entity-99")).toBe(false);
+				expect(result.at(-1)).toEqual<unknown>({
+					pending: { revision: 2, priority: "visible", entityId: "entity-100" },
+					message: { reason: "populated", type: "entity-updated", entityId: "entity-100" },
+				});
+			}),
+		testTimeout,
 	);
 });
 
 const reconciliationError = new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 
 layer(serviceLayer({ reconcile: () => Effect.fail(reconciliationError) }))((test) => {
-	test.effect("does not catch reconciliation failures", () =>
-		Effect.gen(function* () {
-			const service = yield* InterestService;
-			expect(
-				yield* Effect.flip(
-					service.reconcile({
-						principal,
-						sessionId: "session-1",
-						pending: [{ revision: 1, entityId: "entity-1", priority: "visible" as const }],
-					}),
-				),
-			).toBe(reconciliationError);
-		}),
+	test.effect(
+		"does not catch reconciliation failures",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* InterestService;
+				expect(
+					yield* Effect.flip(
+						service.reconcile({
+							principal,
+							sessionId: "session-1",
+							pending: [{ revision: 1, entityId: "entity-1", priority: "visible" as const }],
+						}),
+					),
+				).toBe(reconciliationError);
+			}),
+		testTimeout,
 	);
 });
 
@@ -171,23 +180,29 @@ layer(
 			]),
 	}),
 )((test) => {
-	test.effect("sets test membership without reconciliation", () =>
-		Effect.gen(function* () {
-			const service = yield* InterestService;
-			yield* service.setEntityWatchMembership({ sessionId: "session-1", entityIds: ["entity-1"] });
-			const calls = yield* FakeInterestCalls;
-			const [reconciled] = yield* calls.reconciled;
-			const [replacement] = yield* calls.replacements;
-			expect(reconciled).toEqual({
-				sessionId: "session-1",
-				pending: [{ revision: 4, entityId: "entity-1", priority: "visible" as const }],
-			});
-			expect(replacement).toEqual({
-				revision: 4,
-				foregroundIds: [],
-				sessionId: "session-1",
-				entityIds: ["entity-1"],
-			});
-		}),
+	test.effect(
+		"sets test membership without reconciliation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* InterestService;
+				yield* service.setEntityWatchMembership({
+					sessionId: "session-1",
+					entityIds: ["entity-1"],
+				});
+				const calls = yield* FakeInterestCalls;
+				const [reconciled] = yield* calls.reconciled;
+				const [replacement] = yield* calls.replacements;
+				expect(reconciled).toEqual({
+					sessionId: "session-1",
+					pending: [{ revision: 4, entityId: "entity-1", priority: "visible" as const }],
+				});
+				expect(replacement).toEqual({
+					revision: 4,
+					foregroundIds: [],
+					sessionId: "session-1",
+					entityIds: ["entity-1"],
+				});
+			}),
+		testTimeout,
 	);
 });

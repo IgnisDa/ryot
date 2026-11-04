@@ -1,6 +1,9 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber } from "effect";
 import { SecureRandom } from "effect/crypto";
 import { TestClock } from "effect/testing";
@@ -111,58 +114,64 @@ const capture = (
 	);
 
 layer(BunCrypto.layerSecureRandom)((test) => {
-	test.effect("subscribes before initiation and releases resources after capture", () =>
-		Effect.gen(function* () {
-			const state = harness();
-			const runtime = yield* Effect.context();
-			const result = yield* capture(state.transport, (request) => {
-				expect(state.subscriptions.size).toBe(1);
-				return Effect.runPromiseWith(runtime)(
-					deliverResetLink({
-						email,
-						userId,
-						request,
-						frontendUrl,
-						token: "token",
-						transport: state.transport,
-						revokeToken: state.revokeToken,
-					}).pipe(Effect.as(new Response(null, { status: 200 }))),
-				);
-			});
-			expect(result.resetUrl).toBe(`${frontendUrl}/reset-password?token=token`);
-			expect(state.pending.size).toBe(0);
-			expect(state.listeners.size).toBe(0);
-			expect(state.subscriptions.size).toBe(0);
-			expect(state.closed()).toBe(1);
-		}),
+	test.effect(
+		"subscribes before initiation and releases resources after capture",
+		() =>
+			Effect.gen(function* () {
+				const state = harness();
+				const runtime = yield* Effect.context();
+				const result = yield* capture(state.transport, (request) => {
+					expect(state.subscriptions.size).toBe(1);
+					return Effect.runPromiseWith(runtime)(
+						deliverResetLink({
+							email,
+							userId,
+							request,
+							frontendUrl,
+							token: "token",
+							transport: state.transport,
+							revokeToken: state.revokeToken,
+						}).pipe(Effect.as(new Response(null, { status: 200 }))),
+					);
+				});
+				expect(result.resetUrl).toBe(`${frontendUrl}/reset-password?token=token`);
+				expect(state.pending.size).toBe(0);
+				expect(state.listeners.size).toBe(0);
+				expect(state.subscriptions.size).toBe(0);
+				expect(state.closed()).toBe(1);
+			}),
+		testTimeout,
 	);
 
-	test.effect("reports subscription and initiation failures separately", () =>
-		Effect.gen(function* () {
-			const failedSubscribe = harness();
-			failedSubscribe.failSubscription();
-			let initiated = false;
-			const subscribeError = yield* Effect.flip(
-				capture(failedSubscribe.transport, () => {
-					initiated = true;
-					return Promise.resolve(new Response(null));
-				}),
-			);
-			expect(subscribeError.message).toContain("subscription");
-			expect(initiated).toBe(false);
-			expect(failedSubscribe.pending.size).toBe(0);
-			expect(failedSubscribe.listeners.size).toBe(0);
-			expect(failedSubscribe.closed()).toBe(1);
+	test.effect(
+		"reports subscription and initiation failures separately",
+		() =>
+			Effect.gen(function* () {
+				const failedSubscribe = harness();
+				failedSubscribe.failSubscription();
+				let initiated = false;
+				const subscribeError = yield* Effect.flip(
+					capture(failedSubscribe.transport, () => {
+						initiated = true;
+						return Promise.resolve(new Response(null));
+					}),
+				);
+				expect(subscribeError.message).toContain("subscription");
+				expect(initiated).toBe(false);
+				expect(failedSubscribe.pending.size).toBe(0);
+				expect(failedSubscribe.listeners.size).toBe(0);
+				expect(failedSubscribe.closed()).toBe(1);
 
-			const failedInitiate = harness();
-			const error = yield* Effect.flip(
-				capture(failedInitiate.transport, () => Promise.reject(new Error("no reset"))),
-			);
-			expect(error.message).toContain("initiation");
-			expect(failedInitiate.pending.size).toBe(0);
-			expect(failedInitiate.listeners.size).toBe(0);
-			expect(failedInitiate.closed()).toBe(1);
-		}),
+				const failedInitiate = harness();
+				const error = yield* Effect.flip(
+					capture(failedInitiate.transport, () => Promise.reject(new Error("no reset"))),
+				);
+				expect(error.message).toContain("initiation");
+				expect(failedInitiate.pending.size).toBe(0);
+				expect(failedInitiate.listeners.size).toBe(0);
+				expect(failedInitiate.closed()).toBe(1);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -237,46 +246,50 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				expect(state.pending.size).toBe(0);
 				expect(state.closed()).toBe(2);
 			}),
+		testTimeout,
 	);
 
-	test.effect("interrupts a pending capture and allows a different email concurrently", () =>
-		Effect.gen(function* () {
-			const state = harness();
-			const runtime = yield* Effect.context();
-			const started = yield* Deferred.make<void>();
-			const finish = yield* Deferred.make<void>();
-			const fiber = yield* capture(state.transport, () => {
-				Effect.runSyncWith(runtime)(Deferred.succeed(started, undefined));
-				return Effect.runPromiseWith(runtime)(
-					Deferred.await(finish).pipe(Effect.as(new Response(null))),
+	test.effect(
+		"interrupts a pending capture and allows a different email concurrently",
+		() =>
+			Effect.gen(function* () {
+				const state = harness();
+				const runtime = yield* Effect.context();
+				const started = yield* Deferred.make<void>();
+				const finish = yield* Deferred.make<void>();
+				const fiber = yield* capture(state.transport, () => {
+					Effect.runSyncWith(runtime)(Deferred.succeed(started, undefined));
+					return Effect.runPromiseWith(runtime)(
+						Deferred.await(finish).pipe(Effect.as(new Response(null))),
+					);
+				}).pipe(Effect.forkChild);
+				yield* Deferred.await(started);
+				const other = yield* capture(
+					state.transport,
+					(request) =>
+						Effect.runPromiseWith(runtime)(
+							deliverResetLink({
+								userId,
+								request,
+								frontendUrl,
+								token: "other",
+								transport: state.transport,
+								email: "other@example.test",
+								revokeToken: state.revokeToken,
+							}).pipe(Effect.as(new Response(null))),
+						),
+					"other@example.test",
 				);
-			}).pipe(Effect.forkChild);
-			yield* Deferred.await(started);
-			const other = yield* capture(
-				state.transport,
-				(request) =>
-					Effect.runPromiseWith(runtime)(
-						deliverResetLink({
-							userId,
-							request,
-							frontendUrl,
-							token: "other",
-							transport: state.transport,
-							email: "other@example.test",
-							revokeToken: state.revokeToken,
-						}).pipe(Effect.as(new Response(null))),
-					),
-				"other@example.test",
-			);
-			expect(other.resetUrl).toContain("other");
-			expect(state.pending.size).toBe(1);
-			yield* Fiber.interrupt(fiber);
-			yield* Deferred.succeed(finish, undefined);
-			expect(state.pending.size).toBe(0);
-			expect(state.listeners.size).toBe(0);
-			expect(state.subscriptions.size).toBe(0);
-			expect(state.closed()).toBe(2);
-		}),
+				expect(other.resetUrl).toContain("other");
+				expect(state.pending.size).toBe(1);
+				yield* Fiber.interrupt(fiber);
+				yield* Deferred.succeed(finish, undefined);
+				expect(state.pending.size).toBe(0);
+				expect(state.listeners.size).toBe(0);
+				expect(state.subscriptions.size).toBe(0);
+				expect(state.closed()).toBe(2);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -313,5 +326,6 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				expect(state.subscriptions.size).toBe(0);
 				expect(state.closed()).toBe(1);
 			}),
+		testTimeout,
 	);
 });

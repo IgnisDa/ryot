@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import {
 	CalendarHeatmap,
@@ -483,7 +484,7 @@ describe("PeriodTrendChart", () => {
 				{ value: 3, at: "2026-01-01" },
 			],
 		});
-		expect(axisText(months.container)).toEqual(
+		expect(axisText(months.container)).toEqual<unknown>(
 			expect.arrayContaining(["Dec ’25", "Jan ’26", "0", "1", "2", "3"]),
 		);
 		expect(axisText(months.container).some((label) => label.includes("."))).toBe(false);
@@ -497,7 +498,7 @@ describe("PeriodTrendChart", () => {
 				{ value: 2, at: "2025-01-01" },
 			],
 		});
-		expect(axisText(years.container)).toEqual(expect.arrayContaining(["2024", "2025"]));
+		expect(axisText(years.container)).toEqual<unknown>(expect.arrayContaining(["2024", "2025"]));
 	});
 
 	it("lists periods side by side and returns the caller's point for each period", () => {

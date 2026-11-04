@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import type { EntityRecord } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import {
@@ -54,67 +57,79 @@ const run = Effect.fnUntraced(function* (
 });
 
 describe("custom media publish year", () => {
-	it.effect("fills a missing year on creation and update for every media kind", () =>
-		Effect.gen(function* () {
-			for (const entitySchemaSlug of builtinMediaEntitySchemaSlugs) {
-				for (const operation of ["create", "update"] as const) {
-					expect(
-						yield* run(
-							{ description: "Keep this", publishDate: "2024-02-29" },
-							{ operation, entitySchemaSlug },
-						),
-					).toEqual({
-						action: "transform",
-						patch: {
-							resource: "entity",
-							draft: { properties: { remove: [], set: { publishYear: 2024 } } },
-						},
-					});
+	it.effect(
+		"fills a missing year on creation and update for every media kind",
+		() =>
+			Effect.gen(function* () {
+				for (const entitySchemaSlug of builtinMediaEntitySchemaSlugs) {
+					for (const operation of ["create", "update"] as const) {
+						expect(
+							yield* run(
+								{ description: "Keep this", publishDate: "2024-02-29" },
+								{ operation, entitySchemaSlug },
+							),
+						).toEqual({
+							action: "transform",
+							patch: {
+								resource: "entity",
+								draft: { properties: { remove: [], set: { publishYear: 2024 } } },
+							},
+						});
+					}
 				}
-			}
-		}),
+			}),
+		testTimeout,
 	);
 
-	it.effect("preserves explicit years, including when the date disagrees", () =>
-		Effect.gen(function* () {
-			for (const publishYear of [0, 2020, 2026]) {
-				expect(
-					yield* run({ publishYear, publishDate: "2026-10-26" }, { operation: "update" }),
-				).toEqual({ action: "allow" });
-			}
-			expect(yield* run({ publishYear: 2020 })).toEqual({ action: "allow" });
-		}),
+	it.effect(
+		"preserves explicit years, including when the date disagrees",
+		() =>
+			Effect.gen(function* () {
+				for (const publishYear of [0, 2020, 2026]) {
+					expect(
+						yield* run({ publishYear, publishDate: "2026-10-26" }, { operation: "update" }),
+					).toEqual({ action: "allow" });
+				}
+				expect(yield* run({ publishYear: 2020 })).toEqual({ action: "allow" });
+			}),
+		testTimeout,
 	);
 
-	it.effect("does not invent years from missing, partial, or invalid dates", () =>
-		Effect.gen(function* () {
-			for (const properties of [
-				{},
-				...[
-					"",
-					"2026",
-					"2026-10",
-					"2026-02-29",
-					"2026-04-31",
-					"2026-13-01",
-					"2026-10-26T00:00:00Z",
-				].map((publishDate) => ({ publishDate })),
-			]) {
-				expect(yield* run(properties)).toEqual({ action: "allow" });
-			}
-		}),
+	it.effect(
+		"does not invent years from missing, partial, or invalid dates",
+		() =>
+			Effect.gen(function* () {
+				for (const properties of [
+					{},
+					...[
+						"",
+						"2026",
+						"2026-10",
+						"2026-02-29",
+						"2026-04-31",
+						"2026-13-01",
+						"2026-10-26T00:00:00Z",
+					].map((publishDate) => ({ publishDate })),
+				]) {
+					expect(yield* run(properties)).toEqual({ action: "allow" });
+				}
+			}),
+		testTimeout,
 	);
 
-	it.effect("leaves provider metadata, unsupported schemas, and deletions unchanged", () =>
-		Effect.gen(function* () {
-			for (const options of [
-				{ providerId: "provider-1" },
-				{ entitySchemaSlug: "show-episode" },
-				{ entitySchemaSlug: "person" },
-				{ operation: "delete" as const },
-			]) {
-				expect(yield* run({ publishDate: "2026-10-26" }, options)).toEqual({ action: "allow" });
-			}
-		}),
+	it.effect(
+		"leaves provider metadata, unsupported schemas, and deletions unchanged",
+		() =>
+			Effect.gen(function* () {
+				for (const options of [
+					{ providerId: "provider-1" },
+					{ entitySchemaSlug: "show-episode" },
+					{ entitySchemaSlug: "person" },
+					{ operation: "delete" as const },
+				]) {
+					expect(yield* run({ publishDate: "2026-10-26" }, options)).toEqual({ action: "allow" });
+				}
+			}),
+		testTimeout,
 	);
 });

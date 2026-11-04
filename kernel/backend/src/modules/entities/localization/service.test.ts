@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -8,7 +9,10 @@ import {
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
@@ -534,29 +538,32 @@ const makeServiceLayer = (
 	);
 
 layer(makeServiceLayer())((test) => {
-	test.effect("enqueues with the provider owner and an unrestricted user command", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			yield* service.requestFill(payload);
-			expect(yield* (yield* TranslationEffects).executions).toMatchObject([
-				{
-					discard: true,
-					executionId: translateEntityExecutionId(payload),
-					payload: {
-						providerId: payload.providerId,
-						command: { writeContext: null },
-						entitySchemaPluginId: payload.entitySchemaPluginId,
+	test.effect(
+		"enqueues with the provider owner and an unrestricted user command",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				yield* service.requestFill(payload);
+				expect(yield* (yield* TranslationEffects).executions).toMatchObject([
+					{
+						discard: true,
+						executionId: translateEntityExecutionId(payload),
+						payload: {
+							providerId: payload.providerId,
+							command: { writeContext: null },
+							entitySchemaPluginId: payload.entitySchemaPluginId,
+						},
 					},
-				},
-			]);
-			const [admission] = yield* (yield* TranslationEffects).admissions;
-			expect(admission).toMatchObject({
-				dispatchRoot: true,
-				sourceContentGeneration: 1,
-				scopeUserId: payload.userId,
-			});
-			expect(admission?.payload).not.toHaveProperty("properties");
-		}),
+				]);
+				const [admission] = yield* (yield* TranslationEffects).admissions;
+				expect(admission).toMatchObject({
+					dispatchRoot: true,
+					sourceContentGeneration: 1,
+					scopeUserId: payload.userId,
+				});
+				expect(admission?.payload).not.toHaveProperty("properties");
+			}),
+		testTimeout,
 	);
 });
 
@@ -577,88 +584,104 @@ layer(makeServiceLayer())((test) => {
 					expect(owner).toContain(payload.userId);
 				}
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("rejects quarantine after execution before overlay commit", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(yield* pinnedPayload);
-			yield* (yield* TranslationEffects).quarantine;
-			assertExitFails(
-				yield* Effect.exit(service.upsert(overlay, payload, captured)),
-				new DbError({ message: "Current domain write installation authority is unavailable" }),
-			);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+	test.effect(
+		"rejects quarantine after execution before overlay commit",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const captured = yield* service.admitExecution(yield* pinnedPayload);
+				yield* (yield* TranslationEffects).quarantine;
+				assertExitFails(
+					yield* Effect.exit(service.upsert(overlay, payload, captured)),
+					new DbError({ message: "Current domain write installation authority is unavailable" }),
+				);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("rejects committing an overlay to a different entity ID", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(yield* pinnedPayload);
-			expect(
-				yield* Effect.exit(
-					service.upsert(
-						{ ...overlay, entityId: EntityId.make("foreign-entity") },
-						payload,
-						captured,
+	test.effect(
+		"rejects committing an overlay to a different entity ID",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const captured = yield* service.admitExecution(yield* pinnedPayload);
+				expect(
+					yield* Effect.exit(
+						service.upsert(
+							{ ...overlay, entityId: EntityId.make("foreign-entity") },
+							payload,
+							captured,
+						),
 					),
-				),
-			).toSatisfy(Exit.isFailure);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+				).toSatisfy(Exit.isFailure);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ foreignProvider: true }))((test) => {
-	test.effect("rejects a foreign same-schema provider at capture", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
-				new SandboxRunError({
-					kind: "invalid-input",
-					message: "Translation entity or provider identity is unavailable",
-				}),
-			);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+	test.effect(
+		"rejects a foreign same-schema provider at capture",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Translation entity or provider identity is unavailable",
+					}),
+				);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("retains a plugin caller's owner restriction at translation admission", () =>
-		Effect.gen(function* () {
-			const caller = {
-				...execution.principal,
-				pluginRevision: {
-					...execution.principal.pluginRevision,
-					id: PluginId.make("foreign-plugin"),
-				},
-			};
-			expect(
-				yield* Effect.exit(
-					(yield* TranslationsService).admitExecution({
-						...(yield* pinnedPayload),
-						command: { ...payload.command, writeContext: caller },
-					}),
-				),
-			).toSatisfy(Exit.isFailure);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+	test.effect(
+		"retains a plugin caller's owner restriction at translation admission",
+		() =>
+			Effect.gen(function* () {
+				const caller = {
+					...execution.principal,
+					pluginRevision: {
+						...execution.principal.pluginRevision,
+						id: PluginId.make("foreign-plugin"),
+					},
+				};
+				expect(
+					yield* Effect.exit(
+						(yield* TranslationsService).admitExecution({
+							...(yield* pinnedPayload),
+							command: { ...payload.command, writeContext: caller },
+						}),
+					),
+				).toSatisfy(Exit.isFailure);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ globalEntity: true }))((test) => {
-	test.effect("rejects a private translation for a global entity", () =>
-		Effect.gen(function* () {
-			expect(
-				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
-			).toSatisfy(Exit.isFailure);
-		}),
+	test.effect(
+		"rejects a private translation for a global entity",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
+				).toSatisfy(Exit.isFailure);
+			}),
+		testTimeout,
 	);
 });
 
@@ -689,6 +712,7 @@ layer(makeServiceLayer({ registrationFailure: true }))((test) => {
 				expect(yield* effects.executions).toEqual([]);
 				expect(yield* effects.upserts).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -706,60 +730,73 @@ layer(makeServiceLayer({ globalEntity: true, systemPlugin: true }))((test) => {
 				yield* service.upsert(negativeOverlay, globalPayload, captured);
 				expect(yield* (yield* TranslationEffects).upserts).toEqual([negativeOverlay]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ enqueueFailure: true }))((test) => {
-	test.effect("keeps the deterministic ID and exposes enqueue failure", () =>
-		Effect.gen(function* () {
-			expect(yield* Effect.exit((yield* TranslationsService).requestFill(payload))).toSatisfy(
-				Exit.isFailure,
-			);
-			expect(
-				(yield* (yield* TranslationEffects).executions).map(({ executionId }) => executionId),
-			).toEqual([translateEntityExecutionId(payload)]);
-			expect(yield* (yield* TranslationEffects).released).toEqual([]);
-			expect((yield* (yield* TranslationEffects).admissions)[0]?.payload).toMatchObject({
-				principal: execution.principal,
-			});
-		}),
+	test.effect(
+		"keeps the deterministic ID and exposes enqueue failure",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Effect.exit((yield* TranslationsService).requestFill(payload))).toSatisfy(
+					Exit.isFailure,
+				);
+				expect(
+					(yield* (yield* TranslationEffects).executions).map(({ executionId }) => executionId),
+				).toEqual([translateEntityExecutionId(payload)]);
+				expect(yield* (yield* TranslationEffects).released).toEqual([]);
+				expect((yield* (yield* TranslationEffects).admissions)[0]?.payload).toMatchObject({
+					principal: execution.principal,
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ rootSchemaSlug: "parent-record" }))((test) => {
-	test.effect("authorizes a declared child schema without requiring the provider root", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(yield* pinnedPayload);
-			expect(captured.properties).toEqual({ title: "Stored Record" });
-			yield* service.upsert(overlay, payload, captured);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([overlay]);
-		}),
+	test.effect(
+		"authorizes a declared child schema without requiring the provider root",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const captured = yield* service.admitExecution(yield* pinnedPayload);
+				expect(captured.properties).toEqual({ title: "Stored Record" });
+				yield* service.upsert(overlay, payload, captured);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([overlay]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ selectedKeys: [] }))((test) => {
-	test.effect("captures no canonical properties for an empty selection", () =>
-		Effect.gen(function* () {
-			const captured = yield* (yield* TranslationsService).admitExecution(yield* pinnedPayload);
-			expect(captured.properties).toEqual({});
-			expect(captured.name).toBe(execution.name);
-			expect(captured.contentGeneration).toBe(1);
-		}),
+	test.effect(
+		"captures no canonical properties for an empty selection",
+		() =>
+			Effect.gen(function* () {
+				const captured = yield* (yield* TranslationsService).admitExecution(yield* pinnedPayload);
+				expect(captured.properties).toEqual({});
+				expect(captured.name).toBe(execution.name);
+				expect(captured.contentGeneration).toBe(1);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ unsupportedSchema: true }))((test) => {
-	test.effect("rejects an undeclared schema even when it is the provider root", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
-				new SandboxRunError({
-					kind: "invalid-input",
-					message: "Translation entity or provider identity is unavailable",
-				}),
-			);
-		}),
+	test.effect(
+		"rejects an undeclared schema even when it is the provider root",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Translation entity or provider identity is unavailable",
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -785,21 +822,25 @@ layer(makeServiceLayer())((test) => {
 					(yield* effects.admissions).map(({ sourceContentGeneration }) => sourceContentGeneration),
 				).toEqual([1, 2, 2]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("admits a manual retry as fresh work and links its predecessor", () =>
-		Effect.gen(function* () {
-			const accepted = yield* (yield* TranslationsService).requestFill({
-				...payload,
-				retryOf: "failed-request",
-			});
-			expect(accepted).toBe(true);
-			const admission = (yield* (yield* TranslationEffects).admissions).find(
-				({ retryOf }) => retryOf === "failed-request",
-			);
-			expect(admission).toMatchObject({ dispatchRoot: true, retryOf: "failed-request" });
-			expect(admission?.id).not.toBe(translateEntityExecutionId(payload));
-		}),
+	test.effect(
+		"admits a manual retry as fresh work and links its predecessor",
+		() =>
+			Effect.gen(function* () {
+				const accepted = yield* (yield* TranslationsService).requestFill({
+					...payload,
+					retryOf: "failed-request",
+				});
+				expect(accepted).toBe(true);
+				const admission = (yield* (yield* TranslationEffects).admissions).find(
+					({ retryOf }) => retryOf === "failed-request",
+				);
+				expect(admission).toMatchObject({ dispatchRoot: true, retryOf: "failed-request" });
+				expect(admission?.id).not.toBe(translateEntityExecutionId(payload));
+			}),
+		testTimeout,
 	);
 });
 
@@ -840,172 +881,203 @@ layer(makeServiceLayer())((test) => {
 					},
 				});
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("does not allocate another pin for a known queued request", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const effects = yield* TranslationEffects;
-			expect(yield* service.requestFill(payload)).toBe(true);
-			expect(yield* service.requestFill(payload)).toBe(false);
-			yield* effects.startRequest;
-			expect(yield* service.requestFill(payload)).toBe(false);
-			expect(yield* effects.registrations).toHaveLength(1);
-			expect(yield* effects.admissions).toHaveLength(1);
-			expect(yield* effects.executions).toHaveLength(1);
-			expect(yield* effects.released).toEqual([]);
-		}),
+	test.effect(
+		"does not allocate another pin for a known queued request",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const effects = yield* TranslationEffects;
+				expect(yield* service.requestFill(payload)).toBe(true);
+				expect(yield* service.requestFill(payload)).toBe(false);
+				yield* effects.startRequest;
+				expect(yield* service.requestFill(payload)).toBe(false);
+				expect(yield* effects.registrations).toHaveLength(1);
+				expect(yield* effects.admissions).toHaveLength(1);
+				expect(yield* effects.executions).toHaveLength(1);
+				expect(yield* effects.released).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ requestFailure: true }))((test) => {
-	test.effect("does not register a pin when request admission fails", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* Effect.exit((yield* TranslationsService).requestFill(payload)),
-				new SandboxRunError({ kind: "infrastructure", message: "Admission failed" }),
-			);
-			const effects = yield* TranslationEffects;
-			expect(yield* effects.released).toEqual(yield* effects.registrations);
-			expect(yield* effects.registrations).toEqual([]);
-			expect(yield* effects.executions).toEqual([]);
-		}),
+	test.effect(
+		"does not register a pin when request admission fails",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit((yield* TranslationsService).requestFill(payload)),
+					new SandboxRunError({ kind: "infrastructure", message: "Admission failed" }),
+				);
+				const effects = yield* TranslationEffects;
+				expect(yield* effects.released).toEqual(yield* effects.registrations);
+				expect(yield* effects.registrations).toEqual([]);
+				expect(yield* effects.executions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("does not allocate another pin for a known terminal initial request", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const effects = yield* TranslationEffects;
-			expect(yield* service.requestFill(payload)).toBe(true);
-			yield* effects.finishRequest;
-			expect(yield* service.requestFill(payload)).toBe(false);
-			expect(yield* effects.registrations).toHaveLength(1);
-			expect(yield* effects.released).toEqual([]);
-			expect(yield* effects.admissions).toHaveLength(1);
-		}),
+	test.effect(
+		"does not allocate another pin for a known terminal initial request",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const effects = yield* TranslationEffects;
+				expect(yield* service.requestFill(payload)).toBe(true);
+				yield* effects.finishRequest;
+				expect(yield* service.requestFill(payload)).toBe(false);
+				expect(yield* effects.registrations).toHaveLength(1);
+				expect(yield* effects.released).toEqual([]);
+				expect(yield* effects.admissions).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
 for (const options of [{ requestState: "succeeded" as const }, { reusedRetry: true }]) {
 	layer(makeServiceLayer(options))((test) => {
-		test.effect("does not dispatch terminal or reused retry admissions", () =>
-			Effect.gen(function* () {
-				expect(
-					yield* (yield* TranslationsService).requestFill({
-						...payload,
-						retryOf: "failed-request",
-					}),
-				).toBe(false);
-				expect(yield* (yield* TranslationEffects).executions).toEqual([]);
-				const effects = yield* TranslationEffects;
-				expect(yield* effects.released).toEqual(yield* effects.registrations);
-				expect(yield* effects.registrations).toEqual([]);
-			}),
+		test.effect(
+			"does not dispatch terminal or reused retry admissions",
+			() =>
+				Effect.gen(function* () {
+					expect(
+						yield* (yield* TranslationsService).requestFill({
+							...payload,
+							retryOf: "failed-request",
+						}),
+					).toBe(false);
+					expect(yield* (yield* TranslationEffects).executions).toEqual([]);
+					const effects = yield* TranslationEffects;
+					expect(yield* effects.released).toEqual(yield* effects.registrations);
+					expect(yield* effects.registrations).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 }
 
 layer(makeServiceLayer({ storedProperties: {} }))((test) => {
-	test.effect("fails closed when a selected canonical field is missing", () =>
-		Effect.gen(function* () {
-			expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
-			assertExitFails(
-				yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
-				new SandboxRunError({
-					kind: "invalid-input",
-					message: "Translation input property 'title' is unavailable",
-				}),
-			);
-			expect(yield* (yield* TranslationEffects).admissions).toHaveLength(1);
-		}),
+	test.effect(
+		"fails closed when a selected canonical field is missing",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
+				assertExitFails(
+					yield* Effect.exit((yield* TranslationsService).admitExecution(yield* pinnedPayload)),
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Translation input property 'title' is unavailable",
+					}),
+				);
+				expect(yield* (yield* TranslationEffects).admissions).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ storedProperties: { title: "x".repeat(65_450) } }))((test) => {
-	test.effect("bounds the full translation context before capturing execution", () =>
-		Effect.gen(function* () {
-			expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
-			const failure = yield* (yield* TranslationsService)
-				.admitExecution(yield* pinnedPayload)
-				.pipe(Effect.flip);
-			expect(failure.message).toContain("exceeds 65536 UTF-8 bytes");
-		}),
+	test.effect(
+		"bounds the full translation context before capturing execution",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
+				const failure = yield* (yield* TranslationsService)
+					.admitExecution(yield* pinnedPayload)
+					.pipe(Effect.flip);
+				expect(failure.message).toContain("exceeds 65536 UTF-8 bytes");
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ selectedKeys: [], storedName: "x".repeat(65_536) }))((test) => {
-	test.effect("tracks an oversized canonical name only after queue admission", () =>
-		Effect.gen(function* () {
-			expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
-			const failure = yield* (yield* TranslationsService)
-				.admitExecution(yield* pinnedPayload)
-				.pipe(Effect.flip);
-			expect(failure).toMatchObject({ kind: "invalid-input" });
-			expect(failure.message).toContain("exceeds 65536 UTF-8 bytes");
-			const [admitted] = yield* (yield* TranslationEffects).admissions;
-			expect(admitted).toBeDefined();
-			expect(admitted?.payload).not.toHaveProperty("name");
-		}),
+	test.effect(
+		"tracks an oversized canonical name only after queue admission",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* (yield* TranslationsService).requestFill(payload)).toBe(true);
+				const failure = yield* (yield* TranslationsService)
+					.admitExecution(yield* pinnedPayload)
+					.pipe(Effect.flip);
+				expect(failure).toMatchObject({ kind: "invalid-input" });
+				expect(failure.message).toContain("exceeds 65536 UTF-8 bytes");
+				const [admitted] = yield* (yield* TranslationEffects).admissions;
+				expect(admitted).toBeDefined();
+				expect(admitted?.payload).not.toHaveProperty("name");
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("rejects stale content without writing a success or negative-cache overlay", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(yield* pinnedPayload);
-			yield* (yield* TranslationEffects).changeContent;
-			for (const input of [overlay, { ...overlay, name: null, properties: null }]) {
-				assertExitFails(
-					yield* Effect.exit(service.upsert(input, payload, captured)),
-					new SandboxRunError({
-						kind: "invalid-input",
-						message: "Translation source content changed before commit",
-					}),
-				);
-			}
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+	test.effect(
+		"rejects stale content without writing a success or negative-cache overlay",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const captured = yield* service.admitExecution(yield* pinnedPayload);
+				yield* (yield* TranslationEffects).changeContent;
+				for (const input of [overlay, { ...overlay, name: null, properties: null }]) {
+					assertExitFails(
+						yield* Effect.exit(service.upsert(input, payload, captured)),
+						new SandboxRunError({
+							kind: "invalid-input",
+							message: "Translation source content changed before commit",
+						}),
+					);
+				}
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ assetOwnerUserId: "foreign-user" }))((test) => {
-	test.effect("rejects a translation that references another user's managed asset", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const captured = yield* service.admitExecution(yield* pinnedPayload);
-			assertExitFails(
-				yield* Effect.exit(service.upsert(assetOverlay, payload, captured)),
-				new SandboxRunError({
-					kind: "invalid-input",
-					data: { code: "asset-forbidden" },
-					message: "Translation references a forbidden managed asset",
-				}),
-			);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+	test.effect(
+		"rejects a translation that references another user's managed asset",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const captured = yield* service.admitExecution(yield* pinnedPayload);
+				assertExitFails(
+					yield* Effect.exit(service.upsert(assetOverlay, payload, captured)),
+					new SandboxRunError({
+						kind: "invalid-input",
+						data: { code: "asset-forbidden" },
+						message: "Translation references a forbidden managed asset",
+					}),
+				);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ globalEntity: true, systemPlugin: true }))((test) => {
-	test.effect("rejects a global-entity translation that references a user's own asset", () =>
-		Effect.gen(function* () {
-			const service = yield* TranslationsService;
-			const globalPayload = yield* pinnedPayload;
-			const captured = yield* service.admitExecution(globalPayload);
-			assertExitFails(
-				yield* Effect.exit(service.upsert(assetOverlay, globalPayload, captured)),
-				new SandboxRunError({
-					kind: "invalid-input",
-					data: { code: "asset-forbidden" },
-					message: "Translation references a forbidden managed asset",
-				}),
-			);
-			expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
-		}),
+	test.effect(
+		"rejects a global-entity translation that references a user's own asset",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TranslationsService;
+				const globalPayload = yield* pinnedPayload;
+				const captured = yield* service.admitExecution(globalPayload);
+				assertExitFails(
+					yield* Effect.exit(service.upsert(assetOverlay, globalPayload, captured)),
+					new SandboxRunError({
+						kind: "invalid-input",
+						data: { code: "asset-forbidden" },
+						message: "Translation references a forbidden managed asset",
+					}),
+				);
+				expect(yield* (yield* TranslationEffects).upserts).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { expect, it } from "vitest";
 
 import {
 	workoutExercisePreviousValuesRecipe,
@@ -20,50 +21,62 @@ it("pages workouts containing the exercise before the anchor and excludes the cu
 		throw new Error("Expected history workout rows");
 	}
 	expect(query.output.pagination).toEqual({ limit: 100, after: "workout-cursor" });
-	expect(query.output.orderBy).toMatchObject([
-		{ direction: "desc", expr: objectContaining({ type: "cast", target: "date" }) },
-		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "historyWorkout" } },
+	expect(query.output.orderBy).toEqual<unknown>([
+		objectContaining({
+			direction: "desc",
+			expr: objectContaining({ type: "cast", target: "date" }),
+		}),
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ field: "id", type: "column", tableAlias: "historyWorkout" }),
+		}),
 	]);
-	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
+	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual<unknown>(
 		arrayContaining(["id", "name", "startedAt", "comment"]),
 	);
-	expect(query.where).toMatchObject({
-		type: "and",
-		predicates: arrayContaining([
-			objectContaining({
-				operator: "lt",
-				type: "comparison",
-				right: {
-					type: "cast",
-					target: "date",
-					expr: { type: "literal", value: "2026-02-01T10:00:00.000Z" },
-				},
-			}),
-			objectContaining({
-				operator: "neq",
-				type: "comparison",
-				right: { type: "literal", value: "workout-current" },
-			}),
-			objectContaining({
-				type: "exists",
-				query: objectContaining({
-					from: { table: "event", alias: "historyWorkoutSet" },
-					where: objectContaining({
-						predicates: arrayContaining([
-							objectContaining({
-								right: { type: "literal", value: "exercise-1" },
-								left: { type: "column", field: "entityId", tableAlias: "historyWorkoutSet" },
-							}),
-							objectContaining({
-								right: { field: "id", type: "column", tableAlias: "historyWorkout" },
-								left: { type: "column", field: "sessionEntityId", tableAlias: "historyWorkoutSet" },
-							}),
-						]),
+	expect(query.where).toEqual<unknown>(
+		objectContaining({
+			type: "and",
+			predicates: arrayContaining([
+				objectContaining({
+					operator: "lt",
+					type: "comparison",
+					right: {
+						type: "cast",
+						target: "date",
+						expr: { type: "literal", value: "2026-02-01T10:00:00.000Z" },
+					},
+				}),
+				objectContaining({
+					operator: "neq",
+					type: "comparison",
+					right: { type: "literal", value: "workout-current" },
+				}),
+				objectContaining({
+					type: "exists",
+					query: objectContaining({
+						from: { table: "event", alias: "historyWorkoutSet" },
+						where: objectContaining({
+							predicates: arrayContaining([
+								objectContaining({
+									right: { type: "literal", value: "exercise-1" },
+									left: { type: "column", field: "entityId", tableAlias: "historyWorkoutSet" },
+								}),
+								objectContaining({
+									right: { field: "id", type: "column", tableAlias: "historyWorkout" },
+									left: {
+										type: "column",
+										field: "sessionEntityId",
+										tableAlias: "historyWorkoutSet",
+									},
+								}),
+							]),
+						}),
 					}),
 				}),
-			}),
-		]),
-	});
+			]),
+		}),
+	);
 	const where = JSON.stringify(query.where);
 	expect(where).toContain('"field":"eventSchemaPluginId"');
 	expect(where).toContain('"reference":{"kind":"self"}');
@@ -81,12 +94,21 @@ it("pages exercise set events in exercise and set order with the recorded kind a
 		throw new Error("Expected history set rows");
 	}
 	expect(query.output.pagination).toEqual({ limit: 100, after: "set-cursor" });
-	expect(query.output.orderBy).toMatchObject([
-		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
-		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
-		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "historySet" } },
+	expect(query.output.orderBy).toEqual<unknown>([
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ type: "cast", target: "number" }),
+		}),
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ type: "cast", target: "number" }),
+		}),
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ field: "id", type: "column", tableAlias: "historySet" }),
+		}),
 	]);
-	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
+	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual<unknown>(
 		arrayContaining([
 			"id",
 			"exerciseId",
@@ -103,19 +125,21 @@ it("pages exercise set events in exercise and set order with the recorded kind a
 			"pace",
 		]),
 	);
-	expect(query.where).toMatchObject({
-		type: "and",
-		predicates: arrayContaining([
-			objectContaining({
-				right: { type: "literal", value: "exercise-1" },
-				left: { type: "column", field: "entityId", tableAlias: "historySet" },
-			}),
-			objectContaining({
-				right: { type: "literal", value: "workout-1" },
-				left: { type: "column", field: "sessionEntityId", tableAlias: "historySet" },
-			}),
-		]),
-	});
+	expect(query.where).toEqual<unknown>(
+		objectContaining({
+			type: "and",
+			predicates: arrayContaining([
+				objectContaining({
+					right: { type: "literal", value: "exercise-1" },
+					left: { type: "column", field: "entityId", tableAlias: "historySet" },
+				}),
+				objectContaining({
+					right: { type: "literal", value: "workout-1" },
+					left: { type: "column", field: "sessionEntityId", tableAlias: "historySet" },
+				}),
+			]),
+		}),
+	);
 	const where = JSON.stringify(query.where);
 	expect(where).toContain('"field":"eventSchemaPluginId"');
 	expect(where).toContain('"field":"entitySchemaPluginId"');
@@ -135,15 +159,31 @@ it("pages all matching prior occurrences by descending session time and stable s
 		throw new Error("Expected prior set rows");
 	}
 	expect(query.output.pagination).toEqual({ limit: 100, after: "previous-set-cursor" });
-	expect(query.output.orderBy).toMatchObject([
-		{ direction: "desc", expr: objectContaining({ type: "cast", target: "date" }) },
-		{
+	expect(query.output.orderBy).toEqual<unknown>([
+		objectContaining({
+			direction: "desc",
+			expr: objectContaining({ type: "cast", target: "date" }),
+		}),
+		objectContaining({
 			direction: "asc",
-			expr: { type: "column", field: "sessionEntityId", tableAlias: "previousWorkoutSet" },
-		},
-		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
-		{ direction: "asc", expr: objectContaining({ type: "cast", target: "number" }) },
-		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "previousWorkoutSet" } },
+			expr: objectContaining({
+				type: "column",
+				field: "sessionEntityId",
+				tableAlias: "previousWorkoutSet",
+			}),
+		}),
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ type: "cast", target: "number" }),
+		}),
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ type: "cast", target: "number" }),
+		}),
+		objectContaining({
+			direction: "asc",
+			expr: objectContaining({ field: "id", type: "column", tableAlias: "previousWorkoutSet" }),
+		}),
 	]);
 	const where = JSON.stringify(query.where);
 	expect(where).toContain('"path":["exerciseKind"]');

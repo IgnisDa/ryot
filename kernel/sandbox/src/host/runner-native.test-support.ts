@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
-import { assert } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
+import { assert } from "@ryot-app/testing/assert";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 

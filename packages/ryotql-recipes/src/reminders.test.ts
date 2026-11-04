@@ -1,6 +1,8 @@
+import { expect, it } from "bun:test";
+
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, expect, it } from "vitest";
 
 import { remindersRecipe } from "./reminders";
 import { rowsResponse } from "./test-utils";
@@ -27,10 +29,9 @@ it("preserves inactive date-only evidence without inventing an instant or timezo
 		originalSchedule: { dueAt: null, timezone: null, date: "2025-03-30", mayHaveSent: false },
 	};
 	const pageInfo = { limit: 20, hasMore: false, nextCursor: null };
-	expect(Result.getOrThrow(recipe.decode(rowsResponse("reminders", [item], pageInfo)))).toEqual({
-		pageInfo,
-		items: [item],
-	});
+	expect(
+		Result.getOrThrow(recipe.decode(rowsResponse("reminders", [item], pageInfo))),
+	).toEqual<unknown>({ pageInfo, items: [item] });
 });
 
 it("uses stable schedule ordering, cursor pagination and explicit entity scope", () => {

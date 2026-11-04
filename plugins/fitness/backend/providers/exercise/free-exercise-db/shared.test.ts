@@ -1,7 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import details from "./details.sandbox";
 import resolve from "./resolve.sandbox";

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { anyOf } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { adaptImdbCsv } from "./imdb";
 
@@ -45,7 +46,7 @@ describe("adaptImdbCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.collectionMemberships).toEqual([]);
-		expect(result.entityGroups[0]?.events).toEqual([
+		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{
 				eventSchemaSlug: "complete",
 				properties: { dateUnknown: true },
@@ -63,7 +64,7 @@ describe("adaptImdbCsv", () => {
 		const result = adaptImdbCsv(`Const,Title Type,Your Rating\ntt0111161,movie,${rating}`);
 
 		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]?.events).toEqual([
+		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{ occurredAt: anyOf(String), eventSchemaSlug: "complete", properties: { dateUnknown: true } },
 			{
 				eventSchemaSlug: "review",
@@ -79,7 +80,7 @@ describe("adaptImdbCsv", () => {
 		);
 
 		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]?.events).toEqual([
+		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{
 				eventSchemaSlug: "complete",
 				properties: { dateUnknown: true },
@@ -92,7 +93,7 @@ describe("adaptImdbCsv", () => {
 		const result = adaptImdbCsv("Const,Title Type,Your Rating,Date Rated\ntt0111161,movie, , ");
 
 		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]?.events).toEqual([
+		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{ properties: {}, occurredAt: anyOf(String), eventSchemaSlug: "backlog" },
 		]);
 	});

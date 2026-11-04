@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { inMemoryRyotql, measurementTables } from "./in-memory-ryotql.test-support";
 import pinDefinition, { manifest } from "./measurement-metric-pin.sandbox";
@@ -47,48 +50,54 @@ const recordingHost = (changes: ChangeUserRelationshipBatch[], pinnedIds: readon
 	});
 
 describe("measurement metric pin operation", () => {
-	it.live("pins and unpins metrics, skipping writes when the state already matches", () =>
-		Effect.gen(function* () {
-			const changes: ChangeUserRelationshipBatch[] = [];
-			const host = recordingHost(changes, ["weight"]);
+	it.live(
+		"pins and unpins metrics, skipping writes when the state already matches",
+		() =>
+			Effect.gen(function* () {
+				const changes: ChangeUserRelationshipBatch[] = [];
+				const host = recordingHost(changes, ["weight"]);
 
-			for (const input of [
-				{ pinned: true, metricId: "waist" },
-				{ pinned: false, metricId: "weight" },
-				{ pinned: true, metricId: "weight" },
-				{ pinned: false, metricId: "waist" },
-			]) {
-				expect(yield* runSandboxTestScript(pinDefinition, input, host, execution)).toEqual({
-					pinned: input.pinned,
-				});
-			}
+				for (const input of [
+					{ pinned: true, metricId: "waist" },
+					{ pinned: false, metricId: "weight" },
+					{ pinned: true, metricId: "weight" },
+					{ pinned: false, metricId: "waist" },
+				]) {
+					expect(yield* runSandboxTestScript(pinDefinition, input, host, execution)).toEqual({
+						pinned: input.pinned,
+					});
+				}
 
-			expect(changes).toEqual([
-				{ deletes: [], creates: [{ ...pin("waist"), properties: {}, propertiesMode: "merge" }] },
-				{ creates: [], deletes: [pin("weight")] },
-			]);
-		}),
+				expect(changes).toEqual([
+					{ deletes: [], creates: [{ ...pin("waist"), properties: {}, propertiesMode: "merge" }] },
+					{ creates: [], deletes: [pin("weight")] },
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("rejects a fourth pin and unknown metrics without writing", () =>
-		Effect.gen(function* () {
-			const changes: ChangeUserRelationshipBatch[] = [];
-			const host = recordingHost(changes, ["weight", "waist", "hip"]);
+	it.live(
+		"rejects a fourth pin and unknown metrics without writing",
+		() =>
+			Effect.gen(function* () {
+				const changes: ChangeUserRelationshipBatch[] = [];
+				const host = recordingHost(changes, ["weight", "waist", "hip"]);
 
-			expect(
-				yield* Effect.flip(
-					runSandboxTestScript(pinDefinition, { pinned: true, metricId: "bmi" }, host, execution),
-				),
-			).toBeInstanceOf(MeasurementMetricPinLimitError);
-			for (const metricId of ["missing", "exercise-1"]) {
 				expect(
 					yield* Effect.flip(
-						runSandboxTestScript(pinDefinition, { metricId, pinned: true }, host, execution),
+						runSandboxTestScript(pinDefinition, { pinned: true, metricId: "bmi" }, host, execution),
 					),
-				).toBeInstanceOf(MeasurementMetricNotFoundError);
-			}
+				).toBeInstanceOf(MeasurementMetricPinLimitError);
+				for (const metricId of ["missing", "exercise-1"]) {
+					expect(
+						yield* Effect.flip(
+							runSandboxTestScript(pinDefinition, { metricId, pinned: true }, host, execution),
+						),
+					).toBeInstanceOf(MeasurementMetricNotFoundError);
+				}
 
-			expect(changes).toEqual([]);
-		}),
+				expect(changes).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

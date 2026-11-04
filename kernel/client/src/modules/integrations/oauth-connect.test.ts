@@ -1,9 +1,12 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type {
 	CreateOAuthConnectionBody,
 	OAuthConnectionStatus,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -183,277 +186,321 @@ const settle = Effect.gen(function* () {
 });
 
 describe("OAuth connect on the web", () => {
-	it.effect("opens the popup and severs its opener before any asynchronous step", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	it.effect(
+		"opens the popup and severs its opener before any asynchronous step",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const attempt = service.connect(harness.input);
+				const attempt = service.connect(harness.input);
 
-			expect(harness.popups).toHaveLength(1);
-			expect(harness.popups.at(0)?.opener).toBeNull();
-			expect(harness.popups.at(0)?.location.href).toBe("about:blank");
-			expect(harness.creates).toEqual([]);
+				expect(harness.popups).toHaveLength(1);
+				expect(harness.popups.at(0)?.opener).toBeNull();
+				expect(harness.popups.at(0)?.location.href).toBe("about:blank");
+				expect(harness.creates).toEqual([]);
 
-			harness.controller.abort();
-			expect(yield* attempt).toEqual({ kind: "cancelled" });
-		}),
+				harness.controller.abort();
+				expect(yield* attempt).toEqual({ kind: "cancelled" });
+			}),
+		testTimeout,
 	);
 
-	it.effect("reports a blocked popup without creating a connection", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ blockPopup: true });
-			const service = yield* harness.service;
+	it.effect(
+		"reports a blocked popup without creating a connection",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ blockPopup: true });
+				const service = yield* harness.service;
 
-			expect(yield* service.connect(harness.input)).toEqual({
-				kind: "failed",
-				message: "Allow pop-ups to connect",
-			});
-			expect(harness.creates).toEqual([]);
-		}),
+				expect(yield* service.connect(harness.input)).toEqual({
+					kind: "failed",
+					message: "Allow pop-ups to connect",
+				});
+				expect(harness.creates).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects a non-https authorization URL and closes the popup", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ authorizeUrl: "javascript:alert(1)" });
-			const service = yield* harness.service;
+	it.effect(
+		"rejects a non-https authorization URL and closes the popup",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ authorizeUrl: "javascript:alert(1)" });
+				const service = yield* harness.service;
 
-			expect(yield* service.connect(harness.input)).toEqual({
-				kind: "failed",
-				message: "Couldn't connect. Try again.",
-			});
-			expect(harness.popups.at(0)?.location.href).toBe("about:blank");
-			expect(harness.popups.at(0)?.closed).toBe(true);
-			expect(harness.state.reads).toBe(0);
-		}),
+				expect(yield* service.connect(harness.input)).toEqual({
+					kind: "failed",
+					message: "Couldn't connect. Try again.",
+				});
+				expect(harness.popups.at(0)?.location.href).toBe("about:blank");
+				expect(harness.popups.at(0)?.closed).toBe(true);
+				expect(harness.state.reads).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.effect("navigates the popup and polls until the connection is connected", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	it.effect(
+		"navigates the popup and polls until the connection is connected",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			expect(harness.creates).toEqual([
-				{
-					field: "account",
-					client: { kind: "web" },
-					integrationProvider: { slug: "example-service", owner: { kind: "kernel" } },
-				},
-			]);
-			expect(harness.popups.at(0)?.location.href).toBe(AUTHORIZE_URL);
-			expect(harness.state.reads).toBe(1);
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				expect(harness.creates).toEqual([
+					{
+						field: "account",
+						client: { kind: "web" },
+						integrationProvider: { slug: "example-service", owner: { kind: "kernel" } },
+					},
+				]);
+				expect(harness.popups.at(0)?.location.href).toBe(AUTHORIZE_URL);
+				expect(harness.state.reads).toBe(1);
 
-			yield* TestClock.adjust("1 second");
-			expect(harness.state.reads).toBe(2);
-			harness.state.status = "authorized";
-			yield* TestClock.adjust("2 seconds");
-			expect(harness.state.reads).toBe(3);
-			harness.state.status = "connected";
-			yield* TestClock.adjust("4 seconds");
+				yield* TestClock.adjust("1 second");
+				expect(harness.state.reads).toBe(2);
+				harness.state.status = "authorized";
+				yield* TestClock.adjust("2 seconds");
+				expect(harness.state.reads).toBe(3);
+				harness.state.status = "connected";
+				yield* TestClock.adjust("4 seconds");
 
-			expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
-			expect(harness.popups.at(0)?.closed).toBe(false);
-			expect(harness.wakes.size).toBe(0);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
+				expect(harness.popups.at(0)?.closed).toBe(false);
+				expect(harness.wakes.size).toBe(0);
+			}),
+		testTimeout,
 	);
 
 	it.effect.each([
 		["failed", "The account wasn't connected. Try again."],
 		["expired", "The connection request expired. Try again."],
 		["not-found", "This connection is no longer available. Try again."],
-	] as const)("ends a %s connection as failed and closes the popup", ([status, message]) =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	] as const)(
+		"ends a %s connection as failed and closes the popup",
+		([status, message]) =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.state.status = status;
-			yield* TestClock.adjust("1 second");
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.state.status = status;
+				yield* TestClock.adjust("1 second");
 
-			expect(yield* Fiber.join(fiber)).toEqual({ message, kind: "failed" });
-			expect(harness.popups.at(0)?.closed).toBe(true);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ message, kind: "failed" });
+				expect(harness.popups.at(0)?.closed).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	it.effect("reads the status immediately when the window wakes", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	it.effect(
+		"reads the status immediately when the window wakes",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.state.status = "connected";
-			harness.wake();
-			yield* settle;
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.state.status = "connected";
+				harness.wake();
+				yield* settle;
 
-			expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
-			expect(harness.state.reads).toBe(2);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
+				expect(harness.state.reads).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.effect("keeps polling while the popup reports itself closed", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	it.effect(
+		"keeps polling while the popup reports itself closed",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.reportPopupsClosed();
-			yield* TestClock.adjust("1 minute");
-			expect(fiber.pollUnsafe()).toBeUndefined();
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.reportPopupsClosed();
+				yield* TestClock.adjust("1 minute");
+				expect(fiber.pollUnsafe()).toBeUndefined();
 
-			harness.state.status = "connected";
-			yield* TestClock.adjust("5 seconds");
+				harness.state.status = "connected";
+				yield* TestClock.adjust("5 seconds");
 
-			expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
-			expect(harness.popups.at(0)?.closeCount).toBe(0);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
+				expect(harness.popups.at(0)?.closeCount).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.effect("cancels on abort, closes the popup, and stops polling", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	it.effect(
+		"cancels on abort, closes the popup, and stops polling",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.controller.abort();
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.controller.abort();
 
-			expect(yield* Fiber.join(fiber)).toEqual({ kind: "cancelled" });
-			expect(harness.popups.at(0)?.closed).toBe(true);
-			expect(harness.wakes.size).toBe(0);
-			const reads = harness.state.reads;
-			yield* TestClock.adjust("1 minute");
-			expect(harness.state.reads).toBe(reads);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ kind: "cancelled" });
+				expect(harness.popups.at(0)?.closed).toBe(true);
+				expect(harness.wakes.size).toBe(0);
+				const reads = harness.state.reads;
+				yield* TestClock.adjust("1 minute");
+				expect(harness.state.reads).toBe(reads);
+			}),
+		testTimeout,
 	);
 
-	it.effect("fails after ten minutes and closes the popup", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness();
-			const service = yield* harness.service;
+	it.effect(
+		"fails after ten minutes and closes the popup",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness();
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			yield* TestClock.adjust("10 minutes");
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				yield* TestClock.adjust("10 minutes");
 
-			expect(yield* Fiber.join(fiber)).toEqual({
-				kind: "failed",
-				message: "The connection request expired. Try again.",
-			});
-			expect(harness.popups.at(0)?.closed).toBe(true);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({
+					kind: "failed",
+					message: "The connection request expired. Try again.",
+				});
+				expect(harness.popups.at(0)?.closed).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 describe("OAuth connect in the native app", () => {
 	const secretUrl = "io.ryot.app:/settings/oauth-return#connection=connection-1&secret=secret-1";
 
-	it.effect("completes a matching return, closes the browser, and releases the claim", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ native: true });
-			const service = yield* harness.service;
+	it.effect(
+		"completes a matching return, closes the browser, and releases the claim",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ native: true });
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			expect(harness.popups).toEqual([]);
-			expect(harness.browserOpened).toEqual([AUTHORIZE_URL]);
-			expect(harness.creates).toEqual([
-				{
-					field: "account",
-					client: { kind: "native", applicationId: "io.ryot.app" },
-					integrationProvider: { slug: "example-service", owner: { kind: "kernel" } },
-				},
-			]);
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				expect(harness.popups).toEqual([]);
+				expect(harness.browserOpened).toEqual([AUTHORIZE_URL]);
+				expect(harness.creates).toEqual([
+					{
+						field: "account",
+						client: { kind: "native", applicationId: "io.ryot.app" },
+						integrationProvider: { slug: "example-service", owner: { kind: "kernel" } },
+					},
+				]);
 
-			harness.returnUrl(secretUrl);
+				harness.returnUrl(secretUrl);
 
-			expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
-			expect(harness.completes).toEqual([{ connectionId, secret: "secret-1" }]);
-			expect(harness.state.browserClosed).toBe(1);
-			expect(harness.isClaimed()).toBe(false);
-			expect(harness.finished.size).toBe(0);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
+				expect(harness.completes).toEqual([{ connectionId, secret: "secret-1" }]);
+				expect(harness.state.browserClosed).toBe(1);
+				expect(harness.isClaimed()).toBe(false);
+				expect(harness.finished.size).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.effect("ignores return URLs that do not match the attempt and keeps waiting", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ native: true });
-			const service = yield* harness.service;
+	it.effect(
+		"ignores return URLs that do not match the attempt and keeps waiting",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ native: true });
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.returnUrl(
-				"io.ryot.app.dev:/settings/oauth-return#connection=connection-1&secret=secret-1",
-			);
-			harness.returnUrl("io.ryot.app:/settings/oauth-return#connection=connection-2&secret=x");
-			harness.returnUrl("io.ryot.app:/settings/oauth-return#status=failed");
-			harness.returnUrl("io.ryot.app:/settings/oauth-return");
-			yield* settle;
-			expect(fiber.pollUnsafe()).toBeUndefined();
-			expect(harness.isClaimed()).toBe(true);
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.returnUrl(
+					"io.ryot.app.dev:/settings/oauth-return#connection=connection-1&secret=secret-1",
+				);
+				harness.returnUrl("io.ryot.app:/settings/oauth-return#connection=connection-2&secret=x");
+				harness.returnUrl("io.ryot.app:/settings/oauth-return#status=failed");
+				harness.returnUrl("io.ryot.app:/settings/oauth-return");
+				yield* settle;
+				expect(fiber.pollUnsafe()).toBeUndefined();
+				expect(harness.isClaimed()).toBe(true);
 
-			harness.returnUrl("io.ryot.app:/settings/oauth-return#connection=connection-1&status=failed");
+				harness.returnUrl(
+					"io.ryot.app:/settings/oauth-return#connection=connection-1&status=failed",
+				);
 
-			expect(yield* Fiber.join(fiber)).toEqual({
-				kind: "failed",
-				message: "The account wasn't connected. Try again.",
-			});
-			expect(harness.completes).toEqual([]);
-			expect(harness.isClaimed()).toBe(false);
-			expect(harness.finished.size).toBe(0);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({
+					kind: "failed",
+					message: "The account wasn't connected. Try again.",
+				});
+				expect(harness.completes).toEqual([]);
+				expect(harness.isClaimed()).toBe(false);
+				expect(harness.finished.size).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.effect("still completes a return that arrives within the grace period", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ native: true });
-			const service = yield* harness.service;
+	it.effect(
+		"still completes a return that arrives within the grace period",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ native: true });
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.finishBrowser();
-			yield* TestClock.adjust("4 seconds");
-			harness.returnUrl(secretUrl);
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.finishBrowser();
+				yield* TestClock.adjust("4 seconds");
+				harness.returnUrl(secretUrl);
 
-			expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
-			expect(harness.completes).toEqual([{ connectionId, secret: "secret-1" }]);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ connectionId, kind: "connected" });
+				expect(harness.completes).toEqual([{ connectionId, secret: "secret-1" }]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("cancels once the browser closes and the grace period elapses", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ native: true });
-			const service = yield* harness.service;
+	it.effect(
+		"cancels once the browser closes and the grace period elapses",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ native: true });
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			harness.finishBrowser();
-			yield* TestClock.adjust("5 seconds");
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				harness.finishBrowser();
+				yield* TestClock.adjust("5 seconds");
 
-			expect(yield* Fiber.join(fiber)).toEqual({ kind: "cancelled" });
-			expect(harness.completes).toEqual([]);
-			expect(harness.isClaimed()).toBe(false);
-			expect(harness.finished.size).toBe(0);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ kind: "cancelled" });
+				expect(harness.completes).toEqual([]);
+				expect(harness.isClaimed()).toBe(false);
+				expect(harness.finished.size).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.effect("releases the claim and listener when the attempt is aborted", () =>
-		Effect.gen(function* () {
-			const harness = makeHarness({ native: true });
-			const service = yield* harness.service;
+	it.effect(
+		"releases the claim and listener when the attempt is aborted",
+		() =>
+			Effect.gen(function* () {
+				const harness = makeHarness({ native: true });
+				const service = yield* harness.service;
 
-			const fiber = yield* Effect.forkChild(service.connect(harness.input));
-			yield* settle;
-			expect(harness.isClaimed()).toBe(true);
-			harness.controller.abort();
+				const fiber = yield* Effect.forkChild(service.connect(harness.input));
+				yield* settle;
+				expect(harness.isClaimed()).toBe(true);
+				harness.controller.abort();
 
-			expect(yield* Fiber.join(fiber)).toEqual({ kind: "cancelled" });
-			expect(harness.isClaimed()).toBe(false);
-			expect(harness.finished.size).toBe(0);
-		}),
+				expect(yield* Fiber.join(fiber)).toEqual({ kind: "cancelled" });
+				expect(harness.isClaimed()).toBe(false);
+				expect(harness.finished.size).toBe(0);
+			}),
+		testTimeout,
 	);
 });

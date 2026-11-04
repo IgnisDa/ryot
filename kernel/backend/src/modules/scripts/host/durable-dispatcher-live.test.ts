@@ -1,4 +1,5 @@
-import { assert, describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -17,7 +18,10 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { makeSandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	Cause,
 	Context,
@@ -353,6 +357,7 @@ layer(childOwnerDispatchLayer)((test) => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -396,49 +401,52 @@ const importHostDispatchLayer = Layer.unwrap(
 );
 
 layer(importHostDispatchLayer)((test) => {
-	test.effect("dispatches durable import host calls with their trusted run subject", () =>
-		Effect.gen(function* () {
-			const importRunId = ImportRunId.make("run-1");
-			const importSubject = {
-				importRunId,
-				type: "user" as const,
-				userId: UserId.make("user-1"),
-				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-			};
-			const importedPrincipal: ScriptExecutionPrincipal = {
-				...principal,
-				subject: importSubject,
-				metadata: { ...principal.metadata, capabilities: ["getUserSettings"] },
-			};
-			const context = { runId: "forged-run" };
-			const executionId = `${importRunId}-import`;
-			const dispatcher = yield* SandboxDurableHostDispatcher;
+	test.effect(
+		"dispatches durable import host calls with their trusted run subject",
+		() =>
+			Effect.gen(function* () {
+				const importRunId = ImportRunId.make("run-1");
+				const importSubject = {
+					importRunId,
+					type: "user" as const,
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				};
+				const importedPrincipal: ScriptExecutionPrincipal = {
+					...principal,
+					subject: importSubject,
+					metadata: { ...principal.metadata, capabilities: ["getUserSettings"] },
+				};
+				const context = { runId: "forged-run" };
+				const executionId = `${importRunId}-import`;
+				const dispatcher = yield* SandboxDurableHostDispatcher;
 
-			expect(
-				yield* dispatcher.dispatch(
-					{
-						index: 1,
-						kind: "host",
-						name: "getUserSettings",
-						args: { args: [], capability: "getUserSettings" },
-					},
-					{
-						scriptId,
+				expect(
+					yield* dispatcher.dispatch(
+						{
+							index: 1,
+							kind: "host",
+							name: "getUserSettings",
+							args: { args: [], capability: "getUserSettings" },
+						},
+						{
+							scriptId,
+							executionId,
+							input: context,
+							lane: "background",
+							subject: importSubject,
+							resolutionMode: "exact",
+							startedAt: "2026-08-06T00:00:00.000Z",
+						},
+						importedPrincipal,
 						executionId,
-						input: context,
-						lane: "background",
-						subject: importSubject,
-						resolutionMode: "exact",
-						startedAt: "2026-08-06T00:00:00.000Z",
-					},
-					importedPrincipal,
-					executionId,
-				),
-			).toEqual({ state: "success", value: { timezone: "America/Los_Angeles" } });
-			expect(yield* (yield* RecordedImportHostInputs).inputs).toEqual([
-				{ context, subject: importSubject, executionId: "run-1-import-host-1" },
-			]);
-		}),
+					),
+				).toEqual({ state: "success", value: { timezone: "America/Los_Angeles" } });
+				expect(yield* (yield* RecordedImportHostInputs).inputs).toEqual([
+					{ context, subject: importSubject, executionId: "run-1-import-host-1" },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -755,7 +763,7 @@ const httpCase = (
 	>,
 ) =>
 	layer(httpDispatchLayer(options))((test) => {
-		test.effect(name, body);
+		test.effect(name, body, testTimeout);
 	});
 
 const httpEvents = (events: ReadonlyArray<string>) => withPrefix(events, "http:");
@@ -1102,7 +1110,7 @@ describe("HTTP continuation phase transitions", () => {
 					phase: { _tag: "Admitting", rateLimit: { error: { message: "HTTP 429" } } },
 				});
 				const progress = yield* decodeHttpProgress(retained.progress);
-				expect(yield* runHttpDispatch(undefined, undefined, progress)).toEqual(
+				expect(yield* runHttpDispatch(undefined, undefined, progress)).toEqual<unknown>(
 					progress.phase.rateLimit,
 				);
 				expect(httpEvents(yield* harness.events)).toHaveLength(1);
@@ -1342,7 +1350,7 @@ httpCase(
 			);
 			expect(yield* harness.clockNames).toEqual([]);
 			const logs = yield* harness.logs;
-			expect(logs).toEqual(
+			expect(logs).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						logLevel: "Trace",
@@ -1737,6 +1745,7 @@ layer(httpDispatchLayer({ outcomes: [{ status: 200 }], cachedInterruptedAdmissio
 					]);
 					expect(httpEvents(yield* harness.events)).toEqual([]);
 				}),
+			testTimeout,
 		);
 	},
 );
@@ -1820,7 +1829,7 @@ describe("sandbox HTTP redirects admit every matched hop", () => {
 				yield* runHttpDispatch(`${openOrigin}/start`);
 				const events = yield* harness.events;
 				const target = events.indexOf(`http:GET ${providerOrigin}/data`);
-				expect(events.slice(0, target)).toEqual(
+				expect(events.slice(0, target)).toEqual<unknown>(
 					arrayContaining([
 						`resolve:${providerOrigin}:fail`,
 						`resolve:${providerOrigin}:fail`,
@@ -1847,32 +1856,35 @@ const interruptedDispatchLayer = Layer.unwrap(
 );
 
 layer(interruptedDispatchLayer)((test) => {
-	test.effect("does not swallow coordination interruption", () =>
-		Effect.gen(function* () {
-			const dispatcher = yield* SandboxDurableHostDispatcher;
-			const exit = yield* Effect.exit(
-				dispatcher.dispatch(
-					{
-						index: 0,
-						kind: "host",
-						name: "httpCall",
-						args: { capability: "httpCall", args: ["GET", "https://provider.test"] },
-					},
-					{
-						scriptId,
-						input: {},
-						lane: "background",
-						resolutionMode: "exact",
-						subject: principal.subject,
-						executionId: interruptedExecutionId,
-						startedAt: "2026-01-01T00:00:00.000Z",
-					},
-					principal,
-					interruptedExecutionId,
-				),
-			);
-			expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
-		}),
+	test.effect(
+		"does not swallow coordination interruption",
+		() =>
+			Effect.gen(function* () {
+				const dispatcher = yield* SandboxDurableHostDispatcher;
+				const exit = yield* Effect.exit(
+					dispatcher.dispatch(
+						{
+							index: 0,
+							kind: "host",
+							name: "httpCall",
+							args: { capability: "httpCall", args: ["GET", "https://provider.test"] },
+						},
+						{
+							scriptId,
+							input: {},
+							lane: "background",
+							resolutionMode: "exact",
+							subject: principal.subject,
+							executionId: interruptedExecutionId,
+							startedAt: "2026-01-01T00:00:00.000Z",
+						},
+						principal,
+						interruptedExecutionId,
+					),
+				);
+				expect(Exit.isFailure(exit) && Cause.hasInterrupts(exit.cause)).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2037,31 +2049,34 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("writes each relationship batch as its own step and dispatches between them", () =>
-		Effect.gen(function* () {
-			const harness = yield* LifecycleDispatchHarness;
-			const result = yield* runLifecycleDispatch({
-				args: [[batch, batch]],
-				capability: "changeUserRelationships",
-			});
-			expect(result).toEqual({
-				state: "success",
-				value: [
-					{ created: 0, deleted: 0 },
-					{ created: 1, deleted: 0 },
-				],
-			});
-			expect(yield* harness.recorded).toEqual([
-				"sandbox-host-4-changeUserRelationships-input",
-				"sandbox-host-4-changeUserRelationships-0:prepare",
-				"dispatch:1",
-				"sandbox-host-4-changeUserRelationships-1:prepare",
-				"dispatch:1",
-			]);
-			expect(
-				(yield* harness.logs).filter((message) => message.includes("automation warnings")),
-			).toHaveLength(1);
-		}),
+	test.effect(
+		"writes each relationship batch as its own step and dispatches between them",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* LifecycleDispatchHarness;
+				const result = yield* runLifecycleDispatch({
+					args: [[batch, batch]],
+					capability: "changeUserRelationships",
+				});
+				expect(result).toEqual({
+					state: "success",
+					value: [
+						{ created: 0, deleted: 0 },
+						{ created: 1, deleted: 0 },
+					],
+				});
+				expect(yield* harness.recorded).toEqual([
+					"sandbox-host-4-changeUserRelationships-input",
+					"sandbox-host-4-changeUserRelationships-0:prepare",
+					"dispatch:1",
+					"sandbox-host-4-changeUserRelationships-1:prepare",
+					"dispatch:1",
+				]);
+				expect(
+					(yield* harness.logs).filter((message) => message.includes("automation warnings")),
+				).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2104,29 +2119,32 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("records the policy outcome for a global entity upsert before committing", () =>
-		Effect.gen(function* () {
-			const providerPrincipal = {
-				...lifecyclePrincipal,
-				subject: { type: "system" as const },
-				providerId: SandboxProviderId.make("provider-1"),
-				metadata: { ...lifecycleScript.metadata, kind: "script" as const },
-			};
-			const result = yield* runLifecycleDispatch({
-				args: [[]],
-				principal: providerPrincipal,
-				capability: "upsertGlobalEntities",
-			});
-			expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
-			expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([
-				"sandbox-host-4-upsertGlobalEntities-input",
-				"sandbox-host-4-upsertGlobalEntities-0:prepare",
-				"policies",
-				"sandbox-host-4-upsertGlobalEntities-0:policy-outcome",
-				"sandbox-host-4-upsertGlobalEntities-0:commit",
-				"dispatch:1",
-			]);
-		}),
+	test.effect(
+		"records the policy outcome for a global entity upsert before committing",
+		() =>
+			Effect.gen(function* () {
+				const providerPrincipal = {
+					...lifecyclePrincipal,
+					subject: { type: "system" as const },
+					providerId: SandboxProviderId.make("provider-1"),
+					metadata: { ...lifecycleScript.metadata, kind: "script" as const },
+				};
+				const result = yield* runLifecycleDispatch({
+					args: [[]],
+					principal: providerPrincipal,
+					capability: "upsertGlobalEntities",
+				});
+				expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
+				expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([
+					"sandbox-host-4-upsertGlobalEntities-input",
+					"sandbox-host-4-upsertGlobalEntities-0:prepare",
+					"policies",
+					"sandbox-host-4-upsertGlobalEntities-0:policy-outcome",
+					"sandbox-host-4-upsertGlobalEntities-0:commit",
+					"dispatch:1",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2188,5 +2206,6 @@ layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) =>
 					yield* runLifecycleDispatch({ args: [[batch]], capability: "changeUserRelationships" }),
 				).toEqual({ state: "failure", error: { message: "policy-rejected" } });
 			}),
+		testTimeout,
 	);
 });

@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { periodCaption, PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { useReportedPages, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
@@ -11,7 +12,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import type { ReportingSelection } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -104,92 +107,102 @@ const mountSummary = (
 };
 
 describe("fitness analytics section queries", () => {
-	it.live("resolves actual previous dates and a fresh execution clock with stable inputs", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
-			const page = mountSummary(clock, {
-				grouping: "day",
-				comparison: "previous-period",
-				range: { days: 7, kind: "rolling" },
-			});
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
-				const documents = page.queryRequests().map(({ document }) => JSON.stringify(document));
-				expect(
-					documents.some(
-						(document) =>
-							document.includes("2026-10-26T04:00:00.000Z") &&
-							document.includes("2026-11-02T05:00:00.000Z"),
-					),
-				).toBe(true);
-				expect(
-					documents.some(
-						(document) =>
-							document.includes("2026-10-19T04:00:00.000Z") &&
-							document.includes("2026-10-26T04:00:00.000Z"),
-					),
-				).toBe(true);
-				for (const request of page.queryRequests()) {
-					expect(Object.keys(request.document.queries)).toHaveLength(4);
-					page.replyQuery(request.requestId, { response, outcome: "success" });
-				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Comparison ready")).toBeDefined()),
-				);
-				expect(screen.getByLabelText("Resolved comparison").textContent).toBe("Oct 19 – 25, 2026");
-				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-				});
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(4)));
-				const refreshed = page
-					.queryRequests()
-					.slice(2)
-					.map(({ document }) => JSON.stringify(document));
-				expect(
-					refreshed.some(
-						(document) =>
-							document.includes("2026-10-27T04:00:00.000Z") &&
-							document.includes("2026-11-03T05:00:00.000Z"),
-					),
-				).toBe(true);
-				expect(
-					refreshed.some(
-						(document) =>
-							document.includes("2026-10-20T04:00:00.000Z") &&
-							document.includes("2026-10-27T04:00:00.000Z"),
-					),
-				).toBe(true);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
-	it.live("omits the comparison query for all-time and disabled comparisons", () =>
-		Effect.gen(function* () {
-			for (const selection of [
-				{ grouping: "auto", range: { kind: "all-time" }, comparison: "previous-period" },
-				{ grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
-			] as const) {
+	it.live(
+		"resolves actual previous dates and a fresh execution clock with stable inputs",
+		() =>
+			Effect.gen(function* () {
 				const clock = createTestRyotClock();
-				const page = mountSummary(clock, selection);
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
+				const page = mountSummary(clock, {
+					grouping: "day",
+					comparison: "previous-period",
+					range: { days: 7, kind: "rolling" },
+				});
 				try {
-					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
+					const documents = page.queryRequests().map(({ document }) => JSON.stringify(document));
+					expect(
+						documents.some(
+							(document) =>
+								document.includes("2026-10-26T04:00:00.000Z") &&
+								document.includes("2026-11-02T05:00:00.000Z"),
+						),
+					).toBe(true);
+					expect(
+						documents.some(
+							(document) =>
+								document.includes("2026-10-19T04:00:00.000Z") &&
+								document.includes("2026-10-26T04:00:00.000Z"),
+						),
+					).toBe(true);
 					for (const request of page.queryRequests()) {
+						expect(Object.keys(request.document.queries)).toHaveLength(4);
 						page.replyQuery(request.requestId, { response, outcome: "success" });
 					}
 					yield* Effect.promise(() =>
-						waitFor(() => expect(screen.getByText("No comparison")).toBeDefined()),
+						waitFor(() => expect(screen.getByText("Comparison ready")).toBeDefined()),
 					);
-					expect(page.queryRequests()).toHaveLength(1);
+					expect(screen.getByLabelText("Resolved comparison").textContent).toBe(
+						"Oct 19 – 25, 2026",
+					);
+					yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+					});
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(4)));
+					const refreshed = page
+						.queryRequests()
+						.slice(2)
+						.map(({ document }) => JSON.stringify(document));
+					expect(
+						refreshed.some(
+							(document) =>
+								document.includes("2026-10-27T04:00:00.000Z") &&
+								document.includes("2026-11-03T05:00:00.000Z"),
+						),
+					).toBe(true);
+					expect(
+						refreshed.some(
+							(document) =>
+								document.includes("2026-10-20T04:00:00.000Z") &&
+								document.includes("2026-10-27T04:00:00.000Z"),
+						),
+					).toBe(true);
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());
 				}
-			}
-		}),
+			}),
+		testTimeout,
+	);
+	it.live(
+		"omits the comparison query for all-time and disabled comparisons",
+		() =>
+			Effect.gen(function* () {
+				for (const selection of [
+					{ grouping: "auto", range: { kind: "all-time" }, comparison: "previous-period" },
+					{ grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
+				] as const) {
+					const clock = createTestRyotClock();
+					const page = mountSummary(clock, selection);
+					try {
+						yield* Effect.promise(() =>
+							waitFor(() => expect(page.queryRequests()).toHaveLength(1)),
+						);
+						for (const request of page.queryRequests()) {
+							page.replyQuery(request.requestId, { response, outcome: "success" });
+						}
+						yield* Effect.promise(() =>
+							waitFor(() => expect(screen.getByText("No comparison")).toBeDefined()),
+						);
+						expect(page.queryRequests()).toHaveLength(1);
+					} finally {
+						page.dispose();
+						yield* Effect.promise(() => clock.dispose());
+					}
+				}
+			}),
+		testTimeout,
 	);
 });
 
@@ -381,79 +394,86 @@ describe("fitness analytics cursor adapters", () => {
 						yield* Effect.promise(() => clock.dispose());
 					}
 				}),
+			testTimeout,
 		);
 	}
-	it.live("keeps metric pages owner-isolated and does not download unseen pages", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountProbe(clock, MetricsProbe);
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("metrics")).toHaveLength(1)),
-				);
-				for (const request of page.queryRequests("metrics")) {
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: pageResponse("metrics", "more", [
-							{
-								unit: "kg",
-								key: "weight",
-								firstAt: null,
-								rangeCount: 0,
-								latestAt: null,
-								pinnedAt: null,
-								id: "metric-one",
-								latestValue: null,
-								name: "Owner one metric",
-							},
-						]),
+	it.live(
+		"keeps metric pages owner-isolated and does not download unseen pages",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountProbe(clock, MetricsProbe);
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("metrics")).toHaveLength(1)),
+					);
+					for (const request of page.queryRequests("metrics")) {
+						page.replyQuery(request.requestId, {
+							outcome: "success",
+							response: pageResponse("metrics", "more", [
+								{
+									unit: "kg",
+									key: "weight",
+									firstAt: null,
+									rangeCount: 0,
+									latestAt: null,
+									pinnedAt: null,
+									id: "metric-one",
+									latestValue: null,
+									name: "Owner one metric",
+								},
+							]),
+						});
+					}
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("Owner one metric")).toBeDefined()),
+					);
+					expect(page.queryRequests("metrics")).toHaveLength(1);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Other owner" }));
 					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("metrics")).toHaveLength(2)),
+					);
+					expect(screen.queryByText("Owner one metric")).toBeNull();
+					for (const request of page.queryRequests("metrics").slice(1)) {
+						expect(yield* documentText(request.document)).toContain("fitness-other");
+						expect(yield* documentText(request.document)).not.toContain("fitness-owner");
+					}
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
 				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Owner one metric")).toBeDefined()),
-				);
-				expect(page.queryRequests("metrics")).toHaveLength(1);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Other owner" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("metrics")).toHaveLength(2)),
-				);
-				expect(screen.queryByText("Owner one metric")).toBeNull();
-				for (const request of page.queryRequests("metrics").slice(1)) {
-					expect(yield* documentText(request.document)).toContain("fitness-other");
-					expect(yield* documentText(request.document)).not.toContain("fitness-owner");
-				}
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+			}),
+		testTimeout,
 	);
 });
 
 describe("fitness analytics query lifetime", () => {
-	it.live("cancels in-flight section queries when their consumer unmounts", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountProbe(clock, UnmountProbe);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Hide section" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							page.clientMessages().filter((message) => message.type === "ryotql-cancel"),
-						).toHaveLength(1),
-					),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"cancels in-flight section queries when their consumer unmounts",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountProbe(clock, UnmountProbe);
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Hide section" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								page.clientMessages().filter((message) => message.type === "ryotql-cancel"),
+							).toHaveLength(1),
+						),
+					);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 });
 

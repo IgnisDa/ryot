@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { fitnessPlugin } from "../../manifest/plugin";
 import definition, { manifest } from "./workout-created.sandbox";
@@ -56,74 +59,86 @@ const hostWithSignals = (calls: unknown[]) =>
 		},
 	});
 
-it.effect("emits a workout.created signal from a workout completion event", () =>
-	Effect.gen(function* () {
-		const calls: unknown[] = [];
-		yield* definition.run(yield* eventCreateInput(workoutCompletedEvent()), hostWithSignals(calls));
-		expect(calls).toEqual([
-			{
-				discriminator: "workout-1",
-				schemaSlug: "workout.created",
-				properties: { workoutId: "workout-1", workoutName: "Morning Run" },
-			},
-		]);
-		const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-created");
-		expect(hook).toMatchObject({
-			causationSources: ["api"],
-			targets: [
+it.effect(
+	"emits a workout.created signal from a workout completion event",
+	() =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			yield* definition.run(
+				yield* eventCreateInput(workoutCompletedEvent()),
+				hostWithSignals(calls),
+			);
+			expect(calls).toEqual([
 				{
-					resource: "event",
-					operation: "create",
-					entitySchemaSlug: "workout",
-					eventSchemaSlug: "workout-completed",
+					discriminator: "workout-1",
+					schemaSlug: "workout.created",
+					properties: { workoutId: "workout-1", workoutName: "Morning Run" },
 				},
-			],
-		});
-		expect(manifest.inputProjection.event).toEqual({
-			compareProperties: [],
-			properties: ["workoutName"],
-		});
-	}),
+			]);
+			const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-created");
+			expect(hook).toMatchObject({
+				causationSources: ["api"],
+				targets: [
+					{
+						resource: "event",
+						operation: "create",
+						entitySchemaSlug: "workout",
+						eventSchemaSlug: "workout-completed",
+					},
+				],
+			});
+			expect(manifest.inputProjection.event).toEqual({
+				compareProperties: [],
+				properties: ["workoutName"],
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("ignores workout entity creation and unrelated events", () =>
-	Effect.gen(function* () {
-		const calls: unknown[] = [];
-		const entityInput = yield* input({
-			category: "change",
-			resource: "entity",
-			operation: "create",
-			after: {
-				properties: {},
-				id: "workout-1",
-				externalId: null,
-				providerId: null,
-				populatedAt: null,
-				name: "Morning Run",
-				createdAt: timestamp,
-				updatedAt: timestamp,
-				entitySchemaSlug: "workout",
-				entitySchemaPluginId: "fitness-owner",
-			},
-		});
-		const unrelatedEventInput = yield* eventCreateInput(
-			workoutCompletedEvent({ eventSchemaSlug: "workout-set" }),
-		);
-		expect(yield* definition.run(entityInput, hostWithSignals(calls))).toBeNull();
-		expect(yield* definition.run(unrelatedEventInput, hostWithSignals(calls))).toBeNull();
-		expect(calls).toEqual([]);
-	}),
+it.effect(
+	"ignores workout entity creation and unrelated events",
+	() =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const entityInput = yield* input({
+				category: "change",
+				resource: "entity",
+				operation: "create",
+				after: {
+					properties: {},
+					id: "workout-1",
+					externalId: null,
+					providerId: null,
+					populatedAt: null,
+					name: "Morning Run",
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					entitySchemaSlug: "workout",
+					entitySchemaPluginId: "fitness-owner",
+				},
+			});
+			const unrelatedEventInput = yield* eventCreateInput(
+				workoutCompletedEvent({ eventSchemaSlug: "workout-set" }),
+			);
+			expect(yield* definition.run(entityInput, hostWithSignals(calls))).toBeNull();
+			expect(yield* definition.run(unrelatedEventInput, hostWithSignals(calls))).toBeNull();
+			expect(calls).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.effect("ignores completion events with an invalid workout name", () =>
-	Effect.gen(function* () {
-		const calls: unknown[] = [];
-		for (const invalidInput of [
-			yield* eventCreateInput(workoutCompletedEvent({ properties: { workoutName: "" } })),
-			yield* eventCreateInput(workoutCompletedEvent({ properties: { workoutName: 7 } })),
-		]) {
-			expect(yield* definition.run(invalidInput, hostWithSignals(calls))).toBeNull();
-		}
-		expect(calls).toEqual([]);
-	}),
+it.effect(
+	"ignores completion events with an invalid workout name",
+	() =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			for (const invalidInput of [
+				yield* eventCreateInput(workoutCompletedEvent({ properties: { workoutName: "" } })),
+				yield* eventCreateInput(workoutCompletedEvent({ properties: { workoutName: 7 } })),
+			]) {
+				expect(yield* definition.run(invalidInput, hostWithSignals(calls))).toBeNull();
+			}
+			expect(calls).toEqual([]);
+		}),
+	testTimeout,
 );

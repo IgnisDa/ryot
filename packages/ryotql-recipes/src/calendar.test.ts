@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { CalendarSourceSlug, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	castDate,
@@ -15,7 +17,6 @@ import {
 } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	calendarOccurrencesPageRecipe,
@@ -114,7 +115,7 @@ describe("calendar recipes", () => {
 	it("bounds date sources by UTC calendar dates and instant sources by the local window", () => {
 		const dateQuery = occurrenceQuery({ source, window });
 		const start = startsAt;
-		expect(dateQuery.where).toEqual({
+		expect(dateQuery.where).toEqual<unknown>({
 			type: "and",
 			predicates: [
 				source.query.where,

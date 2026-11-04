@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Clock, Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -107,38 +110,42 @@ layer(makeLayer())((test) => {
 				]);
 				expect(yield* state.lifecycleReads).toEqual([UserId.make("user-1")]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("expires at the session and impersonation lifetime boundaries", () =>
-		Effect.gen(function* () {
-			const service = yield* ImpersonationSessions;
-			const state = yield* ImpersonationSessionState;
-			const now = yield* Clock.currentTimeMillis;
+	test.effect(
+		"expires at the session and impersonation lifetime boundaries",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ImpersonationSessions;
+				const state = yield* ImpersonationSessionState;
+				const now = yield* Clock.currentTimeMillis;
 
-			yield* state.setSession(
-				sessionRecord(now, {
-					expiresAt: DateTime.toDate(DateTime.makeUnsafe(now + 1_000)),
-					impersonationExpiresAt: DateTime.toDate(DateTime.makeUnsafe(now + 2_000)),
-				}),
-			);
-			expect(yield* service.getActive("session-1", "user-1")).toEqual({ expiresAt: now + 2_000 });
-			yield* TestClock.adjust("1 second");
-			expect(yield* service.getActive("session-1", "user-1")).toBeNull();
+				yield* state.setSession(
+					sessionRecord(now, {
+						expiresAt: DateTime.toDate(DateTime.makeUnsafe(now + 1_000)),
+						impersonationExpiresAt: DateTime.toDate(DateTime.makeUnsafe(now + 2_000)),
+					}),
+				);
+				expect(yield* service.getActive("session-1", "user-1")).toEqual({ expiresAt: now + 2_000 });
+				yield* TestClock.adjust("1 second");
+				expect(yield* service.getActive("session-1", "user-1")).toBeNull();
 
-			const currentTime = yield* Clock.currentTimeMillis;
-			yield* state.setSession(
-				sessionRecord(currentTime, {
-					expiresAt: DateTime.toDate(DateTime.makeUnsafe(currentTime + 2_000)),
-					impersonationExpiresAt: DateTime.toDate(DateTime.makeUnsafe(currentTime + 1_000)),
-				}),
-			);
-			expect(yield* service.getActive("session-1", "user-1")).toEqual({
-				expiresAt: currentTime + 1_000,
-			});
-			yield* TestClock.adjust("1 second");
-			expect(yield* service.getActive("session-1", "user-1")).toBeNull();
-		}),
+				const currentTime = yield* Clock.currentTimeMillis;
+				yield* state.setSession(
+					sessionRecord(currentTime, {
+						expiresAt: DateTime.toDate(DateTime.makeUnsafe(currentTime + 2_000)),
+						impersonationExpiresAt: DateTime.toDate(DateTime.makeUnsafe(currentTime + 1_000)),
+					}),
+				);
+				expect(yield* service.getActive("session-1", "user-1")).toEqual({
+					expiresAt: currentTime + 1_000,
+				});
+				yield* TestClock.adjust("1 second");
+				expect(yield* service.getActive("session-1", "user-1")).toBeNull();
+			}),
+		testTimeout,
 	);
 });

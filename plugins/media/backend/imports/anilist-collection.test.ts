@@ -1,5 +1,8 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import anilist from "./anilist.sandbox";
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
@@ -97,5 +100,6 @@ for (const { volumes, chapters } of [
 					{ collectionName: "Reading Club" },
 				]);
 			}),
+		testTimeout,
 	);
 }

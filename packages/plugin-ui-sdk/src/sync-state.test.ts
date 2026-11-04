@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { EnrichmentState, EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
-import { describe, expect, it } from "vitest";
 
 import { entityMonogram, fieldSyncState, isTitleProvisional } from "./sync-state";
 

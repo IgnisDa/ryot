@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
-import { assert, describe } from "vitest";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import {
@@ -89,6 +92,7 @@ describe("Notification configuration PostgreSQL", () => {
 					).toEqual([state.id]);
 					expect(yield* repository.listNotificationSubscriptionsForBackup(other)).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 });

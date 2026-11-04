@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -109,16 +112,19 @@ const runs = [
 ];
 
 layer(makeSyncLayer({}))((test) => {
-	test.effect("prepares runs for the requested user", () =>
-		Effect.gen(function* () {
-			const userId = UserId.make("user-1");
-			yield* runIntegrationSyncWorkflow(
-				{ ...payload, userId, accountGeneration: { userId, token: "test-account-generation" } },
-				payload.executionId,
-			);
+	test.effect(
+		"prepares runs for the requested user",
+		() =>
+			Effect.gen(function* () {
+				const userId = UserId.make("user-1");
+				yield* runIntegrationSyncWorkflow(
+					{ ...payload, userId, accountGeneration: { userId, token: "test-account-generation" } },
+					payload.executionId,
+				);
 
-			expect(yield* (yield* FakeIntegrationSync).preparedFor).toEqual([userId]);
-		}),
+				expect(yield* (yield* FakeIntegrationSync).preparedFor).toEqual([userId]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -169,7 +175,7 @@ layer(
 				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
 				expect(fairnessCalls).toHaveLength(2);
 				expect(fairnessCalls[1]?.before).toBe(fairnessCalls[0]?.before);
-				expect(fairnessCalls[1]?.after?.id).toBe("blocked-099");
+				expect(fairnessCalls[1]?.after?.id).toBe<unknown>("blocked-099");
 				expect(fairnessReleases).toEqual(
 					[...blockedFront, ...recoveryTail].map((owner) => owner.runId),
 				);
@@ -177,44 +183,48 @@ layer(
 					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
 				).toEqual(["ready-tail"]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeSyncLayer({ recovery: runs, execute: (options) => Effect.succeed(options.executionId) }))(
 	(test) => {
-		test.effect("dispatches a process run for every eligible integration from the body", () =>
-			Effect.gen(function* () {
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+		test.effect(
+			"dispatches a process run for every eligible integration from the body",
+			() =>
+				Effect.gen(function* () {
+					yield* runIntegrationSyncWorkflow(payload, payload.executionId);
 
-				expect(yield* (yield* FakeIntegrationSync).executions).toMatchObject([
-					{
-						discard: true,
-						executionId: "run-1",
-						payload: {
-							runId: "run-1",
-							userId: "user-1",
-							integrationId: "integration-1",
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
+					expect(yield* (yield* FakeIntegrationSync).executions).toMatchObject([
+						{
+							discard: true,
+							executionId: "run-1",
+							payload: {
+								runId: "run-1",
+								userId: "user-1",
+								integrationId: "integration-1",
+								accountGeneration: {
+									userId: UserId.make("user-1"),
+									token: "test-account-generation",
+								},
 							},
 						},
-					},
-					{
-						discard: true,
-						executionId: "run-2",
-						payload: {
-							runId: "run-2",
-							userId: "user-2",
-							integrationId: "integration-2",
-							accountGeneration: {
-								userId: UserId.make("user-2"),
-								token: "test-account-generation",
+						{
+							discard: true,
+							executionId: "run-2",
+							payload: {
+								runId: "run-2",
+								userId: "user-2",
+								integrationId: "integration-2",
+								accountGeneration: {
+									userId: UserId.make("user-2"),
+									token: "test-account-generation",
+								},
 							},
 						},
-					},
-				]);
-			}),
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -228,14 +238,17 @@ layer(
 				: Effect.succeed(options.executionId),
 	}),
 )((test) => {
-	test.effect("swallows a run dispatch failure and continues to the remaining runs", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
-			expect(exit._tag).toBe("Success");
-			expect(
-				(yield* (yield* FakeIntegrationSync).executions).map(({ executionId }) => executionId),
-			).toEqual(["run-1", "run-2"]);
-		}),
+	test.effect(
+		"swallows a run dispatch failure and continues to the remaining runs",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
+				expect(exit._tag).toBe("Success");
+				expect(
+					(yield* (yield* FakeIntegrationSync).executions).map(({ executionId }) => executionId),
+				).toEqual(["run-1", "run-2"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -274,14 +287,17 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("discovers committed yank runs only through the post-admission snapshot", () =>
-		Effect.gen(function* () {
-			yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-			expect(admissionOrder).toEqual(["admission", "cutoff", "scan"]);
-			expect(
-				(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
-			).toEqual(runs.map((owner) => owner.runId));
-		}),
+	test.effect(
+		"discovers committed yank runs only through the post-admission snapshot",
+		() =>
+			Effect.gen(function* () {
+				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				expect(admissionOrder).toEqual(["admission", "cutoff", "scan"]);
+				expect(
+					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
+				).toEqual(runs.map((owner) => owner.runId));
+			}),
+		testTimeout,
 	);
 });
 
@@ -312,20 +328,23 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("recovers earlier committed owners after partial admission fails and retries", () =>
-		Effect.gen(function* () {
-			const first = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
-			expect(first._tag).toBe("Failure");
-			expect(partialAdmissions.map((owner) => owner.runId)).toEqual(["run-1"]);
-			expect(partialCutoffs).toBe(0);
-			expect(yield* (yield* FakeIntegrationSync).executions).toEqual([]);
-			yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-			expect(admissionAttempts).toBe(2);
-			expect(partialCutoffs).toBe(1);
-			expect(
-				(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
-			).toEqual(["run-1", "run-2"]);
-		}),
+	test.effect(
+		"recovers earlier committed owners after partial admission fails and retries",
+		() =>
+			Effect.gen(function* () {
+				const first = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
+				expect(first._tag).toBe("Failure");
+				expect(partialAdmissions.map((owner) => owner.runId)).toEqual<unknown>(["run-1"]);
+				expect(partialCutoffs).toBe(0);
+				expect(yield* (yield* FakeIntegrationSync).executions).toEqual([]);
+				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				expect(admissionAttempts).toBe(2);
+				expect(partialCutoffs).toBe(1);
+				expect(
+					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
+				).toEqual(["run-1", "run-2"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -358,24 +377,27 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("replays admission and the captured cutoff across both snapshot boundaries", () =>
-		Effect.gen(function* () {
-			expect(
-				(yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId)))._tag,
-			).toBe("Failure");
-			expect(replayPages).toBe(0);
-			expect(
-				(yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId)))._tag,
-			).toBe("Failure");
-			yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-			yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-			expect(replayAdmissions).toBe(1);
-			expect(replayCutoffs).toBe(2);
-			expect(replayPages).toBe(2);
-			expect(
-				(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
-			).toEqual(["run-1", "run-2", "run-1", "run-2"]);
-		}),
+	test.effect(
+		"replays admission and the captured cutoff across both snapshot boundaries",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					(yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId)))._tag,
+				).toBe("Failure");
+				expect(replayPages).toBe(0);
+				expect(
+					(yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId)))._tag,
+				).toBe("Failure");
+				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				expect(replayAdmissions).toBe(1);
+				expect(replayCutoffs).toBe(2);
+				expect(replayPages).toBe(2);
+				expect(
+					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
+				).toEqual(["run-1", "run-2", "run-1", "run-2"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -386,13 +408,16 @@ layer(
 			owner.runId === "run-1" ? Effect.die("release failed") : Effect.succeed(true),
 	}),
 )((test) => {
-	test.effect("continues past a failed release without dispatching that owner", () =>
-		Effect.gen(function* () {
-			yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-			expect(
-				(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
-			).toEqual(["run-2"]);
-		}),
+	test.effect(
+		"continues past a failed release without dispatching that owner",
+		() =>
+			Effect.gen(function* () {
+				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				expect(
+					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
+				).toEqual(["run-2"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -408,5 +433,6 @@ layer(
 					(yield* (yield* FakeIntegrationSync).executions).map(({ executionId }) => executionId),
 				).toEqual(["run-1"]);
 			}),
+		testTimeout,
 	);
 });

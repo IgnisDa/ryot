@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
-import { expect, it } from "vitest";
 
 import { ServerOrigin } from "#/api/origin";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";

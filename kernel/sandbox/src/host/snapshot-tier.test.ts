@@ -1,4 +1,6 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { it } from "@voila.dev/effect-bun-test";
 import { Result } from "effect";
 
 import { selectSnapshotTier } from "./snapshot-tier";

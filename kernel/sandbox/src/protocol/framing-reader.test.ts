@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Base64 } from "effect/encoding";
-import { describe, expect, it } from "vitest";
 
 import { framePayload, makeSidecarFrameReader } from "./framing";
 import { MiB, SANDBOX_LIMITS } from "./limits";

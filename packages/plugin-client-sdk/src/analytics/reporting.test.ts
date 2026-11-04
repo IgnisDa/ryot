@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { describe, expect, it } from "vitest";
 
 import { consistencySelection, periodCaption } from "./reporting";
 

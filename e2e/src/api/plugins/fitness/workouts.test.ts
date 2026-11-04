@@ -418,7 +418,7 @@ describe("Workouts E2E", () => {
 					client,
 					workoutComparisonsRecipe({ reference, workoutIds: [legs] }),
 				),
-			).toEqual([{ id: legs, volume: 500, startedAt: anyOf(String) }]);
+			).toEqual<unknown>([{ id: legs, volume: 500, startedAt: anyOf(String) }]);
 
 			const weeks = yield* executeRyotQLRecipe(
 				client,

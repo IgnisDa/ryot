@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import type { DataJsonDocument } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	EntitySchemaSlug,
 	PluginId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import {
 	buildDefinitionSnapshot,

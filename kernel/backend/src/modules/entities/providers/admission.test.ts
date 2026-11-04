@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -8,10 +9,12 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Option, Queue, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-import { describe } from "vitest";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -192,123 +195,144 @@ const status = (id: string, userId: UserId) =>
 
 describe("provider import admission", () => {
 	layer(admissionLayer)((test) => {
-		test.effect("completion wakes admission before the recovery interval advances", () =>
-			Effect.gen(function* () {
-				const admission = yield* ProviderImportAdmission;
-				const workflows = yield* FakeImportWorkflows;
-				const notifications = yield* WorkflowExecutionNotifications;
-				yield* submit("wake-a1", alice);
-				yield* submit("wake-a2", alice);
-				yield* submit("wake-a3", alice);
-				yield* Effect.forkChild(admission.run);
-				expect(new Set([yield* workflows.nextStarted, yield* workflows.nextStarted])).toEqual(
-					new Set(["wake-a1", "wake-a2"]),
-				);
-				expect(yield* status("wake-a3", alice)).toBe("queued");
-				yield* workflows.settle(
-					"wake-a1",
-					new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),
-				);
-				yield* notifications.publish({
-					executionId: "wake-a1",
-					workflowName: EntityImportWorkflow._tag,
-				});
-				expect(yield* workflows.nextStarted).toBe("wake-a3");
-				expect(yield* status("wake-a1", alice)).toBeNull();
-				expect(yield* status("wake-a3", alice)).toBe("running");
-			}),
+		test.effect(
+			"completion wakes admission before the recovery interval advances",
+			() =>
+				Effect.gen(function* () {
+					const admission = yield* ProviderImportAdmission;
+					const workflows = yield* FakeImportWorkflows;
+					const notifications = yield* WorkflowExecutionNotifications;
+					yield* submit("wake-a1", alice);
+					yield* submit("wake-a2", alice);
+					yield* submit("wake-a3", alice);
+					yield* Effect.forkChild(admission.run);
+					expect(new Set([yield* workflows.nextStarted, yield* workflows.nextStarted])).toEqual(
+						new Set(["wake-a1", "wake-a2"]),
+					);
+					expect(yield* status("wake-a3", alice)).toBe("queued");
+					yield* workflows.settle(
+						"wake-a1",
+						new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),
+					);
+					yield* notifications.publish({
+						executionId: "wake-a1",
+						workflowName: EntityImportWorkflow._tag,
+					});
+					expect(yield* workflows.nextStarted).toBe("wake-a3");
+					expect(yield* status("wake-a1", alice)).toBeNull();
+					expect(yield* status("wake-a3", alice)).toBe("running");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(admissionLayer)((test) => {
-		test.effect("publishes admission only after its running state commits", () =>
-			Effect.gen(function* () {
-				const notifications = yield* WorkflowExecutionNotifications;
-				const hint = yield* notifications.listen({
-					executionId: "admission-hint",
-					workflowName: EntityImportWorkflow._tag,
-				});
-				yield* submit("admission-hint", alice);
-				yield* reconcile;
-				yield* hint;
-				expect(yield* status("admission-hint", alice)).toBe("running");
-			}),
+		test.effect(
+			"publishes admission only after its running state commits",
+			() =>
+				Effect.gen(function* () {
+					const notifications = yield* WorkflowExecutionNotifications;
+					const hint = yield* notifications.listen({
+						executionId: "admission-hint",
+						workflowName: EntityImportWorkflow._tag,
+					});
+					yield* submit("admission-hint", alice);
+					yield* reconcile;
+					yield* hint;
+					expect(yield* status("admission-hint", alice)).toBe("running");
+				}),
+			testTimeout,
 		);
 	});
 	layer(admissionLayer)((test) => {
-		test.effect("starts admitted imports and admits the next one when a slot frees", () =>
-			Effect.gen(function* () {
-				const workflows = yield* FakeImportWorkflows;
-				yield* submit("a1", alice);
-				yield* submit("a2", alice);
-				yield* submit("a3", alice);
+		test.effect(
+			"starts admitted imports and admits the next one when a slot frees",
+			() =>
+				Effect.gen(function* () {
+					const workflows = yield* FakeImportWorkflows;
+					yield* submit("a1", alice);
+					yield* submit("a2", alice);
+					yield* submit("a3", alice);
 
-				yield* reconcile;
-				expect(yield* workflows.started).toEqual(["a1", "a2"]);
-				expect(yield* status("a3", alice)).toBe("queued");
+					yield* reconcile;
+					expect(yield* workflows.started).toEqual(["a1", "a2"]);
+					expect(yield* status("a3", alice)).toBe("queued");
 
-				yield* workflows.settle("a1", new Workflow.Complete({ exit: Exit.succeed(listedEntity) }));
-				yield* reconcile;
-				expect(yield* workflows.started).toEqual(["a1", "a2", "a3"]);
-				expect(yield* status("a1", alice)).toBeNull();
-				expect(yield* status("a3", alice)).toBe("running");
-			}),
-		);
-	});
-
-	layer(admissionLayer)((test) => {
-		test.effect("restarts an admitted import whose workflow never started", () =>
-			Effect.gen(function* () {
-				const workflows = yield* FakeImportWorkflows;
-				yield* submit("a1", alice);
-				yield* reconcile;
-				// A restart between admission and the workflow start loses the start.
-				yield* workflows.forget("a1");
-
-				yield* reconcile;
-				expect(yield* workflows.started).toEqual(["a1", "a1"]);
-				expect(yield* status("a1", alice)).toBe("running");
-			}),
+					yield* workflows.settle(
+						"a1",
+						new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),
+					);
+					yield* reconcile;
+					expect(yield* workflows.started).toEqual(["a1", "a2", "a3"]);
+					expect(yield* status("a1", alice)).toBeNull();
+					expect(yield* status("a3", alice)).toBe("running");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(admissionLayer)((test) => {
-		test.effect("releases the slot of an import that failed", () =>
-			Effect.gen(function* () {
-				const workflows = yield* FakeImportWorkflows;
-				yield* submit("a1", alice);
-				yield* submit("a2", alice);
-				yield* submit("b1", bob);
-				yield* reconcile;
-				expect(yield* workflows.started).toEqual(["a1", "b1"]);
+		test.effect(
+			"restarts an admitted import whose workflow never started",
+			() =>
+				Effect.gen(function* () {
+					const workflows = yield* FakeImportWorkflows;
+					yield* submit("a1", alice);
+					yield* reconcile;
+					// A restart between admission and the workflow start loses the start.
+					yield* workflows.forget("a1");
 
-				yield* workflows.settle(
-					"a1",
-					new Workflow.Complete({ exit: Exit.fail("provider failed") }),
-				);
-				yield* reconcile;
-				expect(yield* workflows.started).toEqual(["a1", "b1", "a2"]);
-			}),
+					yield* reconcile;
+					expect(yield* workflows.started).toEqual(["a1", "a1"]);
+					expect(yield* status("a1", alice)).toBe("running");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(admissionLayer)((test) => {
-		test.effect("removes a queued import on cancel and interrupts an admitted one", () =>
-			Effect.gen(function* () {
-				const workflows = yield* FakeImportWorkflows;
-				const admission = yield* ProviderImportAdmission;
-				yield* submit("a1", alice);
-				yield* submit("a2", alice);
-				yield* submit("a3", alice);
-				yield* reconcile;
+		test.effect(
+			"releases the slot of an import that failed",
+			() =>
+				Effect.gen(function* () {
+					const workflows = yield* FakeImportWorkflows;
+					yield* submit("a1", alice);
+					yield* submit("a2", alice);
+					yield* submit("b1", bob);
+					yield* reconcile;
+					expect(yield* workflows.started).toEqual(["a1", "b1"]);
 
-				yield* admission.cancel({ id: "a3", userId: alice });
-				expect(yield* status("a3", alice)).toBeNull();
-				expect(yield* workflows.interrupted).toEqual([]);
+					yield* workflows.settle(
+						"a1",
+						new Workflow.Complete({ exit: Exit.fail("provider failed") }),
+					);
+					yield* reconcile;
+					expect(yield* workflows.started).toEqual(["a1", "b1", "a2"]);
+				}),
+			testTimeout,
+		);
+	});
 
-				yield* admission.cancel({ id: "a1", userId: alice });
-				expect(yield* workflows.interrupted).toEqual(["a1"]);
-			}),
+	layer(admissionLayer)((test) => {
+		test.effect(
+			"removes a queued import on cancel and interrupts an admitted one",
+			() =>
+				Effect.gen(function* () {
+					const workflows = yield* FakeImportWorkflows;
+					const admission = yield* ProviderImportAdmission;
+					yield* submit("a1", alice);
+					yield* submit("a2", alice);
+					yield* submit("a3", alice);
+					yield* reconcile;
+
+					yield* admission.cancel({ id: "a3", userId: alice });
+					expect(yield* status("a3", alice)).toBeNull();
+					expect(yield* workflows.interrupted).toEqual([]);
+
+					yield* admission.cancel({ id: "a1", userId: alice });
+					expect(yield* workflows.interrupted).toEqual(["a1"]);
+				}),
+			testTimeout,
 		);
 	});
 });

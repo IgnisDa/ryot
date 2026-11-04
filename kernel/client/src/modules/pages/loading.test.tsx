@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { ScreenBarButton } from "@ryot-app/plugin-ui-sdk";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { ClientPageLoading } from "#/modules/pages/loading";
 

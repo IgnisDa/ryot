@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { buildWorkoutSetEventProperties } from "../../shared/workout-set";
 import { parseCsvText } from "./csv";
@@ -26,7 +27,7 @@ describe("adaptHevyRows", () => {
 			"Etc/GMT",
 		);
 
-		expect(result.failures).toEqual([
+		expect(result.failures).toEqual<unknown>([
 			{
 				itemIndex: 0,
 				unit: "workouts",
@@ -240,7 +241,7 @@ describe("adaptHevyRows", () => {
 		const result = adaptHevyRows(indexedRows(csv), "Etc/GMT");
 
 		expect(result.item).toBeUndefined();
-		expect(result.failures).toEqual([
+		expect(result.failures).toEqual<unknown>([
 			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Exercise: Mystery",

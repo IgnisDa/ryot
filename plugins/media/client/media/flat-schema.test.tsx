@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect, test } from "bun:test";
+
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, getByText, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	decodeFlatActivity,
@@ -206,6 +209,7 @@ describe("flat media detail screen", () => {
 				expect(requests[1]).toEqual(requests[0]);
 				unmount();
 			}),
+		testTimeout,
 	);
 
 	it("shows queued, running and retrying work without hiding saved data", () => {
@@ -293,95 +297,104 @@ describe("flat media detail screen", () => {
 		inProgress.unmount();
 	});
 
-	it.live("switches to the activity tab on demand", () =>
-		Effect.gen(function* () {
-			const { unmount, container } = renderBody(readyState());
+	it.live(
+		"switches to the activity tab on demand",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = renderBody(readyState());
 
-			const selected = tab(container, "Activity");
-			fireEvent.click(selected);
+				const selected = tab(container, "Activity");
+				fireEvent.click(selected);
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(selected.getAttribute("aria-selected")).toBe("true")),
-			);
-			expect(container.querySelector('[aria-label="Item record"]')).not.toBeNull();
-			expect(container.textContent).toContain(`${flatProgressEventRow.progressPercent}% through`);
-			expect(container.textContent).not.toContain("People");
-			unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(selected.getAttribute("aria-selected")).toBe("true")),
+				);
+				expect(container.querySelector('[aria-label="Item record"]')).not.toBeNull();
+				expect(container.textContent).toContain(`${flatProgressEventRow.progressPercent}% through`);
+				expect(container.textContent).not.toContain("People");
+				unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("reports a failed population and asks the kernel to retry it", () =>
-		Effect.gen(function* () {
-			const retries: unknown[] = [];
-			const { unmount, container } = renderBody(
-				readyState({ populationStatus: { state: "failed", availability: "missing" } }),
-				{
-					adapter: {
-						...noopAdapter,
-						requestEnrichment: (request) =>
-							Effect.sync(() => {
-								retries.push(request);
-								return { enrichmentRequestId: "enrichment-job" };
-							}),
-					},
-				},
-			);
-
-			expect(getByText(container, "Couldn't load details from TMDB.")).toBeDefined();
-			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(retries).toEqual([
-						{
-							action: "retry",
-							entityId: "media-1",
-							pluginId: "media-owner",
-							operation: "population",
-							idempotencyKey: anyOf(String),
+	it.live(
+		"reports a failed population and asks the kernel to retry it",
+		() =>
+			Effect.gen(function* () {
+				const retries: unknown[] = [];
+				const { unmount, container } = renderBody(
+					readyState({ populationStatus: { state: "failed", availability: "missing" } }),
+					{
+						adapter: {
+							...noopAdapter,
+							requestEnrichment: (request) =>
+								Effect.sync(() => {
+									retries.push(request);
+									return { enrichmentRequestId: "enrichment-job" };
+								}),
 						},
-					]),
-				),
-			);
-			unmount();
-		}),
+					},
+				);
+
+				expect(getByText(container, "Couldn't load details from TMDB.")).toBeDefined();
+				clickRyotElement(getByRole(container, "button", { name: "Try again" }));
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(retries).toEqual([
+							{
+								action: "retry",
+								entityId: "media-1",
+								pluginId: "media-owner",
+								operation: "population",
+								idempotencyKey: anyOf(String),
+							},
+						]),
+					),
+				);
+				unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps canonical text on translation failure and forwards a translation retry", () =>
-		Effect.gen(function* () {
-			const retries: unknown[] = [];
-			const { unmount, container } = renderBody(
-				readyState({ translationStatus: { state: "failed", availability: "missing" } }),
-				{
-					adapter: {
-						...noopAdapter,
-						requestEnrichment: (request) =>
-							Effect.sync(() => {
-								retries.push(request);
-								return { enrichmentRequestId: "enrichment-job" };
-							}),
-					},
-				},
-			);
-			expect(container.textContent).toContain("Translation failed. Showing available text.");
-			expect(container.textContent).toContain(flatSummaryRow.name);
-			expect(container.textContent).not.toContain("Translating...");
-			clickRyotElement(getByRole(container, "button", { name: "Retry translation" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(retries).toEqual([
-						{
-							action: "retry",
-							entityId: "media-1",
-							pluginId: "media-owner",
-							operation: "translation",
-							idempotencyKey: anyOf(String),
+	it.live(
+		"keeps canonical text on translation failure and forwards a translation retry",
+		() =>
+			Effect.gen(function* () {
+				const retries: unknown[] = [];
+				const { unmount, container } = renderBody(
+					readyState({ translationStatus: { state: "failed", availability: "missing" } }),
+					{
+						adapter: {
+							...noopAdapter,
+							requestEnrichment: (request) =>
+								Effect.sync(() => {
+									retries.push(request);
+									return { enrichmentRequestId: "enrichment-job" };
+								}),
 						},
-					]),
-				),
-			);
-			unmount();
-		}),
+					},
+				);
+				expect(container.textContent).toContain("Translation failed. Showing available text.");
+				expect(container.textContent).toContain(flatSummaryRow.name);
+				expect(container.textContent).not.toContain("Translating...");
+				clickRyotElement(getByRole(container, "button", { name: "Retry translation" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(retries).toEqual([
+							{
+								action: "retry",
+								entityId: "media-1",
+								pluginId: "media-owner",
+								operation: "translation",
+								idempotencyKey: anyOf(String),
+							},
+						]),
+					),
+				);
+				unmount();
+			}),
+		testTimeout,
 	);
 
 	it("shows no population failure while the details are ready or pending", () => {
@@ -496,43 +509,46 @@ describe("flat media overview", () => {
 		failedBase.unmount();
 	});
 
-	it.live("reports a failed related level and retries it through the kernel", () =>
-		Effect.gen(function* () {
-			const retries: unknown[] = [];
-			const { unmount, container } = renderBody(
-				readyState({ relatedPopulationStatus: { state: "failed", availability: "partial" } }),
-				{
-					adapter: {
-						...noopAdapter,
-						requestEnrichment: (request) =>
-							Effect.sync(() => {
-								retries.push(request);
-								return { enrichmentRequestId: "enrichment-job" };
-							}),
-					},
-				},
-			);
-
-			expect(container.textContent).toContain("Couldn't load");
-			expect(container.textContent).toContain(flatPersonRow.name);
-			expect(container.textContent).not.toContain("Couldn't load details from");
-			clickRyotElement(getByRole(container, "button", { name: "Try again" }));
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(retries).toEqual([
-						{
-							action: "retry",
-							entityId: "media-1",
-							pluginId: "media-owner",
-							operation: "population",
-							idempotencyKey: anyOf(String),
+	it.live(
+		"reports a failed related level and retries it through the kernel",
+		() =>
+			Effect.gen(function* () {
+				const retries: unknown[] = [];
+				const { unmount, container } = renderBody(
+					readyState({ relatedPopulationStatus: { state: "failed", availability: "partial" } }),
+					{
+						adapter: {
+							...noopAdapter,
+							requestEnrichment: (request) =>
+								Effect.sync(() => {
+									retries.push(request);
+									return { enrichmentRequestId: "enrichment-job" };
+								}),
 						},
-					]),
-				),
-			);
-			unmount();
-		}),
+					},
+				);
+
+				expect(container.textContent).toContain("Couldn't load");
+				expect(container.textContent).toContain(flatPersonRow.name);
+				expect(container.textContent).not.toContain("Couldn't load details from");
+				clickRyotElement(getByRole(container, "button", { name: "Try again" }));
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(retries).toEqual([
+							{
+								action: "retry",
+								entityId: "media-1",
+								pluginId: "media-owner",
+								operation: "population",
+								idempotencyKey: anyOf(String),
+							},
+						]),
+					),
+				);
+				unmount();
+			}),
+		testTimeout,
 	);
 
 	it("renders the credits, recommendations and the group the item belongs to", () => {
@@ -648,33 +664,36 @@ describe("flat media overview", () => {
 		]);
 	});
 
-	it.live("resolves the group tiles through the overview's managed asset provider", () =>
-		Effect.gen(function* () {
-			const overview = overviewOf();
-			const { unmount, container } = mountRyotClient(
-				resolvingAdapter,
-				<ManagedAssetProvider assets={fixtureSchema.overviewManagedAssets(overview)}>
-					<fixtureSchema.ScreenBody
-						compact
-						safeAreaTop={0}
-						activity={null}
-						settled={undefined}
-						state={readyState()}
-						refresh={() => undefined}
-						refreshOverview={() => undefined}
-						overview={mapMediaOverview(readyQueryResult(overview))}
-					/>
-				</ManagedAssetProvider>,
-			);
+	it.live(
+		"resolves the group tiles through the overview's managed asset provider",
+		() =>
+			Effect.gen(function* () {
+				const overview = overviewOf();
+				const { unmount, container } = mountRyotClient(
+					resolvingAdapter,
+					<ManagedAssetProvider assets={fixtureSchema.overviewManagedAssets(overview)}>
+						<fixtureSchema.ScreenBody
+							compact
+							safeAreaTop={0}
+							activity={null}
+							settled={undefined}
+							state={readyState()}
+							refresh={() => undefined}
+							refreshOverview={() => undefined}
+							overview={mapMediaOverview(readyQueryResult(overview))}
+						/>
+					</ManagedAssetProvider>,
+				);
 
-			const tile = () =>
-				container.querySelector(`a[href="/e/${flatGroupMemberRow.id}"] img`)?.getAttribute("src");
+				const tile = () =>
+					container.querySelector(`a[href="/e/${flatGroupMemberRow.id}"] img`)?.getAttribute("src");
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(tile()).toBe("https://cdn.test/s3-fc2-cover")),
-			);
-			unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(tile()).toBe("https://cdn.test/s3-fc2-cover")),
+				);
+				unmount();
+			}),
+		testTimeout,
 	);
 });
 
@@ -812,19 +831,27 @@ describe("flat media activity tab", () => {
 });
 
 describe("flat media entity presentations", () => {
-	it.each([false, true])("uses membership, not lifecycle state, to mark titles (%s)", (member) => {
-		const data = presentationData({ state: "complete" });
-		const { unmount, container } = mountRyotClient(
-			noopAdapter,
-			<fixtureSchema.RowContent compact data={data} entityId="media-1" isInMediaLibrary={member} />,
-		);
-		expect(container.querySelectorAll('[aria-label="In your library"]')).toHaveLength(
-			member ? 1 : 0,
-		);
-		expect(container.querySelectorAll(".text-warning")).toHaveLength(member ? 1 : 0);
-		expect(container.textContent).toContain("Complete");
-		unmount();
-	});
+	test.each([false, true])(
+		"uses membership, not lifecycle state, to mark titles (%s)",
+		(member) => {
+			const data = presentationData({ state: "complete" });
+			const { unmount, container } = mountRyotClient(
+				noopAdapter,
+				<fixtureSchema.RowContent
+					compact
+					data={data}
+					entityId="media-1"
+					isInMediaLibrary={member}
+				/>,
+			);
+			expect(container.querySelectorAll('[aria-label="In your library"]')).toHaveLength(
+				member ? 1 : 0,
+			);
+			expect(container.querySelectorAll(".text-warning")).toHaveLength(member ? 1 : 0);
+			expect(container.textContent).toContain("Complete");
+			unmount();
+		},
+	);
 
 	it("keeps library-only saved-view cards and rows free of membership indicators", () => {
 		const data = presentationData({ state: "complete" });

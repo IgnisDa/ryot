@@ -1,8 +1,12 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { DateTime, Effect, Result, Schema } from "effect";
 
 import {
@@ -139,7 +143,7 @@ describe("collections recipes", () => {
 					},
 				}),
 			),
-		).toEqual({ pageInfo, items: [{ name: "Favorites", id: "collection-1" }] });
+		).toEqual<unknown>({ pageInfo, items: [{ name: "Favorites", id: "collection-1" }] });
 	});
 
 	it("decodes the collection header with its fields and rebuilt member schema", () => {
@@ -162,21 +166,21 @@ describe("collections recipes", () => {
 				}),
 			);
 
-		expect(decodeHeader({ description: "Shelf", membershipFields: fields })).toEqual({
+		expect(decodeHeader({ description: "Shelf", membershipFields: fields })).toEqual<unknown>({
 			fields,
 			name: "Favorites",
 			description: "Shelf",
 			entityId: "collection-1",
 			membershipPropertiesSchema: collectionFieldsToAppSchema(fields),
 		});
-		expect(decodeHeader({})).toEqual({
+		expect(decodeHeader({})).toEqual<unknown>({
 			fields: [],
 			description: null,
 			name: "Favorites",
 			entityId: "collection-1",
 			membershipPropertiesSchema: null,
 		});
-		expect(decodeHeader({ membershipFields: membershipPropertiesSchema })).toEqual({
+		expect(decodeHeader({ membershipFields: membershipPropertiesSchema })).toEqual<unknown>({
 			fields: null,
 			description: null,
 			name: "Favorites",
@@ -251,12 +255,14 @@ describe("collections recipes", () => {
 		assert(query?.output.type === "rows");
 		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(query.joins).toHaveLength(2);
-		expect(query.where).toMatchObject({
-			type: "and",
-			predicates: arrayContaining([
-				objectContaining({ type: "contains", right: { value: "sample", type: "literal" } }),
-			]),
-		});
+		expect(query.where).toEqual<unknown>(
+			objectContaining({
+				type: "and",
+				predicates: arrayContaining([
+					objectContaining({ type: "contains", right: { value: "sample", type: "literal" } }),
+				]),
+			}),
+		);
 		expect(query.output.orderBy).toMatchObject([
 			{ direction: "asc", expr: { field: "collectionRank" } },
 			{ direction: "asc", expr: { field: "id" } },
@@ -363,65 +369,68 @@ describe("collections recipes", () => {
 	});
 
 	/* oxlint-disable perfectionist/sort-objects -- column order is the behavior under test */
-	it.effect("keeps fixed and template name and type column keys unique", () =>
-		Effect.gen(function* () {
-			const collisionSchema = yield* Schema.decodeEffect(AppSchema)({
-				fields: {
-					name: { label: "Template Name", type: "string", description: "Name" },
-					type: { label: "Template Type", type: "boolean", description: "Type" },
-				},
-			});
-			const columns = collectionMemberTableColumns(collisionSchema);
-			expect(columns).toEqual([
-				{ field: "_name", label: "Name", displayKind: "text" },
-				{ field: "_type", label: "Type", displayKind: "text" },
-				{ field: "name", label: "Template Name", displayKind: "text" },
-				{ field: "type", label: "Template Type", displayKind: "boolean" },
-			]);
-			expect(new Set(columns.map(({ field }) => field)).size).toBe(columns.length);
-
-			const recipe = collectionMembersRecipe({
-				collectionId: "collection-1",
-				fields: memberFields(collisionSchema),
-			});
-			const result = Result.getOrThrow(
-				recipe.decode({
-					data: {
-						order,
-						members: {
-							pageInfo,
-							items: [
-								{
-									name: "Sample",
-									entityId: "unit-1",
-									ownerPluginId: "fixture-1",
-									ownerPluginName: "Fixture",
-									entitySchemaSlug: "unit",
-									populationStatus: { availability: "complete", state: "succeeded" },
-									translationStatus: { availability: "none", state: "idle" },
-									properties: { name: "Custom name", type: true },
-								},
-							],
-							type: "rows",
-						},
+	it.effect(
+		"keeps fixed and template name and type column keys unique",
+		() =>
+			Effect.gen(function* () {
+				const collisionSchema = yield* Schema.decodeEffect(AppSchema)({
+					fields: {
+						name: { label: "Template Name", type: "string", description: "Name" },
+						type: { label: "Template Type", type: "boolean", description: "Type" },
 					},
-				}),
-			);
-			expect(result.items[0]?.cells).toEqual([
-				{ key: "_name", label: "Name", value: { value: "Sample", displayKind: "text" } },
-				{ key: "_type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
-				{
-					key: "name",
-					label: "Template Name",
-					value: { value: "Custom name", displayKind: "text" },
-				},
-				{ key: "type", label: "Template Type", value: { value: true, displayKind: "boolean" } },
-			]);
-		}),
+				});
+				const columns = collectionMemberTableColumns(collisionSchema);
+				expect(columns).toEqual([
+					{ field: "_name", label: "Name", displayKind: "text" },
+					{ field: "_type", label: "Type", displayKind: "text" },
+					{ field: "name", label: "Template Name", displayKind: "text" },
+					{ field: "type", label: "Template Type", displayKind: "boolean" },
+				]);
+				expect(new Set(columns.map(({ field }) => field)).size).toBe(columns.length);
+
+				const recipe = collectionMembersRecipe({
+					collectionId: "collection-1",
+					fields: memberFields(collisionSchema),
+				});
+				const result = Result.getOrThrow(
+					recipe.decode({
+						data: {
+							order,
+							members: {
+								pageInfo,
+								items: [
+									{
+										name: "Sample",
+										entityId: "unit-1",
+										ownerPluginId: "fixture-1",
+										ownerPluginName: "Fixture",
+										entitySchemaSlug: "unit",
+										populationStatus: { availability: "complete", state: "succeeded" },
+										translationStatus: { availability: "none", state: "idle" },
+										properties: { name: "Custom name", type: true },
+									},
+								],
+								type: "rows",
+							},
+						},
+					}),
+				);
+				expect(result.items[0]?.cells).toEqual([
+					{ key: "_name", label: "Name", value: { value: "Sample", displayKind: "text" } },
+					{ key: "_type", label: "Type", value: { displayKind: "text", value: "Fixture / unit" } },
+					{
+						key: "name",
+						label: "Template Name",
+						value: { value: "Custom name", displayKind: "text" },
+					},
+					{ key: "type", label: "Template Type", value: { value: true, displayKind: "boolean" } },
+				]);
+			}),
+		testTimeout,
 	);
 	/* oxlint-enable perfectionist/sort-objects */
 
-	it.each([
+	test.each([
 		["name-asc", "asc", "name"],
 		["name-desc", "desc", "name"],
 		["date-added-desc", "desc", "createdAt"],
@@ -699,7 +708,7 @@ describe("collections recipes", () => {
 			const keys = collectionMemberControls(
 				memberFields(membershipPropertiesSchema),
 			).filterFields.map(({ key }) => key);
-			expect(keys).toEqual(
+			expect(keys).toEqual<unknown>(
 				arrayContaining(["collections", "membership.notes", "membership.status"]),
 			);
 			expect(keys).not.toContain("member-type");

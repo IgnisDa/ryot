@@ -1,9 +1,12 @@
+import { expect } from "bun:test";
 import { gzipSync } from "node:zlib";
 
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { ServerLogsNotFound } from "@ryot-app/contract/modules/instance-admin/logs";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Option, Path, Stream } from "effect";
 import { unzipSync } from "fflate";
 
@@ -43,222 +46,255 @@ const collectBytes = <E, R>(stream: Stream.Stream<Uint8Array, E, R>) =>
 const notFound = () => new ServerLogsNotFound({ reason: { code: "log-file-unavailable" } });
 
 layer(BunServices.layer)((test) => {
-	test.effect("lists only regular active and matching rotated log files", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const activeBytes = encoder.encode("active log");
-				const rotatedBytes = new Uint8Array(gzipSync(encoder.encode("rotated log")));
-				const outsideDirectory = path.join(directory, "..", "outside");
-				const directoryEntry = "20261001-1200-02-server.log.gz";
-				const symlinkEntry = "20261001-1200-03-server.log.gz";
+	test.effect(
+		"lists only regular active and matching rotated log files",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const activeBytes = encoder.encode("active log");
+					const rotatedBytes = new Uint8Array(gzipSync(encoder.encode("rotated log")));
+					const outsideDirectory = path.join(directory, "..", "outside");
+					const directoryEntry = "20261001-1200-02-server.log.gz";
+					const symlinkEntry = "20261001-1200-03-server.log.gz";
 
-				yield* fs.makeDirectory(outsideDirectory);
-				yield* fs.writeFile(path.join(directory, activeName), activeBytes);
-				yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
-				yield* fs.writeFileString(path.join(directory, "server.log.stdout"), "ignored");
-				yield* fs.writeFileString(path.join(directory, "server.log.stderr"), "ignored");
-				yield* fs.writeFileString(path.join(directory, "server.log.txt"), "ignored");
-				yield* fs.writeFileString(path.join(directory, "20261001-1200-01-other.log.gz"), "ignored");
-				yield* fs.makeDirectory(path.join(directory, directoryEntry));
-				yield* fs.writeFileString(path.join(outsideDirectory, "outside.log"), "outside");
-				yield* fs.symlink(
-					path.join(outsideDirectory, "outside.log"),
-					path.join(directory, symlinkEntry),
-				);
+					yield* fs.makeDirectory(outsideDirectory);
+					yield* fs.writeFile(path.join(directory, activeName), activeBytes);
+					yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
+					yield* fs.writeFileString(path.join(directory, "server.log.stdout"), "ignored");
+					yield* fs.writeFileString(path.join(directory, "server.log.stderr"), "ignored");
+					yield* fs.writeFileString(path.join(directory, "server.log.txt"), "ignored");
+					yield* fs.writeFileString(
+						path.join(directory, "20261001-1200-01-other.log.gz"),
+						"ignored",
+					);
+					yield* fs.makeDirectory(path.join(directory, directoryEntry));
+					yield* fs.writeFileString(path.join(outsideDirectory, "outside.log"), "outside");
+					yield* fs.symlink(
+						path.join(outsideDirectory, "outside.log"),
+						path.join(directory, symlinkEntry),
+					);
 
-				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list(undefined, 100);
-				expect(files.map((file) => file.name)).toEqual([activeName, rotatedName]);
+					const logs = yield* makeServerLogs(path.join(directory, activeName));
+					const { files } = yield* logs.list(undefined, 100);
+					expect(files.map((file) => file.name)).toEqual([activeName, rotatedName]);
 
-				const active = files[0];
-				const rotated = files[1];
-				assert(active !== undefined);
-				assert(rotated !== undefined);
-				expect(active.active).toBe(true);
-				expect(active.size).toBe(activeBytes.byteLength);
-				const activeStat = yield* fs.stat(path.join(directory, activeName));
-				expect(active.modifiedAt).toBe(Option.getOrThrow(activeStat.mtime).toISOString());
-				expect(rotated.active).toBe(false);
-				expect(rotated.size).toBe(rotatedBytes.byteLength);
-				const rotatedStat = yield* fs.stat(path.join(directory, rotatedName));
-				expect(rotated.modifiedAt).toBe(Option.getOrThrow(rotatedStat.mtime).toISOString());
-			}),
-		),
+					const active = files[0];
+					const rotated = files[1];
+					assert(active !== undefined);
+					assert(rotated !== undefined);
+					expect(active.active).toBe(true);
+					expect(active.size).toBe(activeBytes.byteLength);
+					const activeStat = yield* fs.stat(path.join(directory, activeName));
+					expect(active.modifiedAt).toBe(Option.getOrThrow(activeStat.mtime).toISOString());
+					expect(rotated.active).toBe(false);
+					expect(rotated.size).toBe(rotatedBytes.byteLength);
+					const rotatedStat = yield* fs.stat(path.join(directory, rotatedName));
+					expect(rotated.modifiedAt).toBe(Option.getOrThrow(rotatedStat.mtime).toISOString());
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("lists log files in cursor pages without gaps or duplicates", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const rotatedNames = [
-					"20261001-1200-01-server.log.gz",
-					"20261001-1200-02-server.log.gz",
-					"20261001-1200-03-server.log.gz",
-				];
-				yield* fs.writeFileString(path.join(directory, activeName), "active");
-				for (const name of rotatedNames) {
-					yield* fs.writeFileString(path.join(directory, name), name);
-				}
+	test.effect(
+		"lists log files in cursor pages without gaps or duplicates",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const rotatedNames = [
+						"20261001-1200-01-server.log.gz",
+						"20261001-1200-02-server.log.gz",
+						"20261001-1200-03-server.log.gz",
+					];
+					yield* fs.writeFileString(path.join(directory, activeName), "active");
+					for (const name of rotatedNames) {
+						yield* fs.writeFileString(path.join(directory, name), name);
+					}
 
-				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const firstPage = yield* logs.list(undefined, 2);
-				const nextCursor = firstPage.pageInfo.nextCursor;
-				assert(nextCursor);
-				const secondPage = yield* logs.list(nextCursor, 2);
+					const logs = yield* makeServerLogs(path.join(directory, activeName));
+					const firstPage = yield* logs.list(undefined, 2);
+					const nextCursor = firstPage.pageInfo.nextCursor;
+					assert(nextCursor);
+					const secondPage = yield* logs.list(nextCursor, 2);
 
-				expect(firstPage.files.map((file) => file.name)).toEqual([activeName, rotatedNames[2]]);
-				expect(firstPage.pageInfo).toEqual({
-					limit: 2,
-					hasMore: true,
-					nextCursor: rotatedNames[2],
-				});
-				expect(secondPage.files.map((file) => file.name)).toEqual(
-					rotatedNames.slice(0, 2).toReversed(),
-				);
-				expect(secondPage.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
-			}),
-		),
+					expect(firstPage.files.map((file) => file.name)).toEqual<unknown>([
+						activeName,
+						rotatedNames[2],
+					]);
+					expect(firstPage.pageInfo).toEqual<unknown>({
+						limit: 2,
+						hasMore: true,
+						nextCursor: rotatedNames[2],
+					});
+					expect(secondPage.files.map((file) => file.name)).toEqual(
+						rotatedNames.slice(0, 2).toReversed(),
+					);
+					expect(secondPage.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("downloads active and gzip files with their stored bytes and sizes", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const activeBytes = encoder.encode("active bytes");
-				const rotatedBytes = new Uint8Array(gzipSync(encoder.encode("gzip bytes")));
-				yield* fs.writeFile(path.join(directory, activeName), activeBytes);
-				yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
+	test.effect(
+		"downloads active and gzip files with their stored bytes and sizes",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const activeBytes = encoder.encode("active bytes");
+					const rotatedBytes = new Uint8Array(gzipSync(encoder.encode("gzip bytes")));
+					yield* fs.writeFile(path.join(directory, activeName), activeBytes);
+					yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
 
-				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list(undefined, 100);
-				const active = files.find((file) => file.name === activeName);
-				const rotated = files.find((file) => file.name === rotatedName);
-				assert(active !== undefined);
-				assert(rotated !== undefined);
+					const logs = yield* makeServerLogs(path.join(directory, activeName));
+					const { files } = yield* logs.list(undefined, 100);
+					const active = files.find((file) => file.name === activeName);
+					const rotated = files.find((file) => file.name === rotatedName);
+					assert(active !== undefined);
+					assert(rotated !== undefined);
 
-				const activeDownload = yield* logs.downloadFile(active.id);
-				expect(activeDownload.fileName).toBe(activeName);
-				expect(activeDownload.size).toBe(activeBytes.byteLength);
-				expect(yield* collectBytes(activeDownload.stream)).toEqual(activeBytes);
+					const activeDownload = yield* logs.downloadFile(active.id);
+					expect(activeDownload.fileName).toBe(activeName);
+					expect(activeDownload.size).toBe(activeBytes.byteLength);
+					expect(yield* collectBytes(activeDownload.stream)).toEqual(activeBytes);
 
-				const rotatedDownload = yield* logs.downloadFile(rotated.id);
-				expect(rotatedDownload.fileName).toBe(rotatedName);
-				expect(rotatedDownload.size).toBe(rotatedBytes.byteLength);
-				expect(yield* collectBytes(rotatedDownload.stream)).toEqual(rotatedBytes);
-			}),
-		),
+					const rotatedDownload = yield* logs.downloadFile(rotated.id);
+					expect(rotatedDownload.fileName).toBe(rotatedName);
+					expect(rotatedDownload.size).toBe(rotatedBytes.byteLength);
+					expect(yield* collectBytes(rotatedDownload.stream)).toEqual(rotatedBytes);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("streams a ZIP of log files and a valid empty ZIP", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const activeBytes = encoder.encode("active ZIP bytes");
-				const rotatedBytes = new Uint8Array(gzipSync(encoder.encode("rotated ZIP bytes")));
-				yield* fs.writeFile(path.join(directory, activeName), activeBytes);
-				yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
+	test.effect(
+		"streams a ZIP of log files and a valid empty ZIP",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const activeBytes = encoder.encode("active ZIP bytes");
+					const rotatedBytes = new Uint8Array(gzipSync(encoder.encode("rotated ZIP bytes")));
+					yield* fs.writeFile(path.join(directory, activeName), activeBytes);
+					yield* fs.writeFile(path.join(directory, rotatedName), rotatedBytes);
 
-				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const archive = yield* logs.downloadAll();
-				expect(archive.fileName).toMatch(/^ryot-server-logs-.*\.zip$/);
-				const entries = unzipSync(yield* collectBytes(archive.stream));
-				expect(Object.keys(entries).sort()).toEqual([activeName, rotatedName].sort());
-				expect(entries[activeName]).toEqual(activeBytes);
-				expect(entries[rotatedName]).toEqual(rotatedBytes);
+					const logs = yield* makeServerLogs(path.join(directory, activeName));
+					const archive = yield* logs.downloadAll();
+					expect(archive.fileName).toMatch(/^ryot-server-logs-.*\.zip$/);
+					const entries = unzipSync(yield* collectBytes(archive.stream));
+					expect(Object.keys(entries).sort()).toEqual([activeName, rotatedName].sort());
+					expect(entries[activeName]).toEqual(activeBytes);
+					expect(entries[rotatedName]).toEqual(rotatedBytes);
 
-				const emptyDirectory = path.join(directory, "empty");
-				yield* fs.makeDirectory(emptyDirectory);
-				const emptyLogs = yield* makeServerLogs(path.join(emptyDirectory, activeName));
-				const emptyArchive = yield* emptyLogs.downloadAll();
-				expect(Object.keys(unzipSync(yield* collectBytes(emptyArchive.stream)))).toEqual([]);
-			}),
-		),
+					const emptyDirectory = path.join(directory, "empty");
+					yield* fs.makeDirectory(emptyDirectory);
+					const emptyLogs = yield* makeServerLogs(path.join(emptyDirectory, activeName));
+					const emptyArchive = yield* emptyLogs.downloadAll();
+					expect(Object.keys(unzipSync(yield* collectBytes(emptyArchive.stream)))).toEqual([]);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("streams only the bytes present when the active file was snapshotted", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const initialBytes = encoder.encode("initial bytes");
-				yield* fs.writeFile(path.join(directory, activeName), initialBytes);
-				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list(undefined, 100);
-				const active = files[0];
-				assert(active !== undefined);
-				const snapshot = yield* logs.downloadFile(active.id);
+	test.effect(
+		"streams only the bytes present when the active file was snapshotted",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const initialBytes = encoder.encode("initial bytes");
+					yield* fs.writeFile(path.join(directory, activeName), initialBytes);
+					const logs = yield* makeServerLogs(path.join(directory, activeName));
+					const { files } = yield* logs.list(undefined, 100);
+					const active = files[0];
+					assert(active !== undefined);
+					const snapshot = yield* logs.downloadFile(active.id);
 
-				yield* fs.writeFileString(path.join(directory, activeName), " appended bytes", {
-					flag: "a",
-				});
-				expect(yield* collectBytes(snapshot.stream)).toEqual(initialBytes);
-			}),
-		),
+					yield* fs.writeFileString(path.join(directory, activeName), " appended bytes", {
+						flag: "a",
+					});
+					expect(yield* collectBytes(snapshot.stream)).toEqual(initialBytes);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("keeps an open snapshot after rotation and rejects its old id for the new file", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const initialBytes = encoder.encode("before rotation");
-				const activePath = path.join(directory, activeName);
-				yield* fs.writeFile(activePath, initialBytes);
-				const logs = yield* makeServerLogs(activePath);
-				const { files } = yield* logs.list(undefined, 100);
-				const active = files[0];
-				assert(active !== undefined);
-				const snapshot = yield* logs.downloadFile(active.id);
+	test.effect(
+		"keeps an open snapshot after rotation and rejects its old id for the new file",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const initialBytes = encoder.encode("before rotation");
+					const activePath = path.join(directory, activeName);
+					yield* fs.writeFile(activePath, initialBytes);
+					const logs = yield* makeServerLogs(activePath);
+					const { files } = yield* logs.list(undefined, 100);
+					const active = files[0];
+					assert(active !== undefined);
+					const snapshot = yield* logs.downloadFile(active.id);
 
-				yield* fs.rename(activePath, path.join(directory, "server.log.1"));
-				yield* fs.writeFileString(activePath, "after rotation");
-				expect(yield* collectBytes(snapshot.stream)).toEqual(initialBytes);
+					yield* fs.rename(activePath, path.join(directory, "server.log.1"));
+					yield* fs.writeFileString(activePath, "after rotation");
+					expect(yield* collectBytes(snapshot.stream)).toEqual(initialBytes);
 
-				const replacement = yield* Effect.exit(logs.downloadFile(active.id));
-				assertExitFails(replacement, notFound());
-			}),
-		),
+					const replacement = yield* Effect.exit(logs.downloadFile(active.id));
+					assertExitFails(replacement, notFound());
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("rejects invalid ids and fails a truncated snapshot during stream consumption", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const activePath = path.join(directory, activeName);
-				yield* fs.writeFile(activePath, encoder.encode("truncated snapshot"));
-				const logs = yield* makeServerLogs(activePath);
-				const { files } = yield* logs.list(undefined, 100);
-				const active = files[0];
-				assert(active !== undefined);
+	test.effect(
+		"rejects invalid ids and fails a truncated snapshot during stream consumption",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const activePath = path.join(directory, activeName);
+					yield* fs.writeFile(activePath, encoder.encode("truncated snapshot"));
+					const logs = yield* makeServerLogs(activePath);
+					const { files } = yield* logs.list(undefined, 100);
+					const active = files[0];
+					assert(active !== undefined);
 
-				const invalid = yield* Effect.exit(logs.downloadFile("invalid-id"));
-				assertExitFails(invalid, notFound());
-				const pathLike = yield* Effect.exit(logs.downloadFile("../server.log"));
-				assertExitFails(pathLike, notFound());
+					const invalid = yield* Effect.exit(logs.downloadFile("invalid-id"));
+					assertExitFails(invalid, notFound());
+					const pathLike = yield* Effect.exit(logs.downloadFile("../server.log"));
+					assertExitFails(pathLike, notFound());
 
-				const snapshot = yield* logs.downloadFile(active.id);
-				yield* fs.truncate(activePath, 0);
-				const truncated = yield* Effect.exit(collectBytes(snapshot.stream));
-				assertExitFails(truncated, notFound());
-			}),
-		),
+					const snapshot = yield* logs.downloadFile(active.id);
+					yield* fs.truncate(activePath, 0);
+					const truncated = yield* Effect.exit(collectBytes(snapshot.stream));
+					assertExitFails(truncated, notFound());
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("lists the active file before its rotated files and ignores other files", () =>
-		withLogDirectory((fs, path, directory) =>
-			Effect.gen(function* () {
-				const names = [
-					activeName,
-					"20261001-1200-01-server.log.gz",
-					"20261001-1300-01-server.log.gz",
-				];
-				for (const name of names) {
-					yield* fs.writeFileString(path.join(directory, name), name);
-				}
-				yield* fs.writeFileString(path.join(directory, "server.other.log"), "ignored");
-				yield* fs.writeFileString(path.join(directory, "20261001-1400-01-other.log.gz"), "ignored");
+	test.effect(
+		"lists the active file before its rotated files and ignores other files",
+		() =>
+			withLogDirectory((fs, path, directory) =>
+				Effect.gen(function* () {
+					const names = [
+						activeName,
+						"20261001-1200-01-server.log.gz",
+						"20261001-1300-01-server.log.gz",
+					];
+					for (const name of names) {
+						yield* fs.writeFileString(path.join(directory, name), name);
+					}
+					yield* fs.writeFileString(path.join(directory, "server.other.log"), "ignored");
+					yield* fs.writeFileString(
+						path.join(directory, "20261001-1400-01-other.log.gz"),
+						"ignored",
+					);
 
-				const logs = yield* makeServerLogs(path.join(directory, activeName));
-				const { files } = yield* logs.list(undefined, 100);
+					const logs = yield* makeServerLogs(path.join(directory, activeName));
+					const { files } = yield* logs.list(undefined, 100);
 
-				expect(files.map((file) => [file.name, file.active])).toEqual([
-					[activeName, true],
-					["20261001-1300-01-server.log.gz", false],
-					["20261001-1200-01-server.log.gz", false],
-				]);
-			}),
-		),
+					expect(files.map((file) => [file.name, file.active])).toEqual([
+						[activeName, true],
+						["20261001-1300-01-server.log.gz", false],
+						["20261001-1200-01-server.log.gz", false],
+					]);
+				}),
+			),
+		testTimeout,
 	);
 });

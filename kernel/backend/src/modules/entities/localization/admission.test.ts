@@ -1,11 +1,15 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -235,6 +239,7 @@ layer(dependencies)((test) => {
 						expect(yield* h.receipts(loser)).toEqual([]);
 					}
 				}),
+			testTimeout,
 		);
 	}
 
@@ -254,5 +259,6 @@ layer(dependencies)((test) => {
 				expect(yield* h.receipts(id)).toEqual([]);
 				expect(h.dispatches).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

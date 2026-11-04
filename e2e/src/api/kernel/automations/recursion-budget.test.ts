@@ -464,7 +464,7 @@ describe("automation recursion budgets", () => {
 				hasRequiredHooks: false,
 				code: "automation-limit-reached",
 			});
-			expect(blocked.blockedReason?.omittedHooks).toEqual(
+			expect(blocked.blockedReason?.omittedHooks).toEqual<unknown>(
 				arrayContaining([{ pluginId: plugin.pluginId, hookSlug: recursiveHookSlug }]),
 			);
 			expect(yield* listAutomationRuns({ triggerId: blocked.id })).toEqual([]);

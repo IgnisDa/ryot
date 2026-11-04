@@ -1,5 +1,8 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	Context,
 	Effect,
@@ -59,133 +62,153 @@ const runObservabilityLifecycle = <E, R>(
 	);
 
 layer(filteredRecordingLoggerLayer("Info"))((test) => {
-	test.effect("filters a logger at its own minimum level", () =>
-		Effect.gen(function* () {
-			yield* Effect.all([
-				Effect.logTrace("trace"),
-				Effect.logDebug("debug"),
-				Effect.logInfo("info"),
-				Effect.logWarning("warn"),
-				Effect.logError("error"),
-				Effect.logFatal("fatal"),
-			]).pipe(Effect.provideService(References.MinimumLogLevel, "All"));
+	test.effect(
+		"filters a logger at its own minimum level",
+		() =>
+			Effect.gen(function* () {
+				yield* Effect.all([
+					Effect.logTrace("trace"),
+					Effect.logDebug("debug"),
+					Effect.logInfo("info"),
+					Effect.logWarning("warn"),
+					Effect.logError("error"),
+					Effect.logFatal("fatal"),
+				]).pipe(Effect.provideService(References.MinimumLogLevel, "All"));
 
-			expect(yield* (yield* RecordedLogLevels).levels).toEqual(["Info", "Warn", "Error", "Fatal"]);
-		}),
+				expect(yield* (yield* RecordedLogLevels).levels).toEqual([
+					"Info",
+					"Warn",
+					"Error",
+					"Fatal",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(BunServices.layer)((test) => {
-	test.effect("exports telemetry with normalized redacted headers", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-otlp-headers-" });
-			const requests = yield* Ref.make<
-				ReadonlyArray<{ path: string; authorization: null | string }>
-			>([]);
-			const server = yield* Effect.acquireRelease(
-				Effect.sync(() =>
-					Bun.serve({
-						port: 0,
-						hostname: "127.0.0.1",
-						fetch(request) {
-							MutableRef.update(requests.ref, (all) => [
-								...all,
-								{
-									path: new URL(request.url).pathname,
-									authorization: request.headers.get("authorization"),
-								},
-							]);
-							return new Response("{}", { headers: { "content-type": "application/json" } });
+	test.effect(
+		"exports telemetry with normalized redacted headers",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-otlp-headers-" });
+				const requests = yield* Ref.make<
+					ReadonlyArray<{ path: string; authorization: null | string }>
+				>([]);
+				const server = yield* Effect.acquireRelease(
+					Effect.sync(() =>
+						Bun.serve({
+							port: 0,
+							hostname: "127.0.0.1",
+							fetch(request) {
+								MutableRef.update(requests.ref, (all) => [
+									...all,
+									{
+										path: new URL(request.url).pathname,
+										authorization: request.headers.get("authorization"),
+									},
+								]);
+								return new Response("{}", { headers: { "content-type": "application/json" } });
+							},
+						}),
+					),
+					(running) => Effect.promise(() => running.stop(true)),
+				);
+				yield* runObservabilityLifecycle(
+					{
+						observability: {
+							logging: { file: { path: `${root}/ryot.log` } },
+							otlp: {
+								endpoint: Option.some(server.url.origin),
+								headers: Option.some(Redacted.make({ authorization: "Bearer normalized-token" })),
+							},
 						},
+					},
+					Effect.logInfo("exported-entry"),
+				);
+				const exported = yield* Ref.get(requests);
+				expect(exported.some((request) => request.path === "/v1/logs")).toBe(true);
+				expect(
+					exported.every((request) => request.authorization === "Bearer normalized-token"),
+				).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"writes only configured levels and flushes on shutdown",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-observability-" });
+				const logFile = path.join(root, "nested", "ryot.log");
+
+				yield* runObservabilityLifecycle(
+					{ observability: { logging: { level: "Error", file: { path: logFile } } } },
+					Effect.all([
+						Effect.logDebug("excluded-debug-entry"),
+						Effect.logInfo("excluded-info-entry"),
+						Effect.logError("included-error-entry"),
+					]),
+				);
+
+				const contents = yield* fs.readFileString(logFile);
+				expect(contents).not.toContain("excluded-debug-entry");
+				expect(contents).not.toContain("excluded-info-entry");
+				expect(contents).toContain("included-error-entry");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rotates and compresses the structured log file",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-log-rotation-" });
+				const logFile = path.join(root, "ryot.log");
+
+				yield* runObservabilityLifecycle(
+					{
+						observability: {
+							logging: { level: "Debug", file: { path: logFile, rotationSize: "300B" } },
+						},
+					},
+					Effect.gen(function* () {
+						yield* Effect.logDebug("x".repeat(600));
+						yield* TestClock.adjust("1 second");
+						yield* Effect.logDebug("rotation-trigger");
+						yield* TestClock.adjust("1 second");
 					}),
-				),
-				(running) => Effect.promise(() => running.stop(true)),
-			);
-			yield* runObservabilityLifecycle(
-				{
-					observability: {
-						logging: { file: { path: `${root}/ryot.log` } },
-						otlp: {
-							endpoint: Option.some(server.url.origin),
-							headers: Option.some(Redacted.make({ authorization: "Bearer normalized-token" })),
-						},
-					},
-				},
-				Effect.logInfo("exported-entry"),
-			);
-			const exported = yield* Ref.get(requests);
-			expect(exported.some((request) => request.path === "/v1/logs")).toBe(true);
-			expect(exported.every((request) => request.authorization === "Bearer normalized-token")).toBe(
-				true,
-			);
-		}),
+				);
+
+				const entries = yield* fs.readDirectory(root);
+				expect(entries).toContain("ryot.log");
+				expect(entries.some((entry) => entry.endsWith(".gz"))).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	test.effect("writes only configured levels and flushes on shutdown", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const path = yield* Path.Path;
-			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-observability-" });
-			const logFile = path.join(root, "nested", "ryot.log");
+	test.effect(
+		"fails startup when the log directory cannot be created",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-log-failure-" });
+				const parentFile = path.join(root, "not-a-directory");
+				yield* fs.writeFileString(parentFile, "blocker");
 
-			yield* runObservabilityLifecycle(
-				{ observability: { logging: { level: "Error", file: { path: logFile } } } },
-				Effect.all([
-					Effect.logDebug("excluded-debug-entry"),
-					Effect.logInfo("excluded-info-entry"),
-					Effect.logError("included-error-entry"),
-				]),
-			);
+				const exit = yield* runObservabilityLifecycle(
+					{ observability: { logging: { file: { path: path.join(parentFile, "ryot.log") } } } },
+					Effect.void,
+				).pipe(Effect.exit);
 
-			const contents = yield* fs.readFileString(logFile);
-			expect(contents).not.toContain("excluded-debug-entry");
-			expect(contents).not.toContain("excluded-info-entry");
-			expect(contents).toContain("included-error-entry");
-		}),
-	);
-
-	test.effect("rotates and compresses the structured log file", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const path = yield* Path.Path;
-			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-log-rotation-" });
-			const logFile = path.join(root, "ryot.log");
-
-			yield* runObservabilityLifecycle(
-				{
-					observability: {
-						logging: { level: "Debug", file: { path: logFile, rotationSize: "300B" } },
-					},
-				},
-				Effect.gen(function* () {
-					yield* Effect.logDebug("x".repeat(600));
-					yield* TestClock.adjust("1 second");
-					yield* Effect.logDebug("rotation-trigger");
-					yield* TestClock.adjust("1 second");
-				}),
-			);
-
-			const entries = yield* fs.readDirectory(root);
-			expect(entries).toContain("ryot.log");
-			expect(entries.some((entry) => entry.endsWith(".gz"))).toBe(true);
-		}),
-	);
-
-	test.effect("fails startup when the log directory cannot be created", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const path = yield* Path.Path;
-			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-log-failure-" });
-			const parentFile = path.join(root, "not-a-directory");
-			yield* fs.writeFileString(parentFile, "blocker");
-
-			const exit = yield* runObservabilityLifecycle(
-				{ observability: { logging: { file: { path: path.join(parentFile, "ryot.log") } } } },
-				Effect.void,
-			).pipe(Effect.exit);
-
-			expect(Exit.isFailure(exit)).toBe(true);
-		}),
+				expect(Exit.isFailure(exit)).toBe(true);
+			}),
+		testTimeout,
 	);
 });

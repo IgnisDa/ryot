@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { SystemConfigResponse } from "@ryot-app/contract/modules/system/contract";
-import { describe, expect, it } from "vitest";
 
 import { deriveAuthMethods } from "#/modules/auth/config";
 

@@ -1,5 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { useState } from "react";
 
 import { CommandCenterDialog } from "#/modules/command-center/command-center-dialog";

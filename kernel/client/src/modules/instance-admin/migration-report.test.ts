@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
-import { describe, expect, it } from "vitest";
 
 import {
 	buildMigrationReportClipboardText,

@@ -1,10 +1,14 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { KERNEL_ENTITY_IMPORT_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { ConfigProvider, Effect, Layer } from "effect";
 
@@ -99,101 +103,108 @@ const configReadinessPackage = (slug: string) => {
 
 layer(services)((test) => {
 	for (const scope of ["system", "user"] as const) {
-		test.effect(`uses ${scope} key metadata while execution rejects damaged ciphertext`, () =>
-			Effect.gen(function* () {
-				const slug = `${scope}-config-readiness`;
-				const fixture = configReadinessPackage(slug);
-				const installed = yield* installRevisionPackage(fixture, scope === "user" ? owner : null);
-				const service = yield* IngestionReadinessService;
-				const input = {
-					settings: {},
-					userId: owner,
-					sourceSlug: slug,
-					providerSlug: slug,
-					installationId: installed.installation.id,
-				};
-				expect((yield* service.evaluateImport(input)).readiness.blockReasons).toEqual([
-					{ key: "token", code: "configuration-required" },
-				]);
-				expect((yield* service.evaluateIntegration(input)).readiness.blockReasons).toEqual([
-					{ key: "token", code: "configuration-required" },
-				]);
-				const configs = yield* PluginConfigRevisions;
-				const configId = yield* configs.create({
-					pluginRevisionId: installed.revisionId,
-					properties: { token: "configured-token" },
-					ownerUserId: scope === "user" ? owner : null,
-					scope: scope === "user" ? "installation" : "environment",
-					pluginInstallationId: scope === "user" ? input.installationId : null,
-				});
-				const database = yield* DatabaseSession;
-				if (scope === "system") {
-					yield* (yield* PluginRepository).setEnvironmentConfigRevision(
-						installed.pluginId,
-						configId,
-					);
-				} else {
+		test.effect(
+			`uses ${scope} key metadata while execution rejects damaged ciphertext`,
+			() =>
+				Effect.gen(function* () {
+					const slug = `${scope}-config-readiness`;
+					const fixture = configReadinessPackage(slug);
+					const installed = yield* installRevisionPackage(fixture, scope === "user" ? owner : null);
+					const service = yield* IngestionReadinessService;
+					const input = {
+						settings: {},
+						userId: owner,
+						sourceSlug: slug,
+						providerSlug: slug,
+						installationId: installed.installation.id,
+					};
+					expect((yield* service.evaluateImport(input)).readiness.blockReasons).toEqual([
+						{ key: "token", code: "configuration-required" },
+					]);
+					expect((yield* service.evaluateIntegration(input)).readiness.blockReasons).toEqual([
+						{ key: "token", code: "configuration-required" },
+					]);
+					const configs = yield* PluginConfigRevisions;
+					const configId = yield* configs.create({
+						pluginRevisionId: installed.revisionId,
+						properties: { token: "configured-token" },
+						ownerUserId: scope === "user" ? owner : null,
+						scope: scope === "user" ? "installation" : "environment",
+						pluginInstallationId: scope === "user" ? input.installationId : null,
+					});
+					const database = yield* DatabaseSession;
+					if (scope === "system") {
+						yield* (yield* PluginRepository).setEnvironmentConfigRevision(
+							installed.pluginId,
+							configId,
+						);
+					} else {
+						yield* database.run((db) =>
+							db
+								.update(tables.pluginInstallation)
+								.set({ activeConfigRevisionId: configId })
+								.where(eq(tables.pluginInstallation.id, input.installationId)),
+						);
+					}
+					const imported = yield* service.evaluateImport(input);
+					const integrated = yield* service.evaluateIntegration(input);
+					expect(imported.readiness.ready).toBe(true);
+					expect(integrated.readiness.ready).toBe(true);
+					expect(imported.source.readinessMetadata.availableConfigKeys).toEqual([
+						"empty",
+						"enabled",
+						"threshold",
+						"token",
+					]);
+					expect(integrated.provider.readinessMetadata).toEqual(imported.source.readinessMetadata);
+					expect(imported.pins.pluginConfigRevisionId).toBe(configId);
+					expect(integrated.pins.pluginConfigRevisionId).toBe(configId);
+					const runtime = yield* PluginRuntimeResolver;
+					const readExecutionConfig = runtime.resolvePluginConfigContext({
+						id: configId,
+						pluginRevisionId: installed.revisionId,
+						ownerUserId: scope === "user" ? owner : null,
+					});
+					expect(yield* readExecutionConfig).toEqual({
+						empty: "",
+						threshold: 0,
+						enabled: false,
+						token: "configured-token",
+					});
 					yield* database.run((db) =>
 						db
-							.update(tables.pluginInstallation)
-							.set({ activeConfigRevisionId: configId })
-							.where(eq(tables.pluginInstallation.id, input.installationId)),
+							.update(tables.pluginConfigRevision)
+							.set({ encryptedPayload: Buffer.alloc(32) })
+							.where(eq(tables.pluginConfigRevision.id, configId)),
 					);
-				}
-				const imported = yield* service.evaluateImport(input);
-				const integrated = yield* service.evaluateIntegration(input);
-				expect(imported.readiness.ready).toBe(true);
-				expect(integrated.readiness.ready).toBe(true);
-				expect(imported.source.readinessMetadata.availableConfigKeys).toEqual([
-					"empty",
-					"enabled",
-					"threshold",
-					"token",
-				]);
-				expect(integrated.provider.readinessMetadata).toEqual(imported.source.readinessMetadata);
-				expect(imported.pins.pluginConfigRevisionId).toBe(configId);
-				expect(integrated.pins.pluginConfigRevisionId).toBe(configId);
-				const runtime = yield* PluginRuntimeResolver;
-				const readExecutionConfig = runtime.resolvePluginConfigContext({
-					id: configId,
-					pluginRevisionId: installed.revisionId,
-					ownerUserId: scope === "user" ? owner : null,
-				});
-				expect(yield* readExecutionConfig).toEqual({
-					empty: "",
-					threshold: 0,
-					enabled: false,
-					token: "configured-token",
-				});
-				yield* database.run((db) =>
-					db
-						.update(tables.pluginConfigRevision)
-						.set({ encryptedPayload: Buffer.alloc(32) })
-						.where(eq(tables.pluginConfigRevision.id, configId)),
-				);
-				expect((yield* service.evaluateImport(input)).readiness).toEqual(imported.readiness);
-				expect((yield* service.evaluateIntegration(input)).readiness).toEqual(integrated.readiness);
-				assertExitFails(
-					yield* Effect.exit(readExecutionConfig),
-					new DbError({
-						message: `Plugin configuration ${configId} is unavailable or failed authentication`,
-					}),
-				);
-				yield* database.run((db) =>
-					db
-						.update(tables.pluginConfigRevision)
-						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
-						.where(eq(tables.pluginConfigRevision.id, configId)),
-				);
-				assertExitFails(
-					yield* Effect.exit(service.evaluateImport(input)),
-					new IngestionReadinessError({ message: "Import source operation is unavailable" }),
-				);
-				assertExitFails(
-					yield* Effect.exit(service.evaluateIntegration(input)),
-					new IngestionReadinessError({ message: "Integration provider operation is unavailable" }),
-				);
-			}),
+					expect((yield* service.evaluateImport(input)).readiness).toEqual(imported.readiness);
+					expect((yield* service.evaluateIntegration(input)).readiness).toEqual(
+						integrated.readiness,
+					);
+					assertExitFails(
+						yield* Effect.exit(readExecutionConfig),
+						new DbError({
+							message: `Plugin configuration ${configId} is unavailable or failed authentication`,
+						}),
+					);
+					yield* database.run((db) =>
+						db
+							.update(tables.pluginConfigRevision)
+							.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
+							.where(eq(tables.pluginConfigRevision.id, configId)),
+					);
+					assertExitFails(
+						yield* Effect.exit(service.evaluateImport(input)),
+						new IngestionReadinessError({ message: "Import source operation is unavailable" }),
+					);
+					assertExitFails(
+						yield* Effect.exit(service.evaluateIntegration(input)),
+						new IngestionReadinessError({
+							message: "Integration provider operation is unavailable",
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	}
 	test.effect(
@@ -299,6 +310,7 @@ layer(services)((test) => {
 				expect((yield* service.evaluateImport(input)).readiness).toEqual(imported.readiness);
 				expect((yield* service.evaluateIntegration(input)).readiness).toEqual(integrated.readiness);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"readiness does not load keys while startup and execution reject an unavailable key",
@@ -368,111 +380,117 @@ layer(services)((test) => {
 					),
 				);
 			}),
+		testTimeout,
 	);
-	test.effect("evaluates integration settings branches from the exact installed declaration", () =>
-		Effect.gen(function* () {
-			const fixture = revisionPackage("planned-sync");
-			const manifest: PluginManifest = {
-				...fixture.manifest,
-				integrationProviders: [
-					{
-						lot: "sink",
-						slug: "planned-sync",
-						name: "Planned sync",
-						description: "Planned sync",
-						scriptSlug: "planned-sync.task",
-						plan: {
-							selections: { collector: { field: "mode", cases: { api: "api", export: "export" } } },
-						},
-						settingsSchema: {
-							unknownKeys: "strict",
-							fields: {
-								mode: {
-									type: "enum",
-									label: "Mode",
-									description: "Mode",
-									defaultValue: "export",
-									choices: { kind: "static", values: [{ value: "api" }, { value: "export" }] },
+	test.effect(
+		"evaluates integration settings branches from the exact installed declaration",
+		() =>
+			Effect.gen(function* () {
+				const fixture = revisionPackage("planned-sync");
+				const manifest: PluginManifest = {
+					...fixture.manifest,
+					integrationProviders: [
+						{
+							lot: "sink",
+							slug: "planned-sync",
+							name: "Planned sync",
+							description: "Planned sync",
+							scriptSlug: "planned-sync.task",
+							plan: {
+								selections: {
+									collector: { field: "mode", cases: { api: "api", export: "export" } },
+								},
+							},
+							settingsSchema: {
+								unknownKeys: "strict",
+								fields: {
+									mode: {
+										type: "enum",
+										label: "Mode",
+										description: "Mode",
+										defaultValue: "export",
+										choices: { kind: "static", values: [{ value: "api" }, { value: "export" }] },
+									},
 								},
 							},
 						},
+					],
+					scripts: fixture.manifest.scripts.map((script) => {
+						if (script.slug.endsWith(".task")) {
+							return {
+								...script,
+								executableDependencies: [
+									{
+										kind: "workflow",
+										slug: "planned-sync-flow",
+										selection: { key: "api", id: "collector", stage: "settings" },
+									},
+									{
+										kind: "workflow",
+										slug: KERNEL_ENTITY_IMPORT_WORKFLOW,
+										selection: { key: "export", id: "collector", stage: "settings" },
+									},
+								],
+							};
+						}
+						return script.slug.endsWith(".workflow")
+							? Object.assign({}, script, { requiredPluginConfigKeys: ["token"] })
+							: script;
+					}),
+				};
+				const installed = yield* installRevisionPackage(
+					{
+						...fixture,
+						manifest,
+						scripts: manifest.scripts.map(({ entry, ...metadata }) => {
+							const compiled = fixture.scripts.find((script) => script.entry === entry);
+							assert(compiled);
+							return Object.assign({}, compiled, { metadata });
+						}),
 					},
-				],
-				scripts: fixture.manifest.scripts.map((script) => {
-					if (script.slug.endsWith(".task")) {
-						return {
-							...script,
-							executableDependencies: [
-								{
-									kind: "workflow",
-									slug: "planned-sync-flow",
-									selection: { key: "api", id: "collector", stage: "settings" },
-								},
-								{
-									kind: "workflow",
-									slug: KERNEL_ENTITY_IMPORT_WORKFLOW,
-									selection: { key: "export", id: "collector", stage: "settings" },
-								},
-							],
-						};
-					}
-					return script.slug.endsWith(".workflow")
-						? Object.assign({}, script, { requiredPluginConfigKeys: ["token"] })
-						: script;
-				}),
-			};
-			const installed = yield* installRevisionPackage(
-				{
-					...fixture,
-					manifest,
-					scripts: manifest.scripts.map(({ entry, ...metadata }) => {
-						const compiled = fixture.scripts.find((script) => script.entry === entry);
-						assert(compiled);
-						return Object.assign({}, compiled, { metadata });
-					}),
-				},
-				owner,
-			);
-			const service = yield* IngestionReadinessService;
-			const input = {
-				userId: owner,
-				providerSlug: "planned-sync",
-				installationId: installed.installation.id,
-			};
-			expect((yield* service.evaluateIntegration(input)).readiness).toEqual({
-				plan: null,
-				ready: true,
-				blockReasons: [],
-			});
-			const selected = yield* service.evaluateIntegration({ ...input, settings: {} });
-			expect(selected.readiness).toEqual({
-				ready: true,
-				blockReasons: [],
-				plan: { operation: "planned-sync.task", selection: { collector: "export" } },
-			});
-			expect(selected.pins.pluginRevisionId).toBe(installed.revisionId);
-			expect(
-				(yield* service.evaluateIntegration({ ...input, settings: { mode: "api" } })).readiness
-					.blockReasons,
-			).toEqual([{ key: "token", code: "configuration-required" }]);
-			assert(selected.readiness.plan);
-			expect(
-				(yield* service.evaluateIntegration({
-					...input,
-					settings: {},
-					acceptedPlan: selected.readiness.plan,
-				})).readiness,
-			).toEqual(selected.readiness);
-			expect(
-				(yield* Effect.flip(
-					service.evaluateIntegration({
+					owner,
+				);
+				const service = yield* IngestionReadinessService;
+				const input = {
+					userId: owner,
+					providerSlug: "planned-sync",
+					installationId: installed.installation.id,
+				};
+				expect((yield* service.evaluateIntegration(input)).readiness).toEqual({
+					plan: null,
+					ready: true,
+					blockReasons: [],
+				});
+				const selected = yield* service.evaluateIntegration({ ...input, settings: {} });
+				expect(selected.readiness).toEqual({
+					ready: true,
+					blockReasons: [],
+					plan: { operation: "planned-sync.task", selection: { collector: "export" } },
+				});
+				expect(selected.pins.pluginRevisionId).toBe(installed.revisionId);
+				expect(
+					(yield* service.evaluateIntegration({ ...input, settings: { mode: "api" } })).readiness
+						.blockReasons,
+				).toEqual([{ key: "token", code: "configuration-required" }]);
+				assert(selected.readiness.plan);
+				expect(
+					(yield* service.evaluateIntegration({
 						...input,
-						settings: { mode: "api" },
+						settings: {},
 						acceptedPlan: selected.readiness.plan,
-					}),
-				)).message,
-			).toBe("Accepted ingestion plan does not match selected settings");
-		}),
+					})).readiness,
+				).toEqual(selected.readiness);
+				expect(
+					(yield* Effect.flip(
+						service.evaluateIntegration({
+							...input,
+							settings: { mode: "api" },
+							acceptedPlan: selected.readiness.plan,
+						}),
+					)).message,
+				).toBe("Accepted ingestion plan does not match selected settings");
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"validates selected import plans after applying schema defaults and checks installation identity",
@@ -583,6 +601,7 @@ layer(services)((test) => {
 					)).message,
 				).toBe("Import source operation is unavailable");
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"uses exact private config metadata and validates account identity without refreshing or binding",
@@ -770,5 +789,6 @@ layer(services)((test) => {
 					emptyClient.provider.readinessMetadata,
 				);
 			}),
+		testTimeout,
 	);
 });

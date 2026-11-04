@@ -1,5 +1,8 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Option, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -93,26 +96,29 @@ const recordingSchedulingLayer = Layer.unwrap(
 );
 
 layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
-	test.effect("reuses one discarded execution for repeated and concurrent scheduling", () =>
-		Effect.gen(function* () {
-			const scheduling = yield* UserBootstrapScheduling;
-			yield* scheduling.schedule(userId);
-			yield* scheduling.schedule(userId);
-			yield* Effect.all([scheduling.schedule(userId), scheduling.schedule(userId)], {
-				discard: true,
-				concurrency: "unbounded",
-			});
-
-			const options = yield* (yield* RecordedSchedules).options;
-			expect(options).toHaveLength(4);
-			expect(options).toEqual(
-				Array.from({ length: 4 }, () => ({
+	test.effect(
+		"reuses one discarded execution for repeated and concurrent scheduling",
+		() =>
+			Effect.gen(function* () {
+				const scheduling = yield* UserBootstrapScheduling;
+				yield* scheduling.schedule(userId);
+				yield* scheduling.schedule(userId);
+				yield* Effect.all([scheduling.schedule(userId), scheduling.schedule(userId)], {
 					discard: true,
-					payload: { userId, accountGeneration: accountFor(userId) },
-					executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
-				})),
-			);
-		}),
+					concurrency: "unbounded",
+				});
+
+				const options = yield* (yield* RecordedSchedules).options;
+				expect(options).toHaveLength(4);
+				expect(options).toEqual(
+					Array.from({ length: 4 }, () => ({
+						discard: true,
+						payload: { userId, accountGeneration: accountFor(userId) },
+						executionId: userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+					})),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -147,6 +153,7 @@ layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLaye
 				]);
 				expect(yield* (yield* RecordedSchedules).parents).toEqual([null, null]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -196,18 +203,27 @@ const reconciliationLayer = Layer.unwrap(
 );
 
 layer(reconciliationLayer.pipe(Layer.provideMerge(mutationAdmissionTestLayer)))((test) => {
-	test.effect("dispatches every incomplete user and contains one scheduling failure", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit((yield* UserBootstrapScheduling).reconcile(25));
-			const recorded = yield* RecordedReconciliation;
+	test.effect(
+		"dispatches every incomplete user and contains one scheduling failure",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit((yield* UserBootstrapScheduling).reconcile(25));
+				const recorded = yield* RecordedReconciliation;
 
-			expect(exit._tag).toBe("Success");
-			expect(yield* recorded.limit).toBe(25);
-			expect(yield* recorded.executionIds).toEqual([
-				userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
-				userBootstrapWorkflowExecutionId(UserId.make("user-2"), accountFor(UserId.make("user-2"))),
-				userBootstrapWorkflowExecutionId(UserId.make("user-3"), accountFor(UserId.make("user-3"))),
-			]);
-		}),
+				expect(exit._tag).toBe("Success");
+				expect(yield* recorded.limit).toBe(25);
+				expect(yield* recorded.executionIds).toEqual([
+					userBootstrapWorkflowExecutionId(userId, accountFor(userId)),
+					userBootstrapWorkflowExecutionId(
+						UserId.make("user-2"),
+						accountFor(UserId.make("user-2")),
+					),
+					userBootstrapWorkflowExecutionId(
+						UserId.make("user-3"),
+						accountFor(UserId.make("user-3")),
+					),
+				]);
+			}),
+		testTimeout,
 	);
 });

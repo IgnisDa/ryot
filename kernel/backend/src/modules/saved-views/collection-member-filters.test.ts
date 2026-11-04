@@ -1,3 +1,5 @@
+import { expect, it } from "bun:test";
+
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import type { BrowseField } from "@ryot-app/contract/modules/filters/browse";
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
@@ -7,7 +9,6 @@ import {
 	collectionMembersRecipe,
 } from "@ryot-app/ryotql-recipes/collections";
 import { DateTime } from "effect";
-import { expect, it } from "vitest";
 
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 

@@ -1,3 +1,4 @@
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { podcastEpisodicKindConfig } from "@ryot-app/media-plugin/shared/lifecycle-expressions";
 import { episodicByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
@@ -419,7 +420,7 @@ describe("Media RyotQL query recipe results", () => {
 			const summaryRow = summary.summary;
 			assertPresent(summaryRow, "Expected show summary row");
 
-			expect(summary.entitySchemaSlug).toBe("show");
+			expect(summary.entitySchemaSlug).toBe(EntitySchemaSlug.make("show"));
 			expect(summaryRow.owned).toBe(true);
 			expect(summaryRow.state).toBe("untracked");
 			expect(summaryRow.isInMediaLibrary).toBe(true);
@@ -793,7 +794,7 @@ describe("Media RyotQL query recipe results", () => {
 			);
 
 			expect(summary.summary).toBeNull();
-			expect(summary.entitySchemaSlug).toBe("book");
+			expect(summary.entitySchemaSlug).toBe(EntitySchemaSlug.make("book"));
 		}),
 	);
 
@@ -1048,7 +1049,7 @@ describe("Media RyotQL query recipe results", () => {
 				{ seasonNumber: 0, watchedTotal: 0 },
 				{ seasonNumber: 1, watchedTotal: 1 },
 			]);
-			expect(identity).toEqual([
+			expect(identity).toEqual<unknown>([
 				objectContaining({
 					kind: "parent",
 					seasonNumber: null,

@@ -1,9 +1,12 @@
+import { describe, expect } from "bun:test";
+
 import { Capacitor } from "@capacitor/core";
-import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { AdminApi, AdminApiError, type AdminApiService } from "#/api/admin";
@@ -95,16 +98,19 @@ const makeView = (
 };
 
 describe("Instance Admin route", () => {
-	it.live("is outside the OAuth gate and redirects the index to users", () =>
-		Effect.gen(function* () {
-			const view = makeView();
+	it.live(
+		"is outside the OAuth gate and redirects the index to users",
+		() =>
+			Effect.gen(function* () {
+				const view = makeView();
 
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
-			expect(view.router.state.location.pathname).toBe("/instance-admin/users");
-			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-			expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
+				expect(view.router.state.location.pathname).toBe("/instance-admin/users");
+				expect(screen.queryByTestId("authenticated-shell")).toBeNull();
+				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+				expect(screen.queryByTitle("fixture plugin")).toBeNull();
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -120,55 +126,62 @@ describe("Instance Admin route", () => {
 				expect(view.router.state.location.search.redirect).toBe("/instance-admin/migration-report");
 			}).pipe(Effect.ensuring(Effect.sync(() => (Capacitor.isNativePlatform = native))));
 		},
+		testTimeout,
 	);
 
-	it.live("requires a trimmed token, clears errors on edit, and submits with Enter", () =>
-		Effect.gen(function* () {
-			const user = userEvent.setup();
-			const view = makeView("/instance-admin/users");
-			const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+	it.live(
+		"requires a trimmed token, clears errors on edit, and submits with Enter",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const view = makeView("/instance-admin/users");
+				const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
 
-			yield* Effect.promise(() => user.type(token, "   "));
-			const form = token.closest("form");
-			if (form === null) {
-				throw new Error("Token input must be inside a form");
-			}
-			fireEvent.submit(form);
-			const alert = yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(alert.textContent).toBe("Enter an admin access token.");
+				yield* Effect.promise(() => user.type(token, "   "));
+				const form = token.closest("form");
+				if (form === null) {
+					throw new Error("Token input must be inside a form");
+				}
+				fireEvent.submit(form);
+				const alert = yield* Effect.promise(() => screen.findByRole("alert"));
+				expect(alert.textContent).toBe("Enter an admin access token.");
 
-			yield* Effect.promise(() => user.type(token, " admin-token "));
-			expect(screen.queryByRole("alert")).toBeNull();
-			yield* Effect.promise(() => user.type(token, "{Enter}"));
+				yield* Effect.promise(() => user.type(token, " admin-token "));
+				expect(screen.queryByRole("alert")).toBeNull();
+				yield* Effect.promise(() => user.type(token, "{Enter}"));
 
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Users" }));
-			expect(
-				yield* Effect.promise(() => view.runtime.runPromise(view.sessions.get("god-session"))),
-			).toEqual({ origin: server, token: "admin-token" });
-		}),
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Users" }));
+				expect(
+					yield* Effect.promise(() => view.runtime.runPromise(view.sessions.get("god-session"))),
+				).toEqual({ origin: server, token: "admin-token" });
+			}),
+		testTimeout,
 	);
 
-	it.live("locks, clears the memory session, and shows the token gate again", () =>
-		Effect.gen(function* () {
-			const user = userEvent.setup();
-			const view = makeView("/instance-admin/users");
-			const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
-			yield* Effect.promise(() => user.type(token, "token{Enter}"));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Users" }));
+	it.live(
+		"locks, clears the memory session, and shows the token gate again",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const view = makeView("/instance-admin/users");
+				const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+				yield* Effect.promise(() => user.type(token, "token{Enter}"));
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Users" }));
 
-			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Lock" })));
-			yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
-			expect(screen.queryByRole("alert")).toBeNull();
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					view.runtime.runPromise(
-						view.sessions
-							.get("god-session")
-							.pipe(Effect.map((session) => expect(session).toBeNull())),
+				yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Lock" })));
+				yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+				expect(screen.queryByRole("alert")).toBeNull();
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						view.runtime.runPromise(
+							view.sessions
+								.get("god-session")
+								.pipe(Effect.map((session) => expect(session).toBeNull())),
+						),
 					),
-				),
-			);
-		}),
+				);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -205,30 +218,34 @@ describe("Instance Admin route", () => {
 				);
 				expect(screen.queryByRole("alert")).toBeNull();
 			}),
+		testTimeout,
 	);
 
-	it.live("navigates between sections from the standalone shell", () =>
-		Effect.gen(function* () {
-			const user = userEvent.setup();
-			const view = makeView("/instance-admin/users");
-			const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
-			yield* Effect.promise(() => user.type(token, "token{Enter}"));
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("instance-admin-sidebar"));
+	it.live(
+		"navigates between sections from the standalone shell",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const view = makeView("/instance-admin/users");
+				const token = yield* Effect.promise(() => screen.findByLabelText("Admin access token"));
+				yield* Effect.promise(() => user.type(token, "token{Enter}"));
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("instance-admin-sidebar"));
 
-			yield* Effect.promise(() =>
-				user.click(within(sidebar).getByRole("link", { name: "Migration report" })),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(view.router.state.location.pathname).toBe("/instance-admin/migration-report"),
-				),
-			);
-			expect(screen.getByRole("heading", { name: "Migration report" })).toBeTruthy();
-			expect(
-				within(sidebar)
-					.getByRole("link", { name: "Migration report" })
-					.getAttribute("aria-current"),
-			).toBe("page");
-		}),
+				yield* Effect.promise(() =>
+					user.click(within(sidebar).getByRole("link", { name: "Migration report" })),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.router.state.location.pathname).toBe("/instance-admin/migration-report"),
+					),
+				);
+				expect(screen.getByRole("heading", { name: "Migration report" })).toBeTruthy();
+				expect(
+					within(sidebar)
+						.getByRole("link", { name: "Migration report" })
+						.getAttribute("aria-current"),
+				).toBe("page");
+			}),
+		testTimeout,
 	);
 });

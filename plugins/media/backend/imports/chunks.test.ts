@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { createMediaImportChunk } from "./chunks";
 
@@ -45,7 +48,7 @@ it("keeps source record identities when groups move between write batches", () =
 			).items,
 	);
 
-	expect(separate).toEqual(together.items);
+	expect(separate).toEqual<unknown>(together.items);
 	expect(new Set(separate.map(({ recordId }) => recordId)).size).toBe(2);
 });
 
@@ -174,35 +177,38 @@ it("turns missing and failed population results into staged failures without wri
 	]);
 });
 
-it.effect("gives each failed event of an unresolved group its own operation identity", () =>
-	Effect.gen(function* () {
-		const chunk = createMediaImportChunk(
-			{
-				failures: [],
-				populationResults: [],
-				entityGroups: [
-					{
-						itemIndex: 5,
-						entityRef: showRef,
-						collectionMemberships: [],
-						events: ["complete", "review"].map((eventSchemaSlug) => ({
-							properties: {},
-							eventSchemaSlug,
-							occurredAt: "2026-01-01T00:00:00.000Z",
-							operationId: `source-${eventSchemaSlug}`,
-						})),
-					},
-				],
-			},
-			ownershipSyncedAt,
-		);
+it.effect(
+	"gives each failed event of an unresolved group its own operation identity",
+	() =>
+		Effect.gen(function* () {
+			const chunk = createMediaImportChunk(
+				{
+					failures: [],
+					populationResults: [],
+					entityGroups: [
+						{
+							itemIndex: 5,
+							entityRef: showRef,
+							collectionMemberships: [],
+							events: ["complete", "review"].map((eventSchemaSlug) => ({
+								properties: {},
+								eventSchemaSlug,
+								occurredAt: "2026-01-01T00:00:00.000Z",
+								operationId: `source-${eventSchemaSlug}`,
+							})),
+						},
+					],
+				},
+				ownershipSyncedAt,
+			);
 
-		expect(chunk.failures.map(({ operationId }) => operationId)).toEqual([
-			"source-complete",
-			"source-review",
-		]);
-		yield* Schema.decodeEffect(genericImportChunkSchema)(chunk);
-	}),
+			expect(chunk.failures.map(({ operationId }) => operationId)).toEqual([
+				"source-complete",
+				"source-review",
+			]);
+			yield* Schema.decodeEffect(genericImportChunkSchema)(chunk);
+		}),
+	testTimeout,
 );
 
 it("emits library membership and ownership as a generic relationship mutation", () => {

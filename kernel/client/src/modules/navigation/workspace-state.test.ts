@@ -1,9 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { describe, expect, it } from "vitest";
 
 import {
 	isWorkspaceRoot,
@@ -119,7 +120,9 @@ describe("workspace state", () => {
 		];
 
 		expect(resolveRememberedWorkspace(catalog, "plugin-remembered")).toBe(first);
-		expect(resolveRememberedWorkspace(catalog, "plugin-second")?.packageId).toBe("test/second");
+		expect(resolveRememberedWorkspace(catalog, "plugin-second")?.packageId).toBe<unknown>(
+			"test/second",
+		);
 	});
 
 	it("derives plugin-route workspace context", () => {
@@ -129,12 +132,12 @@ describe("workspace state", () => {
 			workspace({ isHidden: true, packageId: PluginPackageId.make("test/disabled") }),
 		];
 
-		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/other"))?.packageId).toBe(
-			"test/other",
-		);
-		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/disabled"))?.packageId).toBe(
-			"test/disabled",
-		);
+		expect(
+			effectiveCatalogPlugin(catalog, PluginPackageId.make("test/other"))?.packageId,
+		).toBe<unknown>("test/other");
+		expect(
+			effectiveCatalogPlugin(catalog, PluginPackageId.make("test/disabled"))?.packageId,
+		).toBe<unknown>("test/disabled");
 		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/missing"))).toBeUndefined();
 	});
 
@@ -143,9 +146,9 @@ describe("workspace state", () => {
 
 		expect(visibleWorkspaces(catalog)).toEqual([]);
 		expect(resolveRememberedWorkspace(catalog, "plugin-fixture")).toBeNull();
-		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("ryot/fixture"))?.packageId).toBe(
-			"ryot/fixture",
-		);
+		expect(
+			effectiveCatalogPlugin(catalog, PluginPackageId.make("ryot/fixture"))?.packageId,
+		).toBe<unknown>("ryot/fixture");
 	});
 
 	it("recognizes a workspace root with or without a trailing slash", () => {

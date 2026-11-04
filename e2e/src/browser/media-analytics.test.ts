@@ -1,4 +1,5 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	mediaAnalyticsRankingRecipe,
 	mediaAnalyticsRecordsRecipe,
@@ -74,7 +75,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		expect(yield* page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe(
 			"America/New_York",
 		);
-		expect(fixture.timeZone).toBe("UTC");
+		expect(fixture.timeZone).toBe(TimeZone.make("UTC"));
 		expect(yield* frameElement.count).toBe(1);
 		expect(yield* frameElement.getAttribute("src")).toBeNull();
 		expect(yield* frameElement.getAttribute("srcdoc")).not.toBeNull();
@@ -660,7 +661,10 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			correctedRecords.items.find(({ id }) => id === progressId),
 			"Expected the corrected progress record",
 		);
-		expect(correctedProgress.facts).toEqual({ ...progressSource.properties, progressPages: 50 });
+		expect(correctedProgress.facts).toEqual<unknown>({
+			...progressSource.properties,
+			progressPages: 50,
+		});
 		expect(correctedProgress.occurredAt).toBe(progressSource.occurredAt);
 		expect(correctedProgress.contribution.pages).toMatchObject({
 			recorded: 50,

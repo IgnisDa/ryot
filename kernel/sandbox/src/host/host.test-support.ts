@@ -1,6 +1,6 @@
+import { assert } from "@ryot-app/testing/assert";
 import { Effect, Layer, Option } from "effect";
 import Redis from "ioredis";
-import { inject } from "vitest";
 
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { SandboxHostCallScope, SandboxHostConfig } from "./config";
@@ -21,7 +21,11 @@ export const makeSandboxHostConfigLayer = (overrides: Partial<SandboxHostConfig[
 		Layer.succeed(SandboxHostCallScope, { bound: (effect) => effect }),
 	);
 
-export const testRedisUrl = () => inject("redisUrl");
+export const testRedisUrl = () => {
+	const url = Bun.env["TEST_REDIS_URL"];
+	assert(url, "Run Redis tests through the package test script");
+	return url;
+};
 
 export const testExecutionId = (label: string) => `${label}-${crypto.randomUUID()}`;
 
@@ -100,9 +104,3 @@ export const unusedSandboxHostFunctions = (
 	const implementations = unusedSandboxHostFunctionMap(overrides);
 	return { bind: (input) => Effect.succeed(bindSandboxHostFunctions(implementations, input)) };
 };
-
-declare module "vitest" {
-	interface ProvidedContext {
-		redisUrl: string;
-	}
-}

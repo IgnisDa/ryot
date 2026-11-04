@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SubmissionExpired } from "@ryot-app/contract/errors";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -12,14 +15,17 @@ const expired = new SubmissionExpired({
 	message: "Submission expired; retry with a new idempotency key",
 });
 
-it.effect("accepts submissions within seven days of the server clock in either direction", () =>
-	Effect.gen(function* () {
-		yield* TestClock.setTime(now);
-		for (const submittedAt of [days(-7), days(0), days(7)]) {
-			expect(yield* requireOpenSubmission(submittedAt)).toBeUndefined();
-		}
-		for (const submittedAt of [days(-7.01), days(7.01)]) {
-			assertExitFails(yield* Effect.exit(requireOpenSubmission(submittedAt)), expired);
-		}
-	}),
+it.effect(
+	"accepts submissions within seven days of the server clock in either direction",
+	() =>
+		Effect.gen(function* () {
+			yield* TestClock.setTime(now);
+			for (const submittedAt of [days(-7), days(0), days(7)]) {
+				expect(yield* requireOpenSubmission(submittedAt)).toBeUndefined();
+			}
+			for (const submittedAt of [days(-7.01), days(7.01)]) {
+				assertExitFails(yield* Effect.exit(requireOpenSubmission(submittedAt)), expired);
+			}
+		}),
+	testTimeout,
 );

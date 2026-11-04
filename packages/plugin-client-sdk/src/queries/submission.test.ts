@@ -1,4 +1,6 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { it } from "@voila.dev/effect-bun-test";
 
 import { createRyotSubmission } from "./submission";
 

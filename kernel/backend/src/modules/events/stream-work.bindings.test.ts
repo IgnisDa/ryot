@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EVENT_STREAM_BATCH_LIMITS } from "@ryot-app/contract/modules/events/stream-work";
 import {
 	EntityId,
@@ -6,6 +7,9 @@ import {
 	PluginConfigRevisionId,
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -97,6 +101,7 @@ layer(streamWorkTestLayer)((test) => {
 				expect((yield* activeJob()).map(({ status }) => status)).toEqual(["running"]);
 				yield* bindings.set(undefined);
 			}),
+		testTimeout,
 	);
 });
 
@@ -148,42 +153,48 @@ layer(streamWorkTestLayer)((test) => {
 				expect(yield* claimed()).toBe(count);
 				expect(yield* activeJob()).toEqual([]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("admits dirty schemas left without a job during reconciliation", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const streams = yield* EventStreamRepository;
-			const service = yield* EventStreamWorkService;
-			const controls = yield* StreamWorkControls;
-			const source = yield* seedStream("reconcile-dirty");
-			yield* processNext();
-			yield* session.transaction(
-				streams.touch([
-					{
-						userId,
-						occurredAt,
-						eventSchemaSlug,
-						entityId: source.entityId,
-						eventSchemaPluginId: source.fixture.pluginId,
-					},
-				]),
-			);
-			expect(yield* activeJob()).toEqual([]);
-			const callsBefore = (yield* controls.workflowCalls).length;
-			yield* service.reconcile();
-			const [admitted] = yield* activeJob();
-			assert(admitted);
-			expect(
-				(yield* controls.workflowCalls)
-					.slice(callsBefore)
-					.filter(({ executionId }) => executionId === admitted.id),
-			).toEqual([expect.objectContaining({ inTransaction: false, payload: { id: admitted.id } })]);
-			yield* service.reconcile();
-			expect(yield* activeJob()).toEqual([admitted]);
-			yield* processNext();
-			expect(yield* activeJob()).toEqual([]);
-		}),
+	test.effect(
+		"admits dirty schemas left without a job during reconciliation",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const streams = yield* EventStreamRepository;
+				const service = yield* EventStreamWorkService;
+				const controls = yield* StreamWorkControls;
+				const source = yield* seedStream("reconcile-dirty");
+				yield* processNext();
+				yield* session.transaction(
+					streams.touch([
+						{
+							userId,
+							occurredAt,
+							eventSchemaSlug,
+							entityId: source.entityId,
+							eventSchemaPluginId: source.fixture.pluginId,
+						},
+					]),
+				);
+				expect(yield* activeJob()).toEqual([]);
+				const callsBefore = (yield* controls.workflowCalls).length;
+				yield* service.reconcile();
+				const [admitted] = yield* activeJob();
+				assert(admitted);
+				expect(
+					(yield* controls.workflowCalls)
+						.slice(callsBefore)
+						.filter(({ executionId }) => executionId === admitted.id),
+				).toEqual<unknown>([
+					expect.objectContaining({ inTransaction: false, payload: { id: admitted.id } }),
+				]);
+				yield* service.reconcile();
+				expect(yield* activeJob()).toEqual([admitted]);
+				yield* processNext();
+				expect(yield* activeJob()).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -214,78 +225,82 @@ layer(streamWorkTestLayer)((test) => {
 				expect((yield* activeJob()).map(({ status }) => status)).toEqual(["running"]);
 				yield* processNext();
 			}),
+		testTimeout,
 	);
 
-	test.effect("rebuilds source-only restored streams through declaration reconciliation", () =>
-		Effect.gen(function* () {
-			const restore = yield* BackupRestorePersistence.make;
-			const fixture = yield* StreamWorkFixture;
-			const session = yield* DatabaseSession;
-			const service = yield* EventStreamWorkService;
-			const controls = yield* StreamWorkControls;
-			const streams = yield* EventStreamRepository;
-			const entityId = EntityId.make("restored-projection-entity");
-			const eventId = EventId.make("restored-projection-source");
-			yield* session.transaction(
-				Effect.gen(function* () {
-					yield* restore.restoreEntity({
-						userId,
-						id: entityId,
-						properties: {},
-						entitySchemaSlug,
-						name: "Restored entity",
-						entitySchemaPluginId: fixture.pluginId,
-					});
-					yield* restore.restoreEvents([
-						{
+	test.effect(
+		"rebuilds source-only restored streams through declaration reconciliation",
+		() =>
+			Effect.gen(function* () {
+				const restore = yield* BackupRestorePersistence.make;
+				const fixture = yield* StreamWorkFixture;
+				const session = yield* DatabaseSession;
+				const service = yield* EventStreamWorkService;
+				const controls = yield* StreamWorkControls;
+				const streams = yield* EventStreamRepository;
+				const entityId = EntityId.make("restored-projection-entity");
+				const eventId = EventId.make("restored-projection-source");
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* restore.restoreEntity({
 							userId,
-							entityId,
-							occurredAt,
-							id: eventId,
-							eventSchemaSlug,
-							properties: { rating: 4 },
-							orderKey: "retained-order",
-							orderCreatedAt: occurredAt,
-							eventSchemaPluginId: fixture.pluginId,
-						},
-						{
-							userId,
-							entityId,
-							occurredAt,
-							properties: { value: 2 },
-							id: "restored-projection-adjustment",
-							eventSchemaSlug: adjustmentSchemaSlug,
-							eventSchemaPluginId: fixture.pluginId,
-						},
-					]);
-				}),
-			);
-			const id = eventStreamId({
-				userId,
-				entityId,
-				eventSchemaSlug,
-				eventSchemaPluginId: fixture.pluginId,
-			});
-			expect((yield* streamState(id))?.accountToken).toBeNull();
-			const source = yield* sourceState(eventId);
-			yield* service.reconcile();
-			expect(yield* streamState(id)).toMatchObject({ accountToken, checkpoint: null });
-			expect((yield* activeJob()).map(({ status }) => status)).toEqual(["running"]);
-			yield* controls.setProcessor(id, () =>
-				Effect.succeed({ ...page(eventId, 6, "rebuilt"), done: true }),
-			);
-			yield* processNext();
-			yield* service.reconcile();
-			expect(yield* projection(eventId)).toEqual({ properties: { score: 6 } });
-			expect(yield* sourceState(eventId)).toEqual(source);
-			const complete = yield* streamState(id);
-			expect(complete?.completedRevision).toBe(complete?.streamRevision);
-			expect(
-				(yield* streams.bindingDeclarations({ limit: 100 })).filter(
-					(declaration) => declaration.eventSchemaPluginId === fixture.pluginId,
-				),
-			).toEqual([]);
-		}),
+							id: entityId,
+							properties: {},
+							entitySchemaSlug,
+							name: "Restored entity",
+							entitySchemaPluginId: fixture.pluginId,
+						});
+						yield* restore.restoreEvents([
+							{
+								userId,
+								entityId,
+								occurredAt,
+								id: eventId,
+								eventSchemaSlug,
+								properties: { rating: 4 },
+								orderKey: "retained-order",
+								orderCreatedAt: occurredAt,
+								eventSchemaPluginId: fixture.pluginId,
+							},
+							{
+								userId,
+								entityId,
+								occurredAt,
+								properties: { value: 2 },
+								id: "restored-projection-adjustment",
+								eventSchemaSlug: adjustmentSchemaSlug,
+								eventSchemaPluginId: fixture.pluginId,
+							},
+						]);
+					}),
+				);
+				const id = eventStreamId({
+					userId,
+					entityId,
+					eventSchemaSlug,
+					eventSchemaPluginId: fixture.pluginId,
+				});
+				expect((yield* streamState(id))?.accountToken).toBeNull();
+				const source = yield* sourceState(eventId);
+				yield* service.reconcile();
+				expect(yield* streamState(id)).toMatchObject({ accountToken, checkpoint: null });
+				expect((yield* activeJob()).map(({ status }) => status)).toEqual(["running"]);
+				yield* controls.setProcessor(id, () =>
+					Effect.succeed({ ...page(eventId, 6, "rebuilt"), done: true }),
+				);
+				yield* processNext();
+				yield* service.reconcile();
+				expect(yield* projection(eventId)).toEqual({ properties: { score: 6 } });
+				expect(yield* sourceState(eventId)).toEqual(source);
+				const complete = yield* streamState(id);
+				expect(complete?.completedRevision).toBe(complete?.streamRevision);
+				expect(
+					(yield* streams.bindingDeclarations({ limit: 100 })).filter(
+						(declaration) => declaration.eventSchemaPluginId === fixture.pluginId,
+					),
+				).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -366,53 +381,60 @@ layer(streamWorkTestLayer)((test) => {
 				yield* service.reconcile();
 				expect(yield* streamState(id)).toEqual(rebound);
 			}),
+		testTimeout,
 	);
 });
 
 layer(streamWorkTestLayer)((test) => {
-	test.effect("pages binding declarations past declarations that stay unrecorded", () =>
-		Effect.gen(function* () {
-			const streams = yield* EventStreamRepository;
-			const [first] = yield* streams.bindingDeclarations({ limit: 1 });
-			assert(first);
-			const [second] = yield* streams.bindingDeclarations({ limit: 1, after: first });
-			expect([first.eventSchemaSlug, second?.eventSchemaSlug]).toEqual([
-				eventSchemaSlug,
-				summarySchemaSlug,
-			]);
-		}),
+	test.effect(
+		"pages binding declarations past declarations that stay unrecorded",
+		() =>
+			Effect.gen(function* () {
+				const streams = yield* EventStreamRepository;
+				const [first] = yield* streams.bindingDeclarations({ limit: 1 });
+				assert(first);
+				const [second] = yield* streams.bindingDeclarations({ limit: 1, after: first });
+				expect([first.eventSchemaSlug, second?.eventSchemaSlug]).toEqual([
+					eventSchemaSlug,
+					summarySchemaSlug,
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps a declaration stale when a stream is created after it was read", () =>
-		Effect.gen(function* () {
-			const fixture = yield* StreamWorkFixture;
-			const session = yield* DatabaseSession;
-			const streams = yield* EventStreamRepository;
-			const service = yield* EventStreamWorkService;
-			const declarations = streams
-				.bindingDeclarations({ limit: 100 })
-				.pipe(
-					Effect.map((rows) =>
-						rows.filter(
-							(row) =>
-								row.eventSchemaPluginId === fixture.pluginId &&
-								row.eventSchemaSlug === eventSchemaSlug,
+	test.effect(
+		"keeps a declaration stale when a stream is created after it was read",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* StreamWorkFixture;
+				const session = yield* DatabaseSession;
+				const streams = yield* EventStreamRepository;
+				const service = yield* EventStreamWorkService;
+				const declarations = streams
+					.bindingDeclarations({ limit: 100 })
+					.pipe(
+						Effect.map((rows) =>
+							rows.filter(
+								(row) =>
+									row.eventSchemaPluginId === fixture.pluginId &&
+									row.eventSchemaSlug === eventSchemaSlug,
+							),
 						),
-					),
-				);
-			yield* service.reconcile();
-			const first = yield* seedRetainedTargets("binding-race-first", 0);
-			yield* session.transaction(streams.lock([first.key]));
-			const [read] = yield* declarations;
-			assert(read);
-			const second = yield* seedRetainedTargets("binding-race-second", 0);
-			yield* session.transaction(streams.lock([second.key]));
-			const { projection: _, ...declaration } = read;
-			yield* streams.recordBinding(declaration);
-			expect((yield* declarations).map(({ revision }) => revision)).toEqual([read.revision + 1]);
-			yield* service.reconcile();
-			expect((yield* streamState(second.id))?.accountToken).toBe(fixture.accountGeneration.token);
-			expect(yield* declarations).toEqual([]);
-		}),
+					);
+				yield* service.reconcile();
+				const first = yield* seedRetainedTargets("binding-race-first", 0);
+				yield* session.transaction(streams.lock([first.key]));
+				const [read] = yield* declarations;
+				assert(read);
+				const second = yield* seedRetainedTargets("binding-race-second", 0);
+				yield* session.transaction(streams.lock([second.key]));
+				const { projection: _, ...declaration } = read;
+				yield* streams.recordBinding(declaration);
+				expect((yield* declarations).map(({ revision }) => revision)).toEqual([read.revision + 1]);
+				yield* service.reconcile();
+				expect((yield* streamState(second.id))?.accountToken).toBe(fixture.accountGeneration.token);
+				expect(yield* declarations).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

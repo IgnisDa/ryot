@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AdminMiddleware,
 	AuthMiddleware,
@@ -11,6 +12,8 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { column, field, rows, table } from "@ryot-app/ryotql";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -118,48 +121,54 @@ const routesLayer = Layer.unwrap(
 );
 
 layer(routesLayer)((test) => {
-	test.effect("returns a typed 403 for protected demo RyotQL reads over OAuth and API key", () => {
-		const backup = table("backupRun", "backup");
-		const integration = table("integration", "integration");
-		const accountTable = table("user", "user");
-		const connection = table("oauthConnection", "connection");
-		return Effect.gen(function* () {
-			const credentials = yield* RouteCredentials;
-			for (const kind of ["oauth", "api-key"] as const) {
-				yield* credentials.sendAs(kind, "demo");
-				const api = yield* client;
-				for (const document of [
-					{
-						queries: {
-							status: rows(accountTable, {
-								fields: [field("status", column(accountTable, "twoFactorStatus"))],
-							}),
+	test.effect(
+		"returns a typed 403 for protected demo RyotQL reads over OAuth and API key",
+		() => {
+			const backup = table("backupRun", "backup");
+			const integration = table("integration", "integration");
+			const accountTable = table("user", "user");
+			const connection = table("oauthConnection", "connection");
+			return Effect.gen(function* () {
+				const credentials = yield* RouteCredentials;
+				for (const kind of ["oauth", "api-key"] as const) {
+					yield* credentials.sendAs(kind, "demo");
+					const api = yield* client;
+					for (const document of [
+						{
+							queries: {
+								status: rows(accountTable, {
+									fields: [field("status", column(accountTable, "twoFactorStatus"))],
+								}),
+							},
 						},
-					},
-					{
-						queries: {
-							status: rows(connection, { fields: [field("status", column(connection, "status"))] }),
+						{
+							queries: {
+								status: rows(connection, {
+									fields: [field("status", column(connection, "status"))],
+								}),
+							},
 						},
-					},
-					{ queries: { runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) } },
-					{
-						queries: {
-							integrations: rows(integration, {
-								fields: [field("token", column(integration, "webhookToken"))],
-							}),
+						{ queries: { runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) } },
+						{
+							queries: {
+								integrations: rows(integration, {
+									fields: [field("token", column(integration, "webhookToken"))],
+								}),
+							},
 						},
-					},
-				]) {
-					const error = yield* Effect.flip(api.ryotql.execute({ payload: document }));
-					expect((yield* credentials.authenticated).at(-1)).toBe(
-						kind === "oauth" ? "oauth:demo" : "api-key:demo",
-					);
-					expect(error).toBeInstanceOf(DemoOperationProtected);
-					expect(error).toMatchObject({ reason: { code: "demo-operation-protected" } });
+					]) {
+						const error = yield* Effect.flip(api.ryotql.execute({ payload: document }));
+						expect((yield* credentials.authenticated).at(-1)).toBe(
+							kind === "oauth" ? "oauth:demo" : "api-key:demo",
+						);
+						expect(error).toBeInstanceOf(DemoOperationProtected);
+						expect(error).toMatchObject({ reason: { code: "demo-operation-protected" } });
+					}
 				}
-			}
-		});
-	});
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(routesLayer)((test) => {
@@ -199,5 +208,6 @@ layer(routesLayer)((test) => {
 				expect(standard.data["runs"]).toMatchObject({ items: [], type: "rows" });
 			});
 		},
+		testTimeout,
 	);
 });

@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { revealFocusedField, revealOffset, useFocusedFieldVisibility } from "./focused-field";
@@ -46,6 +49,7 @@ describe("focused field visibility", () => {
 				fireEvent(window, new Event("resize"));
 				expect(root.scrollTop).toBe(0);
 			}),
+		testTimeout,
 	);
 
 	it("does not scroll an inert background field", () => {

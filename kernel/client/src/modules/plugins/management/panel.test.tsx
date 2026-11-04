@@ -1,6 +1,9 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { PluginManagementPanel } from "#/modules/plugins/management/panel";
 import type { PluginManagementAction } from "#/modules/plugins/management/service";

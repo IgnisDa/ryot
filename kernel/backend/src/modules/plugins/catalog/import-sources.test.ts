@@ -1,9 +1,12 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
-import { assert, describe } from "vitest";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -73,150 +76,168 @@ describe("revision-backed import sources", () => {
 					]);
 					expect(rows.every(({ hasActiveWorkflow }) => hasActiveWorkflow)).toBe(true);
 				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("carries immutable config references without exposing private configuration", () =>
-			Effect.gen(function* () {
-				const installed = yield* installRevisionPackage(packageWithSources("notes"), owner);
-				const installations = yield* PluginInstallationRepository;
-				const state = yield* installations.updateState({
-					sortOrder: 0,
-					isHidden: false,
-					id: installed.installation.id,
-					config: { token: "private-catalog-token" },
-				});
-				const catalog = yield* ImportSourceCatalog.make;
-				const reference = {
-					slug: "notes-alpha",
-					owner: { kind: "plugin" as const, pluginId: PluginId.make(installed.pluginId) },
-				};
-				const resolved = yield* catalog.resolveForUser(owner, reference);
-				assert(resolved?.script);
-				expect(resolved.source.installationId).toBe(installed.installation.id);
-				expect(resolved.source.configContext).toMatchObject({
-					kind: "revision",
-					ownerUserId: owner,
-					pluginRevisionId: installed.revisionId,
-					pluginConfigRevisionId: state?.activeConfigRevisionId,
-				});
-				expect(resolved.script.pluginRevisionId).toBe(
-					resolved.source.configContext.pluginRevisionId,
-				);
-				expect(resolved.source).not.toHaveProperty("config");
-				expect(resolved.source.configContext).not.toHaveProperty("config");
-				expect(yield* catalog.resolveForUser(UserId.make("recipient"), reference)).toBeNull();
-			}),
+		test.effect(
+			"carries immutable config references without exposing private configuration",
+			() =>
+				Effect.gen(function* () {
+					const installed = yield* installRevisionPackage(packageWithSources("notes"), owner);
+					const installations = yield* PluginInstallationRepository;
+					const state = yield* installations.updateState({
+						sortOrder: 0,
+						isHidden: false,
+						id: installed.installation.id,
+						config: { token: "private-catalog-token" },
+					});
+					const catalog = yield* ImportSourceCatalog.make;
+					const reference = {
+						slug: "notes-alpha",
+						owner: { kind: "plugin" as const, pluginId: PluginId.make(installed.pluginId) },
+					};
+					const resolved = yield* catalog.resolveForUser(owner, reference);
+					assert(resolved?.script);
+					expect(resolved.source.installationId).toBe(installed.installation.id);
+					expect(resolved.source.configContext).toMatchObject({
+						kind: "revision",
+						ownerUserId: owner,
+						pluginRevisionId: installed.revisionId,
+						pluginConfigRevisionId: state?.activeConfigRevisionId,
+					});
+					expect(resolved.script.pluginRevisionId).toBe(
+						resolved.source.configContext.pluginRevisionId,
+					);
+					expect(resolved.source).not.toHaveProperty("config");
+					expect(resolved.source.configContext).not.toHaveProperty("config");
+					expect(yield* catalog.resolveForUser(UserId.make("recipient"), reference)).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("resolves matching source and workflow pins after a package upgrade", () =>
-			Effect.gen(function* () {
-				const original = packageWithSources("notes", "v1");
-				const installed = yield* installRevisionPackage(original, owner);
-				const catalog = yield* ImportSourceCatalog.make;
-				const reference = {
-					slug: "notes-alpha",
-					owner: { kind: "plugin" as const, pluginId: PluginId.make(installed.pluginId) },
-				};
-				const before = yield* catalog.resolveForUser(owner, reference);
-				const next = packageWithSources("notes", "v2");
-				const upgraded = yield* installRevisionPackage(
-					{
-						...next,
-						manifest: {
-							...next.manifest,
-							metadata: {
-								...next.manifest.metadata,
-								packageId: original.manifest.metadata.packageId,
+		test.effect(
+			"resolves matching source and workflow pins after a package upgrade",
+			() =>
+				Effect.gen(function* () {
+					const original = packageWithSources("notes", "v1");
+					const installed = yield* installRevisionPackage(original, owner);
+					const catalog = yield* ImportSourceCatalog.make;
+					const reference = {
+						slug: "notes-alpha",
+						owner: { kind: "plugin" as const, pluginId: PluginId.make(installed.pluginId) },
+					};
+					const before = yield* catalog.resolveForUser(owner, reference);
+					const next = packageWithSources("notes", "v2");
+					const upgraded = yield* installRevisionPackage(
+						{
+							...next,
+							manifest: {
+								...next.manifest,
+								metadata: {
+									...next.manifest.metadata,
+									packageId: original.manifest.metadata.packageId,
+								},
 							},
 						},
-					},
-					owner,
-				);
-				const after = yield* catalog.resolveForUser(owner, reference);
-				assert(before?.script && after?.script);
-				expect(after.script.pluginRevisionId).toBe(upgraded.revisionId);
-				expect(after.source.configContext.pluginRevisionId).toBe(after.script.pluginRevisionId);
-				expect(after.script.id).not.toBe(before.script.id);
-			}),
+						owner,
+					);
+					const after = yield* catalog.resolveForUser(owner, reference);
+					assert(before?.script && after?.script);
+					expect(after.script.pluginRevisionId).toBe(upgraded.revisionId);
+					expect(after.source.configContext.pluginRevisionId).toBe<unknown>(
+						after.script.pluginRevisionId,
+					);
+					expect(after.script.id).not.toBe(before.script.id);
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("selects independent same-name sources by exact owner", () =>
-			Effect.gen(function* () {
-				const privatePackage = clashing("whiskey");
-				const privatePlugin = yield* installRevisionPackage(privatePackage, owner);
-				const systemPackage = clashing("whiskey");
-				const system = yield* installRevisionPackage({
-					...systemPackage,
-					manifest: {
-						...systemPackage.manifest,
-						metadata: { ...systemPackage.manifest.metadata, packageId: testPluginPackageId() },
-					},
-				});
-				const catalog = yield* ImportSourceCatalog.make;
-				expect(
-					(yield* catalog.listForUser(owner)).map(({ source }) => [source.slug, source.pluginId]),
-				).toEqual(
-					arrayContaining([
-						["shared-alpha", privatePlugin.pluginId],
-						["shared-zeta", privatePlugin.pluginId],
-						["shared-alpha", system.pluginId],
-						["shared-zeta", system.pluginId],
-					]),
-				);
-				expect(yield* catalog.listForUser(owner)).toHaveLength(4);
-				expect(
-					(yield* catalog.resolveForUser(owner, {
-						slug: "shared-alpha",
-						owner: { kind: "plugin", pluginId: PluginId.make(system.pluginId) },
-					}))?.source.pluginId,
-				).toBe(system.pluginId);
-				expect(
-					(yield* catalog.resolveForUser(owner, {
-						slug: "shared-alpha",
-						owner: { kind: "plugin", pluginId: PluginId.make(privatePlugin.pluginId) },
-					}))?.source.installationId,
-				).toBe(privatePlugin.installation.id);
-				expect(
-					yield* catalog.resolveForUser(owner, { slug: "shared-alpha", owner: { kind: "kernel" } }),
-				).toBeNull();
-			}),
+		test.effect(
+			"selects independent same-name sources by exact owner",
+			() =>
+				Effect.gen(function* () {
+					const privatePackage = clashing("whiskey");
+					const privatePlugin = yield* installRevisionPackage(privatePackage, owner);
+					const systemPackage = clashing("whiskey");
+					const system = yield* installRevisionPackage({
+						...systemPackage,
+						manifest: {
+							...systemPackage.manifest,
+							metadata: { ...systemPackage.manifest.metadata, packageId: testPluginPackageId() },
+						},
+					});
+					const catalog = yield* ImportSourceCatalog.make;
+					expect(
+						(yield* catalog.listForUser(owner)).map(({ source }) => [source.slug, source.pluginId]),
+					).toEqual<unknown>(
+						arrayContaining([
+							["shared-alpha", privatePlugin.pluginId],
+							["shared-zeta", privatePlugin.pluginId],
+							["shared-alpha", system.pluginId],
+							["shared-zeta", system.pluginId],
+						]),
+					);
+					expect(yield* catalog.listForUser(owner)).toHaveLength(4);
+					expect(
+						(yield* catalog.resolveForUser(owner, {
+							slug: "shared-alpha",
+							owner: { kind: "plugin", pluginId: PluginId.make(system.pluginId) },
+						}))?.source.pluginId,
+					).toBe(system.pluginId);
+					expect(
+						(yield* catalog.resolveForUser(owner, {
+							slug: "shared-alpha",
+							owner: { kind: "plugin", pluginId: PluginId.make(privatePlugin.pluginId) },
+						}))?.source.installationId,
+					).toBe(privatePlugin.installation.id);
+					expect(
+						yield* catalog.resolveForUser(owner, {
+							slug: "shared-alpha",
+							owner: { kind: "kernel" },
+						}),
+					).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("carries only the configured key names of the system environment revision", () =>
-			Effect.gen(function* () {
-				const installed = yield* installRevisionPackage(packageWithSources("notes"));
-				const catalog = yield* ImportSourceCatalog.make;
-				const configuredKeys = catalog
-					.resolveForUser(owner, {
-						slug: "notes-alpha",
-						owner: { kind: "plugin", pluginId: PluginId.make(installed.pluginId) },
-					})
-					.pipe(Effect.map((resolved) => resolved?.source.configuredPluginConfigKeys));
-				expect(yield* configuredKeys).toEqual([]);
-				const configRevisionId = yield* (yield* PluginConfigRevisions).create({
-					ownerUserId: null,
-					scope: "environment",
-					pluginInstallationId: null,
-					pluginRevisionId: installed.revisionId,
-					properties: { token: "environment-secret" },
-				});
-				yield* (yield* PluginRepository).setEnvironmentConfigRevision(
-					installed.pluginId,
-					configRevisionId,
-				);
-				expect(yield* configuredKeys).toEqual(["token"]);
-				const [stored] = yield* (yield* DatabaseSession).run((db) =>
-					db
-						.select({ configuredKeys: tables.pluginConfigRevision.configuredKeys })
-						.from(tables.pluginConfigRevision)
-						.where(eq(tables.pluginConfigRevision.id, configRevisionId)),
-				);
-				expect(stored).toEqual({ configuredKeys: ["token"] });
-			}),
+		test.effect(
+			"carries only the configured key names of the system environment revision",
+			() =>
+				Effect.gen(function* () {
+					const installed = yield* installRevisionPackage(packageWithSources("notes"));
+					const catalog = yield* ImportSourceCatalog.make;
+					const configuredKeys = catalog
+						.resolveForUser(owner, {
+							slug: "notes-alpha",
+							owner: { kind: "plugin", pluginId: PluginId.make(installed.pluginId) },
+						})
+						.pipe(Effect.map((resolved) => resolved?.source.configuredPluginConfigKeys));
+					expect(yield* configuredKeys).toEqual([]);
+					const configRevisionId = yield* (yield* PluginConfigRevisions).create({
+						ownerUserId: null,
+						scope: "environment",
+						pluginInstallationId: null,
+						pluginRevisionId: installed.revisionId,
+						properties: { token: "environment-secret" },
+					});
+					yield* (yield* PluginRepository).setEnvironmentConfigRevision(
+						installed.pluginId,
+						configRevisionId,
+					);
+					expect(yield* configuredKeys).toEqual(["token"]);
+					const [stored] = yield* (yield* DatabaseSession).run((db) =>
+						db
+							.select({ configuredKeys: tables.pluginConfigRevision.configuredKeys })
+							.from(tables.pluginConfigRevision)
+							.where(eq(tables.pluginConfigRevision.id, configRevisionId)),
+					);
+					expect(stored).toEqual({ configuredKeys: ["token"] });
+				}),
+			testTimeout,
 		);
 	});
 });

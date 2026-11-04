@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import {
 	type RyotClientAdapter,
 	RyotClientError,
@@ -6,7 +7,9 @@ import {
 } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageRefreshRequest } from "@ryot-app/plugin-client-sdk/react";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { flatRow, mediaIdentity, rows } from "../../tests/client/home/fixtures";
@@ -170,50 +173,62 @@ afterEach(() => {
 });
 
 describe("home gate", () => {
-	it.live("shows a page skeleton while the library count is pending", () =>
-		Effect.gen(function* () {
-			const view = mountHome(homeAdapter({ gate: "pending" }).adapter);
-			yield* Effect.promise(() => flushRyotClient());
-			expect(view.container.querySelector('[aria-label="Loading your media"]')).not.toBeNull();
-			view.unmount();
-		}),
+	it.live(
+		"shows a page skeleton while the library count is pending",
+		() =>
+			Effect.gen(function* () {
+				const view = mountHome(homeAdapter({ gate: "pending" }).adapter);
+				yield* Effect.promise(() => flushRyotClient());
+				expect(view.container.querySelector('[aria-label="Loading your media"]')).not.toBeNull();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("shows the first-run panel for an empty library", () =>
-		Effect.gen(function* () {
-			const view = mountHome(homeAdapter({ gate: 0 }).adapter);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
-			);
-			view.unmount();
-		}),
+	it.live(
+		"shows the first-run panel for an empty library",
+		() =>
+			Effect.gen(function* () {
+				const view = mountHome(homeAdapter({ gate: 0 }).adapter);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
+				);
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("shows the rails for a library with media", () =>
-		Effect.gen(function* () {
-			const view = mountHome(
-				homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } }).adapter,
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Continue")),
-			);
-			expect(view.container.textContent).not.toContain("Start your media library");
-			view.unmount();
-		}),
+	it.live(
+		"shows the rails for a library with media",
+		() =>
+			Effect.gen(function* () {
+				const view = mountHome(
+					homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } }).adapter,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Continue")),
+				);
+				expect(view.container.textContent).not.toContain("Start your media library");
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("fails open to the rails when the library count errors", () =>
-		Effect.gen(function* () {
-			const view = mountHome(
-				homeAdapter({ gate: "error", responses: { "flat.items": rows([inProgressMovie]) } })
-					.adapter,
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Heat")),
-			);
-			expect(view.container.textContent).not.toContain("Start your media library");
-			view.unmount();
-		}),
+	it.live(
+		"fails open to the rails when the library count errors",
+		() =>
+			Effect.gen(function* () {
+				const view = mountHome(
+					homeAdapter({ gate: "error", responses: { "flat.items": rows([inProgressMovie]) } })
+						.adapter,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Heat")),
+				);
+				expect(view.container.textContent).not.toContain("Start your media library");
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
 	for (const gate of [1, "error"] as const) {
@@ -282,184 +297,206 @@ describe("home gate", () => {
 					expect(view.container.querySelector('[role="alert"]')).toBeNull();
 					view.unmount();
 				}),
+			testTimeout,
 		);
 	}
 
-	it.live("shows first run after a failed count recovers to zero with empty eager subsets", () =>
-		Effect.gen(function* () {
-			globalThis.IntersectionObserver = RecordingIntersectionObserver;
-			const home = homeAdapter({ gate: "error" });
-			const view = mountHome(home.adapter);
-			yield* Effect.promise(() => flushRyotClient());
-			expect(observers).toHaveLength(3);
-			expect(view.container.textContent).not.toContain("Start your media library");
+	it.live(
+		"shows first run after a failed count recovers to zero with empty eager subsets",
+		() =>
+			Effect.gen(function* () {
+				globalThis.IntersectionObserver = RecordingIntersectionObserver;
+				const home = homeAdapter({ gate: "error" });
+				const view = mountHome(home.adapter);
+				yield* Effect.promise(() => flushRyotClient());
+				expect(observers).toHaveLength(3);
+				expect(view.container.textContent).not.toContain("Start your media library");
 
-			home.setGate(0);
-			clickRyotElement(getByRole(view.container, "button", { name: "Refresh home" }));
-			yield* Effect.promise(() => view.advance(250));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
-			);
-			expect(observers.every(({ targets }) => targets.size === 0)).toBe(true);
-			view.unmount();
-		}),
+				home.setGate(0);
+				clickRyotElement(getByRole(view.container, "button", { name: "Refresh home" }));
+				yield* Effect.promise(() => view.advance(250));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
+				);
+				expect(observers.every(({ targets }) => targets.size === 0)).toBe(true);
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps populated rails when a previously nonzero count fails to refresh", () =>
-		Effect.gen(function* () {
-			const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
-			const view = mountHome(home.adapter);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Heat")),
-			);
+	it.live(
+		"keeps populated rails when a previously nonzero count fails to refresh",
+		() =>
+			Effect.gen(function* () {
+				const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
+				const view = mountHome(home.adapter);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Heat")),
+				);
 
-			home.setGate("error");
-			clickRyotElement(getByRole(view.container, "button", { name: "Refresh home" }));
-			yield* Effect.promise(() => view.advance(250));
-			yield* Effect.promise(() => flushRyotClient());
-			expect(home.requested.filter((names) => names.includes("library"))).toHaveLength(2);
-			expect(view.container.textContent).toContain("Heat");
-			expect(view.container.textContent).not.toContain("Start your media library");
-			expect(view.container.querySelector('[aria-label="Loading your media"]')).toBeNull();
-			view.unmount();
-		}),
+				home.setGate("error");
+				clickRyotElement(getByRole(view.container, "button", { name: "Refresh home" }));
+				yield* Effect.promise(() => view.advance(250));
+				yield* Effect.promise(() => flushRyotClient());
+				expect(home.requested.filter((names) => names.includes("library"))).toHaveLength(2);
+				expect(view.container.textContent).toContain("Heat");
+				expect(view.container.textContent).not.toContain("Start your media library");
+				expect(view.container.querySelector('[aria-label="Loading your media"]')).toBeNull();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps populated rails available when another eager rail fails", () =>
-		Effect.gen(function* () {
-			globalThis.IntersectionObserver = RecordingIntersectionObserver;
-			const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
-			const view = mountHome({
-				...home.adapter,
-				query: (document) =>
-					Object.hasOwn(document.queries, "titles.anime")
-						? Effect.fail(new RyotClientError({ reason: "transport" }))
-						: home.adapter.query(document),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					expect(view.container.textContent).toContain("Heat");
-					expect(getByRole(view.container, "alert")).toBeDefined();
-				}),
-			);
-			expect(view.container.textContent).not.toContain("Start your media library");
-			view.unmount();
-		}),
+	it.live(
+		"keeps populated rails available when another eager rail fails",
+		() =>
+			Effect.gen(function* () {
+				globalThis.IntersectionObserver = RecordingIntersectionObserver;
+				const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
+				const view = mountHome({
+					...home.adapter,
+					query: (document) =>
+						Object.hasOwn(document.queries, "titles.anime")
+							? Effect.fail(new RyotClientError({ reason: "transport" }))
+							: home.adapter.query(document),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(view.container.textContent).toContain("Heat");
+						expect(getByRole(view.container, "alert")).toBeDefined();
+					}),
+				);
+				expect(view.container.textContent).not.toContain("Start your media library");
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });
 
 describe("home sections", () => {
-	it.live("runs eager sections as their own documents and mounts the rest near the viewport", () =>
-		Effect.gen(function* () {
-			globalThis.IntersectionObserver = RecordingIntersectionObserver;
-			const home = homeAdapter({ gate: 1 });
-			const view = mountHome(home.adapter);
-			yield* Effect.promise(() => flushRyotClient());
-			const documents = () => home.requested.map((names) => [...names].sort());
+	it.live(
+		"runs eager sections as their own documents and mounts the rest near the viewport",
+		() =>
+			Effect.gen(function* () {
+				globalThis.IntersectionObserver = RecordingIntersectionObserver;
+				const home = homeAdapter({ gate: 1 });
+				const view = mountHome(home.adapter);
+				yield* Effect.promise(() => flushRyotClient());
+				const documents = () => home.requested.map((names) => [...names].sort());
 
-			expect(documents()).toEqual([
-				["library"],
-				["flat.items", "podcast.items", "show.items"],
-				["flat.items", "podcast.items", "show.items"],
-				["titles.anime", "titles.podcasts", "titles.releases", "titles.shows"],
-			]);
-			expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
-				"600px 0px",
-				"600px 0px",
-				"600px 0px",
-			]);
+				expect(documents()).toEqual([
+					["library"],
+					["flat.items", "podcast.items", "show.items"],
+					["flat.items", "podcast.items", "show.items"],
+					["titles.anime", "titles.podcasts", "titles.releases", "titles.shows"],
+				]);
+				expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
+					"600px 0px",
+					"600px 0px",
+					"600px 0px",
+				]);
 
-			act(() => {
-				for (const observer of observers) {
-					observer.intersect();
-				}
-			});
-			yield* Effect.promise(() => flushRyotClient());
+				act(() => {
+					for (const observer of observers) {
+						observer.intersect();
+					}
+				});
+				yield* Effect.promise(() => flushRyotClient());
 
-			expect(documents().slice(4)).toEqual([
-				["suggestions.items", "suggestions.source"],
-				["trending.trending"],
-				["days", "figures", "mediaTypes", "reviews"],
-			]);
-			expect(home.reportingPreferenceReads()).toBe(1);
-			view.unmount();
-		}),
+				expect(documents().slice(4)).toEqual([
+					["suggestions.items", "suggestions.source"],
+					["trending.trending"],
+					["days", "figures", "mediaTypes", "reviews"],
+				]);
+				expect(home.reportingPreferenceReads()).toBe(1);
+				view.unmount();
+			}),
+		testTimeout,
 	);
-	it.live("windows Upcoming by the saved days-ahead setting", () =>
-		Effect.gen(function* () {
-			const home = homeAdapter({ gate: 1, settings: { upcomingDaysAhead: 3 } });
-			const view = mountRyotClient(home.adapter, null);
-			yield* Effect.promise(() =>
-				view.setTime(
-					DateTime.toEpochMillis(localDateTime({ day: 25, hour: 9, month: 9, year: 2026 })),
-				),
-			);
-			view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
-			yield* Effect.promise(() => flushRyotClient());
-			const upcoming = (yield* Effect.forEach(home.documents, (document) =>
-				Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(document),
-			)).find((document) => document.includes("upcomingAnime"));
-
-			expect(upcoming).toContain('"2026-09-28"');
-			expect(upcoming).not.toContain('"2026-10-09"');
-			view.unmount();
-		}),
-	);
-
-	it.live("refreshes every section at local midnight", () =>
-		Effect.gen(function* () {
-			const home = homeAdapter({ gate: 1 });
-			const view = mountRyotClient(home.adapter, null);
-			yield* Effect.promise(() =>
-				view.setTime(
-					DateTime.toEpochMillis(
-						localDateTime({ day: 25, hour: 23, month: 9, minute: 30, year: 2026 }),
+	it.live(
+		"windows Upcoming by the saved days-ahead setting",
+		() =>
+			Effect.gen(function* () {
+				const home = homeAdapter({ gate: 1, settings: { upcomingDaysAhead: 3 } });
+				const view = mountRyotClient(home.adapter, null);
+				yield* Effect.promise(() =>
+					view.setTime(
+						DateTime.toEpochMillis(localDateTime({ day: 25, hour: 9, month: 9, year: 2026 })),
 					),
-				),
-			);
-			view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
-			yield* Effect.promise(() => flushRyotClient());
-			const continueRequests = () =>
-				home.requested.filter(
-					(names) => names.includes("flat.items") && names.includes("show.items"),
-				).length;
-			const beforeMidnight = continueRequests();
+				);
+				view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
+				yield* Effect.promise(() => flushRyotClient());
+				const upcoming = (yield* Effect.forEach(home.documents, (document) =>
+					Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(document),
+				)).find((document) => document.includes("upcomingAnime"));
 
-			yield* Effect.promise(() => view.advance("31 minutes"));
-			yield* Effect.promise(() => flushRyotClient());
+				expect(upcoming).toContain('"2026-09-28"');
+				expect(upcoming).not.toContain('"2026-10-09"');
+				view.unmount();
+			}),
+		testTimeout,
+	);
 
-			expect(continueRequests()).toBeGreaterThan(beforeMidnight);
-			view.unmount();
-		}),
+	it.live(
+		"refreshes every section at local midnight",
+		() =>
+			Effect.gen(function* () {
+				const home = homeAdapter({ gate: 1 });
+				const view = mountRyotClient(home.adapter, null);
+				yield* Effect.promise(() =>
+					view.setTime(
+						DateTime.toEpochMillis(
+							localDateTime({ day: 25, hour: 23, month: 9, minute: 30, year: 2026 }),
+						),
+					),
+				);
+				view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
+				yield* Effect.promise(() => flushRyotClient());
+				const continueRequests = () =>
+					home.requested.filter(
+						(names) => names.includes("flat.items") && names.includes("show.items"),
+					).length;
+				const beforeMidnight = continueRequests();
+
+				yield* Effect.promise(() => view.advance("31 minutes"));
+				yield* Effect.promise(() => flushRyotClient());
+
+				expect(continueRequests()).toBeGreaterThan(beforeMidnight);
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });
 
 describe("first run", () => {
-	it.live("links to the import page and opens provider search for the chosen type", () =>
-		Effect.gen(function* () {
-			const home = homeAdapter({ gate: 0 });
-			const view = mountHome(home.adapter);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
-			);
+	it.live(
+		"links to the import page and opens provider search for the chosen type",
+		() =>
+			Effect.gen(function* () {
+				const home = homeAdapter({ gate: 0 });
+				const view = mountHome(home.adapter);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Start your media library")),
+				);
 
-			clickRyotElement(getByRole(view.container, "link", { name: "Import your history" }));
-			expect(home.navigations).toEqual([{ kind: "kernel-page", page: "import-data" }]);
+				clickRyotElement(getByRole(view.container, "link", { name: "Import your history" }));
+				expect(home.navigations).toEqual([{ kind: "kernel-page", page: "import-data" }]);
 
-			clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
-			clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
-			expect(home.entityPicks).toEqual([
-				{
-					schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } },
-					library: {
-						librarySchemaSlug: "media-library",
-						relationshipSlug: "in-media-library",
-						entryEvent: { label: "Add to backlog", eventSchemaSlug: "backlog" },
+				clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
+				clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
+				expect(home.entityPicks).toEqual([
+					{
+						schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } },
+						library: {
+							librarySchemaSlug: "media-library",
+							relationshipSlug: "in-media-library",
+							entryEvent: { label: "Add to backlog", eventSchemaSlug: "backlog" },
+						},
 					},
-				},
-			]);
-			expect(document.body.querySelector('[role="menu"]')).toBeNull();
-			view.unmount();
-		}),
+				]);
+				expect(document.body.querySelector('[role="menu"]')).toBeNull();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });

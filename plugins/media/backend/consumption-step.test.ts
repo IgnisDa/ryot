@@ -1,10 +1,14 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { EventStreamBatchInput } from "@ryot-app/plugin-backend-sdk/event-streams";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { ConsumptionContribution } from "../shared/consumption-projection";
 import definition, { manifest } from "./consumption-step.sandbox";
@@ -120,39 +124,42 @@ const contributionOf = (properties: Readonly<Record<string, unknown>>) =>
 	Schema.decodeUnknownEffect(ConsumptionContribution)(properties["contribution"]);
 
 describe("production consumption stream", () => {
-	it.effect("resumes from its encoded checkpoint and caps each stream at 100 updates", () =>
-		Effect.gen(function* () {
-			const rows = Array.from({ length: 450 }, (_, index) => ({
-				...row(String(index).padStart(4, "0"), "one"),
-				properties: {
-					sourceRun: "one",
-					progressPages: (index + 1) / 4,
-					consumptionBasis: { total: 1000, unit: "pages", property: "pages" },
-				},
-			}));
-			const test = harness(rows);
-			const steps: number[] = [];
-			let checkpoint: Schema.Json = null;
-			let amount = 0;
-			let done = false;
-			while (!done && steps.length < 20) {
-				const result = yield* test.single(checkpoint);
-				steps.push(result.updates.length);
-				const encoded: string = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(
-					result.checkpoint,
-				);
-				checkpoint = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(encoded);
-				for (const update of result.updates) {
-					amount += (yield* contributionOf(update.properties)).pages?.recorded ?? 0;
+	it.effect(
+		"resumes from its encoded checkpoint and caps each stream at 100 updates",
+		() =>
+			Effect.gen(function* () {
+				const rows = Array.from({ length: 450 }, (_, index) => ({
+					...row(String(index).padStart(4, "0"), "one"),
+					properties: {
+						sourceRun: "one",
+						progressPages: (index + 1) / 4,
+						consumptionBasis: { total: 1000, unit: "pages", property: "pages" },
+					},
+				}));
+				const test = harness(rows);
+				const steps: number[] = [];
+				let checkpoint: Schema.Json = null;
+				let amount = 0;
+				let done = false;
+				while (!done && steps.length < 20) {
+					const result = yield* test.single(checkpoint);
+					steps.push(result.updates.length);
+					const encoded: string = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(
+						result.checkpoint,
+					);
+					checkpoint = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Json))(encoded);
+					for (const update of result.updates) {
+						amount += (yield* contributionOf(update.properties)).pages?.recorded ?? 0;
+					}
+					done = result.done;
 				}
-				done = result.done;
-			}
-			expect(done).toBe(true);
-			expect(checkpoint).toBeNull();
-			expect(Math.max(...steps)).toBe(100);
-			expect(steps.reduce((total, count) => total + count, 0)).toBe(450);
-			expect(amount).toBe(112.5);
-		}),
+				expect(done).toBe(true);
+				expect(checkpoint).toBeNull();
+				expect(Math.max(...steps)).toBe(100);
+				expect(steps.reduce((total, count) => total + count, 0)).toBe(450);
+				expect(amount).toBe(112.5);
+			}),
+		testTimeout,
 	);
 
 	it("reads every stream of a batch with one bounded rows query", () => {
@@ -183,27 +190,30 @@ describe("production consumption stream", () => {
 		]);
 	});
 
-	it.effect("completes several short titles in one execution with one query per round", () =>
-		Effect.gen(function* () {
-			const titles = ["a", "b", "c"];
-			const test = harness(
-				titles.flatMap((entityId) => [
-					row(`${entityId}:1`, entityId, false, entityId),
-					row(`${entityId}:2`, entityId, true, entityId),
-				]),
-			);
-			const result = yield* test.run(
-				titles.map((entityId) => ({ entityId, checkpoint: null })),
-				"complete",
-			);
-			expect(test.calls()).toBe(1);
-			expect(
-				result.streams.map(({ done, entityId, checkpoint }) => ({ done, entityId, checkpoint })),
-			).toEqual(titles.map((entityId) => ({ entityId, done: true, checkpoint: null })));
-			expect(result.streams.map(({ updates }) => updates.map(({ eventId }) => eventId))).toEqual(
-				titles.map((entityId) => [`${entityId}:2`]),
-			);
-		}),
+	it.effect(
+		"completes several short titles in one execution with one query per round",
+		() =>
+			Effect.gen(function* () {
+				const titles = ["a", "b", "c"];
+				const test = harness(
+					titles.flatMap((entityId) => [
+						row(`${entityId}:1`, entityId, false, entityId),
+						row(`${entityId}:2`, entityId, true, entityId),
+					]),
+				);
+				const result = yield* test.run(
+					titles.map((entityId) => ({ entityId, checkpoint: null })),
+					"complete",
+				);
+				expect(test.calls()).toBe(1);
+				expect(
+					result.streams.map(({ done, entityId, checkpoint }) => ({ done, entityId, checkpoint })),
+				).toEqual<unknown>(titles.map((entityId) => ({ entityId, done: true, checkpoint: null })));
+				expect(
+					result.streams.map(({ updates }) => updates.map(({ eventId }) => eventId)),
+				).toEqual<unknown>(titles.map((entityId) => [`${entityId}:2`]));
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -242,6 +252,7 @@ describe("production consumption stream", () => {
 				expect(total).toBe(66000);
 				expect(count).toBe(1100);
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -285,5 +296,6 @@ describe("production consumption stream", () => {
 					contribution: { pages: { recorded: 25 } },
 				});
 			}),
+		testTimeout,
 	);
 });

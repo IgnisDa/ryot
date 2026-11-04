@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createRef } from "react";
-import { describe, expect, it } from "vitest";
 
 import { DataTable, type DataTableColumn, displayValueText } from "./table";
 
@@ -133,7 +134,7 @@ describe("DataTable", () => {
 		);
 
 		const table = screen.getByRole("table", { name: "People" });
-		expect(ref.current).toBe(table);
+		expect(ref.current).toBe<unknown>(table);
 		expect(table.id).toBe("people");
 		expect(table.getAttribute("aria-describedby")).toBe("people-description");
 		expect(table.tabIndex).toBe(0);

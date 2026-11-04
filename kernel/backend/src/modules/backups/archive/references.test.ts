@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { document, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { testPluginPackageId } from "#modules/plugins/test-support";
@@ -52,113 +55,125 @@ it.effect(
 			).pipe(Effect.flip);
 			expect(wrongScope.reason).toBe("missing_reference_mapping");
 		}),
+	testTimeout,
 );
 
-it.effect("rewrites the known renderer schema reference but preserves opaque plugin settings", () =>
-	Effect.gen(function* () {
-		const packageId = testPluginPackageId();
-		const key = pluginPackageKey({ packageId, scope: "user" });
-		const settings = {
-			pageSize: 50,
-			searchFields: [],
-			layouts: ["grid"],
-			tableColumns: null,
-			sourceName: "records",
-			defaultLayout: "grid",
-			summary: { image: null, subtitle: null },
-			subject: {
-				entityAlias: "entity",
-				schemas: [
-					{ slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
-					{ slug: "collection", owner: { kind: "kernel" } },
-				],
-			},
-			addAction: {
+it.effect(
+	"rewrites the known renderer schema reference but preserves opaque plugin settings",
+	() =>
+		Effect.gen(function* () {
+			const packageId = testPluginPackageId();
+			const key = pluginPackageKey({ packageId, scope: "user" });
+			const settings = {
+				pageSize: 50,
+				searchFields: [],
+				layouts: ["grid"],
+				tableColumns: null,
+				sourceName: "records",
+				defaultLayout: "grid",
+				summary: { image: null, subtitle: null },
+				subject: {
+					entityAlias: "entity",
+					schemas: [
+						{ slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
+						{ slug: "collection", owner: { kind: "kernel" } },
+					],
+				},
+				addAction: {
+					type: "provider-search",
+					schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
+					library: {
+						entryEvent: null,
+						librarySchemaSlug: "media-library",
+						relationshipSlug: "in-media-library",
+					},
+				},
+			};
+			const renderer = { kind: "kernel", name: "entity-browser" };
+			const exported = yield* exportRendererSettings(
+				renderer,
+				settings,
+				new Map([["source-owner", key]]),
+			);
+			expect(exported["addAction"]).toEqual({
 				type: "provider-search",
-				schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
+				schema: { pluginKey: key, slug: "bottle" },
 				library: {
 					entryEvent: null,
 					librarySchemaSlug: "media-library",
 					relationshipSlug: "in-media-library",
 				},
-			},
-		};
-		const renderer = { kind: "kernel", name: "entity-browser" };
-		const exported = yield* exportRendererSettings(
-			renderer,
-			settings,
-			new Map([["source-owner", key]]),
-		);
-		expect(exported["addAction"]).toEqual({
-			type: "provider-search",
-			schema: { pluginKey: key, slug: "bottle" },
-			library: {
-				entryEvent: null,
-				librarySchemaSlug: "media-library",
-				relationshipSlug: "in-media-library",
-			},
-		});
-		expect(exported["subject"]).toEqual({
-			entityAlias: "entity",
-			schemas: [
-				{ pluginKey: key, slug: "bottle" },
-				{ pluginKey: null, slug: "collection" },
-			],
-		});
-		const unmapped = yield* exportRendererSettings(renderer, settings, new Map()).pipe(Effect.flip);
-		expect(unmapped.reason).toBe("missing_reference_mapping");
-		const restored = yield* importRendererSettings(
-			renderer,
-			exported,
-			new Map([[key, "destination-owner"]]),
-		);
-		expect(restored["subject"]).toEqual({
-			entityAlias: "entity",
-			schemas: [
-				{ slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
-				{ slug: "collection", owner: { kind: "kernel" } },
-			],
-		});
-		expect(restored["addAction"]).toEqual({
-			type: "provider-search",
-			schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
-			library: {
-				entryEvent: null,
-				librarySchemaSlug: "media-library",
-				relationshipSlug: "in-media-library",
-			},
-		});
-		const opaque = { ownerPluginId: "source-owner", addAction: settings.addAction };
-		expect(yield* exportRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);
-		expect(yield* importRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);
-	}),
+			});
+			expect(exported["subject"]).toEqual({
+				entityAlias: "entity",
+				schemas: [
+					{ pluginKey: key, slug: "bottle" },
+					{ pluginKey: null, slug: "collection" },
+				],
+			});
+			const unmapped = yield* exportRendererSettings(renderer, settings, new Map()).pipe(
+				Effect.flip,
+			);
+			expect(unmapped.reason).toBe("missing_reference_mapping");
+			const restored = yield* importRendererSettings(
+				renderer,
+				exported,
+				new Map([[key, "destination-owner"]]),
+			);
+			expect(restored["subject"]).toEqual({
+				entityAlias: "entity",
+				schemas: [
+					{ slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
+					{ slug: "collection", owner: { kind: "kernel" } },
+				],
+			});
+			expect(restored["addAction"]).toEqual({
+				type: "provider-search",
+				schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
+				library: {
+					entryEvent: null,
+					librarySchemaSlug: "media-library",
+					relationshipSlug: "in-media-library",
+				},
+			});
+			const opaque = { ownerPluginId: "source-owner", addAction: settings.addAction };
+			expect(yield* exportRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);
+			expect(yield* importRendererSettings({ kind: "plugin" }, opaque, new Map())).toBe(opaque);
+		}),
+	testTimeout,
 );
 
-it.effect("round-trips plugin-route add actions without remapping their package target", () =>
-	Effect.gen(function* () {
-		const addAction = {
-			path: "/items/item-1",
-			search: { tab: "history" },
-			type: "plugin-route" as const,
-			packageId: PluginPackageId.make("test/target"),
-		};
-		const settings = {
-			addAction,
-			pageSize: 50,
-			searchFields: [],
-			layouts: ["grid"],
-			tableColumns: null,
-			sourceName: "records",
-			defaultLayout: "grid",
-			summary: { image: null, subtitle: null },
-			subject: { entityAlias: "entity", schemas: [{ slug: "bottle", owner: { kind: "kernel" } }] },
-		};
-		const renderer = { kind: "kernel", name: "entity-browser" };
-		const exported = yield* exportRendererSettings(renderer, settings, new Map());
-		expect(exported["addAction"]).toEqual(addAction);
-		const restored = yield* importRendererSettings(renderer, exported, new Map());
-		expect(restored["addAction"]).toEqual(addAction);
-	}),
+it.effect(
+	"round-trips plugin-route add actions without remapping their package target",
+	() =>
+		Effect.gen(function* () {
+			const addAction = {
+				path: "/items/item-1",
+				search: { tab: "history" },
+				type: "plugin-route" as const,
+				packageId: PluginPackageId.make("test/target"),
+			};
+			const settings = {
+				addAction,
+				pageSize: 50,
+				searchFields: [],
+				layouts: ["grid"],
+				tableColumns: null,
+				sourceName: "records",
+				defaultLayout: "grid",
+				summary: { image: null, subtitle: null },
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: "bottle", owner: { kind: "kernel" } }],
+				},
+			};
+			const renderer = { kind: "kernel", name: "entity-browser" };
+			const exported = yield* exportRendererSettings(renderer, settings, new Map());
+			expect(exported["addAction"]).toEqual(addAction);
+			const restored = yield* importRendererSettings(renderer, exported, new Map());
+			expect(restored["addAction"]).toEqual(addAction);
+		}),
+	testTimeout,
 );
 
 it("redacts schema-marked configuration secrets and records pointers", () => {

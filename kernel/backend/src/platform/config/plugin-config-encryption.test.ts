@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result } from "effect";
 
 import { createPluginConfigEncryption } from "./plugin-config-encryption";
@@ -12,35 +15,41 @@ const owner = {
 	pluginRevisionId: "revision-1",
 };
 
-it.effect("encrypts complete configuration and authenticates its immutable ownership", () =>
-	Effect.gen(function* () {
-		const keys = createPluginConfigEncryption(oldKey);
-		const value = {
-			missing: null,
-			apiKey: "private-token",
-			nested: { threshold: 0, enabled: false },
-		};
-		const encrypted = yield* keys.encrypt(value, owner);
-		expect(encrypted.encryptedPayload.toString()).not.toContain("private-token");
-		expect(yield* keys.decrypt(encrypted, owner)).toEqual(value);
-		const wrongOwner = yield* Effect.result(
-			keys.decrypt(encrypted, { ...owner, ownerUserId: "other-user" }),
-		);
-		expect(Result.isFailure(wrongOwner)).toBe(true);
-	}),
+it.effect(
+	"encrypts complete configuration and authenticates its immutable ownership",
+	() =>
+		Effect.gen(function* () {
+			const keys = createPluginConfigEncryption(oldKey);
+			const value = {
+				missing: null,
+				apiKey: "private-token",
+				nested: { threshold: 0, enabled: false },
+			};
+			const encrypted = yield* keys.encrypt(value, owner);
+			expect(encrypted.encryptedPayload.toString()).not.toContain("private-token");
+			expect(yield* keys.decrypt(encrypted, owner)).toEqual(value);
+			const wrongOwner = yield* Effect.result(
+				keys.decrypt(encrypted, { ...owner, ownerUserId: "other-user" }),
+			);
+			expect(Result.isFailure(wrongOwner)).toBe(true);
+		}),
+	testTimeout,
 );
 
-it.effect("decrypts historical payloads with an independent encryption instance", () =>
-	Effect.gen(function* () {
-		const before = createPluginConfigEncryption(oldKey);
-		const after = createPluginConfigEncryption(oldKey);
-		const encrypted = yield* before.encrypt({ password: "historical" }, owner);
-		expect(yield* after.decrypt(encrypted, owner)).toEqual({ password: "historical" });
-		expect((yield* after.encrypt({}, owner)).encryptionKeyId).toBe("old");
-		expect(yield* after.fingerprint({ password: "historical" })).toBe(
-			yield* before.fingerprint({ password: "historical" }),
-		);
-	}),
+it.effect(
+	"decrypts historical payloads with an independent encryption instance",
+	() =>
+		Effect.gen(function* () {
+			const before = createPluginConfigEncryption(oldKey);
+			const after = createPluginConfigEncryption(oldKey);
+			const encrypted = yield* before.encrypt({ password: "historical" }, owner);
+			expect(yield* after.decrypt(encrypted, owner)).toEqual({ password: "historical" });
+			expect((yield* after.encrypt({}, owner)).encryptionKeyId).toBe("old");
+			expect(yield* after.fingerprint({ password: "historical" })).toBe(
+				yield* before.fingerprint({ password: "historical" }),
+			);
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -68,22 +77,26 @@ it.effect(
 				}
 			}
 		}),
+	testTimeout,
 );
 
-it.effect("reuses canonical fingerprints without making encryption deterministic", () =>
-	Effect.gen(function* () {
-		const keys = createPluginConfigEncryption(oldKey);
-		expect(yield* keys.fingerprint({ first: 1, second: 2 })).toBe(
-			yield* keys.fingerprint({ first: 1, second: 2 }),
-		);
-		expect(yield* keys.fingerprint({ first: 1 })).not.toBe(
-			yield* createPluginConfigEncryption(newKey).fingerprint({ first: 1 }),
-		);
-		const a = yield* keys.encrypt({ first: 1 }, owner);
-		const b = yield* keys.encrypt({ first: 1 }, owner);
-		expect(a.nonce).not.toEqual(b.nonce);
-		expect(a.encryptedPayload).not.toEqual(b.encryptedPayload);
-	}),
+it.effect(
+	"reuses canonical fingerprints without making encryption deterministic",
+	() =>
+		Effect.gen(function* () {
+			const keys = createPluginConfigEncryption(oldKey);
+			expect(yield* keys.fingerprint({ first: 1, second: 2 })).toBe(
+				yield* keys.fingerprint({ first: 1, second: 2 }),
+			);
+			expect(yield* keys.fingerprint({ first: 1 })).not.toBe(
+				yield* createPluginConfigEncryption(newKey).fingerprint({ first: 1 }),
+			);
+			const a = yield* keys.encrypt({ first: 1 }, owner);
+			const b = yield* keys.encrypt({ first: 1 }, owner);
+			expect(a.nonce).not.toEqual(b.nonce);
+			expect(a.encryptedPayload).not.toEqual(b.encryptedPayload);
+		}),
+	testTimeout,
 );
 
 it("rejects malformed persisted keys without exposing supplied values", () => {
@@ -103,22 +116,27 @@ it("rejects malformed persisted keys without exposing supplied values", () => {
 	}
 });
 
-it.effect("binds subkey ciphertext to its derivation context and attribution", () =>
-	Effect.gen(function* () {
-		const keys = createPluginConfigEncryption(oldKey);
-		const attribution = { column: "refreshToken", connectionId: "connection-1" };
-		const encrypted = yield* keys.encryptWithSubkey("ryot/test", "refresh-secret", attribution);
-		expect(encrypted.keyId).toBe("old");
-		expect(Buffer.from(encrypted.ciphertext, "base64").toString()).not.toContain("refresh-secret");
-		expect(yield* keys.decryptWithSubkey("ryot/test", encrypted, attribution)).toBe(
-			"refresh-secret",
-		);
-		for (const attempt of [
-			keys.decryptWithSubkey("ryot/other", encrypted, attribution),
-			keys.decryptWithSubkey("ryot/test", encrypted, { ...attribution, column: "accessToken" }),
-			createPluginConfigEncryption(newKey).decryptWithSubkey("ryot/test", encrypted, attribution),
-		]) {
-			expect(Result.isFailure(yield* Effect.result(attempt))).toBe(true);
-		}
-	}),
+it.effect(
+	"binds subkey ciphertext to its derivation context and attribution",
+	() =>
+		Effect.gen(function* () {
+			const keys = createPluginConfigEncryption(oldKey);
+			const attribution = { column: "refreshToken", connectionId: "connection-1" };
+			const encrypted = yield* keys.encryptWithSubkey("ryot/test", "refresh-secret", attribution);
+			expect(encrypted.keyId).toBe("old");
+			expect(Buffer.from(encrypted.ciphertext, "base64").toString()).not.toContain(
+				"refresh-secret",
+			);
+			expect(yield* keys.decryptWithSubkey("ryot/test", encrypted, attribution)).toBe(
+				"refresh-secret",
+			);
+			for (const attempt of [
+				keys.decryptWithSubkey("ryot/other", encrypted, attribution),
+				keys.decryptWithSubkey("ryot/test", encrypted, { ...attribution, column: "accessToken" }),
+				createPluginConfigEncryption(newKey).decryptWithSubkey("ryot/test", encrypted, attribution),
+			]) {
+				expect(Result.isFailure(yield* Effect.result(attempt))).toBe(true);
+			}
+		}),
+	testTimeout,
 );

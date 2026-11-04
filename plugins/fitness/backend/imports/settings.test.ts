@@ -1,6 +1,7 @@
+import { afterEach, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { installSandboxTestFilesystem } from "@ryot-app/plugin-backend-sdk/testing";
-import { afterEach, expect, it } from "vitest";
 
 import settingsScript from "./settings.sandbox";
 

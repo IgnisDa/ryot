@@ -1,5 +1,8 @@
+import { describe, expect } from "bun:test";
+
 import type { DownloadFileOptions } from "@capacitor/file-transfer";
-import { describe, expect, it } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber } from "effect";
 import { SecureRandom } from "effect/crypto";
 
@@ -66,153 +69,178 @@ const request = {
 } satisfies FileDownloadRequest;
 
 describe("native file downloads", () => {
-	it.live("creates, transfers, shares, and removes a temporary file in order", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			yield* makeNativeFileDownload(random, makePorts(calls))(request);
+	it.live(
+		"creates, transfers, shares, and removes a temporary file in order",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				yield* makeNativeFileDownload(random, makePorts(calls))(request);
 
-			expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
-			expect(calls.created).toHaveLength(1);
-			const [directory] = calls.created;
-			expect(directory).toMatch(/^ryot-download-/);
-			expect(calls.uriPaths).toEqual([`${directory}/server.log`]);
-			expect(calls.transfers).toEqual([
-				{ url: request.url, disableRedirects: true, path: `native://${directory}/server.log` },
-			]);
-			expect(calls.shared).toEqual([`native://${directory}/server.log`]);
-			expect(calls.removed).toEqual([directory]);
-		}),
+				expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
+				expect(calls.created).toHaveLength(1);
+				const [directory] = calls.created;
+				expect(directory).toMatch(/^ryot-download-/);
+				expect(calls.uriPaths).toEqual([`${directory}/server.log`]);
+				expect(calls.transfers).toEqual([
+					{ url: request.url, disableRedirects: true, path: `native://${directory}/server.log` },
+				]);
+				expect(calls.shared).toEqual([`native://${directory}/server.log`]);
+				expect(calls.removed).toEqual([directory]);
+			}),
+		testTimeout,
 	);
 
-	it.live("sanitizes slashes without changing the file name", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			yield* makeNativeFileDownload(
-				random,
-				makePorts(calls),
-			)({ ...request, fileName: "logs\\rotated/server.log" });
-
-			const [directory] = calls.created;
-			expect(calls.uriPaths).toEqual([`${directory}/logs_rotated_server.log`]);
-			expect(calls.transfers[0]?.path).toBe(`native://${directory}/logs_rotated_server.log`);
-		}),
-	);
-
-	it.live("cleans up after a transfer failure without sharing", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			const failure = new FileDownloadError({ cause: "transfer failed" });
-			const result = yield* Effect.exit(
-				makeNativeFileDownload(
+	it.live(
+		"sanitizes slashes without changing the file name",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				yield* makeNativeFileDownload(
 					random,
-					makePorts(calls, { transfer: () => Effect.fail(failure) }),
-				)(request),
-			);
+					makePorts(calls),
+				)({ ...request, fileName: "logs\\rotated/server.log" });
 
-			expect(Exit.isFailure(result)).toBe(true);
-			expect(calls.sequence).toEqual(["create", "uri", "transfer", "remove"]);
-			expect(calls.shared).toEqual([]);
-			expect(calls.removed).toEqual(calls.created);
-		}),
+				const [directory] = calls.created;
+				expect(calls.uriPaths).toEqual([`${directory}/logs_rotated_server.log`]);
+				expect(calls.transfers[0]?.path).toBe(`native://${directory}/logs_rotated_server.log`);
+			}),
+		testTimeout,
 	);
 
-	it.live("cleans up after a URI failure", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			const result = yield* Effect.exit(
-				makeNativeFileDownload(
-					random,
-					makePorts(calls, {
-						uri: () => Effect.fail(new FileDownloadError({ cause: "URI failed" })),
-					}),
-				)(request),
-			);
+	it.live(
+		"cleans up after a transfer failure without sharing",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const failure = new FileDownloadError({ cause: "transfer failed" });
+				const result = yield* Effect.exit(
+					makeNativeFileDownload(
+						random,
+						makePorts(calls, { transfer: () => Effect.fail(failure) }),
+					)(request),
+				);
 
-			expect(Exit.isFailure(result)).toBe(true);
-			expect(calls.sequence).toEqual(["create", "uri", "remove"]);
-			expect(calls.removed).toEqual(calls.created);
-		}),
+				expect(Exit.isFailure(result)).toBe(true);
+				expect(calls.sequence).toEqual(["create", "uri", "transfer", "remove"]);
+				expect(calls.shared).toEqual([]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
 	);
 
-	it.live("cleans up after a share failure", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			const result = yield* Effect.exit(
-				makeNativeFileDownload(
-					random,
-					makePorts(calls, {
-						share: () => Effect.fail(new FileDownloadError({ cause: "share failed" })),
-					}),
-				)(request),
-			);
-
-			expect(Exit.isFailure(result)).toBe(true);
-			expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
-			expect(calls.removed).toEqual(calls.created);
-		}),
-	);
-
-	it.live("treats a dismissed share sheet as cancellation and cleans up", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			yield* makeNativeFileDownload(
-				random,
-				makePorts(calls, {
-					share: () => Effect.fail(new FileDownloadError({ cause: { message: "Share canceled" } })),
-				}),
-			)(request);
-			expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
-			expect(calls.removed).toEqual(calls.created);
-		}),
-	);
-
-	it.live("does not remove a directory when creation fails", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			const result = yield* Effect.exit(
-				makeNativeFileDownload(
-					random,
-					makePorts(calls, {
-						create: () => Effect.fail(new FileDownloadError({ cause: "create failed" })),
-					}),
-				)(request),
-			);
-
-			expect(Exit.isFailure(result)).toBe(true);
-			expect(calls.sequence).toEqual(["create"]);
-			expect(calls.removed).toEqual([]);
-		}),
-	);
-
-	it.live("waits for a pending native transfer before cleanup after interruption", () =>
-		Effect.gen(function* () {
-			const calls = makeCalls();
-			const started = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const download = makeNativeFileDownload(
-				random,
-				makePorts(calls, {
-					transfer: () =>
-						Effect.gen(function* () {
-							yield* Deferred.succeed(started, undefined);
-							yield* Deferred.await(release);
+	it.live(
+		"cleans up after a URI failure",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const result = yield* Effect.exit(
+					makeNativeFileDownload(
+						random,
+						makePorts(calls, {
+							uri: () => Effect.fail(new FileDownloadError({ cause: "URI failed" })),
 						}),
-				}),
-			);
-			const pending = yield* Effect.forkChild(download(request), { startImmediately: true });
-			yield* Deferred.await(started);
-			const interruption = yield* Effect.forkChild(Fiber.interrupt(pending), {
-				startImmediately: true,
-			});
+					)(request),
+				);
 
-			expect(calls.sequence).toEqual(["create", "uri", "transfer"]);
-			expect(calls.removed).toEqual([]);
-			yield* Deferred.succeed(release, undefined);
-			yield* Fiber.join(interruption);
+				expect(Exit.isFailure(result)).toBe(true);
+				expect(calls.sequence).toEqual(["create", "uri", "remove"]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
+	);
 
-			expect(calls.sequence).toEqual(["create", "uri", "transfer", "remove"]);
-			expect(calls.shared).toEqual([]);
-			expect(calls.removed).toEqual(calls.created);
-		}),
+	it.live(
+		"cleans up after a share failure",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const result = yield* Effect.exit(
+					makeNativeFileDownload(
+						random,
+						makePorts(calls, {
+							share: () => Effect.fail(new FileDownloadError({ cause: "share failed" })),
+						}),
+					)(request),
+				);
+
+				expect(Exit.isFailure(result)).toBe(true);
+				expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"treats a dismissed share sheet as cancellation and cleans up",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				yield* makeNativeFileDownload(
+					random,
+					makePorts(calls, {
+						share: () =>
+							Effect.fail(new FileDownloadError({ cause: { message: "Share canceled" } })),
+					}),
+				)(request);
+				expect(calls.sequence).toEqual(["create", "uri", "transfer", "share", "remove"]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does not remove a directory when creation fails",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const result = yield* Effect.exit(
+					makeNativeFileDownload(
+						random,
+						makePorts(calls, {
+							create: () => Effect.fail(new FileDownloadError({ cause: "create failed" })),
+						}),
+					)(request),
+				);
+
+				expect(Exit.isFailure(result)).toBe(true);
+				expect(calls.sequence).toEqual(["create"]);
+				expect(calls.removed).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"waits for a pending native transfer before cleanup after interruption",
+		() =>
+			Effect.gen(function* () {
+				const calls = makeCalls();
+				const started = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const download = makeNativeFileDownload(
+					random,
+					makePorts(calls, {
+						transfer: () =>
+							Effect.gen(function* () {
+								yield* Deferred.succeed(started, undefined);
+								yield* Deferred.await(release);
+							}),
+					}),
+				);
+				const pending = yield* Effect.forkChild(download(request), { startImmediately: true });
+				yield* Deferred.await(started);
+				const interruption = yield* Effect.forkChild(Fiber.interrupt(pending), {
+					startImmediately: true,
+				});
+
+				expect(calls.sequence).toEqual(["create", "uri", "transfer"]);
+				expect(calls.removed).toEqual([]);
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(interruption);
+
+				expect(calls.sequence).toEqual(["create", "uri", "transfer", "remove"]);
+				expect(calls.shared).toEqual([]);
+				expect(calls.removed).toEqual(calls.created);
+			}),
+		testTimeout,
 	);
 });

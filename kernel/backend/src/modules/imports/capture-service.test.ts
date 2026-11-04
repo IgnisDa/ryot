@@ -1,9 +1,13 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
-import { assert, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { layerMemory, WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -250,6 +254,7 @@ it.effect(
 			).pipe(Effect.provideContext(test.context));
 			expect(test.events.filter((event) => event === "delete")).toHaveLength(1);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -280,6 +285,7 @@ it.effect(
 			expect(test.state().capture).toBeNull();
 			expect(test.state().stored).toBeNull();
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -327,25 +333,29 @@ it.effect(
 			expect(test.state().stored).not.toBeNull();
 			expect(test.state().reservation?.released).toBe(false);
 		}),
+	testTimeout,
 );
 
-it.effect("recovers a durable reservation whose publication dispatch did not start", () =>
-	Effect.gen(function* () {
-		const test = yield* fixture("recovery");
-		yield* Effect.flatMap(IngestionCaptures, (service) => service.recover(ingestionTestScope)).pipe(
-			Effect.provideContext(test.context),
-		);
-		expect(test.state().capture).toMatchObject({
-			id: "page-1",
-			state: "sealed",
-			phase: "collection",
-			checkpoint: { page: 1 },
-		});
-		expect(test.state().reservation?.recoveryBytes).toBeNull();
-		expect(new TextDecoder().decode(test.state().stored ?? new Uint8Array())).toBe(
-			"captured records",
-		);
-	}),
+it.effect(
+	"recovers a durable reservation whose publication dispatch did not start",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture("recovery");
+			yield* Effect.flatMap(IngestionCaptures, (service) =>
+				service.recover(ingestionTestScope),
+			).pipe(Effect.provideContext(test.context));
+			expect(test.state().capture).toMatchObject({
+				id: "page-1",
+				state: "sealed",
+				phase: "collection",
+				checkpoint: { page: 1 },
+			});
+			expect(test.state().reservation?.recoveryBytes).toBeNull();
+			expect(new TextDecoder().decode(test.state().stored ?? new Uint8Array())).toBe(
+				"captured records",
+			);
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -381,36 +391,40 @@ it.effect(
 			expect(test.state().stored).toBeNull();
 			expect(test.state().reservation?.released).toBe(true);
 		}),
+	testTimeout,
 );
 
-it.effect("resumes a reservation without collector bytes and reuses its published result", () =>
-	Effect.gen(function* () {
-		const test = yield* fixture("recovery");
-		const input = {
-			ordinal: 64,
-			id: "page-1",
-			maxBytes: 1024,
-			checkpoint: { page: 1 },
-			state: "sealed" as const,
-			scope: ingestionTestScope,
-			phase: "collection" as const,
-		};
-		const first = yield* Effect.flatMap(IngestionCaptures, (service) => service.resume(input)).pipe(
-			Effect.provideContext(test.context),
-		);
-		const second = yield* Effect.flatMap(IngestionCaptures, (service) =>
-			service.resume(input),
-		).pipe(Effect.provideContext(test.context));
-		expect(first).toEqual(second);
-		expect(first?.payload?.checksum).toBe(ingestionPayloadDigest(test.bytes));
-		expect(test.events).toEqual(["write", "publish"]);
-		const changed = yield* Effect.flatMap(IngestionCaptures, (service) =>
-			service.resume({ ...input, checkpoint: { page: 2 } }),
-		).pipe(Effect.exit, Effect.provideContext(test.context));
-		assertExitFails(
-			changed,
-			new ImportRunError({ message: "Ingestion payload reservation identity changed" }),
-		);
-		expect(test.events).toEqual(["write", "publish"]);
-	}),
+it.effect(
+	"resumes a reservation without collector bytes and reuses its published result",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* fixture("recovery");
+			const input = {
+				ordinal: 64,
+				id: "page-1",
+				maxBytes: 1024,
+				checkpoint: { page: 1 },
+				state: "sealed" as const,
+				scope: ingestionTestScope,
+				phase: "collection" as const,
+			};
+			const first = yield* Effect.flatMap(IngestionCaptures, (service) =>
+				service.resume(input),
+			).pipe(Effect.provideContext(test.context));
+			const second = yield* Effect.flatMap(IngestionCaptures, (service) =>
+				service.resume(input),
+			).pipe(Effect.provideContext(test.context));
+			expect(first).toEqual(second);
+			expect(first?.payload?.checksum).toBe(ingestionPayloadDigest(test.bytes));
+			expect(test.events).toEqual(["write", "publish"]);
+			const changed = yield* Effect.flatMap(IngestionCaptures, (service) =>
+				service.resume({ ...input, checkpoint: { page: 2 } }),
+			).pipe(Effect.exit, Effect.provideContext(test.context));
+			assertExitFails(
+				changed,
+				new ImportRunError({ message: "Ingestion payload reservation identity changed" }),
+			);
+			expect(test.events).toEqual(["write", "publish"]);
+		}),
+	testTimeout,
 );

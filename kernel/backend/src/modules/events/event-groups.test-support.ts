@@ -1,8 +1,8 @@
-import { assert } from "@effect/vitest";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer, Schema } from "effect";
 

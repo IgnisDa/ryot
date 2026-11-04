@@ -1,8 +1,9 @@
+import { expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
-import { expect, it } from "vitest";
 
 import definition, { manifest } from "./exercise-merge.sandbox";
 

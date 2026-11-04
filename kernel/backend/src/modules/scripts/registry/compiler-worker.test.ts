@@ -1,9 +1,13 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import {
 	CompilerWorkerRequest,
 	CompilerWorkerResponse,
 } from "@ryot-app/plugin-backend-compiler/protocol";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -16,80 +20,91 @@ const decodeWorkerResponse = Schema.decodeUnknownEffect(
 const encodeWorkerRequest = Schema.encodeEffect(Schema.fromJsonString(CompilerWorkerRequest));
 
 layer(BunServices.layer, { excludeTestServices: true })((test) => {
-	test.effect("builds and executes the standalone production compiler worker", () =>
-		Effect.gen(function* () {
-			const path = yield* Path.Path;
-			const fs = yield* FileSystem.FileSystem;
-			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-			const nodeModules = yield* path.fromFileUrl(
-				new URL("../../../../node_modules/", import.meta.url),
-			);
-			const outputDirectory = yield* fs.makeTempDirectoryScoped({
-				directory: nodeModules,
-				prefix: "plugin-backend-compiler-worker-",
-			});
-			const workspaceParentPath = yield* fs.makeTempDirectoryScoped({
-				prefix: "plugin-backend-compiler-workspace-",
-			});
-			const workspaceJobId = "worker-test";
-			const entrypoint = Bun.resolveSync(
-				"@ryot-app/plugin-backend-compiler/worker",
-				import.meta.url,
-			);
-			const build = yield* Effect.tryPromise(() =>
-				Bun.build({
-					target: "bun",
-					outdir: outputDirectory,
-					entrypoints: [entrypoint],
-					external: ["@ryot-app/vite-compiler"],
-				}),
-			);
-			expect(build.success).toBe(true);
-			const workerPath = build.outputs[0]?.path;
-			assert(workerPath);
+	test.effect(
+		"builds and executes the standalone production compiler worker",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+				const nodeModules = yield* path.fromFileUrl(
+					new URL("../../../../node_modules/", import.meta.url),
+				);
+				const outputDirectory = yield* fs.makeTempDirectoryScoped({
+					directory: nodeModules,
+					prefix: "plugin-backend-compiler-worker-",
+				});
+				const workspaceParentPath = yield* fs.makeTempDirectoryScoped({
+					prefix: "plugin-backend-compiler-workspace-",
+				});
+				const workspaceJobId = "worker-test";
+				const entrypoint = Bun.resolveSync(
+					"@ryot-app/plugin-backend-compiler/worker",
+					import.meta.url,
+				);
+				const build = yield* Effect.tryPromise(() =>
+					Bun.build({
+						target: "bun",
+						outdir: outputDirectory,
+						entrypoints: [entrypoint],
+						external: ["@ryot-app/vite-compiler"],
+					}),
+				);
+				expect(build.success).toBe(true);
+				const workerPath = build.outputs[0]?.path;
+				assert(workerPath);
 
-			const command = ChildProcess.make(process.execPath, ["--smol", "--no-install", workerPath], {
-				stdout: "pipe",
-				stderr: "pipe",
-				stdin: Stream.succeed(
-					new TextEncoder().encode(
-						yield* encodeWorkerRequest({
-							workspaceJobId,
-							workspaceParentPath,
-							source: validSandboxSource,
-						}),
-					),
-				),
-			});
-			const worker = yield* spawner.spawn(command);
-			yield* Effect.addFinalizer(() => worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore));
-			const [stdout, stderr, exitCode] = yield* Effect.all(
-				[
-					worker.stdout.pipe(
-						Stream.decodeText({ encoding: "utf-8" }),
-						Stream.runFold(
-							() => "",
-							(a, b) => a + b,
+				const command = ChildProcess.make(
+					process.execPath,
+					["--smol", "--no-install", workerPath],
+					{
+						stdout: "pipe",
+						stderr: "pipe",
+						stdin: Stream.succeed(
+							new TextEncoder().encode(
+								yield* encodeWorkerRequest({
+									workspaceJobId,
+									workspaceParentPath,
+									source: validSandboxSource,
+								}),
+							),
 						),
-					),
-					worker.stderr.pipe(
-						Stream.decodeText({ encoding: "utf-8" }),
-						Stream.runFold(
-							() => "",
-							(a, b) => a + b,
+					},
+				);
+				const worker = yield* spawner.spawn(command);
+				yield* Effect.addFinalizer(() =>
+					worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
+				);
+				const [stdout, stderr, exitCode] = yield* Effect.all(
+					[
+						worker.stdout.pipe(
+							Stream.decodeText({ encoding: "utf-8" }),
+							Stream.runFold(
+								() => "",
+								(a, b) => a + b,
+							),
 						),
-					),
-					worker.exitCode,
-				],
-				{ concurrency: "unbounded" },
-			);
-			expect(exitCode, stderr).toBe(0);
-			const response = yield* decodeWorkerResponse(stdout);
-			assert(response.success, stdout);
-			expect(response.value.manifest).toMatchObject({ slug: "plain-value" });
-			expect(response.value.javascript).toContain("sourceMappingURL=data:application/json;base64,");
-			expect(yield* fs.exists(path.join(workspaceParentPath, workspaceJobId))).toBe(false);
-		}),
+						worker.stderr.pipe(
+							Stream.decodeText({ encoding: "utf-8" }),
+							Stream.runFold(
+								() => "",
+								(a, b) => a + b,
+							),
+						),
+						worker.exitCode,
+					],
+					{ concurrency: "unbounded" },
+				);
+				expect(exitCode, stderr).toBe<unknown>(0);
+				const response = yield* decodeWorkerResponse(stdout);
+				assert(response.success, stdout);
+				expect(response.value.manifest).toMatchObject({ slug: "plain-value" });
+				expect(response.value.javascript).toContain(
+					"sourceMappingURL=data:application/json;base64,",
+				);
+				expect(yield* fs.exists(path.join(workspaceParentPath, workspaceJobId))).toBe(false);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -107,5 +122,6 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 
 				expect(yield* fs.readDirectory(workspaceParentPath)).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

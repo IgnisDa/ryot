@@ -290,15 +290,15 @@ describe("backup export and restore round trip", () => {
 					assert(outcome?.status === "written");
 					const { bytes } = yield* exportAndDownloadBackup(source.client);
 					if (globalReference) {
-						expect(yield* readBackupSection(bytes, "entity-dependencies.ndjson")).toContainEqual(
-							objectContaining({ id: globalReference.id }),
-						);
+						expect(
+							yield* readBackupSection(bytes, "entity-dependencies.ndjson"),
+						).toContainEqual<unknown>(objectContaining({ id: globalReference.id }));
 					}
 					yield* deleteUserAndWait(source.userId);
 					const restored = yield* restoreBackup(target.client, bytes);
 					assertCompleted(restored.run, "retained event snapshot restore");
 					expect((yield* getUserSettings(target.client)).preferences.reportingTimeZone).toBe(
-						includeGlobalDependency ? "Asia/Kolkata" : "UTC",
+						TimeZone.make(includeGlobalDependency ? "Asia/Kolkata" : "UTC"),
 					);
 					const restoredRecordId = yield* findEntityIdByName(target.client, {
 						name: record.name,
@@ -325,7 +325,7 @@ describe("backup export and restore round trip", () => {
 					});
 					expect(
 						yield* listEventsForEntity(target.client, restoredRecordId, undefined, 100),
-					).toEqual([
+					).toEqual<unknown>([
 						{
 							occurredAt,
 							id: anyOf(String),
@@ -812,7 +812,7 @@ describe("backup export and restore round trip", () => {
 				undefined,
 				100,
 			);
-			expect(restoredEvents).toEqual([
+			expect(restoredEvents).toEqual<unknown>([
 				{
 					id: anyOf(String),
 					sessionEntityId: undefined,

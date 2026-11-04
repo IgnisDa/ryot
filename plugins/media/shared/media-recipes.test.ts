@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { describe, expect, it } from "vitest";
 
 import {
 	flatFixtureRecipes,

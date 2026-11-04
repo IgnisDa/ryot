@@ -25,7 +25,7 @@ describe("RyotQL collections tracer", () => {
 			const result = yield* executeRyotQLRecipe(first.client, allCollectionsRecipe({ limit: 10 }));
 
 			expect(result.pageInfo).toEqual({ limit: 10, hasMore: false, nextCursor: null });
-			expect(result.items.map((item) => item.id)).toEqual(
+			expect(result.items.map((item) => item.id)).toEqual<unknown>(
 				arrayContaining(collections.map((collection) => collection.id)),
 			);
 			expect(result.items.map((item) => item.name)).toEqual([

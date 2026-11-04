@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
@@ -12,7 +13,10 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
@@ -335,5 +339,6 @@ layer(roundTripLayer)((test) => {
 				expect(restored?.providerSpecifics).not.toHaveProperty("account");
 				expect(yield* session.run((db) => db.select().from(tables.oauthConnection))).toEqual([]);
 			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 });

@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PluginLogicalLocation, PluginRouteLocation } from "@ryot-app/plugin-client-contract";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
 
 import {
 	PLUGIN_SCREEN_STACK_LIMIT,

@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { BadRequest } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { requireText, trimToNull } from "./validation";
 

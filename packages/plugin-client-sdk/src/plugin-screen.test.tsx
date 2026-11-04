@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect, test } from "bun:test";
+
 import { fireEvent, screen } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -9,10 +11,6 @@ import { createPluginNavigationStore } from "./navigation/store";
 import { ViewFiltersButton } from "./plugin-screen";
 import { RyotProvider } from "./queries/provider";
 import { createTestRyotClock } from "./testing";
-
-(
-	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
 
 const roots: Root[] = [];
 const clocks: Array<ReturnType<typeof createTestRyotClock>> = [];
@@ -78,7 +76,7 @@ describe("ViewFiltersButton", () => {
 		);
 	});
 
-	it.each([
+	test.each([
 		[0, "Filters, 0 active filters"],
 		[1, "Filters, 1 active filter"],
 		[3, "Filters, 3 active filters"],
@@ -108,7 +106,7 @@ describe("ViewFiltersButton", () => {
 		expect(opened).toBe(3);
 	});
 
-	it.each(["input", "textarea"])("does not open filters while typing in %s", (tag) => {
+	test.each(["input", "textarea"])("does not open filters while typing in %s", (tag) => {
 		let opened = 0;
 		renderButton(0, () => {
 			opened += 1;

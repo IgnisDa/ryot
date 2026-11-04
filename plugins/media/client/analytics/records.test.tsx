@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,7 +11,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -223,6 +226,7 @@ describe("Media analytics records drill", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -317,38 +321,42 @@ describe("Media analytics records drill", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("shows source facts and canonical contributions", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountRecords(clock, request);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
-				page.replyQuery(itemAt(recordsRequests(page), 0).requestId, {
-					outcome: "success",
-					response: recordsResponse(null, [
-						recordRow("pending-item", "Pending source title", {
-							eventType: "item-complete",
-							facts: { timeSpent: 0, consumedItem: { position: 3, unit: "chapters" } },
-						}),
-					]),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Pending source title")).toBeDefined()),
-				);
-				const row = within(
-					screen.getByRole("table", { name: "Media analytics records" }),
-				).getByRole("row", { name: /Pending source title/ });
-				expect(within(row).getByText("item-complete")).toBeDefined();
-				expect(within(row).getByText("chapters position 3")).toBeDefined();
-				expect(within(row).getByText("0s")).toBeDefined();
-				expect(within(row).getByText("Active observation:")).toBeDefined();
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"shows source facts and canonical contributions",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountRecords(clock, request);
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
+					page.replyQuery(itemAt(recordsRequests(page), 0).requestId, {
+						outcome: "success",
+						response: recordsResponse(null, [
+							recordRow("pending-item", "Pending source title", {
+								eventType: "item-complete",
+								facts: { timeSpent: 0, consumedItem: { position: 3, unit: "chapters" } },
+							}),
+						]),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("Pending source title")).toBeDefined()),
+					);
+					const row = within(
+						screen.getByRole("table", { name: "Media analytics records" }),
+					).getByRole("row", { name: /Pending source title/ });
+					expect(within(row).getByText("item-complete")).toBeDefined();
+					expect(within(row).getByText("chapters position 3")).toBeDefined();
+					expect(within(row).getByText("0s")).toBeDefined();
+					expect(within(row).getByText("Active observation:")).toBeDefined();
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -435,6 +443,7 @@ describe("Media analytics records drill", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -491,5 +500,6 @@ describe("Media analytics records drill", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 });

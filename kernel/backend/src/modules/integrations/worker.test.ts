@@ -1,11 +1,13 @@
-import { layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type {
 	ImportRunFailureReason,
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
-import { expect as vitestExpect } from "vitest";
 
 import { ImportsRepository } from "#modules/imports/repository";
 import { databaseLayer } from "#testing/effect";
@@ -64,22 +66,25 @@ const makeWorkerLayer = (input: {
 	);
 
 layer(makeWorkerLayer({ runStatus: "completed" }))((test) => {
-	test.effect("updates lastFinishedAt after a completed integration run", () =>
-		Effect.gen(function* () {
-			const wasDisabled = yield* finalizeIntegrationRun(
-				makeIntegration(),
-				ImportRunId.make("run_1"),
-			);
-			const updates = yield* (yield* FakeIntegrationUpdates).updates;
+	test.effect(
+		"updates lastFinishedAt after a completed integration run",
+		() =>
+			Effect.gen(function* () {
+				const wasDisabled = yield* finalizeIntegrationRun(
+					makeIntegration(),
+					ImportRunId.make("run_1"),
+				);
+				const updates = yield* (yield* FakeIntegrationUpdates).updates;
 
-			vitestExpect(wasDisabled).toBe(false);
-			vitestExpect(updates).toHaveLength(1);
-			vitestExpect(updates[0]).toMatchObject({
-				userId: "user_1",
-				integrationId: "int_1",
-				lastFinishedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-06-17T12:00:00.000Z")),
-			});
-		}),
+				expect(wasDisabled).toBe(false);
+				expect(updates).toHaveLength(1);
+				expect(updates[0]).toMatchObject({
+					userId: "user_1",
+					integrationId: "int_1",
+					lastFinishedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-06-17T12:00:00.000Z")),
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -103,13 +108,14 @@ for (const runStatus of [
 			`does not auto-disable from a ${runStatus} run even after older source failures`,
 			() =>
 				Effect.gen(function* () {
-					vitestExpect(
-						yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1")),
-					).toBe(false);
-					vitestExpect(
+					expect(yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"))).toBe(
+						false,
+					);
+					expect(
 						(yield* (yield* FakeIntegrationUpdates).updates).some((update) => update["isDisabled"]),
 					).toBe(false);
 				}),
+			testTimeout,
 		);
 	});
 }
@@ -129,13 +135,16 @@ for (const failureReason of [
 			recentStatuses: Array.from({ length: 5 }, () => ({ status: "failed" as const })),
 		}),
 	)((test) => {
-		test.effect(`does not count ${failureReason.code} as a source failure`, () =>
-			Effect.gen(function* () {
-				vitestExpect(
-					yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1")),
-				).toBe(false);
-				vitestExpect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([]);
-			}),
+		test.effect(
+			`does not count ${failureReason.code} as a source failure`,
+			() =>
+				Effect.gen(function* () {
+					expect(yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"))).toBe(
+						false,
+					);
+					expect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 }
@@ -153,18 +162,21 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("disables the integration after 5 consecutive failures", () =>
-		Effect.gen(function* () {
-			const wasDisabled = yield* finalizeIntegrationRun(
-				makeIntegration(),
-				ImportRunId.make("run_1"),
-			);
+	test.effect(
+		"disables the integration after 5 consecutive failures",
+		() =>
+			Effect.gen(function* () {
+				const wasDisabled = yield* finalizeIntegrationRun(
+					makeIntegration(),
+					ImportRunId.make("run_1"),
+				);
 
-			vitestExpect(wasDisabled).toBe(true);
-			vitestExpect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([
-				{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
-			]);
-		}),
+				expect(wasDisabled).toBe(true);
+				expect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([
+					{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -174,14 +186,17 @@ layer(
 		recentStatuses: Array.from({ length: 5 }, () => ({ status: "failed" as const })),
 	}),
 )((test) => {
-	test.effect("does not claim a second disable transition after a concurrent run wins", () =>
-		Effect.gen(function* () {
-			const wasDisabled = yield* finalizeIntegrationRun(
-				makeIntegration(),
-				ImportRunId.make("run_1"),
-			);
-			vitestExpect(wasDisabled).toBe(false);
-		}),
+	test.effect(
+		"does not claim a second disable transition after a concurrent run wins",
+		() =>
+			Effect.gen(function* () {
+				const wasDisabled = yield* finalizeIntegrationRun(
+					makeIntegration(),
+					ImportRunId.make("run_1"),
+				);
+				expect(wasDisabled).toBe(false);
+			}),
+		testTimeout,
 	);
 });
 
@@ -197,15 +212,18 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("does not disable integrations when recent runs are not all failures", () =>
-		Effect.gen(function* () {
-			const wasDisabled = yield* finalizeIntegrationRun(
-				makeIntegration(),
-				ImportRunId.make("run_1"),
-			);
+	test.effect(
+		"does not disable integrations when recent runs are not all failures",
+		() =>
+			Effect.gen(function* () {
+				const wasDisabled = yield* finalizeIntegrationRun(
+					makeIntegration(),
+					ImportRunId.make("run_1"),
+				);
 
-			vitestExpect(wasDisabled).toBe(false);
-			vitestExpect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([]);
-		}),
+				expect(wasDisabled).toBe(false);
+				expect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

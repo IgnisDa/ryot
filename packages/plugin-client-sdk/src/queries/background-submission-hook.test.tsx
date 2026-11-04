@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Schema } from "effect";
 import { act, useLayoutEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -12,10 +15,6 @@ import {
 	useBackgroundSubmission,
 } from "./background-submission-hook";
 import { RyotProvider } from "./provider";
-
-(
-	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
 
 const roots: Root[] = [];
 const clocks: Array<ReturnType<typeof createTestRyotClock>> = [];
@@ -82,88 +81,97 @@ const mount = (background: ReturnType<typeof createTestBackgroundSubmissions>) =
 };
 
 describe("useBackgroundSubmission", () => {
-	it.live("snapshots the input, keys the write, and reports acceptance then settlement", () =>
-		Effect.gen(function* () {
-			const background = createTestBackgroundSubmissions();
-			const { hook, clock } = mount(background);
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-10-25T08:00:00Z")));
-			const accepted: string[] = [];
-			const values = [72.5];
-			act(() => {
-				hook().submit({ values }, { onAccepted: () => accepted.push("accepted") });
-			});
-			values.push(99);
-			yield* Effect.promise(() => waitFor(() => expect(hook().state.status).toBe("accepted")));
+	it.live(
+		"snapshots the input, keys the write, and reports acceptance then settlement",
+		() =>
+			Effect.gen(function* () {
+				const background = createTestBackgroundSubmissions();
+				const { hook, clock } = mount(background);
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-10-25T08:00:00Z")));
+				const accepted: string[] = [];
+				const values = [72.5];
+				act(() => {
+					hook().submit({ values }, { onAccepted: () => accepted.push("accepted") });
+				});
+				values.push(99);
+				yield* Effect.promise(() => waitFor(() => expect(hook().state.status).toBe("accepted")));
 
-			expect(accepted).toEqual(["accepted"]);
-			expect(background.requests).toEqual([
-				{
-					slug: "log-reading",
-					label: "Logged 72.5",
-					idempotencyKey: "key-1",
-					packageId: "test/fixture",
-					input: { key: "key-1", values: [72.5], at: "2026-10-25T08:00:00.000Z" },
-				},
-			]);
-			expect(hook().last).toBeNull();
+				expect(accepted).toEqual(["accepted"]);
+				expect(background.requests).toEqual([
+					{
+						slug: "log-reading",
+						label: "Logged 72.5",
+						idempotencyKey: "key-1",
+						packageId: "test/fixture",
+						input: { key: "key-1", values: [72.5], at: "2026-10-25T08:00:00.000Z" },
+					},
+				]);
+				expect(hook().last).toBeNull();
 
-			background.settle("submission-2", { status: "succeeded" });
-			expect(hook().last).toBeNull();
-			background.settle("submission-1", { status: "failed", reason: "transport" });
-			expect(hook().last).toEqual({ status: "failed", reason: "transport" });
-		}),
+				background.settle("submission-2", { status: "succeeded" });
+				expect(hook().last).toBeNull();
+				background.settle("submission-1", { status: "failed", reason: "transport" });
+				expect(hook().last).toEqual({ status: "failed", reason: "transport" });
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps a settlement that arrives before its acceptance resolves", () =>
-		Effect.gen(function* () {
-			const release = yield* Deferred.make<void>();
-			const background = createTestBackgroundSubmissions(() =>
-				Deferred.await(release).pipe(Effect.as("submission-early")),
-			);
-			const { hook } = mount(background);
-			act(() => {
-				hook().submit({ values: [1] });
-			});
-			expect(hook().isSending).toBe(true);
-			background.settle("submission-early", { status: "succeeded" });
-			yield* Deferred.succeed(release, undefined);
-			yield* Effect.promise(() => waitFor(() => expect(hook().state.status).toBe("settled")));
-			expect(hook().last).toEqual({ status: "succeeded" });
-		}),
+	it.live(
+		"keeps a settlement that arrives before its acceptance resolves",
+		() =>
+			Effect.gen(function* () {
+				const release = yield* Deferred.make<void>();
+				const background = createTestBackgroundSubmissions(() =>
+					Deferred.await(release).pipe(Effect.as("submission-early")),
+				);
+				const { hook } = mount(background);
+				act(() => {
+					hook().submit({ values: [1] });
+				});
+				expect(hook().isSending).toBe(true);
+				background.settle("submission-early", { status: "succeeded" });
+				yield* Deferred.succeed(release, undefined);
+				yield* Effect.promise(() => waitFor(() => expect(hook().state.status).toBe("settled")));
+				expect(hook().last).toEqual({ status: "succeeded" });
+			}),
+		testTimeout,
 	);
 
-	it.live("reports a refused acceptance and tracks only the latest submission", () =>
-		Effect.gen(function* () {
-			const background = createTestBackgroundSubmissions((request) =>
-				request.idempotencyKey === "key-1"
-					? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
-					: Effect.succeed(`submission-${request.idempotencyKey}`),
-			);
-			const { hook } = mount(background);
-			const rejections: string[] = [];
-			act(() => {
-				hook().submit({ values: [1] }, { onRejected: (error) => rejections.push(error.reason) });
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(hook().error?.reason).toBe("operation-failed")),
-			);
-			expect(rejections).toEqual(["operation-failed"]);
+	it.live(
+		"reports a refused acceptance and tracks only the latest submission",
+		() =>
+			Effect.gen(function* () {
+				const background = createTestBackgroundSubmissions((request) =>
+					request.idempotencyKey === "key-1"
+						? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
+						: Effect.succeed(`submission-${request.idempotencyKey}`),
+				);
+				const { hook } = mount(background);
+				const rejections: string[] = [];
+				act(() => {
+					hook().submit({ values: [1] }, { onRejected: (error) => rejections.push(error.reason) });
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(hook().error?.reason).toBe("operation-failed")),
+				);
+				expect(rejections).toEqual(["operation-failed"]);
 
-			act(() => {
-				hook().submit({ values: [2] });
-			});
-			yield* Effect.promise(() => waitFor(() => expect(hook().state.status).toBe("accepted")));
-			expect(hook().error).toBeNull();
-			background.settle("submission-key-2", {
-				status: "failed",
-				message: "Unknown metric",
-				reason: "operation-rejected",
-			});
-			expect(hook().last).toEqual({
-				status: "failed",
-				message: "Unknown metric",
-				reason: "operation-rejected",
-			});
-		}),
+				act(() => {
+					hook().submit({ values: [2] });
+				});
+				yield* Effect.promise(() => waitFor(() => expect(hook().state.status).toBe("accepted")));
+				expect(hook().error).toBeNull();
+				background.settle("submission-key-2", {
+					status: "failed",
+					message: "Unknown metric",
+					reason: "operation-rejected",
+				});
+				expect(hook().last).toEqual({
+					status: "failed",
+					message: "Unknown metric",
+					reason: "operation-rejected",
+				});
+			}),
+		testTimeout,
 	);
 });

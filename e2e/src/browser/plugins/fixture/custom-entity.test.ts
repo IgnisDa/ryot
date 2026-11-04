@@ -1,4 +1,5 @@
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -51,7 +52,7 @@ it.live("creates an all-field-controls item on a dedicated page from the saved v
 		const entityId = yield* page.evaluate(() => location.pathname.slice("/e/".length));
 		const entity = yield* getEntity(client, entityId);
 		expect(entity.name).toBe(name);
-		expect(entity.entitySchemaSlug).toBe("all-field-controls");
+		expect(entity.entitySchemaSlug).toBe(EntitySchemaSlug.make("all-field-controls"));
 		expect(entity.entitySchemaPluginId).toBe(installation.pluginId);
 		expect(entity.properties).toMatchObject({
 			integer: 2,

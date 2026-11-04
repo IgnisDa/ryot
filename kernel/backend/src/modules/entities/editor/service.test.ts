@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	EntityEditorRefused,
@@ -15,10 +16,12 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { column, field, rows, table } from "@ryot-app/ryotql";
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { assert } from "@ryot-app/testing/assert";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Ref } from "effect";
-import { assert, describe } from "vitest";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
@@ -375,7 +378,7 @@ const dispatched = Effect.gen(function* () {
 const editorCase = (
 	name: string,
 	body: Effect.Effect<void, unknown, Layer.Success<ReturnType<typeof freshLayer>>>,
-) => layer(freshLayer())((test) => test.effect(name, () => body));
+) => layer(freshLayer())(name, (test) => test.effect(name, () => body, testTimeout));
 
 const freshLayer = () =>
 	MutationReceipts.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
@@ -838,9 +841,9 @@ describe("EntityEditorService", () => {
 					]),
 				},
 			});
-			expect(yield* submitEdit(failing, "atomic-update", update).pipe(Effect.flip)).toMatchObject({
-				message: stringContaining("injected"),
-			});
+			expect(
+				yield* submitEdit(failing, "atomic-update", update).pipe(Effect.flip),
+			).toEqual<unknown>(objectContaining({ message: stringContaining("injected") }));
 			const after = yield* tablesState;
 			expect(after.entityRows).toEqual(before.entityRows);
 			expect(after.relationshipRows).toEqual(before.relationshipRows);
@@ -1381,7 +1384,7 @@ describe("EntityEditorService", () => {
 					"orphan",
 					partSubmission(owner, { target: { kind: "create" }, relationships: [extraGroup()] }),
 				)).output,
-			).toEqual(parentRefusal);
+			).toEqual<unknown>(parentRefusal);
 			const created = yield* submitEdit(
 				editor,
 				"child",
@@ -1416,7 +1419,7 @@ describe("EntityEditorService", () => {
 						relationships: [childGroup("parent-b"), extraGroup("extra-a")],
 					}),
 				)).output,
-			).toEqual(parentRefusal);
+			).toEqual<unknown>(parentRefusal);
 			expect(
 				(yield* submitEdit(
 					editor,

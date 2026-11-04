@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { periodCaption, PluginId, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,7 +11,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -166,37 +169,41 @@ describe("Media analytics rankings", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("shows ranking counts", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const input = makeInput();
-			const page = mountRankings(clock, input);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
-				page.replyQuery(itemAt(rankingRequests(page), 0).requestId, {
-					outcome: "success",
-					response: rankingResponse(null, [
-						rankingRow("book-known", "Source title remains visible", 0, "book", {
-							titleCompletions: 3,
-							episodeCompletions: 2,
-						}),
-					]),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getAllByText("Source title remains visible").length).toBeGreaterThan(0),
-					),
-				);
-				const table = screen.getByRole("table", { name: "Media entity rankings" });
-				expect(within(table).getByText("3 titles")).toBeDefined();
-				expect(within(table).getByText("2 episodes")).toBeDefined();
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"shows ranking counts",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const input = makeInput();
+				const page = mountRankings(clock, input);
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
+					page.replyQuery(itemAt(rankingRequests(page), 0).requestId, {
+						outcome: "success",
+						response: rankingResponse(null, [
+							rankingRow("book-known", "Source title remains visible", 0, "book", {
+								titleCompletions: 3,
+								episodeCompletions: 2,
+							}),
+						]),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getAllByText("Source title remains visible").length).toBeGreaterThan(0),
+						),
+					);
+					const table = screen.getByRole("table", { name: "Media entity rankings" });
+					expect(within(table).getByText("3 titles")).toBeDefined();
+					expect(within(table).getByText("2 episodes")).toBeDefined();
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -246,61 +253,65 @@ describe("Media analytics rankings", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("opens exact entity and all-record drills from the first-page captured period", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
-			const opened: RecordsDrillRequest[] = [];
-			const input = makeInput();
-			const page = mountRankings(clock, input, analyticsSummary(input), (request) =>
-				opened.push(request),
-			);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
-				const firstRequest = itemAt(rankingRequests(page), 0);
-				expect(asText(firstRequest.document)).toContain("media-owner");
-				page.replyQuery(firstRequest.requestId, {
-					outcome: "success",
-					response: rankingResponse(null, [
-						rankingRow("title/exact", "Title to inspect", 4, "book", { titleCompletions: 1 }),
-					]),
-				});
-				const rowAction = "View records contributing to Title to inspect";
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("button", { name: rowAction })).toBeDefined()),
+	it.live(
+		"opens exact entity and all-record drills from the first-page captured period",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T18:00:00Z")));
+				const opened: RecordsDrillRequest[] = [];
+				const input = makeInput();
+				const page = mountRankings(clock, input, analyticsSummary(input), (request) =>
+					opened.push(request),
 				);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: rowAction }));
-				});
-				const captured = itemAt(opened, 0);
-				const firstPageReporting = reportingExecution(input.selection, {
-					timeZone: input.timeZone,
-					now: Date.parse("2026-11-01T18:00:00Z"),
-				});
-				expect(captured).toEqual({
-					activeOnly: true,
-					mediaType: "book",
-					entityId: "title/exact",
-					title: "Title to inspect",
-					selection: firstPageReporting.selection,
-					periodCaption: periodCaption(firstPageReporting.resolved.current),
-				});
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "All records" }));
-				});
-				expect(itemAt(opened, 1)).toEqual({
-					activeOnly: false,
-					title: "All records",
-					selection: captured.selection,
-					periodCaption: captured.periodCaption,
-				});
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
+					const firstRequest = itemAt(rankingRequests(page), 0);
+					expect(asText(firstRequest.document)).toContain("media-owner");
+					page.replyQuery(firstRequest.requestId, {
+						outcome: "success",
+						response: rankingResponse(null, [
+							rankingRow("title/exact", "Title to inspect", 4, "book", { titleCompletions: 1 }),
+						]),
+					});
+					const rowAction = "View records contributing to Title to inspect";
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByRole("button", { name: rowAction })).toBeDefined()),
+					);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: rowAction }));
+					});
+					const captured = itemAt(opened, 0);
+					const firstPageReporting = reportingExecution(input.selection, {
+						timeZone: input.timeZone,
+						now: Date.parse("2026-11-01T18:00:00Z"),
+					});
+					expect(captured).toEqual({
+						activeOnly: true,
+						mediaType: "book",
+						entityId: "title/exact",
+						title: "Title to inspect",
+						selection: firstPageReporting.selection,
+						periodCaption: periodCaption(firstPageReporting.resolved.current),
+					});
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "All records" }));
+					});
+					expect(itemAt(opened, 1)).toEqual({
+						activeOnly: false,
+						title: "All records",
+						selection: captured.selection,
+						periodCaption: captured.periodCaption,
+					});
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -401,6 +412,7 @@ describe("Media analytics rankings", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -489,5 +501,6 @@ describe("Media analytics rankings", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import {
@@ -111,112 +114,127 @@ it("collects nested entity references from objects and array items only", () => 
 	expect(ids).toEqual(["entity-array-item", "entity-nested"]);
 });
 
-it.effect("rewrites nested entity references and preserves other values", () =>
-	Effect.gen(function* () {
-		const rewritten = yield* rewritePropertyReferences(
-			nestedValues,
-			nestedReferenceSchema,
-			new Map([
-				["entity-nested", "restored-entity-nested"],
-				["entity-array-item", "restored-entity-array-item"],
-			]),
-			new Map(),
-			(id) => id,
-		);
+it.effect(
+	"rewrites nested entity references and preserves other values",
+	() =>
+		Effect.gen(function* () {
+			const rewritten = yield* rewritePropertyReferences(
+				nestedValues,
+				nestedReferenceSchema,
+				new Map([
+					["entity-nested", "restored-entity-nested"],
+					["entity-array-item", "restored-entity-array-item"],
+				]),
+				new Map(),
+				(id) => id,
+			);
 
-		expect(rewritten).toEqual({
-			summary: "ordinary-root",
-			details: {
-				summary: "ordinary-nested",
-				eventReference: "event-nested",
-				reference: "restored-entity-nested",
-				entityIds: [
-					"restored-entity-array-item",
-					"restored-entity-nested",
-					"restored-entity-array-item",
-				],
-				groups: [
-					{
-						summary: "ordinary-array-item",
-						eventReference: "event-array-item",
-						reference: "restored-entity-array-item",
-					},
-				],
-			},
-		});
-	}),
+			expect(rewritten).toEqual({
+				summary: "ordinary-root",
+				details: {
+					summary: "ordinary-nested",
+					eventReference: "event-nested",
+					reference: "restored-entity-nested",
+					entityIds: [
+						"restored-entity-array-item",
+						"restored-entity-nested",
+						"restored-entity-array-item",
+					],
+					groups: [
+						{
+							summary: "ordinary-array-item",
+							eventReference: "event-array-item",
+							reference: "restored-entity-array-item",
+						},
+					],
+				},
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("fails when a required nested entity reference has no mapping", () =>
-	Effect.gen(function* () {
-		assertExitFails(
-			yield* Effect.exit(
-				rewritePropertyReferences(
-					{ details: { reference: "entity-missing" } },
-					nestedReferenceSchema,
-					new Map(),
-					new Map(),
-					(id) => id,
+it.effect(
+	"fails when a required nested entity reference has no mapping",
+	() =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(
+					rewritePropertyReferences(
+						{ details: { reference: "entity-missing" } },
+						nestedReferenceSchema,
+						new Map(),
+						new Map(),
+						(id) => id,
+					),
 				),
-			),
-			new DataReferenceError({
-				code: "missing_reference_mapping",
-				message: "Missing entity reference mapping for 'entity-missing'",
-			}),
-		);
-	}),
+				new DataReferenceError({
+					code: "missing_reference_mapping",
+					message: "Missing entity reference mapping for 'entity-missing'",
+				}),
+			);
+		}),
+	testTimeout,
 );
 
-it.effect("fails when a required reference inside a nested array has no mapping", () =>
-	Effect.gen(function* () {
-		assertExitFails(
-			yield* Effect.exit(
-				rewritePropertyReferences(
-					{ details: { entityIds: ["known", "missing"] } },
-					nestedReferenceSchema,
-					new Map([["known", "restored-known"]]),
-					new Map(),
+it.effect(
+	"fails when a required reference inside a nested array has no mapping",
+	() =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(
+					rewritePropertyReferences(
+						{ details: { entityIds: ["known", "missing"] } },
+						nestedReferenceSchema,
+						new Map([["known", "restored-known"]]),
+						new Map(),
+					),
 				),
-			),
-			new DataReferenceError({
-				code: "missing_reference_mapping",
-				message: "Missing entity reference mapping for 'missing'",
-			}),
-		);
-	}),
+				new DataReferenceError({
+					code: "missing_reference_mapping",
+					message: "Missing entity reference mapping for 'missing'",
+				}),
+			);
+		}),
+	testTimeout,
 );
 
-it.effect("rewrites streamed event references without an event-sized identity map", () =>
-	Effect.gen(function* () {
-		const visited: string[] = [];
-		const rewritten = yield* rewritePropertyReferences(
-			{ label: "source-a", links: ["source-a", "deleted-source"] },
-			schema,
-			new Map(),
-			new Map(),
-			(id) => {
-				visited.push(id);
-				return `restored:${id}`;
-			},
-		);
-		expect(rewritten).toEqual({
-			label: "source-a",
-			links: ["restored:source-a", "restored:deleted-source"],
-		});
-		expect(visited).toEqual(["source-a", "deleted-source"]);
-	}),
+it.effect(
+	"rewrites streamed event references without an event-sized identity map",
+	() =>
+		Effect.gen(function* () {
+			const visited: string[] = [];
+			const rewritten = yield* rewritePropertyReferences(
+				{ label: "source-a", links: ["source-a", "deleted-source"] },
+				schema,
+				new Map(),
+				new Map(),
+				(id) => {
+					visited.push(id);
+					return `restored:${id}`;
+				},
+			);
+			expect(rewritten).toEqual({
+				label: "source-a",
+				links: ["restored:source-a", "restored:deleted-source"],
+			});
+			expect(visited).toEqual(["source-a", "deleted-source"]);
+		}),
+	testTimeout,
 );
 
-it.effect("refuses event-reference rewrites without an identity resolver", () =>
-	Effect.gen(function* () {
-		assertExitFails(
-			yield* Effect.exit(
-				rewritePropertyReferences({ links: ["source-a"] }, schema, new Map(), new Map()),
-			),
-			new DataReferenceError({
-				code: "missing_reference_mapping",
-				message: "Missing event reference mapping for 'source-a'",
-			}),
-		);
-	}),
+it.effect(
+	"refuses event-reference rewrites without an identity resolver",
+	() =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(
+					rewritePropertyReferences({ links: ["source-a"] }, schema, new Map(), new Map()),
+				),
+				new DataReferenceError({
+					code: "missing_reference_mapping",
+					message: "Missing event reference mapping for 'source-a'",
+				}),
+			);
+		}),
+	testTimeout,
 );

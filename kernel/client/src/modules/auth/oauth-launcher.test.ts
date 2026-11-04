@@ -1,4 +1,5 @@
-import { describe, expect, it, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { SystemConfigResponse } from "@ryot-app/contract/modules/system/contract";
 import {
 	buildOAuthAuthorizationUrl,
@@ -7,6 +8,8 @@ import {
 	OAUTH_SCOPE,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -113,45 +116,51 @@ describe("OAuth authorization launcher", () => {
 	});
 
 	layer(launcherLayer(authenticatedSession))((test) => {
-		test.effect("builds and stores an impersonation plan without the signed-in guard", () =>
-			Effect.gen(function* () {
-				const launcher = yield* OAuthLauncher;
-				const probe = yield* LauncherProbe;
-				const plan = yield* launcher.prepareImpersonation(origin);
-				const url = new URL(plan.authorizationUrl);
+		test.effect(
+			"builds and stores an impersonation plan without the signed-in guard",
+			() =>
+				Effect.gen(function* () {
+					const launcher = yield* OAuthLauncher;
+					const probe = yield* LauncherProbe;
+					const plan = yield* launcher.prepareImpersonation(origin);
+					const url = new URL(plan.authorizationUrl);
 
-				expect(plan.client.clientId).toBe("ryot-impersonation-web");
-				expect(plan.client.callbackUri).toBe(`${origin}/auth/callback`);
-				expect(plan.pending.codeVerifier).not.toBe("");
-				expect(url.searchParams.get("code_challenge")).toBe(plan.codeChallenge);
-				expect(yield* (yield* OAuthStorage).getPending(origin, plan.pending.state)).toEqual(
-					plan.pending,
-				);
-				expect(yield* probe.authChecks).toBe(0);
-				expect(yield* probe.configChecks).toBe(1);
-			}),
+					expect(plan.client.clientId).toBe("ryot-impersonation-web");
+					expect(plan.client.callbackUri).toBe(`${origin}/auth/callback`);
+					expect(plan.pending.codeVerifier).not.toBe("");
+					expect(url.searchParams.get("code_challenge")).toBe(plan.codeChallenge);
+					expect(yield* (yield* OAuthStorage).getPending(origin, plan.pending.state)).toEqual(
+						plan.pending,
+					);
+					expect(yield* probe.authChecks).toBe(0);
+					expect(yield* probe.configChecks).toBe(1);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(launcherLayer(authenticatedSession))((test) => {
-		test.effect("keeps the normal OAuth prepare signed-in guard", () =>
-			Effect.gen(function* () {
-				const launcher = yield* OAuthLauncher;
-				const probe = yield* LauncherProbe;
-				const result = yield* launcher.prepare("/settings", {
-					serverOrigin: origin,
-					client: {
-						nativeApplicationId: null,
-						clientId: OAUTH_WEB_CLIENT_ID,
-						callbackUri: `${origin}/auth/callback`,
-						logoutUri: `${origin}/auth/logout/callback`,
-					},
-				});
+		test.effect(
+			"keeps the normal OAuth prepare signed-in guard",
+			() =>
+				Effect.gen(function* () {
+					const launcher = yield* OAuthLauncher;
+					const probe = yield* LauncherProbe;
+					const result = yield* launcher.prepare("/settings", {
+						serverOrigin: origin,
+						client: {
+							nativeApplicationId: null,
+							clientId: OAUTH_WEB_CLIENT_ID,
+							callbackUri: `${origin}/auth/callback`,
+							logoutUri: `${origin}/auth/logout/callback`,
+						},
+					});
 
-				expect(result).toEqual({ _tag: "Authenticated", destination: "/settings" });
-				expect(yield* probe.authChecks).toBe(1);
-				expect(yield* probe.configChecks).toBe(0);
-			}),
+					expect(result).toEqual({ _tag: "Authenticated", destination: "/settings" });
+					expect(yield* probe.authChecks).toBe(1);
+					expect(yield* probe.configChecks).toBe(0);
+				}),
+			testTimeout,
 		);
 	});
 });

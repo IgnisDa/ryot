@@ -1,4 +1,5 @@
-import { afterEach, assert, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	genericImportActivityReference,
@@ -17,6 +18,9 @@ import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
 
 import {
@@ -256,4 +260,5 @@ it.effect(
 			expect(fetched).toBe(1);
 			expect(writes).toBe(2);
 		}),
+	testTimeout,
 );

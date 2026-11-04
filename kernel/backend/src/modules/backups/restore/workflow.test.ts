@@ -1,10 +1,13 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { derivedFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { CryptoHasher } from "bun";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Stream } from "effect";
@@ -241,17 +244,20 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("fails a missing system requirement before asset staging or account writes", () =>
-		Effect.gen(function* () {
-			const error = yield* (yield* RestoreBackupWorkflowOperations)
-				.restore(payload, archiveLocator)
-				.pipe(Effect.flip);
-			expect(error.failure).toMatchObject({
-				code: "required-plugin-unavailable",
-				packageId: fixtureManifest().metadata.packageId,
-			});
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([]);
-		}),
+	test.effect(
+		"fails a missing system requirement before asset staging or account writes",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* (yield* RestoreBackupWorkflowOperations)
+					.restore(payload, archiveLocator)
+					.pipe(Effect.flip);
+				expect(error.failure).toMatchObject({
+					code: "required-plugin-unavailable",
+					packageId: fixtureManifest().metadata.packageId,
+				});
+				expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -264,14 +270,17 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("replays a running restore without changing its start state", () =>
-		Effect.gen(function* () {
-			const operations = yield* RestoreBackupWorkflowOperations;
-			expect(yield* operations.begin(payload)).toBe(true);
-			expect(
-				(yield* (yield* FakeRestoreDependencies).calls).filter((call) => call === "cleanliness"),
-			).toHaveLength(0);
-		}),
+	test.effect(
+		"replays a running restore without changing its start state",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* RestoreBackupWorkflowOperations;
+				expect(yield* operations.begin(payload)).toBe(true);
+				expect(
+					(yield* (yield* FakeRestoreDependencies).calls).filter((call) => call === "cleanliness"),
+				).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -291,12 +300,15 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("uses the restore run as the durable temporary upload claimant", () =>
-		Effect.gen(function* () {
-			const operations = yield* RestoreBackupWorkflowOperations;
-			expect(yield* operations.claim(payload)).toMatchObject({ intentId: "intent-id" });
-			expect((yield* (yield* FakeRestoreDependencies).calls).at(-1)).toBe(`claimant:${runId}`);
-		}),
+	test.effect(
+		"uses the restore run as the durable temporary upload claimant",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* RestoreBackupWorkflowOperations;
+				expect(yield* operations.claim(payload)).toMatchObject({ intentId: "intent-id" });
+				expect((yield* (yield* FakeRestoreDependencies).calls).at(-1)).toBe(`claimant:${runId}`);
+			}),
+		testTimeout,
 	);
 });
 
@@ -309,12 +321,15 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("skips begin, archive validation and mutation after completion", () =>
-		Effect.gen(function* () {
-			const operations = yield* RestoreBackupWorkflowOperations;
-			expect(yield* operations.begin(payload)).toBe(false);
-			yield* operations.restore(payload, archiveLocator);
-		}),
+	test.effect(
+		"skips begin, archive validation and mutation after completion",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* RestoreBackupWorkflowOperations;
+				expect(yield* operations.begin(payload)).toBe(false);
+				yield* operations.restore(payload, archiveLocator);
+			}),
+		testTimeout,
 	);
 });
 
@@ -329,12 +344,19 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("retries unavailable temporary cleanup without accessing run persistence", () =>
-		Effect.gen(function* () {
-			const operations = yield* RestoreBackupWorkflowOperations;
-			yield* operations.cleanup(payload, archiveLocator);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["delete", "delete", "delete"]);
-		}),
+	test.effect(
+		"retries unavailable temporary cleanup without accessing run persistence",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* RestoreBackupWorkflowOperations;
+				yield* operations.cleanup(payload, archiveLocator);
+				expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
+					"delete",
+					"delete",
+					"delete",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -378,11 +400,14 @@ layer(
 		failingSpoolCleanupFileSystem,
 	),
 )((test) => {
-	test.effect("keeps a committed restore successful when spool cleanup fails", () =>
-		Effect.gen(function* () {
-			const operations = yield* RestoreBackupWorkflowOperations;
-			yield* operations.restore(payload, archiveLocator);
-		}),
+	test.effect(
+		"keeps a committed restore successful when spool cleanup fails",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* RestoreBackupWorkflowOperations;
+				yield* operations.restore(payload, archiveLocator);
+			}),
+		testTimeout,
 	);
 });
 
@@ -426,11 +451,14 @@ layer(
 		};
 	}),
 )((test) => {
-	test.effect("retries a deadlocked restore transaction", () =>
-		Effect.gen(function* () {
-			yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
-		}),
+	test.effect(
+		"retries a deadlocked restore transaction",
+		() =>
+			Effect.gen(function* () {
+				yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+				expect(yield* (yield* FakeRestoreDependencies).calls).toEqual(["restore", "restore"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -462,13 +490,16 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("records a forbidden restored asset reference as an invalid archive entry", () =>
-		Effect.gen(function* () {
-			const error = yield* (yield* RestoreBackupWorkflowOperations)
-				.restore(payload, archiveLocator)
-				.pipe(Effect.flip);
-			expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
-		}),
+	test.effect(
+		"records a forbidden restored asset reference as an invalid archive entry",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* (yield* RestoreBackupWorkflowOperations)
+					.restore(payload, archiveLocator)
+					.pipe(Effect.flip);
+				expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
+			}),
+		testTimeout,
 	);
 });
 
@@ -499,6 +530,7 @@ layer(
 				expect(calls).not.toContain("persist");
 				expect(calls).not.toContain("stage");
 			}),
+		testTimeout,
 	);
 });
 
@@ -519,27 +551,30 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("records a safe specific failure before best-effort temporary cleanup", () =>
-		Effect.gen(function* () {
-			const operations = yield* RestoreBackupWorkflowOperations;
-			yield* operations.fail(
-				payload,
-				new BackupWorkflowError({
-					failure: {
-						requiredVersion: "2",
-						code: "required-plugin-unavailable",
-						packageId: fixtureManifest().metadata.packageId,
-					},
-				}),
-				archiveLocator,
-			);
-			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
-				"fail:required-plugin-unavailable",
-				"delete",
-				"delete",
-				"delete",
-			]);
-		}),
+	test.effect(
+		"records a safe specific failure before best-effort temporary cleanup",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* RestoreBackupWorkflowOperations;
+				yield* operations.fail(
+					payload,
+					new BackupWorkflowError({
+						failure: {
+							requiredVersion: "2",
+							code: "required-plugin-unavailable",
+							packageId: fixtureManifest().metadata.packageId,
+						},
+					}),
+					archiveLocator,
+				);
+				expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([
+					"fail:required-plugin-unavailable",
+					"delete",
+					"delete",
+					"delete",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -612,34 +647,41 @@ layer(
 		},
 	})),
 )((test) => {
-	test.effect("rolls back managed assets and domain rows and removes newly staged objects", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) => db.execute(sql`create schema ${sql.identifier(rollbackSchema)}`));
-			yield* session.run((db) =>
-				db.execute(
-					sql`create table ${sql.identifier(rollbackSchema)}.restore_row (id text primary key)`,
-				),
-			);
-			const operations = yield* RestoreBackupWorkflowOperations;
-			const error = yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
-			expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
-			const rows = yield* session.run((db) =>
-				db.select({ id: sql<string>`id` }).from(sql`${sql.identifier(rollbackSchema)}.restore_row`),
-			);
-			expect(rows).toHaveLength(0);
-			expect([...(yield* (yield* FakeRestoreDependencies).stagedObjects)]).toEqual([]);
-		}).pipe(
-			Effect.ensuring(
-				Effect.flatMap(DatabaseSession, (session) =>
-					session
-						.run((db) =>
-							db.execute(sql`drop schema if exists ${sql.identifier(rollbackSchema)} cascade`),
-						)
-						.pipe(Effect.orDie),
+	test.effect(
+		"rolls back managed assets and domain rows and removes newly staged objects",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.execute(sql`create schema ${sql.identifier(rollbackSchema)}`),
+				);
+				yield* session.run((db) =>
+					db.execute(
+						sql`create table ${sql.identifier(rollbackSchema)}.restore_row (id text primary key)`,
+					),
+				);
+				const operations = yield* RestoreBackupWorkflowOperations;
+				const error = yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
+				expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
+				const rows = yield* session.run((db) =>
+					db
+						.select({ id: sql<string>`id` })
+						.from(sql`${sql.identifier(rollbackSchema)}.restore_row`),
+				);
+				expect(rows).toHaveLength(0);
+				expect([...(yield* (yield* FakeRestoreDependencies).stagedObjects)]).toEqual([]);
+			}).pipe(
+				Effect.ensuring(
+					Effect.flatMap(DatabaseSession, (session) =>
+						session
+							.run((db) =>
+								db.execute(sql`drop schema if exists ${sql.identifier(rollbackSchema)} cascade`),
+							)
+							.pipe(Effect.orDie),
+					),
 				),
 			),
-		),
+		testTimeout,
 	);
 });
 
@@ -673,15 +715,18 @@ const recordingOperationsLayer = Layer.mergeAll(
 );
 
 layer(recordingOperationsLayer)((test) => {
-	test.effect("runs restore claim, direct writes, and cleanup without application hooks", () =>
-		Effect.gen(function* () {
-			yield* runRestoreBackupWorkflow({ runId, userId, uploadToken: "token" }, runId);
-			expect(yield* (yield* FakeRestoreOperations).calls).toEqual([
-				"begin",
-				"claim",
-				"restore",
-				"cleanup",
-			]);
-		}),
+	test.effect(
+		"runs restore claim, direct writes, and cleanup without application hooks",
+		() =>
+			Effect.gen(function* () {
+				yield* runRestoreBackupWorkflow({ runId, userId, uploadToken: "token" }, runId);
+				expect(yield* (yield* FakeRestoreOperations).calls).toEqual([
+					"begin",
+					"claim",
+					"restore",
+					"cleanup",
+				]);
+			}),
+		testTimeout,
 	);
 });

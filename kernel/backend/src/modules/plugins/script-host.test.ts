@@ -1,6 +1,10 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { ConfigProvider, Effect, Layer, Schema } from "effect";
 
@@ -36,116 +40,119 @@ const hostLayer = Layer.mergeAll(
 );
 
 layer(hostLayer)((test) => {
-	test.effect("late host reads retain exact config pins after environment reactivation", () =>
-		Effect.gen(function* () {
-			const plugin = revisionPackage("pinned-config");
-			const environmentKey = pluginConfigEnvironmentKey(
-				plugin.manifest.metadata.packageId,
-				"token",
-			);
-			const installed = yield* installRevisionPackage(plugin).pipe(
-				Effect.provideService(
-					ConfigProvider.ConfigProvider,
-					ConfigProvider.fromUnknown({ [environmentKey]: "admitted-token" }),
-				),
-			);
-			const database = yield* DatabaseSession;
-			const readPin = Effect.gen(function* () {
-				const [row] = yield* database.run((db) =>
-					db.select().from(tables.plugin).where(eq(tables.plugin.id, installed.pluginId)),
+	test.effect(
+		"late host reads retain exact config pins after environment reactivation",
+		() =>
+			Effect.gen(function* () {
+				const plugin = revisionPackage("pinned-config");
+				const environmentKey = pluginConfigEnvironmentKey(
+					plugin.manifest.metadata.packageId,
+					"token",
 				);
-				assert(row?.environmentConfigRevisionId);
-				return row.environmentConfigRevisionId;
-			});
-			const admittedPin = yield* readPin;
-			const revision = yield* Schema.decodeEffect(ScriptPluginRevision)({
-				ownerId: null,
-				scope: "system",
-				compiledHashes: {},
-				workflowScripts: {},
-				id: installed.pluginId,
-				userBootstrapScriptSlugs: [],
-				configRevisionId: admittedPin,
-				revisionId: installed.revisionId,
-				configSchema: plugin.manifest.configSchema,
-				packageId: plugin.manifest.metadata.packageId,
-				schemaScope: {
-					eventSchemas: [],
-					entitySchemaSlugs: [],
-					signalSchemaSlugs: [],
-					relationshipSchemaSlugs: [],
-				},
-			});
-			const input = makeUserRunInput({
-				lane: "background",
-				workflowExecutionId: "retained-execution",
-				principal: {
-					pluginRevision: revision,
-					metadata: { runtimeImports: [], requiredPluginConfigKeys: ["token"] },
-				},
-			});
-			const host = yield* makePluginScriptHost;
-			expect(yield* host.getPluginConfig(input, { required: ["token"] })).toEqual({
-				token: "admitted-token",
-			});
-			const plugins = yield* PluginRepository;
-			yield* database
-				.transaction(
-					plugins.lockIngestion().pipe(Effect.andThen(plugins.resolveEnvironmentConfigs())),
-				)
-				.pipe(
+				const installed = yield* installRevisionPackage(plugin).pipe(
 					Effect.provideService(
 						ConfigProvider.ConfigProvider,
-						ConfigProvider.fromUnknown({ [environmentKey]: "reactivated-token" }),
+						ConfigProvider.fromUnknown({ [environmentKey]: "admitted-token" }),
 					),
 				);
-			const activePin = yield* readPin;
-			expect(activePin).not.toBe(admittedPin);
-			expect(
-				yield* host
-					.getPluginConfig(input, { required: ["token"] })
+				const database = yield* DatabaseSession;
+				const readPin = Effect.gen(function* () {
+					const [row] = yield* database.run((db) =>
+						db.select().from(tables.plugin).where(eq(tables.plugin.id, installed.pluginId)),
+					);
+					assert(row?.environmentConfigRevisionId);
+					return row.environmentConfigRevisionId;
+				});
+				const admittedPin = yield* readPin;
+				const revision = yield* Schema.decodeEffect(ScriptPluginRevision)({
+					ownerId: null,
+					scope: "system",
+					compiledHashes: {},
+					workflowScripts: {},
+					id: installed.pluginId,
+					userBootstrapScriptSlugs: [],
+					configRevisionId: admittedPin,
+					revisionId: installed.revisionId,
+					configSchema: plugin.manifest.configSchema,
+					packageId: plugin.manifest.metadata.packageId,
+					schemaScope: {
+						eventSchemas: [],
+						entitySchemaSlugs: [],
+						signalSchemaSlugs: [],
+						relationshipSchemaSlugs: [],
+					},
+				});
+				const input = makeUserRunInput({
+					lane: "background",
+					workflowExecutionId: "retained-execution",
+					principal: {
+						pluginRevision: revision,
+						metadata: { runtimeImports: [], requiredPluginConfigKeys: ["token"] },
+					},
+				});
+				const host = yield* makePluginScriptHost;
+				expect(yield* host.getPluginConfig(input, { required: ["token"] })).toEqual({
+					token: "admitted-token",
+				});
+				const plugins = yield* PluginRepository;
+				yield* database
+					.transaction(
+						plugins.lockIngestion().pipe(Effect.andThen(plugins.resolveEnvironmentConfigs())),
+					)
 					.pipe(
 						Effect.provideService(
 							ConfigProvider.ConfigProvider,
-							ConfigProvider.fromUnknown({ [environmentKey]: "live-token" }),
+							ConfigProvider.fromUnknown({ [environmentKey]: "reactivated-token" }),
 						),
-					),
-			).toEqual({ token: "admitted-token" });
-			expect(
-				yield* host.getPluginConfig(
-					{
-						...input,
-						principal: {
-							...input.principal,
-							pluginRevision: yield* Schema.decodeEffect(ScriptPluginRevision)({
-								...revision,
-								configRevisionId: activePin,
-							}),
-						},
-					},
-					{ required: ["token"] },
-				),
-			).toEqual({ token: "reactivated-token" });
-			for (const invalid of [
-				{ ...revision, ownerId: UserId.make("recipient") },
-				{ ...revision, revisionId: "missing-revision" },
-				{ ...revision, configRevisionId: "missing-config" },
-			]) {
+					);
+				const activePin = yield* readPin;
+				expect(activePin).not.toBe(admittedPin);
 				expect(
 					yield* host
-						.getPluginConfig(
-							{
-								...input,
-								principal: {
-									...input.principal,
-									pluginRevision: yield* Schema.decodeEffect(ScriptPluginRevision)(invalid),
-								},
+						.getPluginConfig(input, { required: ["token"] })
+						.pipe(
+							Effect.provideService(
+								ConfigProvider.ConfigProvider,
+								ConfigProvider.fromUnknown({ [environmentKey]: "live-token" }),
+							),
+						),
+				).toEqual({ token: "admitted-token" });
+				expect(
+					yield* host.getPluginConfig(
+						{
+							...input,
+							principal: {
+								...input.principal,
+								pluginRevision: yield* Schema.decodeEffect(ScriptPluginRevision)({
+									...revision,
+									configRevisionId: activePin,
+								}),
 							},
-							{ required: ["token"] },
-						)
-						.pipe(Effect.result),
-				).toMatchObject({ _tag: "Failure" });
-			}
-		}),
+						},
+						{ required: ["token"] },
+					),
+				).toEqual({ token: "reactivated-token" });
+				for (const invalid of [
+					{ ...revision, ownerId: UserId.make("recipient") },
+					{ ...revision, revisionId: "missing-revision" },
+					{ ...revision, configRevisionId: "missing-config" },
+				]) {
+					expect(
+						yield* host
+							.getPluginConfig(
+								{
+									...input,
+									principal: {
+										...input.principal,
+										pluginRevision: yield* Schema.decodeEffect(ScriptPluginRevision)(invalid),
+									},
+								},
+								{ required: ["token"] },
+							)
+							.pipe(Effect.result),
+					).toMatchObject({ _tag: "Failure" });
+				}
+			}),
+		testTimeout,
 	);
 });

@@ -1,4 +1,5 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
@@ -6,6 +7,8 @@ import type {
 	PluginHapticKind,
 	PluginNavigationTarget,
 } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -122,82 +125,87 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 describe("device authority", () => {
 	const hapticRouting = harness();
 	layer(hapticRouting.layer)((test) => {
-		test.effect("accepts ownerless haptics only for active foreground frames", () =>
-			Effect.gen(function* () {
-				const service = yield* DeviceService;
-				yield* service.start;
-				yield* service.setScope(scope);
-				expect(
-					yield* service.outcome(scope, kernelContributors, "frame", true, {
-						kind: "impact",
-						action: "haptic",
-					}),
-				).toEqual({ outcome: "success", value: { status: "done" } });
-				hapticRouting.foreground(false);
-				expect(
-					yield* service.outcome(scope, kernelContributors, "frame", true, {
-						action: "haptic",
-						kind: "selection",
-					}),
-				).toEqual({ outcome: "success", value: { status: "done" } });
-				hapticRouting.foreground(true);
-				expect(
-					yield* service.outcome(scope, kernelContributors, "frame", false, {
-						action: "haptic",
-						kind: "selection",
-					}),
-				).toEqual({ outcome: "success", value: { status: "done" } });
-				expect(hapticRouting.haptics).toEqual(["impact"]);
-				expect(
-					yield* service.outcome(otherScope, kernelContributors, "frame", true, {
-						action: "haptic",
-						kind: "selection",
-					}),
-				).toEqual({ outcome: "failure", reason: "invalid-request" });
-				expect(yield* service.outcome(scope, kernelContributors, "frame", true, schedule)).toEqual({
-					outcome: "failure",
-					reason: "invalid-request",
-				});
-				expect(hapticRouting.scheduled).toEqual([]);
-			}),
+		test.effect(
+			"accepts ownerless haptics only for active foreground frames",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					yield* service.start;
+					yield* service.setScope(scope);
+					expect(
+						yield* service.outcome(scope, kernelContributors, "frame", true, {
+							kind: "impact",
+							action: "haptic",
+						}),
+					).toEqual({ outcome: "success", value: { status: "done" } });
+					hapticRouting.foreground(false);
+					expect(
+						yield* service.outcome(scope, kernelContributors, "frame", true, {
+							action: "haptic",
+							kind: "selection",
+						}),
+					).toEqual({ outcome: "success", value: { status: "done" } });
+					hapticRouting.foreground(true);
+					expect(
+						yield* service.outcome(scope, kernelContributors, "frame", false, {
+							action: "haptic",
+							kind: "selection",
+						}),
+					).toEqual({ outcome: "success", value: { status: "done" } });
+					expect(hapticRouting.haptics).toEqual(["impact"]);
+					expect(
+						yield* service.outcome(otherScope, kernelContributors, "frame", true, {
+							action: "haptic",
+							kind: "selection",
+						}),
+					).toEqual({ outcome: "failure", reason: "invalid-request" });
+					expect(
+						yield* service.outcome(scope, kernelContributors, "frame", true, schedule),
+					).toEqual({ outcome: "failure", reason: "invalid-request" });
+					expect(hapticRouting.scheduled).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 	const scopedAlerts = harness();
 	layer(scopedAlerts.layer)((test) => {
-		test.effect("replaces scoped keys with fresh IDs and ignores stale taps", () =>
-			Effect.gen(function* () {
-				const service = yield* DeviceService;
-				let refreshes = 0;
-				const unsubscribe = service.subscribeAlerts(() => {
-					refreshes++;
-				});
-				yield* service.start;
-				yield* service.start;
-				yield* service.setScope(scope, (to) => scopedAlerts.navigated.push(to));
-				expect(yield* service.outcome(scope, contributors, "frame", true, schedule)).toEqual({
-					outcome: "success",
-					value: { status: "scheduled" },
-				});
-				yield* service.outcome(scope, contributors, "frame", true, schedule);
-				expect(scopedAlerts.scheduled).toEqual([1, 2]);
-				expect(scopedAlerts.cancelled).toEqual([1]);
-				scopedAlerts.delivered(1);
-				scopedAlerts.delivered(2);
-				expect(refreshes).toBe(1);
-				scopedAlerts.tap(1);
-				expect(scopedAlerts.navigated).toEqual([]);
-				scopedAlerts.tap(2);
-				expect(scopedAlerts.navigated).toEqual([target]);
-				yield* service.outcome(scope, contributors, "frame", true, {
-					pluginId,
-					key: "rest",
-					action: "cancel",
-				});
-				expect(scopedAlerts.cancelled).toEqual([1, 2]);
-				expect(scopedAlerts.stored().alerts).toEqual([]);
-				expect(scopedAlerts.listens()).toBe(1);
-				unsubscribe();
-			}),
+		test.effect(
+			"replaces scoped keys with fresh IDs and ignores stale taps",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					let refreshes = 0;
+					const unsubscribe = service.subscribeAlerts(() => {
+						refreshes++;
+					});
+					yield* service.start;
+					yield* service.start;
+					yield* service.setScope(scope, (to) => scopedAlerts.navigated.push(to));
+					expect(yield* service.outcome(scope, contributors, "frame", true, schedule)).toEqual({
+						outcome: "success",
+						value: { status: "scheduled" },
+					});
+					yield* service.outcome(scope, contributors, "frame", true, schedule);
+					expect(scopedAlerts.scheduled).toEqual([1, 2]);
+					expect(scopedAlerts.cancelled).toEqual([1]);
+					scopedAlerts.delivered(1);
+					scopedAlerts.delivered(2);
+					expect(refreshes).toBe(1);
+					scopedAlerts.tap(1);
+					expect(scopedAlerts.navigated).toEqual([]);
+					scopedAlerts.tap(2);
+					expect(scopedAlerts.navigated).toEqual([target]);
+					yield* service.outcome(scope, contributors, "frame", true, {
+						pluginId,
+						key: "rest",
+						action: "cancel",
+					});
+					expect(scopedAlerts.cancelled).toEqual([1, 2]);
+					expect(scopedAlerts.stored().alerts).toEqual([]);
+					expect(scopedAlerts.listens()).toBe(1);
+					unsubscribe();
+				}),
+			testTimeout,
 		);
 	});
 	const coldTap = harness({
@@ -238,40 +246,44 @@ describe("device authority", () => {
 						reason: "invalid-request",
 					});
 				}),
+			testTimeout,
 		);
 	});
 	const awakeDemand = harness();
 	layer(awakeDemand.layer)((test) => {
-		test.effect("aggregates awake demand and keeps scheduled alerts after frame disposal", () =>
-			Effect.gen(function* () {
-				const service = yield* DeviceService;
-				yield* service.start;
-				yield* service.setScope(scope);
-				yield* service.outcome(scope, contributors, "a", true, {
-					pluginId,
-					enabled: true,
-					action: "awake",
-				});
-				yield* service.outcome(scope, contributors, "b", true, {
-					pluginId,
-					enabled: true,
-					action: "awake",
-				});
-				yield* service.setFrameActive("a", false);
-				yield* service.setFrameActive("b", false);
-				yield* service.setFrameActive("a", true);
-				expect(awakeDemand.awake).toEqual([true, false, true]);
-				awakeDemand.foreground(false);
-				yield* service.setFrameActive("a", true);
-				awakeDemand.foreground(true);
-				yield* service.setFrameActive("a", true);
-				expect(awakeDemand.awake).toEqual([true, false, true, false, true]);
-				yield* service.outcome(scope, contributors, "a", true, schedule);
-				yield* service.releaseFrame("a");
-				expect(awakeDemand.awake).toEqual([true, false, true, false, true, false]);
-				expect(awakeDemand.cancelled).toEqual([]);
-				expect(awakeDemand.stored().alerts).toHaveLength(1);
-			}),
+		test.effect(
+			"aggregates awake demand and keeps scheduled alerts after frame disposal",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					yield* service.start;
+					yield* service.setScope(scope);
+					yield* service.outcome(scope, contributors, "a", true, {
+						pluginId,
+						enabled: true,
+						action: "awake",
+					});
+					yield* service.outcome(scope, contributors, "b", true, {
+						pluginId,
+						enabled: true,
+						action: "awake",
+					});
+					yield* service.setFrameActive("a", false);
+					yield* service.setFrameActive("b", false);
+					yield* service.setFrameActive("a", true);
+					expect(awakeDemand.awake).toEqual([true, false, true]);
+					awakeDemand.foreground(false);
+					yield* service.setFrameActive("a", true);
+					awakeDemand.foreground(true);
+					yield* service.setFrameActive("a", true);
+					expect(awakeDemand.awake).toEqual([true, false, true, false, true]);
+					yield* service.outcome(scope, contributors, "a", true, schedule);
+					yield* service.releaseFrame("a");
+					expect(awakeDemand.awake).toEqual([true, false, true, false, true, false]);
+					expect(awakeDemand.cancelled).toEqual([]);
+					expect(awakeDemand.stored().alerts).toHaveLength(1);
+				}),
+			testTimeout,
 		);
 	});
 	let unreadableWrites = 0;
@@ -289,15 +301,18 @@ describe("device authority", () => {
 	layer(
 		DeviceService.layer.pipe(Layer.provide(unreadablePlatform), Layer.provide(unreadableStorage)),
 	)((test) => {
-		test.effect("does not overwrite unreadable metadata or schedule without durable identity", () =>
-			Effect.gen(function* () {
-				const service = yield* DeviceService;
-				expect(yield* service.outcome(scope, contributors, "frame", true, schedule)).toEqual({
-					outcome: "failure",
-					reason: "transport",
-				});
-				expect(unreadableWrites).toBe(0);
-			}),
+		test.effect(
+			"does not overwrite unreadable metadata or schedule without durable identity",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					expect(yield* service.outcome(scope, contributors, "frame", true, schedule)).toEqual({
+						outcome: "failure",
+						reason: "transport",
+					});
+					expect(unreadableWrites).toBe(0);
+				}),
+			testTimeout,
 		);
 	});
 	const gate = Deferred.makeUnsafe<void>();
@@ -358,6 +373,7 @@ describe("device authority", () => {
 					yield* Fiber.join(leaving);
 					expect(cancelledDuringScheduling).toEqual([1]);
 				}),
+			testTimeout,
 		);
 	});
 });

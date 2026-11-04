@@ -1,6 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import relatedScript, { manifest as relatedManifest } from "./related.sandbox";
 import { details, manifest, related, search } from "./shared";

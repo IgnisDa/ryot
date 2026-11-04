@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -6,6 +7,9 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
@@ -68,39 +72,42 @@ const serviceLayer = EventsService.layer.pipe(
 );
 
 layer(serviceLayer)((test) => {
-	test.effect("awaits the owning workflow and preserves command causation and identity", () =>
-		Effect.gen(function* () {
-			const command = {
-				...rootLifecycleCommand({
-					source: "import",
-					lane: "background",
-					itemIdentity: "import:item",
-					initiator: { id: userId, kind: "user" },
-					executionId: AutomationExecutionId.make("import"),
-					occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
-					accountGeneration: { userId, token: "test-account-generation" },
-				}),
-				writeContext: null,
-			};
-			const input = {
-				userId,
-				payload: [
-					{
-						properties: { rating: 1 },
-						entityId: EntityId.make("entity"),
-						eventSchemaSlug: EventSchemaSlug.make("rating"),
-					},
-				],
-			};
-			const service = yield* EventsService;
-			const executions = yield* WorkflowExecutions;
-			expect(yield* service.create(input, command)).toEqual(result);
-			const calls = yield* executions;
-			expect(calls).toMatchObject([{ payload: { ...input, command } }]);
-			expect(calls[0]).not.toHaveProperty("discard", true);
-			expect(yield* service.create({ userId, payload: [] }, command)).toEqual(result);
-			expect(yield* executions).toHaveLength(1);
-		}),
+	test.effect(
+		"awaits the owning workflow and preserves command causation and identity",
+		() =>
+			Effect.gen(function* () {
+				const command = {
+					...rootLifecycleCommand({
+						source: "import",
+						lane: "background",
+						itemIdentity: "import:item",
+						initiator: { id: userId, kind: "user" },
+						executionId: AutomationExecutionId.make("import"),
+						occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+						accountGeneration: { userId, token: "test-account-generation" },
+					}),
+					writeContext: null,
+				};
+				const input = {
+					userId,
+					payload: [
+						{
+							properties: { rating: 1 },
+							entityId: EntityId.make("entity"),
+							eventSchemaSlug: EventSchemaSlug.make("rating"),
+						},
+					],
+				};
+				const service = yield* EventsService;
+				const executions = yield* WorkflowExecutions;
+				expect(yield* service.create(input, command)).toEqual(result);
+				const calls = yield* executions;
+				expect(calls).toMatchObject([{ payload: { ...input, command } }]);
+				expect(calls[0]).not.toHaveProperty("discard", true);
+				expect(yield* service.create({ userId, payload: [] }, command)).toEqual(result);
+				expect(yield* executions).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"ends the HTTP wait after one command budget without abandoning a committed event",
@@ -148,6 +155,7 @@ layer(serviceLayer)((test) => {
 				);
 				expect(denied._tag).toBe("EventOperationNotFound");
 			}),
+		testTimeout,
 	);
 });
 
@@ -181,18 +189,21 @@ const completedServiceLayer = EventsService.layer.pipe(
 );
 
 layer(completedServiceLayer)((test) => {
-	test.effect("reads a completed operation from the event workflow", () =>
-		Effect.gen(function* () {
-			const operationId = createWorkflowJobId(
-				deriveJobIdSecret("test-admin-token", "events-operation-id"),
-				{ itemCount: 1, executionId: "http-request" },
-				userId,
-			);
-			expect(yield* (yield* EventsService).getCreateOperation(userId, operationId)).toEqual({
-				result,
-				operationId,
-				status: "completed",
-			});
-		}),
+	test.effect(
+		"reads a completed operation from the event workflow",
+		() =>
+			Effect.gen(function* () {
+				const operationId = createWorkflowJobId(
+					deriveJobIdSecret("test-admin-token", "events-operation-id"),
+					{ itemCount: 1, executionId: "http-request" },
+					userId,
+				);
+				expect(yield* (yield* EventsService).getCreateOperation(userId, operationId)).toEqual({
+					result,
+					operationId,
+					status: "completed",
+				});
+			}),
+		testTimeout,
 	);
 });

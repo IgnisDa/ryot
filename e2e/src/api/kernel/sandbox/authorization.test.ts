@@ -1,4 +1,4 @@
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -52,10 +52,15 @@ describe("sandbox capability authorization", () => {
 				}),
 			);
 			assert(result.status === "failed", "Expected denied capability cron to fail");
-			expect(result.result).toMatchObject({
-				status: "completed",
-				error: { phase: "execute", message: stringContaining("getUserPreferences") },
-			});
+			expect(result.result).toEqual<unknown>(
+				objectContaining({
+					status: "completed",
+					error: objectContaining({
+						phase: "execute",
+						message: stringContaining("getUserPreferences"),
+					}),
+				}),
+			);
 		}),
 	);
 });

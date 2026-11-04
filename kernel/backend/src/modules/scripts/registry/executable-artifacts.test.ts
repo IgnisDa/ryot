@@ -1,11 +1,15 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Fiber, Layer } from "effect";
 
 import { compiledArtifactsLayer } from "../executions/fixtures.test-support";
@@ -78,26 +82,29 @@ const concurrentLayer = Layer.unwrap(
 );
 
 layer(concurrentLayer, { excludeTestServices: true })((test) => {
-	test.effect("shares matching compiled bytes across script ids and concurrent reads", () =>
-		Effect.gen(function* () {
-			const artifacts = yield* ExecutableArtifacts;
-			const gate = yield* ArtifactLookupGate;
-			const fiber = yield* Effect.forkChild(
-				Effect.forEach(
-					concurrentScriptIds,
-					(scriptId) => artifacts.get({ scriptId, contentHash: concurrentHash }),
-					{ concurrency: "unbounded" },
-				),
-			);
-			yield* Deferred.await(gate.entered);
-			yield* Deferred.succeed(gate.release, undefined);
-			const results = yield* Fiber.join(fiber);
-			expect(results).toEqual([
-				{ compiledCode: concurrentCode, compiledFormat: SANDBOX_COMPILED_FORMAT },
-				{ compiledCode: concurrentCode, compiledFormat: SANDBOX_COMPILED_FORMAT },
-			]);
-			expect(concurrentReads).toHaveLength(1);
-		}),
+	test.effect(
+		"shares matching compiled bytes across script ids and concurrent reads",
+		() =>
+			Effect.gen(function* () {
+				const artifacts = yield* ExecutableArtifacts;
+				const gate = yield* ArtifactLookupGate;
+				const fiber = yield* Effect.forkChild(
+					Effect.forEach(
+						concurrentScriptIds,
+						(scriptId) => artifacts.get({ scriptId, contentHash: concurrentHash }),
+						{ concurrency: "unbounded" },
+					),
+				);
+				yield* Deferred.await(gate.entered);
+				yield* Deferred.succeed(gate.release, undefined);
+				const results = yield* Fiber.join(fiber);
+				expect(results).toEqual([
+					{ compiledCode: concurrentCode, compiledFormat: SANDBOX_COMPILED_FORMAT },
+					{ compiledCode: concurrentCode, compiledFormat: SANDBOX_COMPILED_FORMAT },
+				]);
+				expect(concurrentReads).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -145,15 +152,18 @@ const invalidArtifactsLayer = compiledArtifactsLayer(
 );
 
 layer(invalidArtifactsLayer, { excludeTestServices: true })((test) => {
-	test.effect("does not cache mismatched, oversized, or unsupported compiled bytes", () =>
-		Effect.gen(function* () {
-			const artifacts = yield* ExecutableArtifacts;
-			for (const { principal } of invalidArtifacts) {
-				assertExitFails(yield* Effect.exit(artifacts.get(principal)), missingArtifact());
-				assertExitFails(yield* Effect.exit(artifacts.get(principal)), missingArtifact());
-				expect(invalidReads.get(principal.scriptId)).toBe(2);
-			}
-		}),
+	test.effect(
+		"does not cache mismatched, oversized, or unsupported compiled bytes",
+		() =>
+			Effect.gen(function* () {
+				const artifacts = yield* ExecutableArtifacts;
+				for (const { principal } of invalidArtifacts) {
+					assertExitFails(yield* Effect.exit(artifacts.get(principal)), missingArtifact());
+					assertExitFails(yield* Effect.exit(artifacts.get(principal)), missingArtifact());
+					expect(invalidReads.get(principal.scriptId)).toBe(2);
+				}
+			}),
+		testTimeout,
 	);
 });
 
@@ -172,20 +182,23 @@ const retryLayer = compiledArtifactsLayer(
 );
 
 layer(retryLayer, { excludeTestServices: true })((test) => {
-	test.effect("retries a failed lookup and returns newly available compiled bytes", () =>
-		Effect.gen(function* () {
-			const artifacts = yield* ExecutableArtifacts;
-			assertExitFails(
-				yield* Effect.exit(artifacts.get({ contentHash: retryHash, scriptId: retryScriptId })),
-				missingArtifact(),
-			);
-			retryScript = compiledScript(retryScriptId, retryCode);
-			expect(yield* artifacts.get({ contentHash: retryHash, scriptId: retryScriptId })).toEqual({
-				compiledCode: retryCode,
-				compiledFormat: SANDBOX_COMPILED_FORMAT,
-			});
-			expect(retryReads).toBe(2);
-		}),
+	test.effect(
+		"retries a failed lookup and returns newly available compiled bytes",
+		() =>
+			Effect.gen(function* () {
+				const artifacts = yield* ExecutableArtifacts;
+				assertExitFails(
+					yield* Effect.exit(artifacts.get({ contentHash: retryHash, scriptId: retryScriptId })),
+					missingArtifact(),
+				);
+				retryScript = compiledScript(retryScriptId, retryCode);
+				expect(yield* artifacts.get({ contentHash: retryHash, scriptId: retryScriptId })).toEqual({
+					compiledCode: retryCode,
+					compiledFormat: SANDBOX_COMPILED_FORMAT,
+				});
+				expect(retryReads).toBe(2);
+			}),
+		testTimeout,
 	);
 });
 
@@ -208,20 +221,23 @@ const capacityLayer = compiledArtifactsLayer(
 );
 
 layer(capacityLayer, { excludeTestServices: true })((test) => {
-	test.effect("reloads a valid old hash after capacity eviction", () =>
-		Effect.gen(function* () {
-			const artifacts = yield* ExecutableArtifacts;
-			for (const principal of capacityPrincipals.slice(0, 16)) {
-				yield* artifacts.get(principal);
-			}
-			const evictingPrincipal = capacityPrincipals[16];
-			const firstPrincipal = capacityPrincipals[0];
-			assert(evictingPrincipal !== undefined);
-			assert(firstPrincipal !== undefined);
-			yield* artifacts.get(evictingPrincipal);
-			yield* artifacts.get(firstPrincipal);
-			expect(capacityReads.get(firstPrincipal.scriptId)).toBe(2);
-			expect(capacityReads.get(evictingPrincipal.scriptId)).toBe(1);
-		}),
+	test.effect(
+		"reloads a valid old hash after capacity eviction",
+		() =>
+			Effect.gen(function* () {
+				const artifacts = yield* ExecutableArtifacts;
+				for (const principal of capacityPrincipals.slice(0, 16)) {
+					yield* artifacts.get(principal);
+				}
+				const evictingPrincipal = capacityPrincipals[16];
+				const firstPrincipal = capacityPrincipals[0];
+				assert(evictingPrincipal !== undefined);
+				assert(firstPrincipal !== undefined);
+				yield* artifacts.get(evictingPrincipal);
+				yield* artifacts.get(firstPrincipal);
+				expect(capacityReads.get(firstPrincipal.scriptId)).toBe(2);
+				expect(capacityReads.get(evictingPrincipal.scriptId)).toBe(1);
+			}),
+		testTimeout,
 	);
 });

@@ -1,6 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { providerSearchRecipe } from "./provider-search";
 import { rowsResponse } from "./test-utils";
@@ -70,7 +72,7 @@ describe("provider search recipe", () => {
 					]),
 				),
 			),
-		).toEqual({
+		).toEqual<unknown>({
 			pageInfo,
 			items: [provider, { ...provider, providerId: "provider-2", searchOptionsSchema: null }],
 		});

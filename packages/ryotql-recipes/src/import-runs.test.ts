@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	importRunRecipe,
@@ -84,7 +85,7 @@ describe("import-run recipes", () => {
 		const recipe = manualImportRunsRecipe({ limit: 2 });
 		const decoded = Result.getOrThrow(recipe.decode({ data: { importRuns: rows([runItem]) } }));
 
-		expect(decoded.items[0]).toEqual({
+		expect(decoded.items[0]).toEqual<unknown>({
 			...runItem,
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",

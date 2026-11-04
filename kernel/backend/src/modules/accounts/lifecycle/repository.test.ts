@@ -1,11 +1,14 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
-import { assert, describe } from "vitest";
 
 import {
 	installRevisionPackage,
@@ -84,17 +87,20 @@ layer(
 		BunCrypto.layerSecureRandom,
 	),
 )((test) => {
-	test.effect("acquires the per-user lock before reading an active operation", () =>
-		Effect.gen(function* () {
-			const repository = yield* UserLifecycleRepository;
-			const prepared = yield* repository.loadPreparationForUpdate(UserId.make("user-1"), "reset");
-			expect(prepared?.active?.operation.id).toBe("operation-1");
-			expect(yield* (yield* RecordedDatabaseEvents).events).toEqual([
-				"lock",
-				"account-lock",
-				"active",
-			]);
-		}),
+	test.effect(
+		"acquires the per-user lock before reading an active operation",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* UserLifecycleRepository;
+				const prepared = yield* repository.loadPreparationForUpdate(UserId.make("user-1"), "reset");
+				expect(prepared?.active?.operation.id).toBe("operation-1");
+				expect(yield* (yield* RecordedDatabaseEvents).events).toEqual([
+					"lock",
+					"account-lock",
+					"active",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -324,22 +330,22 @@ describe("user lifecycle persistence cleanup", () => {
 									.where(eq(tables.notificationDelivery.notificationId, ownerNotificationId)),
 							).toEqual([]);
 
-							expect(yield* db.select().from(tables.user)).toEqual([
+							expect(yield* db.select().from(tables.user)).toEqual<unknown>([
 								objectContaining({ id: "recipient" }),
 							]);
-							expect(yield* db.select().from(tables.automationRun)).toEqual([
+							expect(yield* db.select().from(tables.automationRun)).toEqual<unknown>([
 								objectContaining({ id: "recipient-shared-run", executionUserId: "recipient" }),
 							]);
-							expect(yield* db.select().from(tables.automationRunAttempt)).toEqual([
+							expect(yield* db.select().from(tables.automationRunAttempt)).toEqual<unknown>([
 								objectContaining({ id: "recipient-attempt", runId: "recipient-shared-run" }),
 							]);
 							expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([
 								{ userId: "recipient", triggerId: "shared-trigger" },
 							]);
-							expect(yield* db.select().from(tables.automationTrigger)).toEqual([
+							expect(yield* db.select().from(tables.automationTrigger)).toEqual<unknown>([
 								objectContaining({ scopeUserId: null, id: "shared-trigger" }),
 							]);
-							expect(yield* db.select().from(tables.pluginConfigRevision)).toEqual([
+							expect(yield* db.select().from(tables.pluginConfigRevision)).toEqual<unknown>([
 								objectContaining({ ownerUserId: null, pluginInstallationId: null }),
 							]);
 							expect(
@@ -362,6 +368,7 @@ describe("user lifecycle persistence cleanup", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 });

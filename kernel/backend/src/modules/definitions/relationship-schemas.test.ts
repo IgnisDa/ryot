@@ -1,9 +1,12 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	definitionKey,
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -73,25 +76,28 @@ const repositoryLayer = Layer.unwrap(
 );
 
 layer(repositoryLayer)((test) => {
-	test.effect("resolves relationship references without crossing owners", () =>
-		Effect.gen(function* () {
-			const repository = yield* RelationshipSchemaReader;
-			expect(yield* repository.findByReference(pluginReference, UserId.make("user"))).toMatchObject(
-				{ pluginId, slug: relationshipSlug, name: "Plugin relation" },
-			);
-			expect(yield* repository.findByReference(kernelReference, null)).toMatchObject({
-				pluginId: null,
-				slug: relationshipSlug,
-				name: "Kernel relation",
-			});
-			expect(yield* repository.findKernelBySlug("shared-relation")).toMatchObject({
-				pluginId: null,
-				name: "Kernel relation",
-			});
-			expect(yield* (yield* RelationshipCalls).globalReferences).toEqual([
-				kernelReference,
-				kernelReference,
-			]);
-		}),
+	test.effect(
+		"resolves relationship references without crossing owners",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* RelationshipSchemaReader;
+				expect(
+					yield* repository.findByReference(pluginReference, UserId.make("user")),
+				).toMatchObject({ pluginId, slug: relationshipSlug, name: "Plugin relation" });
+				expect(yield* repository.findByReference(kernelReference, null)).toMatchObject({
+					pluginId: null,
+					slug: relationshipSlug,
+					name: "Kernel relation",
+				});
+				expect(yield* repository.findKernelBySlug("shared-relation")).toMatchObject({
+					pluginId: null,
+					name: "Kernel relation",
+				});
+				expect(yield* (yield* RelationshipCalls).globalReferences).toEqual([
+					kernelReference,
+					kernelReference,
+				]);
+			}),
+		testTimeout,
 	);
 });

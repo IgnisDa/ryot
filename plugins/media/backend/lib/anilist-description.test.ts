@@ -1,9 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
+import { assert } from "@ryot-app/testing/assert";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { assert, describe, expect, it } from "vitest";
 
 import { normalizeAnilistDescription } from "./anilist-description";
 import { normalizeRichDescription } from "./rich-description";
@@ -112,7 +114,7 @@ describe("AniList descriptions", () => {
 				spoilerControls
 					.toArray()
 					.map((element) => (element.name === "details" ? "block" : "inline")),
-			).toEqual(controls);
+			).toEqual<unknown>(controls);
 			expect(rendered("details p").length).toBe(paragraphs);
 			const prose = spoilerControls.clone();
 			prose.find("summary, button").remove();
@@ -124,7 +126,7 @@ describe("AniList descriptions", () => {
 						.find("p")
 						.toArray()
 						.map((element) => rendered(element).text().trim()),
-				).toEqual(concealed);
+				).toEqual<unknown>(concealed);
 			} else {
 				expect(concealedText).toBe(concealed.join(" "));
 			}

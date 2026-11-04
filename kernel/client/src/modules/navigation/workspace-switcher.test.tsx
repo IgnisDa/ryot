@@ -1,12 +1,15 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useState } from "react";
 
@@ -165,63 +168,69 @@ describe("workspace switcher", () => {
 		expect(within(menu).getByText("Custom workspace · 0 views")).toBeTruthy();
 	});
 
-	it.live("focuses the current workspace on open and exposes its selection", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			render(
-				<WorkspaceSwitcher
-					current={current}
-					summary="2 views"
-					catalog={[current]}
-					navigation={navigation}
-					onSelect={() => undefined}
-				/>,
-			);
+	it.live(
+		"focuses the current workspace on open and exposes its selection",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				render(
+					<WorkspaceSwitcher
+						current={current}
+						summary="2 views"
+						catalog={[current]}
+						navigation={navigation}
+						onSelect={() => undefined}
+					/>,
+				);
 
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
 
-			const item = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(item)));
-			expect(item.getAttribute("aria-checked")).toBe("true");
-		}),
+				const item = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(item)));
+				expect(item.getAttribute("aria-checked")).toBe("true");
+			}),
+		testTimeout,
 	);
 
-	it.live("opens from its desktop shortcut and focuses the current workspace", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			const other = workspace({
-				sortOrder: 1,
-				name: "Other",
-				installationId: "installation-other",
-				packageId: PluginPackageId.make("test/other"),
-			});
-			render(
-				<WorkspaceSwitcher
-					showShortcut
-					summary="2 views"
-					current={current}
-					navigation={navigation}
-					onSelect={() => undefined}
-					catalog={[current, other]}
-				/>,
-			);
-			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
+	it.live(
+		"opens from its desktop shortcut and focuses the current workspace",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				const other = workspace({
+					sortOrder: 1,
+					name: "Other",
+					installationId: "installation-other",
+					packageId: PluginPackageId.make("test/other"),
+				});
+				render(
+					<WorkspaceSwitcher
+						showShortcut
+						summary="2 views"
+						current={current}
+						navigation={navigation}
+						onSelect={() => undefined}
+						catalog={[current, other]}
+					/>,
+				);
+				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
 
-			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+				fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
 
-			const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
-			const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
-			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(otherItem)));
-			fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
-			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
-			expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
-			const shortcutHint = screen.getByText("Space");
-			expect(shortcutHint.tagName).toBe("KBD");
-			expect(shortcutHint.getAttribute("aria-hidden")).toBe("true");
-		}),
+				const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+				const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
+				fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(otherItem)));
+				fireEvent.keyDown(document, { key: " ", ctrlKey: true, shiftKey: true });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
+				expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
+				expect(trigger.getAttribute("aria-keyshortcuts")).toBe("Mod+Shift+Space");
+				const shortcutHint = screen.getByText("Space");
+				expect(shortcutHint.tagName).toBe("KBD");
+				expect(shortcutHint.getAttribute("aria-hidden")).toBe("true");
+			}),
+		testTimeout,
 	);
 
 	it("renders only from its controlled open value and reports close requests", () => {
@@ -246,43 +255,48 @@ describe("workspace switcher", () => {
 		expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
 	});
 
-	it.live("focuses the current workspace when externally reopened after a stale active item", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			const other = workspace({
-				sortOrder: 1,
-				name: "Other",
-				installationId: "installation-other",
-				packageId: PluginPackageId.make("test/other"),
-			});
-			const journal = workspace({
-				sortOrder: 2,
-				name: "Journal",
-				installationId: "installation-journal",
-				packageId: PluginPackageId.make("test/journal"),
-			});
-			const props = {
-				current,
-				navigation,
-				summary: "2 views",
-				onSelect: () => undefined,
-				onOpenChange: () => undefined,
-				catalog: [current, other, journal],
-			};
-			const rendered = render(<WorkspaceSwitcherView {...props} open />);
-			const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
-			const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
+	it.live(
+		"focuses the current workspace when externally reopened after a stale active item",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				const other = workspace({
+					sortOrder: 1,
+					name: "Other",
+					installationId: "installation-other",
+					packageId: PluginPackageId.make("test/other"),
+				});
+				const journal = workspace({
+					sortOrder: 2,
+					name: "Journal",
+					installationId: "installation-journal",
+					packageId: PluginPackageId.make("test/journal"),
+				});
+				const props = {
+					current,
+					navigation,
+					summary: "2 views",
+					onSelect: () => undefined,
+					onOpenChange: () => undefined,
+					catalog: [current, other, journal],
+				};
+				const rendered = render(<WorkspaceSwitcherView {...props} open />);
+				const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+				const otherItem = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
 
-			fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(otherItem)));
+				fireEvent.keyDown(screen.getByRole("menu"), { key: "ArrowDown" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(otherItem)));
 
-			rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
-			rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
+				rendered.rerender(<WorkspaceSwitcherView {...props} open={false} />);
+				rendered.rerender(<WorkspaceSwitcherView {...props} open current={journal} />);
 
-			const journalItem = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journalItem)));
-		}),
+				const journalItem = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.activeElement).toBe(journalItem)),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("does not register the desktop shortcut when it is not enabled", () => {
@@ -305,233 +319,254 @@ describe("workspace switcher", () => {
 		).toBe(null);
 	});
 
-	it.live("closes when its trigger is clicked while the menu owns focus", () =>
-		Effect.gen(function* () {
-			const user = userEvent.setup();
-			const current = workspace();
-			render(
-				<WorkspaceSwitcher
-					current={current}
-					summary="2 views"
-					catalog={[current]}
-					navigation={navigation}
-					onSelect={() => undefined}
-				/>,
-			);
-			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
-			fireEvent.click(trigger);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
+	it.live(
+		"closes when its trigger is clicked while the menu owns focus",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const current = workspace();
+				render(
+					<WorkspaceSwitcher
+						current={current}
+						summary="2 views"
+						catalog={[current]}
+						navigation={navigation}
+						onSelect={() => undefined}
+					/>,
+				);
+				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
+				fireEvent.click(trigger);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.activeElement).toBe(
+							screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
+						),
 					),
-				),
-			);
+				);
 
-			yield* Effect.promise(() => user.click(trigger));
+				yield* Effect.promise(() => user.click(trigger));
 
-			expect(screen.queryByRole("menu")).toBeNull();
-			expect(document.activeElement).toBe(trigger);
-		}),
+				expect(screen.queryByRole("menu")).toBeNull();
+				expect(document.activeElement).toBe(trigger);
+			}),
+		testTimeout,
 	);
 
-	it.live("dismisses on outside pointer interaction without restoring trigger focus", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			render(
-				<>
+	it.live(
+		"dismisses on outside pointer interaction without restoring trigger focus",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				render(
+					<>
+						<WorkspaceSwitcher
+							summary="2 views"
+							current={current}
+							catalog={[current]}
+							navigation={navigation}
+							onSelect={() => undefined}
+						/>
+						<button type="button">Outside</button>
+					</>,
+				);
+				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
+				fireEvent.click(trigger);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.activeElement).toBe(
+							screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
+						),
+					),
+				);
+
+				const outside = screen.getByRole("button", { name: "Outside" });
+				fireEvent.pointerDown(outside);
+				outside.focus();
+
+				expect(screen.queryByRole("menu")).toBeNull();
+				expect(document.activeElement).toBe(outside);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does not select the current workspace and restores trigger focus",
+		() =>
+			Effect.gen(function* () {
+				const selections: string[] = [];
+				const current = workspace();
+				render(
 					<WorkspaceSwitcher
 						summary="2 views"
 						current={current}
 						catalog={[current]}
 						navigation={navigation}
-						onSelect={() => undefined}
-					/>
-					<button type="button">Outside</button>
-				</>,
-			);
-			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
-			fireEvent.click(trigger);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
-					),
-				),
-			);
+						onSelect={({ pluginId }) => {
+							selections.push(pluginId);
+						}}
+					/>,
+				);
+				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
+				fireEvent.click(trigger);
 
-			const outside = screen.getByRole("button", { name: "Outside" });
-			fireEvent.pointerDown(outside);
-			outside.focus();
+				fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }));
 
-			expect(screen.queryByRole("menu")).toBeNull();
-			expect(document.activeElement).toBe(outside);
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				expect(screen.queryByRole("menu")).toBeNull();
+				expect(selections).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("does not select the current workspace and restores trigger focus", () =>
-		Effect.gen(function* () {
-			const selections: string[] = [];
-			const current = workspace();
-			render(
-				<WorkspaceSwitcher
-					summary="2 views"
-					current={current}
-					catalog={[current]}
-					navigation={navigation}
-					onSelect={({ pluginId }) => {
-						selections.push(pluginId);
-					}}
-				/>,
-			);
-			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
-			fireEvent.click(trigger);
-
-			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }));
-
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
-			expect(screen.queryByRole("menu")).toBeNull();
-			expect(selections).toEqual([]);
-		}),
-	);
-
-	it.live("closes and restores trigger focus before selecting another workspace", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			const observations: Array<{ slug: string; open: boolean; focused: boolean }> = [];
-			render(
-				<WorkspaceSwitcher
-					current={current}
-					summary="2 views"
-					navigation={navigation}
-					catalog={[
-						current,
-						workspace({
-							name: "Other",
-							installationId: "installation-other",
-							packageId: PluginPackageId.make("test/other"),
-						}),
-					]}
-					onSelect={({ pluginId }) => {
-						observations.push({
-							slug: pluginId,
-							open: screen.queryByRole("menu") !== null,
-							focused: document.activeElement === trigger,
-						});
-					}}
-				/>,
-			);
-			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
-			fireEvent.click(trigger);
-
-			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Other / }));
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(observations).toEqual([{ open: false, focused: true, slug: "plugin-other" }]),
-				),
-			);
-		}),
-	);
-
-	it.live("closes with Escape and restores trigger focus", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			render(
-				<WorkspaceSwitcher
-					current={current}
-					summary="2 views"
-					catalog={[current]}
-					navigation={navigation}
-					onSelect={() => undefined}
-				/>,
-			);
-			const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
-			fireEvent.click(trigger);
-
-			fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
-
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
-			expect(screen.queryByRole("menu")).toBeNull();
-		}),
-	);
-
-	it.live("moves through workspace choices with arrow, Home, and End keys", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			render(
-				<WorkspaceSwitcher
-					summary="2 views"
-					current={current}
-					navigation={navigation}
-					onSelect={() => undefined}
-					catalog={[
-						current,
-						workspace({
-							sortOrder: 1,
-							name: "Other",
-							installationId: "installation-other",
-							packageId: PluginPackageId.make("test/other"),
-						}),
-						workspace({
-							sortOrder: 2,
-							name: "Journal",
-							installationId: "installation-journal",
-							packageId: PluginPackageId.make("test/journal"),
-						}),
-					]}
-				/>,
-			);
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
-			const menu = screen.getByRole("menu");
-			const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
-			const other = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
-			const journal = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
-
-			fireEvent.keyDown(menu, { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(other)));
-			fireEvent.keyDown(menu, { key: "End" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
-			fireEvent.keyDown(menu, { key: "ArrowDown" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
-			fireEvent.keyDown(menu, { key: "ArrowUp" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
-			fireEvent.keyDown(menu, { key: "Home" });
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
-		}),
-	);
-
-	it.live("closes on Tab departure without pulling focus back", () =>
-		Effect.gen(function* () {
-			const user = userEvent.setup();
-			const current = workspace();
-			render(
-				<>
+	it.live(
+		"closes and restores trigger focus before selecting another workspace",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				const observations: Array<{ slug: string; open: boolean; focused: boolean }> = [];
+				render(
 					<WorkspaceSwitcher
-						summary="2 views"
 						current={current}
+						summary="2 views"
+						navigation={navigation}
+						catalog={[
+							current,
+							workspace({
+								name: "Other",
+								installationId: "installation-other",
+								packageId: PluginPackageId.make("test/other"),
+							}),
+						]}
+						onSelect={({ pluginId }) => {
+							observations.push({
+								slug: pluginId,
+								open: screen.queryByRole("menu") !== null,
+								focused: document.activeElement === trigger,
+							});
+						}}
+					/>,
+				);
+				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
+				fireEvent.click(trigger);
+
+				fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Other / }));
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(observations).toEqual([{ open: false, focused: true, slug: "plugin-other" }]),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"closes with Escape and restores trigger focus",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				render(
+					<WorkspaceSwitcher
+						current={current}
+						summary="2 views"
 						catalog={[current]}
 						navigation={navigation}
 						onSelect={() => undefined}
-					/>
-					<button type="button">After switcher</button>
-				</>,
-			);
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.activeElement).toBe(
-						screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
+					/>,
+				);
+				const trigger = screen.getByRole("button", { name: /^Fixture workspace,/ });
+				fireEvent.click(trigger);
+
+				fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				expect(screen.queryByRole("menu")).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"moves through workspace choices with arrow, Home, and End keys",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				render(
+					<WorkspaceSwitcher
+						summary="2 views"
+						current={current}
+						navigation={navigation}
+						onSelect={() => undefined}
+						catalog={[
+							current,
+							workspace({
+								sortOrder: 1,
+								name: "Other",
+								installationId: "installation-other",
+								packageId: PluginPackageId.make("test/other"),
+							}),
+							workspace({
+								sortOrder: 2,
+								name: "Journal",
+								installationId: "installation-journal",
+								packageId: PluginPackageId.make("test/journal"),
+							}),
+						]}
+					/>,
+				);
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				const menu = screen.getByRole("menu");
+				const fixture = screen.getByRole("menuitemradio", { name: /^Switch to Fixture / });
+				const other = screen.getByRole("menuitemradio", { name: /^Switch to Other / });
+				const journal = screen.getByRole("menuitemradio", { name: /^Switch to Journal / });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
+
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(other)));
+				fireEvent.keyDown(menu, { key: "End" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
+				fireEvent.keyDown(menu, { key: "ArrowUp" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(journal)));
+				fireEvent.keyDown(menu, { key: "Home" });
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(fixture)));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"closes on Tab departure without pulling focus back",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const current = workspace();
+				render(
+					<>
+						<WorkspaceSwitcher
+							summary="2 views"
+							current={current}
+							catalog={[current]}
+							navigation={navigation}
+							onSelect={() => undefined}
+						/>
+						<button type="button">After switcher</button>
+					</>,
+				);
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.activeElement).toBe(
+							screen.getByRole("menuitemradio", { name: /^Switch to Fixture / }),
+						),
 					),
-				),
-			);
+				);
 
-			yield* Effect.promise(() => user.tab());
+				yield* Effect.promise(() => user.tab());
 
-			expect(screen.queryByRole("menu")).toBeNull();
-			expect(document.activeElement).toBe(screen.getByRole("button", { name: "After switcher" }));
-		}),
+				expect(screen.queryByRole("menu")).toBeNull();
+				expect(document.activeElement).toBe(screen.getByRole("button", { name: "After switcher" }));
+			}),
+		testTimeout,
 	);
 
 	it("offers no customize entry when the consumer supplies no handler", () => {
@@ -571,32 +606,35 @@ describe("workspace switcher", () => {
 		return waitFor(() => expect(events).toEqual(["closed"]));
 	});
 
-	it.live("walks the arrow keys past the workspaces onto the customize entry", () =>
-		Effect.gen(function* () {
-			const current = workspace();
-			render(
-				<WorkspaceSwitcher
-					current={current}
-					summary="2 views"
-					catalog={[current]}
-					navigation={navigation}
-					onSelect={() => undefined}
-					onCustomize={() => undefined}
-				/>,
-			);
+	it.live(
+		"walks the arrow keys past the workspaces onto the customize entry",
+		() =>
+			Effect.gen(function* () {
+				const current = workspace();
+				render(
+					<WorkspaceSwitcher
+						current={current}
+						summary="2 views"
+						catalog={[current]}
+						navigation={navigation}
+						onSelect={() => undefined}
+						onCustomize={() => undefined}
+					/>,
+				);
 
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
-			const menu = screen.getByRole("menu", { name: "Workspaces" });
-			fireEvent.keyDown(menu, { key: "ArrowDown" });
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				const menu = screen.getByRole("menu", { name: "Workspaces" });
+				fireEvent.keyDown(menu, { key: "ArrowDown" });
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.activeElement).toBe(
-						screen.getByRole("menuitem", { name: "Customize sidebar" }),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.activeElement).toBe(
+							screen.getByRole("menuitem", { name: "Customize sidebar" }),
+						),
 					),
-				),
-			);
-		}),
+				);
+			}),
+		testTimeout,
 	);
 });
 

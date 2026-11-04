@@ -1,5 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { EnrichmentState } from "@ryot-app/plugin-client-sdk";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { mediaSyncCounts } from "./sync-counts";
 

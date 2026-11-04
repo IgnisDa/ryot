@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -66,93 +69,106 @@ const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "
 };
 
 describe("plugin catalog service", () => {
-	it.live("loads every catalog page through the direct Ryot client adapter", () => {
-		const nextEntry = { ...entry, packageId: "test/second", installationId: "installation-2" };
-		const first = {
-			data: {
-				installations: {
-					items: [entry],
-					type: "rows" as const,
-					pageInfo: { limit: 100, hasMore: true, nextCursor: "next-page" },
+	it.live(
+		"loads every catalog page through the direct Ryot client adapter",
+		() => {
+			const nextEntry = { ...entry, packageId: "test/second", installationId: "installation-2" };
+			const first = {
+				data: {
+					installations: {
+						items: [entry],
+						type: "rows" as const,
+						pageInfo: { limit: 100, hasMore: true, nextCursor: "next-page" },
+					},
 				},
-			},
-		};
-		const second = {
-			data: {
-				installations: {
-					items: [nextEntry],
-					type: "rows" as const,
-					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+			};
+			const second = {
+				data: {
+					installations: {
+						items: [nextEntry],
+						type: "rows" as const,
+						pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+					},
 				},
-			},
-		};
-		const { ryot, calls, runtime } = makeCatalogRuntime([first, second]);
+			};
+			const { ryot, calls, runtime } = makeCatalogRuntime([first, second]);
 
-		return Effect.gen(function* () {
-			const catalog = yield* Effect.promise(() =>
-				runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
+			return Effect.gen(function* () {
+				const catalog = yield* Effect.promise(() =>
+					runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
+				);
+
+				expect(catalog).toEqual<unknown>([entry, nextEntry]);
+				expect(ryot.theme.getSnapshot()).toEqual(themeSnapshot);
+				expect(calls).toHaveLength(2);
+				expect(calls[0]?.payload.queries.installations).toMatchObject({
+					output: { pagination: { limit: 100 } },
+					from: { alias: "installation", table: "pluginInstallation" },
+				});
+				expect(calls[1]?.payload.queries.installations).toMatchObject({
+					output: { pagination: { limit: 100, after: "next-page" } },
+				});
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"loads the catalog through the Effect client capability",
+		() => {
+			const calls: unknown[] = [];
+			const response = {
+				data: {
+					installations: {
+						items: [entry],
+						type: "rows" as const,
+						pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+					},
+				},
+			};
+			const ryot = createRyotClient(
+				createTestRyotAdapter({
+					theme,
+					query: (document) => {
+						calls.push(document);
+						return Effect.succeed(response);
+					},
+				}),
 			);
+			const runtime = ManagedRuntime.make(PluginCatalogService.layer);
 
-			expect(catalog).toEqual([entry, nextEntry]);
-			expect(ryot.theme.getSnapshot()).toEqual(themeSnapshot);
-			expect(calls).toHaveLength(2);
-			expect(calls[0]?.payload.queries.installations).toMatchObject({
-				output: { pagination: { limit: 100 } },
-				from: { alias: "installation", table: "pluginInstallation" },
-			});
-			expect(calls[1]?.payload.queries.installations).toMatchObject({
-				output: { pagination: { limit: 100, after: "next-page" } },
-			});
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
+				);
 
-	it.live("loads the catalog through the Effect client capability", () => {
-		const calls: unknown[] = [];
-		const response = {
-			data: {
-				installations: {
-					items: [entry],
-					type: "rows" as const,
-					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+				expect(calls).toHaveLength(1);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"rejects a page that claims more rows without a cursor",
+		() => {
+			const response = {
+				data: {
+					installations: {
+						items: [entry],
+						type: "rows" as const,
+						pageInfo: { limit: 100, hasMore: true, nextCursor: null },
+					},
 				},
-			},
-		};
-		const ryot = createRyotClient(
-			createTestRyotAdapter({
-				theme,
-				query: (document) => {
-					calls.push(document);
-					return Effect.succeed(response);
-				},
-			}),
-		);
-		const runtime = ManagedRuntime.make(PluginCatalogService.layer);
+			};
+			const { ryot, runtime } = makeCatalogRuntime([response]);
 
-		return Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
+			const catalog = runtime.runPromise(
+				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
 			);
-
-			expect(calls).toHaveLength(1);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
-
-	it.live("rejects a page that claims more rows without a cursor", () => {
-		const response = {
-			data: {
-				installations: {
-					items: [entry],
-					type: "rows" as const,
-					pageInfo: { limit: 100, hasMore: true, nextCursor: null },
-				},
-			},
-		};
-		const { ryot, runtime } = makeCatalogRuntime([response]);
-
-		return Effect.promise(() =>
-			expect(
-				runtime.runPromise(Effect.flatMap(PluginCatalogService, (service) => service.load(ryot))),
-			).rejects.toBeInstanceOf(PluginCatalogError),
-		).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+			return Effect.map(Effect.tryPromise(() => catalog).pipe(Effect.flip), ({ cause: error }) =>
+				expect(error).toBeInstanceOf(PluginCatalogError),
+			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 });

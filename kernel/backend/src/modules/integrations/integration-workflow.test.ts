@@ -1,10 +1,13 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
@@ -191,55 +194,71 @@ it.effect(
 			expect(result.settlements).toEqual(["completed"]);
 			expect(result.finished).toHaveLength(1);
 		}),
+	testTimeout,
 );
 
-it.effect("resumes a running root without replacing executable pins", () =>
-	Effect.gen(function* () {
-		const result = yield* rootCase("running");
-		expect(result.executions).toEqual([
-			objectContaining({
-				scriptId: ingestionTestSource.workflowScriptId,
-				pluginRevision: ingestionTestSource.pluginRevision,
-			}),
-		]);
-		expect(result.settlements).toEqual(["completed"]);
-	}),
+it.effect(
+	"resumes a running root without replacing executable pins",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* rootCase("running");
+			expect(result.executions).toEqual([
+				objectContaining({
+					scriptId: ingestionTestSource.workflowScriptId,
+					pluginRevision: ingestionTestSource.pluginRevision,
+				}),
+			]);
+			expect(result.settlements).toEqual(["completed"]);
+		}),
+	testTimeout,
 );
 
-it.effect("settles cancellation before source execution", () =>
-	Effect.gen(function* () {
-		const result = yield* rootCase("cancelling");
-		expect(result.executions).toEqual([]);
-		expect(result.settlements).toEqual(["cancelled"]);
-		expect(result.finished).toEqual([]);
-	}),
+it.effect(
+	"settles cancellation before source execution",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* rootCase("cancelling");
+			expect(result.executions).toEqual([]);
+			expect(result.settlements).toEqual(["cancelled"]);
+			expect(result.finished).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.effect("does not execute blocked or expired deliveries or contribute to health", () =>
-	Effect.gen(function* () {
-		for (const status of ["blocked", "expired", "cancelled"] as const) {
-			const result = yield* rootCase(status);
+it.effect(
+	"does not execute blocked or expired deliveries or contribute to health",
+	() =>
+		Effect.gen(function* () {
+			for (const status of ["blocked", "expired", "cancelled"] as const) {
+				const result = yield* rootCase(status);
+				expect(result.executions).toEqual([]);
+				expect(result.settlements).toEqual([]);
+				expect(result.finished).toEqual([]);
+			}
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"recovers health finalization after settlement without replaying the source",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* rootCase("completed");
 			expect(result.executions).toEqual([]);
 			expect(result.settlements).toEqual([]);
-			expect(result.finished).toEqual([]);
-		}
-	}),
+			expect(result.finished).toHaveLength(1);
+		}),
+	testTimeout,
 );
 
-it.effect("recovers health finalization after settlement without replaying the source", () =>
-	Effect.gen(function* () {
-		const result = yield* rootCase("completed");
-		expect(result.executions).toEqual([]);
-		expect(result.settlements).toEqual([]);
-		expect(result.finished).toHaveLength(1);
-	}),
-);
-
-it.effect("fails source errors but preserves suspended work", () =>
-	Effect.gen(function* () {
-		expect((yield* rootCase("running", "source")).settlements).toEqual(["failed"]);
-		expect((yield* rootCase("running", "suspend")).settlements).toEqual([]);
-	}),
+it.effect(
+	"fails source errors but preserves suspended work",
+	() =>
+		Effect.gen(function* () {
+			expect((yield* rootCase("running", "source")).settlements).toEqual(["failed"]);
+			expect((yield* rootCase("running", "suspend")).settlements).toEqual([]);
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -270,6 +289,7 @@ it.effect(
 			expect(partial.settlements).toEqual(["completed"]);
 			expect(partial.reasons).toEqual([undefined]);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -299,6 +319,7 @@ it.effect(
 			expect(result.settlements).toEqual(["completed"]);
 			expect(result.finished).toHaveLength(1);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -354,4 +375,5 @@ it.effect(
 			expect(completed.finished).toHaveLength(1);
 			expect(executions).toBe(2);
 		}),
+	testTimeout,
 );

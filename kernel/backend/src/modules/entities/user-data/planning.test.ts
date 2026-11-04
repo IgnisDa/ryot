@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-import { assert } from "vitest";
 
 import {
 	embeddedEntityReferences,
@@ -35,19 +38,22 @@ const graph = (
 	],
 });
 
-it.effect("maps recorded children without requiring matches for unused inventory", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* mergeChildReferences(
-				graph([
-					{ number: 1, id: "source" },
-					{ number: 2, id: "unused" },
-				]),
-				graph([{ number: 1, id: "target" }]),
-				new Set(["source"]),
-			),
-		).toEqual([{ from: "source", into: "target" }]);
-	}),
+it.effect(
+	"maps recorded children without requiring matches for unused inventory",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				yield* mergeChildReferences(
+					graph([
+						{ number: 1, id: "source" },
+						{ number: 2, id: "unused" },
+					]),
+					graph([{ number: 1, id: "target" }]),
+					new Set(["source"]),
+				),
+			).toEqual<unknown>([{ from: "source", into: "target" }]);
+		}),
+	testTimeout,
 );
 
 it.effect.each([
@@ -76,48 +82,55 @@ it.effect.each([
 			);
 			expect(error.reason.code).toBe("child-mapping-conflict");
 			assert(error.reason.code === "child-mapping-conflict");
-			expect(error.reason.entityIds).toEqual(["source"]);
+			expect(error.reason.entityIds).toEqual<unknown>(["source"]);
 			expect(error.reason.message).toContain("No data was moved");
 		}),
+	testTimeout,
 );
 
-it.effect("requires matching names where declared and excludes retired destination children", () =>
-	Effect.gen(function* () {
-		const source = graph([{ number: 1, id: "source", name: " First " }], true);
-		const target = graph([{ number: 1, id: "target", name: "first" }], true);
-		expect(yield* mergeChildReferences(source, target, new Set(["source"]))).toEqual([
-			{ from: "source", into: "target" },
-		]);
-		target.currentEntityIds = [];
-		expect(
-			(yield* Effect.flip(mergeChildReferences(source, target, new Set(["source"])))).reason.code,
-		).toBe("child-mapping-conflict");
-		expect(
-			(yield* Effect.flip(
-				mergeChildReferences(
-					source,
-					graph([{ number: 1, name: "Other", id: "different" }], true),
-					new Set(["source"]),
-				),
-			)).reason.code,
-		).toBe("child-mapping-conflict");
-	}),
+it.effect(
+	"requires matching names where declared and excludes retired destination children",
+	() =>
+		Effect.gen(function* () {
+			const source = graph([{ number: 1, id: "source", name: " First " }], true);
+			const target = graph([{ number: 1, id: "target", name: "first" }], true);
+			expect(yield* mergeChildReferences(source, target, new Set(["source"]))).toEqual<unknown>([
+				{ from: "source", into: "target" },
+			]);
+			target.currentEntityIds = [];
+			expect(
+				(yield* Effect.flip(mergeChildReferences(source, target, new Set(["source"])))).reason.code,
+			).toBe("child-mapping-conflict");
+			expect(
+				(yield* Effect.flip(
+					mergeChildReferences(
+						source,
+						graph([{ number: 1, name: "Other", id: "different" }], true),
+						new Set(["source"]),
+					),
+				)).reason.code,
+			).toBe("child-mapping-conflict");
+		}),
+	testTimeout,
 );
 
-it.effect("reports the full conflict count with bounded diagnostic details", () =>
-	Effect.gen(function* () {
-		const source = graph(
-			Array.from({ length: 1000 }, (_, number) => ({ number, id: `source-${number}` })),
-		);
-		const error = yield* Effect.flip(
-			mergeChildReferences(source, graph([]), new Set(source.entityIds)),
-		);
-		assert(error.reason.code === "child-mapping-conflict");
-		expect(error.reason.entityIds).toHaveLength(10);
-		expect(error.reason.message).toContain("1000 child item(s)");
-		expect(error.reason.message).toContain("showing the first 10");
-		expect(source.children[0]?.items).toHaveLength(1000);
-	}),
+it.effect(
+	"reports the full conflict count with bounded diagnostic details",
+	() =>
+		Effect.gen(function* () {
+			const source = graph(
+				Array.from({ length: 1000 }, (_, number) => ({ number, id: `source-${number}` })),
+			);
+			const error = yield* Effect.flip(
+				mergeChildReferences(source, graph([]), new Set(source.entityIds)),
+			);
+			assert(error.reason.code === "child-mapping-conflict");
+			expect(error.reason.entityIds).toHaveLength(10);
+			expect(error.reason.message).toContain("1000 child item(s)");
+			expect(error.reason.message).toContain("showing the first 10");
+			expect(source.children[0]?.items).toHaveLength(1000);
+		}),
+	testTimeout,
 );
 
 it("moves declared embedded entity references without changing evidence, event IDs or ordinary text", () => {

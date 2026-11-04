@@ -177,7 +177,7 @@ describe("relationship source ownership", () => {
 				client,
 				itemLabelTargetsRecipe({ owner, sourceEntityId: imported.data.id }),
 			);
-			expect(targets).toEqual([
+			expect(targets).toEqual<unknown>([
 				{ name: LABEL_NAME, id: anyOf(String), externalId: LABEL_EXTERNAL_ID },
 			]);
 			const globalLabel = requirePresent(targets[0], "Expected the provider-linked global label");

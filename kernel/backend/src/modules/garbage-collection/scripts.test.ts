@@ -1,5 +1,9 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 
@@ -75,61 +79,67 @@ const installCollectorPackage = Effect.fn("test.installCollectorPackage")(functi
 });
 
 layer(realCollectorLayer, { excludeTestServices: true })((test) => {
-	test.effect("collects inactive unreferenced rows in an idle scheduled collection", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* PluginRepository;
-			const { script, installed } = yield* installCollectorPackage("gc-idle");
-			yield* repository.deactivate(installed.pluginId);
-			const collector = yield* ScriptGarbageCollector;
-			const result = yield* collector.collect(scheduledCollection);
-			expect(result.removedCount).toBeGreaterThan(0);
-			expect(
-				yield* session.run((db) =>
-					db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, script.id)),
-				),
-			).toEqual([]);
-			expect(yield* collector.collect(scheduledCollection)).toEqual({ removedCount: 0 });
-		}),
+	test.effect(
+		"collects inactive unreferenced rows in an idle scheduled collection",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* PluginRepository;
+				const { script, installed } = yield* installCollectorPackage("gc-idle");
+				yield* repository.deactivate(installed.pluginId);
+				const collector = yield* ScriptGarbageCollector;
+				const result = yield* collector.collect(scheduledCollection);
+				expect(result.removedCount).toBeGreaterThan(0);
+				expect(
+					yield* session.run((db) =>
+						db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, script.id)),
+					),
+				).toEqual([]);
+				expect(yield* collector.collect(scheduledCollection)).toEqual({ removedCount: 0 });
+			}),
+		testTimeout,
 	);
 
-	test.effect("defers for suspension pins while explicit collection preserves their scripts", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const references = yield* SandboxWorkflowReferenceRepository;
-			const repository = yield* PluginRepository;
-			const collector = yield* ScriptGarbageCollector;
-			const { script, installed } = yield* installCollectorPackage("gc-suspension");
-			yield* session.transaction(
-				Effect.gen(function* () {
-					yield* references.lockIngestionShared();
-					yield* references.registerInTransaction({
-						pluginId: installed.pluginId,
-						contentHash: script.contentHash,
-						executionId: "suspended-gc-workflow",
-						scriptId: SandboxScriptId.make(script.id),
-					});
-				}),
-			);
-			yield* repository.deactivate(installed.pluginId);
-			expect(yield* collector.collect(scheduledCollection)).toEqual({ removedCount: 0 });
-			yield* collector.collect();
-			expect(
-				yield* session.run((db) =>
-					db
-						.select({ id: tables.sandboxScript.id })
-						.from(tables.sandboxScript)
-						.where(eq(tables.sandboxScript.id, script.id)),
-				),
-			).toEqual([{ id: script.id }]);
-			yield* references.release("suspended-gc-workflow");
-			yield* collector.collect(scheduledCollection);
-			expect(
-				yield* session.run((db) =>
-					db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, script.id)),
-				),
-			).toEqual([]);
-		}),
+	test.effect(
+		"defers for suspension pins while explicit collection preserves their scripts",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const references = yield* SandboxWorkflowReferenceRepository;
+				const repository = yield* PluginRepository;
+				const collector = yield* ScriptGarbageCollector;
+				const { script, installed } = yield* installCollectorPackage("gc-suspension");
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* references.lockIngestionShared();
+						yield* references.registerInTransaction({
+							pluginId: installed.pluginId,
+							contentHash: script.contentHash,
+							executionId: "suspended-gc-workflow",
+							scriptId: SandboxScriptId.make(script.id),
+						});
+					}),
+				);
+				yield* repository.deactivate(installed.pluginId);
+				expect(yield* collector.collect(scheduledCollection)).toEqual({ removedCount: 0 });
+				yield* collector.collect();
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({ id: tables.sandboxScript.id })
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.id, script.id)),
+					),
+				).toEqual([{ id: script.id }]);
+				yield* references.release("suspended-gc-workflow");
+				yield* collector.collect(scheduledCollection);
+				expect(
+					yield* session.run((db) =>
+						db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, script.id)),
+					),
+				).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -183,5 +193,6 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 					),
 				).toEqual([]);
 			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 });

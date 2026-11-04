@@ -1,7 +1,9 @@
+import { expect, it } from "bun:test";
+
 import type { DefinitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, expect, it } from "vitest";
 
 import { evaluateImportSourceReadiness, importSourcesRecipe } from "./import-sources";
 import {

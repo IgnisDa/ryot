@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it } from "@effect/vitest";
+import { beforeEach, describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { type ReactNode, useRef } from "react";
-import { axe } from "vitest-axe";
 
 import { SCREEN_BAR_HEIGHT, ScreenFrame } from "./screen-frame";
 
@@ -239,17 +242,20 @@ describe("ScreenFrame", () => {
 		expect(disconnects).toBe(1);
 	});
 
-	it.live("passes an axe pass on the compact bar", () =>
-		Effect.gen(function* () {
-			render(<Harness compact />);
+	it.live(
+		"passes an axe pass on the compact bar",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness compact />);
 
-			const results = yield* Effect.promise(() =>
-				axe(document.body, {
-					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-				}),
-			);
+				const results = yield* Effect.promise(() =>
+					axe.run(document.body, {
+						rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+					}),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

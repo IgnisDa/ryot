@@ -1,4 +1,5 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import {
 	defineManifest,
@@ -7,6 +8,9 @@ import {
 	Schema,
 	type WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { runMediaImportBatch } from "./batch";
 import { mediaImportTestCommand } from "./ingestion.test-support";
@@ -152,4 +156,5 @@ it.live.each([
 			}
 			expect(resolved && written).toBe(true);
 		}),
+	testTimeout,
 );

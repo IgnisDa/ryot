@@ -6,11 +6,11 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
-import { assert } from "vitest";
 
 import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";

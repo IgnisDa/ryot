@@ -1,10 +1,11 @@
+import { expect, test } from "bun:test";
+
 import { normalizeMarkdown } from "@ryot-app/plugin-backend-sdk/markdown";
 import { escapeMarkdownText } from "@ryot-app/plugin-backend-sdk/markdown-text";
 import type { Nodes } from "mdast";
 import { directiveFromMarkdown } from "mdast-util-directive";
 import { fromMarkdown } from "mdast-util-from-markdown";
 import { directive } from "micromark-extension-directive";
-import { expect, test } from "vitest";
 
 const visibleText = (node: Nodes): string => {
 	if (

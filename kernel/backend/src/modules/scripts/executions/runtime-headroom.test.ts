@@ -1,6 +1,7 @@
+import { expect } from "bun:test";
+
 import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -9,8 +10,11 @@ import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxRedisKeys } from "@ryot-app/sandbox/host/redis";
+import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import {
 	Clock,
@@ -327,83 +331,86 @@ const makeHeadroomLayer = Layer.provideMerge(
 );
 
 layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
-	test.effect("sandbox_dispatch_preserves_database_pool_headroom", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const redis = yield* RedisService;
-				const engine = yield* WorkflowEngine;
-				const session = yield* DatabaseSession;
-				const compiler = yield* SandboxCompiler;
-				const control = yield* SandboxHeadroomControl;
-				const observer = yield* SandboxHeadroomObserver;
-				const admission = yield* SandboxSidecarAdmission;
-				const ownerId = UserId.make(testExecutionId("sandbox-headroom-owner"));
-				const scriptId = SandboxScriptId.make(testExecutionId("sandbox-headroom-script"));
-				const subject: ScriptExecutionPrincipal["subject"] = {
-					type: "user",
-					userId: ownerId,
-					accountGeneration: {
+	test.effect(
+		"sandbox_dispatch_preserves_database_pool_headroom",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const redis = yield* RedisService;
+					const engine = yield* WorkflowEngine;
+					const session = yield* DatabaseSession;
+					const compiler = yield* SandboxCompiler;
+					const control = yield* SandboxHeadroomControl;
+					const observer = yield* SandboxHeadroomObserver;
+					const admission = yield* SandboxSidecarAdmission;
+					const ownerId = UserId.make(testExecutionId("sandbox-headroom-owner"));
+					const scriptId = SandboxScriptId.make(testExecutionId("sandbox-headroom-script"));
+					const subject: ScriptExecutionPrincipal["subject"] = {
+						type: "user",
 						userId: ownerId,
-						token: testExecutionId("sandbox-headroom-account"),
-					},
-				};
-				const compiled = yield* compiler.compile(headroomSource);
-				const contentHash = sha256Hex(compiled.javascript);
-				const principal: ScriptExecutionPrincipal = {
-					subject,
-					scriptId,
-					contentHash,
-					providerId: null,
-					metadata: compiled.manifest,
-					scriptSlug: compiled.manifest.slug,
-					pluginRevision: makeUserPluginRevision({
-						ownerId,
-						slug: testExecutionId("sandbox-headroom-plugin"),
-						compiledHashes: { [compiled.manifest.slug]: contentHash },
-					}),
-				};
-				yield* Effect.sync(() => {
-					control.fixture = { compiled, principal };
-				});
-				const workflowExecutionId = testExecutionId("sandbox-headroom-workflow");
-				yield* Effect.addFinalizer(() =>
-					redis.del(
-						...[0, 1].map((slot) =>
-							sandboxRedisKeys.recovery(`${workflowExecutionId}-replay-${slot}`),
-						),
-					),
-				);
-				yield* Effect.addFinalizer(() => Deferred.succeed(control.releaseFirstRoot, undefined));
-				const fiber = yield* Effect.forkChild(
-					engine.execute(SandboxHeadroomReplayWorkflow, {
-						executionId: workflowExecutionId,
-						payload: {
-							subject,
-							scriptId,
-							input: {},
-							lane: "interactive",
-							resolutionMode: "exact",
-							executionId: workflowExecutionId,
+						accountGeneration: {
+							userId: ownerId,
+							token: testExecutionId("sandbox-headroom-account"),
 						},
-					}),
-				);
-				yield* Deferred.await(control.fourCallbacksStarted);
-				yield* Deferred.await(control.firstRootEntered);
-				const [application] = yield* session.run((db) =>
-					db.select({ pid: sql<number>`pg_backend_pid()` }).from(sql`(select 1) as fixture`),
-				);
-				expect(application?.pid).not.toBe(control.rootPids[0]);
-				const connectionsWhileHeld = yield* observer.countApplicationConnections;
-				expect(connectionsWhileHeld).toBeGreaterThanOrEqual(2);
-				expect(connectionsWhileHeld).toBeLessThanOrEqual(7);
-				yield* Deferred.succeed(control.releaseFirstRoot, undefined);
-				yield* Fiber.join(fiber);
-				expect(control.pidPairs).not.toHaveLength(0);
-				for (const pair of control.pidPairs) {
-					expect(pair.nested).toBe(pair.root);
-				}
-				expect(admission.snapshot().runs).toBe(0);
-			}),
-		),
+					};
+					const compiled = yield* compiler.compile(headroomSource);
+					const contentHash = sha256Hex(compiled.javascript);
+					const principal: ScriptExecutionPrincipal = {
+						subject,
+						scriptId,
+						contentHash,
+						providerId: null,
+						metadata: compiled.manifest,
+						scriptSlug: compiled.manifest.slug,
+						pluginRevision: makeUserPluginRevision({
+							ownerId,
+							slug: testExecutionId("sandbox-headroom-plugin"),
+							compiledHashes: { [compiled.manifest.slug]: contentHash },
+						}),
+					};
+					yield* Effect.sync(() => {
+						control.fixture = { compiled, principal };
+					});
+					const workflowExecutionId = testExecutionId("sandbox-headroom-workflow");
+					yield* Effect.addFinalizer(() =>
+						redis.del(
+							...[0, 1].map((slot) =>
+								sandboxRedisKeys.recovery(`${workflowExecutionId}-replay-${slot}`),
+							),
+						),
+					);
+					yield* Effect.addFinalizer(() => Deferred.succeed(control.releaseFirstRoot, undefined));
+					const fiber = yield* Effect.forkChild(
+						engine.execute(SandboxHeadroomReplayWorkflow, {
+							executionId: workflowExecutionId,
+							payload: {
+								subject,
+								scriptId,
+								input: {},
+								lane: "interactive",
+								resolutionMode: "exact",
+								executionId: workflowExecutionId,
+							},
+						}),
+					);
+					yield* Deferred.await(control.fourCallbacksStarted);
+					yield* Deferred.await(control.firstRootEntered);
+					const [application] = yield* session.run((db) =>
+						db.select({ pid: sql<number>`pg_backend_pid()` }).from(sql`(select 1) as fixture`),
+					);
+					expect(application?.pid).not.toBe(control.rootPids[0]);
+					const connectionsWhileHeld = yield* observer.countApplicationConnections;
+					expect(connectionsWhileHeld).toBeGreaterThanOrEqual(2);
+					expect(connectionsWhileHeld).toBeLessThanOrEqual(7);
+					yield* Deferred.succeed(control.releaseFirstRoot, undefined);
+					yield* Fiber.join(fiber);
+					expect(control.pidPairs).not.toHaveLength(0);
+					for (const pair of control.pidPairs) {
+						expect(pair.nested).toBe(pair.root);
+					}
+					expect(admission.snapshot().runs).toBe(0);
+				}),
+			),
+		testTimeout,
 	);
 });

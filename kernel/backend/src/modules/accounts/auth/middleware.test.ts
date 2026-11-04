@@ -1,4 +1,5 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AuthorizationContext,
 	AuthRateLimited,
@@ -17,6 +18,8 @@ import {
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Redacted } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { unhandled } from "effect/Types";
@@ -141,53 +144,26 @@ it("configures OAuth verification for the Ryot issuer, resource, JWKS, and API s
 	});
 });
 
-it.effect("resolves an OAuth credential and its authorization context", () =>
-	Effect.gen(function* () {
-		const resolved = yield* resolveCredential(
-			{ kind: "oauth", token: "token" },
-			() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
-			() => Effect.die("unused").pipe(Effect.runPromise),
-			() => Effect.succeed(userRecord),
-		);
-		expect(resolved).toEqual(resolvedOAuth);
-	}),
-);
-
-it.effect("resolves an API key and its authorization context", () =>
-	Effect.gen(function* () {
-		const resolved = yield* resolveCredential(
-			{ key: "key", kind: "api-key" },
-			() => Effect.die("unused").pipe(Effect.runPromise),
-			() =>
-				Promise.resolve({ valid: true, error: null, key: { id: "key-1", referenceId: "user-1" } }),
-			() => Effect.succeed(userRecord),
-		);
-		expect(resolved.authorization).toEqual({
-			userId: "user-1",
-			accessClass: "standard",
-			credential: { keyId: "key-1", kind: "api-key" },
-		});
-	}),
-);
-
-it.effect("rejects a pending OAuth user", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			resolveCredential(
+it.effect(
+	"resolves an OAuth credential and its authorization context",
+	() =>
+		Effect.gen(function* () {
+			const resolved = yield* resolveCredential(
 				{ kind: "oauth", token: "token" },
 				() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
 				() => Effect.die("unused").pipe(Effect.runPromise),
-				() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
-			),
-		);
-		expect(error).toEqual(new UserInitializing({ reason: { code: "user-initializing" } }));
-	}),
+				() => Effect.succeed(userRecord),
+			);
+			expect(resolved).toEqual(resolvedOAuth);
+		}),
+	testTimeout,
 );
 
-it.effect("rejects a pending API-key user", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			resolveCredential(
+it.effect(
+	"resolves an API key and its authorization context",
+	() =>
+		Effect.gen(function* () {
+			const resolved = yield* resolveCredential(
 				{ key: "key", kind: "api-key" },
 				() => Effect.die("unused").pipe(Effect.runPromise),
 				() =>
@@ -196,11 +172,54 @@ it.effect("rejects a pending API-key user", () =>
 						error: null,
 						key: { id: "key-1", referenceId: "user-1" },
 					}),
-				() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
-			),
-		);
-		expect(error).toEqual(new UserInitializing({ reason: { code: "user-initializing" } }));
-	}),
+				() => Effect.succeed(userRecord),
+			);
+			expect(resolved.authorization).toEqual({
+				userId: "user-1",
+				accessClass: "standard",
+				credential: { keyId: "key-1", kind: "api-key" },
+			});
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects a pending OAuth user",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				resolveCredential(
+					{ kind: "oauth", token: "token" },
+					() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+					() => Effect.die("unused").pipe(Effect.runPromise),
+					() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
+				),
+			);
+			expect(error).toEqual(new UserInitializing({ reason: { code: "user-initializing" } }));
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects a pending API-key user",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				resolveCredential(
+					{ key: "key", kind: "api-key" },
+					() => Effect.die("unused").pipe(Effect.runPromise),
+					() =>
+						Promise.resolve({
+							valid: true,
+							error: null,
+							key: { id: "key-1", referenceId: "user-1" },
+						}),
+					() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
+				),
+			);
+			expect(error).toEqual(new UserInitializing({ reason: { code: "user-initializing" } }));
+		}),
+	testTimeout,
 );
 
 const oauth = (clientId: string, userId = "user-1") =>
@@ -221,20 +240,23 @@ const apiKey = (userId: string, demoAccountId: null | string) =>
 		demoAccountId,
 	);
 
-it.effect("classifies credential authority from provenance and demo configuration", () =>
-	Effect.gen(function* () {
-		expect((yield* oauth(OAUTH_DEMO_WEB_CLIENT_ID)).authorization.accessClass).toBe("demo");
-		expect((yield* oauth(OAUTH_WEB_CLIENT_ID)).authorization.accessClass).toBe("standard");
-		expect((yield* oauth(OAUTH_NATIVE_CLIENT_ID)).authorization.accessClass).toBe("standard");
-		expect((yield* oauth("unexpected-client")).authorization.accessClass).toBe("demo");
-		expect((yield* oauth("unexpected-client", "other-user")).authorization.accessClass).toBe(
-			"standard",
-		);
+it.effect(
+	"classifies credential authority from provenance and demo configuration",
+	() =>
+		Effect.gen(function* () {
+			expect((yield* oauth(OAUTH_DEMO_WEB_CLIENT_ID)).authorization.accessClass).toBe("demo");
+			expect((yield* oauth(OAUTH_WEB_CLIENT_ID)).authorization.accessClass).toBe("standard");
+			expect((yield* oauth(OAUTH_NATIVE_CLIENT_ID)).authorization.accessClass).toBe("standard");
+			expect((yield* oauth("unexpected-client")).authorization.accessClass).toBe("demo");
+			expect((yield* oauth("unexpected-client", "other-user")).authorization.accessClass).toBe(
+				"standard",
+			);
 
-		expect((yield* apiKey("user-1", "user-1")).authorization.accessClass).toBe("demo");
-		expect((yield* apiKey("other-user", "user-1")).authorization.accessClass).toBe("standard");
-		expect((yield* apiKey("user-1", null)).authorization.accessClass).toBe("standard");
-	}),
+			expect((yield* apiKey("user-1", "user-1")).authorization.accessClass).toBe("demo");
+			expect((yield* apiKey("other-user", "user-1")).authorization.accessClass).toBe("standard");
+			expect((yield* apiKey("user-1", null)).authorization.accessClass).toBe("standard");
+		}),
+	testTimeout,
 );
 
 const verifyApiKey = () => Promise.resolve({ key: null, error: null, valid: false });
@@ -242,174 +264,191 @@ const findUser = (userId: string) => Effect.succeed({ ...userRecord, id: userId 
 const verifyWithoutSession = () =>
 	Promise.resolve({ sub: "user-1", client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID });
 
-it.effect("requires active impersonation sessions without changing standard OAuth access", () =>
-	Effect.gen(function* () {
-		const sessionReads: Array<readonly [string, string]> = [];
-		const impersonationSessions = {
-			getActive: (sessionId: string, userId: string) => {
-				sessionReads.push([sessionId, userId]);
-				return Effect.succeed({ expiresAt: 1_800_000_000_000 });
-			},
-		};
-		const withoutSession = yield* Effect.flip(
-			resolveCredential(
+it.effect(
+	"requires active impersonation sessions without changing standard OAuth access",
+	() =>
+		Effect.gen(function* () {
+			const sessionReads: Array<readonly [string, string]> = [];
+			const impersonationSessions = {
+				getActive: (sessionId: string, userId: string) => {
+					sessionReads.push([sessionId, userId]);
+					return Effect.succeed({ expiresAt: 1_800_000_000_000 });
+				},
+			};
+			const withoutSession = yield* Effect.flip(
+				resolveCredential(
+					{ kind: "oauth", token: "token" },
+					verifyWithoutSession,
+					verifyApiKey,
+					findUser,
+					"user-1",
+					impersonationSessions,
+				),
+			);
+			expect(withoutSession).toBeInstanceOf(AuthUnauthorized);
+			expect(sessionReads).toEqual([]);
+
+			const impersonated = yield* resolveCredential(
 				{ kind: "oauth", token: "token" },
-				verifyWithoutSession,
+				() =>
+					Promise.resolve({
+						sub: "user-1",
+						sid: "session-1",
+						client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+					}),
 				verifyApiKey,
 				findUser,
 				"user-1",
 				impersonationSessions,
-			),
-		);
-		expect(withoutSession).toBeInstanceOf(AuthUnauthorized);
-		expect(sessionReads).toEqual([]);
+			);
+			expect(impersonated.authorization).toEqual({
+				userId: "user-1",
+				accessClass: "standard",
+				impersonation: { expiresAt: 1_800_000_000_000 },
+				credential: {
+					kind: "oauth",
+					sessionId: "session-1",
+					clientId: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+				},
+			});
 
-		const impersonated = yield* resolveCredential(
-			{ kind: "oauth", token: "token" },
-			() =>
-				Promise.resolve({
-					sub: "user-1",
-					sid: "session-1",
-					client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
-				}),
-			verifyApiKey,
-			findUser,
-			"user-1",
-			impersonationSessions,
-		);
-		expect(impersonated.authorization).toEqual({
-			userId: "user-1",
-			accessClass: "standard",
-			impersonation: { expiresAt: 1_800_000_000_000 },
-			credential: {
-				kind: "oauth",
-				sessionId: "session-1",
-				clientId: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
-			},
-		});
-
-		const standard = yield* resolveCredential(
-			{ kind: "oauth", token: "token" },
-			() => Promise.resolve({ sub: "user-1", client_id: OAUTH_WEB_CLIENT_ID }),
-			verifyApiKey,
-			findUser,
-			"user-1",
-			impersonationSessions,
-		);
-		expect(standard.authorization.accessClass).toBe("standard");
-		expect(sessionReads).toEqual([["session-1", "user-1"]]);
-	}),
+			const standard = yield* resolveCredential(
+				{ kind: "oauth", token: "token" },
+				() => Promise.resolve({ sub: "user-1", client_id: OAUTH_WEB_CLIENT_ID }),
+				verifyApiKey,
+				findUser,
+				"user-1",
+				impersonationSessions,
+			);
+			expect(standard.authorization.accessClass).toBe("standard");
+			expect(sessionReads).toEqual([["session-1", "user-1"]]);
+		}),
+	testTimeout,
 );
 
-it.effect("rejects invalid OAuth claims and disabled or deleted users", () =>
-	Effect.gen(function* () {
-		const invalidClaims = yield* Effect.flip(
-			resolveCredential(
-				{ kind: "oauth", token: "old-session-token" },
-				() => Promise.resolve({ sub: "user-1" }),
-				() => Effect.die("unused").pipe(Effect.runPromise),
-				() => Effect.succeed(userRecord),
-			),
-		);
-		expect(invalidClaims).toBeInstanceOf(AuthUnauthorized);
-
-		for (const user of [null, disabledUserRecord]) {
-			const error = yield* Effect.flip(
+it.effect(
+	"rejects invalid OAuth claims and disabled or deleted users",
+	() =>
+		Effect.gen(function* () {
+			const invalidClaims = yield* Effect.flip(
 				resolveCredential(
-					{ kind: "oauth", token: "token" },
-					() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+					{ kind: "oauth", token: "old-session-token" },
+					() => Promise.resolve({ sub: "user-1" }),
 					() => Effect.die("unused").pipe(Effect.runPromise),
-					() => Effect.succeed(user),
+					() => Effect.succeed(userRecord),
 				),
 			);
-			expect(error).toBeInstanceOf(AuthUnauthorized);
-		}
-	}),
+			expect(invalidClaims).toBeInstanceOf(AuthUnauthorized);
+
+			for (const user of [null, disabledUserRecord]) {
+				const error = yield* Effect.flip(
+					resolveCredential(
+						{ kind: "oauth", token: "token" },
+						() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+						() => Effect.die("unused").pipe(Effect.runPromise),
+						() => Effect.succeed(user),
+					),
+				);
+				expect(error).toBeInstanceOf(AuthUnauthorized);
+			}
+		}),
+	testTimeout,
 );
 
-it.effect("returns safe rate-limit metadata from API-key verification", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			resolveCredential(
-				{ key: "key", kind: "api-key" },
-				() => Effect.die("unused").pipe(Effect.runPromise),
-				() =>
-					Promise.resolve({
-						key: null,
-						valid: false,
-						error: { code: "RATE_LIMITED", details: { tryAgainIn: 1_250 } },
-					}),
-				() => Effect.die("unused"),
-			),
-		);
-		expect(error).toEqual(
-			new AuthRateLimited({ reason: { retryAfterMs: 1_250, code: "api-key-rate-limited" } }),
-		);
-	}),
-);
-
-it.effect("provides both authentication services to handlers", () => {
-	const middleware = makeAuthMiddleware(
-		{ apiKeyUser: () => Effect.die("unused"), oauthUser: () => Effect.succeed(resolvedOAuth) },
-		{ isActive: () => Effect.succeed(false) },
-	);
-	const routes = HttpRouter.add(
-		"GET",
-		"/",
-		middleware.oauth(
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const authorization = yield* AuthorizationContext;
-				expect(user.id).toBe("user-1");
-				expect(authorization.credential).toEqual({ kind: "oauth", clientId: "ryot-web" });
-				return HttpServerResponse.empty();
-			}),
-			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.events },
-		),
-	);
-
-	return Effect.acquireUseRelease(
-		Effect.sync(() => HttpRouter.toWebHandler(routes, { disableLogger: true })),
-		({ handler }) =>
-			Effect.promise(() => handler(new Request("http://localhost/"))).pipe(
-				Effect.tap((response) => Effect.sync(() => expect(response.status).toBe(204))),
-			),
-		({ dispose }) => Effect.promise(dispose),
-	);
-});
-
-it.effect("rejects authenticated writes while a lifecycle operation is active", () => {
-	let handlerCalled = false;
-	const middleware = makeAuthMiddleware(
-		{ apiKeyUser: () => Effect.die("unused"), oauthUser: () => Effect.succeed(resolvedOAuth) },
-		{ isActive: () => Effect.succeed(true) },
-	);
-	const routes = HttpRouter.add(
-		"POST",
-		"/",
-		middleware.oauth(
-			Effect.sync(() => {
-				handlerCalled = true;
-				return HttpServerResponse.empty();
-			}),
-			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.events },
-		),
-	);
-
-	return Effect.acquireUseRelease(
-		Effect.sync(() => HttpRouter.toWebHandler(routes, { disableLogger: true })),
-		({ handler }) =>
-			Effect.promise(() => handler(new Request("http://localhost/", { method: "POST" }))).pipe(
-				Effect.tap((response) =>
-					Effect.sync(() => {
-						expect(response.status).not.toBe(204);
-						expect(handlerCalled).toBe(false);
-					}),
+it.effect(
+	"returns safe rate-limit metadata from API-key verification",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				resolveCredential(
+					{ key: "key", kind: "api-key" },
+					() => Effect.die("unused").pipe(Effect.runPromise),
+					() =>
+						Promise.resolve({
+							key: null,
+							valid: false,
+							error: { code: "RATE_LIMITED", details: { tryAgainIn: 1_250 } },
+						}),
+					() => Effect.die("unused"),
 				),
+			);
+			expect(error).toEqual(
+				new AuthRateLimited({ reason: { retryAfterMs: 1_250, code: "api-key-rate-limited" } }),
+			);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"provides both authentication services to handlers",
+	() => {
+		const middleware = makeAuthMiddleware(
+			{ apiKeyUser: () => Effect.die("unused"), oauthUser: () => Effect.succeed(resolvedOAuth) },
+			{ isActive: () => Effect.succeed(false) },
+		);
+		const routes = HttpRouter.add(
+			"GET",
+			"/",
+			middleware.oauth(
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const authorization = yield* AuthorizationContext;
+					expect(user.id).toBe<unknown>("user-1");
+					expect(authorization.credential).toEqual({ kind: "oauth", clientId: "ryot-web" });
+					return HttpServerResponse.empty();
+				}),
+				{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.events },
 			),
-		({ dispose }) => Effect.promise(dispose),
-	);
-});
+		);
+
+		return Effect.acquireUseRelease(
+			Effect.sync(() => HttpRouter.toWebHandler(routes, { disableLogger: true })),
+			({ handler }) =>
+				Effect.promise(() => handler(new Request("http://localhost/"))).pipe(
+					Effect.tap((response) => Effect.sync(() => expect(response.status).toBe(204))),
+				),
+			({ dispose }) => Effect.promise(dispose),
+		);
+	},
+	testTimeout,
+);
+
+it.effect(
+	"rejects authenticated writes while a lifecycle operation is active",
+	() => {
+		let handlerCalled = false;
+		const middleware = makeAuthMiddleware(
+			{ apiKeyUser: () => Effect.die("unused"), oauthUser: () => Effect.succeed(resolvedOAuth) },
+			{ isActive: () => Effect.succeed(true) },
+		);
+		const routes = HttpRouter.add(
+			"POST",
+			"/",
+			middleware.oauth(
+				Effect.sync(() => {
+					handlerCalled = true;
+					return HttpServerResponse.empty();
+				}),
+				{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.events },
+			),
+		);
+
+		return Effect.acquireUseRelease(
+			Effect.sync(() => HttpRouter.toWebHandler(routes, { disableLogger: true })),
+			({ handler }) =>
+				Effect.promise(() => handler(new Request("http://localhost/", { method: "POST" }))).pipe(
+					Effect.tap((response) =>
+						Effect.sync(() => {
+							expect(response.status).not.toBe(204);
+							expect(handlerCalled).toBe(false);
+						}),
+					),
+				),
+			({ dispose }) => Effect.promise(dispose),
+		);
+	},
+	testTimeout,
+);
 
 const request = (
 	accessClass: "demo" | "standard",
@@ -448,53 +487,60 @@ const request = (
 	return { effect, handlerCalled: () => handlerCalled };
 };
 
-it.effect("enforces representative demo endpoint policies with a typed 403", () => {
-	return Effect.gen(function* () {
-		for (const accessClass of ["demo", "standard"] as const) {
-			const allowed = request(accessClass, PluginsGroup.endpoints.events);
-			expect((yield* allowed.effect).status).toBe(204);
-			expect(allowed.handlerCalled()).toBe(true);
-		}
-		const standard = request("standard", PluginsGroup.endpoints.install);
-		expect((yield* standard.effect).status).toBe(204);
-		expect(standard.handlerCalled()).toBe(true);
+it.effect(
+	"enforces representative demo endpoint policies with a typed 403",
+	() => {
+		return Effect.gen(function* () {
+			for (const accessClass of ["demo", "standard"] as const) {
+				const allowed = request(accessClass, PluginsGroup.endpoints.events);
+				expect((yield* allowed.effect).status).toBe(204);
+				expect(allowed.handlerCalled()).toBe(true);
+			}
+			const standard = request("standard", PluginsGroup.endpoints.install);
+			expect((yield* standard.effect).status).toBe(204);
+			expect(standard.handlerCalled()).toBe(true);
 
-		const demo = request("demo", PluginsGroup.endpoints.install);
-		const error = yield* Effect.flip(demo.effect);
-		expect(error).toEqual(
-			new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-		);
-		expect(error).not.toBeInstanceOf(AuthUnauthorized);
-		expect(demo.handlerCalled()).toBe(false);
-
-		const editorSave = request("demo", EntitiesGroup.endpoints.saveEditor);
-		expect(yield* Effect.flip(editorSave.effect)).toEqual(
-			new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-		);
-		expect(editorSave.handlerCalled()).toBe(false);
-
-		const stateUpdate = request("demo", PluginsGroup.endpoints.updatePluginState);
-		expect(yield* Effect.flip(stateUpdate.effect)).toEqual(
-			new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
-		);
-		expect(stateUpdate.handlerCalled()).toBe(false);
-	});
-});
-
-it.effect("accepts only the configured admin token", () =>
-	Effect.gen(function* () {
-		const admin = makeAdminMiddleware(Redacted.make("test-admin-token"));
-		const authorize = (
-			token: string,
-		): Effect.Effect<HttpServerResponse.HttpServerResponse, unhandled | AuthUnauthorized> =>
-			admin.adminToken(Effect.succeed(HttpServerResponse.empty()), {
-				credential: Redacted.make(token),
-			});
-		expect((yield* authorize("test-admin-token")).status).toBe(204);
-		for (const token of ["test-admin-tokem", "", "wrong"]) {
-			expect(yield* Effect.flip(authorize(token))).toEqual(
-				new AuthUnauthorized({ reason: { code: "admin-access-required" } }),
+			const demo = request("demo", PluginsGroup.endpoints.install);
+			const error = yield* Effect.flip(demo.effect);
+			expect(error).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 			);
-		}
-	}),
+			expect(error).not.toBeInstanceOf(AuthUnauthorized);
+			expect(demo.handlerCalled()).toBe(false);
+
+			const editorSave = request("demo", EntitiesGroup.endpoints.saveEditor);
+			expect(yield* Effect.flip(editorSave.effect)).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			expect(editorSave.handlerCalled()).toBe(false);
+
+			const stateUpdate = request("demo", PluginsGroup.endpoints.updatePluginState);
+			expect(yield* Effect.flip(stateUpdate.effect)).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			expect(stateUpdate.handlerCalled()).toBe(false);
+		});
+	},
+	testTimeout,
+);
+
+it.effect(
+	"accepts only the configured admin token",
+	() =>
+		Effect.gen(function* () {
+			const admin = makeAdminMiddleware(Redacted.make("test-admin-token"));
+			const authorize = (
+				token: string,
+			): Effect.Effect<HttpServerResponse.HttpServerResponse, unhandled | AuthUnauthorized> =>
+				admin.adminToken(Effect.succeed(HttpServerResponse.empty()), {
+					credential: Redacted.make(token),
+				});
+			expect((yield* authorize("test-admin-token")).status).toBe(204);
+			for (const token of ["test-admin-tokem", "", "wrong"]) {
+				expect(yield* Effect.flip(authorize(token))).toEqual(
+					new AuthUnauthorized({ reason: { code: "admin-access-required" } }),
+				);
+			}
+		}),
+	testTimeout,
 );

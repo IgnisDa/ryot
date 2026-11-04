@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	BACKGROUND_SUBMISSION_LIMITS,
@@ -7,6 +8,8 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -178,330 +181,364 @@ describe("background submission targets", () => {
 });
 
 describe("background submission tray", () => {
-	it.effect("starts only after acceptance and settles after the document is gone", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const hints: string[] = [];
-			const tray = yield* openTray(test, hints);
-			const reservation = tray.reserve({
-				target: media,
-				request: request("k1"),
-				binding: {
-					session: {},
-					settle: () => {
-						throw new Error("document unmounted");
+	it.effect(
+		"starts only after acceptance and settles after the document is gone",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const hints: string[] = [];
+				const tray = yield* openTray(test, hints);
+				const reservation = tray.reserve({
+					target: media,
+					request: request("k1"),
+					binding: {
+						session: {},
+						settle: () => {
+							throw new Error("document unmounted");
+						},
 					},
-				},
-			});
-			expect(reservation).toBeDefined();
-			yield* drain;
-			expect(test.calls).toHaveLength(0);
-			expect(tray.getSnapshot().entries).toEqual([]);
+				});
+				expect(reservation).toBeDefined();
+				yield* drain;
+				expect(test.calls).toHaveLength(0);
+				expect(tray.getSnapshot().entries).toEqual([]);
 
-			reservation?.start();
-			yield* drain;
-			expect(test.calls).toHaveLength(1);
-			expect(test.calls[0].invocation.contentHash).toBe("hash-media-1");
-			expect(tray.getSnapshot().entries.map(({ state }) => state.status)).toEqual(["pending"]);
+				reservation?.start();
+				yield* drain;
+				expect(test.calls).toHaveLength(1);
+				expect(test.calls[0].invocation.contentHash).toBe("hash-media-1");
+				expect(tray.getSnapshot().entries.map(({ state }) => state.status)).toEqual(["pending"]);
 
-			yield* reply(test, 0)({ outcome: "success", value: { count: 3 } });
-			expect(tray.getSnapshot().entries.map(({ state }) => state.status)).toEqual(["succeeded"]);
-			expect(hints).toEqual(["hint"]);
+				yield* reply(test, 0)({ outcome: "success", value: { count: 3 } });
+				expect(tray.getSnapshot().entries.map(({ state }) => state.status)).toEqual(["succeeded"]);
+				expect(hints).toEqual(["hint"]);
 
-			yield* TestClock.adjust(SUCCESS_DISMISS_MS - 1);
-			expect(tray.getSnapshot().entries).toHaveLength(1);
-			yield* TestClock.adjust(1);
-			yield* drain;
-			expect(tray.getSnapshot().entries).toEqual([]);
-		}),
+				yield* TestClock.adjust(SUCCESS_DISMISS_MS - 1);
+				expect(tray.getSnapshot().entries).toHaveLength(1);
+				yield* TestClock.adjust(1);
+				yield* drain;
+				expect(tray.getSnapshot().entries).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("cancels a reservation without starting it", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			const reservation = tray.reserve({
-				target: media,
-				binding: binding(),
-				request: request("k1"),
-			});
-			reservation?.cancel();
-			reservation?.start();
-			yield* drain;
-			expect(test.calls).toEqual([]);
-			expect(tray.getSnapshot().entries).toEqual([]);
-		}),
+	it.effect(
+		"cancels a reservation without starting it",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				const reservation = tray.reserve({
+					target: media,
+					binding: binding(),
+					request: request("k1"),
+				});
+				reservation?.cancel();
+				reservation?.start();
+				yield* drain;
+				expect(test.calls).toEqual([]);
+				expect(tray.getSnapshot().entries).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("retries a transport failure with identical input, key, and captured hash", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const settled: BackgroundSubmissionOutcome[] = [];
-			const hints: string[] = [];
-			const tray = yield* openTray(test, hints);
-			const original = request("k1");
-			const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
-			const encoded = yield* encode(original.input);
-			tray.reserve({ target: media, request: original, binding: binding(settled) })?.start();
-			yield* drain;
-			yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
-			expect(hints).toEqual([]);
-			expect(settled).toEqual([{ status: "failed", reason: "transport" }]);
-			const [entry] = tray.getSnapshot().entries;
-			expect(entry.state).toEqual({ status: "failed", reason: "transport" });
+	it.effect(
+		"retries a transport failure with identical input, key, and captured hash",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const settled: BackgroundSubmissionOutcome[] = [];
+				const hints: string[] = [];
+				const tray = yield* openTray(test, hints);
+				const original = request("k1");
+				const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+				const encoded = yield* encode(original.input);
+				tray.reserve({ target: media, request: original, binding: binding(settled) })?.start();
+				yield* drain;
+				yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
+				expect(hints).toEqual([]);
+				expect(settled).toEqual([{ status: "failed", reason: "transport" }]);
+				const [entry] = tray.getSnapshot().entries;
+				expect(entry.state).toEqual({ status: "failed", reason: "transport" });
 
-			expect(tray.retry(entry.id, catalog)).toBe(true);
-			yield* drain;
-			expect(test.calls).toHaveLength(2);
-			const [first, second] = test.calls.map(({ invocation }) => invocation);
-			expect(yield* encode(second.request.input)).toBe(encoded);
-			expect(second.request.idempotencyKey).toBe("k1");
-			expect(second.contentHash).toBe("hash-media-1");
-			expect(second.request).toEqual(first.request);
-			expect(second.request).toEqual({
-				idempotencyKey: "k1",
-				input: original.input,
-				packageId: original.packageId,
-				operationSlug: original.operationSlug,
-			});
+				expect(tray.retry(entry.id, catalog)).toBe(true);
+				yield* drain;
+				expect(test.calls).toHaveLength(2);
+				const [first, second] = test.calls.map(({ invocation }) => invocation);
+				expect(yield* encode(second.request.input)).toBe(encoded);
+				expect(second.request.idempotencyKey).toBe("k1");
+				expect(second.contentHash).toBe("hash-media-1");
+				expect(second.request).toEqual(first.request);
+				expect(second.request).toEqual({
+					idempotencyKey: "k1",
+					input: original.input,
+					packageId: original.packageId,
+					operationSlug: original.operationSlug,
+				});
 
-			yield* reply(test, 1)({ value: null, outcome: "success" });
-			expect(settled.at(-1)).toEqual({ status: "succeeded" });
-			expect(hints).toEqual(["hint"]);
-		}),
+				yield* reply(test, 1)({ value: null, outcome: "success" });
+				expect(settled.at(-1)).toEqual({ status: "succeeded" });
+				expect(hints).toEqual(["hint"]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("shows incomplete with a count and retries with the same input and key", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const settled: BackgroundSubmissionOutcome[] = [];
-			const tray = yield* openTray(test);
-			tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
-			yield* drain;
-			yield* reply(test, 0)({ outcome: "success", value: { count: 100, status: "incomplete" } });
-			const [entry] = tray.getSnapshot().entries;
-			expect(entry.state).toEqual({ count: 100, status: "incomplete" });
-			expect(settled).toEqual([{ status: "incomplete" }]);
-			const presented = present(tray, entry);
-			expect(presented).toMatchObject({
-				source: "Media",
-				tone: "warning",
-				title: "Logged k1",
-				status: "Partly saved",
-				action: { label: "Retry" },
-				detail: "100 saved so far. Retry to finish.",
-			});
+	it.effect(
+		"shows incomplete with a count and retries with the same input and key",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const settled: BackgroundSubmissionOutcome[] = [];
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
+				yield* drain;
+				yield* reply(test, 0)({ outcome: "success", value: { count: 100, status: "incomplete" } });
+				const [entry] = tray.getSnapshot().entries;
+				expect(entry.state).toEqual({ count: 100, status: "incomplete" });
+				expect(settled).toEqual([{ status: "incomplete" }]);
+				const presented = present(tray, entry);
+				expect(presented).toMatchObject({
+					source: "Media",
+					tone: "warning",
+					title: "Logged k1",
+					status: "Partly saved",
+					action: { label: "Retry" },
+					detail: "100 saved so far. Retry to finish.",
+				});
 
-			presented.action?.onClick();
-			yield* drain;
-			expect(test.calls[1].invocation.request).toEqual(test.calls[0].invocation.request);
-		}),
+				presented.action?.onClick();
+				yield* drain;
+				expect(test.calls[1].invocation.request).toEqual(test.calls[0].invocation.request);
+			}),
+		testTimeout,
 	);
 
-	it.effect("keeps rejections and declared failures final with their reason", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const settled: BackgroundSubmissionOutcome[] = [];
-			const tray = yield* openTray(test);
-			tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
-			tray.reserve({ target: media, request: request("k2"), binding: binding(settled) })?.start();
-			yield* drain;
-			yield* reply(
-				test,
-				0,
-			)({
-				outcome: "failure",
-				reason: "operation-rejected",
-				message: "That episode is not part of this show.",
-			});
-			yield* reply(test, 1)({ outcome: "failure", reason: "operation-failed" });
-			const [rejected, failed] = tray.getSnapshot().entries;
-			expect(settled).toEqual([
-				{
-					status: "failed",
+	it.effect(
+		"keeps rejections and declared failures final with their reason",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const settled: BackgroundSubmissionOutcome[] = [];
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
+				tray.reserve({ target: media, request: request("k2"), binding: binding(settled) })?.start();
+				yield* drain;
+				yield* reply(
+					test,
+					0,
+				)({
+					outcome: "failure",
 					reason: "operation-rejected",
 					message: "That episode is not part of this show.",
-				},
-				{ status: "failed", reason: "operation-failed" },
-			]);
-			for (const entry of [rejected, failed]) {
-				expect(tray.retry(entry.id, catalog)).toBe(false);
-			}
-			expect(present(tray, rejected)).toMatchObject({
-				action: undefined,
-				status: "Not saved",
-				detail: "That episode is not part of this show.",
-			});
-			expect(test.calls).toHaveLength(2);
-		}),
-	);
-
-	it.effect("makes app-updated final and says it may have been saved after a transport", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			const reloads: string[] = [];
-			tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
-			tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
-			yield* drain;
-			yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
-			yield* reply(test, 1)({ outcome: "stale-session" });
-			const first = tray.getSnapshot().entries[0];
-			expect(tray.retry(first.id, catalog)).toBe(true);
-			yield* drain;
-			yield* reply(test, 2)({ outcome: "stale-session" });
-
-			const [afterTransport, direct] = tray.getSnapshot().entries;
-			for (const entry of [afterTransport, direct]) {
-				expect(entry.state).toEqual({ status: "failed", reason: "app-updated" });
-				expect(tray.retry(entry.id, catalog)).toBe(false);
-			}
-			const onReload = () => reloads.push("reload");
-			expect(present(tray, afterTransport, { onReload })).toMatchObject({
-				status: "Ryot was updated",
-				action: { label: "Reload" },
-				detail: "It may have been saved. Reload to see the latest version.",
-			});
-			expect(present(tray, direct, { onReload })).toMatchObject({
-				action: { label: "Reload" },
-				detail: "It was not saved. Reload, then try again.",
-			});
-			present(tray, direct, { onReload }).action?.onClick();
-			expect(reloads).toEqual(["reload"]);
-			expect(test.calls).toHaveLength(3);
-		}),
-	);
-
-	it.effect("refuses Retry after the captured installation leaves the catalog", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
-			yield* drain;
-			yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
-			const [entry] = tray.getSnapshot().entries;
-			const reinstalled = [{ ...catalogEntry(media), installationId: "installation-media-2" }];
-
-			expect(tray.retry(entry.id, reinstalled)).toBe(false);
-			expect(tray.retry(entry.id, [])).toBe(false);
-			expect(present(tray, entry, { catalog: reinstalled }).action).toBeUndefined();
-			yield* drain;
-			expect(test.calls).toHaveLength(1);
-		}),
-	);
-
-	it.effect("rejects over the in-flight caps without starting anything", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			const session = binding();
-			const accepted = Array.from(
-				{ length: BACKGROUND_SUBMISSION_LIMITS.inFlightPerSession },
-				(_, index) =>
-					tray.reserve({ target: media, binding: session, request: request(`s${index}`) }),
-			);
-			expect(accepted.every((reservation) => reservation !== undefined)).toBe(true);
-			expect(tray.reserve({ target: media, binding: session, request: request("s-over") })).toBe(
-				undefined,
-			);
-			for (const reservation of accepted) {
-				reservation?.start();
-			}
-			const other = binding();
-			const remaining =
-				BACKGROUND_SUBMISSION_LIMITS.inFlightPerService -
-				BACKGROUND_SUBMISSION_LIMITS.inFlightPerSession;
-			for (let index = 0; index < remaining; index += 1) {
-				const sessionBinding = index % 2 === 0 ? other : binding();
-				tray
-					.reserve({ target: media, binding: sessionBinding, request: request(`o${index}`) })
-					?.start();
-			}
-			yield* drain;
-			expect(test.calls).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.inFlightPerService);
-			expect(tray.reserve({ target: media, binding: binding(), request: request("over") })).toBe(
-				undefined,
-			);
-			yield* drain;
-			expect(test.calls).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.inFlightPerService);
-			expect(test.calls.map(({ invocation }) => invocation.request.idempotencyKey)).not.toContain(
-				"over",
-			);
-		}),
-	);
-
-	it.effect("evicts only the oldest success when full and never a pending entry", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			const fill = (prefix: string, count: number) =>
-				Effect.gen(function* () {
-					for (let index = 0; index < count; index += 1) {
-						tray
-							.reserve({ target: media, binding: binding(), request: request(`${prefix}${index}`) })
-							?.start();
-						yield* drain;
-						const call = test.calls.at(-1);
-						if (call !== undefined) {
-							yield* settle(call.reply)(
-								prefix === "ok"
-									? { value: null, outcome: "success" }
-									: { outcome: "failure", reason: "operation-failed" },
-							);
-						}
-					}
 				});
-			yield* fill("ok", 2);
-			yield* fill("bad", BACKGROUND_SUBMISSION_LIMITS.entries - 4);
-			tray.reserve({ target: media, binding: binding(), request: request("pending-1") })?.start();
-			tray.reserve({ target: media, binding: binding(), request: request("pending-2") })?.start();
-			yield* drain;
-			expect(tray.getSnapshot().entries).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.entries);
-
-			const keys = () => tray.getSnapshot().entries.map(({ label }) => label);
-			tray.reserve({ target: media, binding: binding(), request: request("next-1") })?.start();
-			yield* drain;
-			expect(keys()).not.toContain("Logged ok0");
-			expect(keys()).toContain("Logged ok1");
-			tray.reserve({ target: media, binding: binding(), request: request("next-2") })?.start();
-			yield* drain;
-			expect(keys()).not.toContain("Logged ok1");
-			expect(keys()).toEqual(arrayContaining(["Logged pending-1", "Logged pending-2"]));
-
-			const callsBefore = test.calls.length;
-			expect(tray.reserve({ target: media, binding: binding(), request: request("full") })).toBe(
-				undefined,
-			);
-			yield* drain;
-			expect(test.calls).toHaveLength(callsBefore);
-			expect(keys()).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.entries);
-		}),
+				yield* reply(test, 1)({ outcome: "failure", reason: "operation-failed" });
+				const [rejected, failed] = tray.getSnapshot().entries;
+				expect(settled).toEqual([
+					{
+						status: "failed",
+						reason: "operation-rejected",
+						message: "That episode is not part of this show.",
+					},
+					{ status: "failed", reason: "operation-failed" },
+				]);
+				for (const entry of [rejected, failed]) {
+					expect(tray.retry(entry.id, catalog)).toBe(false);
+				}
+				expect(present(tray, rejected)).toMatchObject({
+					action: undefined,
+					status: "Not saved",
+					detail: "That episode is not part of this show.",
+				});
+				expect(test.calls).toHaveLength(2);
+			}),
+		testTimeout,
 	);
 
-	it.effect("empties the tray and interrupts work when the same user logs in again", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const settled: BackgroundSubmissionOutcome[] = [];
-			const server = test.authorization.forServer(scope.serverUrl);
-			server.replace(makeStoredTokenSet({ accessToken: "first" }));
-			const tray = yield* openTray(test);
-			tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
-			tray.reserve({ target: media, request: request("k2"), binding: binding(settled) })?.start();
-			yield* drain;
-			yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
-			expect(tray.getSnapshot().entries).toHaveLength(2);
+	it.effect(
+		"makes app-updated final and says it may have been saved after a transport",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				const reloads: string[] = [];
+				tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
+				tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
+				yield* drain;
+				yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
+				yield* reply(test, 1)({ outcome: "stale-session" });
+				const first = tray.getSnapshot().entries[0];
+				expect(tray.retry(first.id, catalog)).toBe(true);
+				yield* drain;
+				yield* reply(test, 2)({ outcome: "stale-session" });
 
-			server.replace(null);
-			server.replace(makeStoredTokenSet({ accessToken: "second" }));
-			yield* drain;
-			expect(tray.getSnapshot().entries).toEqual([]);
-			expect(test.interrupted).toEqual(["k2"]);
-			expect(settled).toEqual([{ status: "failed", reason: "transport" }]);
+				const [afterTransport, direct] = tray.getSnapshot().entries;
+				for (const entry of [afterTransport, direct]) {
+					expect(entry.state).toEqual({ status: "failed", reason: "app-updated" });
+					expect(tray.retry(entry.id, catalog)).toBe(false);
+				}
+				const onReload = () => reloads.push("reload");
+				expect(present(tray, afterTransport, { onReload })).toMatchObject({
+					status: "Ryot was updated",
+					action: { label: "Reload" },
+					detail: "It may have been saved. Reload to see the latest version.",
+				});
+				expect(present(tray, direct, { onReload })).toMatchObject({
+					action: { label: "Reload" },
+					detail: "It was not saved. Reload, then try again.",
+				});
+				present(tray, direct, { onReload }).action?.onClick();
+				expect(reloads).toEqual(["reload"]);
+				expect(test.calls).toHaveLength(3);
+			}),
+		testTimeout,
+	);
 
-			tray.reserve({ target: media, binding: binding(), request: request("k3") })?.start();
-			yield* drain;
-			expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(["Logged k3"]);
-		}),
+	it.effect(
+		"refuses Retry after the captured installation leaves the catalog",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
+				yield* drain;
+				yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
+				const [entry] = tray.getSnapshot().entries;
+				const reinstalled = [{ ...catalogEntry(media), installationId: "installation-media-2" }];
+
+				expect(tray.retry(entry.id, reinstalled)).toBe(false);
+				expect(tray.retry(entry.id, [])).toBe(false);
+				expect(present(tray, entry, { catalog: reinstalled }).action).toBeUndefined();
+				yield* drain;
+				expect(test.calls).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"rejects over the in-flight caps without starting anything",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				const session = binding();
+				const accepted = Array.from(
+					{ length: BACKGROUND_SUBMISSION_LIMITS.inFlightPerSession },
+					(_, index) =>
+						tray.reserve({ target: media, binding: session, request: request(`s${index}`) }),
+				);
+				expect(accepted.every((reservation) => reservation !== undefined)).toBe(true);
+				expect(tray.reserve({ target: media, binding: session, request: request("s-over") })).toBe(
+					undefined,
+				);
+				for (const reservation of accepted) {
+					reservation?.start();
+				}
+				const other = binding();
+				const remaining =
+					BACKGROUND_SUBMISSION_LIMITS.inFlightPerService -
+					BACKGROUND_SUBMISSION_LIMITS.inFlightPerSession;
+				for (let index = 0; index < remaining; index += 1) {
+					const sessionBinding = index % 2 === 0 ? other : binding();
+					tray
+						.reserve({ target: media, binding: sessionBinding, request: request(`o${index}`) })
+						?.start();
+				}
+				yield* drain;
+				expect(test.calls).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.inFlightPerService);
+				expect(tray.reserve({ target: media, binding: binding(), request: request("over") })).toBe(
+					undefined,
+				);
+				yield* drain;
+				expect(test.calls).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.inFlightPerService);
+				expect(test.calls.map(({ invocation }) => invocation.request.idempotencyKey)).not.toContain(
+					"over",
+				);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"evicts only the oldest success when full and never a pending entry",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				const fill = (prefix: string, count: number) =>
+					Effect.gen(function* () {
+						for (let index = 0; index < count; index += 1) {
+							tray
+								.reserve({
+									target: media,
+									binding: binding(),
+									request: request(`${prefix}${index}`),
+								})
+								?.start();
+							yield* drain;
+							const call = test.calls.at(-1);
+							if (call !== undefined) {
+								yield* settle(call.reply)(
+									prefix === "ok"
+										? { value: null, outcome: "success" }
+										: { outcome: "failure", reason: "operation-failed" },
+								);
+							}
+						}
+					});
+				yield* fill("ok", 2);
+				yield* fill("bad", BACKGROUND_SUBMISSION_LIMITS.entries - 4);
+				tray.reserve({ target: media, binding: binding(), request: request("pending-1") })?.start();
+				tray.reserve({ target: media, binding: binding(), request: request("pending-2") })?.start();
+				yield* drain;
+				expect(tray.getSnapshot().entries).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.entries);
+
+				const keys = () => tray.getSnapshot().entries.map(({ label }) => label);
+				tray.reserve({ target: media, binding: binding(), request: request("next-1") })?.start();
+				yield* drain;
+				expect(keys()).not.toContain("Logged ok0");
+				expect(keys()).toContain("Logged ok1");
+				tray.reserve({ target: media, binding: binding(), request: request("next-2") })?.start();
+				yield* drain;
+				expect(keys()).not.toContain("Logged ok1");
+				expect(keys()).toEqual<unknown>(arrayContaining(["Logged pending-1", "Logged pending-2"]));
+
+				const callsBefore = test.calls.length;
+				expect(tray.reserve({ target: media, binding: binding(), request: request("full") })).toBe(
+					undefined,
+				);
+				yield* drain;
+				expect(test.calls).toHaveLength(callsBefore);
+				expect(keys()).toHaveLength(BACKGROUND_SUBMISSION_LIMITS.entries);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"empties the tray and interrupts work when the same user logs in again",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const settled: BackgroundSubmissionOutcome[] = [];
+				const server = test.authorization.forServer(scope.serverUrl);
+				server.replace(makeStoredTokenSet({ accessToken: "first" }));
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, request: request("k1"), binding: binding(settled) })?.start();
+				tray.reserve({ target: media, request: request("k2"), binding: binding(settled) })?.start();
+				yield* drain;
+				yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
+				expect(tray.getSnapshot().entries).toHaveLength(2);
+
+				server.replace(null);
+				server.replace(makeStoredTokenSet({ accessToken: "second" }));
+				yield* drain;
+				expect(tray.getSnapshot().entries).toEqual([]);
+				expect(test.interrupted).toEqual(["k2"]);
+				expect(settled).toEqual([{ status: "failed", reason: "transport" }]);
+
+				tray.reserve({ target: media, binding: binding(), request: request("k3") })?.start();
+				yield* drain;
+				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(["Logged k3"]);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -525,55 +562,62 @@ describe("background submission tray", () => {
 				expect(settled).toEqual([{ status: "succeeded" }]);
 				tray.reserve({ target: media, binding: binding(), request: request("k2") })?.start();
 				yield* drain;
-				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual(
+				expect(tray.getSnapshot().entries.map(({ label }) => label)).toEqual<unknown>(
 					arrayContaining(["Logged k1", "Logged k2"]),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.effect("drops entries and interrupts work on disposal", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
-			yield* drain;
-			tray.dispose();
-			yield* drain;
-			expect(test.interrupted).toEqual(["k1"]);
-			expect(tray.getSnapshot().entries).toEqual([]);
-			expect(tray.reserve({ target: media, binding: binding(), request: request("k2") })).toBe(
-				undefined,
-			);
-		}),
+	it.effect(
+		"drops entries and interrupts work on disposal",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, binding: binding(), request: request("k1") })?.start();
+				yield* drain;
+				tray.dispose();
+				yield* drain;
+				expect(test.interrupted).toEqual(["k1"]);
+				expect(tray.getSnapshot().entries).toEqual([]);
+				expect(tray.reserve({ target: media, binding: binding(), request: request("k2") })).toBe(
+					undefined,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("throttles live-region announcements across a burst", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const tray = yield* openTray(test);
-			tray.reserve({ target: media, binding: binding(), request: request("a") })?.start();
-			expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
-			for (const key of ["b", "c", "d"]) {
-				tray.reserve({ target: media, binding: binding(), request: request(key) })?.start();
-			}
-			yield* drain;
-			expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
+	it.effect(
+		"throttles live-region announcements across a burst",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const tray = yield* openTray(test);
+				tray.reserve({ target: media, binding: binding(), request: request("a") })?.start();
+				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
+				for (const key of ["b", "c", "d"]) {
+					tray.reserve({ target: media, binding: binding(), request: request(key) })?.start();
+				}
+				yield* drain;
+				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
 
-			yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS - 1);
-			expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
-			yield* TestClock.adjust(1);
-			yield* drain;
-			expect(tray.getSnapshot().announcement).toBe(
-				"3 background updates. Latest: Media: Logged d. Saving….",
-			);
+				yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS - 1);
+				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saving….");
+				yield* TestClock.adjust(1);
+				yield* drain;
+				expect(tray.getSnapshot().announcement).toBe(
+					"3 background updates. Latest: Media: Logged d. Saving….",
+				);
 
-			yield* reply(test, 0)({ value: null, outcome: "success" });
-			expect(tray.getSnapshot().announcement).toBe(
-				"3 background updates. Latest: Media: Logged d. Saving….",
-			);
-			yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS);
-			yield* drain;
-			expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saved.");
-		}),
+				yield* reply(test, 0)({ value: null, outcome: "success" });
+				expect(tray.getSnapshot().announcement).toBe(
+					"3 background updates. Latest: Media: Logged d. Saving….",
+				);
+				yield* TestClock.adjust(ANNOUNCEMENT_INTERVAL_MS);
+				yield* drain;
+				expect(tray.getSnapshot().announcement).toBe("Media: Logged a. Saved.");
+			}),
+		testTimeout,
 	);
 });

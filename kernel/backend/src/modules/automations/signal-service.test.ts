@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginSignalAudiencePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -9,9 +10,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
-import { describe } from "vitest";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
 import {
@@ -264,92 +266,104 @@ describe("Signal emission PostgreSQL", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 	layer(signalLayer())((test) => {
-		test.effect("excludes disabled actors and recipients from new plans", () =>
-			Effect.gen(function* () {
-				const pluginId = yield* setup();
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* db.update(tables.user).set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
-						const result = yield* (yield* SignalEmissionService).emitSignal(input(pluginId));
-						expect(result.wasCreated).toBe(true);
-						expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
-						expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
-						expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-					}),
-				);
-			}),
+		test.effect(
+			"excludes disabled actors and recipients from new plans",
+			() =>
+				Effect.gen(function* () {
+					const pluginId = yield* setup();
+					yield* (yield* DatabaseSession).run((db) =>
+						Effect.gen(function* () {
+							yield* db
+								.update(tables.user)
+								.set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
+							const result = yield* (yield* SignalEmissionService).emitSignal(input(pluginId));
+							expect(result.wasCreated).toBe(true);
+							expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
+							expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
+							expect(yield* db.select().from(tables.automationRun)).toEqual([]);
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	});
 	layer(signalLayer())((test) => {
-		test.effect("does not resolve a same-slug private signal through the recipient's plugin", () =>
-			Effect.gen(function* () {
-				const actorPlugin = yield* installRevisionPackage(privateSignalPackage("private-a"), owner);
-				const recipientPlugin = yield* installRevisionPackage(
-					privateSignalPackage("private-b"),
-					recipient,
-				);
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* db
-							.insert(tables.entity)
-							.values({
-								name: "Subject",
-								id: subjectEntityId,
-								entitySchemaSlug: "private-a-entity",
-								entitySchemaPluginId: actorPlugin.pluginId,
+		test.effect(
+			"does not resolve a same-slug private signal through the recipient's plugin",
+			() =>
+				Effect.gen(function* () {
+					const actorPlugin = yield* installRevisionPackage(
+						privateSignalPackage("private-a"),
+						owner,
+					);
+					const recipientPlugin = yield* installRevisionPackage(
+						privateSignalPackage("private-b"),
+						recipient,
+					);
+					yield* (yield* DatabaseSession).run((db) =>
+						Effect.gen(function* () {
+							yield* db
+								.insert(tables.entity)
+								.values({
+									name: "Subject",
+									id: subjectEntityId,
+									entitySchemaSlug: "private-a-entity",
+									entitySchemaPluginId: actorPlugin.pluginId,
+								});
+							yield* db
+								.insert(tables.relationship)
+								.values(
+									[owner, recipient].map((userId) => ({
+										userId,
+										sourceEntityId: subjectEntityId,
+										targetEntityId: subjectEntityId,
+										relationshipSchemaSlug: "shared-link",
+										relationshipSchemaPluginId: actorPlugin.pluginId,
+									})),
+								);
+							yield* db.insert(tables.notificationSubscription).values([
+								{
+									userId: owner,
+									signalSchemaSlug: "shared.signal",
+									signalSchemaPluginId: actorPlugin.pluginId,
+								},
+								{
+									userId: recipient,
+									signalSchemaSlug: "shared.signal",
+									signalSchemaPluginId: recipientPlugin.pluginId,
+								},
+							]);
+
+							const result = yield* (yield* SignalEmissionService).emitSignal({
+								...input(actorPlugin.pluginId),
+								command: command("private-signal"),
+								reference: {
+									owner: definitionOwner(actorPlugin.pluginId),
+									slug: SignalSchemaSlug.make("shared.signal"),
+								},
 							});
-						yield* db
-							.insert(tables.relationship)
-							.values(
-								[owner, recipient].map((userId) => ({
-									userId,
-									sourceEntityId: subjectEntityId,
-									targetEntityId: subjectEntityId,
-									relationshipSchemaSlug: "shared-link",
-									relationshipSchemaPluginId: actorPlugin.pluginId,
-								})),
-							);
-						yield* db.insert(tables.notificationSubscription).values([
-							{
-								userId: owner,
+							expect(result.wasCreated).toBe(true);
+							expect(yield* db.select().from(tables.automationRun)).toMatchObject([
+								{ executionUserId: owner, pluginId: actorPlugin.pluginId },
+							]);
+							expect(
+								(yield* db.select().from(tables.automationTriggerRecipient))
+									.map(({ userId }) => userId)
+									.sort(),
+							).toEqual([owner, recipient]);
+							const [trigger] = yield* db.select().from(tables.automationTrigger);
+							expect(trigger?.payload).toMatchObject({
 								signalSchemaSlug: "shared.signal",
 								signalSchemaPluginId: actorPlugin.pluginId,
-							},
-							{
-								userId: recipient,
-								signalSchemaSlug: "shared.signal",
-								signalSchemaPluginId: recipientPlugin.pluginId,
-							},
-						]);
-
-						const result = yield* (yield* SignalEmissionService).emitSignal({
-							...input(actorPlugin.pluginId),
-							command: command("private-signal"),
-							reference: {
-								owner: definitionOwner(actorPlugin.pluginId),
-								slug: SignalSchemaSlug.make("shared.signal"),
-							},
-						});
-						expect(result.wasCreated).toBe(true);
-						expect(yield* db.select().from(tables.automationRun)).toMatchObject([
-							{ executionUserId: owner, pluginId: actorPlugin.pluginId },
-						]);
-						expect(
-							(yield* db.select().from(tables.automationTriggerRecipient))
-								.map(({ userId }) => userId)
-								.sort(),
-						).toEqual([owner, recipient]);
-						const [trigger] = yield* db.select().from(tables.automationTrigger);
-						expect(trigger?.payload).toMatchObject({
-							signalSchemaSlug: "shared.signal",
-							signalSchemaPluginId: actorPlugin.pluginId,
-						});
-					}),
-				);
-			}),
+							});
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	});
 	layer(signalLayer(failingPlannerLayer))((test) => {
@@ -371,42 +385,49 @@ describe("Signal emission PostgreSQL", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 	layer(signalLayer())((test) => {
-		test.effect("rejects a signal that references another user's managed asset", () =>
-			Effect.gen(function* () {
-				const pluginId = yield* setup();
-				const foreign = yield* insertManagedAsset(UserId.make("signal-asset-foreign"));
-				assertExitFails(
-					yield* (yield* SignalEmissionService)
-						.emitSignal({ ...input(pluginId), properties: { value: "first", image: foreign } })
-						.pipe(Effect.exit),
-					new ManagedAssetReferenceRejected(),
-				);
-				expect(
-					yield* (yield* DatabaseSession).run((db) => db.select().from(tables.automationTrigger)),
-				).toEqual([]);
-			}),
+		test.effect(
+			"rejects a signal that references another user's managed asset",
+			() =>
+				Effect.gen(function* () {
+					const pluginId = yield* setup();
+					const foreign = yield* insertManagedAsset(UserId.make("signal-asset-foreign"));
+					assertExitFails(
+						yield* (yield* SignalEmissionService)
+							.emitSignal({ ...input(pluginId), properties: { value: "first", image: foreign } })
+							.pipe(Effect.exit),
+						new ManagedAssetReferenceRejected(),
+					);
+					expect(
+						yield* (yield* DatabaseSession).run((db) => db.select().from(tables.automationTrigger)),
+					).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 	layer(signalLayer())((test) => {
-		test.effect("rejects a system signal that references a user's own managed asset", () =>
-			Effect.gen(function* () {
-				const pluginId = yield* setup();
-				const own = yield* insertManagedAsset(owner);
-				assertExitFails(
-					yield* (yield* SignalEmissionService)
-						.emitSignal({
-							...input(pluginId),
-							principal: { kind: "system" },
-							command: command("system-signal"),
-							properties: { image: own, value: "first" },
-						})
-						.pipe(Effect.exit),
-					new ManagedAssetReferenceRejected(),
-				);
-			}),
+		test.effect(
+			"rejects a system signal that references a user's own managed asset",
+			() =>
+				Effect.gen(function* () {
+					const pluginId = yield* setup();
+					const own = yield* insertManagedAsset(owner);
+					assertExitFails(
+						yield* (yield* SignalEmissionService)
+							.emitSignal({
+								...input(pluginId),
+								principal: { kind: "system" },
+								command: command("system-signal"),
+								properties: { image: own, value: "first" },
+							})
+							.pipe(Effect.exit),
+						new ManagedAssetReferenceRejected(),
+					);
+				}),
+			testTimeout,
 		);
 	});
 });

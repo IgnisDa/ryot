@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { AccessClass } from "@ryot-app/contract/oauth";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
@@ -131,48 +134,58 @@ describe("demo entry route", () => {
 				expect(mounted.hostedCallCount()).toBe(0);
 				expect(mounted.prepared).toEqual([]);
 			}),
+		testTimeout,
 	);
 
 	it.live.each([
 		["demo", "ryot-demo-web"],
 		["standard", "ryot-web"],
-	] as const)("uses the %s hosted mode to launch %s", ([mode, clientId]) =>
-		Effect.gen(function* () {
-			const mounted = mountDemo({ mode });
+	] as const)(
+		"uses the %s hosted mode to launch %s",
+		([mode, clientId]) =>
+			Effect.gen(function* () {
+				const mounted = mountDemo({ mode });
 
-			yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toHaveLength(1)));
-			expect(mounted.hostedCallCount()).toBe(1);
-			expect(mounted.prepared).toHaveLength(1);
-			expect(mounted.prepared[0]?.client).toMatchObject({
-				clientId,
-				nativeApplicationId: null,
-				callbackUri: `${window.location.origin}/auth/callback`,
-			});
-			expect(mounted.launched[0]?.client.clientId).toBe(clientId);
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toHaveLength(1)));
+				expect(mounted.hostedCallCount()).toBe(1);
+				expect(mounted.prepared).toHaveLength(1);
+				expect(mounted.prepared[0]?.client).toMatchObject({
+					clientId,
+					nativeApplicationId: null,
+					callbackUri: `${window.location.origin}/auth/callback`,
+				});
+				expect(mounted.launched[0]?.client.clientId).toBe(clientId);
+			}),
+		testTimeout,
 	);
 
-	it.live("shows the dedicated unavailable state for a rejected hosted request", () =>
-		Effect.gen(function* () {
-			mountDemo({ failHosted: true });
+	it.live(
+		"shows the dedicated unavailable state for a rejected hosted request",
+		() =>
+			Effect.gen(function* () {
+				mountDemo({ failHosted: true });
 
-			yield* Effect.promise(() => screen.findByText("Demo unavailable"));
-			expect(
-				screen.getByText("The shared demo account is not available on this server."),
-			).not.toBeNull();
-			expect(screen.queryByText("sensitive server detail")).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByText("Demo unavailable"));
+				expect(
+					screen.getByText("The shared demo account is not available on this server."),
+				).not.toBeNull();
+				expect(screen.queryByText("sensitive server detail")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("routes native invocation through ordinary authentication", () =>
-		Effect.gen(function* () {
-			const mounted = mountDemo({ native: true });
+	it.live(
+		"routes native invocation through ordinary authentication",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountDemo({ native: true });
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(mounted.router.state.location.pathname).toBe("/auth")),
-			);
-			expect(mounted.hostedCallCount()).toBe(0);
-			expect(mounted.prepared).toEqual([undefined]);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(mounted.router.state.location.pathname).toBe("/auth")),
+				);
+				expect(mounted.hostedCallCount()).toBe(0);
+				expect(mounted.prepared).toEqual([undefined]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,7 @@
+import { expect, it } from "bun:test";
+
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
-import { assert, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import { fixtureCollectionChoicesRecipe } from "./query-recipes";
 

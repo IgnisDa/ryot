@@ -105,7 +105,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ../../packages/testing/src/run-tests.ts",
 		"check": "bun --check && bun --cwd tests --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -132,8 +132,8 @@
 		"youtubei.js": "17.2.0"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.1.0",
+		"bun-types": "1.4.4",
 		"@ryot-app/testing": "workspace:*",
-		"vitest": "4.1.9"
+		"@voila.dev/effect-bun-test": "4.0.4"
 	}
 }

@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	castDate,
@@ -16,7 +18,6 @@ import {
 } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { signalSchedulePageRecipe, type SignalScheduleSource } from "./signal-schedules";
 import { requireRowsQuery, rowsResult } from "./test-utils";
@@ -70,7 +71,7 @@ const page = (input: Partial<Parameters<typeof signalSchedulePageRecipe>[0]> = {
 describe("signal schedule recipe", () => {
 	it("selects fresh occurrences due inside the window in a stable order", () => {
 		const query = requireRowsQuery(page().document.queries["signalScheduleDue"]);
-		expect(query.where).toEqual({
+		expect(query.where).toEqual<unknown>({
 			type: "and",
 			predicates: [
 				where,

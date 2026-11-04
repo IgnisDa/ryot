@@ -1,6 +1,10 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
@@ -65,66 +69,83 @@ const expectedReportTime = new Intl.DateTimeFormat("en-US", {
 }).format(new Date("2025-01-02T03:04:05"));
 
 describe("MigrationReportView", () => {
-	it.live("loads on mount and renders the semantic report table", () =>
-		Effect.gen(function* () {
-			const requests: Array<string | undefined> = [];
-			render(
-				<MigrationReportView
-					unauthorized={() => undefined}
-					load={(after) => {
-						requests.push(after);
-						return Effect.succeed(report);
-					}}
-				/>,
-			);
+	it.live(
+		"loads on mount and renders the semantic report table",
+		() =>
+			Effect.gen(function* () {
+				const requests: Array<string | undefined> = [];
+				render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={(after) => {
+							requests.push(after);
+							return Effect.succeed(report);
+						}}
+					/>,
+				);
 
-			const table = yield* Effect.promise(() => screen.findByRole("table"));
-			expect(requests).toHaveLength(1);
-			expect(requests[0]).toBeUndefined();
-			expect(
-				within(table)
-					.getAllByRole("columnheader")
-					.map((cell) => cell.textContent),
-			).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
-			expect(within(table).getByText(expectedReportTime)).toBeTruthy();
-			expect(within(table).getByText("Warning").className).toContain("text-warning");
-			expect(within(table).getByText("metadata")).toBeTruthy();
-			expect(within(table).getByText("Skipped malformed item")).toBeTruthy();
-			expect(within(table).getByText("1,234")).toBeTruthy();
-			expect(within(table).getByText("12.5s")).toBeTruthy();
-		}),
+				const table = yield* Effect.promise(() => screen.findByRole("table"));
+				expect(requests).toHaveLength(1);
+				expect(requests[0]).toBeUndefined();
+				expect(
+					within(table)
+						.getAllByRole("columnheader")
+						.map((cell) => cell.textContent),
+				).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
+				expect(within(table).getByText(expectedReportTime)).toBeTruthy();
+				expect(within(table).getByText("Warning").className).toContain("text-warning");
+				expect(within(table).getByText("metadata")).toBeTruthy();
+				expect(within(table).getByText("Skipped malformed item")).toBeTruthy();
+				expect(within(table).getByText("1,234")).toBeTruthy();
+				expect(within(table).getByText("12.5s")).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("expands a coded warning to reveal its per-record detail and total", () =>
-		Effect.gen(function* () {
-			render(
-				<MigrationReportView unauthorized={() => undefined} load={() => Effect.succeed(report)} />,
-			);
+	it.live(
+		"expands a coded warning to reveal its per-record detail and total",
+		() =>
+			Effect.gen(function* () {
+				render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={() => Effect.succeed(report)}
+					/>,
+				);
 
-			const toggle = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: /Skipped malformed item/ }),
-			);
-			expect(toggle.getAttribute("aria-expanded")).toBe("false");
-			expect(screen.queryByText("Record one")).toBeNull();
+				const toggle = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: /Skipped malformed item/ }),
+				);
+				expect(toggle.getAttribute("aria-expanded")).toBe("false");
+				expect(screen.queryByText("Record one")).toBeNull();
 
-			fireEvent.click(toggle);
+				fireEvent.click(toggle);
 
-			expect(toggle.getAttribute("aria-expanded")).toBe("true");
-			expect(screen.getByText("Record one")).toBeTruthy();
-			expect(screen.getByText("ent_1")).toBeTruthy();
-			expect(screen.getByText(/and 1,233 more, queryable in migration_report_detail/)).toBeTruthy();
-		}),
+				expect(toggle.getAttribute("aria-expanded")).toBe("true");
+				expect(screen.getByText("Record one")).toBeTruthy();
+				expect(screen.getByText("ent_1")).toBeTruthy();
+				expect(
+					screen.getByText(/and 1,233 more, queryable in migration_report_detail/),
+				).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("gives rows without a code no expand affordance", () =>
-		Effect.gen(function* () {
-			render(
-				<MigrationReportView unauthorized={() => undefined} load={() => Effect.succeed(report)} />,
-			);
+	it.live(
+		"gives rows without a code no expand affordance",
+		() =>
+			Effect.gen(function* () {
+				render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={() => Effect.succeed(report)}
+					/>,
+				);
 
-			yield* Effect.promise(() => screen.findByRole("table"));
-			expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByRole("table"));
+				expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -167,75 +188,87 @@ describe("MigrationReportView", () => {
 				expect(requests).toEqual([undefined, "next", "next"]);
 				expect(screen.queryByRole("button", { name: "Load more reports" })).toBeNull();
 			}),
+		testTimeout,
 	);
 
-	it.live("retries an initial non-auth failure and shows the empty state", () =>
-		Effect.gen(function* () {
-			let calls = 0;
-			render(
-				<MigrationReportView
-					unauthorized={() => undefined}
-					load={() => {
-						calls += 1;
-						return calls === 1
-							? Effect.fail(new AdminApiError({ cause: "offline" }))
-							: Effect.succeed(emptyReport);
-					}}
-				/>,
-			);
+	it.live(
+		"retries an initial non-auth failure and shows the empty state",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={() => {
+							calls += 1;
+							return calls === 1
+								? Effect.fail(new AdminApiError({ cause: "offline" }))
+								: Effect.succeed(emptyReport);
+						}}
+					/>,
+				);
 
-			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "No migration report" }));
-			expect(calls).toBe(2);
-		}),
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })),
+				);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "No migration report" }));
+				expect(calls).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("relocks on unauthorized without showing a retry state", () =>
-		Effect.gen(function* () {
-			let relocks = 0;
-			render(
-				<MigrationReportView
-					unauthorized={() => {
-						relocks += 1;
-					}}
-					load={() =>
-						Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
-					}
-				/>,
-			);
+	it.live(
+		"relocks on unauthorized without showing a retry state",
+		() =>
+			Effect.gen(function* () {
+				let relocks = 0;
+				render(
+					<MigrationReportView
+						unauthorized={() => {
+							relocks += 1;
+						}}
+						load={() =>
+							Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }))
+						}
+					/>,
+				);
 
-			yield* Effect.promise(() => waitFor(() => expect(relocks).toBe(1)));
-			expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
-			expect(screen.queryByRole("heading", { name: "Migration report" })).toBeNull();
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(relocks).toBe(1)));
+				expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+				expect(screen.queryByRole("heading", { name: "Migration report" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("cancels an in-flight load on unmount", () =>
-		Effect.gen(function* () {
-			let started = false;
-			let interrupted = false;
-			const view = render(
-				<MigrationReportView
-					unauthorized={() => undefined}
-					load={() =>
-						Effect.sync(() => {
-							started = true;
-						}).pipe(
-							Effect.andThen(Effect.never),
-							Effect.onInterrupt(() =>
-								Effect.sync(() => {
-									interrupted = true;
-								}),
-							),
-						)
-					}
-				/>,
-			);
+	it.live(
+		"cancels an in-flight load on unmount",
+		() =>
+			Effect.gen(function* () {
+				let started = false;
+				let interrupted = false;
+				const view = render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={() =>
+							Effect.sync(() => {
+								started = true;
+							}).pipe(
+								Effect.andThen(Effect.never),
+								Effect.onInterrupt(() =>
+									Effect.sync(() => {
+										interrupted = true;
+									}),
+								),
+							)
+						}
+					/>,
+				);
 
-			yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
-			expect(interrupted).toBe(false);
-			view.unmount();
-			yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
+				expect(interrupted).toBe(false);
+				view.unmount();
+				yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+			}),
+		testTimeout,
 	);
 });

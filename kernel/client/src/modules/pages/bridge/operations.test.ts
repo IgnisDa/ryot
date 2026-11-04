@@ -1,4 +1,5 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	AuthRateLimited,
 	AuthUnauthorized,
@@ -17,6 +18,8 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -83,25 +86,29 @@ describe("plugin operations service", () => {
 						},
 					]);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(operationsLayer(() => Effect.succeed({ result: { greeted: "hi" } })))((test) => {
-		test.effect("maps a successful response to a success outcome", () =>
-			Effect.gen(function* () {
-				const service = yield* PluginOperationsService;
-				const outcome = yield* service.invoke({
-					scope,
-					contentHash: "source-hash",
-					request: {
-						input: null,
-						operationSlug: "greet",
-						packageId: PluginPackageId.make("test/fixture"),
-					},
-				});
+		test.effect(
+			"maps a successful response to a success outcome",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					const outcome = yield* service.invoke({
+						scope,
+						contentHash: "source-hash",
+						request: {
+							input: null,
+							operationSlug: "greet",
+							packageId: PluginPackageId.make("test/fixture"),
+						},
+					});
 
-				expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
-			}),
+					expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -112,21 +119,24 @@ describe("plugin operations service", () => {
 			}),
 		),
 	)((test) => {
-		test.effect("returns a kernel-only stale session result for a changed source revision", () =>
-			Effect.gen(function* () {
-				const service = yield* PluginOperationsService;
-				const outcome = yield* service.invoke({
-					scope,
-					contentHash: "source-hash",
-					request: {
-						input: null,
-						operationSlug: "greet",
-						packageId: PluginPackageId.make("test/fixture"),
-					},
-				});
+		test.effect(
+			"returns a kernel-only stale session result for a changed source revision",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					const outcome = yield* service.invoke({
+						scope,
+						contentHash: "source-hash",
+						request: {
+							input: null,
+							operationSlug: "greet",
+							packageId: PluginPackageId.make("test/fixture"),
+						},
+					});
 
-				expect(outcome).toEqual({ outcome: "stale-session" });
-			}),
+					expect(outcome).toEqual({ outcome: "stale-session" });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -146,28 +156,60 @@ describe("plugin operations service", () => {
 
 	for (const cause of declaredFailures) {
 		layer(failing(cause))((test) => {
-			test.effect(`classifies ${cause._tag} as a declared platform operation failure`, () =>
-				Effect.gen(function* () {
-					const service = yield* PluginOperationsService;
-					const outcome = yield* service.invoke({
-						scope,
-						contentHash: "source-hash",
-						request: {
-							input: null,
-							operationSlug: "greet",
-							packageId: PluginPackageId.make("test/fixture"),
-						},
-					});
+			test.effect(
+				`classifies ${cause._tag} as a declared platform operation failure`,
+				() =>
+					Effect.gen(function* () {
+						const service = yield* PluginOperationsService;
+						const outcome = yield* service.invoke({
+							scope,
+							contentHash: "source-hash",
+							request: {
+								input: null,
+								operationSlug: "greet",
+								packageId: PluginPackageId.make("test/fixture"),
+							},
+						});
 
-					expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
-				}),
+						expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
+					}),
+				testTimeout,
 			);
 		});
 	}
 
 	layer(failing(new PluginOperationRejected({ message: "Episode is not part of this show" })))(
 		(test) => {
-			test.effect("carries the rejection message as an operation-rejected failure", () =>
+			test.effect(
+				"carries the rejection message as an operation-rejected failure",
+				() =>
+					Effect.gen(function* () {
+						const service = yield* PluginOperationsService;
+						const outcome = yield* service.invoke({
+							scope,
+							contentHash: "source-hash",
+							request: {
+								input: null,
+								operationSlug: "greet",
+								packageId: PluginPackageId.make("test/fixture"),
+							},
+						});
+
+						expect(outcome).toEqual({
+							outcome: "failure",
+							reason: "operation-rejected",
+							message: "Episode is not part of this show",
+						});
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(failing(new TypeError("network down")))((test) => {
+		test.effect(
+			"classifies an unrelated cause as a transport failure without leaking it",
+			() =>
 				Effect.gen(function* () {
 					const service = yield* PluginOperationsService;
 					const outcome = yield* service.invoke({
@@ -180,36 +222,13 @@ describe("plugin operations service", () => {
 						},
 					});
 
-					expect(outcome).toEqual({
-						outcome: "failure",
-						reason: "operation-rejected",
-						message: "Episode is not part of this show",
-					});
+					expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
+					expect(outcome).not.toHaveProperty("cause");
+					expect(
+						yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(outcome),
+					).not.toContain("network down");
 				}),
-			);
-		},
-	);
-
-	layer(failing(new TypeError("network down")))((test) => {
-		test.effect("classifies an unrelated cause as a transport failure without leaking it", () =>
-			Effect.gen(function* () {
-				const service = yield* PluginOperationsService;
-				const outcome = yield* service.invoke({
-					scope,
-					contentHash: "source-hash",
-					request: {
-						input: null,
-						operationSlug: "greet",
-						packageId: PluginPackageId.make("test/fixture"),
-					},
-				});
-
-				expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
-				expect(outcome).not.toHaveProperty("cause");
-				expect(
-					yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(outcome),
-				).not.toContain("network down");
-			}),
+			testTimeout,
 		);
 	});
 });

@@ -1,3 +1,4 @@
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -26,7 +27,7 @@ describe("kernel entity page E2E", () => {
 				"Expected kernel entity page preparation identity",
 			);
 			expect(prepared.identity.rendererName).toBe("Collection detail");
-			expect(prepared.identity.entitySchemaSlug).toBe("collection");
+			expect(prepared.identity.entitySchemaSlug).toBe(EntitySchemaSlug.make("collection"));
 			expect(prepared.context.renderer).toEqual({ kind: "kernel", name: "Collection detail" });
 			expect(prepared.context.target).toMatchObject({
 				kind: "entity",

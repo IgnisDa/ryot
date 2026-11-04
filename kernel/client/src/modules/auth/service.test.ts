@@ -1,4 +1,7 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { decodeServerOrigin, ServerOrigin } from "#/api/origin";
@@ -124,17 +127,20 @@ describe("authentication service", () => {
 			userInfo: () => Effect.succeed(userInfoResponse),
 		}),
 	)((test) => {
-		test.effect("restores an OAuth UserInfo response into the existing session snapshot", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const session = auth.session(origin);
-				expect(session.getSnapshot()).toEqual({ status: "pending" });
+		test.effect(
+			"restores an OAuth UserInfo response into the existing session snapshot",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const session = auth.session(origin);
+					expect(session.getSnapshot()).toEqual({ status: "pending" });
 
-				expect(
-					yield* auth.settledSession(yield* decodeServerOrigin("https://example.com/")),
-				).toEqual({ accessClass: "standard", user: authenticatedUser, status: "authenticated" });
-				expect(session.getSnapshot().status).toBe("authenticated");
-			}),
+					expect(
+						yield* auth.settledSession(yield* decodeServerOrigin("https://example.com/")),
+					).toEqual({ accessClass: "standard", user: authenticatedUser, status: "authenticated" });
+					expect(session.getSnapshot().status).toBe("authenticated");
+				}),
+			testTimeout,
 		);
 	});
 
@@ -145,24 +151,30 @@ describe("authentication service", () => {
 				Effect.succeed({ ...userInfoResponse, impersonation: { expiresAt: 1_800_000_100_000 } }),
 		}),
 	)((test) => {
-		test.effect("includes impersonation expiry in the authenticated session snapshot", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
+		test.effect(
+			"includes impersonation expiry in the authenticated session snapshot",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
 
-				expect(yield* auth.settledSession(origin)).toMatchObject({
-					status: "authenticated",
-					impersonation: { expiresAt: 1_800_000_100_000 },
-				});
-			}),
+					expect(yield* auth.settledSession(origin)).toMatchObject({
+						status: "authenticated",
+						impersonation: { expiresAt: 1_800_000_100_000 },
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(authLayer())((test) => {
-		test.effect("reports a missing session when no OAuth token set exists", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
-			}),
+		test.effect(
+			"reports a missing session when no OAuth token set exists",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -172,14 +184,17 @@ describe("authentication service", () => {
 			userInfo: () => Effect.succeed({ ...userInfoResponse, accessClass: "demo" }),
 		}),
 	)((test) => {
-		test.effect("exposes demo access from the stored OAuth client", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				expect(yield* auth.settledSession(origin)).toMatchObject({
-					accessClass: "demo",
-					status: "authenticated",
-				});
-			}),
+		test.effect(
+			"exposes demo access from the stored OAuth client",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					expect(yield* auth.settledSession(origin)).toMatchObject({
+						accessClass: "demo",
+						status: "authenticated",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -211,6 +226,7 @@ describe("authentication service", () => {
 					expect(yield* dependencies.accessTokenCalls).toBe(3);
 					expect(notifications).toBe(1);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -220,19 +236,22 @@ describe("authentication service", () => {
 			userInfo: () => Effect.promise(() => Promise.resolve(userInfoResponse)),
 		}),
 	)((test) => {
-		test.effect("shares one UserInfo request across concurrent navigations", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const results = yield* Effect.all(
-					Array.from({ length: 4 }, () => auth.settledSession(origin)),
-					{ concurrency: "unbounded" },
-				);
+		test.effect(
+			"shares one UserInfo request across concurrent navigations",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const results = yield* Effect.all(
+						Array.from({ length: 4 }, () => auth.settledSession(origin)),
+						{ concurrency: "unbounded" },
+					);
 
-				expect(results.map((result) => result.status)).toEqual(
-					Array.from({ length: 4 }, () => "authenticated"),
-				);
-				expect(yield* (yield* FakeAuthDependencies).userInfoCalls).toBe(1);
-			}),
+					expect(results.map((result) => result.status)).toEqual(
+						Array.from({ length: 4 }, () => "authenticated"),
+					);
+					expect(yield* (yield* FakeAuthDependencies).userInfoCalls).toBe(1);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -242,31 +261,37 @@ describe("authentication service", () => {
 			userInfo: () => Effect.succeed(userInfoResponse),
 		}),
 	)((test) => {
-		test.effect("demotes a settled session once the stored authorization is gone", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const dependencies = yield* FakeAuthDependencies;
-				const session = auth.session(origin);
-				expect((yield* auth.settledSession(origin)).status).toBe("authenticated");
+		test.effect(
+			"demotes a settled session once the stored authorization is gone",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const dependencies = yield* FakeAuthDependencies;
+					const session = auth.session(origin);
+					expect((yield* auth.settledSession(origin)).status).toBe("authenticated");
 
-				yield* dependencies.respondToAccessToken(() => Effect.succeed(null));
-				expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
-				expect(session.getSnapshot()).toEqual({ status: "missing" });
-				expect(yield* dependencies.userInfoCalls).toBe(1);
-			}),
+					yield* dependencies.respondToAccessToken(() => Effect.succeed(null));
+					expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
+					expect(session.getSnapshot()).toEqual({ status: "missing" });
+					expect(yield* dependencies.userInfoCalls).toBe(1);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(
 		authLayer({ accessToken: () => Effect.fail(new OAuthTokenError({ reason: "invalid-grant" })) }),
 	)((test) => {
-		test.effect("demotes a settled session when the refresh token is rejected", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const session = auth.session(origin);
-				expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
-				expect(session.getSnapshot()).toEqual({ status: "missing" });
-			}),
+		test.effect(
+			"demotes a settled session when the refresh token is rejected",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const session = auth.session(origin);
+					expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
+					expect(session.getSnapshot()).toEqual({ status: "missing" });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -276,28 +301,31 @@ describe("authentication service", () => {
 			userInfo: () => Effect.succeed(userInfoResponse),
 		}),
 	)((test) => {
-		test.effect("keeps a settled session when the authorization probe fails transiently", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const dependencies = yield* FakeAuthDependencies;
-				const session = auth.session(origin);
-				let notifications = 0;
-				session.subscribe(() => {
-					notifications += 1;
-				});
-				expect((yield* auth.settledSession(origin)).status).toBe("authenticated");
+		test.effect(
+			"keeps a settled session when the authorization probe fails transiently",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const dependencies = yield* FakeAuthDependencies;
+					const session = auth.session(origin);
+					let notifications = 0;
+					session.subscribe(() => {
+						notifications += 1;
+					});
+					expect((yield* auth.settledSession(origin)).status).toBe("authenticated");
 
-				yield* dependencies.respondToAccessToken(() =>
-					Effect.fail(new OAuthTokenError({ reason: "request-failed" })),
-				);
-				expect(yield* auth.settledSession(origin)).toEqual({
-					accessClass: "standard",
-					status: "authenticated",
-					user: authenticatedUser,
-				});
-				expect(session.getSnapshot().status).toBe("authenticated");
-				expect(notifications).toBe(1);
-			}),
+					yield* dependencies.respondToAccessToken(() =>
+						Effect.fail(new OAuthTokenError({ reason: "request-failed" })),
+					);
+					expect(yield* auth.settledSession(origin)).toEqual({
+						accessClass: "standard",
+						status: "authenticated",
+						user: authenticatedUser,
+					});
+					expect(session.getSnapshot().status).toBe("authenticated");
+					expect(notifications).toBe(1);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -306,12 +334,15 @@ describe("authentication service", () => {
 			accessToken: () => Effect.fail(new OAuthTokenError({ reason: "request-failed" })),
 		}),
 	)((test) => {
-		test.effect("fails when the probe fails transiently before the session ever settles", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const error = yield* Effect.flip(auth.settledSession(origin));
-				expect(error.reason).toBe("request-failed");
-			}),
+		test.effect(
+			"fails when the probe fails transiently before the session ever settles",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const error = yield* Effect.flip(auth.settledSession(origin));
+					expect(error.reason).toBe("request-failed");
+				}),
+			testTimeout,
 		);
 	});
 
@@ -321,40 +352,49 @@ describe("authentication service", () => {
 			userInfo: () => Effect.succeed(userInfoResponse),
 		}),
 	)((test) => {
-		test.effect("re-resolves UserInfo when the caller forces a refresh", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				expect((yield* auth.settledSession(origin)).status).toBe("authenticated");
-				expect((yield* auth.settledSession(origin, true)).status).toBe("authenticated");
-				expect(yield* (yield* FakeAuthDependencies).userInfoCalls).toBe(2);
-			}),
+		test.effect(
+			"re-resolves UserInfo when the caller forces a refresh",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					expect((yield* auth.settledSession(origin)).status).toBe("authenticated");
+					expect((yield* auth.settledSession(origin, true)).status).toBe("authenticated");
+					expect(yield* (yield* FakeAuthDependencies).userInfoCalls).toBe(2);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(authLayer())((test) => {
-		test.effect("logs out OAuth authentication and updates subscribers", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				const session = auth.session(origin);
-				yield* auth.signOut(origin);
-				expect(
-					(yield* (yield* FakeAuthDependencies).logouts).map(({ origin: server }) => server),
-				).toEqual([origin]);
-				expect(session.getSnapshot()).toEqual({ status: "missing" });
-			}),
+		test.effect(
+			"logs out OAuth authentication and updates subscribers",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					const session = auth.session(origin);
+					yield* auth.signOut(origin);
+					expect(
+						(yield* (yield* FakeAuthDependencies).logouts).map(({ origin: server }) => server),
+					).toEqual([origin]);
+					expect(session.getSnapshot()).toEqual({ status: "missing" });
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(authLayer({ accessToken: () => Effect.succeed(null) }, runtimeClient(true)))((test) => {
-		test.effect("uses the native callback descriptor for logout", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				yield* auth.settledSession(origin);
-				expect(yield* auth.signOut(origin)).toBe(false);
-				expect(
-					(yield* (yield* FakeAuthDependencies).logouts).map(({ redirectUri }) => redirectUri),
-				).toEqual(["io.ryot.app:/auth/logout/callback"]);
-			}),
+		test.effect(
+			"uses the native callback descriptor for logout",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					yield* auth.settledSession(origin);
+					expect(yield* auth.signOut(origin)).toBe(false);
+					expect(
+						(yield* (yield* FakeAuthDependencies).logouts).map(({ redirectUri }) => redirectUri),
+					).toEqual(["io.ryot.app:/auth/logout/callback"]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -370,22 +410,31 @@ describe("authentication service", () => {
 			),
 		),
 	)((test) => {
-		test.effect("clears local authentication when native application validation fails", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				expect(yield* auth.signOut(origin)).toBe(false);
-				expect(yield* (yield* FakeAuthDependencies).clears).toEqual(["clear-auth"]);
-			}),
+		test.effect(
+			"clears local authentication when native application validation fails",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					expect(yield* auth.signOut(origin)).toBe(false);
+					expect(yield* (yield* FakeAuthDependencies).clears).toEqual(["clear-auth"]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(authLayer())((test) => {
-		test.effect("clears native server selection after local authentication", () =>
-			Effect.gen(function* () {
-				const auth = yield* AuthService;
-				yield* auth.changeServer(origin);
-				expect(yield* (yield* FakeAuthDependencies).clears).toEqual(["clear-auth", "clear-server"]);
-			}),
+		test.effect(
+			"clears native server selection after local authentication",
+			() =>
+				Effect.gen(function* () {
+					const auth = yield* AuthService;
+					yield* auth.changeServer(origin);
+					expect(yield* (yield* FakeAuthDependencies).clears).toEqual([
+						"clear-auth",
+						"clear-server",
+					]);
+				}),
+			testTimeout,
 		);
 	});
 });

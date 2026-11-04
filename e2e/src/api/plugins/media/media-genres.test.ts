@@ -144,7 +144,7 @@ describe("Media genres", () => {
 				});
 
 			const anyOf = yield* runFilter({ field: "genres", operator: "anyOf", values: [alpha.id] });
-			expect(anyOf).toEqual(arrayContaining([both.id, alphaOnly.id]));
+			expect(anyOf).toEqual<unknown>(arrayContaining([both.id, alphaOnly.id]));
 			expect(anyOf).toHaveLength(2);
 			const allOf = yield* runFilter({
 				field: "genres",
@@ -163,7 +163,7 @@ describe("Media genres", () => {
 			expect(empty).not.toContain(alphaOnly.id);
 			expect(empty).not.toContain(betaOnly.id);
 			const notEmpty = yield* runFilter({ field: "genres", operator: "notEmpty" });
-			expect(notEmpty).toEqual(arrayContaining([both.id, alphaOnly.id, betaOnly.id]));
+			expect(notEmpty).toEqual<unknown>(arrayContaining([both.id, alphaOnly.id, betaOnly.id]));
 			expect(notEmpty).toHaveLength(3);
 
 			const privateMovie = yield* createEntity(userA.client, {

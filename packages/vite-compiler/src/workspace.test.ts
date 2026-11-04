@@ -1,5 +1,8 @@
+import { describe, expect } from "bun:test";
+
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { describe, expect, it, layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Result } from "effect";
 
 import {
@@ -28,74 +31,83 @@ describe("compiler workspace", () => {
 		"a/./b.ts",
 		"a/../b.ts",
 		"a\0b.ts",
-	])("rejects unsafe path %s", (path) =>
-		Effect.sync(() => expect(errorReason(validateRelativePath(path))).toBe("invalid-input")),
+	])(
+		"rejects unsafe path %s",
+		(path) =>
+			Effect.sync(() => expect(errorReason(validateRelativePath(path))).toBe("invalid-input")),
+		testTimeout,
 	);
 
 	layer(liveLayer)((test) => {
-		test.effect("rejects traversal and missing parents in supervisor job identities", () =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				expect(
-					errorReason(
-						getCompilerWorkspaceRoot(path, { jobId: "../other", parentPath: "/tmp/jobs" }),
-					),
-				).toBe("invalid-input");
-				expect((yield* Effect.flip(acquireCompilerWorkspace({ jobId: "job" }))).reason).toBe(
-					"invalid-input",
-				);
-			}),
+		test.effect(
+			"rejects traversal and missing parents in supervisor job identities",
+			() =>
+				Effect.gen(function* () {
+					const path = yield* Path.Path;
+					expect(
+						errorReason(
+							getCompilerWorkspaceRoot(path, { jobId: "../other", parentPath: "/tmp/jobs" }),
+						),
+					).toBe("invalid-input");
+					expect((yield* Effect.flip(acquireCompilerWorkspace({ jobId: "job" }))).reason).toBe(
+						"invalid-input",
+					);
+				}),
+			testTimeout,
 		);
 
-		test.effect("validates complete file sets before staging either namespace", () =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const owner = yield* acquireCompilerWorkspace();
-				const collisions: readonly (readonly WorkspaceFile[])[] = [
-					[
-						{ path: "same.ts", contents: "first" },
-						{ path: "same.ts", contents: "second" },
-					],
-					[
-						{ path: "a/b.ts", contents: "child" },
-						{ path: "a-b.ts", contents: "other" },
-						{ path: "a", contents: "parent" },
-					],
-				];
-				for (const files of collisions) {
-					for (const namespace of ["sources", "generated"] as const) {
-						const failure = yield* Effect.flip(
-							acquireCompilerWorkspace({
-								jobId: "invalid",
-								[namespace]: files,
-								parentPath: owner.generatedPath,
-							}),
-						);
-						expect(failure.reason).toBe("workspace-collision");
-						expect(yield* fs.readDirectory(owner.generatedPath)).toEqual([]);
+		test.effect(
+			"validates complete file sets before staging either namespace",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const owner = yield* acquireCompilerWorkspace();
+					const collisions: readonly (readonly WorkspaceFile[])[] = [
+						[
+							{ path: "same.ts", contents: "first" },
+							{ path: "same.ts", contents: "second" },
+						],
+						[
+							{ path: "a/b.ts", contents: "child" },
+							{ path: "a-b.ts", contents: "other" },
+							{ path: "a", contents: "parent" },
+						],
+					];
+					for (const files of collisions) {
+						for (const namespace of ["sources", "generated"] as const) {
+							const failure = yield* Effect.flip(
+								acquireCompilerWorkspace({
+									jobId: "invalid",
+									[namespace]: files,
+									parentPath: owner.generatedPath,
+								}),
+							);
+							expect(failure.reason).toBe("workspace-collision");
+							expect(yield* fs.readDirectory(owner.generatedPath)).toEqual([]);
+						}
 					}
-				}
-				const writes: string[] = [];
-				const failure = yield* Effect.flip(
-					acquireCompilerWorkspace({
-						jobId: "invalid",
-						parentPath: owner.generatedPath,
-						generated: [{ contents: "no", path: "../escape.ts" }],
-						sources: [{ path: "valid.ts", contents: "must not be written" }],
-					}).pipe(
-						Effect.provideService(FileSystem.FileSystem, {
-							...fs,
-							writeFileString: (path, contents, options) => {
-								writes.push(path);
-								return fs.writeFileString(path, contents, options);
-							},
-						}),
-					),
-				);
-				expect(failure.reason).toBe("invalid-input");
-				expect(writes).toEqual([]);
-				expect(yield* fs.readDirectory(owner.generatedPath)).toEqual([]);
-			}),
+					const writes: string[] = [];
+					const failure = yield* Effect.flip(
+						acquireCompilerWorkspace({
+							jobId: "invalid",
+							parentPath: owner.generatedPath,
+							generated: [{ contents: "no", path: "../escape.ts" }],
+							sources: [{ path: "valid.ts", contents: "must not be written" }],
+						}).pipe(
+							Effect.provideService(FileSystem.FileSystem, {
+								...fs,
+								writeFileString: (path, contents, options) => {
+									writes.push(path);
+									return fs.writeFileString(path, contents, options);
+								},
+							}),
+						),
+					);
+					expect(failure.reason).toBe("invalid-input");
+					expect(writes).toEqual([]);
+					expect(yield* fs.readDirectory(owner.generatedPath)).toEqual([]);
+				}),
+			testTimeout,
 		);
 
 		test.effect(
@@ -127,6 +139,7 @@ describe("compiler workspace", () => {
 					expect(yield* fs.readDirectory(workspace.outputPath)).toEqual([]);
 					expect(workspace.outputPath).toBe(path.join(workspace.rootPath, "output"));
 				}),
+			testTimeout,
 		);
 
 		test.effect(
@@ -149,6 +162,7 @@ describe("compiler workspace", () => {
 						expect(yield* fs.exists(root)).toBe(false);
 					}
 				}),
+			testTimeout,
 		);
 
 		test.effect(
@@ -203,6 +217,7 @@ describe("compiler workspace", () => {
 						expect(yield* fs.readFileString(outside)).toBe("untouched");
 					}
 				}),
+			testTimeout,
 		);
 
 		test.effect(
@@ -223,9 +238,9 @@ describe("compiler workspace", () => {
 					);
 					const winners = results.filter(Result.isSuccess);
 					expect(winners).toHaveLength(1);
-					expect(results.filter(Result.isFailure).map(({ failure }) => failure.reason)).toEqual(
-						Array(7).fill("workspace-collision"),
-					);
+					expect(
+						results.filter(Result.isFailure).map(({ failure }) => failure.reason),
+					).toEqual<unknown>(Array(7).fill("workspace-collision"));
 					for (const { success } of winners) {
 						expect(yield* fs.readFileString(`${success.sourcePath}/owner.ts`)).toBe(
 							String(results.findIndex(Result.isSuccess)),
@@ -239,6 +254,7 @@ describe("compiler workspace", () => {
 					);
 					expect(new Set(temporary.map(({ rootPath }) => rootPath)).size).toBe(8);
 				}),
+			testTimeout,
 		);
 
 		test.effect(
@@ -286,138 +302,154 @@ describe("compiler workspace", () => {
 					);
 					expect(yield* fs.readFileString(`${root}/replacement`)).toBe("keep");
 				}),
+			testTimeout,
 		);
 
-		test.effect("cleans callback throws before the caller observes the defect", () =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const owner = yield* acquireCompilerWorkspace();
-				const exit = yield* Effect.exit(
-					acquireCompilerWorkspace({
-						parentPath: owner.sourcePath,
-						generated: () => {
-							throw new Error("expected");
-						},
-					}),
-				);
-				expect(Exit.hasDies(exit)).toBe(true);
-				expect(yield* fs.readDirectory(owner.sourcePath)).toEqual([]);
-			}),
-		);
-
-		test.effect("cleans private-root and namespace preparation failures before staging", () =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const owner = yield* acquireCompilerWorkspace();
-				yield* fs.writeFileString(`${owner.sourcePath}/not-directory`, "file");
-				for (const operation of ["chmod", "namespace"] as const) {
-					const writes: string[] = [];
-					const failure = yield* Effect.flip(
+		test.effect(
+			"cleans callback throws before the caller observes the defect",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const owner = yield* acquireCompilerWorkspace();
+					const exit = yield* Effect.exit(
 						acquireCompilerWorkspace({
-							jobId: operation,
-							parentPath: owner.generatedPath,
-							sources: [{ path: "entry.ts", contents: "must not be written" }],
-						}).pipe(
-							Effect.provideService(FileSystem.FileSystem, {
-								...fs,
-								writeFileString: (path, contents, options) => {
-									writes.push(path);
-									return fs.writeFileString(path, contents, options);
-								},
-								chmod: (path, mode) =>
-									fs.chmod(
-										operation === "chmod" ? `${owner.sourcePath}/not-directory/child` : path,
-										mode,
-									),
-								makeDirectory: (path, options) =>
-									fs.makeDirectory(
-										operation === "namespace" && path.endsWith("/generated")
-											? `${owner.sourcePath}/not-directory/child`
-											: path,
-										options,
-									),
+							parentPath: owner.sourcePath,
+							generated: () => {
+								throw new Error("expected");
+							},
+						}),
+					);
+					expect(Exit.hasDies(exit)).toBe(true);
+					expect(yield* fs.readDirectory(owner.sourcePath)).toEqual([]);
+				}),
+			testTimeout,
+		);
+
+		test.effect(
+			"cleans private-root and namespace preparation failures before staging",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const owner = yield* acquireCompilerWorkspace();
+					yield* fs.writeFileString(`${owner.sourcePath}/not-directory`, "file");
+					for (const operation of ["chmod", "namespace"] as const) {
+						const writes: string[] = [];
+						const failure = yield* Effect.flip(
+							acquireCompilerWorkspace({
+								jobId: operation,
+								parentPath: owner.generatedPath,
+								sources: [{ path: "entry.ts", contents: "must not be written" }],
+							}).pipe(
+								Effect.provideService(FileSystem.FileSystem, {
+									...fs,
+									writeFileString: (path, contents, options) => {
+										writes.push(path);
+										return fs.writeFileString(path, contents, options);
+									},
+									chmod: (path, mode) =>
+										fs.chmod(
+											operation === "chmod" ? `${owner.sourcePath}/not-directory/child` : path,
+											mode,
+										),
+									makeDirectory: (path, options) =>
+										fs.makeDirectory(
+											operation === "namespace" && path.endsWith("/generated")
+												? `${owner.sourcePath}/not-directory/child`
+												: path,
+											options,
+										),
+								}),
+							),
+						);
+						expect(failure.reason).toBe("workspace-filesystem");
+						expect(writes).toEqual([]);
+						expect(yield* fs.readDirectory(owner.generatedPath)).toEqual([]);
+					}
+				}),
+			testTimeout,
+		);
+
+		test.effect(
+			"cleans an interrupted acquisition before it publishes a handle",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const owner = yield* acquireCompilerWorkspace();
+					const started = yield* Deferred.make<void>();
+					const published: CompilerWorkspace[] = [];
+					const fiber = yield* acquireCompilerWorkspace({
+						jobId: "interrupted",
+						parentPath: owner.sourcePath,
+						sources: [{ path: "entry.ts", contents: "source" }],
+					}).pipe(
+						Effect.provideService(FileSystem.FileSystem, {
+							...fs,
+							writeFileString: () =>
+								Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+						}),
+						Effect.tap((workspace) =>
+							Effect.sync(() => {
+								published.push(workspace);
 							}),
 						),
+						Effect.forkChild,
 					);
-					expect(failure.reason).toBe("workspace-filesystem");
-					expect(writes).toEqual([]);
-					expect(yield* fs.readDirectory(owner.generatedPath)).toEqual([]);
-				}
-			}),
+					yield* Deferred.await(started);
+					yield* Fiber.interrupt(fiber);
+					expect(published).toEqual([]);
+					expect(yield* fs.readDirectory(owner.sourcePath)).toEqual([]);
+				}),
+			testTimeout,
 		);
 
-		test.effect("cleans an interrupted acquisition before it publishes a handle", () =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const owner = yield* acquireCompilerWorkspace();
-				const started = yield* Deferred.make<void>();
-				const published: CompilerWorkspace[] = [];
-				const fiber = yield* acquireCompilerWorkspace({
-					jobId: "interrupted",
-					parentPath: owner.sourcePath,
-					sources: [{ path: "entry.ts", contents: "source" }],
-				}).pipe(
-					Effect.provideService(FileSystem.FileSystem, {
-						...fs,
-						writeFileString: () =>
-							Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
-					}),
-					Effect.tap((workspace) =>
-						Effect.sync(() => {
-							published.push(workspace);
-						}),
-					),
-					Effect.forkChild,
-				);
-				yield* Deferred.await(started);
-				yield* Fiber.interrupt(fiber);
-				expect(published).toEqual([]);
-				expect(yield* fs.readDirectory(owner.sourcePath)).toEqual([]);
-			}),
-		);
-
-		test.effect("removes supervisor-addressable workspaces after use succeeds or fails", () =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const path = yield* Path.Path;
-				const owner = yield* acquireCompilerWorkspace();
-				for (const jobId of ["successful-job", "failed-job"]) {
-					const options = { jobId, parentPath: owner.generatedPath };
-					const root = yield* Effect.fromResult(getCompilerWorkspaceRoot(path, options));
-					const result = yield* Effect.scoped(
-						Effect.gen(function* () {
-							const workspace = yield* acquireCompilerWorkspace(options);
-							expect(workspace.rootPath).toBe(root);
-							if (jobId === "failed-job") {
-								return yield* Effect.fail("expected failure");
-							}
-							return "ok";
-						}),
-					).pipe(Effect.result);
-					expect(result).toEqual(
-						jobId === "failed-job" ? Result.fail("expected failure") : Result.succeed("ok"),
-					);
-					expect(yield* fs.exists(root)).toBe(false);
-				}
-			}),
+		test.effect(
+			"removes supervisor-addressable workspaces after use succeeds or fails",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const path = yield* Path.Path;
+					const owner = yield* acquireCompilerWorkspace();
+					for (const jobId of ["successful-job", "failed-job"]) {
+						const options = { jobId, parentPath: owner.generatedPath };
+						const root = yield* Effect.fromResult(getCompilerWorkspaceRoot(path, options));
+						const result = yield* Effect.scoped(
+							Effect.gen(function* () {
+								const workspace = yield* acquireCompilerWorkspace(options);
+								expect(workspace.rootPath).toBe(root);
+								if (jobId === "failed-job") {
+									return yield* Effect.fail("expected failure");
+								}
+								return "ok";
+							}),
+						).pipe(Effect.result);
+						expect(result).toEqual(
+							jobId === "failed-job" ? Result.fail("expected failure") : Result.succeed("ok"),
+						);
+						expect(yield* fs.exists(root)).toBe(false);
+					}
+				}),
+			testTimeout,
 		);
 	});
 });
 
 describe("worker environment", () => {
-	it.effect("preserves only explicitly allowed variables", () =>
-		Effect.sync(() => {
-			const source = { CI: "true", TOKEN: "hidden", PATH: "/trusted/bin" };
-			expect(sanitizeEnvironment({ source, preserveNames: ["CI"] })).toEqual(
-				Result.succeed({ CI: "true" }),
-			);
-			expect(sanitizeEnvironment({ source, includePath: true })).toEqual(
-				Result.succeed({ PATH: "/trusted/bin" }),
-			);
-			expect(sanitizeEnvironment({ source })).toEqual(Result.succeed({}));
-			expect(errorReason(sanitizeEnvironment({ source, preserveNames: ["PATH"] }))).toBe(
-				"invalid-input",
-			);
-		}),
+	it.effect(
+		"preserves only explicitly allowed variables",
+		() =>
+			Effect.sync(() => {
+				const source = { CI: "true", TOKEN: "hidden", PATH: "/trusted/bin" };
+				expect(sanitizeEnvironment({ source, preserveNames: ["CI"] })).toEqual(
+					Result.succeed({ CI: "true" }),
+				);
+				expect(sanitizeEnvironment({ source, includePath: true })).toEqual(
+					Result.succeed({ PATH: "/trusted/bin" }),
+				);
+				expect(sanitizeEnvironment({ source })).toEqual(Result.succeed({}));
+				expect(errorReason(sanitizeEnvironment({ source, preserveNames: ["PATH"] }))).toBe(
+					"invalid-input",
+				);
+			}),
+		testTimeout,
 	);
 });

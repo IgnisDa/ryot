@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -128,59 +131,67 @@ const requestedIds = Effect.gen(function* () {
 });
 
 layer(reconcilerLayer([row("entity-1", { ...unpopulated, translationStatus: none })]))((test) => {
-	test.effect("omits IDs filtered from the visible rows", () =>
-		Effect.gen(function* () {
-			const reconciler = yield* InterestReconciler;
-			const result = yield* reconciler.reconcile(
-				principal,
-				interests("visible", "entity-1", "missing-entity"),
-			);
+	test.effect(
+		"omits IDs filtered from the visible rows",
+		() =>
+			Effect.gen(function* () {
+				const reconciler = yield* InterestReconciler;
+				const result = yield* reconciler.reconcile(
+					principal,
+					interests("visible", "entity-1", "missing-entity"),
+				);
 
-			expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
-			expect(yield* (yield* FakeInterestFollowUps).retainedIds).toEqual(["entity-1"]);
-			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toMatchObject([
-				{
-					userId: "user-1",
-					execution: { level: "base" },
-					entitySchemaPluginId: "private-plugin",
-					command: {
-						writeContext: null,
-						causation: { lane: "interactive", initiator: { id: "user-1", kind: "user" } },
+				expect(result).toEqual<unknown>({ terminal: [], reconciledEntityIds: ["entity-1"] });
+				expect(yield* (yield* FakeInterestFollowUps).retainedIds).toEqual(["entity-1"]);
+				expect(yield* (yield* FakeInterestFollowUps).populationRequests).toMatchObject([
+					{
+						userId: "user-1",
+						execution: { level: "base" },
+						entitySchemaPluginId: "private-plugin",
+						command: {
+							writeContext: null,
+							causation: { lane: "interactive", initiator: { id: "user-1", kind: "user" } },
+						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(
 	reconcilerLayer([row("visible-pending", unpopulated), row("foreground-pending", unpopulated)]),
 )((test) => {
-	test.effect("populates visible interest at base and foreground interest at full", () =>
-		Effect.gen(function* () {
-			const reconciler = yield* InterestReconciler;
-			const result = yield* reconciler.reconcile(principal, [
-				...interests("visible", "visible-pending"),
-				...interests("foreground", "foreground-pending"),
-			]);
+	test.effect(
+		"populates visible interest at base and foreground interest at full",
+		() =>
+			Effect.gen(function* () {
+				const reconciler = yield* InterestReconciler;
+				const result = yield* reconciler.reconcile(principal, [
+					...interests("visible", "visible-pending"),
+					...interests("foreground", "foreground-pending"),
+				]);
 
-			expect(result.terminal).toEqual([]);
-			expect(
-				(yield* (yield* FakeInterestFollowUps).populationRequests).map(
-					({ execution }) => execution,
-				),
-			).toEqual([{ level: "base" }, { level: "full" }]);
-			expect(yield* requestedIds).toEqual([
-				entityPopulationExecutionId(EntityId.make("visible-pending"), principal.accountGeneration, {
-					level: "base",
-				}),
-				entityPopulationExecutionId(
-					EntityId.make("foreground-pending"),
-					principal.accountGeneration,
-					{ level: "full" },
-				),
-			]);
-		}),
+				expect(result.terminal).toEqual([]);
+				expect(
+					(yield* (yield* FakeInterestFollowUps).populationRequests).map(
+						({ execution }) => execution,
+					),
+				).toEqual([{ level: "base" }, { level: "full" }]);
+				expect(yield* requestedIds).toEqual<unknown>([
+					entityPopulationExecutionId(
+						EntityId.make("visible-pending"),
+						principal.accountGeneration,
+						{ level: "base" },
+					),
+					entityPopulationExecutionId(
+						EntityId.make("foreground-pending"),
+						principal.accountGeneration,
+						{ level: "full" },
+					),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -204,7 +215,7 @@ layer(
 				yield* TestClock.adjust("30 minutes");
 				yield* reconciler.reconcile(principal, interests("foreground", "base-populated"));
 
-				expect(first.terminal).toEqual([
+				expect(first.terminal).toEqual<unknown>([
 					{ entityId: "base-populated", reason: "enrichment-updated" },
 				]);
 				const upgrade = entityPopulationExecutionId(
@@ -212,8 +223,9 @@ layer(
 					principal.accountGeneration,
 					{ level: "full" },
 				);
-				expect(yield* requestedIds).toEqual([upgrade, upgrade, upgrade]);
+				expect(yield* requestedIds).toEqual<unknown>([upgrade, upgrade, upgrade]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -222,16 +234,22 @@ layer(
 		row("base-populated", { translationStatus: none, relatedPopulationStatus: missing }),
 	]),
 )((test) => {
-	test.effect("never upgrades visible-only interest", () =>
-		Effect.gen(function* () {
-			const reconciler = yield* InterestReconciler;
-			const result = yield* reconciler.reconcile(principal, interests("visible", "base-populated"));
+	test.effect(
+		"never upgrades visible-only interest",
+		() =>
+			Effect.gen(function* () {
+				const reconciler = yield* InterestReconciler;
+				const result = yield* reconciler.reconcile(
+					principal,
+					interests("visible", "base-populated"),
+				);
 
-			expect(result.terminal).toEqual([
-				{ entityId: "base-populated", reason: "enrichment-updated" },
-			]);
-			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toEqual([]);
-		}),
+				expect(result.terminal).toEqual<unknown>([
+					{ entityId: "base-populated", reason: "enrichment-updated" },
+				]);
+				expect(yield* (yield* FakeInterestFollowUps).populationRequests).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -256,36 +274,42 @@ layer(
 					interests("foreground", "related-ready", "related-failed", "child", "unavailable"),
 				);
 
-				expect(result.terminal).toEqual([
+				expect(result.terminal).toEqual<unknown>([
 					{ entityId: "related-ready", reason: "enrichment-updated" },
 					{ entityId: "related-failed", reason: "enrichment-updated" },
 					{ entityId: "child", reason: "enrichment-updated" },
 					{ entityId: "unavailable", reason: "enrichment-updated" },
 				]);
-				expect(yield* requestedIds).toEqual([
+				expect(yield* requestedIds).toEqual<unknown>([
 					entityPopulationExecutionId(EntityId.make("unavailable"), principal.accountGeneration, {
 						level: "full",
 					}),
 				]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(reconcilerLayer([row("entity-1"), row("entity-2", { translationStatus: missing })]))(
 	(test) => {
-		test.effect("returns terminal rows and enqueues pending translations", () =>
-			Effect.gen(function* () {
-				const reconciler = yield* InterestReconciler;
-				const result = yield* reconciler.reconcile(
-					principal,
-					interests("visible", "entity-1", "entity-2"),
-				);
+		test.effect(
+			"returns terminal rows and enqueues pending translations",
+			() =>
+				Effect.gen(function* () {
+					const reconciler = yield* InterestReconciler;
+					const result = yield* reconciler.reconcile(
+						principal,
+						interests("visible", "entity-1", "entity-2"),
+					);
 
-				expect(result.terminal).toEqual([{ entityId: "entity-1", reason: "translated" }]);
-				expect(yield* (yield* FakeInterestFollowUps).translationRequests).toMatchObject([
-					{ lane: "interactive", entityId: "entity-2", entitySchemaPluginId: "private-plugin" },
-				]);
-			}),
+					expect(result.terminal).toEqual<unknown>([
+						{ entityId: "entity-1", reason: "translated" },
+					]);
+					expect(yield* (yield* FakeInterestFollowUps).translationRequests).toMatchObject([
+						{ lane: "interactive", entityId: "entity-2", entitySchemaPluginId: "private-plugin" },
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -297,23 +321,26 @@ layer(
 		row("translation-failed", { translationStatus: failed }),
 	]),
 )((test) => {
-	test.effect("reports failed enrichment without automatically requesting more work", () =>
-		Effect.gen(function* () {
-			const reconciler = yield* InterestReconciler;
-			const result = yield* reconciler.reconcile(
-				principal,
-				interests("foreground", "entity-1", "entity-2", "translation-failed"),
-			);
+	test.effect(
+		"reports failed enrichment without automatically requesting more work",
+		() =>
+			Effect.gen(function* () {
+				const reconciler = yield* InterestReconciler;
+				const result = yield* reconciler.reconcile(
+					principal,
+					interests("foreground", "entity-1", "entity-2", "translation-failed"),
+				);
 
-			expect(result.terminal).toEqual([
-				{ entityId: "entity-1", reason: "enrichment-updated" },
-				{ entityId: "entity-2", reason: "enrichment-updated" },
-				{ reason: "enrichment-updated", entityId: "translation-failed" },
-			]);
-			const followUps = yield* FakeInterestFollowUps;
-			expect(yield* followUps.populationRequests).toEqual([]);
-			expect(yield* followUps.translationRequests).toEqual([]);
-		}),
+				expect(result.terminal).toEqual<unknown>([
+					{ entityId: "entity-1", reason: "enrichment-updated" },
+					{ entityId: "entity-2", reason: "enrichment-updated" },
+					{ reason: "enrichment-updated", entityId: "translation-failed" },
+				]);
+				const followUps = yield* FakeInterestFollowUps;
+				expect(yield* followUps.populationRequests).toEqual([]);
+				expect(yield* followUps.translationRequests).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -335,30 +362,33 @@ layer(
 		}),
 	]),
 )((test) => {
-	test.effect("requests partial idle data but never redispatches active or terminal work", () =>
-		Effect.gen(function* () {
-			const reconciler = yield* InterestReconciler;
-			yield* reconciler.reconcile(
-				principal,
-				interests(
-					"foreground",
-					"partial",
-					"queued",
-					"running",
-					"retrying",
-					"cancelled",
-					"succeeded",
-					"translation-running",
-				),
-			);
-			const followUps = yield* FakeInterestFollowUps;
-			expect(
-				(yield* followUps.populationRequests).map(({ entityId, execution }) => ({
-					entityId,
-					execution,
-				})),
-			).toEqual([{ entityId: "partial", execution: { level: "full" } }]);
-			expect(yield* followUps.translationRequests).toEqual([]);
-		}),
+	test.effect(
+		"requests partial idle data but never redispatches active or terminal work",
+		() =>
+			Effect.gen(function* () {
+				const reconciler = yield* InterestReconciler;
+				yield* reconciler.reconcile(
+					principal,
+					interests(
+						"foreground",
+						"partial",
+						"queued",
+						"running",
+						"retrying",
+						"cancelled",
+						"succeeded",
+						"translation-running",
+					),
+				);
+				const followUps = yield* FakeInterestFollowUps;
+				expect(
+					(yield* followUps.populationRequests).map(({ entityId, execution }) => ({
+						entityId,
+						execution,
+					})),
+				).toEqual<unknown>([{ entityId: "partial", execution: { level: "full" } }]);
+				expect(yield* followUps.translationRequests).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

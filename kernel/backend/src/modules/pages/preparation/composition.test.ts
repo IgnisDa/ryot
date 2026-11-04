@@ -1,5 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { composeClientPage } from "./composition";
 import { descriptions, identity, pageReference, presentationReference } from "./test-fixtures";

@@ -1,10 +1,14 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { assert } from "@ryot-app/testing/assert";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { layer } from "@voila.dev/effect-bun-test";
 import type { Path } from "effect";
 import { Effect, FileSystem, Layer, Schema } from "effect";
 
@@ -55,34 +59,40 @@ const writeArchive = Effect.fn("writeArchive")(function* (
 });
 
 layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
-	test.effect("discovers valid archives in sorted publisher and filename order", () =>
-		withRoot((root) =>
-			Effect.gen(function* () {
-				yield* writeArchive(root, "zeta", "beta");
-				yield* writeArchive(root, "omega", "alpha");
-				yield* writeArchive(root, "alpha", "beta");
-				const sources = yield* discoverSystemPlugins(root);
+	test.effect(
+		"discovers valid archives in sorted publisher and filename order",
+		() =>
+			withRoot((root) =>
+				Effect.gen(function* () {
+					yield* writeArchive(root, "zeta", "beta");
+					yield* writeArchive(root, "omega", "alpha");
+					yield* writeArchive(root, "alpha", "beta");
+					const sources = yield* discoverSystemPlugins(root);
 
-				expect(sources.map(({ manifest }) => manifest.metadata.packageId)).toEqual([
-					"alpha/omega",
-					"beta/alpha",
-					"beta/zeta",
-				]);
-				expect(sources[0]?.compiledScripts.map(({ entry }) => entry)).toEqual([
-					"backend/automations/fixture.sandbox.ts",
-				]);
-				expect(sources[0]?.compiledClient?.hash).toMatch(/^[a-f0-9]{64}$/);
-			}),
-		),
+					expect(sources.map(({ manifest }) => manifest.metadata.packageId)).toEqual<unknown>([
+						"alpha/omega",
+						"beta/alpha",
+						"beta/zeta",
+					]);
+					expect(sources[0]?.compiledScripts.map(({ entry }) => entry)).toEqual([
+						"backend/automations/fixture.sandbox.ts",
+					]);
+					expect(sources[0]?.compiledClient?.hash).toMatch(/^[a-f0-9]{64}$/);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("returns no plugins for absent and empty directories", () =>
-		withRoot((root) =>
-			Effect.gen(function* () {
-				expect(yield* discoverSystemPlugins(`${root}/absent`)).toEqual([]);
-				expect(yield* discoverSystemPlugins(root)).toEqual([]);
-			}),
-		),
+	test.effect(
+		"returns no plugins for absent and empty directories",
+		() =>
+			withRoot((root) =>
+				Effect.gen(function* () {
+					expect(yield* discoverSystemPlugins(`${root}/absent`)).toEqual([]);
+					expect(yield* discoverSystemPlugins(root)).toEqual([]);
+				}),
+			),
+		testTimeout,
 	);
 	test.effect(
 		"rejects duplicate bundled package identities even under different archive filenames",
@@ -97,41 +107,50 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 					);
 					const result = yield* Effect.result(discoverSystemPlugins(root));
 					assert(result._tag === "Failure");
-					expect(result.failure).toMatchObject({
-						_tag: "PluginValidationError",
-						issues: [stringContaining("Duplicate bundled package identity")],
-					});
+					expect(result.failure).toEqual<unknown>(
+						objectContaining({
+							_tag: "PluginValidationError",
+							issues: [stringContaining("Duplicate bundled package identity")],
+						}),
+					);
 				}),
 			),
+		testTimeout,
 	);
 
-	test.effect("ignores non-archive entries", () =>
-		withRoot((root) =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				yield* fs.writeFileString(`${root}/notes.txt`, "ignored");
-				yield* fs.writeFileString(`${root}/loose.zip`, "ignored");
-				yield* fs.makeDirectory(`${root}/test/directory.zip`, { recursive: true });
-				yield* fs.writeFileString(`${root}/test/notes.txt`, "ignored");
+	test.effect(
+		"ignores non-archive entries",
+		() =>
+			withRoot((root) =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					yield* fs.writeFileString(`${root}/notes.txt`, "ignored");
+					yield* fs.writeFileString(`${root}/loose.zip`, "ignored");
+					yield* fs.makeDirectory(`${root}/test/directory.zip`, { recursive: true });
+					yield* fs.writeFileString(`${root}/test/notes.txt`, "ignored");
 
-				expect(yield* discoverSystemPlugins(root)).toEqual([]);
-			}),
-		),
+					expect(yield* discoverSystemPlugins(root)).toEqual([]);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("fails discovery for a malformed archive", () =>
-		withRoot((root) =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				yield* fs.makeDirectory(`${root}/test`);
-				yield* fs.writeFileString(`${root}/test/invalid.zip`, "not a zip");
-				const result = yield* Effect.result(discoverSystemPlugins(root));
+	test.effect(
+		"fails discovery for a malformed archive",
+		() =>
+			withRoot((root) =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					yield* fs.makeDirectory(`${root}/test`);
+					yield* fs.writeFileString(`${root}/test/invalid.zip`, "not a zip");
+					const result = yield* Effect.result(discoverSystemPlugins(root));
 
-				assert(result._tag === "Failure");
-				expect(result.failure).toBeInstanceOf(PluginArchiveError);
-				assert(result.failure instanceof PluginArchiveError);
-				expect(result.failure.reason).toBe("malformed-zip");
-			}),
-		),
+					assert(result._tag === "Failure");
+					expect(result.failure).toBeInstanceOf(PluginArchiveError);
+					assert(result.failure instanceof PluginArchiveError);
+					expect(result.failure.reason).toBe("malformed-zip");
+				}),
+			),
+		testTimeout,
 	);
 });

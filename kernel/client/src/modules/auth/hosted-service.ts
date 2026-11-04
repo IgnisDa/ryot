@@ -11,6 +11,7 @@ import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
 import { type CredentialsValues, registrationName } from "#/modules/auth/form-values";
+import type { OAuthFetch } from "#/modules/auth/oauth-endpoint";
 
 type AuthResponse<A> = {
 	readonly data: A;
@@ -29,7 +30,7 @@ const InitializationStatusResponse = strictStruct({
 const ImpersonationRedeemRequest = strictStruct({ ticket: Schema.String });
 const ImpersonationRedeemResponse = strictStruct({ authorizationUrl: Schema.String });
 
-export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
+export const requestDemoSignIn = (fetcher: OAuthFetch, baseURL: string) =>
 	Effect.gen(function* () {
 		const response = yield* Effect.tryPromise({
 			catch: (cause) =>
@@ -59,7 +60,7 @@ export const requestDemoSignIn = (fetcher: typeof fetch, baseURL: string) =>
 		);
 	});
 
-export const requestInitializationStatus = (fetcher: typeof fetch, baseURL: string) =>
+export const requestInitializationStatus = (fetcher: OAuthFetch, baseURL: string) =>
 	Effect.gen(function* () {
 		const response = yield* Effect.tryPromise({
 			catch: (cause) =>
@@ -94,11 +95,7 @@ export const requestInitializationStatus = (fetcher: typeof fetch, baseURL: stri
 		);
 	});
 
-export const requestImpersonationRedeem = (
-	fetcher: typeof fetch,
-	baseURL: string,
-	ticket: string,
-) =>
+export const requestImpersonationRedeem = (fetcher: OAuthFetch, baseURL: string, ticket: string) =>
 	Effect.gen(function* () {
 		const body = yield* Schema.encodeEffect(Schema.fromJsonString(ImpersonationRedeemRequest))({
 			ticket,

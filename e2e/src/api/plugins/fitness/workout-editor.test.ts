@@ -262,7 +262,7 @@ describe("Workout editor E2E", () => {
 				const editInput = operationInput(editData);
 				const saved = yield* saveWorkoutEditor(client, editInput);
 				assertCondition(saved.kind === "saved", "Expected the historical workout edit to save");
-				expect(saved.sets).toEqual([{ eventId: originalSet.id, clientId: anyOf(String) }]);
+				expect(saved.sets).toEqual<unknown>([{ eventId: originalSet.id, clientId: anyOf(String) }]);
 
 				const replay = yield* saveWorkoutEditor(client, editInput);
 				expect(replay).toEqual(saved);
@@ -384,7 +384,7 @@ describe("Workout editor E2E", () => {
 			]);
 			expect(
 				current.baseline.sets.map(({ id, properties }) => [id, properties["exerciseOrder"]]),
-			).toEqual(
+			).toEqual<unknown>(
 				arrayContaining([
 					[secondSet.id, 0],
 					[firstSet.id, 1],

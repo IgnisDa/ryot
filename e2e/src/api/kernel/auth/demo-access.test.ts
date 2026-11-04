@@ -323,7 +323,7 @@ describe("shared demo access acceptance", () => {
 			expect(protectedError).toEqual(
 				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 			);
-			expect((yield* getUserSettings(demoClient)).id).toBe(demoUserId);
+			expect((yield* getUserSettings(demoClient)).id).toBe<unknown>(demoUserId);
 			expect(yield* Effect.flip(getTwoFactorStatus(demoClient))).toEqual(
 				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 			);

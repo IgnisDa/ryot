@@ -1,9 +1,10 @@
+import { expect, test } from "bun:test";
+
 import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { XMLParser } from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
 import { gunzipSync, gzipSync, strFromU8 } from "@ryot-app/plugin-backend-sdk/fflate";
 import { parse } from "@ryot-app/plugin-backend-sdk/papaparse";
-import { expect, test } from "vitest";
 
 test("approved non-network dependencies remain local transformations", () => {
 	const encoded = new TextEncoder().encode("local");

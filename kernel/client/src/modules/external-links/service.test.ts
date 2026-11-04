@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { ExternalLinkPlatform, ExternalLinks } from "#/modules/external-links/service";
@@ -55,37 +58,45 @@ const makeExternalLinks = (events: string[], options?: Parameters<typeof recordi
 	);
 
 describe("external links", () => {
-	it.effect("opens a blank window and isolates it before navigation, without yielding", () => {
-		const events: string[] = [];
-		return Effect.gen(function* () {
-			const service = yield* makeExternalLinks(events);
-			expect(yield* service.open({ url: "https://example.test/path" })).toEqual({
-				outcome: "success",
-			});
-			expect(events).toEqual([
-				"activation",
-				"blank",
-				"detach",
-				"policy",
-				"replace",
-				"https://example.test/path",
-			]);
-		});
-	});
-
-	it.effect("rejects invalid requests before touching either platform", () => {
-		const events: string[] = [];
-		return Effect.gen(function* () {
-			const service = yield* makeExternalLinks(events);
-			for (const url of ["/relative", "javascript:alert(1)", "file:///tmp/file"]) {
-				expect(yield* service.outcome({ url })).toEqual({
-					outcome: "failure",
-					reason: "invalid-request",
+	it.effect(
+		"opens a blank window and isolates it before navigation, without yielding",
+		() => {
+			const events: string[] = [];
+			return Effect.gen(function* () {
+				const service = yield* makeExternalLinks(events);
+				expect(yield* service.open({ url: "https://example.test/path" })).toEqual({
+					outcome: "success",
 				});
-			}
-			expect(events).toEqual([]);
-		});
-	});
+				expect(events).toEqual([
+					"activation",
+					"blank",
+					"detach",
+					"policy",
+					"replace",
+					"https://example.test/path",
+				]);
+			});
+		},
+		testTimeout,
+	);
+
+	it.effect(
+		"rejects invalid requests before touching either platform",
+		() => {
+			const events: string[] = [];
+			return Effect.gen(function* () {
+				const service = yield* makeExternalLinks(events);
+				for (const url of ["/relative", "javascript:alert(1)", "file:///tmp/file"]) {
+					expect(yield* service.outcome({ url })).toEqual({
+						outcome: "failure",
+						reason: "invalid-request",
+					});
+				}
+				expect(events).toEqual([]);
+			});
+		},
+		testTimeout,
+	);
 
 	for (const options of [
 		{ active: false },
@@ -95,24 +106,28 @@ describe("external links", () => {
 		{ failAt: "policy" },
 		{ failAt: "replace" },
 	] as const) {
-		it.effect(`classifies web launch failure ${JSON.stringify(options)}`, () => {
-			const events: string[] = [];
-			return Effect.gen(function* () {
-				const service = yield* makeExternalLinks(events, options);
-				expect(yield* service.outcome({ url: "https://example.test" })).toEqual({
-					outcome: "failure",
-					reason: "active" in options ? "activation-required" : "link-open-failed",
+		it.effect(
+			`classifies web launch failure ${JSON.stringify(options)}`,
+			() => {
+				const events: string[] = [];
+				return Effect.gen(function* () {
+					const service = yield* makeExternalLinks(events, options);
+					expect(yield* service.outcome({ url: "https://example.test" })).toEqual({
+						outcome: "failure",
+						reason: "active" in options ? "activation-required" : "link-open-failed",
+					});
+					if ("active" in options) {
+						expect(events).toEqual(["activation"]);
+					} else if ("blocked" in options || options.failAt === "blank") {
+						expect(events).toEqual(["activation", "blank"]);
+					} else {
+						expect(events.at(-1)).toBe("close");
+						expect(events).not.toContain("https://example.test");
+					}
 				});
-				if ("active" in options) {
-					expect(events).toEqual(["activation"]);
-				} else if ("blocked" in options || options.failAt === "blank") {
-					expect(events).toEqual(["activation", "blank"]);
-				} else {
-					expect(events.at(-1)).toBe("close");
-					expect(events).not.toContain("https://example.test");
-				}
-			});
-		});
+			},
+			testTimeout,
+		);
 	}
 
 	for (const fail of [false, true]) {
@@ -132,6 +147,7 @@ describe("external links", () => {
 					expect(events).toEqual(["native", "http://example.test"]);
 				});
 			},
+			testTimeout,
 		);
 	}
 });

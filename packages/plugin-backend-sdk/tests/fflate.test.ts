@@ -1,3 +1,5 @@
+import { afterEach, expect, test } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	gzipSync,
@@ -9,8 +11,8 @@ import {
 	configureSandboxFilesystem,
 	type SandboxFilesystemBinding,
 } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { assert } from "@ryot-app/testing/assert";
 import { zipSync } from "fflate";
-import { afterEach, assert, expect, test } from "vitest";
 
 let activeBinding: undefined | SandboxFilesystemBinding;
 configureSandboxFilesystem(() => activeBinding);
@@ -52,18 +54,11 @@ test("pages a large admitted archive and replays expanded ranges without whole a
 			});
 			const first = yield* listZipEntries({ limit: 1, key: "export" });
 			expect(first.entries.map((entry) => entry.name)).toEqual(["large.json"]);
-			expect(first.next).not.toBeNull();
-			const second = yield* listZipEntries({
-				limit: 1,
-				key: "export",
-				after: first.next ?? undefined,
-			});
+			assert(first.next !== null);
+			const second = yield* listZipEntries({ limit: 1, key: "export", after: first.next });
 			expect(second.entries.map((entry) => entry.name)).toEqual(["other.json"]);
-			const padding = yield* listZipEntries({
-				limit: 1,
-				key: "export",
-				after: second.next ?? undefined,
-			});
+			assert(second.next !== null);
+			const padding = yield* listZipEntries({ limit: 1, key: "export", after: second.next });
 			expect(padding.entries.map((entry) => entry.name)).toEqual(["padding.bin"]);
 			expect(padding.next).toBeNull();
 			const entry = first.entries[0];
@@ -122,8 +117,8 @@ test("bounds directory metadata even when entry names are large", () =>
 			});
 			const first = yield* listZipEntries({});
 			expect(first.entries).toHaveLength(4);
-			expect(first.next).not.toBeNull();
-			const second = yield* listZipEntries({ after: first.next ?? undefined });
+			assert(first.next !== null);
+			const second = yield* listZipEntries({ after: first.next });
 			expect(second.entries).toHaveLength(1);
 			expect(second.next).toBeNull();
 		}),
@@ -205,7 +200,7 @@ test("rejects invalid gzip ranges and malformed gzip data", () =>
 				[0, 0],
 				[0, 1024 * 1024 + 1],
 				[0.5, 1],
-			]) {
+			] as const) {
 				expect((yield* Effect.flip(readGzipRange({ offset, length }))).message).toBe(
 					"Invalid GZIP range",
 				);

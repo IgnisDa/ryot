@@ -1,6 +1,10 @@
-import { afterEach, assert, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
 
 import {
@@ -111,6 +115,7 @@ it.effect(
 			expect(settingsReads).toBe(1);
 			expect(fetched).toBe(1);
 		}),
+	testTimeout,
 );
 it.live(
 	"captures a library larger than the activity scratch budget through bounded durable windows without refetching its listing",
@@ -173,6 +178,7 @@ it.live(
 				"https://plex.test/library/sections/movies/all?includeGuids=1",
 			]);
 		}),
+	testTimeout,
 );
 
 it.live(
@@ -248,4 +254,5 @@ it.live(
 			expect(new Set(operations).size).toBe(300);
 			expect(requests).toHaveLength(3);
 		}),
+	testTimeout,
 );

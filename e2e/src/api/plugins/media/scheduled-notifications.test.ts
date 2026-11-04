@@ -187,7 +187,7 @@ describe("Media scheduled notifications", () => {
 			yield* runSignalScheduleScan(client);
 			yield* waitForBodies("stale", 2);
 			expect(bodies("stale")).toHaveLength(2);
-			expect(bodies("stale")).toEqual(
+			expect(bodies("stale")).toEqual<unknown>(
 				arrayContaining([
 					`${inProgress.name} has been in progress for 7 days without activity`,
 					`${onHold.name} has been on hold for 14 days without activity`,

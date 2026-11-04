@@ -1,5 +1,5 @@
-import { assert } from "@effect/vitest";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 

@@ -1,12 +1,14 @@
+import { expect } from "bun:test";
 import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -156,30 +158,43 @@ it.effect(
 			]);
 			expect(result.settlements).toEqual(["completed"]);
 		}),
+	testTimeout,
 );
-it.effect("does not treat a source return as proof of collection completion", () =>
-	Effect.gen(function* () {
-		expect((yield* rootCase("running", false, "none")).settlements).toEqual(["failed"]);
-	}),
+it.effect(
+	"does not treat a source return as proof of collection completion",
+	() =>
+		Effect.gen(function* () {
+			expect((yield* rootCase("running", false, "none")).settlements).toEqual(["failed"]);
+		}),
+	testTimeout,
 );
-it.effect("settles cancellation before entering source work", () =>
-	Effect.gen(function* () {
-		const result = yield* rootCase("cancelling", false, "none");
-		expect(result.calls).toEqual([]);
-		expect(result.settlements).toEqual(["cancelled"]);
-	}),
+it.effect(
+	"settles cancellation before entering source work",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* rootCase("cancelling", false, "none");
+			expect(result.calls).toEqual([]);
+			expect(result.settlements).toEqual(["cancelled"]);
+		}),
+	testTimeout,
 );
-it.effect("fails an execution error but retains a suspended root for recovery", () =>
-	Effect.gen(function* () {
-		expect((yield* rootCase("running", false, "source")).settlements).toEqual(["failed"]);
-		expect((yield* rootCase("running", false, "suspend")).settlements).toEqual([]);
-	}),
+it.effect(
+	"fails an execution error but retains a suspended root for recovery",
+	() =>
+		Effect.gen(function* () {
+			expect((yield* rootCase("running", false, "source")).settlements).toEqual(["failed"]);
+			expect((yield* rootCase("running", false, "suspend")).settlements).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.effect("settles cancellation when it wins the start transition", () =>
-	Effect.gen(function* () {
-		const result = yield* rootCase("running", false, "none", true);
-		expect(result.calls).toEqual([]);
-		expect(result.settlements).toEqual(["cancelled"]);
-	}),
+it.effect(
+	"settles cancellation when it wins the start transition",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* rootCase("running", false, "none", true);
+			expect(result.calls).toEqual([]);
+			expect(result.settlements).toEqual(["cancelled"]);
+		}),
+	testTimeout,
 );

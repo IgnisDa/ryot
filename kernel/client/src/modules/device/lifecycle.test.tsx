@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginNavigationTarget } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { cleanup, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -18,71 +21,74 @@ const storage = (read: () => DeviceState, write: (state: DeviceState) => void) =
 		setDeviceState: (state) => Effect.sync(() => write(state)),
 	});
 
-it.live("does not cancel alerts when navigation replaces an equivalent scope object", () =>
-	Effect.gen(function* () {
-		let stored: DeviceState = emptyDeviceState;
-		const cancelled: number[] = [];
-		const platform = Layer.succeed(DevicePlatform, {
-			...noopDevicePlatform,
-			schedule: () => Effect.succeed({ status: "scheduled" }),
-			cancel: (id) =>
-				Effect.sync(() => {
-					cancelled.push(id);
-				}),
-		});
-		const runtime = ManagedRuntime.make(
-			DeviceService.layer.pipe(
-				Layer.provide(platform),
-				Layer.provide(
-					storage(
-						() => stored,
-						(state) => (stored = state),
+it.live(
+	"does not cancel alerts when navigation replaces an equivalent scope object",
+	() =>
+		Effect.gen(function* () {
+			let stored: DeviceState = emptyDeviceState;
+			const cancelled: number[] = [];
+			const platform = Layer.succeed(DevicePlatform, {
+				...noopDevicePlatform,
+				schedule: () => Effect.succeed({ status: "scheduled" }),
+				cancel: (id) =>
+					Effect.sync(() => {
+						cancelled.push(id);
+					}),
+			});
+			const runtime = ManagedRuntime.make(
+				DeviceService.layer.pipe(
+					Layer.provide(platform),
+					Layer.provide(
+						storage(
+							() => stored,
+							(state) => (stored = state),
+						),
 					),
 				),
-			),
-		);
-		const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://one.test") };
-		const pluginId = PluginId.make("other");
-		const packageId = PluginPackageId.make("ryot/other");
-		const contributors = [
-			{
-				pluginId,
-				packageId,
-				kind: "plugin",
-				contentHash: "hash",
-				revisionId: "revision",
-				installationId: "installation-1",
-			},
-		] as const;
-		const view = render(<DeviceScope scope={scope} runtime={runtime} onNavigate={() => {}} />);
-		try {
-			yield* runtime
-				.runSync(DeviceService)
-				.outcome(scope, contributors, "frame", true, {
-					pluginId,
-					body: "",
-					key: "rest",
-					audible: true,
-					action: "schedule",
-					title: "Rest complete",
-					deadline: "2030-01-01T00:00:00.000Z",
-					target: { packageId, search: "", path: "/editor", kind: "plugin-route" },
-				});
-			view.rerender(<DeviceScope runtime={runtime} scope={{ ...scope }} onNavigate={() => {}} />);
-			expect(cancelled).toEqual([]);
-			view.rerender(
-				<DeviceScope
-					runtime={runtime}
-					onNavigate={() => {}}
-					scope={{ ...scope, userId: "user-2" }}
-				/>,
 			);
-			expect(cancelled).toEqual([1]);
-		} finally {
-			cleanup();
-			yield* runtime.disposeEffect;
-		}
-	}),
+			const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://one.test") };
+			const pluginId = PluginId.make("other");
+			const packageId = PluginPackageId.make("ryot/other");
+			const contributors = [
+				{
+					pluginId,
+					packageId,
+					kind: "plugin",
+					contentHash: "hash",
+					revisionId: "revision",
+					installationId: "installation-1",
+				},
+			] as const;
+			const view = render(<DeviceScope scope={scope} runtime={runtime} onNavigate={() => {}} />);
+			try {
+				yield* runtime
+					.runSync(DeviceService)
+					.outcome(scope, contributors, "frame", true, {
+						pluginId,
+						body: "",
+						key: "rest",
+						audible: true,
+						action: "schedule",
+						title: "Rest complete",
+						deadline: "2030-01-01T00:00:00.000Z",
+						target: { packageId, search: "", path: "/editor", kind: "plugin-route" },
+					});
+				view.rerender(<DeviceScope runtime={runtime} scope={{ ...scope }} onNavigate={() => {}} />);
+				expect(cancelled).toEqual([]);
+				view.rerender(
+					<DeviceScope
+						runtime={runtime}
+						onNavigate={() => {}}
+						scope={{ ...scope, userId: "user-2" }}
+					/>,
+				);
+				expect(cancelled).toEqual([1]);
+			} finally {
+				cleanup();
+				yield* runtime.disposeEffect;
+			}
+		}),
+	testTimeout,
 );
 
 it.live(
@@ -181,4 +187,5 @@ it.live(
 				yield* restored.disposeEffect;
 			}
 		}),
+	testTimeout,
 );

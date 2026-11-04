@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import {
@@ -17,25 +20,35 @@ import {
 } from "./oauth";
 
 describe("OAuth access and client classes", () => {
-	it.effect.each(["standard", "demo"])("accepts the %s access class", (accessClass) =>
-		Effect.gen(function* () {
-			expect(yield* Schema.decodeUnknownEffect(AccessClass)(accessClass)).toBe(accessClass);
-		}),
+	it.effect.each(["standard", "demo"])(
+		"accepts the %s access class",
+		(accessClass) =>
+			Effect.gen(function* () {
+				expect(yield* Schema.decodeUnknownEffect(AccessClass)(accessClass)).toBe<unknown>(
+					accessClass,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("distinguishes web clients from the native client", () =>
-		Effect.gen(function* () {
-			expect(OAUTH_WEB_CLIENT_IDS).toEqual([
-				"ryot-web",
-				OAUTH_DEMO_WEB_CLIENT_ID,
-				"ryot-impersonation-web",
-			]);
-			expect(yield* Schema.decodeEffect(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
-				OAUTH_DEMO_WEB_CLIENT_ID,
-			);
-			yield* Effect.flip(Schema.decodeUnknownEffect(WebOAuthClientId)("ryot-native"));
-			yield* Effect.flip(Schema.decodeUnknownEffect(NativeOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID));
-		}),
+	it.effect(
+		"distinguishes web clients from the native client",
+		() =>
+			Effect.gen(function* () {
+				expect(OAUTH_WEB_CLIENT_IDS).toEqual([
+					"ryot-web",
+					OAUTH_DEMO_WEB_CLIENT_ID,
+					"ryot-impersonation-web",
+				]);
+				expect(yield* Schema.decodeEffect(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
+					OAUTH_DEMO_WEB_CLIENT_ID,
+				);
+				yield* Effect.flip(Schema.decodeUnknownEffect(WebOAuthClientId)("ryot-native"));
+				yield* Effect.flip(
+					Schema.decodeUnknownEffect(NativeOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -44,16 +57,21 @@ describe("NativeOAuthApplicationId", () => {
 		expect(OAUTH_NATIVE_APPLICATION_IDS).toEqual(["io.ryot.app", "io.ryot.app.dev"]);
 	});
 
-	it.effect.each(OAUTH_NATIVE_APPLICATION_IDS)("accepts %s", (applicationId) =>
-		Effect.gen(function* () {
-			expect(yield* Schema.decodeEffect(NativeOAuthApplicationId)(applicationId)).toBe(
-				applicationId,
-			);
-		}),
+	it.effect.each(OAUTH_NATIVE_APPLICATION_IDS)(
+		"accepts %s",
+		(applicationId) =>
+			Effect.gen(function* () {
+				expect(yield* Schema.decodeEffect(NativeOAuthApplicationId)(applicationId)).toBe(
+					applicationId,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects an unknown application ID", () =>
-		Effect.flip(Schema.decodeUnknownEffect(NativeOAuthApplicationId)("io.ryot.app.test")),
+	it.effect(
+		"rejects an unknown application ID",
+		() => Effect.flip(Schema.decodeUnknownEffect(NativeOAuthApplicationId)("io.ryot.app.test")),
+		testTimeout,
 	);
 });
 
@@ -79,7 +97,7 @@ describe("native OAuth callback URIs", () => {
 });
 
 describe("isLoopbackOrigin", () => {
-	it.each([
+	test.each([
 		"http://localhost:3005",
 		"http://127.0.0.1:3000",
 		"http://127.5.5.5",
@@ -89,7 +107,7 @@ describe("isLoopbackOrigin", () => {
 		expect(isLoopbackOrigin(origin)).toBe(true);
 	});
 
-	it.each([
+	test.each([
 		"http://192.168.1.50:8000",
 		"http://10.0.0.4",
 		"http://ryot.lan",

@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ProviderEntityBadRequest,
@@ -13,6 +14,9 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
@@ -167,56 +171,68 @@ const getFailure = <A, E>(result: Exit.Exit<A, E>) => {
 };
 
 layer(makeServiceLayer())((test) => {
-	test.effect("returns BadRequest when providerId is blank", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(
-				service.import(user, { externalId, providerId: SandboxProviderId.make("   ") }),
-			);
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityBadRequest({
-					reason: { field: "providerId", code: "invalid-import-input" },
-				}),
-			);
-		}),
+	test.effect(
+		"returns BadRequest when providerId is blank",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(
+					service.import(user, { externalId, providerId: SandboxProviderId.make("   ") }),
+				);
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityBadRequest({
+						reason: { field: "providerId", code: "invalid-import-input" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("returns BadRequest when externalId is blank", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.import(user, { providerId, externalId: "  " }));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityBadRequest({
-					reason: { field: "externalId", code: "invalid-import-input" },
-				}),
-			);
-		}),
+	test.effect(
+		"returns BadRequest when externalId is blank",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(service.import(user, { providerId, externalId: "  " }));
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityBadRequest({
+						reason: { field: "externalId", code: "invalid-import-input" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ activeProvider: null }))((test) => {
-	test.effect("returns NotFound when the provider is missing", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } }),
-			);
-		}),
+	test.effect(
+		"returns NotFound when the provider is missing",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } }),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer({ activeProvider: null }))((test) => {
-	test.effect("returns NotFound when the provider is inactive", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } }),
-			);
-		}),
+	test.effect(
+		"returns NotFound when the provider is inactive",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } }),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -225,16 +241,19 @@ layer(
 		entitiesRepo: makeEntitiesRepository({ findEntitySchemaForUser: () => Effect.succeed(null) }),
 	}),
 )((test) => {
-	test.effect("returns NotFound when the derived entity schema is not found", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityNotFound({
-					reason: { entitySchemaSlug, code: "entity-schema-not-found" },
-				}),
-			);
-		}),
+	test.effect(
+		"returns NotFound when the derived entity schema is not found",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityNotFound({
+						reason: { entitySchemaSlug, code: "entity-schema-not-found" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -243,41 +262,28 @@ const withSchema = makeEntitiesRepository({
 });
 
 layer(makeServiceLayer({ submit: queued, entitiesRepo: withSchema }))((test) => {
-	test.effect("derives the root entity schema before submitting the import for admission", () => {
-		return Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* service.import(user, { providerId, externalId });
-			expect(typeof result.jobId).toBe("string");
-			const submitted = yield* (yield* FakeAdmission).submitted;
-			expect(submitted).toHaveLength(1);
-			expect(submitted[0]).toMatchObject({
-				userId: user.id,
-				payload: {
-					providerId,
-					externalId,
-					entitySchemaSlug,
-					entityScope: { type: "global", userId: user.id },
-					command: { causation: { source: "api", initiator: { id: user.id, kind: "user" } } },
-				},
+	test.effect(
+		"derives the root entity schema before submitting the import for admission",
+		() => {
+			return Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* service.import(user, { providerId, externalId });
+				expect(typeof result.jobId).toBe("string");
+				const submitted = yield* (yield* FakeAdmission).submitted;
+				expect(submitted).toHaveLength(1);
+				expect(submitted[0]).toMatchObject({
+					userId: user.id,
+					payload: {
+						providerId,
+						externalId,
+						entitySchemaSlug,
+						entityScope: { type: "global", userId: user.id },
+						command: { causation: { source: "api", initiator: { id: user.id, kind: "user" } } },
+					},
+				});
 			});
-		});
-	});
-});
-
-layer(
-	makeServiceLayer({
-		submit: queued,
-		entitiesRepo: withSchema,
-		entryEventSchemaSlugs: ["planned"],
-	}),
-)((test) => {
-	test.effect("submits an entry event the root entity schema declares", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			yield* service.import(user, { providerId, externalId, entryEventSchemaSlug: "planned" });
-			const submitted = yield* (yield* FakeAdmission).submitted;
-			expect(submitted[0]?.payload.entryEventSchemaSlug).toBe(EventSchemaSlug.make("planned"));
-		}),
+		},
+		testTimeout,
 	);
 });
 
@@ -288,19 +294,42 @@ layer(
 		entryEventSchemaSlugs: ["planned"],
 	}),
 )((test) => {
-	test.effect("rejects an entry event the root entity schema does not declare", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(
-				service.import(user, { providerId, externalId, entryEventSchemaSlug: "unknown" }),
-			);
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityBadRequest({
-					reason: { code: "invalid-import-input", field: "entryEventSchemaSlug" },
-				}),
-			);
-			expect(yield* (yield* FakeAdmission).submitted).toEqual([]);
-		}),
+	test.effect(
+		"submits an entry event the root entity schema declares",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				yield* service.import(user, { providerId, externalId, entryEventSchemaSlug: "planned" });
+				const submitted = yield* (yield* FakeAdmission).submitted;
+				expect(submitted[0]?.payload.entryEventSchemaSlug).toBe(EventSchemaSlug.make("planned"));
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeServiceLayer({
+		submit: queued,
+		entitiesRepo: withSchema,
+		entryEventSchemaSlugs: ["planned"],
+	}),
+)((test) => {
+	test.effect(
+		"rejects an entry event the root entity schema does not declare",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(
+					service.import(user, { providerId, externalId, entryEventSchemaSlug: "unknown" }),
+				);
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityBadRequest({
+						reason: { code: "invalid-import-input", field: "entryEventSchemaSlug" },
+					}),
+				);
+				expect(yield* (yield* FakeAdmission).submitted).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -311,16 +340,20 @@ layer(
 		activeProvider: { ...provider, pluginScope: "user" },
 	}),
 )((test) => {
-	test.effect("submits private provider imports with user-owned entity scope", () => {
-		return Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			yield* service.import(user, { providerId, externalId });
-			const submitted = yield* (yield* FakeAdmission).submitted;
-			expect(submitted[0]).toMatchObject({
-				payload: { entityScope: { type: "user", userId: user.id } },
+	test.effect(
+		"submits private provider imports with user-owned entity scope",
+		() => {
+			return Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				yield* service.import(user, { providerId, externalId });
+				const submitted = yield* (yield* FakeAdmission).submitted;
+				expect(submitted[0]).toMatchObject({
+					payload: { entityScope: { type: "user", userId: user.id } },
+				});
 			});
-		});
-	});
+		},
+		testTimeout,
+	);
 });
 
 layer(
@@ -329,18 +362,21 @@ layer(
 		submit: () => ({ id: "exec-pending", status: "duplicate" as const }),
 	}),
 )((test) => {
-	test.effect("returns the pending job for a duplicate import", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* service.import(user, { providerId, externalId });
-			expect(result.jobId).toBe(
-				createWorkflowJobId(
-					deriveJobIdSecret("test-admin-token"),
-					{ executionId: "exec-pending" },
-					user.id,
-				),
-			);
-		}),
+	test.effect(
+		"returns the pending job for a duplicate import",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* service.import(user, { providerId, externalId });
+				expect(result.jobId).toBe(
+					createWorkflowJobId(
+						deriveJobIdSecret("test-admin-token"),
+						{ executionId: "exec-pending" },
+						user.id,
+					),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -350,42 +386,53 @@ layer(
 		submit: () => ({ status: "backlog-full" as const }),
 	}),
 )((test) => {
-	test.effect("rejects an import with a retryable error when the user's backlog is full", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityImportBacklogFull({
-					reason: { limit: 50, retryAfterSeconds: 30, code: "import-backlog-full" },
-				}),
-			);
-		}),
+	test.effect(
+		"rejects an import with a retryable error when the user's backlog is full",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityImportBacklogFull({
+						reason: { limit: 50, retryAfterSeconds: 30, code: "import-backlog-full" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("returns NotFound for a blank getImportResult jobId", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.getImportResult(user, "   "));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityNotFound({ reason: { jobId: "   ", code: "import-job-not-found" } }),
-			);
-		}),
+	test.effect(
+		"returns NotFound for a blank getImportResult jobId",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(service.getImportResult(user, "   "));
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityNotFound({ reason: { jobId: "   ", code: "import-job-not-found" } }),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeServiceLayer())((test) => {
-	test.effect("returns NotFound for a jobId with an invalid signature", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityImportService;
-			const result = yield* Effect.exit(service.getImportResult(user, "fake-execution-id.badsig"));
-			expect(getFailure(result)).toEqual(
-				new ProviderEntityNotFound({
-					reason: { code: "import-job-not-found", jobId: "fake-execution-id.badsig" },
-				}),
-			);
-		}),
+	test.effect(
+		"returns NotFound for a jobId with an invalid signature",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityImportService;
+				const result = yield* Effect.exit(
+					service.getImportResult(user, "fake-execution-id.badsig"),
+				);
+				expect(getFailure(result)).toEqual(
+					new ProviderEntityNotFound({
+						reason: { code: "import-job-not-found", jobId: "fake-execution-id.badsig" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -417,27 +464,33 @@ layer(
 		() => Effect.succeedNone,
 	),
 )((test) => {
-	test.effect("returns a queued cancellation when cancelImport wakes its result wait", () =>
-		Effect.gen(function* () {
-			const admission = yield* FakeAdmission;
-			const fiber = yield* Effect.forkChild(importResult);
-			yield* admission.statusRead;
-			const service = yield* EntityImportService;
-			yield* service.cancelImport(user, importResultJobId);
-			expect(yield* Fiber.join(fiber)).toEqual({ status: "cancelled" });
-		}),
+	test.effect(
+		"returns a queued cancellation when cancelImport wakes its result wait",
+		() =>
+			Effect.gen(function* () {
+				const admission = yield* FakeAdmission;
+				const fiber = yield* Effect.forkChild(importResult);
+				yield* admission.statusRead;
+				const service = yield* EntityImportService;
+				yield* service.cancelImport(user, importResultJobId);
+				expect(yield* Fiber.join(fiber)).toEqual({ status: "cancelled" });
+			}),
+		testTimeout,
 	);
 });
 
 layer(importResultLayer("running", () => Effect.succeedNone))((test) => {
-	test.effect("returns running status after its notification wait times out", () =>
-		Effect.gen(function* () {
-			const admission = yield* FakeAdmission;
-			const fiber = yield* Effect.forkChild(importResult);
-			yield* admission.statusRead;
-			yield* TestClock.adjust("20 seconds");
-			expect(yield* Fiber.join(fiber)).toEqual({ status: "running" });
-		}),
+	test.effect(
+		"returns running status after its notification wait times out",
+		() =>
+			Effect.gen(function* () {
+				const admission = yield* FakeAdmission;
+				const fiber = yield* Effect.forkChild(importResult);
+				yield* admission.statusRead;
+				yield* TestClock.adjust("20 seconds");
+				expect(yield* Fiber.join(fiber)).toEqual({ status: "running" });
+			}),
+		testTimeout,
 	);
 });
 
@@ -453,15 +506,21 @@ layer(
 		})(),
 	),
 )((test) => {
-	test.effect("returns workflow completion after a matching notification", () =>
-		Effect.gen(function* () {
-			const admission = yield* FakeAdmission;
-			const notifications = yield* WorkflowExecutionNotifications;
-			const fiber = yield* Effect.forkChild(importResult);
-			yield* admission.statusRead;
-			yield* notifications.publish(importIdentity);
-			expect(yield* Fiber.join(fiber)).toEqual({ status: "completed", data: importedEntity });
-		}),
+	test.effect(
+		"returns workflow completion after a matching notification",
+		() =>
+			Effect.gen(function* () {
+				const admission = yield* FakeAdmission;
+				const notifications = yield* WorkflowExecutionNotifications;
+				const fiber = yield* Effect.forkChild(importResult);
+				yield* admission.statusRead;
+				yield* notifications.publish(importIdentity);
+				expect(yield* Fiber.join(fiber)).toEqual<unknown>({
+					status: "completed",
+					data: importedEntity,
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -484,10 +543,13 @@ layer(
 			: Effect.succeedNone,
 	),
 )((test) => {
-	test.effect("returns terminal workflow results without waiting for a notification", () =>
-		Effect.gen(function* () {
-			expect(yield* importResult).toEqual({ status: "completed", data: importedEntity });
-		}),
+	test.effect(
+		"returns terminal workflow results without waiting for a notification",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* importResult).toEqual<unknown>({ status: "completed", data: importedEntity });
+			}),
+		testTimeout,
 	);
 });
 
@@ -502,17 +564,23 @@ layer(
 			: Effect.succeedNone,
 	),
 )((test) => {
-	test.effect("returns a terminal workflow failure without waiting for a notification", () =>
-		Effect.gen(function* () {
-			expect(yield* importResult).toMatchObject({ status: "failed" });
-		}),
+	test.effect(
+		"returns a terminal workflow failure without waiting for a notification",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* importResult).toMatchObject({ status: "failed" });
+			}),
+		testTimeout,
 	);
 });
 
 layer(importResultLayer(null, () => Effect.succeedNone))((test) => {
-	test.effect("reports an import cancelled before admission as cancelled", () =>
-		Effect.gen(function* () {
-			expect(yield* importResult).toEqual({ status: "cancelled" });
-		}),
+	test.effect(
+		"reports an import cancelled before admission as cancelled",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* importResult).toEqual({ status: "cancelled" });
+			}),
+		testTimeout,
 	);
 });

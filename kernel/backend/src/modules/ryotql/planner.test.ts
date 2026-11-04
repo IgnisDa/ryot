@@ -1,4 +1,5 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
@@ -21,6 +22,8 @@ import {
 	sum,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { planQuery, planScopes } from "./planner";
 import { validateRyotQLDocument } from "./validator";

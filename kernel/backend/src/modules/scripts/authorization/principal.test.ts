@@ -1,5 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { isUserBootstrapPrincipal, ScriptExecutionPrincipal } from "./principal";
@@ -59,7 +62,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(ScriptExecutionPrincipal));
-			expect(yield* decode(yield* encodeJson(principal))).toEqual(principal);
+			expect(yield* decode(yield* encodeJson(principal))).toEqual<unknown>(principal);
 			for (const changes of [
 				{ id: "other-plugin" },
 				{ revisionId: "other-revision" },
@@ -85,51 +88,61 @@ it.effect(
 				),
 			);
 		}),
+	testTimeout,
 );
 
-it.effect("accepts source-zero principals only with all-null plugin ownership", () =>
-	Effect.gen(function* () {
-		const decode = Schema.decodeUnknownEffect(ScriptExecutionPrincipal);
-		const kernel = {
-			...principal,
-			pluginRevision: null,
-			subject: {
-				...principal.subject,
-				pluginId: null,
-				pluginRevisionId: null,
-				pluginConfigRevisionId: null,
-			},
-		};
-		expect(yield* decode(kernel)).toEqual(kernel);
-		yield* Effect.flip(decode({ ...principal, pluginRevision: null }));
-		yield* Effect.flip(decode({ ...kernel, pluginRevision: principal.pluginRevision }));
-	}),
+it.effect(
+	"accepts source-zero principals only with all-null plugin ownership",
+	() =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(ScriptExecutionPrincipal);
+			const kernel = {
+				...principal,
+				pluginRevision: null,
+				subject: {
+					...principal.subject,
+					pluginId: null,
+					pluginRevisionId: null,
+					pluginConfigRevisionId: null,
+				},
+			};
+			expect(yield* decode(kernel)).toEqual<unknown>(kernel);
+			yield* Effect.flip(decode({ ...principal, pluginRevision: null }));
+			yield* Effect.flip(decode({ ...kernel, pluginRevision: principal.pluginRevision }));
+		}),
+	testTimeout,
 );
 
-it.effect("rejects kernel identity together with a plugin revision", () =>
-	Effect.gen(function* () {
-		const decode = Schema.decodeUnknownEffect(ScriptExecutionPrincipal);
-		expect((yield* Effect.flip(decode({ ...principal, kernelScript: true }))).message).toContain(
-			"Kernel identity cannot accompany a plugin revision",
-		);
-	}),
-);
-
-it.effect("recognizes only a declared user bootstrap script as a bootstrap principal", () =>
-	Effect.gen(function* () {
-		const decode = Schema.decodeUnknownEffect(ScriptExecutionPrincipal);
-		const bootstrap = (metadata: { kind: string }, slugs: string[]) =>
-			Effect.map(
-				decode({
-					...principal,
-					metadata: { ...metadata, runtimeImports: [] },
-					pluginRevision: { ...principal.pluginRevision, userBootstrapScriptSlugs: slugs },
-				}),
-				isUserBootstrapPrincipal,
+it.effect(
+	"rejects kernel identity together with a plugin revision",
+	() =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(ScriptExecutionPrincipal);
+			expect((yield* Effect.flip(decode({ ...principal, kernelScript: true }))).message).toContain(
+				"Kernel identity cannot accompany a plugin revision",
 			);
+		}),
+	testTimeout,
+);
 
-		expect(yield* bootstrap({ kind: "script" }, ["script"])).toBe(true);
-		expect(yield* bootstrap({ kind: "script" }, ["other"])).toBe(false);
-		expect(yield* bootstrap({ kind: "automation" }, ["script"])).toBe(false);
-	}),
+it.effect(
+	"recognizes only a declared user bootstrap script as a bootstrap principal",
+	() =>
+		Effect.gen(function* () {
+			const decode = Schema.decodeUnknownEffect(ScriptExecutionPrincipal);
+			const bootstrap = (metadata: { kind: string }, slugs: string[]) =>
+				Effect.map(
+					decode({
+						...principal,
+						metadata: { ...metadata, runtimeImports: [] },
+						pluginRevision: { ...principal.pluginRevision, userBootstrapScriptSlugs: slugs },
+					}),
+					isUserBootstrapPrincipal,
+				);
+
+			expect(yield* bootstrap({ kind: "script" }, ["script"])).toBe(true);
+			expect(yield* bootstrap({ kind: "script" }, ["other"])).toBe(false);
+			expect(yield* bootstrap({ kind: "automation" }, ["script"])).toBe(false);
+		}),
+	testTimeout,
 );

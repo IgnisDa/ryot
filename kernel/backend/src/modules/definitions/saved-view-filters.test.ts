@@ -1,3 +1,5 @@
+import { expect, it } from "bun:test";
+
 import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	EntitySchemaSlug,
@@ -5,7 +7,6 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { column, document, field, jsonPath, rows, table } from "@ryot-app/ryotql";
-import { expect, it } from "vitest";
 
 import { filterFieldIssues } from "./saved-view-filters";
 

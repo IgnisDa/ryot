@@ -1,8 +1,11 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -67,60 +70,72 @@ const makeLayer = (run: RunControl) =>
 	);
 
 layer(makeLayer({ id: runId, status: "running", executionKind: "source" }))((test) => {
-	test.effect("dispatches cancellation with a deterministic execution ID", () =>
-		Effect.gen(function* () {
-			expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
-				id: runId,
-			});
-			expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([
-				{
-					discard: true,
-					executionId: "run-1-cancellation",
-					payload: { runId, userId: user.id, accountGeneration: user.accountGeneration },
-				},
-			]);
-		}),
+	test.effect(
+		"dispatches cancellation with a deterministic execution ID",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
+					id: runId,
+				});
+				expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([
+					{
+						discard: true,
+						executionId: "run-1-cancellation",
+						payload: { runId, userId: user.id, accountGeneration: user.accountGeneration },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 for (const status of ["cancelling", "cancelled"] as const) {
 	layer(makeLayer({ status, id: runId, executionKind: "integration" }))((test) => {
-		test.effect(`accepts a repeated cancellation for a ${status} run`, () =>
-			Effect.gen(function* () {
-				expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
-					id: runId,
-				});
-				expect(yield* (yield* FakeCancellationDispatch).executions).toHaveLength(
-					status === "cancelling" ? 1 : 0,
-				);
-			}),
+		test.effect(
+			`accepts a repeated cancellation for a ${status} run`,
+			() =>
+				Effect.gen(function* () {
+					expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
+						id: runId,
+					});
+					expect(yield* (yield* FakeCancellationDispatch).executions).toHaveLength(
+						status === "cancelling" ? 1 : 0,
+					);
+				}),
+			testTimeout,
 		);
 	});
 }
 
 for (const status of ["completed", "failed"] as const) {
 	layer(makeLayer({ status, id: runId, executionKind: "source" }))((test) => {
-		test.effect(`rejects cancellation for a ${status} run`, () =>
-			Effect.gen(function* () {
-				const error = yield* Effect.flip(
-					(yield* ImportRunCancellationService).cancelRun(user, runId),
-				);
-				expect(error).toMatchObject({ reason: { runId, status, code: "run-not-cancellable" } });
-				expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([]);
-			}),
+		test.effect(
+			`rejects cancellation for a ${status} run`,
+			() =>
+				Effect.gen(function* () {
+					const error = yield* Effect.flip(
+						(yield* ImportRunCancellationService).cancelRun(user, runId),
+					);
+					expect(error).toMatchObject({ reason: { runId, status, code: "run-not-cancellable" } });
+					expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 }
 
 layer(makeLayer(null))((test) => {
-	test.effect("returns not found for missing and foreign runs", () =>
-		Effect.gen(function* () {
-			const service = yield* ImportRunCancellationService;
-			for (const requestUser of [user, { ...user, id: UserId.make("foreign-user") }]) {
-				const error = yield* Effect.flip(service.cancelRun(requestUser, runId));
-				expect(error).toMatchObject({ reason: { runId, code: "run-not-found" } });
-			}
-			expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([]);
-		}),
+	test.effect(
+		"returns not found for missing and foreign runs",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ImportRunCancellationService;
+				for (const requestUser of [user, { ...user, id: UserId.make("foreign-user") }]) {
+					const error = yield* Effect.flip(service.cancelRun(requestUser, runId));
+					expect(error).toMatchObject({ reason: { runId, code: "run-not-found" } });
+				}
+				expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

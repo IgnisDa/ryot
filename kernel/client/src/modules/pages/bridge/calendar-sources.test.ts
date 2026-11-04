@@ -1,4 +1,5 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { CalendarSourceNotFound } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { CALENDAR_KERNEL_RENDERER_DISPLAY_NAME } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -10,6 +11,8 @@ import {
 	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -86,24 +89,30 @@ const recordingLayer = (
 describe("calendar source visibility outcome", () => {
 	const accepted: unknown[] = [];
 	layer(recordingLayer(accepted))((test) => {
-		test.effect("forwards a request from the kernel calendar document", () =>
-			Effect.gen(function* () {
-				expect(yield* outcome(calendarPage)).toEqual({ outcome: "success" });
-				expect(accepted).toEqual([{ payload: request }]);
-			}),
+		test.effect(
+			"forwards a request from the kernel calendar document",
+			() =>
+				Effect.gen(function* () {
+					expect(yield* outcome(calendarPage)).toEqual({ outcome: "success" });
+					expect(accepted).toEqual([{ payload: request }]);
+				}),
+			testTimeout,
 		);
 	});
 
 	const rejected: unknown[] = [];
 	layer(recordingLayer(rejected))((test) => {
-		test.effect("rejects plugin pages and other kernel renderers without calling the server", () =>
-			Effect.gen(function* () {
-				const invalid = { outcome: "failure", reason: "invalid-request" };
-				expect(yield* outcome(pluginPage)).toEqual(invalid);
-				expect(yield* outcome(kernelSavedView("Entity browser"))).toEqual(invalid);
-				expect(yield* outcome(kernelEntityPage)).toEqual(invalid);
-				expect(rejected).toEqual([]);
-			}),
+		test.effect(
+			"rejects plugin pages and other kernel renderers without calling the server",
+			() =>
+				Effect.gen(function* () {
+					const invalid = { outcome: "failure", reason: "invalid-request" };
+					expect(yield* outcome(pluginPage)).toEqual<unknown>(invalid);
+					expect(yield* outcome(kernelSavedView("Entity browser"))).toEqual<unknown>(invalid);
+					expect(yield* outcome(kernelEntityPage)).toEqual<unknown>(invalid);
+					expect(rejected).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -117,22 +126,31 @@ describe("calendar source visibility outcome", () => {
 			),
 		),
 	)((test) => {
-		test.effect("reports an unknown source as an invalid request", () =>
-			Effect.gen(function* () {
-				expect(yield* outcome(calendarPage)).toEqual({
-					outcome: "failure",
-					reason: "invalid-request",
-				});
-			}),
+		test.effect(
+			"reports an unknown source as an invalid request",
+			() =>
+				Effect.gen(function* () {
+					expect(yield* outcome(calendarPage)).toEqual({
+						outcome: "failure",
+						reason: "invalid-request",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(recordingLayer([], Effect.fail(new AuthenticatedApiError({ cause: "offline" }))))(
 		(test) => {
-			test.effect("reports other failures as transport", () =>
-				Effect.gen(function* () {
-					expect(yield* outcome(calendarPage)).toEqual({ outcome: "failure", reason: "transport" });
-				}),
+			test.effect(
+				"reports other failures as transport",
+				() =>
+					Effect.gen(function* () {
+						expect(yield* outcome(calendarPage)).toEqual({
+							outcome: "failure",
+							reason: "transport",
+						});
+					}),
+				testTimeout,
 			);
 		},
 	);

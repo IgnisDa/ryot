@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
@@ -44,21 +47,27 @@ const translationInsertLayer = (rows: ReadonlyArray<{ language: string }>) =>
 	);
 
 layer(translationInsertLayer([{ language: input.language }]))((test) => {
-	test.effect("inserts restored translations without suppressing conflicts", () =>
-		Effect.gen(function* () {
-			const persistence = yield* BackupRestorePersistence;
-			expect(yield* persistence.restoreTranslation(input)).toBe(input.language);
-			expect(yield* (yield* TranslationInserts).conflictSuppressionRequested).toBe(false);
-		}),
+	test.effect(
+		"inserts restored translations without suppressing conflicts",
+		() =>
+			Effect.gen(function* () {
+				const persistence = yield* BackupRestorePersistence;
+				expect(yield* persistence.restoreTranslation(input)).toBe(input.language);
+				expect(yield* (yield* TranslationInserts).conflictSuppressionRequested).toBe(false);
+			}),
+		testTimeout,
 	);
 });
 
 layer(translationInsertLayer([]))((test) => {
-	test.effect("fails when a restored translation insert returns no row", () =>
-		Effect.gen(function* () {
-			const persistence = yield* BackupRestorePersistence;
-			const error = yield* persistence.restoreTranslation(input).pipe(Effect.flip);
-			expect(error).toBeInstanceOf(DbError);
-		}),
+	test.effect(
+		"fails when a restored translation insert returns no row",
+		() =>
+			Effect.gen(function* () {
+				const persistence = yield* BackupRestorePersistence;
+				const error = yield* persistence.restoreTranslation(input).pipe(Effect.flip);
+				expect(error).toBeInstanceOf(DbError);
+			}),
+		testTimeout,
 	);
 });

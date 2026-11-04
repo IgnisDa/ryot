@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Effect, Stream } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { readSandboxByteLimitedText } from "./stream-utils";
 

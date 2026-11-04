@@ -1,5 +1,9 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EntityId, EventSchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 
@@ -130,37 +134,40 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("event_stream_repository")),
 	),
 )((test) => {
-	test.effect("binds every stream of a declaration in keyset pages and rebinds only changes", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const fixture = yield* seed("bind-pages", 5);
-			const first = yield* fixture.bind({ limit: 2 });
-			const [, firstLast] = first;
-			assert(firstLast);
-			const second = yield* fixture.bind({ limit: 2, after: firstLast });
-			const [, secondLast] = second;
-			assert(secondLast);
-			const third = yield* fixture.bind({ limit: 2, after: secondLast });
-			expect([...first, ...second, ...third]).toEqual(fixture.ids);
-			expect(yield* fixture.bind()).toEqual([]);
+	test.effect(
+		"binds every stream of a declaration in keyset pages and rebinds only changes",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const fixture = yield* seed("bind-pages", 5);
+				const first = yield* fixture.bind({ limit: 2 });
+				const [, firstLast] = first;
+				assert(firstLast);
+				const second = yield* fixture.bind({ limit: 2, after: firstLast });
+				const [, secondLast] = second;
+				assert(secondLast);
+				const third = yield* fixture.bind({ limit: 2, after: secondLast });
+				expect([...first, ...second, ...third]).toEqual(fixture.ids);
+				expect(yield* fixture.bind()).toEqual([]);
 
-			const [id] = fixture.ids;
-			assert(id);
-			yield* fixture.job("bind-job");
-			yield* session.run((db) =>
-				db
-					.update(tables.eventStreamWork)
-					.set({ completedRevision: 0, currentJobId: "bind-job", checkpoint: { cursor: "done" } })
-					.where(eq(tables.eventStreamWork.id, id)),
-			);
-			expect(yield* fixture.bind({ pluginRevisionId: "next-revision" })).toEqual(fixture.ids);
-			expect(yield* streamState(id)).toMatchObject({
-				checkpoint: null,
-				currentJobId: null,
-				completedRevision: null,
-				pluginRevisionId: "next-revision",
-			});
-		}),
+				const [id] = fixture.ids;
+				assert(id);
+				yield* fixture.job("bind-job");
+				yield* session.run((db) =>
+					db
+						.update(tables.eventStreamWork)
+						.set({ completedRevision: 0, currentJobId: "bind-job", checkpoint: { cursor: "done" } })
+						.where(eq(tables.eventStreamWork.id, id)),
+				);
+				expect(yield* fixture.bind({ pluginRevisionId: "next-revision" })).toEqual(fixture.ids);
+				expect(yield* streamState(id)).toMatchObject({
+					checkpoint: null,
+					currentJobId: null,
+					completedRevision: null,
+					pluginRevisionId: "next-revision",
+				});
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -199,68 +206,72 @@ layer(
 				yield* session.transaction(streams.retry(sticky));
 				expect(yield* streams.claimable(fixture.scope, binding)).toBe(true);
 			}),
+		testTimeout,
 	);
 
-	test.effect("publishes only current claims and keeps partial streams dirty", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const streams = yield* EventStreamRepository;
-			const fixture = yield* seed("finish", 3);
-			yield* fixture.bind();
-			yield* fixture.job("finish-job");
-			const claimed = yield* fixture.claim("finish-job");
-			const [done, partial, stale] = claimed;
-			assert(done && partial && stale);
-			const staleKey = fixture.keyOf(stale.id);
-			assert(staleKey);
-			yield* session.transaction(
-				streams.touch([{ ...staleKey, occurredAt: date("2026-10-02T00:00:00.000Z") }]),
-			);
-			const live = yield* session.transaction(
-				streams.currentClaims(
-					"finish-job",
-					claimed.map(({ id, revision }) => ({ id, revision })),
-				),
-			);
-			expect(live).toEqual([done.id, partial.id]);
-			yield* session.transaction(
-				streams.finish("finish-job", [
-					{ done: true, id: done.id, revision: done.revision, checkpoint: { cursor: "done" } },
-					{
-						done: false,
-						id: partial.id,
-						revision: partial.revision,
-						checkpoint: { cursor: "partial" },
-					},
-				]),
-			);
-			expect(yield* streamState(done.id)).toMatchObject({
-				dirtyFrom: null,
-				completedRevision: 0,
-				checkpoint: { cursor: "done" },
-			});
-			expect(yield* streamState(partial.id)).toMatchObject({
-				completedRevision: null,
-				currentJobId: "finish-job",
-				checkpoint: { cursor: "partial" },
-			});
-			expect(yield* streamState(stale.id)).toMatchObject({
-				checkpoint: null,
-				streamRevision: 1,
-				currentJobId: null,
-			});
-			yield* fixture.settle("finish-job", "succeeded");
-			expect(
+	test.effect(
+		"publishes only current claims and keeps partial streams dirty",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const streams = yield* EventStreamRepository;
+				const fixture = yield* seed("finish", 3);
+				yield* fixture.bind();
+				yield* fixture.job("finish-job");
+				const claimed = yield* fixture.claim("finish-job");
+				const [done, partial, stale] = claimed;
+				assert(done && partial && stale);
+				const staleKey = fixture.keyOf(stale.id);
+				assert(staleKey);
 				yield* session.transaction(
-					streams.currentClaims("finish-job", [{ id: partial.id, revision: partial.revision }]),
-				),
-			).toEqual([]);
-			yield* fixture.job("finish-next");
-			expect((yield* fixture.claim("finish-next")).map(({ id }) => id)).toEqual([
-				partial.id,
-				stale.id,
-			]);
-		}),
+					streams.touch([{ ...staleKey, occurredAt: date("2026-10-02T00:00:00.000Z") }]),
+				);
+				const live = yield* session.transaction(
+					streams.currentClaims(
+						"finish-job",
+						claimed.map(({ id, revision }) => ({ id, revision })),
+					),
+				);
+				expect(live).toEqual([done.id, partial.id]);
+				yield* session.transaction(
+					streams.finish("finish-job", [
+						{ done: true, id: done.id, revision: done.revision, checkpoint: { cursor: "done" } },
+						{
+							done: false,
+							id: partial.id,
+							revision: partial.revision,
+							checkpoint: { cursor: "partial" },
+						},
+					]),
+				);
+				expect(yield* streamState(done.id)).toMatchObject({
+					dirtyFrom: null,
+					completedRevision: 0,
+					checkpoint: { cursor: "done" },
+				});
+				expect(yield* streamState(partial.id)).toMatchObject({
+					completedRevision: null,
+					currentJobId: "finish-job",
+					checkpoint: { cursor: "partial" },
+				});
+				expect(yield* streamState(stale.id)).toMatchObject({
+					checkpoint: null,
+					streamRevision: 1,
+					currentJobId: null,
+				});
+				yield* fixture.settle("finish-job", "succeeded");
+				expect(
+					yield* session.transaction(
+						streams.currentClaims("finish-job", [{ id: partial.id, revision: partial.revision }]),
+					),
+				).toEqual([]);
+				yield* fixture.job("finish-next");
+				expect((yield* fixture.claim("finish-next")).map(({ id }) => id)).toEqual([
+					partial.id,
+					stale.id,
+				]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -291,6 +302,7 @@ layer(
 				yield* session.transaction(streams.touch([{ ...key, occurredAt: earlier }]));
 				expect(yield* streamState(id)).toMatchObject({ checkpoint: null, dirtyFrom: earlier });
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -328,5 +340,6 @@ layer(
 					completedRevision: null,
 				});
 			}),
+		testTimeout,
 	);
 });

@@ -1,4 +1,5 @@
 import { resolveReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { historicalFitnessRankingRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import {
@@ -258,8 +259,8 @@ it.live("records repeated exercise occurrences with exact taxonomy and ranking c
 		expect(occurrences).toHaveLength(2);
 		expect(new Set(occurrences.map(({ id }) => id)).size).toBe(2);
 		expect(occurrences.map(({ eventSchemaSlug }) => eventSchemaSlug)).toEqual([
-			"workout-exercise",
-			"workout-exercise",
+			EventSchemaSlug.make("workout-exercise"),
+			EventSchemaSlug.make("workout-exercise"),
 		]);
 		expect(occurrences.map(({ occurredAt }) => occurredAt)).toEqual([
 			workoutEditorTimes.startedAt,
@@ -269,7 +270,9 @@ it.live("records repeated exercise occurrences with exact taxonomy and ranking c
 			saved.entityId,
 			saved.entityId,
 		]);
-		expect(occurrences.map(({ properties }) => orderedOccurrenceProperties(properties))).toEqual([
+		expect(
+			occurrences.map(({ properties }) => orderedOccurrenceProperties(properties)),
+		).toEqual<unknown>([
 			expectedOccurrenceProperties(taxonomy, 0),
 			expectedOccurrenceProperties(taxonomy, 1),
 		]);
@@ -320,7 +323,7 @@ it.live("freezes prior occurrences and rankings when exercise taxonomy changes",
 		const oldOccurrences = yield* readWorkoutOccurrences(client, exerciseId, oldWorkout.entityId);
 		const oldOccurrence = requirePresent(oldOccurrences[0], "Expected the old workout occurrence");
 		expect(oldOccurrence).toMatchObject({ occurredAt: workoutEditorTimes.startedAt });
-		expect(orderedOccurrenceProperties(oldOccurrence.properties)).toEqual(
+		expect(orderedOccurrenceProperties(oldOccurrence.properties)).toEqual<unknown>(
 			expectedOccurrenceProperties(originalTaxonomy, 0),
 		);
 		const reference = yield* workoutReference(client);
@@ -372,10 +375,10 @@ it.live("freezes prior occurrences and rankings when exercise taxonomy changes",
 			equipment: [...originalTaxonomy.equipment, ...addedTaxonomy.equipment],
 		};
 		expect(newOccurrence).toMatchObject({ occurredAt: newStartedAt });
-		expect(orderedOccurrenceProperties(newOccurrence.properties)).toEqual(
+		expect(orderedOccurrenceProperties(newOccurrence.properties)).toEqual<unknown>(
 			expectedOccurrenceProperties(changedTaxonomy, 0),
 		);
-		expect(orderedOccurrenceProperties(oldOccurrence.properties)).toEqual(
+		expect(orderedOccurrenceProperties(oldOccurrence.properties)).toEqual<unknown>(
 			expectedOccurrenceProperties(originalTaxonomy, 0),
 		);
 
@@ -465,7 +468,7 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 		]);
 		expect(
 			reorderedOccurrences.map(({ properties }) => orderedOccurrenceProperties(properties)),
-		).toEqual([
+		).toEqual<unknown>([
 			expectedOccurrenceProperties(taxonomy, 0),
 			expectedOccurrenceProperties(taxonomy, 1),
 		]);
@@ -514,7 +517,7 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 		);
 		expect(
 			afterUnrelatedEdit.map(({ properties }) => orderedOccurrenceProperties(properties)),
-		).toEqual([
+		).toEqual<unknown>([
 			expectedOccurrenceProperties(taxonomy, 0),
 			expectedOccurrenceProperties(taxonomy, 1),
 		]);
@@ -552,7 +555,7 @@ it.live("retains occurrences through historical reorder and edit, then removes o
 			orderedOccurrenceProperties(
 				requirePresent(remainingOccurrences[0], "Expected retained occurrence").properties,
 			),
-		).toEqual(expectedOccurrenceProperties(taxonomy, 0));
+		).toEqual<unknown>(expectedOccurrenceProperties(taxonomy, 0));
 		expect(remainingOccurrences.map(({ id }) => id)).not.toContain(removedOccurrence.id);
 		const remainingBaseline = yield* loadWorkoutBaseline(client, created.entityId);
 		expect(remainingBaseline.baseline.sets.map(({ id }) => id)).toEqual([retainedSet.id]);

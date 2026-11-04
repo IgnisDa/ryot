@@ -272,7 +272,7 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 								const connection = io.open(entityWatchSocketUrl(scope));
 								socket = connection;
 								const isCurrent = () => !disposed && socket === connection && current === attempt;
-								socketListeners = new AbortController();
+								socketListeners = new window.AbortController();
 								const options = { signal: socketListeners.signal };
 								connection.addEventListener(
 									"open",

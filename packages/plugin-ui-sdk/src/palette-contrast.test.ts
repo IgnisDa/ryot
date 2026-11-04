@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
 import { Context, Effect, FileSystem, Layer } from "effect";
-import { describe, expect, it } from "vitest";
 
 const paletteCss = await Effect.runPromise(
 	Effect.scoped(

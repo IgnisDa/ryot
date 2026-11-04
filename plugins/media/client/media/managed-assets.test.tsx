@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import {
 	type ManagedAssetLocator,
 	type RyotClientAdapter,
@@ -6,7 +7,9 @@ import {
 } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
@@ -64,26 +67,30 @@ describe("ManagedAssetImage", () => {
 				);
 				unmount();
 			}),
+		testTimeout,
 	);
 
-	it.live("keeps showing a placeholder instead of throwing when resolution fails", () =>
-		Effect.gen(function* () {
-			const adapter: Partial<RyotClientAdapter> = {
-				query: () => Effect.succeed({}),
-				resolveAssets: () => Effect.fail(new RyotClientError({ reason: "transport" })),
-			};
-			const asset = { type: "s3", key: "cover" } as const;
-			const { unmount, container } = mountRyotClient(
-				adapter,
-				<ManagedAssetProvider assets={[asset]}>
-					<ManagedAssetImage asset={asset} state="absent" className="w-10" monogram="Cover" />
-				</ManagedAssetProvider>,
-			);
+	it.live(
+		"keeps showing a placeholder instead of throwing when resolution fails",
+		() =>
+			Effect.gen(function* () {
+				const adapter: Partial<RyotClientAdapter> = {
+					query: () => Effect.succeed({}),
+					resolveAssets: () => Effect.fail(new RyotClientError({ reason: "transport" })),
+				};
+				const asset = { type: "s3", key: "cover" } as const;
+				const { unmount, container } = mountRyotClient(
+					adapter,
+					<ManagedAssetProvider assets={[asset]}>
+						<ManagedAssetImage asset={asset} state="absent" className="w-10" monogram="Cover" />
+					</ManagedAssetProvider>,
+				);
 
-			yield* Effect.promise(() => flushRyotClient());
-			expect(container.querySelector("img")).toBeNull();
-			expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull();
-			unmount();
-		}),
+				yield* Effect.promise(() => flushRyotClient());
+				expect(container.querySelector("img")).toBeNull();
+				expect(container.querySelector('[aria-hidden="true"]')).not.toBeNull();
+				unmount();
+			}),
+		testTimeout,
 	);
 });

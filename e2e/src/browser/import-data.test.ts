@@ -196,7 +196,7 @@ it.live("downloads failures beyond the first page from an import detail", () =>
 			const download = Option.getOrThrow(yield* Fiber.join(downloadFiber));
 			expect(download.suggestedFilename()).toMatch(/^ryot-import-issues-.+\.json$/);
 			const path = Option.getOrThrow(yield* download.path);
-			assert.isNotNull(path);
+			assert(path !== null);
 			const bytes = yield* fs.readFile(path);
 			const report = yield* Schema.decodeEffect(Schema.fromJsonString(importIssuesExportSchema))(
 				new TextDecoder().decode(bytes),

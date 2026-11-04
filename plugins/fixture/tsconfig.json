@@ -3,6 +3,7 @@
 	"extends": "../../tsconfig.options.json",
 	"compilerOptions": {
 		"strict": true,
+		"types": ["bun-types"],
 		"noEmit": true,
 		"jsx": "react-jsx",
 		"module": "ESNext",

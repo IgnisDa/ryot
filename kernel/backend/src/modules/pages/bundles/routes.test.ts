@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PageBundlesGroup } from "@ryot-app/contract/modules/pages/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApi, HttpApiBuilder } from "effect/http-api";
@@ -86,6 +89,7 @@ layer(servicesLayer)((test) => {
 					`/api/page-bundles/${publicHash}/public/some%20module.js`,
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -106,55 +110,61 @@ layer(servicesLayer)((test) => {
 				}
 				expect(yield* (yield* FakeClientArtifactStore).reads).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(servicesLayer)((test) => {
-	test.effect("routes public and authorized requests without HTTP authentication", () =>
-		Effect.gen(function* () {
-			const services = Layer.succeedContext(
-				yield* Effect.context<ClientArtifactStore | ClientArtifactGrantService>(),
-			);
-			const api = HttpApi.make("ryot").add(PageBundlesGroup);
-			const route = HttpApiBuilder.layer(api).pipe(
-				Layer.provide(Layer.mergeAll(PageBundlesRoutesLive, HttpServer.layerServices)),
-				Layer.provideMerge(services),
-				HttpRouter.provideRequest(services),
-			);
-			return yield* Effect.acquireUseRelease(
-				Effect.sync(() => HttpRouter.toWebHandler(route, { disableLogger: true })),
-				({ handler }) => {
-					const request = (hash: string, accessKey: string, name: string) =>
-						Effect.promise(() =>
-							handler(new Request(`http://server.test/page-bundles/${hash}/${accessKey}/${name}`)),
-						);
-					return Effect.gen(function* () {
-						const publicFile = yield* request(publicHash, "public", "module.js");
-						expect(publicFile.status).toBe(200);
-						expect(publicFile.headers.get("cache-control")).toBe(
-							"public, max-age=31536000, immutable",
-						);
-						expect(publicFile.headers.get("access-control-allow-origin")).toBe("*");
-						const privateFile = yield* request(privateHash, token, "module.js");
-						expect(privateFile.status).toBe(200);
-						expect(privateFile.headers.get("cache-control")).toBe(
-							"private, max-age=31536000, immutable",
-						);
-						expect((yield* request(privateHash, "public", "module.js")).status).toBe(404);
-						expect((yield* request(publicHash, token, "module.js")).status).toBe(404);
-						expect((yield* request(publicHash, "public", "%252e%252e%252fsecret.js")).status).toBe(
-							404,
-						);
-						expect((yield* request(publicHash, "public", "some%20module.js")).status).toBe(200);
-						expect(yield* (yield* FakeClientArtifactStore).reads).toEqual([
-							`${publicHash}/module.js`,
-							`${privateHash}/module.js`,
-							`${publicHash}/some module.js`,
-						]);
-					});
-				},
-				({ dispose }) => Effect.promise(dispose),
-			);
-		}),
+	test.effect(
+		"routes public and authorized requests without HTTP authentication",
+		() =>
+			Effect.gen(function* () {
+				const services = Layer.succeedContext(
+					yield* Effect.context<ClientArtifactStore | ClientArtifactGrantService>(),
+				);
+				const api = HttpApi.make("ryot").add(PageBundlesGroup);
+				const route = HttpApiBuilder.layer(api).pipe(
+					Layer.provide(Layer.mergeAll(PageBundlesRoutesLive, HttpServer.layerServices)),
+					Layer.provideMerge(services),
+					HttpRouter.provideRequest(services),
+				);
+				return yield* Effect.acquireUseRelease(
+					Effect.sync(() => HttpRouter.toWebHandler(route, { disableLogger: true })),
+					({ handler }) => {
+						const request = (hash: string, accessKey: string, name: string) =>
+							Effect.promise(() =>
+								handler(
+									new Request(`http://server.test/page-bundles/${hash}/${accessKey}/${name}`),
+								),
+							);
+						return Effect.gen(function* () {
+							const publicFile = yield* request(publicHash, "public", "module.js");
+							expect(publicFile.status).toBe(200);
+							expect(publicFile.headers.get("cache-control")).toBe(
+								"public, max-age=31536000, immutable",
+							);
+							expect(publicFile.headers.get("access-control-allow-origin")).toBe("*");
+							const privateFile = yield* request(privateHash, token, "module.js");
+							expect(privateFile.status).toBe(200);
+							expect(privateFile.headers.get("cache-control")).toBe(
+								"private, max-age=31536000, immutable",
+							);
+							expect((yield* request(privateHash, "public", "module.js")).status).toBe(404);
+							expect((yield* request(publicHash, token, "module.js")).status).toBe(404);
+							expect(
+								(yield* request(publicHash, "public", "%252e%252e%252fsecret.js")).status,
+							).toBe(404);
+							expect((yield* request(publicHash, "public", "some%20module.js")).status).toBe(200);
+							expect(yield* (yield* FakeClientArtifactStore).reads).toEqual([
+								`${publicHash}/module.js`,
+								`${privateHash}/module.js`,
+								`${publicHash}/some module.js`,
+							]);
+						});
+					},
+					({ dispose }) => Effect.promise(dispose),
+				);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	CLIENT_API_VERSION,

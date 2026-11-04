@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { fireEvent, render, screen } from "@testing-library/react";
-import { expect, it } from "vitest";
 
 import { QueryStatus } from "./query-status";
 

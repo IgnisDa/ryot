@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	clientArtifactFile,
 	clientArtifactMetadata,
 	clientRuntimeArtifactMetadata,
 } from "@ryot-app/plugin-client-contract";
-import { describe, expect, it } from "vitest";
 
 import { clientArtifactMatches } from "./repository";
 

@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
@@ -6,6 +7,8 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ImageClientArtifacts } from "./image-artifacts";
@@ -100,5 +103,6 @@ layer(storeLayer)((test) => {
 					`describe:${privateHash}`,
 				]);
 			}),
+		testTimeout,
 	);
 });

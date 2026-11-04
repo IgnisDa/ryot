@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { SearchProviderEntitiesResponse } from "@ryot-app/contract/modules/entity-providers/schemas";
-import { describe, expect, it } from "vitest";
 
 import { describeProviderSearchResultItem } from "#/modules/provider-add/result-display";
 

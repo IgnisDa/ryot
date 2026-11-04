@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { hostSuccess, httpSuccess } from "../../../tests/backend/automations/automation-test-utils";
 import { findEmbyShow } from "./emby-episode";
@@ -64,58 +67,64 @@ const parseEmby = (payload: unknown, host: LookupHost = lookupHost()) =>
 	);
 
 describe("Emby episode show resolution", () => {
-	it.effect("never emits the nested episode TMDB ID as a show ID", () =>
-		Effect.gen(function* () {
-			const result = yield* parseEmby(
-				episode,
-				lookupHost({
-					"/3/search/tv?query=Show": { results: [{ id: 101 }] },
-					"/3/tv/101/season/1": { episodes: [{ id: 42, name: "Episode", episode_number: 2 }] },
-				}),
-			);
-			expect(result.entityGroups).toEqual([]);
-			expect(result.failures).toEqual([
-				{
-					itemIndex: 0,
-					stage: "provider_resolution",
-					message: "Could not resolve Emby episode to a TMDB show",
-				},
-			]);
-		}),
+	it.effect(
+		"never emits the nested episode TMDB ID as a show ID",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* parseEmby(
+					episode,
+					lookupHost({
+						"/3/search/tv?query=Show": { results: [{ id: 101 }] },
+						"/3/tv/101/season/1": { episodes: [{ id: 42, name: "Episode", episode_number: 2 }] },
+					}),
+				);
+				expect(result.entityGroups).toEqual([]);
+				expect(result.failures).toEqual([
+					{
+						itemIndex: 0,
+						stage: "provider_resolution",
+						message: "Could not resolve Emby episode to a TMDB show",
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("resolves a title search only after verifying the TMDB episode ID", () =>
-		Effect.gen(function* () {
-			const requests: string[] = [];
-			const result = yield* parseEmby(
-				{ ...episode, Item: { ...episode.Item, ProviderIds: { Tmdb: "42" } } },
-				lookupHost(
-					{
-						"/3/tv/101/season/1": { episodes: [{ id: 42 }] },
-						"/3/tv/100/season/1": { episodes: [{ id: 999 }] },
-						"/3/search/tv?query=Show": { results: [{ id: 100 }, { id: 101 }] },
-					},
-					undefined,
-					requests,
-				),
-			);
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups[0]).toMatchObject({
-				entityRef: { externalId: "101", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-				events: [
-					{
-						occurredAt,
-						properties: { consumedOn: "Emby", progressPercent: 50 },
-						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 2 },
-					},
-				],
-			});
-			expect(requests).toEqual([
-				"/3/search/tv?query=Show",
-				"/3/tv/100/season/1",
-				"/3/tv/101/season/1",
-			]);
-		}),
+	it.effect(
+		"resolves a title search only after verifying the TMDB episode ID",
+		() =>
+			Effect.gen(function* () {
+				const requests: string[] = [];
+				const result = yield* parseEmby(
+					{ ...episode, Item: { ...episode.Item, ProviderIds: { Tmdb: "42" } } },
+					lookupHost(
+						{
+							"/3/tv/101/season/1": { episodes: [{ id: 42 }] },
+							"/3/tv/100/season/1": { episodes: [{ id: 999 }] },
+							"/3/search/tv?query=Show": { results: [{ id: 100 }, { id: 101 }] },
+						},
+						undefined,
+						requests,
+					),
+				);
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups[0]).toMatchObject({
+					entityRef: { externalId: "101", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+					events: [
+						{
+							occurredAt,
+							properties: { consumedOn: "Emby", progressPercent: 50 },
+							unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 2 },
+						},
+					],
+				});
+				expect(requests).toEqual([
+					"/3/search/tv?query=Show",
+					"/3/tv/100/season/1",
+					"/3/tv/101/season/1",
+				]);
+			}),
+		testTimeout,
 	);
 
 	it.effect.each([
@@ -123,26 +132,29 @@ describe("Emby episode show resolution", () => {
 		{ SeriesProvider_tmdb: "101" },
 		{ SeriesProvidertmdb: "101" },
 		{ SeriesProviderIds: { Tmdb: "101" } },
-	])("uses explicit series IDs without any host calls (%j)", (series) =>
-		Effect.gen(function* () {
-			const calls: string[] = [];
-			const fail = (method: string) => {
-				calls.push(method);
-				return Effect.fail({ message: "Unexpected host call" });
-			};
-			const result = yield* parseEmby(
-				{ ...episode, ...series },
-				{
-					httpCall: () => fail("httpCall"),
-					getCachedValue: () => fail("getCachedValue"),
-					setCachedValue: () => fail("setCachedValue"),
-					getPluginConfig: () => fail("getPluginConfig"),
-				},
-			);
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "101" });
-			expect(calls).toEqual([]);
-		}),
+	])(
+		"uses explicit series IDs without any host calls (%j)",
+		(series) =>
+			Effect.gen(function* () {
+				const calls: string[] = [];
+				const fail = (method: string) => {
+					calls.push(method);
+					return Effect.fail({ message: "Unexpected host call" });
+				};
+				const result = yield* parseEmby(
+					{ ...episode, ...series },
+					{
+						httpCall: () => fail("httpCall"),
+						getCachedValue: () => fail("getCachedValue"),
+						setCachedValue: () => fail("setCachedValue"),
+						getPluginConfig: () => fail("getPluginConfig"),
+					},
+				);
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "101" });
+				expect(calls).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it.effect.each([
@@ -177,39 +189,43 @@ describe("Emby episode show resolution", () => {
 				expect(requests).toEqual([]);
 				expect(cache.size).toBe(1);
 			}),
+		testTimeout,
 	);
 
-	it.effect("retries external-only misses and keeps IMDb and TVDB cache identities separate", () =>
-		Effect.gen(function* () {
-			const cache = new Map<string, JsonValue>();
-			const payload = {
-				...episode,
-				Item: { ...episode.Item, SeriesName: "", ProviderIds: { Imdb: "42" } },
-			};
-			const missing = yield* parseEmby(
-				payload,
-				lookupHost({ "/3/find/42?external_source=imdb_id": { tv_episode_results: [] } }, cache),
-			);
-			expect(missing.entityGroups).toEqual([]);
-			expect(missing.failures[0]?.stage).toBe("provider_resolution");
-			expect(cache.size).toBe(0);
-			const found = yield* parseEmby(
-				payload,
-				lookupHost(
-					{ "/3/find/42?external_source=imdb_id": { tv_episode_results: [{ show_id: 101 }] } },
-					cache,
-				),
-			);
-			expect(found.entityGroups[0]?.entityRef).toMatchObject({ externalId: "101" });
-			const other = yield* parseEmby(
-				{ ...payload, Item: { ...payload.Item, ProviderIds: { Tvdb: "42" } } },
-				lookupHost(
-					{ "/3/find/42?external_source=tvdb_id": { tv_episode_results: [{ show_id: 102 }] } },
-					cache,
-				),
-			);
-			expect(other.entityGroups[0]?.entityRef).toMatchObject({ externalId: "102" });
-		}),
+	it.effect(
+		"retries external-only misses and keeps IMDb and TVDB cache identities separate",
+		() =>
+			Effect.gen(function* () {
+				const cache = new Map<string, JsonValue>();
+				const payload = {
+					...episode,
+					Item: { ...episode.Item, SeriesName: "", ProviderIds: { Imdb: "42" } },
+				};
+				const missing = yield* parseEmby(
+					payload,
+					lookupHost({ "/3/find/42?external_source=imdb_id": { tv_episode_results: [] } }, cache),
+				);
+				expect(missing.entityGroups).toEqual([]);
+				expect(missing.failures[0]?.stage).toBe("provider_resolution");
+				expect(cache.size).toBe(0);
+				const found = yield* parseEmby(
+					payload,
+					lookupHost(
+						{ "/3/find/42?external_source=imdb_id": { tv_episode_results: [{ show_id: 101 }] } },
+						cache,
+					),
+				);
+				expect(found.entityGroups[0]?.entityRef).toMatchObject({ externalId: "101" });
+				const other = yield* parseEmby(
+					{ ...payload, Item: { ...payload.Item, ProviderIds: { Tvdb: "42" } } },
+					lookupHost(
+						{ "/3/find/42?external_source=tvdb_id": { tv_episode_results: [{ show_id: 102 }] } },
+						cache,
+					),
+				);
+				expect(other.entityGroups[0]?.entityRef).toMatchObject({ externalId: "102" });
+			}),
+		testTimeout,
 	);
 
 	it.effect.each(["unique", "ambiguous", "mismatch", "wrong-series", "paginated"])(
@@ -244,83 +260,96 @@ describe("Emby episode show resolution", () => {
 					expect(result.failures[0]?.stage).toBe("provider_resolution");
 				}
 			}),
+		testTimeout,
 	);
 
-	it.effect("scopes name-only cache entries by episode identity", () =>
-		Effect.gen(function* () {
-			const cache = new Map<string, JsonValue>();
-			const payload = { ...episode, Item: { ...episode.Item, ProviderIds: {} } };
-			const found = yield* parseEmby(
-				payload,
-				lookupHost(
+	it.effect(
+		"scopes name-only cache entries by episode identity",
+		() =>
+			Effect.gen(function* () {
+				const cache = new Map<string, JsonValue>();
+				const payload = { ...episode, Item: { ...episode.Item, ProviderIds: {} } };
+				const found = yield* parseEmby(
+					payload,
+					lookupHost(
+						{
+							"/3/search/tv?query=Show": { results: [{ id: 101, name: "Show" }] },
+							"/3/tv/101/season/1": { episodes: [{ name: "Episode", episode_number: 2 }] },
+						},
+						cache,
+					),
+				);
+				expect(found.failures).toEqual([]);
+				const missing = yield* parseEmby(
+					{ ...payload, Item: { ...payload.Item, Name: "Other", IndexNumber: 3 } },
+					lookupHost({ "/3/search/tv?query=Show": { results: [] } }, cache),
+				);
+				expect(missing.entityGroups).toEqual([]);
+				expect(missing.failures[0]?.stage).toBe("provider_resolution");
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"reports lookup failures clearly",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* parseEmby(episode);
+				expect(result.entityGroups).toEqual([]);
+				expect(result.failures).toEqual([
 					{
-						"/3/search/tv?query=Show": { results: [{ id: 101, name: "Show" }] },
-						"/3/tv/101/season/1": { episodes: [{ name: "Episode", episode_number: 2 }] },
+						itemIndex: 0,
+						stage: "provider_resolution",
+						message: "Could not look up Emby episode on TMDB: Unexpected request",
 					},
-					cache,
-				),
-			);
-			expect(found.failures).toEqual([]);
-			const missing = yield* parseEmby(
-				{ ...payload, Item: { ...payload.Item, Name: "Other", IndexNumber: 3 } },
-				lookupHost({ "/3/search/tv?query=Show": { results: [] } }, cache),
-			);
-			expect(missing.entityGroups).toEqual([]);
-			expect(missing.failures[0]?.stage).toBe("provider_resolution");
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("reports lookup failures clearly", () =>
-		Effect.gen(function* () {
-			const result = yield* parseEmby(episode);
-			expect(result.entityGroups).toEqual([]);
-			expect(result.failures).toEqual([
-				{
-					itemIndex: 0,
-					stage: "provider_resolution",
-					message: "Could not look up Emby episode on TMDB: Unexpected request",
-				},
-			]);
-		}),
+	it.effect(
+		"reports insufficient episode identity without emitting a show",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* parseEmby({
+					...episode,
+					Item: { ...episode.Item, SeriesName: "", ProviderIds: {} },
+				});
+				expect(result.entityGroups).toEqual([]);
+				expect(result.failures[0]?.stage).toBe("provider_resolution");
+			}),
+		testTimeout,
 	);
 
-	it.effect("reports insufficient episode identity without emitting a show", () =>
-		Effect.gen(function* () {
-			const result = yield* parseEmby({
-				...episode,
-				Item: { ...episode.Item, SeriesName: "", ProviderIds: {} },
-			});
-			expect(result.entityGroups).toEqual([]);
-			expect(result.failures[0]?.stage).toBe("provider_resolution");
-		}),
-	);
-
-	it.effect("preserves Emby movie and unofficial Jellyfin episode behavior without lookups", () =>
-		Effect.gen(function* () {
-			const requests: string[] = [];
-			const host = lookupHost({}, undefined, requests);
-			const movie = yield* parseEmby(
-				{ ...episode, Item: { ...episode.Item, Type: "Movie", ProviderIds: { Tmdb: "42" } } },
-				host,
-			);
-			const jellyfin = yield* parseMediaServer(
-				"Jellyfin",
-				yield* encodeJson(episode),
-				{},
-				occurredAt,
-				(value, provider) => findJellyfinShow(value, provider, host),
-			);
-			expect(movie.failures).toEqual([]);
-			expect(movie.entityGroups[0]?.entityRef).toMatchObject({
-				externalId: "42",
-				providerSlug: "movie.tmdb",
-			});
-			expect(jellyfin.failures).toEqual([]);
-			expect(jellyfin.entityGroups[0]?.entityRef).toMatchObject({
-				externalId: "episode-42",
-				providerSlug: "show.tmdb",
-			});
-			expect(requests).toEqual([]);
-		}),
+	it.effect(
+		"preserves Emby movie and unofficial Jellyfin episode behavior without lookups",
+		() =>
+			Effect.gen(function* () {
+				const requests: string[] = [];
+				const host = lookupHost({}, undefined, requests);
+				const movie = yield* parseEmby(
+					{ ...episode, Item: { ...episode.Item, Type: "Movie", ProviderIds: { Tmdb: "42" } } },
+					host,
+				);
+				const jellyfin = yield* parseMediaServer(
+					"Jellyfin",
+					yield* encodeJson(episode),
+					{},
+					occurredAt,
+					(value, provider) => findJellyfinShow(value, provider, host),
+				);
+				expect(movie.failures).toEqual([]);
+				expect(movie.entityGroups[0]?.entityRef).toMatchObject({
+					externalId: "42",
+					providerSlug: "movie.tmdb",
+				});
+				expect(jellyfin.failures).toEqual([]);
+				expect(jellyfin.entityGroups[0]?.entityRef).toMatchObject({
+					externalId: "episode-42",
+					providerSlug: "show.tmdb",
+				});
+				expect(requests).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxScriptMetadata } from "@ryot-app/contract/modules/scripts/schemas";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { pluginBackendCompilerPlatformLayer } from "./compiler-platform";
@@ -26,54 +29,62 @@ export default defineScript({
 `;
 
 it.layer(pluginBackendCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
-	test.effect("runtime_import_facts_match_emitted_module_audit", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compilePluginSandboxSourceEntries(
-				{
-					"alias.sandbox.ts": script(
-						"alias",
-						'import { Schema as PluginSchema } from "@ryot-app/plugin-kit/effect";',
-						"Effect.succeed(PluginSchema === Schema)",
-					),
-					"forms.sandbox.ts": script(
-						"forms",
-						'import type { load } from "@ryot-app/plugin-backend-sdk/cheerio";',
-						"Effect.succeed(null)",
-						'export { gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";\nexport type Loader = typeof load;',
-					),
-				},
-				[
-					{ kind: "script", entry: "alias.sandbox.ts" },
-					{ kind: "script", entry: "forms.sandbox.ts" },
-				],
-			);
-			expect(
-				Object.fromEntries(
-					compiled.map(({ entry, compiled: module }) => [entry, module.manifest.runtimeImports]),
-				),
-			).toEqual({
-				"alias.sandbox.ts": ["@ryot-app/plugin-backend-sdk/effect", "@ryot-app/plugin-kit/effect"],
-				"forms.sandbox.ts": [
-					"@ryot-app/plugin-backend-sdk/effect",
-					"@ryot-app/plugin-backend-sdk/fflate",
-				],
-			});
-			const dynamic = yield* Effect.flip(
-				compilePluginSandboxSourceEntries(
+	test.effect(
+		"runtime_import_facts_match_emitted_module_audit",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compilePluginSandboxSourceEntries(
 					{
-						"dynamic.sandbox.ts": script(
-							"dynamic",
-							"",
-							'Effect.promise(() => import(["@ryot-app/plugin-backend-sdk", "papaparse"].join("/")))',
+						"alias.sandbox.ts": script(
+							"alias",
+							'import { Schema as PluginSchema } from "@ryot-app/plugin-kit/effect";',
+							"Effect.succeed(PluginSchema === Schema)",
+						),
+						"forms.sandbox.ts": script(
+							"forms",
+							'import type { load } from "@ryot-app/plugin-backend-sdk/cheerio";',
+							"Effect.succeed(null)",
+							'export { gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";\nexport type Loader = typeof load;',
 						),
 					},
-					[{ kind: "script", entry: "dynamic.sandbox.ts" }],
-				),
-			);
-			expect(dynamic).toMatchObject({
-				diagnostics: [objectContaining({ message: "Dynamic imports are not allowed" })],
-			});
-		}),
+					[
+						{ kind: "script", entry: "alias.sandbox.ts" },
+						{ kind: "script", entry: "forms.sandbox.ts" },
+					],
+				);
+				expect(
+					Object.fromEntries(
+						compiled.map(({ entry, compiled: module }) => [entry, module.manifest.runtimeImports]),
+					),
+				).toEqual({
+					"alias.sandbox.ts": [
+						"@ryot-app/plugin-backend-sdk/effect",
+						"@ryot-app/plugin-kit/effect",
+					],
+					"forms.sandbox.ts": [
+						"@ryot-app/plugin-backend-sdk/effect",
+						"@ryot-app/plugin-backend-sdk/fflate",
+					],
+				});
+				const dynamic = yield* Effect.flip(
+					compilePluginSandboxSourceEntries(
+						{
+							"dynamic.sandbox.ts": script(
+								"dynamic",
+								"",
+								'Effect.promise(() => import(["@ryot-app/plugin-backend-sdk", "papaparse"].join("/")))',
+							),
+						},
+						[{ kind: "script", entry: "dynamic.sandbox.ts" }],
+					),
+				);
+				expect(dynamic).toEqual<unknown>(
+					objectContaining({
+						diagnostics: [objectContaining({ message: "Dynamic imports are not allowed" })],
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -113,13 +124,16 @@ it.layer(pluginBackendCompilerPlatformLayer)("plugin sandbox compilation", (test
 				expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual([]);
 				expect(first[0]?.compiled.manifest.capabilities).toEqual([]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("rejects runtime import facts authored through defineManifest", () =>
-		Effect.gen(function* () {
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{
-					"entry.sandbox.ts": `
+	test.effect(
+		"rejects runtime import facts authored through defineManifest",
+		() =>
+			Effect.gen(function* () {
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{
+						"entry.sandbox.ts": `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -137,16 +151,19 @@ export default defineScript({
   run: () => Effect.succeed(null),
 });
 `,
-				},
-				[{ kind: "script", entry: "entry.sandbox.ts" }],
-			).pipe(Effect.flip);
-			expect(failure.diagnostics.some(({ code }) => code === "TS2322")).toBe(true);
-		}),
+					},
+					[{ kind: "script", entry: "entry.sandbox.ts" }],
+				).pipe(Effect.flip);
+				expect(failure.diagnostics.some(({ code }) => code === "TS2322")).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	test.effect("compiles direct operation, workflow, and automation declarations", () =>
-		Effect.gen(function* () {
-			const operation = `
+	test.effect(
+		"compiles direct operation, workflow, and automation declarations",
+		() =>
+			Effect.gen(function* () {
+				const operation = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -164,7 +181,7 @@ export default defineOperation({
 	run: () => Effect.die("unused"),
 });
 `;
-			const automation = `
+				const automation = `
 import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
@@ -182,7 +199,7 @@ export default defineAutomation({
 	run: () => Effect.die("unused"),
 });
 `;
-			const workflow = `
+				const workflow = `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
@@ -198,54 +215,59 @@ export default defineWorkflow({
 	run: () => Effect.succeed("unused"),
 });
 `;
-			const compiled = yield* compilePluginSandboxSourceEntries(
-				{
-					"workflow.sandbox.ts": workflow,
-					"operation.sandbox.ts": operation,
-					"automation.sandbox.ts": automation,
-				},
-				[
-					{ kind: "operation", entry: "operation.sandbox.ts" },
-					{ kind: "automation", entry: "automation.sandbox.ts" },
-					{ kind: "workflow", entry: "workflow.sandbox.ts" },
-				],
-			);
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{
+						"workflow.sandbox.ts": workflow,
+						"operation.sandbox.ts": operation,
+						"automation.sandbox.ts": automation,
+					},
+					[
+						{ kind: "operation", entry: "operation.sandbox.ts" },
+						{ kind: "automation", entry: "automation.sandbox.ts" },
+						{ kind: "workflow", entry: "workflow.sandbox.ts" },
+					],
+				);
 
-			expect(compiled.map(({ compiled: { manifest } }) => manifest.kind)).toEqual([
-				"automation",
-				"operation",
-				"workflow",
-			]);
-			expect(compiled[0]?.compiled.manifest).toMatchObject({
-				capabilities: [],
-				inputProjection: { event: { properties: [], compareProperties: [] } },
-			});
-			const workflowBundle = compiled.find(({ entry }) => entry === "workflow.sandbox.ts");
-			expect(workflowBundle).toBeDefined();
-			const javascript = workflowBundle?.compiled.javascript ?? "";
-			const importedSchemaBindings = new Set(
-				Array.from(
-					javascript.matchAll(
-						/import\s*\{([^}]*)\}\s*from\s*["'](?:@ryot-app\/plugin-backend-sdk\/effect|effect)["'];/g,
+				expect(compiled.map(({ compiled: { manifest } }) => manifest.kind)).toEqual([
+					"automation",
+					"operation",
+					"workflow",
+				]);
+				expect(compiled[0]?.compiled.manifest).toMatchObject({
+					capabilities: [],
+					inputProjection: { event: { properties: [], compareProperties: [] } },
+				});
+				const workflowBundle = compiled.find(({ entry }) => entry === "workflow.sandbox.ts");
+				expect(workflowBundle).toBeDefined();
+				const javascript = workflowBundle?.compiled.javascript ?? "";
+				const importedSchemaBindings = new Set(
+					Array.from(
+						javascript.matchAll(
+							/import\s*\{([^}]*)\}\s*from\s*["'](?:@ryot-app\/plugin-backend-sdk\/effect|effect)["'];/g,
+						),
+					).flatMap(([, bindings = ""]) =>
+						bindings.split(",").flatMap((binding) => {
+							const [imported, local = imported] = binding.trim().split(/\s+as\s+/);
+							return imported === "Schema" && local ? [local] : [];
+						}),
 					),
-				).flatMap(([, bindings = ""]) =>
-					bindings.split(",").flatMap((binding) => {
-						const [imported, local = imported] = binding.trim().split(/\s+as\s+/);
-						return imported === "Schema" && local ? [local] : [];
-					}),
-				),
-			);
-			const usedSchemaBindings = Array.from(javascript.matchAll(/\b(Schema\d*)\s*\./g)).flatMap(
-				([, binding]) => (binding ? [binding] : []),
-			);
-			expect(usedSchemaBindings.length).toBeGreaterThan(0);
-			expect(usedSchemaBindings.every((binding) => importedSchemaBindings.has(binding))).toBe(true);
-		}),
+				);
+				const usedSchemaBindings = Array.from(javascript.matchAll(/\b(Schema\d*)\s*\./g)).flatMap(
+					([, binding]) => (binding ? [binding] : []),
+				);
+				expect(usedSchemaBindings.length).toBeGreaterThan(0);
+				expect(usedSchemaBindings.every((binding) => importedSchemaBindings.has(binding))).toBe(
+					true,
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects ambient nondeterminism in workflow-reachable source", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"rejects ambient nondeterminism in workflow-reachable source",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { nondeterministic } from "./shared";
 
@@ -272,29 +294,34 @@ export default defineWorkflow({
 	},
 });
 `;
-			const shared = `
+				const shared = `
 export const nondeterministic = () => globalThis.Math.random();
 `;
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{ "shared.ts": shared, "workflow.sandbox.ts": source },
-				[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
-			).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "shared.ts": shared, "workflow.sandbox.ts": source },
+					[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toHaveLength(8);
-			expect(failure.diagnostics.every(({ code }) => code === "RYOT_WORKFLOW_DETERMINISM")).toBe(
-				true,
-			);
-			expect(failure.diagnostics.map(({ message }) => message).join("\n")).toContain("Date.now");
-			expect(failure.diagnostics.map(({ message }) => message).join("\n")).toContain("Math.random");
-			expect(failure.diagnostics.map(({ message }) => message).join("\n")).toContain(
-				"crypto.randomUUID",
-			);
-		}),
+				expect(failure.diagnostics).toHaveLength(8);
+				expect(failure.diagnostics.every(({ code }) => code === "RYOT_WORKFLOW_DETERMINISM")).toBe(
+					true,
+				);
+				expect(failure.diagnostics.map(({ message }) => message).join("\n")).toContain("Date.now");
+				expect(failure.diagnostics.map(({ message }) => message).join("\n")).toContain(
+					"Math.random",
+				);
+				expect(failure.diagnostics.map(({ message }) => message).join("\n")).toContain(
+					"crypto.randomUUID",
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("accepts deterministic workflow date parsing and inert nondeterministic text", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"accepts deterministic workflow date parsing and inert nondeterministic text",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
@@ -319,17 +346,21 @@ export default defineWorkflow({
 	},
 });
 `;
-			const compiled = yield* compilePluginSandboxSourceEntries({ "workflow.sandbox.ts": source }, [
-				{ kind: "workflow", entry: "workflow.sandbox.ts" },
-			]);
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{ "workflow.sandbox.ts": source },
+					[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
+				);
 
-			expect(compiled[0]?.compiled.manifest.kind).toBe("workflow");
-		}),
+				expect(compiled[0]?.compiled.manifest.kind).toBe("workflow");
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects unrestricted Effect imports in workflow-reachable source", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"rejects unrestricted Effect imports in workflow-reachable source",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { nondeterministic } from "./shared";
 
@@ -346,22 +377,23 @@ export default defineWorkflow({
 	run: () => Effect.succeed(nondeterministic),
 });
 `;
-			const shared = `
+				const shared = `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const nondeterministic = typeof Effect.clockWith;
 `;
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{ "shared.ts": shared, "workflow.sandbox.ts": source },
-				[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
-			).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "shared.ts": shared, "workflow.sandbox.ts": source },
+					[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_WORKFLOW_DETERMINISM",
-					message: stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
-				}),
-			]);
-		}),
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_WORKFLOW_DETERMINISM",
+						message: stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 
 	// The rule matches the module specifier alone, never the imported bindings, so namespace and
@@ -382,9 +414,11 @@ export * from "@ryot-app/plugin-backend-sdk/effect";
 export const nondeterministic = "";
 `,
 		},
-	])("rejects $label access to unrestricted Effect in workflow-reachable source", ({ shared }) =>
-		Effect.gen(function* () {
-			const source = `
+	])(
+		"rejects $label access to unrestricted Effect in workflow-reachable source",
+		({ shared }) =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { nondeterministic } from "./shared";
 
@@ -401,23 +435,26 @@ export default defineWorkflow({
 	run: () => Effect.succeed(nondeterministic),
 });
 `;
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{ "shared.ts": shared, "workflow.sandbox.ts": source },
-				[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
-			).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "shared.ts": shared, "workflow.sandbox.ts": source },
+					[{ kind: "workflow", entry: "workflow.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_WORKFLOW_DETERMINISM",
-					message: stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
-				}),
-			]);
-		}),
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_WORKFLOW_DETERMINISM",
+						message: stringContaining("@ryot-app/plugin-backend-sdk/workflow"),
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects workflow helpers that differ from the plugin declaration", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"rejects workflow helpers that differ from the plugin declaration",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -435,22 +472,25 @@ export default defineOperation({
 	run: () => Effect.die("unused"),
 });
 `;
-			const failure = yield* compilePluginSandboxSourceEntries({ "entry.sandbox.ts": source }, [
-				{ kind: "workflow", entry: "entry.sandbox.ts" },
-			]).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries({ "entry.sandbox.ts": source }, [
+					{ kind: "workflow", entry: "entry.sandbox.ts" },
+				]).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_DEFINITION",
-					message: 'Plugin declaration kind "workflow" must use the matching definition helper',
-				}),
-			]);
-		}),
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEFINITION",
+						message: 'Plugin declaration kind "workflow" must use the matching definition helper',
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a provider operation that differs from its plugin declaration", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"rejects a provider operation that differs from its plugin declaration",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
@@ -467,23 +507,27 @@ export default defineProvider({
 	run: () => Effect.die("unused"),
 });
 `;
-			const failure = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [
-				{ kind: "provider", providerOperation: "search", entry: "provider.sandbox.ts" },
-			]).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "provider.sandbox.ts": source },
+					[{ kind: "provider", providerOperation: "search", entry: "provider.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_DEFINITION",
-					message:
-						'Provider definition operation "details" does not match plugin declaration "search"',
-				}),
-			]);
-		}),
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEFINITION",
+						message:
+							'Provider definition operation "details" does not match plugin declaration "search"',
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("accepts the related provider operation", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"accepts the related provider operation",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
@@ -500,17 +544,21 @@ export default defineProvider({
 	run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }),
 });
 `;
-			const compiled = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [
-				{ kind: "provider", providerOperation: "related", entry: "provider.sandbox.ts" },
-			]);
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{ "provider.sandbox.ts": source },
+					[{ kind: "provider", providerOperation: "related", entry: "provider.sandbox.ts" }],
+				);
 
-			expect(compiled[0]?.compiled.manifest.kind).toBe("provider");
-		}),
+				expect(compiled[0]?.compiled.manifest.kind).toBe("provider");
+			}),
+		testTimeout,
 	);
 
-	test.effect("preserves provider search options metadata", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"preserves provider search options metadata",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
@@ -537,30 +585,34 @@ export default defineProvider({
 	run: () => Effect.die("unused"),
 });
 `;
-			const compiled = yield* compilePluginSandboxSourceEntries({ "provider.sandbox.ts": source }, [
-				{ kind: "provider", providerOperation: "search", entry: "provider.sandbox.ts" },
-			]);
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{ "provider.sandbox.ts": source },
+					[{ kind: "provider", providerOperation: "search", entry: "provider.sandbox.ts" }],
+				);
 
-			const compiledManifest = compiled[0]?.compiled.manifest;
-			if (compiledManifest?.kind !== "provider") {
-				throw new Error("Expected a compiled provider manifest");
-			}
-			expect(compiledManifest.searchOptionsSchema).toEqual({
-				unknownKeys: "strict",
-				fields: {
-					passRawQuery: {
-						type: "boolean",
-						label: "Pass raw query",
-						description: "Pass the query without modification",
+				const compiledManifest = compiled[0]?.compiled.manifest;
+				if (compiledManifest?.kind !== "provider") {
+					throw new Error("Expected a compiled provider manifest");
+				}
+				expect(compiledManifest.searchOptionsSchema).toEqual({
+					unknownKeys: "strict",
+					fields: {
+						passRawQuery: {
+							type: "boolean",
+							label: "Pass raw query",
+							description: "Pass the query without modification",
+						},
 					},
-				},
-			});
-		}),
+				});
+			}),
+		testTimeout,
 	);
 
-	test.effect("preserves selected translation schemas and fields in generated metadata", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"preserves selected translation schemas and fields in generated metadata",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
@@ -570,33 +622,36 @@ export const manifest = defineManifest({
 });
 export default defineProvider({ manifest, operation: "translate", run: () => Effect.succeed({}) });
 `;
-			const [compiled] = yield* derivePluginSandboxScripts({
-				"backend/providers/record/catalog/translate.sandbox.ts": source,
-			});
-			expect(compiled?.compiled.manifest).toMatchObject({
-				translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
-			});
-			if (!compiled) {
-				throw new Error("Expected a compiled translation");
-			}
-			expect(declaredScriptMetadata(compiled.script)).toMatchObject({
-				providerSlug: "record.catalog",
-				providerOperation: "translate",
-				translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
-			});
-			const storedMetadata = yield* Schema.decodeEffect(SandboxScriptMetadata)(
-				declaredScriptMetadata(compiled.script),
-			);
-			expect(storedMetadata).toMatchObject({
-				translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
-			});
-		}),
+				const [compiled] = yield* derivePluginSandboxScripts({
+					"backend/providers/record/catalog/translate.sandbox.ts": source,
+				});
+				expect(compiled?.compiled.manifest).toMatchObject({
+					translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+				});
+				if (!compiled) {
+					throw new Error("Expected a compiled translation");
+				}
+				expect(declaredScriptMetadata(compiled.script)).toMatchObject({
+					providerSlug: "record.catalog",
+					providerOperation: "translate",
+					translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+				});
+				const storedMetadata = yield* Schema.decodeEffect(SandboxScriptMetadata)(
+					declaredScriptMetadata(compiled.script),
+				);
+				expect(storedMetadata).toMatchObject({
+					translationInputs: { record: [], "record-part": ["parentExternalId", "position"] },
+				});
+			}),
+		testTimeout,
 	);
 
 	for (const operation of ["details", "translate"] as const) {
-		test.effect(`rejects ${operation} with invalid translation selection ownership`, () =>
-			Effect.gen(function* () {
-				const source = `
+		test.effect(
+			`rejects ${operation} with invalid translation selection ownership`,
+			() =>
+				Effect.gen(function* () {
+					const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
@@ -606,23 +661,26 @@ export const manifest = defineManifest({
 });
 export default defineProvider({ manifest, operation: "${operation}", run: () => Effect.die("unused") });
 `;
-				const failure = yield* compilePluginSandboxSourceEntries(
-					{ "provider.sandbox.ts": source },
-					[{ kind: "provider", providerOperation: operation, entry: "provider.sandbox.ts" }],
-				).pipe(Effect.flip);
-				expect(failure.diagnostics).toEqual([
-					objectContaining({
-						code: "RYOT_MANIFEST",
-						message: "Only translate providers must declare translationInputs",
-					}),
-				]);
-			}),
+					const failure = yield* compilePluginSandboxSourceEntries(
+						{ "provider.sandbox.ts": source },
+						[{ kind: "provider", providerOperation: operation, entry: "provider.sandbox.ts" }],
+					).pipe(Effect.flip);
+					expect(failure.diagnostics).toEqual<unknown>([
+						objectContaining({
+							code: "RYOT_MANIFEST",
+							message: "Only translate providers must declare translationInputs",
+						}),
+					]);
+				}),
+			testTimeout,
 		);
 	}
 
-	test.effect("rejects obsolete multi-driver definitions with a clear diagnostic", () =>
-		Effect.gen(function* () {
-			const source = `
+	test.effect(
+		"rejects obsolete multi-driver definitions with a clear diagnostic",
+		() =>
+			Effect.gen(function* () {
+				const source = `
 import { defineDriver, defineManifest, defineOperation } from "@ryot-app/plugin-backend-sdk/driver";
 
 export const manifest = defineManifest({
@@ -634,28 +692,31 @@ export const manifest = defineManifest({
 const main = defineDriver(manifest, {});
 export default defineOperation({ manifest, drivers: { main } });
 `;
-			const failure = yield* compilePluginSandboxSourceEntries({ "old.sandbox.ts": source }, [
-				{ kind: "operation", entry: "old.sandbox.ts" },
-			]).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries({ "old.sandbox.ts": source }, [
+					{ kind: "operation", entry: "old.sandbox.ts" },
+				]).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_DEFINITION",
-					message: "defineDriver is obsolete; export one direct definition helper call instead",
-				}),
-			]);
-		}),
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEFINITION",
+						message: "defineDriver is obsolete; export one direct definition helper call instead",
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a manifest value that is an imported identifier", () =>
-		Effect.gen(function* () {
-			const shared = `
+	test.effect(
+		"rejects a manifest value that is an imported identifier",
+		() =>
+			Effect.gen(function* () {
+				const shared = `
 export const TYPE_CHOICES = [
 	{ value: "bug", label: "Bug" },
 	{ value: "dark", label: "Dark" },
 ] as const;
 `;
-			const source = `
+				const source = `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
@@ -685,19 +746,20 @@ export default defineProvider({
 	run: () => Effect.die("unused"),
 });
 `;
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{ "shared.ts": shared, "move-search.sandbox.ts": source },
-				[{ kind: "provider", providerOperation: "search", entry: "move-search.sandbox.ts" }],
-			).pipe(Effect.flip);
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "shared.ts": shared, "move-search.sandbox.ts": source },
+					[{ kind: "provider", providerOperation: "search", entry: "move-search.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_MANIFEST",
-					file: "move-search.sandbox.ts",
-					message: "Manifest values must be JSON-safe literals",
-				}),
-			]);
-		}),
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_MANIFEST",
+						file: "move-search.sandbox.ts",
+						message: "Manifest values must be JSON-safe literals",
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 
 	const sharedRootScript = `
@@ -722,12 +784,14 @@ export default defineOperation({
 });
 `;
 
-	test.effect("compiles a backend entry that imports a shared source", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compilePluginSandboxSourceEntries(
-				{
-					"backend/operation.sandbox.ts": sharedRootScript,
-					"shared/row.ts": `
+	test.effect(
+		"compiles a backend entry that imports a shared source",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{
+						"backend/operation.sandbox.ts": sharedRootScript,
+						"shared/row.ts": `
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { IsoDateString } from "@ryot-app/plugin-kit/ryotql";
 import { EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
@@ -735,36 +799,39 @@ import { EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 export const Row = Schema.Struct({ at: IsoDateString, slug: EntitySchemaSlug });
 export const rowSlug = "shared-row";
 `,
-				},
-				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
-			);
+					},
+					[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+				);
 
-			const javascript = compiled[0]?.compiled.javascript ?? "";
-			expect(javascript).toContain("shared-row");
-			expect(javascript).toContain('from "@ryot-app/plugin-kit/ryotql"');
-			expect(javascript).not.toContain('from "../shared/row"');
-			expect(compiled[0]?.compiled.manifest.runtimeImports).toContain(
-				"@ryot-app/plugin-kit/ryotql",
-			);
-			expect(compiled[0]?.compiled.manifest.runtimeImports).toEqual([
-				"@ryot-app/plugin-backend-sdk/effect",
-				"@ryot-app/plugin-kit/effect",
-				"@ryot-app/plugin-kit/ryotql",
-				"effect",
-			]);
-		}),
+				const javascript = compiled[0]?.compiled.javascript ?? "";
+				expect(javascript).toContain("shared-row");
+				expect(javascript).toContain('from "@ryot-app/plugin-kit/ryotql"');
+				expect(javascript).not.toContain('from "../shared/row"');
+				expect(compiled[0]?.compiled.manifest.runtimeImports).toContain(
+					"@ryot-app/plugin-kit/ryotql",
+				);
+				expect(compiled[0]?.compiled.manifest.runtimeImports).toEqual([
+					"@ryot-app/plugin-backend-sdk/effect",
+					"@ryot-app/plugin-kit/effect",
+					"@ryot-app/plugin-kit/ryotql",
+					"effect",
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("compiles shared sources that import the neutral compression shim", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compilePluginSandboxSourceEntries(
-				{
-					"shared/compression.ts": `
+	test.effect(
+		"compiles shared sources that import the neutral compression shim",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{
+						"shared/compression.ts": `
 import { deflateSync, inflateSync } from "@ryot-app/plugin-kit/compression";
 
 export const compressionAvailable = [deflateSync, inflateSync].length === 2;
 `,
-					"backend/operation.sandbox.ts": `
+						"backend/operation.sandbox.ts": `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -780,29 +847,32 @@ export default defineOperation({
 	run: () => Effect.succeed(compressionAvailable),
 });
 `,
-				},
-				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
-			);
+					},
+					[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+				);
 
-			expect(compiled[0]?.compiled.manifest.runtimeImports).toContain(
-				"@ryot-app/plugin-kit/compression",
-			);
-		}),
+				expect(compiled[0]?.compiled.manifest.runtimeImports).toContain(
+					"@ryot-app/plugin-kit/compression",
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("compiles shared record normalization imported by a backend entry", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compilePluginSandboxSourceEntries(
-				{
-					"shared/measure-kinds.ts": 'export type MeasureKind = "reps";',
-					"shared/record-logs.ts": `
+	test.effect(
+		"compiles shared record normalization imported by a backend entry",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{
+						"shared/measure-kinds.ts": 'export type MeasureKind = "reps";',
+						"shared/record-logs.ts": `
 import { roundHalfUp } from "@ryot-app/plugin-kit/schema";
 import type { MeasureKind } from "./measure-kinds";
 
 export const normalizeRecordMeasurement = (kind: MeasureKind, value: number) =>
 	kind === "reps" ? roundHalfUp(value, 2) : value;
 `,
-					"backend/operation.sandbox.ts": `
+						"backend/operation.sandbox.ts": `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
@@ -823,80 +893,90 @@ export default defineOperation({
 	run: () => Effect.succeed(normalizeRecordMeasurement("reps", 1.23456)),
 });
 `,
-				},
-				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
-			);
+					},
+					[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+				);
 
-			const javascript = compiled[0]?.compiled.javascript ?? "";
-			expect(javascript).toContain("Number.EPSILON");
-			expect(javascript).not.toContain('from "../shared/record-logs"');
-			expect(javascript).not.toContain('from "./measure-kinds"');
-		}),
+				const javascript = compiled[0]?.compiled.javascript ?? "";
+				expect(javascript).toContain("Number.EPSILON");
+				expect(javascript).not.toContain('from "../shared/record-logs"');
+				expect(javascript).not.toContain('from "./measure-kinds"');
+			}),
+		testTimeout,
 	);
 
-	test.effect("resolves extensionless, JavaScript-to-TypeScript, and type-only local imports", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compilePluginSandboxSourceEntries(
-				{
-					"shared/types.ts": "export type Label = string;",
-					"shared/row.ts": 'export const rowSlug = "resolved-local-import";',
-					"backend/operation.sandbox.ts": sharedRootScript
-						.replace(
-							'import { rowSlug } from "../shared/row";',
-							'import type { Label } from "../shared/types";\nimport { rowSlug } from "../shared/row.js";\nconst checked: Label = rowSlug;',
-						)
-						.replace("Effect.succeed(rowSlug)", "Effect.succeed(checked)"),
-				},
-				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
-			);
+	test.effect(
+		"resolves extensionless, JavaScript-to-TypeScript, and type-only local imports",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{
+						"shared/types.ts": "export type Label = string;",
+						"shared/row.ts": 'export const rowSlug = "resolved-local-import";',
+						"backend/operation.sandbox.ts": sharedRootScript
+							.replace(
+								'import { rowSlug } from "../shared/row";',
+								'import type { Label } from "../shared/types";\nimport { rowSlug } from "../shared/row.js";\nconst checked: Label = rowSlug;',
+							)
+							.replace("Effect.succeed(rowSlug)", "Effect.succeed(checked)"),
+					},
+					[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+				);
 
-			const javascript = compiled[0]?.compiled.javascript ?? "";
-			expect(javascript).toContain("resolved-local-import");
-			expect(javascript).not.toContain("../shared/row.js");
-			expect(javascript).not.toContain("../shared/types");
-		}),
+				const javascript = compiled[0]?.compiled.javascript ?? "";
+				expect(javascript).toContain("resolved-local-import");
+				expect(javascript).not.toContain("../shared/row.js");
+				expect(javascript).not.toContain("../shared/types");
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a shared source that imports the sandbox SDK", () =>
-		Effect.gen(function* () {
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{
-					"backend/operation.sandbox.ts": sharedRootScript,
-					"shared/row.ts": `
+	test.effect(
+		"rejects a shared source that imports the sandbox SDK",
+		() =>
+			Effect.gen(function* () {
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{
+						"backend/operation.sandbox.ts": sharedRootScript,
+						"shared/row.ts": `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const rowSlug = "shared-row";
 `,
-				},
-				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
-			).pipe(Effect.flip);
+					},
+					[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toHaveLength(1);
-			expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
-			expect(failure.diagnostics[0]?.message).toContain("@ryot-app/plugin-backend-sdk/effect");
-			expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
-		}),
+				expect(failure.diagnostics).toHaveLength(1);
+				expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
+				expect(failure.diagnostics[0]?.message).toContain("@ryot-app/plugin-backend-sdk/effect");
+				expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a shared source that imports a backend source", () =>
-		Effect.gen(function* () {
-			const failure = yield* compilePluginSandboxSourceEntries(
-				{
-					"backend/operation.sandbox.ts": sharedRootScript,
-					"backend/label.ts": 'export const label = "backend-label";',
-					"shared/row.ts": `
+	test.effect(
+		"rejects a shared source that imports a backend source",
+		() =>
+			Effect.gen(function* () {
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{
+						"backend/operation.sandbox.ts": sharedRootScript,
+						"backend/label.ts": 'export const label = "backend-label";',
+						"shared/row.ts": `
 import { label } from "../backend/label";
 
 export const rowSlug = label;
 `,
-				},
-				[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
-			).pipe(Effect.flip);
+					},
+					[{ kind: "operation", entry: "backend/operation.sandbox.ts" }],
+				).pipe(Effect.flip);
 
-			expect(failure.diagnostics).toHaveLength(1);
-			expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
-			expect(failure.diagnostics[0]?.message).toContain("../backend/label");
-			expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
-		}),
+				expect(failure.diagnostics).toHaveLength(1);
+				expect(failure.diagnostics[0]?.code).toBe("RYOT_IMPORT");
+				expect(failure.diagnostics[0]?.message).toContain("../backend/label");
+				expect(failure.diagnostics[0]?.message).toContain("plugin shared sources");
+			}),
+		testTimeout,
 	);
 });

@@ -2,7 +2,7 @@ import { tmpdir } from "node:os";
 
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { Effect, Fiber, FileSystem, Layer, Path, Schema, Stream } from "effect";
+import { Config, Effect, Fiber, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
 import { Wait } from "testcontainers";
 
 export type StartedPostgresContainer = {
@@ -102,28 +102,25 @@ export const startPostgresContainer = (input: { label: string; maxConnections?: 
 export const stopPostgresContainer = (started?: StartedPostgresContainer) =>
 	Effect.runPromise(stopPostgresContainerEffect(started));
 
-export const postgresGlobalSetup =
-	(input: { label: string; maxConnections?: number }) =>
-	({ provide }: { provide: (key: "databaseUrl", value: string) => void }) => {
-		const running = process.env["TEST_DATABASE_URL"];
-		if (running) {
-			provide("databaseUrl", running);
-			return () => Promise.resolve();
-		}
-
-		return Effect.runPromise(
-			Effect.gen(function* () {
-				const postgres = yield* withPlatform(startPostgresContainerEffect(input)).pipe(
-					Effect.mapError((cause) =>
-						containerError(
-							`Could not start PostgreSQL for the ${input.label} suite. Start a container runtime (a non-default socket needs DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE in the package's .env, as in e2e/.env), or point TEST_DATABASE_URL at a running instance (bun run docker:up).`,
-							cause,
-						),
-					),
-				);
-				provide("databaseUrl", postgres.url);
-				yield* Effect.logInfo(`PostgreSQL logs: ${postgres.logPath}`);
-				return () => stopPostgresContainer(postgres);
-			}),
-		);
-	};
+export const postgresTestSetup = Effect.fn(function* (input: {
+	label: string;
+	maxConnections?: number;
+}) {
+	const running = yield* Config.String("TEST_DATABASE_URL").pipe(Config.option);
+	if (Option.isSome(running) && running.value.length > 0) {
+		return running.value;
+	}
+	const postgres = yield* Effect.acquireRelease(
+		withPlatform(startPostgresContainerEffect(input)).pipe(
+			Effect.mapError((cause) =>
+				containerError(
+					`Could not start PostgreSQL for the ${input.label} suite. Start a container runtime (a non-default socket needs DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE in the package's .env, as in e2e/.env), or point TEST_DATABASE_URL at a running instance (bun run docker:up).`,
+					cause,
+				),
+			),
+		),
+		(started) => stopPostgresContainerEffect(started).pipe(Effect.orDie),
+	);
+	yield* Effect.logInfo(`PostgreSQL logs: ${postgres.logPath}`);
+	return postgres.url;
+});

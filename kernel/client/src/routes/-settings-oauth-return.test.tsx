@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer, makeOAuthConnectionsApi } from "#/api/ports.test-layer";
@@ -118,65 +121,77 @@ const mountReturn = (
 };
 
 describe("OAuth connection return route", () => {
-	it.live("completes a captured connection exactly once across remounts", () =>
-		Effect.gen(function* () {
-			const mounted = mountReturn("#connection=connection-1&secret=secret-1");
-			expect(mounted.entry).toBe(RETURN_PATH);
+	it.live(
+		"completes a captured connection exactly once across remounts",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountReturn("#connection=connection-1&secret=secret-1");
+				expect(mounted.entry).toBe(RETURN_PATH);
 
-			yield* Effect.promise(() => screen.findByText("Connected — you can close this window."));
-			expect(mounted.completes).toEqual([
-				{ secret: "secret-1", connectionId: OAuthConnectionId.make("connection-1") },
-			]);
-			expect(mounted.closed).toEqual(["closed"]);
+				yield* Effect.promise(() => screen.findByText("Connected — you can close this window."));
+				expect(mounted.completes).toEqual([
+					{ secret: "secret-1", connectionId: OAuthConnectionId.make("connection-1") },
+				]);
+				expect(mounted.closed).toEqual(["closed"]);
 
-			yield* Effect.promise(() => mounted.router.navigate({ to: "/settings/about" }));
-			yield* Effect.promise(() => mounted.router.navigate({ to: RETURN_PATH }));
+				yield* Effect.promise(() => mounted.router.navigate({ to: "/settings/about" }));
+				yield* Effect.promise(() => mounted.router.navigate({ to: RETURN_PATH }));
 
-			yield* Effect.promise(() => screen.findByText("Nothing to connect"));
-			expect(mounted.completes).toHaveLength(1);
-			expect(mounted.closed).toEqual(["closed"]);
-		}),
+				yield* Effect.promise(() => screen.findByText("Nothing to connect"));
+				expect(mounted.completes).toHaveLength(1);
+				expect(mounted.closed).toEqual(["closed"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("shows a failed return without completing anything", () =>
-		Effect.gen(function* () {
-			const mounted = mountReturn("#connection=connection-1&status=failed");
+	it.live(
+		"shows a failed return without completing anything",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountReturn("#connection=connection-1&status=failed");
 
-			const alert = yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(alert.textContent).toBe(
-				"The account could not be connected. Close this window and try again.",
-			);
-			expect(screen.getByText("Couldn't connect")).toBeTruthy();
-			yield* Effect.promise(() => waitFor(() => expect(mounted.closed).toEqual(["closed"])));
-			expect(mounted.completes).toEqual([]);
-		}),
+				const alert = yield* Effect.promise(() => screen.findByRole("alert"));
+				expect(alert.textContent).toBe(
+					"The account could not be connected. Close this window and try again.",
+				);
+				expect(screen.getByText("Couldn't connect")).toBeTruthy();
+				yield* Effect.promise(() => waitFor(() => expect(mounted.closed).toEqual(["closed"])));
+				expect(mounted.completes).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("explains a visit without a captured return", () =>
-		Effect.gen(function* () {
-			const mounted = mountReturn("");
+	it.live(
+		"explains a visit without a captured return",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountReturn("");
 
-			yield* Effect.promise(() => screen.findByText("Nothing to connect"));
-			expect(mounted.completes).toEqual([]);
-			expect(mounted.closed).toEqual([]);
-		}),
+				yield* Effect.promise(() => screen.findByText("Nothing to connect"));
+				expect(mounted.completes).toEqual([]);
+				expect(mounted.closed).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("sends a signed-out return visit to sign-in without the secret", () =>
-		Effect.gen(function* () {
-			const destinations: unknown[] = [];
-			const mounted = mountReturn("#connection=connection-1&secret=secret-1", {
-				destinations,
-				auth: makeAuthStub({}, unauthenticated),
-			});
+	it.live(
+		"sends a signed-out return visit to sign-in without the secret",
+		() =>
+			Effect.gen(function* () {
+				const destinations: unknown[] = [];
+				const mounted = mountReturn("#connection=connection-1&secret=secret-1", {
+					destinations,
+					auth: makeAuthStub({}, unauthenticated),
+				});
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(mounted.router.state.location.pathname).toBe("/auth")),
-			);
-			expect(mounted.router.state.location.search).toEqual({ redirect: RETURN_PATH });
-			expect(mounted.router.state.location.href).not.toContain("secret");
-			expect(destinations).toEqual([RETURN_PATH]);
-			expect(mounted.completes).toEqual([]);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(mounted.router.state.location.pathname).toBe("/auth")),
+				);
+				expect(mounted.router.state.location.search).toEqual({ redirect: RETURN_PATH });
+				expect(mounted.router.state.location.href).not.toContain("secret");
+				expect(destinations).toEqual([RETURN_PATH]);
+				expect(mounted.completes).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

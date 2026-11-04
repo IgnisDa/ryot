@@ -1,4 +1,5 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
@@ -7,6 +8,9 @@ import {
 	type WorkflowReplayEnvelope,
 	type WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import workflow from "./import.sandbox";
@@ -33,7 +37,7 @@ it("declares all 17 source collectors and a distinct Trakt archive collector", (
 		"trakt",
 		"watcharr",
 	]) {
-		expect(selectExecutable(mediaSources, source).scriptSlug).toBe(`import.${source}`);
+		expect(selectExecutable(mediaSources, source).scriptSlug).toBe<unknown>(`import.${source}`);
 	}
 	expect(selectExecutable(mediaSources, "trakt-export").scriptSlug).toBe("import.trakt-export");
 });
@@ -150,4 +154,5 @@ it.live(
 				),
 			).toHaveLength(1);
 		}),
+	testTimeout,
 );

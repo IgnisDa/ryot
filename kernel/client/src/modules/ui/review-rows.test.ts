@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { describe, expect, it } from "vitest";
 
 import { schemaReviewRows } from "./review-rows";
 

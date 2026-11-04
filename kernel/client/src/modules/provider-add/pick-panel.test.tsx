@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { EntityPickPanel } from "#/modules/provider-add/pick-panel";
@@ -53,91 +56,110 @@ const renderPanel = ({
 	);
 
 describe("entity pick panel", () => {
-	it.live("lists visible entities for the query and selects one", () =>
-		Effect.gen(function* () {
-			const selected: EntityId[] = [];
-			const queries: string[] = [];
-			renderPanel({
-				selected,
-				providers: { providers: [], status: "ready" },
-				loadEntities: (input) => {
-					queries.push(input.query);
-					return Effect.succeed({
-						...emptyPage,
-						items: [{ name: "Biceps", id: EntityId.make("entity-biceps") }],
-					});
-				},
-			});
+	it.live(
+		"lists visible entities for the query and selects one",
+		() =>
+			Effect.gen(function* () {
+				const selected: EntityId[] = [];
+				const queries: string[] = [];
+				renderPanel({
+					selected,
+					providers: { providers: [], status: "ready" },
+					loadEntities: (input) => {
+						queries.push(input.query);
+						return Effect.succeed({
+							...emptyPage,
+							items: [{ name: "Biceps", id: EntityId.make("entity-biceps") }],
+						});
+					},
+				});
 
-			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Biceps" })));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Biceps" })),
+				);
 
-			expect(queries).toEqual(["ceps"]);
-			expect(selected).toEqual([EntityId.make("entity-biceps")]);
-			expect(screen.queryByRole("button", { name: /^Create/ })).toBeNull();
-		}),
+				expect(queries).toEqual(["ceps"]);
+				expect(selected).toEqual([EntityId.make("entity-biceps")]);
+				expect(screen.queryByRole("button", { name: /^Create/ })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("hides provider results that are already materialized", () =>
-		Effect.gen(function* () {
-			const lookups: unknown[] = [];
-			const searches: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				selected: [],
-				search: (payload) => {
-					searches.push(payload);
-					return Effect.succeed(searchResponse);
-				},
-				loadMaterialized: (input) => {
-					lookups.push(input);
-					return Effect.succeed(new Set(["biceps"]));
-				},
-			});
+	it.live(
+		"hides provider results that are already materialized",
+		() =>
+			Effect.gen(function* () {
+				const lookups: unknown[] = [];
+				const searches: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					selected: [],
+					search: (payload) => {
+						searches.push(payload);
+						return Effect.succeed(searchResponse);
+					},
+					loadMaterialized: (input) => {
+						lookups.push(input);
+						return Effect.succeed(new Set(["biceps"]));
+					},
+				});
 
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Triceps" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Add Triceps" }));
 
-			expect(screen.queryByText("Biceps")).toBeNull();
-			expect(searches).toMatchObject([{ page: 1, providerId, query: "ceps" }]);
-			expect(lookups).toContainEqual({ providerId, externalIds: ["biceps", "triceps"] });
-		}),
+				expect(screen.queryByText("Biceps")).toBeNull();
+				expect(searches).toMatchObject([{ page: 1, providerId, query: "ceps" }]);
+				expect(lookups).toContainEqual({ providerId, externalIds: ["biceps", "triceps"] });
+			}),
+		testTimeout,
 	);
 
-	it.live("imports a provider result and selects the imported entity", () =>
-		Effect.gen(function* () {
-			const selected: EntityId[] = [];
-			const imports: string[] = [];
-			renderPanel({
-				selected,
-				importEntity: (input) => {
-					imports.push(input.externalId);
-					return Effect.succeed({ status: "imported", entityId: EntityId.make("entity-triceps") });
-				},
-			});
+	it.live(
+		"imports a provider result and selects the imported entity",
+		() =>
+			Effect.gen(function* () {
+				const selected: EntityId[] = [];
+				const imports: string[] = [];
+				renderPanel({
+					selected,
+					importEntity: (input) => {
+						imports.push(input.externalId);
+						return Effect.succeed({
+							status: "imported",
+							entityId: EntityId.make("entity-triceps"),
+						});
+					},
+				});
 
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Add Triceps" })),
-			);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Add Triceps" })),
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(selected).toEqual([EntityId.make("entity-triceps")])),
-			);
-			expect(imports).toEqual(["triceps"]);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(selected).toEqual([EntityId.make("entity-triceps")])),
+				);
+				expect(imports).toEqual(["triceps"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("offers creation from the trimmed query only when a create handler is supplied", () =>
-		Effect.gen(function* () {
-			const created: string[] = [];
-			renderPanel({
-				selected: [],
-				initialQuery: "  Rotator Cuff ",
-				onCreate: (query) => created.push(query),
-			});
+	it.live(
+		"offers creation from the trimmed query only when a create handler is supplied",
+		() =>
+			Effect.gen(function* () {
+				const created: string[] = [];
+				renderPanel({
+					selected: [],
+					initialQuery: "  Rotator Cuff ",
+					onCreate: (query) => created.push(query),
+				});
 
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "Rotator Cuff"' })),
-			);
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						screen.findByRole("button", { name: 'Create "Rotator Cuff"' }),
+					),
+				);
 
-			expect(created).toEqual(["Rotator Cuff"]);
-		}),
+				expect(created).toEqual(["Rotator Cuff"]);
+			}),
+		testTimeout,
 	);
 });

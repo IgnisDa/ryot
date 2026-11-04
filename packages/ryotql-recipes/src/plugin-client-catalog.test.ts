@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { pluginClientCatalogRecipe } from "./plugin-client-catalog";
 import { requireRowsQuery, rowsResult } from "./test-utils";
@@ -56,7 +57,7 @@ describe("plugin client catalog recipe", () => {
 	});
 
 	it("decodes installations with their public client availability", () => {
-		expect(Result.getOrThrow(pluginClientCatalogRecipe().decode(response))).toEqual({
+		expect(Result.getOrThrow(pluginClientCatalogRecipe().decode(response))).toEqual<unknown>({
 			items: response.data.installations.items,
 			pageInfo: response.data.installations.pageInfo,
 		});
@@ -75,7 +76,7 @@ describe("plugin client catalog recipe", () => {
 			},
 		});
 
-		expect(Result.getOrThrow(decoded).items).toEqual([hidden, incompatible]);
+		expect(Result.getOrThrow(decoded).items).toEqual<unknown>([hidden, incompatible]);
 	});
 
 	it("rejects an unknown installation health", () => {

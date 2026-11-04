@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -47,19 +50,22 @@ const retryingWorkflowLayer = Layer.unwrap(
 );
 
 layer(retryingWorkflowLayer)((test) => {
-	test.effect("retries a failed bootstrap attempt and then succeeds", () =>
-		Effect.gen(function* () {
-			const workflow = yield* Effect.forkChild(
-				runUserBootstrapWorkflow(
-					{ userId, accountGeneration: { userId, token: "test-account-generation" } },
-					executionId,
-				),
-			);
-			yield* TestClock.adjust("1 second");
-			yield* Fiber.join(workflow);
-			const recorded = yield* RecordedBootstrapWorkflow;
+	test.effect(
+		"retries a failed bootstrap attempt and then succeeds",
+		() =>
+			Effect.gen(function* () {
+				const workflow = yield* Effect.forkChild(
+					runUserBootstrapWorkflow(
+						{ userId, accountGeneration: { userId, token: "test-account-generation" } },
+						executionId,
+					),
+				);
+				yield* TestClock.adjust("1 second");
+				yield* Fiber.join(workflow);
+				const recorded = yield* RecordedBootstrapWorkflow;
 
-			expect(yield* recorded.attempts).toBe(2);
-		}),
+				expect(yield* recorded.attempts).toBe(2);
+			}),
+		testTimeout,
 	);
 });

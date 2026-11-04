@@ -1,4 +1,5 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
@@ -7,6 +8,7 @@ import {
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import {
 	createMemoryHistory,
 	createRootRoute,
@@ -16,6 +18,7 @@ import {
 	RouterProvider,
 } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, ManagedRuntime } from "effect";
 import { StrictMode } from "react";
 
@@ -222,28 +225,34 @@ it.live(
 				yield* Effect.promise(view.dispose);
 			}
 		}),
+	testTimeout,
 );
 
-it.live("creates with a trimmed description and closes without writing when cancelled", () =>
-	Effect.gen(function* () {
-		const view = mountEditor();
-		try {
-			yield* Effect.promise(() => screen.findByRole("dialog", { name: "New collection" }));
-			fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-			expect(view.outcomes).toEqual(["closed"]);
-			expect(view.requests).toEqual([]);
-			fireEvent.change(screen.getByRole("textbox", { name: /^Description/ }), {
-				target: { value: " A description " },
-			});
-			fireEvent.click(screen.getByRole("button", { name: "Create collection" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.outcomes).toEqual(["closed", { saved: collectionId }])),
-			);
-			expect(view.requests).toEqual([{ fields: [], name: "Draft", description: "A description" }]);
-		} finally {
-			yield* Effect.promise(view.dispose);
-		}
-	}),
+it.live(
+	"creates with a trimmed description and closes without writing when cancelled",
+	() =>
+		Effect.gen(function* () {
+			const view = mountEditor();
+			try {
+				yield* Effect.promise(() => screen.findByRole("dialog", { name: "New collection" }));
+				fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+				expect(view.outcomes).toEqual(["closed"]);
+				expect(view.requests).toEqual([]);
+				fireEvent.change(screen.getByRole("textbox", { name: /^Description/ }), {
+					target: { value: " A description " },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Create collection" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.outcomes).toEqual(["closed", { saved: collectionId }])),
+				);
+				expect(view.requests).toEqual([
+					{ fields: [], name: "Draft", description: "A description" },
+				]);
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
 );
 
 for (const description of ["", " Updated description "]) {
@@ -282,6 +291,7 @@ for (const description of ["", " Updated description "]) {
 					yield* Effect.promise(view.dispose);
 				}
 			}),
+		testTimeout,
 	);
 }
 
@@ -314,27 +324,33 @@ const errors = [
 ];
 
 for (const { cause, message } of errors) {
-	it.live(`shows the detailed save error: ${message}`, () =>
-		Effect.gen(function* () {
-			const view = mountEditor({
-				existing: true,
-				api: { update: () => Effect.fail(new AuthenticatedApiError({ cause })) },
-			});
-			try {
-				yield* Effect.promise(() => screen.findByRole("dialog", { name: "Edit Favourites" }));
-				fireEvent.click(screen.getByRole("button", { name: "Save collection" }));
-				yield* Effect.promise(() => screen.findByText(message));
-				expect(screen.getByRole("textbox", { name: "Name" })).toHaveProperty("value", "Favourites");
-				expect(screen.getByRole("button", { name: "Save collection" }).matches(":disabled")).toBe(
-					false,
-				);
-				expect(view.outcomes).toEqual([]);
-				fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-				expect(view.outcomes).toEqual(["closed"]);
-			} finally {
-				yield* Effect.promise(view.dispose);
-			}
-		}),
+	it.live(
+		`shows the detailed save error: ${message}`,
+		() =>
+			Effect.gen(function* () {
+				const view = mountEditor({
+					existing: true,
+					api: { update: () => Effect.fail(new AuthenticatedApiError({ cause })) },
+				});
+				try {
+					yield* Effect.promise(() => screen.findByRole("dialog", { name: "Edit Favourites" }));
+					fireEvent.click(screen.getByRole("button", { name: "Save collection" }));
+					yield* Effect.promise(() => screen.findByText(message));
+					expect(screen.getByRole("textbox", { name: "Name" })).toHaveProperty(
+						"value",
+						"Favourites",
+					);
+					expect(screen.getByRole("button", { name: "Save collection" }).matches(":disabled")).toBe(
+						false,
+					);
+					expect(view.outcomes).toEqual([]);
+					fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+					expect(view.outcomes).toEqual(["closed"]);
+				} finally {
+					yield* Effect.promise(view.dispose);
+				}
+			}),
+		testTimeout,
 	);
 }
 
@@ -390,6 +406,7 @@ it.live(
 				yield* Effect.promise(view.dispose);
 			}
 		}),
+	testTimeout,
 );
 
 for (const action of ["create", "update", "delete"] as const) {
@@ -460,6 +477,7 @@ for (const action of ["create", "update", "delete"] as const) {
 						yield* Effect.promise(view.dispose);
 					}
 				}),
+			testTimeout,
 		);
 	}
 }

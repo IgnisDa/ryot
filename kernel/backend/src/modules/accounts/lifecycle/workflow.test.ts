@@ -1,9 +1,12 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { expect, layer } from "@effect/vitest";
 import { BadRequest, internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import type { SecureRandom } from "effect/crypto";
@@ -85,16 +88,19 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("deletes database ownership only after physical cleanup", () =>
-		Effect.gen(function* () {
-			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-			expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
-				"begin",
-				"objects",
-				"database",
-				"complete",
-			]);
-		}),
+	test.effect(
+		"deletes database ownership only after physical cleanup",
+		() =>
+			Effect.gen(function* () {
+				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+				expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+					"begin",
+					"objects",
+					"database",
+					"complete",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -121,16 +127,19 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("retries partial object cleanup before deleting the user", () =>
-		Effect.gen(function* () {
-			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-			expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
-				"objects-1",
-				"objects-2",
-				"database",
-				"complete",
-			]);
-		}),
+	test.effect(
+		"retries partial object cleanup before deleting the user",
+		() =>
+			Effect.gen(function* () {
+				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+				expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+					"objects-1",
+					"objects-2",
+					"database",
+					"complete",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -148,13 +157,16 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("persists a safe stage failure instead of the internal cause", () =>
-		Effect.gen(function* () {
-			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-			const persisted = (yield* (yield* RecordedWorkflowOperations).failures).at(-1);
-			expect(persisted).toEqual({ code: "operation-start-failed" });
-			expect(persisted).not.toHaveProperty("message");
-		}),
+	test.effect(
+		"persists a safe stage failure instead of the internal cause",
+		() =>
+			Effect.gen(function* () {
+				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+				const persisted = (yield* (yield* RecordedWorkflowOperations).failures).at(-1);
+				expect(persisted).toEqual({ code: "operation-start-failed" });
+				expect(persisted).not.toHaveProperty("message");
+			}),
+		testTimeout,
 	);
 });
 
@@ -177,18 +189,21 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("recreates the same reset identity after cleanup", () =>
-		Effect.gen(function* () {
-			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-			expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
-				"objects",
-				"database",
-				"recreate",
-				"bootstrap",
-				"finish",
-				"complete",
-			]);
-		}),
+	test.effect(
+		"recreates the same reset identity after cleanup",
+		() =>
+			Effect.gen(function* () {
+				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+				expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+					"objects",
+					"database",
+					"recreate",
+					"bootstrap",
+					"finish",
+					"complete",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -297,6 +312,7 @@ layer(
 					"permanent/s3.png",
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -390,34 +406,38 @@ const singleConnection = Layer.effect(DatabaseSession, DatabaseSession.make).pip
 
 layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentityLayer }))(
 	(test) => {
-		test.effect("keeps a recreated reset user disabled until completion", () => {
-			const bootstrapCompletedAt = new Date("2026-08-24T00:00:02.000Z");
-			return Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					db.execute(
-						sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
-					),
-				);
-				yield* session.run((db) =>
-					db.execute(
-						sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
-					),
-				);
-				const operations = yield* UserLifecycleWorkflowOperations;
-				expect(yield* operations.recreateResetUser("operation-1")).toBe(userId);
-				expect(yield* operations.finishResetUser("operation-1")).toEqual({
-					userId,
-					email: "user@example.com",
-					resetUrl: "https://example.com/reset",
+		test.effect(
+			"keeps a recreated reset user disabled until completion",
+			() => {
+				const bootstrapCompletedAt = new Date("2026-08-24T00:00:02.000Z");
+				return Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						db.execute(
+							sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
+						),
+					);
+					yield* session.run((db) =>
+						db.execute(
+							sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
+						),
+					);
+					const operations = yield* UserLifecycleWorkflowOperations;
+					expect(yield* operations.recreateResetUser("operation-1")).toBe(userId);
+					expect(yield* operations.finishResetUser("operation-1")).toEqual({
+						userId,
+						email: "user@example.com",
+						resetUrl: "https://example.com/reset",
+					});
+					expect(yield* (yield* RecordedResetIdentity).calls).toEqual([
+						"created-disabled",
+						"disabled",
+						"reset-link",
+					]);
 				});
-				expect(yield* (yield* RecordedResetIdentity).calls).toEqual([
-					"created-disabled",
-					"disabled",
-					"reset-link",
-				]);
-			});
-		});
+			},
+			testTimeout,
+		);
 	},
 );
 
@@ -449,16 +469,19 @@ const transactionProbeLayer = Layer.unwrap(
 
 layer(liveOperationsLayer({ database: databaseLayer, overrides: transactionProbeLayer }))(
 	(test) => {
-		test.effect("uses one database transaction for reset enablement and completion", () =>
-			Effect.gen(function* () {
-				const operations = yield* UserLifecycleWorkflowOperations;
-				yield* operations.complete("operation-1", {
-					userId,
-					email: "user@example.com",
-					resetUrl: "https://example.com/reset",
-				});
-				expect(yield* (yield* RecordedCompletionTransaction).usedTransaction).toBe(true);
-			}),
+		test.effect(
+			"uses one database transaction for reset enablement and completion",
+			() =>
+				Effect.gen(function* () {
+					const operations = yield* UserLifecycleWorkflowOperations;
+					yield* operations.complete("operation-1", {
+						userId,
+						email: "user@example.com",
+						resetUrl: "https://example.com/reset",
+					});
+					expect(yield* (yield* RecordedCompletionTransaction).usedTransaction).toBe(true);
+				}),
+			testTimeout,
 		);
 	},
 );

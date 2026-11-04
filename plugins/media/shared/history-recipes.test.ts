@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { castDate, literal } from "@ryot-app/plugin-kit/ryotql";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import {
 	flatCollectionAddedEventRow,
@@ -131,7 +132,10 @@ describe("complete activity history recipes", () => {
 				},
 			}),
 		);
-		expect(page.items.map(({ id }) => id)).toEqual(["z-collection", flatReviewEventRow.id]);
+		expect(page.items.map(({ id }) => id)).toEqual<unknown>([
+			"z-collection",
+			flatReviewEventRow.id,
+		]);
 		expect(page.pageInfo.hasMore).toBe(true);
 		if (page.pageInfo.nextCursor === null) {
 			throw new Error("Expected another history page");
@@ -151,22 +155,24 @@ describe("complete activity history recipes", () => {
 			).toBeNull();
 		}
 		for (const name of ["events", "collectionEvents"]) {
-			expect(next.document.queries[name]?.where).toMatchObject({
-				type: "and",
-				predicates: arrayContaining([
-					{
-						type: "or",
-						predicates: arrayContaining([
-							{
-								operator: "lt",
-								type: "comparison",
-								left: objectContaining({ field: "occurredAt" }),
-								right: castDate(literal(flatReviewEventRow.occurredAt)),
-							},
-						]),
-					},
-				]),
-			});
+			expect(next.document.queries[name]?.where).toEqual<unknown>(
+				objectContaining({
+					type: "and",
+					predicates: arrayContaining([
+						{
+							type: "or",
+							predicates: arrayContaining([
+								{
+									operator: "lt",
+									type: "comparison",
+									left: objectContaining({ field: "occurredAt" }),
+									right: castDate(literal(flatReviewEventRow.occurredAt)),
+								},
+							]),
+						},
+					]),
+				}),
+			);
 			expect(JSON.stringify(next.document.queries[name]?.where)).toContain(flatReviewEventRow.id);
 		}
 	});

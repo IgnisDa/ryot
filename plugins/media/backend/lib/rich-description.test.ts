@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { describe, expect, it } from "vitest";
 
 import { normalizeRichDescription } from "./rich-description";
 

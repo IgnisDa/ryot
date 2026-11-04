@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import {
 	existingExerciseIdsRecipe,
@@ -73,7 +74,7 @@ describe("workout record recipes", () => {
 		if (decoded._tag === "Failure") {
 			throw decoded.failure;
 		}
-		expect(decoded.success).toEqual(["exercise-1"]);
+		expect(decoded.success).toEqual<unknown>(["exercise-1"]);
 	});
 
 	it("pages the exercises of a workout's sets", () => {
@@ -100,19 +101,29 @@ describe("workout record recipes", () => {
 			},
 		]);
 		expect(query.joins).toHaveLength(2);
-		expect(query.where).toMatchObject({
-			type: "and",
-			predicates: arrayContaining([
-				objectContaining({
-					right: { type: "literal", value: "workout-1" },
-					left: { type: "column", field: "sessionEntityId", tableAlias: "workoutSetContextEvent" },
-				}),
-				objectContaining({
-					right: { type: "literal", value: "workout-set" },
-					left: { type: "column", field: "eventSchemaSlug", tableAlias: "workoutSetContextEvent" },
-				}),
-			]),
-		});
+		expect(query.where).toEqual<unknown>(
+			objectContaining({
+				type: "and",
+				predicates: arrayContaining([
+					objectContaining({
+						right: { type: "literal", value: "workout-1" },
+						left: {
+							type: "column",
+							field: "sessionEntityId",
+							tableAlias: "workoutSetContextEvent",
+						},
+					}),
+					objectContaining({
+						right: { type: "literal", value: "workout-set" },
+						left: {
+							type: "column",
+							field: "eventSchemaSlug",
+							tableAlias: "workoutSetContextEvent",
+						},
+					}),
+				]),
+			}),
+		);
 		const decoded = recipe.decode({
 			data: {
 				workoutSetExerciseIds: rows([{ entityId: "exercise-1" }, { entityId: "exercise-2" }], {
@@ -125,7 +136,7 @@ describe("workout record recipes", () => {
 		if (decoded._tag === "Failure") {
 			throw decoded.failure;
 		}
-		expect(decoded.success).toEqual({
+		expect(decoded.success).toEqual<unknown>({
 			items: [{ entityId: "exercise-1" }, { entityId: "exercise-2" }],
 			pageInfo: { limit: 50, hasMore: true, nextCursor: "next-event" },
 		});
@@ -152,7 +163,7 @@ describe("workout record recipes", () => {
 			throw new Error("Expected workout record rows query");
 		}
 		expect(recordsQuery.output.pagination).toEqual({ limit: 100 });
-		expect(recordsQuery.output.orderBy).toEqual([
+		expect(recordsQuery.output.orderBy).toEqual<unknown>([
 			{
 				direction: "asc",
 				expr: { type: "column", field: "entityId", tableAlias: "workoutRecord" },
@@ -201,7 +212,7 @@ describe("workout record recipes", () => {
 		if (decoded._tag === "Failure") {
 			throw decoded.failure;
 		}
-		expect(decoded.success.items).toEqual([
+		expect(decoded.success.items).toEqual<unknown>([
 			{
 				reps: 10,
 				weight: 25,

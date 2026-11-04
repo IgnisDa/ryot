@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { savedViewRecordRecipe, savedViewRecordsRecipe } from "./saved-view-records";
 import { requireRowsQuery, rowsResult } from "./test-utils";
@@ -78,7 +79,7 @@ describe("saved-view record recipes", () => {
 			savedViewRecordsRecipe({ limit: 2 }).decode({ data: { savedViews: rows([item]) } }),
 		);
 
-		expect(decoded).toEqual({
+		expect(decoded).toEqual<unknown>({
 			pageInfo,
 			items: [
 				{ ...item, createdAt: "2025-12-31T23:00:00.000Z", updatedAt: "2026-01-01T23:00:00.000Z" },

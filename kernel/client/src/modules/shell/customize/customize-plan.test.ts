@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import { buildCustomizePlan } from "#/modules/shell/customize/customize-plan";
 import type { CustomizeDraft } from "#/modules/shell/customize/customize-state";

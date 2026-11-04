@@ -1,6 +1,10 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { WorkoutEditorOccurrenceSchema } from "../../shared/workout-editor-draft";
 import type { WorkoutHistorySetResult } from "../../shared/workout-history-recipes";
@@ -38,6 +42,7 @@ it.effect(
 			expect(previousSetIndex(occurrences, "other", "other-set-0")).toBe(0);
 			expect(previousSetIndex(occurrences, "repeated", "deleted")).toBe(-1);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -86,4 +91,5 @@ it.effect(
 				),
 			).toBeUndefined();
 		}),
+	testTimeout,
 );

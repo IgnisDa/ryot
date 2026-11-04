@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, it, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { KERNEL_ENTITY_IMPORT_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import {
@@ -22,9 +23,12 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, type Exit, Layer, Metric, Ref, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Workflow } from "effect/workflow";
@@ -277,6 +281,7 @@ layer(
 					}),
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -315,36 +320,40 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("pins source-zero automation by exact script ID without a synthetic plugin", () => {
-		const payload = {
-			input: {},
-			executionId: "kernel-run",
-			lane: "background" as const,
-			resolutionMode: "active" as const,
-			scriptId: SandboxScriptId.make("kernel-notification-v1"),
-			subject: {
-				...automationSubject,
-				pluginId: null,
-				pluginRevisionId: null,
-				pluginConfigRevisionId: null,
-			},
-		};
-		return Effect.gen(function* () {
-			const result = yield* (yield* SandboxWorkflowPinning).establish(payload, "kernel-run");
-			expect(yield* (yield* WorkflowTestCalls).entries("pin-requests")).toEqual([
-				{ expected: undefined, scriptId: "kernel-notification-v1" },
-			]);
-			expect(result).toMatchObject({
-				registrationStatus: "not-required",
-				principal: {
-					kernelScript: true,
-					pluginRevision: null,
-					subject: payload.subject,
-					scriptId: "kernel-notification-v1",
+	test.effect(
+		"pins source-zero automation by exact script ID without a synthetic plugin",
+		() => {
+			const payload = {
+				input: {},
+				executionId: "kernel-run",
+				lane: "background" as const,
+				resolutionMode: "active" as const,
+				scriptId: SandboxScriptId.make("kernel-notification-v1"),
+				subject: {
+					...automationSubject,
+					pluginId: null,
+					pluginRevisionId: null,
+					pluginConfigRevisionId: null,
 				},
+			};
+			return Effect.gen(function* () {
+				const result = yield* (yield* SandboxWorkflowPinning).establish(payload, "kernel-run");
+				expect(yield* (yield* WorkflowTestCalls).entries("pin-requests")).toEqual([
+					{ expected: undefined, scriptId: "kernel-notification-v1" },
+				]);
+				expect(result).toMatchObject({
+					registrationStatus: "not-required",
+					principal: {
+						kernelScript: true,
+						pluginRevision: null,
+						subject: payload.subject,
+						scriptId: "kernel-notification-v1",
+					},
+				});
 			});
-		});
-	});
+		},
+		testTimeout,
+	);
 });
 
 const makeProjectionRedis = () =>
@@ -535,66 +544,70 @@ const hotSwapLayer = recordingLayer(
 ).pipe(Layer.provide(BunServices.layer));
 
 layer(withWorkflowPinning(hotSwapLayer))((test) => {
-	test.effect("keeps every shell replay on the initial script pin after an active hot swap", () => {
-		const executionId = hotSwapExecutionId;
-		const payload = {
-			input: {},
-			executionId,
-			subject: trustedUserSubject,
-			lane: "interactive" as const,
-			scriptId: historicalScriptId,
-			resultMode: "execution" as const,
-			resolutionMode: "active" as const,
-		};
-
-		return Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			const result = yield* runScriptExecutionWorkflowBody(
-				payload,
+	test.effect(
+		"keeps every shell replay on the initial script pin after an active hot swap",
+		() => {
+			const executionId = hotSwapExecutionId;
+			const payload = {
+				input: {},
 				executionId,
-				(executionPayload) =>
-					executeSandboxExecution(executionPayload).pipe(
-						Effect.mapError(
-							(error) =>
-								new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
-						),
-					),
-			);
-			const executedContent = yield* calls.entries("executed-content");
-			expect(result).toEqual({
-				logs: [],
-				error: null,
-				status: "completed",
-				timing: { totalMs: 1, executionMs: 1 },
-				value: { content: "pinned-v1", journal: [{ kernel: "recorded" }] },
-			});
-			expect(yield* (yield* ActiveWorkflowScript).current).toBe(replacementScriptId);
-			expect(yield* calls.entries("active-script-users")).toEqual([trustedUserId]);
-			expect((yield* calls.entries("kernel-callers")).at(-1)).toMatchObject({
-				pluginRevision,
+				subject: trustedUserSubject,
+				lane: "interactive" as const,
 				scriptId: historicalScriptId,
-			});
-			expect(executedContent).toEqual([historicalContent, historicalContent]);
-			expect(executedContent).not.toContain(replacementContent);
-			expect((yield* calls.entries("pin-events")).slice(0, 5)).toEqual([
-				"lock",
-				"resolve-owned",
-				"resolve-active",
-				"pin",
-				"register",
-			]);
-			expect(yield* calls.entries("registrations")).toEqual([
-				{
+				resultMode: "execution" as const,
+				resolutionMode: "active" as const,
+			};
+
+			return Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const result = yield* runScriptExecutionWorkflowBody(
+					payload,
 					executionId,
-					pluginId: "plugin",
-					userId: trustedUserId,
+					(executionPayload) =>
+						executeSandboxExecution(executionPayload).pipe(
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
+							),
+						),
+				);
+				const executedContent = yield* calls.entries("executed-content");
+				expect(result).toEqual({
+					logs: [],
+					error: null,
+					status: "completed",
+					timing: { totalMs: 1, executionMs: 1 },
+					value: { content: "pinned-v1", journal: [{ kernel: "recorded" }] },
+				});
+				expect(yield* (yield* ActiveWorkflowScript).current).toBe(replacementScriptId);
+				expect(yield* calls.entries("active-script-users")).toEqual([trustedUserId]);
+				expect((yield* calls.entries("kernel-callers")).at(-1)).toMatchObject({
+					pluginRevision,
 					scriptId: historicalScriptId,
-					contentHash: historicalScript.contentHash,
-				},
-			]);
-			expect(yield* calls.entries("releases")).toEqual([executionId]);
-		});
-	});
+				});
+				expect(executedContent).toEqual([historicalContent, historicalContent]);
+				expect(executedContent).not.toContain(replacementContent);
+				expect((yield* calls.entries("pin-events")).slice(0, 5)).toEqual([
+					"lock",
+					"resolve-owned",
+					"resolve-active",
+					"pin",
+					"register",
+				]);
+				expect(yield* calls.entries("registrations")).toEqual([
+					{
+						executionId,
+						pluginId: "plugin",
+						userId: trustedUserId,
+						scriptId: historicalScriptId,
+						contentHash: historicalScript.contentHash,
+					},
+				]);
+				expect(yield* calls.entries("releases")).toEqual([executionId]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const pluginWorkflowPin = (scriptId: SandboxScriptId) => ({
@@ -641,51 +654,55 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("retains a plugin workflow reference while durably suspended", () => {
-		const executionId = "suspended-workflow";
-		const scriptId = suspendedScriptId;
+	test.effect(
+		"retains a plugin workflow reference while durably suspended",
+		() => {
+			const executionId = "suspended-workflow";
+			const scriptId = suspendedScriptId;
 
-		return Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			const result = yield* Workflow.intoResult(
-				runScriptExecutionWorkflowBody(
-					{
-						scriptId,
-						input: {},
+			return Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const result = yield* Workflow.intoResult(
+					runScriptExecutionWorkflowBody(
+						{
+							scriptId,
+							input: {},
+							executionId,
+							lane: "interactive",
+							resolutionMode: "exact",
+							subject: { type: "system" },
+						},
 						executionId,
-						lane: "interactive",
-						resolutionMode: "exact",
-						subject: { type: "system" },
-					},
-					executionId,
-					() =>
-						Effect.succeed({
-							logs: [],
-							inline: [],
-							error: null,
-							harvest: null,
-							pendingInline: [],
-							status: "completed" as const,
-							value: {
-								journalLength: 0,
-								state: "pending" as const,
-								requests: [
-									{
-										index: 0,
-										kind: "host" as const,
-										name: "getCachedValue",
-										args: { args: ["key"], capability: "getCachedValue" as const },
-									},
-								],
-							},
-						}),
-				),
-			);
-			expect(result._tag).toBe("Suspended");
-			expect(yield* calls.entries("registrations")).toHaveLength(1);
-			expect(yield* calls.entries("releases")).toHaveLength(0);
-		});
-	});
+						() =>
+							Effect.succeed({
+								logs: [],
+								inline: [],
+								error: null,
+								harvest: null,
+								pendingInline: [],
+								status: "completed" as const,
+								value: {
+									journalLength: 0,
+									state: "pending" as const,
+									requests: [
+										{
+											index: 0,
+											kind: "host" as const,
+											name: "getCachedValue",
+											args: { args: ["key"], capability: "getCachedValue" as const },
+										},
+									],
+								},
+							}),
+					),
+				);
+				expect(result._tag).toBe("Suspended");
+				expect(yield* calls.entries("registrations")).toHaveLength(1);
+				expect(yield* calls.entries("releases")).toHaveLength(0);
+			});
+		},
+		testTimeout,
+	);
 });
 
 class RestartingEngine extends Context.Service<
@@ -774,77 +791,83 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("reconstructs a completed host write after interruption without repeating it", () => {
-		const executionId = "interrupted-host-write";
-		const request = {
-			index: 0,
-			kind: "host" as const,
-			name: "setCachedValue",
-			args: {
-				capability: "setCachedValue" as const,
-				args: ["write-key", { value: 1 }, 60] as const,
-			},
-		};
-		const payload = {
-			input: {},
-			executionId,
-			lane: "interactive" as const,
-			scriptId: interruptedScriptId,
-			resolutionMode: "exact" as const,
-			subject: {
-				type: "user" as const,
-				userId: UserId.make("interrupted-user"),
-				accountGeneration: {
-					token: "test-account-generation",
-					userId: UserId.make("interrupted-user"),
+	test.effect(
+		"reconstructs a completed host write after interruption without repeating it",
+		() => {
+			const executionId = "interrupted-host-write";
+			const request = {
+				index: 0,
+				kind: "host" as const,
+				name: "setCachedValue",
+				args: {
+					capability: "setCachedValue" as const,
+					args: ["write-key", { value: 1 }, 60] as const,
 				},
-			},
-		};
-		const processReplay = (sandboxPayload: SandboxExecutionQueuePayload) =>
-			Effect.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				harvest: null,
-				pendingInline: [],
-				status: "completed" as const,
-				value:
-					sandboxPayload.executionId === `${executionId}-replay-0`
-						? { journalLength: 0, requests: [request], state: "pending" as const }
-						: {
-								journalLength: 1,
-								requests: [request],
-								state: "completed" as const,
-								output: { completed: true },
-							},
-			});
-
-		return Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			const engines = yield* RestartingEngine;
-			const onFreshInstance = <A, E, R>(workflow: Effect.Effect<A, E, R>) => {
-				const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, executionId);
-				return workflow.pipe(
-					Effect.provideService(WorkflowInstance, instance),
-					Effect.provideService(WorkflowEngine, engines.engineFor(instance)),
-				);
 			};
-			const first = yield* onFreshInstance(
-				Workflow.intoResult(runScriptExecutionWorkflowBody(payload, executionId, processReplay)),
-			);
-			expect(first._tag).toBe("Suspended");
-			expect(yield* calls.entries("writes")).toHaveLength(1);
-			expect(yield* calls.entries("artifact-retains")).toHaveLength(1);
-			expect(yield* calls.entries("artifact-releases")).toHaveLength(0);
+			const payload = {
+				input: {},
+				executionId,
+				lane: "interactive" as const,
+				scriptId: interruptedScriptId,
+				resolutionMode: "exact" as const,
+				subject: {
+					type: "user" as const,
+					userId: UserId.make("interrupted-user"),
+					accountGeneration: {
+						token: "test-account-generation",
+						userId: UserId.make("interrupted-user"),
+					},
+				},
+			};
+			const processReplay = (sandboxPayload: SandboxExecutionQueuePayload) =>
+				Effect.succeed({
+					logs: [],
+					inline: [],
+					error: null,
+					harvest: null,
+					pendingInline: [],
+					status: "completed" as const,
+					value:
+						sandboxPayload.executionId === `${executionId}-replay-0`
+							? { journalLength: 0, requests: [request], state: "pending" as const }
+							: {
+									journalLength: 1,
+									requests: [request],
+									state: "completed" as const,
+									output: { completed: true },
+								},
+				});
 
-			expect(
-				yield* onFreshInstance(runScriptExecutionWorkflowBody(payload, executionId, processReplay)),
-			).toEqual({ completed: true });
-			expect(yield* calls.entries("writes")).toHaveLength(1);
-			expect(yield* calls.entries("artifact-retains")).toHaveLength(1);
-			expect(yield* calls.entries("artifact-releases")).toHaveLength(1);
-		});
-	});
+			return Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const engines = yield* RestartingEngine;
+				const onFreshInstance = <A, E, R>(workflow: Effect.Effect<A, E, R>) => {
+					const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, executionId);
+					return workflow.pipe(
+						Effect.provideService(WorkflowInstance, instance),
+						Effect.provideService(WorkflowEngine, engines.engineFor(instance)),
+					);
+				};
+				const first = yield* onFreshInstance(
+					Workflow.intoResult(runScriptExecutionWorkflowBody(payload, executionId, processReplay)),
+				);
+				expect(first._tag).toBe("Suspended");
+				expect(yield* calls.entries("writes")).toHaveLength(1);
+				expect(yield* calls.entries("artifact-retains")).toHaveLength(1);
+				expect(yield* calls.entries("artifact-releases")).toHaveLength(0);
+
+				expect(
+					yield* onFreshInstance(
+						runScriptExecutionWorkflowBody(payload, executionId, processReplay),
+					),
+				).toEqual({ completed: true });
+				expect(yield* calls.entries("writes")).toHaveLength(1);
+				expect(yield* calls.entries("artifact-retains")).toHaveLength(1);
+				expect(yield* calls.entries("artifact-releases")).toHaveLength(1);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(
@@ -873,51 +896,55 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("releases a plugin workflow reference before returning terminal failure", () => {
-		const executionId = "failed-workflow";
-		const scriptId = SandboxScriptId.make("workflow-script");
+	test.effect(
+		"releases a plugin workflow reference before returning terminal failure",
+		() => {
+			const executionId = "failed-workflow";
+			const scriptId = SandboxScriptId.make("workflow-script");
 
-		return Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runScriptExecutionWorkflowBody(
-					{
-						scriptId,
-						input: {},
+			return Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					runScriptExecutionWorkflowBody(
+						{
+							scriptId,
+							input: {},
+							executionId,
+							lane: "interactive",
+							resolutionMode: "exact",
+							subject: { type: "system" },
+						},
 						executionId,
-						lane: "interactive",
-						resolutionMode: "exact",
-						subject: { type: "system" },
-					},
-					executionId,
-					() =>
-						Effect.succeed({
-							logs: [],
-							inline: [],
-							value: null,
-							harvest: null,
-							pendingInline: [],
-							status: "completed" as const,
-							error: {
-								message: "boom",
-								phase: "execute" as const,
-								kind: "script-failure" as const,
-							},
-						}),
-				),
-			);
-			assertExitFails(
-				exit,
-				new SandboxRunError({
-					kind: "script-failure",
-					message: "Workflow replay 0 failed: execute: boom",
-				}),
-			);
-			expect(yield* (yield* WorkflowTestCalls).entries("reference-events")).toEqual([
-				"registered",
-				"released",
-			]);
-		});
-	});
+						() =>
+							Effect.succeed({
+								logs: [],
+								inline: [],
+								value: null,
+								harvest: null,
+								pendingInline: [],
+								status: "completed" as const,
+								error: {
+									message: "boom",
+									phase: "execute" as const,
+									kind: "script-failure" as const,
+								},
+							}),
+					),
+				);
+				assertExitFails(
+					exit,
+					new SandboxRunError({
+						kind: "script-failure",
+						message: "Workflow replay 0 failed: execute: boom",
+					}),
+				);
+				expect(yield* (yield* WorkflowTestCalls).entries("reference-events")).toEqual([
+					"registered",
+					"released",
+				]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(
@@ -943,113 +970,132 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("maps inactive plugin pin registration to SandboxRunError", () => {
-		const executionId = "inactive-plugin-workflow";
-		const scriptId = SandboxScriptId.make("workflow-script");
+	test.effect(
+		"maps inactive plugin pin registration to SandboxRunError",
+		() => {
+			const executionId = "inactive-plugin-workflow";
+			const scriptId = SandboxScriptId.make("workflow-script");
+
+			return Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					runScriptExecutionWorkflowBody(
+						{
+							scriptId,
+							input: {},
+							executionId,
+							lane: "interactive",
+							resolutionMode: "exact",
+							subject: { type: "system" },
+						},
+						executionId,
+						() => Effect.die("unused"),
+					),
+				);
+				assertExitFails(
+					exit,
+					new SandboxRunError({
+						kind: "missing-artifact",
+						message: "Plugin 'plugin' is not active",
+					}),
+				);
+			});
+		},
+		testTimeout,
+	);
+});
+
+it.effect(
+	"rejects divergence beyond index zero before a replay's generic script failure",
+	() => {
+		const first = {
+			index: 0,
+			name: "first",
+			kind: "activity" as const,
+			args: { input: { value: 1 }, scriptSlug: "activity" },
+		};
+		const recordedSecond = {
+			index: 1,
+			name: "original",
+			kind: "sleep" as const,
+			args: { durationMs: 10 },
+		};
+		const changedSecond = { ...recordedSecond, name: "changed" };
 
 		return Effect.gen(function* () {
 			const exit = yield* Effect.exit(
-				runScriptExecutionWorkflowBody(
+				validateWorkflowReplayEnvelope(
 					{
-						scriptId,
-						input: {},
-						executionId,
-						lane: "interactive",
-						resolutionMode: "exact",
-						subject: { type: "system" },
+						state: "failed",
+						journalLength: 2,
+						kind: "script-failure",
+						error: "generic script error",
+						requests: [first, changedSecond],
 					},
-					executionId,
-					() => Effect.die("unused"),
+					[
+						{ value: "one", request: first },
+						{ value: null, request: recordedSecond },
+					],
+					[],
 				),
 			);
-			assertExitFails(
-				exit,
-				new SandboxRunError({ kind: "missing-artifact", message: "Plugin 'plugin' is not active" }),
-			);
+			expect(exit.toString()).toContain("journal[1]");
+			expect(exit.toString()).not.toContain("generic script error");
 		});
-	});
-});
+	},
+	testTimeout,
+);
 
-it.effect("rejects divergence beyond index zero before a replay's generic script failure", () => {
-	const first = {
-		index: 0,
-		name: "first",
-		kind: "activity" as const,
-		args: { input: { value: 1 }, scriptSlug: "activity" },
-	};
-	const recordedSecond = {
-		index: 1,
-		name: "original",
-		kind: "sleep" as const,
-		args: { durationMs: 10 },
-	};
-	const changedSecond = { ...recordedSecond, name: "changed" };
+it.effect(
+	"registers every missing request after validating its full prefix",
+	() => {
+		const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
+		const third = { index: 2, name: "third", kind: "sleep" as const, args: { durationMs: 30 } };
+		const pending = { index: 1, name: "pending", kind: "sleep" as const, args: { durationMs: 20 } };
+		return Effect.gen(function* () {
+			expect(
+				yield* validateWorkflowReplayEnvelope(
+					{ journalLength: 1, state: "pending", requests: [first, pending, third] },
+					[{ value: null, request: first }],
+					[],
+				),
+			).toEqual({ state: "pending", requests: [{ request: pending }, { request: third }] });
+		});
+	},
+	testTimeout,
+);
 
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(
-			validateWorkflowReplayEnvelope(
-				{
-					state: "failed",
-					journalLength: 2,
-					kind: "script-failure",
-					error: "generic script error",
-					requests: [first, changedSecond],
-				},
-				[
-					{ value: "one", request: first },
-					{ value: null, request: recordedSecond },
-				],
-				[],
-			),
-		);
-		expect(exit.toString()).toContain("journal[1]");
-		expect(exit.toString()).not.toContain("generic script error");
-	});
-});
+it.effect(
+	"fails as infrastructure when the replay loaded a different journal length",
+	() => {
+		const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
+		const second = { index: 1, name: "second", kind: "sleep" as const, args: { durationMs: 20 } };
+		const journal = [
+			{ value: null, request: first },
+			{ value: null, request: second },
+		];
+		return Effect.gen(function* () {
+			const pending = yield* Effect.flip(
+				validateWorkflowReplayEnvelope(
+					{ journalLength: 1, state: "pending", requests: [first] },
+					journal,
+					[],
+				),
+			);
+			const completed = yield* Effect.flip(
+				validateWorkflowReplayEnvelope(
+					{ output: null, journalLength: 3, requests: [first], state: "completed" },
+					journal,
+					[],
+				),
+			);
 
-it.effect("registers every missing request after validating its full prefix", () => {
-	const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
-	const third = { index: 2, name: "third", kind: "sleep" as const, args: { durationMs: 30 } };
-	const pending = { index: 1, name: "pending", kind: "sleep" as const, args: { durationMs: 20 } };
-	return Effect.gen(function* () {
-		expect(
-			yield* validateWorkflowReplayEnvelope(
-				{ journalLength: 1, state: "pending", requests: [first, pending, third] },
-				[{ value: null, request: first }],
-				[],
-			),
-		).toEqual({ state: "pending", requests: [{ request: pending }, { request: third }] });
-	});
-});
-
-it.effect("fails as infrastructure when the replay loaded a different journal length", () => {
-	const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
-	const second = { index: 1, name: "second", kind: "sleep" as const, args: { durationMs: 20 } };
-	const journal = [
-		{ value: null, request: first },
-		{ value: null, request: second },
-	];
-	return Effect.gen(function* () {
-		const pending = yield* Effect.flip(
-			validateWorkflowReplayEnvelope(
-				{ journalLength: 1, state: "pending", requests: [first] },
-				journal,
-				[],
-			),
-		);
-		const completed = yield* Effect.flip(
-			validateWorkflowReplayEnvelope(
-				{ output: null, journalLength: 3, requests: [first], state: "completed" },
-				journal,
-				[],
-			),
-		);
-
-		expect(pending).toMatchObject({ kind: "infrastructure" });
-		expect(pending.message).toContain("loaded 1 journal entries; expected 2");
-		expect(completed).toMatchObject({ kind: "infrastructure" });
-	});
-});
+			expect(pending).toMatchObject({ kind: "infrastructure" });
+			expect(pending.message).toContain("loaded 1 journal entries; expected 2");
+			expect(completed).toMatchObject({ kind: "infrastructure" });
+		});
+	},
+	testTimeout,
+);
 
 const inlineCachedRequest = (index: number, capability: "getCachedValue" | "setCachedValue") => ({
 	index,
@@ -1058,53 +1104,57 @@ const inlineCachedRequest = (index: number, capability: "getCachedValue" | "setC
 	args: { capability, args: [`key-${index}`] },
 });
 
-it.effect("accepts inline entries only as the replay's continuation of its loaded journal", () => {
-	const recorded = inlineCachedRequest(0, "getCachedValue");
-	const inline = inlineCachedRequest(1, "getCachedValue");
-	const pending = inlineCachedRequest(2, "setCachedValue");
-	const journal = [{ request: recorded, value: { value: 0, state: "success" } }];
-	const inlineEntries = [{ request: inline, value: { value: 1, state: "success" } }];
-	return Effect.gen(function* () {
-		expect(
-			yield* validateWorkflowReplayEnvelope(
-				{ journalLength: 1, state: "pending", requests: [recorded, inline, pending] },
-				journal,
-				inlineEntries,
-			),
-		).toEqual({ state: "pending", requests: [{ request: pending }] });
-		expect(
-			yield* validateWorkflowReplayEnvelope(
-				{ output: null, journalLength: 1, state: "completed", requests: [recorded, inline] },
-				journal,
-				inlineEntries,
-			),
-		).toEqual({ output: null, state: "completed" });
+it.effect(
+	"accepts inline entries only as the replay's continuation of its loaded journal",
+	() => {
+		const recorded = inlineCachedRequest(0, "getCachedValue");
+		const inline = inlineCachedRequest(1, "getCachedValue");
+		const pending = inlineCachedRequest(2, "setCachedValue");
+		const journal = [{ request: recorded, value: { value: 0, state: "success" } }];
+		const inlineEntries = [{ request: inline, value: { value: 1, state: "success" } }];
+		return Effect.gen(function* () {
+			expect(
+				yield* validateWorkflowReplayEnvelope(
+					{ journalLength: 1, state: "pending", requests: [recorded, inline, pending] },
+					journal,
+					inlineEntries,
+				),
+			).toEqual({ state: "pending", requests: [{ request: pending }] });
+			expect(
+				yield* validateWorkflowReplayEnvelope(
+					{ output: null, journalLength: 1, state: "completed", requests: [recorded, inline] },
+					journal,
+					inlineEntries,
+				),
+			).toEqual({ output: null, state: "completed" });
 
-		const detached = yield* Effect.exit(
-			validateWorkflowReplayEnvelope(
-				{ journalLength: 0, state: "pending", requests: [inline, pending] },
-				journal,
-				inlineEntries,
-			),
-		);
-		expect(detached.toString()).toContain("loaded 0 journal entries; expected 1");
-		const diverged = yield* Effect.exit(
-			validateWorkflowReplayEnvelope(
-				{
-					journalLength: 1,
-					state: "pending",
-					requests: [
-						recorded,
-						{ ...inline, args: { args: ["other"], capability: "getCachedValue" } },
-					],
-				},
-				journal,
-				inlineEntries,
-			),
-		);
-		expect(diverged.toString()).toContain("SandboxWorkflowNondeterminism: journal[1]");
-	});
-});
+			const detached = yield* Effect.exit(
+				validateWorkflowReplayEnvelope(
+					{ journalLength: 0, state: "pending", requests: [inline, pending] },
+					journal,
+					inlineEntries,
+				),
+			);
+			expect(detached.toString()).toContain("loaded 0 journal entries; expected 1");
+			const diverged = yield* Effect.exit(
+				validateWorkflowReplayEnvelope(
+					{
+						journalLength: 1,
+						state: "pending",
+						requests: [
+							recorded,
+							{ ...inline, args: { args: ["other"], capability: "getCachedValue" } },
+						],
+					},
+					journal,
+					inlineEntries,
+				),
+			);
+			expect(diverged.toString()).toContain("SandboxWorkflowNondeterminism: journal[1]");
+		});
+	},
+	testTimeout,
+);
 
 const inlineScriptId = SandboxScriptId.make("inline-script");
 
@@ -1314,6 +1364,7 @@ for (const code of ["package-identity-conflict", "installation-unavailable"] as 
 							{ request: inlineSecond, value: { value: "written", state: "success" } },
 						]);
 					}),
+				testTimeout,
 			);
 		});
 	}
@@ -1327,85 +1378,91 @@ for (const kind of [
 ] as const) {
 	const executionId = testExecutionId(`execution-mode-unchanged-${kind}`);
 	layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
-		test.effect(`execution mode still fails for ${kind} without installation revocation data`, () =>
-			Effect.gen(function* () {
-				const failure = new SandboxRunError({
-					kind,
-					message: `Unchanged ${kind} failure`,
-					...(kind === "resource-unavailable"
-						? { data: { operation: "httpCall", code: "execution-limit" as const } }
-						: {}),
-				});
-				assertExitFails(
-					yield* Effect.exit(
-						runScriptExecutionWorkflowBody(
-							{
-								input: {},
+		test.effect(
+			`execution mode still fails for ${kind} without installation revocation data`,
+			() =>
+				Effect.gen(function* () {
+					const failure = new SandboxRunError({
+						kind,
+						message: `Unchanged ${kind} failure`,
+						...(kind === "resource-unavailable"
+							? { data: { operation: "httpCall", code: "execution-limit" as const } }
+							: {}),
+					});
+					assertExitFails(
+						yield* Effect.exit(
+							runScriptExecutionWorkflowBody(
+								{
+									input: {},
+									executionId,
+									lane: "interactive",
+									resolutionMode: "exact",
+									resultMode: "execution",
+									scriptId: inlineScriptId,
+									subject: retainedUserSubject,
+								},
 								executionId,
-								lane: "interactive",
-								resolutionMode: "exact",
-								resultMode: "execution",
-								scriptId: inlineScriptId,
-								subject: retainedUserSubject,
-							},
-							executionId,
-							() => Effect.fail(failure),
+								() => Effect.fail(failure),
+							),
 						),
-					),
-					failure,
-				);
-			}),
+						failure,
+					);
+				}),
+			testTimeout,
 		);
 	});
 }
 
 const returnedRevocationId = testExecutionId("returned-replay-revocation");
 layer(inlineWorkflowLayer(returnedRevocationId, retainedUserPrincipal))((test) => {
-	test.effect("preserves boundary data on an execution error returned by the replay", () =>
-		Effect.gen(function* () {
-			const data = {
-				pluginId: pluginRevision.id,
-				code: "package-identity-conflict",
-				installationId: "private-installation",
-			} as const;
-			expect(
-				yield* runScriptExecutionWorkflowBody(
-					{
-						input: {},
-						lane: "interactive",
-						resolutionMode: "exact",
-						resultMode: "execution",
-						scriptId: inlineScriptId,
-						subject: retainedUserSubject,
-						executionId: returnedRevocationId,
+	test.effect(
+		"preserves boundary data on an execution error returned by the replay",
+		() =>
+			Effect.gen(function* () {
+				const data = {
+					pluginId: pluginRevision.id,
+					code: "package-identity-conflict",
+					installationId: "private-installation",
+				} as const;
+				expect(
+					yield* runScriptExecutionWorkflowBody(
+						{
+							input: {},
+							lane: "interactive",
+							resolutionMode: "exact",
+							resultMode: "execution",
+							scriptId: inlineScriptId,
+							subject: retainedUserSubject,
+							executionId: returnedRevocationId,
+						},
+						returnedRevocationId,
+						() =>
+							Effect.succeed({
+								...replayBase,
+								inline: [],
+								value: null,
+								pendingInline: [],
+								error: {
+									data,
+									phase: "execute",
+									kind: "script-failure",
+									message: "Sandbox installation is unavailable",
+								},
+							}),
+					),
+				).toEqual({
+					logs: [],
+					value: null,
+					status: "completed",
+					error: {
+						data,
+						phase: "execute",
+						kind: "resource-unavailable",
+						message: "Sandbox installation is unavailable",
 					},
-					returnedRevocationId,
-					() =>
-						Effect.succeed({
-							...replayBase,
-							inline: [],
-							value: null,
-							pendingInline: [],
-							error: {
-								data,
-								phase: "execute",
-								kind: "script-failure",
-								message: "Sandbox installation is unavailable",
-							},
-						}),
-				),
-			).toEqual({
-				logs: [],
-				value: null,
-				status: "completed",
-				error: {
-					data,
-					phase: "execute",
-					kind: "resource-unavailable",
-					message: "Sandbox installation is unavailable",
-				},
-			});
-		}),
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -1432,61 +1489,64 @@ for (const envelopeCase of failedEnvelopeCases) {
 		const executionId = testExecutionId(`failed-envelope-${envelopeCase.name}-${mode}`);
 		const { data } = envelopeCase;
 		layer(inlineWorkflowLayer(executionId))((test) => {
-			test.effect(`${mode} mode carries a failed envelope's data: ${envelopeCase.name}`, () =>
-				Effect.gen(function* () {
-					const run = runScriptExecutionWorkflowBody(
-						{
-							input: {},
-							executionId,
-							lane: "interactive",
-							resolutionMode: "exact",
-							scriptId: inlineScriptId,
-							subject: { type: "system" },
-							...(mode === "execution" ? { resultMode: "execution" as const } : {}),
-						},
-						executionId,
-						() =>
-							Effect.succeed({
-								...replayBase,
-								inline: [],
-								pendingInline: [],
-								value: {
-									requests: [],
-									journalLength: 0,
-									error: "limit reached",
-									state: "failed" as const,
-									kind: "script-failure" as const,
-									...(data === undefined ? {} : { data }),
-								},
-							}),
-					);
-					const dataField = data === undefined ? {} : { data };
-					if (mode === "execution") {
-						expect(yield* run).toEqual({
-							logs: [],
-							value: null,
-							status: "completed",
-							error: {
-								...dataField,
-								phase: "execute",
-								message: "limit reached",
-								kind: envelopeCase.executionKind,
+			test.effect(
+				`${mode} mode carries a failed envelope's data: ${envelopeCase.name}`,
+				() =>
+					Effect.gen(function* () {
+						const run = runScriptExecutionWorkflowBody(
+							{
+								input: {},
+								executionId,
+								lane: "interactive",
+								resolutionMode: "exact",
+								scriptId: inlineScriptId,
+								subject: { type: "system" },
+								...(mode === "execution" ? { resultMode: "execution" as const } : {}),
 							},
-						});
-					} else {
-						assertExitFails(
-							yield* Effect.exit(run),
-							new SandboxRunError({
-								...dataField,
-								kind: "script-failure",
-								message:
-									envelopeCase.name === "installation-unavailable"
-										? "limit reached"
-										: "Workflow replay 0 failed: limit reached",
-							}),
+							executionId,
+							() =>
+								Effect.succeed({
+									...replayBase,
+									inline: [],
+									pendingInline: [],
+									value: {
+										requests: [],
+										journalLength: 0,
+										error: "limit reached",
+										state: "failed" as const,
+										kind: "script-failure" as const,
+										...(data === undefined ? {} : { data }),
+									},
+								}),
 						);
-					}
-				}),
+						const dataField = data === undefined ? {} : { data };
+						if (mode === "execution") {
+							expect(yield* run).toEqual({
+								logs: [],
+								value: null,
+								status: "completed",
+								error: {
+									...dataField,
+									phase: "execute",
+									message: "limit reached",
+									kind: envelopeCase.executionKind,
+								},
+							});
+						} else {
+							assertExitFails(
+								yield* Effect.exit(run),
+								new SandboxRunError({
+									...dataField,
+									kind: "script-failure",
+									message:
+										envelopeCase.name === "installation-unavailable"
+											? "limit reached"
+											: "Workflow replay 0 failed: limit reached",
+								}),
+							);
+						}
+					}),
+				testTimeout,
 			);
 		});
 	}
@@ -1533,109 +1593,119 @@ layer(inlineWorkflowLayer(inlineIds.ordering))((test) => {
 				expect(yield* calls.entries("appends")).toEqual(["0:2"]);
 			});
 		},
+		testTimeout,
 	);
 });
 
 layer(inlineWorkflowLayer(inlineIds.race))((test) => {
-	test.effect("loads the enqueued journal when an older activation re-appends a prefix", () =>
-		Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			const redis = yield* RedisService;
-			yield* runInlineWorkflow(inlineIds.race, (sandboxPayload) => {
-				if (sandboxPayload.journalLength === 0) {
-					return Effect.succeed(firstInlineReplay);
-				}
-				return Effect.gen(function* () {
-					yield* appendWorkflowJournalWithRedis(redis, inlineIds.race, 0, [
-						cachedEntry(inlineFirst),
-					]);
-					const inspection = yield* inspectSandboxJournal(
-						redis,
-						inlineIds.race,
-						sandboxPayload.journalLength,
-					);
-					assert(inspection !== null);
-					const loaded = yield* readPinnedJournal(
-						pinSandboxJournal(redis, inlineIds.race, inspection),
-					);
-					yield* calls.record("loaded", loaded);
-					return {
-						...replayBase,
-						inline: [],
-						pendingInline: [],
-						value: {
-							output: null,
-							journalLength: 2,
-							state: "completed" as const,
-							requests: [inlineFirst, inlineSecond],
-						},
-					};
+	test.effect(
+		"loads the enqueued journal when an older activation re-appends a prefix",
+		() =>
+			Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const redis = yield* RedisService;
+				yield* runInlineWorkflow(inlineIds.race, (sandboxPayload) => {
+					if (sandboxPayload.journalLength === 0) {
+						return Effect.succeed(firstInlineReplay);
+					}
+					return Effect.gen(function* () {
+						yield* appendWorkflowJournalWithRedis(redis, inlineIds.race, 0, [
+							cachedEntry(inlineFirst),
+						]);
+						const inspection = yield* inspectSandboxJournal(
+							redis,
+							inlineIds.race,
+							sandboxPayload.journalLength,
+						);
+						assert(inspection !== null);
+						const loaded = yield* readPinnedJournal(
+							pinSandboxJournal(redis, inlineIds.race, inspection),
+						);
+						yield* calls.record("loaded", loaded);
+						return {
+							...replayBase,
+							inline: [],
+							pendingInline: [],
+							value: {
+								output: null,
+								journalLength: 2,
+								state: "completed" as const,
+								requests: [inlineFirst, inlineSecond],
+							},
+						};
+					});
 				});
-			});
 
-			expect(yield* calls.entries("loaded")).toEqual([
-				[
-					cachedEntry(inlineFirst),
-					{ request: inlineSecond, value: { value: "written", state: "success" } },
-				],
-			]);
-		}),
+				expect(yield* calls.entries("loaded")).toEqual([
+					[
+						cachedEntry(inlineFirst),
+						{ request: inlineSecond, value: { value: "written", state: "success" } },
+					],
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(inlineWorkflowLayer(inlineIds.missing))((test) => {
-	test.effect("re-appends the full journal and retries after the projection is lost", () =>
-		Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			let lost = true;
-			const result = yield* runInlineWorkflow(inlineIds.missing, (sandboxPayload) => {
-				if (sandboxPayload.journalLength === 0) {
-					return Effect.succeed(firstInlineReplay);
-				}
-				if (lost) {
-					lost = false;
-					return projectionMissingReplay;
-				}
-				return Effect.succeed({
-					...replayBase,
-					inline: [],
-					pendingInline: [],
-					value: {
-						journalLength: 2,
-						output: { done: true },
-						state: "completed" as const,
-						requests: [inlineFirst, inlineSecond],
-					},
+	test.effect(
+		"re-appends the full journal and retries after the projection is lost",
+		() =>
+			Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				let lost = true;
+				const result = yield* runInlineWorkflow(inlineIds.missing, (sandboxPayload) => {
+					if (sandboxPayload.journalLength === 0) {
+						return Effect.succeed(firstInlineReplay);
+					}
+					if (lost) {
+						lost = false;
+						return projectionMissingReplay;
+					}
+					return Effect.succeed({
+						...replayBase,
+						inline: [],
+						pendingInline: [],
+						value: {
+							journalLength: 2,
+							output: { done: true },
+							state: "completed" as const,
+							requests: [inlineFirst, inlineSecond],
+						},
+					});
 				});
-			});
-			const replays = yield* findReplayMetric("missing");
+				const replays = yield* findReplayMetric("missing");
 
-			expect(result).toEqual({ done: true });
-			expect(yield* calls.entries("appends")).toEqual(["0:2", "0:2"]);
-			expect(yield* calls.entries("dispatched")).toEqual([1]);
-			expect(replays?.state).toMatchObject({ count: 1 });
-		}).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+				expect(result).toEqual({ done: true });
+				expect(yield* calls.entries("appends")).toEqual(["0:2", "0:2"]);
+				expect(yield* calls.entries("dispatched")).toEqual([1]);
+				expect(replays?.state).toMatchObject({ count: 1 });
+			}).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+		testTimeout,
 	);
 });
 
 layer(inlineWorkflowLayer(inlineIds.lost))((test) => {
-	test.effect("fails with resource-unavailable after bounded projection rebuilds", () =>
-		Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			let replays = 0;
-			const error = yield* Effect.flip(
-				runInlineWorkflow(inlineIds.lost, (sandboxPayload) => {
-					replays += 1;
-					return sandboxPayload.journalLength === 0
-						? Effect.succeed(firstInlineReplay)
-						: projectionMissingReplay;
-				}),
-			);
+	test.effect(
+		"fails with resource-unavailable after bounded projection rebuilds",
+		() =>
+			Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				let replays = 0;
+				const error = yield* Effect.flip(
+					runInlineWorkflow(inlineIds.lost, (sandboxPayload) => {
+						replays += 1;
+						return sandboxPayload.journalLength === 0
+							? Effect.succeed(firstInlineReplay)
+							: projectionMissingReplay;
+					}),
+				);
 
-			expect(error).toMatchObject({ kind: "resource-unavailable" });
-			expect(replays).toBe(4);
-			expect(yield* calls.entries("appends")).toEqual(["0:2", "0:2", "0:2"]);
-		}),
+				expect(error).toMatchObject({ kind: "resource-unavailable" });
+				expect(replays).toBe(4);
+				expect(yield* calls.entries("appends")).toEqual(["0:2", "0:2", "0:2"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1697,36 +1767,48 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("executes a pending batch with request-indexed script child identities", () => {
-		const executionId = "batched-workflow";
-		const scriptId = batchedScriptId;
-		const first = {
-			index: 0,
-			name: "first",
-			kind: "activity" as const,
-			args: { input: { value: 1 }, scriptSlug: "activity.first" },
-		};
-		const second = {
-			index: 1,
-			name: "second",
-			kind: "activity" as const,
-			args: { input: { value: 2 }, scriptSlug: "activity.second" },
-		};
+	test.effect(
+		"executes a pending batch with request-indexed script child identities",
+		() => {
+			const executionId = "batched-workflow";
+			const scriptId = batchedScriptId;
+			const first = {
+				index: 0,
+				name: "first",
+				kind: "activity" as const,
+				args: { input: { value: 1 }, scriptSlug: "activity.first" },
+			};
+			const second = {
+				index: 1,
+				name: "second",
+				kind: "activity" as const,
+				args: { input: { value: 2 }, scriptSlug: "activity.second" },
+			};
 
-		return Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			const result = yield* runScriptExecutionWorkflowBody(
-				{
-					scriptId,
-					input: {},
+			return Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const result = yield* runScriptExecutionWorkflowBody(
+					{
+						scriptId,
+						input: {},
+						executionId,
+						lane: "interactive",
+						resolutionMode: "exact",
+						subject: { type: "system" },
+					},
 					executionId,
-					lane: "interactive",
-					resolutionMode: "exact",
-					subject: { type: "system" },
-				},
-				executionId,
-				(sandboxPayload) => {
-					if (sandboxPayload.executionId === `${executionId}-replay-0`) {
+					(sandboxPayload) => {
+						if (sandboxPayload.executionId === `${executionId}-replay-0`) {
+							return Effect.succeed({
+								logs: [],
+								inline: [],
+								error: null,
+								harvest: null,
+								pendingInline: [],
+								status: "completed" as const,
+								value: { journalLength: 0, state: "pending" as const, requests: [first, second] },
+							});
+						}
 						return Effect.succeed({
 							logs: [],
 							inline: [],
@@ -1734,34 +1816,26 @@ layer(
 							harvest: null,
 							pendingInline: [],
 							status: "completed" as const,
-							value: { journalLength: 0, state: "pending" as const, requests: [first, second] },
+							value: {
+								journalLength: 2,
+								output: { done: true },
+								requests: [first, second],
+								state: "completed" as const,
+							},
 						});
-					}
-					return Effect.succeed({
-						logs: [],
-						inline: [],
-						error: null,
-						harvest: null,
-						pendingInline: [],
-						status: "completed" as const,
-						value: {
-							journalLength: 2,
-							output: { done: true },
-							requests: [first, second],
-							state: "completed" as const,
-						},
-					});
-				},
-			);
+					},
+				);
 
-			expect(result).toEqual({ done: true });
-			expect(Math.max(...(yield* calls.entries("active-activities")).map(Number))).toBe(2);
-			expect((yield* calls.entries("child-execution-ids")).map(String).sort()).toEqual([
-				sandboxWorkflowChildExecutionId(executionId, first.name, first.index),
-				sandboxWorkflowChildExecutionId(executionId, second.name, second.index),
-			]);
-		});
-	});
+				expect(result).toEqual({ done: true });
+				expect(Math.max(...(yield* calls.entries("active-activities")).map(Number))).toBe(2);
+				expect((yield* calls.entries("child-execution-ids")).map(String).sort()).toEqual([
+					sandboxWorkflowChildExecutionId(executionId, first.name, first.index),
+					sandboxWorkflowChildExecutionId(executionId, second.name, second.index),
+				]);
+			});
+		},
+		testTimeout,
+	);
 
 	test.effect(
 		"scheduling_lane_survives_durable_boundaries: every replay is queued in the workflow lane",
@@ -1809,21 +1883,26 @@ layer(
 				expect(lanes).toEqual(["background", "background"]);
 			});
 		},
+		testTimeout,
 	);
 });
 
-it.effect("accepts completion output only after the encountered trace matches the journal", () => {
-	const request = { index: 0, name: "done", kind: "sleep" as const, args: { durationMs: 10 } };
-	return Effect.gen(function* () {
-		expect(
-			yield* validateWorkflowReplayEnvelope(
-				{ journalLength: 1, state: "completed", requests: [request], output: { done: true } },
-				[{ request, value: null }],
-				[],
-			),
-		).toEqual({ state: "completed", output: { done: true } });
-	});
-});
+it.effect(
+	"accepts completion output only after the encountered trace matches the journal",
+	() => {
+		const request = { index: 0, name: "done", kind: "sleep" as const, args: { durationMs: 10 } };
+		return Effect.gen(function* () {
+			expect(
+				yield* validateWorkflowReplayEnvelope(
+					{ journalLength: 1, state: "completed", requests: [request], output: { done: true } },
+					[{ request, value: null }],
+					[],
+				),
+			).toEqual({ state: "completed", output: { done: true } });
+		});
+	},
+	testTimeout,
+);
 
 const childWorkflowEngineLayer = recordingLayer(
 	Effect.gen(function* () {
@@ -1854,102 +1933,114 @@ layer(
 		unusedKernelWorkflowReferencesLayer,
 	),
 )((test) => {
-	test.effect("dispatches plugin children as child workflows with an exact script pin", () =>
-		Effect.gen(function* () {
-			const calls = yield* WorkflowTestCalls;
-			const result = yield* performSandboxWorkflowChild(
-				{
-					index: 2,
-					kind: "child",
-					name: "events/import v1",
-					args: { input: { value: 1 }, workflowSlug: "plugin-child" },
-				},
-				SandboxScriptId.make("child-script"),
-				{
-					input: {},
-					pluginRevision,
-					lane: "background",
-					executionId: "parent",
-					resolutionMode: "active",
-					subject: automationSubject,
-					scriptId: SandboxScriptId.make("parent-script"),
-				},
-				"parent",
-				makeUserPrincipal({
-					pluginRevision,
-					subject: automationSubject,
-					scriptId: SandboxScriptId.make("parent-script"),
-				}),
-			);
-			expect(result).toEqual({ child: true });
-			expect((yield* calls.entries("executed-workflows")).at(-1)).toBe(ScriptExecutionWorkflow);
-			expect((yield* calls.entries("execute-options")).at(-1)).toMatchObject({
-				executionId: "parent-child-events-import-v1-2",
-				payload: {
-					lane: "background",
-					resolutionMode: "exact",
-					scriptId: "child-script",
-					subject: automationSubject,
-					grants: { artifactOwnerExecutionId: "parent" },
-					pluginRevision: { id: "plugin", revisionId: "revision-1", configRevisionId: "config-1" },
-				},
-			});
-		}),
+	test.effect(
+		"dispatches plugin children as child workflows with an exact script pin",
+		() =>
+			Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const result = yield* performSandboxWorkflowChild(
+					{
+						index: 2,
+						kind: "child",
+						name: "events/import v1",
+						args: { input: { value: 1 }, workflowSlug: "plugin-child" },
+					},
+					SandboxScriptId.make("child-script"),
+					{
+						input: {},
+						pluginRevision,
+						lane: "background",
+						executionId: "parent",
+						resolutionMode: "active",
+						subject: automationSubject,
+						scriptId: SandboxScriptId.make("parent-script"),
+					},
+					"parent",
+					makeUserPrincipal({
+						pluginRevision,
+						subject: automationSubject,
+						scriptId: SandboxScriptId.make("parent-script"),
+					}),
+				);
+				expect(result).toEqual({ child: true });
+				expect((yield* calls.entries("executed-workflows")).at(-1)).toBe(ScriptExecutionWorkflow);
+				expect((yield* calls.entries("execute-options")).at(-1)).toMatchObject({
+					executionId: "parent-child-events-import-v1-2",
+					payload: {
+						lane: "background",
+						resolutionMode: "exact",
+						scriptId: "child-script",
+						subject: automationSubject,
+						grants: { artifactOwnerExecutionId: "parent" },
+						pluginRevision: {
+							id: "plugin",
+							revisionId: "revision-1",
+							configRevisionId: "config-1",
+						},
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(
 	Layer.mergeAll(childWorkflowEngineLayer, parentInstanceLayer, controlledWorkflowDependencies),
 )((test) => {
-	test.effect("dispatches migrated script activity requests as child workflows", () =>
-		Effect.gen(function* () {
-			const importRunId = ImportRunId.make("run-1");
-			const subject = {
-				importRunId,
-				type: "user" as const,
-				userId: UserId.make("user-1"),
-				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-			};
-			const result = yield* performSandboxWorkflowRequest(
-				{
-					index: 0,
-					name: "collect",
-					kind: "activity",
-					args: { input: {}, scriptSlug: "import.collect" },
-				},
-				SandboxScriptId.make("import-script"),
-				{
-					subject,
-					input: {},
-					lane: "interactive",
-					resolutionMode: "exact",
-					executionId: `${importRunId}-import`,
-					startedAt: "2026-01-01T00:00:00.000Z",
-					scriptId: SandboxScriptId.make("workflow-script"),
-				},
-				{
-					subject,
-					providerId: null,
-					pluginRevision: null,
-					scriptSlug: "workflow",
-					contentHash: "workflow-hash",
-					scriptId: SandboxScriptId.make("workflow-script"),
-					metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
-				},
-				`${importRunId}-import`,
-			);
+	test.effect(
+		"dispatches migrated script activity requests as child workflows",
+		() =>
+			Effect.gen(function* () {
+				const importRunId = ImportRunId.make("run-1");
+				const subject = {
+					importRunId,
+					type: "user" as const,
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				};
+				const result = yield* performSandboxWorkflowRequest(
+					{
+						index: 0,
+						name: "collect",
+						kind: "activity",
+						args: { input: {}, scriptSlug: "import.collect" },
+					},
+					SandboxScriptId.make("import-script"),
+					{
+						subject,
+						input: {},
+						lane: "interactive",
+						resolutionMode: "exact",
+						executionId: `${importRunId}-import`,
+						startedAt: "2026-01-01T00:00:00.000Z",
+						scriptId: SandboxScriptId.make("workflow-script"),
+					},
+					{
+						subject,
+						providerId: null,
+						pluginRevision: null,
+						scriptSlug: "workflow",
+						contentHash: "workflow-hash",
+						scriptId: SandboxScriptId.make("workflow-script"),
+						metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
+					},
+					`${importRunId}-import`,
+				);
 
-			expect(result).toEqual({ child: true });
-			expect((yield* (yield* WorkflowTestCalls).entries("execute-options")).at(-1)).toMatchObject({
-				executionId: "run-1-import-child-collect-0",
-				payload: {
-					lane: "interactive",
-					resolutionMode: "exact",
-					scriptId: "import-script",
-					subject: { type: "user", userId: "user-1", importRunId: "run-1" },
-				},
-			});
-		}),
+				expect(result).toEqual({ child: true });
+				expect((yield* (yield* WorkflowTestCalls).entries("execute-options")).at(-1)).toMatchObject(
+					{
+						executionId: "run-1-import-child-collect-0",
+						payload: {
+							lane: "interactive",
+							resolutionMode: "exact",
+							scriptId: "import-script",
+							subject: { type: "user", userId: "user-1", importRunId: "run-1" },
+						},
+					},
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1988,66 +2079,72 @@ layer(
 		mutationAdmissionTestLayer,
 	),
 )((test) => {
-	test.effect("dispatches library imports with the parent workflow subject", () =>
-		Effect.gen(function* () {
-			const result = yield* performSandboxWorkflowChild(
-				{
-					index: 4,
-					kind: "child",
-					name: "import-3",
-					args: { input: { externalId: "record-1" }, workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW },
-				},
-				undefined,
-				{
-					input: {},
-					lane: "interactive",
-					executionId: "parent",
-					resolutionMode: "active",
-					scriptId: SandboxScriptId.make("parent-script"),
-					subject: {
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
+	test.effect(
+		"dispatches library imports with the parent workflow subject",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* performSandboxWorkflowChild(
+					{
+						index: 4,
+						kind: "child",
+						name: "import-3",
+						args: {
+							input: { externalId: "record-1" },
+							workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
 						},
 					},
-				},
-				"parent",
-				makeUserPrincipal({
-					pluginRevision,
-					scriptId: SandboxScriptId.make("parent-script"),
-					subject: {
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						accountGeneration: {
-							token: "test-account-generation",
+					undefined,
+					{
+						input: {},
+						lane: "interactive",
+						executionId: "parent",
+						resolutionMode: "active",
+						scriptId: SandboxScriptId.make("parent-script"),
+						subject: {
+							type: "user",
 							userId: UserId.make("trusted-user"),
+							accountGeneration: {
+								token: "test-account-generation",
+								userId: UserId.make("trusted-user"),
+							},
 						},
 					},
-				}),
-			);
+					"parent",
+					makeUserPrincipal({
+						pluginRevision,
+						scriptId: SandboxScriptId.make("parent-script"),
+						subject: {
+							type: "user",
+							userId: UserId.make("trusted-user"),
+							accountGeneration: {
+								token: "test-account-generation",
+								userId: UserId.make("trusted-user"),
+							},
+						},
+					}),
+				);
 
-			expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
-			expect(yield* (yield* WorkflowTestCalls).entries("kernel-calls")).toMatchObject([
-				{
-					lane: "interactive",
-					parentExecutionId: "parent",
-					input: { externalId: "record-1" },
-					executionId: "parent-child-import-3-4",
-					workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
-					callerAuthority: { pluginRevision, scriptId: "parent-script" },
-					subject: {
-						type: "user",
-						userId: "trusted-user",
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
+				expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
+				expect(yield* (yield* WorkflowTestCalls).entries("kernel-calls")).toMatchObject([
+					{
+						lane: "interactive",
+						parentExecutionId: "parent",
+						input: { externalId: "record-1" },
+						executionId: "parent-child-import-3-4",
+						workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
+						callerAuthority: { pluginRevision, scriptId: "parent-script" },
+						subject: {
+							type: "user",
+							userId: "trusted-user",
+							accountGeneration: {
+								token: "test-account-generation",
+								userId: UserId.make("trusted-user"),
+							},
 						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2060,39 +2157,42 @@ const recurringRequests = (length: number) => [
 ];
 
 layer(inlineWorkflowLayer(inlineIds.recurring))((test) => {
-	test.effect("counts only consecutive projection losses against the rebuild bound", () =>
-		Effect.gen(function* () {
-			const outcomes = ["missing", "pending", "missing", "pending", "missing", "done"];
-			const result = yield* runInlineWorkflow(inlineIds.recurring, (sandboxPayload) => {
-				const length = sandboxPayload.journalLength;
-				const outcome = length === 0 ? "first" : outcomes.shift();
-				if (outcome === "first") {
-					return Effect.succeed(firstInlineReplay);
-				}
-				if (outcome === "missing") {
-					return projectionMissingReplay;
-				}
-				return Effect.succeed({
-					...replayBase,
-					inline: [],
-					pendingInline: [],
-					value:
-						outcome === "pending"
-							? {
-									journalLength: length,
-									state: "pending" as const,
-									requests: recurringRequests(length),
-								}
-							: {
-									journalLength: length,
-									output: { done: true },
-									state: "completed" as const,
-									requests: recurringRequests(length - 1),
-								},
+	test.effect(
+		"counts only consecutive projection losses against the rebuild bound",
+		() =>
+			Effect.gen(function* () {
+				const outcomes = ["missing", "pending", "missing", "pending", "missing", "done"];
+				const result = yield* runInlineWorkflow(inlineIds.recurring, (sandboxPayload) => {
+					const length = sandboxPayload.journalLength;
+					const outcome = length === 0 ? "first" : outcomes.shift();
+					if (outcome === "first") {
+						return Effect.succeed(firstInlineReplay);
+					}
+					if (outcome === "missing") {
+						return projectionMissingReplay;
+					}
+					return Effect.succeed({
+						...replayBase,
+						inline: [],
+						pendingInline: [],
+						value:
+							outcome === "pending"
+								? {
+										journalLength: length,
+										state: "pending" as const,
+										requests: recurringRequests(length),
+									}
+								: {
+										journalLength: length,
+										output: { done: true },
+										state: "completed" as const,
+										requests: recurringRequests(length - 1),
+									},
+					});
 				});
-			});
 
-			expect(result).toEqual({ done: true });
-		}),
+				expect(result).toEqual({ done: true });
+			}),
+		testTimeout,
 	);
 });

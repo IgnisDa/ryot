@@ -1,10 +1,13 @@
+import { expect } from "bun:test";
+
 import type { BetterAuthOptions } from "@better-auth/core";
 import { getCurrentAdapter, runWithTransaction } from "@better-auth/core/context";
 import type { DBAdapter } from "@better-auth/core/db/adapter";
-import { expect, layer } from "@effect/vitest";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { inArray } from "drizzle-orm";
 import { Cause, Deferred, Effect, Exit, Layer } from "effect";
-import { assert } from "vitest";
 
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
@@ -137,5 +140,6 @@ layer(testLayer)((test) => {
 						.sort(),
 				).toEqual([...emails].sort());
 			}),
+		testTimeout,
 	);
 });

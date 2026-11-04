@@ -268,7 +268,7 @@ describe("system plugin reconciliation", () => {
 					(yield* listSavedViews(client))
 						.filter((view) => view.slug === viewSlug)
 						.map(({ packageId: owner }) => owner),
-				).toEqual(arrayContaining([packageId, shippedPackageId]));
+				).toEqual<unknown>(arrayContaining([packageId, shippedPackageId]));
 			}),
 	);
 

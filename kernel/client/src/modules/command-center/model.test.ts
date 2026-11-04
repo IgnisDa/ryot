@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	EntitySchemaSlug,
 	PluginId,
@@ -11,6 +12,8 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import type { LibrarySearchHit, LibrarySearchResult } from "@ryot-app/ryotql-recipes/saved-views";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Fiber, Result } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -198,8 +201,10 @@ describe("command center destinations", () => {
 		const options = destinationOptions({ catalog, navigation });
 		const labels = options.map(({ label }) => label);
 
-		expect(labels).toEqual(arrayContaining(["Queue", "Favorites", "Fixture", "Settings"]));
-		expect(labels).toEqual(arrayContaining(["Preferences", "Backups", "Customize sidebar"]));
+		expect(labels).toEqual<unknown>(arrayContaining(["Queue", "Favorites", "Fixture", "Settings"]));
+		expect(labels).toEqual<unknown>(
+			arrayContaining(["Preferences", "Backups", "Customize sidebar"]),
+		);
 		expect(labels).not.toContain("Secret");
 		expect(labels).not.toContain("Hidden");
 		expect(options.find(({ label }) => label === "Favorites")?.href).toBe("/e/col-1");
@@ -233,139 +238,154 @@ describe("command center library views", () => {
 });
 
 describe("command center library search", () => {
-	it.effect("waits for the debounce, then commits every settled view at once", () =>
-		Effect.gen(function* () {
-			let queries = 0;
-			const commits: LibraryCommit[] = [];
-			const fiber = yield* Effect.forkChild(
-				runLibrarySearch({
-					query: "du",
-					views: views(),
-					onCommit: (commit) => commits.push(commit),
-					execute: () =>
-						Effect.sync(() => {
-							queries += 1;
-							return searchResult(hit("Dune"));
-						}),
-				}),
-			);
+	it.effect(
+		"waits for the debounce, then commits every settled view at once",
+		() =>
+			Effect.gen(function* () {
+				let queries = 0;
+				const commits: LibraryCommit[] = [];
+				const fiber = yield* Effect.forkChild(
+					runLibrarySearch({
+						query: "du",
+						views: views(),
+						onCommit: (commit) => commits.push(commit),
+						execute: () =>
+							Effect.sync(() => {
+								queries += 1;
+								return searchResult(hit("Dune"));
+							}),
+					}),
+				);
 
-			yield* TestClock.adjust(SEARCH_DEBOUNCE_MS - 1);
-			expect(queries).toBe(0);
-			yield* TestClock.adjust(1);
-			yield* Fiber.join(fiber);
+				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS - 1);
+				expect(queries).toBe(0);
+				yield* TestClock.adjust(1);
+				yield* Fiber.join(fiber);
 
-			expect(queries).toBe(2);
-			expect(commits.map(({ complete, outcomes }) => [complete, outcomes.length])).toEqual([
-				[true, 2],
-			]);
-		}),
+				expect(queries).toBe(2);
+				expect(commits.map(({ complete, outcomes }) => [complete, outcomes.length])).toEqual([
+					[true, 2],
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("commits settled views at the budget and appends late views below them", () =>
-		Effect.gen(function* () {
-			let calls = 0;
-			const commits: LibraryCommit[] = [];
-			const fiber = yield* Effect.forkChild(
-				runLibrarySearch({
-					query: "du",
-					views: views(),
-					onCommit: (commit) => commits.push(commit),
-					execute: () => {
-						calls += 1;
-						return calls === 1
-							? Effect.sleep(COMMIT_BUDGET_MS * 2).pipe(Effect.as(searchResult(hit("Late"))))
-							: Effect.succeed(searchResult(hit("Early")));
-					},
-				}),
-			);
+	it.effect(
+		"commits settled views at the budget and appends late views below them",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				const commits: LibraryCommit[] = [];
+				const fiber = yield* Effect.forkChild(
+					runLibrarySearch({
+						query: "du",
+						views: views(),
+						onCommit: (commit) => commits.push(commit),
+						execute: () => {
+							calls += 1;
+							return calls === 1
+								? Effect.sleep(COMMIT_BUDGET_MS * 2).pipe(Effect.as(searchResult(hit("Late"))))
+								: Effect.succeed(searchResult(hit("Early")));
+						},
+					}),
+				);
 
-			yield* TestClock.adjust(SEARCH_DEBOUNCE_MS + COMMIT_BUDGET_MS - 1);
-			expect(commits).toEqual([]);
-			yield* TestClock.adjust(1);
-			expect(
-				commits.map(({ complete, outcomes }) => [complete, outcomes.map(({ view }) => view.id)]),
-			).toEqual([[false, ["b"]]]);
-			yield* TestClock.adjust(COMMIT_BUDGET_MS);
-			yield* Fiber.join(fiber);
+				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS + COMMIT_BUDGET_MS - 1);
+				expect(commits).toEqual([]);
+				yield* TestClock.adjust(1);
+				expect(
+					commits.map(({ complete, outcomes }) => [complete, outcomes.map(({ view }) => view.id)]),
+				).toEqual([[false, ["b"]]]);
+				yield* TestClock.adjust(COMMIT_BUDGET_MS);
+				yield* Fiber.join(fiber);
 
-			expect(commits.at(-1)?.complete).toBe(true);
-			expect(commits.at(-1)?.outcomes.map(({ view }) => view.id)).toEqual(["b", "a"]);
-		}),
+				expect(commits.at(-1)?.complete).toBe(true);
+				expect(commits.at(-1)?.outcomes.map(({ view }) => view.id)).toEqual(["b", "a"]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("cancels a superseded search before it queries", () =>
-		Effect.gen(function* () {
-			let queries = 0;
-			const stale = yield* Effect.forkChild(
-				runLibrarySearch({
-					query: "d",
-					views: views(),
-					onCommit: () => undefined,
-					execute: () =>
-						Effect.sync(() => {
-							queries += 1;
-							return searchResult();
-						}),
-				}),
-			);
-			yield* TestClock.adjust(SEARCH_DEBOUNCE_MS - 1);
-			yield* Fiber.interrupt(stale);
-			yield* TestClock.adjust(SEARCH_DEBOUNCE_MS * 2);
+	it.effect(
+		"cancels a superseded search before it queries",
+		() =>
+			Effect.gen(function* () {
+				let queries = 0;
+				const stale = yield* Effect.forkChild(
+					runLibrarySearch({
+						query: "d",
+						views: views(),
+						onCommit: () => undefined,
+						execute: () =>
+							Effect.sync(() => {
+								queries += 1;
+								return searchResult();
+							}),
+					}),
+				);
+				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS - 1);
+				yield* Fiber.interrupt(stale);
+				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS * 2);
 
-			expect(queries).toBe(0);
-		}),
+				expect(queries).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.effect("interrupts in-flight queries when the search is superseded", () =>
-		Effect.gen(function* () {
-			let interrupted = 0;
-			const fiber = yield* Effect.forkChild(
-				runLibrarySearch({
-					query: "d",
-					views: views(),
-					onCommit: () => undefined,
-					execute: () =>
-						Effect.never.pipe(
-							Effect.onInterrupt(() =>
-								Effect.sync(() => {
-									interrupted += 1;
-								}),
+	it.effect(
+		"interrupts in-flight queries when the search is superseded",
+		() =>
+			Effect.gen(function* () {
+				let interrupted = 0;
+				const fiber = yield* Effect.forkChild(
+					runLibrarySearch({
+						query: "d",
+						views: views(),
+						onCommit: () => undefined,
+						execute: () =>
+							Effect.never.pipe(
+								Effect.onInterrupt(() =>
+									Effect.sync(() => {
+										interrupted += 1;
+									}),
+								),
 							),
-						),
-				}),
-			);
-			yield* TestClock.adjust(SEARCH_DEBOUNCE_MS);
-			yield* Effect.yieldNow;
-			yield* Fiber.interrupt(fiber);
+					}),
+				);
+				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS);
+				yield* Effect.yieldNow;
+				yield* Fiber.interrupt(fiber);
 
-			expect(interrupted).toBe(2);
-		}),
+				expect(interrupted).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.effect("reports a failing view without affecting the others", () =>
-		Effect.gen(function* () {
-			let calls = 0;
-			const commits: LibraryCommit[] = [];
-			const fiber = yield* Effect.forkChild(
-				runLibrarySearch({
-					query: "d",
-					views: views(),
-					onCommit: (commit) => commits.push(commit),
-					execute: () => {
-						calls += 1;
-						return calls === 1 ? Effect.fail("boom") : Effect.succeed(searchResult(hit("ok")));
-					},
-				}),
-			);
-			yield* TestClock.adjust(SEARCH_DEBOUNCE_MS);
-			yield* Fiber.join(fiber);
+	it.effect(
+		"reports a failing view without affecting the others",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				const commits: LibraryCommit[] = [];
+				const fiber = yield* Effect.forkChild(
+					runLibrarySearch({
+						query: "d",
+						views: views(),
+						onCommit: (commit) => commits.push(commit),
+						execute: () => {
+							calls += 1;
+							return calls === 1 ? Effect.fail("boom") : Effect.succeed(searchResult(hit("ok")));
+						},
+					}),
+				);
+				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS);
+				yield* Fiber.join(fiber);
 
-			expect(commits.at(-1)?.outcomes.map(({ outcome }) => Result.isFailure(outcome))).toEqual([
-				true,
-				false,
-			]);
-		}),
+				expect(commits.at(-1)?.outcomes.map(({ outcome }) => Result.isFailure(outcome))).toEqual([
+					true,
+					false,
+				]);
+			}),
+		testTimeout,
 	);
 });
 

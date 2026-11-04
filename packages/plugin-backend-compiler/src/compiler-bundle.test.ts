@@ -1,5 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Path } from "effect";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
@@ -7,44 +10,50 @@ import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import { pluginBackendCompilerPlatformLayer } from "./compiler-platform";
 
 it.layer(pluginBackendCompilerPlatformLayer)("bundleSandboxPackage", (test) => {
-	test.effect("uses a scoped addressed workspace for multiple sandbox entries", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const path = yield* Path.Path;
-				const parentPath = yield* fs.makeTempDirectoryScoped({ prefix: "sandbox-bundle-test-" });
-				const jobId = "direct-call";
-				const dependencies = yield* resolveSandboxCompilerDependencies;
-				const modules = yield* bundleSandboxPackage(
-					{ "entry.ts": "export default 42;", "second.ts": "export default 7;" },
-					["entry.ts", "second.ts"],
-					dependencies.sdkEntries,
-					2,
-					{ jobId, parentPath },
-				);
-				expect(modules.map(({ entry }) => entry)).toEqual(["entry.ts", "second.ts"]);
-				expect(yield* fs.exists(path.join(parentPath, jobId))).toBe(false);
-			}),
-		),
+	test.effect(
+		"uses a scoped addressed workspace for multiple sandbox entries",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const path = yield* Path.Path;
+					const parentPath = yield* fs.makeTempDirectoryScoped({ prefix: "sandbox-bundle-test-" });
+					const jobId = "direct-call";
+					const dependencies = yield* resolveSandboxCompilerDependencies;
+					const modules = yield* bundleSandboxPackage(
+						{ "entry.ts": "export default 42;", "second.ts": "export default 7;" },
+						["entry.ts", "second.ts"],
+						dependencies.sdkEntries,
+						2,
+						{ jobId, parentPath },
+					);
+					expect(modules.map(({ entry }) => entry)).toEqual(["entry.ts", "second.ts"]);
+					expect(yield* fs.exists(path.join(parentPath, jobId))).toBe(false);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("audits Bun references from emitted code", () =>
-		Effect.gen(function* () {
-			const dependencies = yield* resolveSandboxCompilerDependencies;
-			const failure = yield* Effect.flip(
-				bundleSandboxPackage(
-					{ "entry.ts": "declare const Bun: { version: string }; export default Bun.version;" },
-					["entry.ts"],
-					dependencies.sdkEntries,
-					1,
-				),
-			);
-			expect(failure.diagnostics).toEqual([
-				objectContaining({
-					code: "RYOT_BUNDLE",
-					message: stringContaining("forbidden CommonJS, Bun, or browser helper"),
-				}),
-			]);
-		}),
+	test.effect(
+		"audits Bun references from emitted code",
+		() =>
+			Effect.gen(function* () {
+				const dependencies = yield* resolveSandboxCompilerDependencies;
+				const failure = yield* Effect.flip(
+					bundleSandboxPackage(
+						{ "entry.ts": "declare const Bun: { version: string }; export default Bun.version;" },
+						["entry.ts"],
+						dependencies.sdkEntries,
+						1,
+					),
+				);
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_BUNDLE",
+						message: stringContaining("forbidden CommonJS, Bun, or browser helper"),
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 });

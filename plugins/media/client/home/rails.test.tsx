@@ -1,8 +1,12 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect, test } from "bun:test";
+
 import { type EntityWatch, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	podcastEpisodicKindConfig,
@@ -217,13 +221,13 @@ const rails = [
 ] as const;
 
 describe("library rails", () => {
-	it.each(rails)("$title shows a placeholder while pending", ({ title, render }) => {
+	test.each(rails)("$title shows a placeholder while pending", ({ title, render }) => {
 		const view = mountRyotClient(noopAdapter, render(pendingQueryResult()));
 		expect(view.container.querySelector(`[aria-label="Loading ${title}"]`)).not.toBeNull();
 		view.unmount();
 	});
 
-	it.each(rails)("$title retries its own section after an error", ({ render }) => {
+	test.each(rails)("$title retries its own section after an error", ({ render }) => {
 		let retries = 0;
 		const failed = {
 			...errorQueryResult<ReturnType<typeof libraryData>>(
@@ -241,7 +245,7 @@ describe("library rails", () => {
 		view.unmount();
 	});
 
-	it.each(rails)("$title hides itself when empty", ({ empty, render }) => {
+	test.each(rails)("$title hides itself when empty", ({ empty, render }) => {
 		const view = mountRyotClient(noopAdapter, render(readyQueryResult(empty())));
 		expect(view.container.textContent).toBe("");
 		view.unmount();
@@ -291,7 +295,7 @@ function UpcomingToday(props: {
 }
 
 describe("UpcomingRail", () => {
-	it.each([
+	test.each([
 		{ still: true, backdrop: true, expected: "still" },
 		{ still: false, backdrop: true, expected: "backdrop" },
 		{ still: false, backdrop: false, expected: "show-1" },
@@ -324,50 +328,53 @@ describe("UpcomingRail", () => {
 		},
 	);
 
-	it.live("merges every source by local day and recaptions them at local midnight", () =>
-		Effect.gen(function* () {
-			const mondayMorning = DateTime.formatIso(
-				localDateTime({ day: 28, hour: 10, month: 9, year: 2026 }),
-			);
-			const data = upcomingData({
-				anime: [upcomingAnime("anime-1", "Frieren", [mondayMorning])],
-				shows: [upcomingShow(3, [upcomingEpisode("episode-1", "2026-09-26", 2, 10)])],
-				releases: [{ ...mediaIdentity("movie-1", "Dune", "movie"), publishDate: "2026-10-05" }],
-				podcasts: [
-					{
-						...mediaIdentity("podcast-1", "Hardcore History", "podcast"),
-						total: 1,
-						occurrences: includeResult([upcomingEpisode("podcast-ep", "2026-09-28", null, 71)]),
-					},
-				],
-			});
-			const view = mountRyotClient(noopAdapter, null);
-			yield* Effect.promise(() =>
-				view.setTime(
-					DateTime.toEpochMillis(
-						localDateTime({ day: 25, hour: 23, month: 9, minute: 30, year: 2026 }),
+	it.live(
+		"merges every source by local day and recaptions them at local midnight",
+		() =>
+			Effect.gen(function* () {
+				const mondayMorning = DateTime.formatIso(
+					localDateTime({ day: 28, hour: 10, month: 9, year: 2026 }),
+				);
+				const data = upcomingData({
+					anime: [upcomingAnime("anime-1", "Frieren", [mondayMorning])],
+					shows: [upcomingShow(3, [upcomingEpisode("episode-1", "2026-09-26", 2, 10)])],
+					releases: [{ ...mediaIdentity("movie-1", "Dune", "movie"), publishDate: "2026-10-05" }],
+					podcasts: [
+						{
+							...mediaIdentity("podcast-1", "Hardcore History", "podcast"),
+							total: 1,
+							occurrences: includeResult([upcomingEpisode("podcast-ep", "2026-09-28", null, 71)]),
+						},
+					],
+				});
+				const view = mountRyotClient(noopAdapter, null);
+				yield* Effect.promise(() =>
+					view.setTime(
+						DateTime.toEpochMillis(
+							localDateTime({ day: 25, hour: 23, month: 9, minute: 30, year: 2026 }),
+						),
 					),
-				),
-			);
-			view.rerender(<UpcomingToday onePerTitle data={data} />);
+				);
+				view.rerender(<UpcomingToday onePerTitle data={data} />);
 
-			expect(tileLines(view.container)).toEqual([
-				["Open Severance", "Severance", "S2 E10", "Tomorrow · +2 more"],
-				["Open Hardcore History", "Hardcore History", "Ep 71", "Monday"],
-				["Open Frieren", "Frieren", "Ep 4", "Monday"],
-				["Open Dune", "Dune", "Oct 5"],
-			]);
+				expect(tileLines(view.container)).toEqual([
+					["Open Severance", "Severance", "S2 E10", "Tomorrow · +2 more"],
+					["Open Hardcore History", "Hardcore History", "Ep 71", "Monday"],
+					["Open Frieren", "Frieren", "Ep 4", "Monday"],
+					["Open Dune", "Dune", "Oct 5"],
+				]);
 
-			yield* Effect.promise(() => view.advance("30 minutes"));
+				yield* Effect.promise(() => view.advance("30 minutes"));
 
-			expect(tileLines(view.container).map((tile) => tile.at(-1))).toEqual([
-				"Today · +2 more",
-				"Monday",
-				"Monday",
-				"Oct 5",
-			]);
-			view.unmount();
-		}),
+				expect(tileLines(view.container).map((tile) => tile.at(-1))).toEqual([
+					"Today · +2 more",
+					"Monday",
+					"Monday",
+					"Oct 5",
+				]);
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
 	it("keeps each title's soonest entry across sources and counts the rest", () => {
@@ -467,7 +474,7 @@ const lazyRails = [
 ] as const;
 
 describe("lazily queried rails", () => {
-	it.each(lazyRails)("$title shows a placeholder while pending", ({ Rail, title }) => {
+	test.each(lazyRails)("$title shows a placeholder while pending", ({ Rail, title }) => {
 		const view = mountRyotClient(
 			respondingAdapter(() => Effect.never),
 			<Rail compact />,
@@ -476,80 +483,94 @@ describe("lazily queried rails", () => {
 		view.unmount();
 	});
 
-	it.live.each(lazyRails)("$title offers a retry after an error", ({ Rail }) =>
-		Effect.gen(function* () {
-			const view = mountRyotClient(
-				respondingAdapter(() => Effect.fail(new RyotClientError({ reason: "transport" }))),
-				<Rail compact />,
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull()),
-			);
-			view.unmount();
-		}),
+	it.live.each(lazyRails)(
+		"$title offers a retry after an error",
+		({ Rail }) =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(
+					respondingAdapter(() => Effect.fail(new RyotClientError({ reason: "transport" }))),
+					<Rail compact />,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull()),
+				);
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live.each(lazyRails)("$title hides itself when it has nothing to show", ({ Rail, empty }) =>
-		Effect.gen(function* () {
-			const view = mountRyotClient(respondingAdapter(respondWith(empty)), <Rail compact />);
-			yield* Effect.promise(() => flushRyotClient());
-			yield* Effect.promise(() => waitFor(() => expect(view.container.textContent).toBe("")));
-			view.unmount();
-		}),
+	it.live.each(lazyRails)(
+		"$title hides itself when it has nothing to show",
+		({ Rail, empty }) =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(respondingAdapter(respondWith(empty)), <Rail compact />);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() => waitFor(() => expect(view.container.textContent).toBe("")));
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("titles suggestions after the completion they come from and watches both", () =>
-		Effect.gen(function* () {
-			const interests: EntityWatch[] = [];
-			const view = mountRyotClient(
-				respondingAdapter(
-					respondWith({
-						"suggestions.source": rows([mediaIdentity("movie-1", "Heat", "movie")]),
-						"suggestions.items": rows([mediaIdentity("movie-2", "Collateral", "movie")]),
-					}),
-					interests,
-				),
-				<SuggestionsRail compact />,
-			);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(view.container.querySelector("h2")?.textContent).toBe("Because you finished Heat"),
-				),
-			);
-			expect(tileLines(view.container)).toEqual([["Open Collateral", "Collateral"]]);
-			expect(interests.at(-1)).toEqual({ foreground: [], visible: ["movie-1", "movie-2"] });
-			view.unmount();
-		}),
+	it.live(
+		"titles suggestions after the completion they come from and watches both",
+		() =>
+			Effect.gen(function* () {
+				const interests: EntityWatch[] = [];
+				const view = mountRyotClient(
+					respondingAdapter(
+						respondWith({
+							"suggestions.source": rows([mediaIdentity("movie-1", "Heat", "movie")]),
+							"suggestions.items": rows([mediaIdentity("movie-2", "Collateral", "movie")]),
+						}),
+						interests,
+					),
+					<SuggestionsRail compact />,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.container.querySelector("h2")?.textContent).toBe(
+							"Because you finished Heat",
+						),
+					),
+				);
+				expect(tileLines(view.container)).toEqual([["Open Collateral", "Collateral"]]);
+				expect(interests.at(-1)).toEqual({ foreground: [], visible: ["movie-1", "movie-2"] });
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("numbers trending titles by rank", () =>
-		Effect.gen(function* () {
-			const view = mountRyotClient(
-				respondingAdapter(
-					respondWith({
-						"trending.trending": rows([
-							{ ...trending("movie-1", "Heat", "movie", 1), isInMediaLibrary: true },
-							trending("show-1", "Severance", "show", 1),
-							trending("movie-2", "Collateral", "movie", 2),
+	it.live(
+		"numbers trending titles by rank",
+		() =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(
+					respondingAdapter(
+						respondWith({
+							"trending.trending": rows([
+								{ ...trending("movie-1", "Heat", "movie", 1), isInMediaLibrary: true },
+								trending("show-1", "Severance", "show", 1),
+								trending("movie-2", "Collateral", "movie", 2),
+							]),
+						}),
+					),
+					<TrendingRail compact />,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(tileLines(view.container)).toEqual([
+							["Open Heat", "Heat", "1"],
+							["Open Severance", "Severance", "1"],
+							["Open Collateral", "Collateral", "2"],
 						]),
-					}),
-				),
-				<TrendingRail compact />,
-			);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(tileLines(view.container)).toEqual([
-						["Open Heat", "Heat", "1"],
-						["Open Severance", "Severance", "1"],
-						["Open Collateral", "Collateral", "2"],
-					]),
-				),
-			);
-			expect(view.container.querySelectorAll('[aria-label="In your library"]')).toHaveLength(1);
-			expect(
-				getByRole(view.container, "link", { name: "Open Heat" }).querySelector(".text-warning"),
-			).not.toBeNull();
-			view.unmount();
-		}),
+					),
+				);
+				expect(view.container.querySelectorAll('[aria-label="In your library"]')).toHaveLength(1);
+				expect(
+					getByRole(view.container, "link", { name: "Open Heat" }).querySelector(".text-warning"),
+				).not.toBeNull();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });

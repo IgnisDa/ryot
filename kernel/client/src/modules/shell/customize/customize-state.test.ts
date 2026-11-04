@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
@@ -5,7 +7,6 @@ import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { describe, expect, it } from "vitest";
 
 import {
 	type CustomizeDraft,

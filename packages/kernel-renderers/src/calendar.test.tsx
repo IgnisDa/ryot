@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach, describe, expect } from "bun:test";
+
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import {
 	createTestRyotClock,
@@ -9,7 +10,9 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { castDate, castJson, column, field, jsonPath, literal, table } from "@ryot-app/ryotql";
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import CalendarPage, { MAX_SOURCE_OCCURRENCES } from "./calendar";
@@ -239,365 +242,395 @@ const march14 = Date.UTC(2026, 2, 14, 12);
 describe("calendar renderer", () => {
 	useTimeZone("UTC");
 
-	it.live("shares the month window across layout changes while paging a source", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14, search: "month=2026-03" });
-			yield* answerSources(page, [source("tasks")]);
-			const first = yield* nextOccurrenceRequest(page, "tasks");
-			page.navigate(routeLocation("/v/k/calendar", "month=2026-03&layout=month&panel=details"));
-			yield* Effect.promise(() => screen.findByRole("grid"));
-			yield* waitForMessagePortMacrotask;
-			expect(occurrenceRequests(page, "tasks")).toHaveLength(1);
-			page.replyQuery(first.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						calendarOccurrences: rows(
-							[occurrence("Alpha", "2026-03-14T00:00:00.000Z", "First")],
-							"cursor-1",
-						),
+	it.live(
+		"shares the month window across layout changes while paging a source",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14, search: "month=2026-03" });
+				yield* answerSources(page, [source("tasks")]);
+				const first = yield* nextOccurrenceRequest(page, "tasks");
+				page.navigate(routeLocation("/v/k/calendar", "month=2026-03&layout=month&panel=details"));
+				yield* Effect.promise(() => screen.findByRole("grid"));
+				yield* waitForMessagePortMacrotask;
+				expect(occurrenceRequests(page, "tasks")).toHaveLength(1);
+				page.replyQuery(first.requestId, {
+					outcome: "success",
+					response: {
+						data: {
+							calendarOccurrences: rows(
+								[occurrence("Alpha", "2026-03-14T00:00:00.000Z", "First")],
+								"cursor-1",
+							),
+						},
 					},
-				},
-			});
-			const second = yield* answerOccurrences(page, "tasks", [
-				occurrence("Beta", "2026-03-14T00:00:00.000Z", "Second"),
-			]);
-			const document = yield* encodeJson(second.document);
-			expect(document).toContain("cursor-1");
-			expect(document).toContain("2026-03-01T00:00:00.000Z");
-			expect(document).toContain("2026-04-01T00:00:00.000Z");
+				});
+				const second = yield* answerOccurrences(page, "tasks", [
+					occurrence("Beta", "2026-03-14T00:00:00.000Z", "Second"),
+				]);
+				const document = yield* encodeJson(second.document);
+				expect(document).toContain("cursor-1");
+				expect(document).toContain("2026-03-01T00:00:00.000Z");
+				expect(document).toContain("2026-04-01T00:00:00.000Z");
 
-			page.navigate(routeLocation("/v/k/calendar", "month=2026-03"));
-			const day = yield* daySection("2026-03-14");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(rowTexts(day)).toEqual([
-						stringContaining("AlphaFirst"),
-						stringContaining("BetaSecond"),
-					]),
-				),
-			);
-			yield* waitForMessagePortMacrotask;
-			expect(occurrenceRequests(page, "tasks")).toHaveLength(2);
-			expect(page.queryRequests("calendarSources")).toHaveLength(1);
-		}),
-	);
-
-	it.live("groups a month by day with date-only items first, dimmed past days and fallbacks", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14 });
-			yield* answerSources(page, [
-				source("tasks"),
-				source("reminders", { art: null, done: null, precision: "instant" }),
-			]);
-			yield* answerOccurrences(page, "tasks", [
-				occurrence("Alpha", "2026-03-10T00:00:00.000Z", "Step 1", {
-					done: true,
-					art: { type: "remote", url: "https://images.example/alpha.webp" },
-				}),
-				occurrence("Alpha", "2026-03-14T00:00:00.000Z", "Step 2", {
-					art: { type: "local", url: "malformed" },
-				}),
-			]);
-			yield* answerOccurrences(page, "reminders", [
-				occurrence("Beta", "2026-03-14T15:30:00.000Z", "Note 3"),
-				occurrence("Beta", "2026-03-14T09:00:00.000Z", "Note 2"),
-			]);
-
-			const past = yield* daySection("2026-03-10");
-			const today = yield* daySection("2026-03-14");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(rowTexts(today)).toEqual([
-						stringContaining("AlphaStep 2"),
-						stringContaining("BetaNote 2"),
-						stringContaining("BetaNote 3"),
-					]),
-				),
-			);
-			expect(
-				within(today)
-					.getAllByTestId("calendar-time")
-					.map((time) => time.textContent),
-			).toEqual(["", "09:00", "15:30"]);
-			expect(within(today).getByText("Today")).toBeTruthy();
-			expect(within(today).getAllByTestId("calendar-icon-tile")).toHaveLength(3);
-			expect(within(today).queryByRole("img", { name: "Done" })).toBeNull();
-
-			const [pastRow] = within(past).getAllByRole("link");
-			expect(pastRow?.hasAttribute("data-past")).toBe(true);
-			expect(within(today).getAllByRole("link")[0]?.hasAttribute("data-past")).toBe(false);
-			expect(within(past).getByRole("img", { name: "Done" })).toBeTruthy();
-			expect(within(past).queryByTestId("calendar-icon-tile")).toBeNull();
-			expect(past.querySelector("img")?.getAttribute("src")).toBe(
-				"https://images.example/alpha.webp",
-			);
-			expect(pastRow?.getAttribute("href")).toContain("id-Alpha");
-		}),
-	);
-
-	it.live("sends the chip toggle through the bridge and refreshes from the mutation hint", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14 });
-			yield* answerSources(page, [source("tasks"), source("reminders")]);
-			yield* answerOccurrences(page, "tasks", [
-				occurrence("Alpha", "2026-03-20T00:00:00.000Z", "Step 3"),
-			]);
-			yield* answerOccurrences(page, "reminders", [
-				occurrence("Beta", "2026-03-21T00:00:00.000Z", "Note 4"),
-			]);
-			yield* daySection("2026-03-21");
-			const chip = screen.getByRole("button", { name: /reminders source/ });
-			expect(chip.getAttribute("aria-pressed")).toBe("true");
-			fireEvent.click(chip);
-			const [request] = yield* Effect.promise(() =>
-				waitFor(() => {
-					const requests = page.calendarSourceVisibilityRequests();
-					expect(requests).toHaveLength(1);
-					return requests;
-				}),
-			);
-			expect(request).toMatchObject({ isHidden: true, slug: "reminders", pluginId: "plugin-1" });
-			page.replyCalendarSourceVisibility(request?.requestId ?? "", { outcome: "success" });
-			yield* waitForMessagePortMacrotask;
-			expect(page.queryRequests("calendarSources")).toHaveLength(1);
-			const clock = pageClocks.get(page);
-			expect(clock).toBeDefined();
-			yield* Effect.promise(() => clock?.advance(250) ?? Promise.resolve());
-			yield* answerSources(page, [source("tasks"), source("reminders", { isHidden: true })]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						screen.getByRole("button", { name: /reminders source/ }).getAttribute("aria-pressed"),
-					).toBe("false"),
-				),
-			);
-			expect(document.querySelector('section[data-day="2026-03-21"]')).toBeNull();
-			expect(screen.getByText(/1 source hidden/)).toBeTruthy();
-		}),
-	);
-
-	it.live("navigates months through the URL and reads the month from it", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14, search: "month=2026-01" });
-			yield* answerSources(page, [source("tasks")]);
-			const january = yield* answerOccurrences(page, "tasks", []);
-			expect(yield* encodeJson(january.document)).toContain("2026-01-01T00:00:00.000Z");
-			yield* Effect.promise(() => waitFor(() => screen.getByText("January 2026")));
-
-			fireEvent.click(screen.getByRole("button", { name: "Next month" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-02" }),
-				),
-			);
-			const february = yield* answerOccurrences(page, "tasks", []);
-			expect(yield* encodeJson(february.document)).toContain("2026-03-01T00:00:00.000Z");
-			yield* Effect.promise(() => waitFor(() => screen.getByText("February 2026")));
-
-			fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-01" }),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Today" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-03" }),
-				),
-			);
-		}),
-	);
-
-	it.live("caps month cells at three items and opens the agenda at a day with more", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14, search: "layout=month" });
-			yield* answerSources(page, [source("tasks")]);
-			yield* answerOccurrences(
-				page,
-				"tasks",
-				["Part 1", "Part 2", "Part 3", "Part 4", "Part 5"].map((caption) =>
-					occurrence("Zeta", "2026-03-25T00:00:00.000Z", caption),
-				),
-			);
-			const cell = yield* Effect.promise(() =>
-				waitFor(() => {
-					const found = document.querySelector<HTMLElement>(
-						'[role="gridcell"][data-day="2026-03-25"]',
-					);
-					expect(found).not.toBeNull();
-					if (found === null) {
-						throw new Error("Missing cell");
-					}
-					expect(within(found).getAllByRole("link")).toHaveLength(3);
-					return found;
-				}),
-			);
-			expect(screen.getAllByRole("columnheader")[0]?.textContent).toBe(firstWeekday());
-			fireEvent.click(within(cell).getByRole("button", { name: "+2 more" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-03" }),
-				),
-			);
-			const section = yield* daySection("2026-03-25");
-			expect(within(section).getAllByRole("link")).toHaveLength(5);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(section.contains(document.activeElement)).toBe(true)),
-			);
-		}),
-	);
-
-	it.live("fits the compact month to the viewport with dot cells that open the agenda", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14, compact: true, search: "layout=month" });
-			yield* answerSources(page, [source("tasks"), source("reminders")]);
-			yield* answerOccurrences(
-				page,
-				"tasks",
-				["Part 1", "Part 2", "Part 3", "Part 4"].map((caption) =>
-					occurrence("Zeta", "2026-03-25T00:00:00.000Z", caption),
-				),
-			);
-			yield* answerOccurrences(page, "reminders", [
-				occurrence("Beta", "2026-03-25T10:00:00.000Z", "Note 1"),
-			]);
-			const grid = yield* Effect.promise(() => waitFor(() => screen.getByRole("grid")));
-			expect(grid.className).not.toContain("min-w-[760px]");
-			expect(grid.parentElement?.className).not.toContain("overflow-x-auto");
-			const weeks = within(grid).getAllByRole("row").slice(1);
-			expect(weeks).toHaveLength(6);
-			for (const week of weeks) {
-				expect(within(week).getAllByRole("gridcell")).toHaveLength(7);
-			}
-			const cell = yield* Effect.promise(() =>
-				waitFor(() => {
-					const found = document.querySelector<HTMLElement>(
-						'[role="gridcell"][data-day="2026-03-25"]',
-					);
-					expect(found?.textContent).toContain("+2");
-					if (found === null) {
-						throw new Error("Missing cell");
-					}
-					return found;
-				}),
-			);
-			expect(within(cell).queryAllByRole("link")).toHaveLength(0);
-			expect(cell.textContent).not.toContain("Zeta");
-			const button = within(cell).getByRole("button", { name: /, 5 items$/ });
-			expect(button.getAttribute("aria-label")).toBe(`${dayLabel("2026-03-25")}, 5 items`);
-			expect(button.className).toContain("min-h-14");
-			expect(button.querySelectorAll('[aria-hidden="true"] > span')).toHaveLength(3);
-			fireEvent.click(button);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-03" }),
-				),
-			);
-			const section = yield* daySection("2026-03-25");
-			expect(within(section).getAllByRole("link")).toHaveLength(5);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(section.contains(document.activeElement)).toBe(true)),
-			);
-		}),
-	);
-
-	it.live("shows the empty state for a month without occurrences and for no sources", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14 });
-			yield* answerSources(page, [source("tasks")]);
-			yield* answerOccurrences(page, "tasks", []);
-			yield* Effect.promise(() =>
-				waitFor(() => screen.getByText("Nothing in March 2026 from the sources you show.")),
-			);
-			page.dispose();
-			const empty = yield* open({ now: march14 });
-			yield* answerSources(empty, []);
-			yield* Effect.promise(() =>
-				waitFor(() => screen.getByText("No installed plugin adds calendar sources yet.")),
-			);
-		}),
-	);
-
-	it.live("reports one failing source while the others still render", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14 });
-			yield* answerSources(page, [source("tasks"), source("reminders")]);
-			const failing = yield* nextOccurrenceRequest(page, "reminders");
-			page.replyQuery(failing.requestId, { outcome: "failure", reason: "query-failed" });
-			yield* answerOccurrences(page, "tasks", [
-				occurrence("Alpha", "2026-03-20T00:00:00.000Z", "Step 3"),
-			]);
-			yield* daySection("2026-03-20");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("alert").textContent).toContain(
-						"reminders source could not be loaded.",
+				page.navigate(routeLocation("/v/k/calendar", "month=2026-03"));
+				const day = yield* daySection("2026-03-14");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(rowTexts(day)).toEqual<unknown>([
+							stringContaining("AlphaFirst"),
+							stringContaining("BetaSecond"),
+						]),
 					),
-				),
-			);
-		}),
+				);
+				yield* waitForMessagePortMacrotask;
+				expect(occurrenceRequests(page, "tasks")).toHaveLength(2);
+				expect(page.queryRequests("calendarSources")).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
-	it.live("stops paging a source at its occurrence cap and says so", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14, search: "layout=month" });
-			yield* answerSources(page, [source("tasks")]);
-			const pages = MAX_SOURCE_OCCURRENCES / 100;
-			for (let index = 0; index < pages; index += 1) {
-				const request = yield* answerOccurrences(
+	it.live(
+		"groups a month by day with date-only items first, dimmed past days and fallbacks",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14 });
+				yield* answerSources(page, [
+					source("tasks"),
+					source("reminders", { art: null, done: null, precision: "instant" }),
+				]);
+				yield* answerOccurrences(page, "tasks", [
+					occurrence("Alpha", "2026-03-10T00:00:00.000Z", "Step 1", {
+						done: true,
+						art: { type: "remote", url: "https://images.example/alpha.webp" },
+					}),
+					occurrence("Alpha", "2026-03-14T00:00:00.000Z", "Step 2", {
+						art: { type: "local", url: "malformed" },
+					}),
+				]);
+				yield* answerOccurrences(page, "reminders", [
+					occurrence("Beta", "2026-03-14T15:30:00.000Z", "Note 3"),
+					occurrence("Beta", "2026-03-14T09:00:00.000Z", "Note 2"),
+				]);
+
+				const past = yield* daySection("2026-03-10");
+				const today = yield* daySection("2026-03-14");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(rowTexts(today)).toEqual<unknown>([
+							stringContaining("AlphaStep 2"),
+							stringContaining("BetaNote 2"),
+							stringContaining("BetaNote 3"),
+						]),
+					),
+				);
+				expect(
+					within(today)
+						.getAllByTestId("calendar-time")
+						.map((time) => time.textContent),
+				).toEqual(["", "09:00", "15:30"]);
+				expect(within(today).getByText("Today")).toBeTruthy();
+				expect(within(today).getAllByTestId("calendar-icon-tile")).toHaveLength(3);
+				expect(within(today).queryByRole("img", { name: "Done" })).toBeNull();
+
+				const [pastRow] = within(past).getAllByRole("link");
+				expect(pastRow?.hasAttribute("data-past")).toBe(true);
+				expect(within(today).getAllByRole("link")[0]?.hasAttribute("data-past")).toBe(false);
+				expect(within(past).getByRole("img", { name: "Done" })).toBeTruthy();
+				expect(within(past).queryByTestId("calendar-icon-tile")).toBeNull();
+				expect(past.querySelector("img")?.getAttribute("src")).toBe(
+					"https://images.example/alpha.webp",
+				);
+				expect(pastRow?.getAttribute("href")).toContain("id-Alpha");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"sends the chip toggle through the bridge and refreshes from the mutation hint",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14 });
+				yield* answerSources(page, [source("tasks"), source("reminders")]);
+				yield* answerOccurrences(page, "tasks", [
+					occurrence("Alpha", "2026-03-20T00:00:00.000Z", "Step 3"),
+				]);
+				yield* answerOccurrences(page, "reminders", [
+					occurrence("Beta", "2026-03-21T00:00:00.000Z", "Note 4"),
+				]);
+				yield* daySection("2026-03-21");
+				const chip = screen.getByRole("button", { name: /reminders source/ });
+				expect(chip.getAttribute("aria-pressed")).toBe("true");
+				fireEvent.click(chip);
+				const [request] = yield* Effect.promise(() =>
+					waitFor(() => {
+						const requests = page.calendarSourceVisibilityRequests();
+						expect(requests).toHaveLength(1);
+						return requests;
+					}),
+				);
+				expect(request).toMatchObject({ isHidden: true, slug: "reminders", pluginId: "plugin-1" });
+				page.replyCalendarSourceVisibility(request?.requestId ?? "", { outcome: "success" });
+				yield* waitForMessagePortMacrotask;
+				expect(page.queryRequests("calendarSources")).toHaveLength(1);
+				const clock = pageClocks.get(page);
+				expect(clock).toBeDefined();
+				yield* Effect.promise(() => clock?.advance(250) ?? Promise.resolve());
+				yield* answerSources(page, [source("tasks"), source("reminders", { isHidden: true })]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("button", { name: /reminders source/ }).getAttribute("aria-pressed"),
+						).toBe("false"),
+					),
+				);
+				expect(document.querySelector('section[data-day="2026-03-21"]')).toBeNull();
+				expect(screen.getByText(/1 source hidden/)).toBeTruthy();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"navigates months through the URL and reads the month from it",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14, search: "month=2026-01" });
+				yield* answerSources(page, [source("tasks")]);
+				const january = yield* answerOccurrences(page, "tasks", []);
+				expect(yield* encodeJson(january.document)).toContain("2026-01-01T00:00:00.000Z");
+				yield* Effect.promise(() => waitFor(() => screen.getByText("January 2026")));
+
+				fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-02" }),
+					),
+				);
+				const february = yield* answerOccurrences(page, "tasks", []);
+				expect(yield* encodeJson(february.document)).toContain("2026-03-01T00:00:00.000Z");
+				yield* Effect.promise(() => waitFor(() => screen.getByText("February 2026")));
+
+				fireEvent.click(screen.getByRole("button", { name: "Previous month" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-01" }),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Today" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-03" }),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"caps month cells at three items and opens the agenda at a day with more",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14, search: "layout=month" });
+				yield* answerSources(page, [source("tasks")]);
+				yield* answerOccurrences(
 					page,
 					"tasks",
-					Array.from({ length: 100 }, (_, item) =>
-						occurrence(`Record ${index}-${item}`, "2026-03-20T00:00:00.000Z", null),
+					["Part 1", "Part 2", "Part 3", "Part 4", "Part 5"].map((caption) =>
+						occurrence("Zeta", "2026-03-25T00:00:00.000Z", caption),
 					),
-					`cursor-${index + 1}`,
 				);
-				const output = request.document.queries["calendarOccurrences"]?.output;
-				expect(output?.type === "rows" ? output.pagination : undefined).toEqual(
-					index === 0 ? { limit: 100 } : { limit: 100, after: `cursor-${index}` },
+				const cell = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = document.querySelector<HTMLElement>(
+							'[role="gridcell"][data-day="2026-03-25"]',
+						);
+						expect(found).not.toBeNull();
+						if (found === null) {
+							throw new Error("Missing cell");
+						}
+						expect(within(found).getAllByRole("link")).toHaveLength(3);
+						return found;
+					}),
 				);
-			}
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					screen.getByText(
-						`Showing the first ${MAX_SOURCE_OCCURRENCES.toLocaleString()} items from tasks source.`,
+				expect(screen.getAllByRole("columnheader")[0]?.textContent).toBe(firstWeekday());
+				fireEvent.click(within(cell).getByRole("button", { name: "+2 more" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-03" }),
 					),
-				),
-			);
-			expect(occurrenceRequests(page, "tasks")).toHaveLength(pages);
-			expect(
-				screen.getByRole("button", { name: `+${MAX_SOURCE_OCCURRENCES - 3} more` }),
-			).toBeDefined();
-		}),
+				);
+				const section = yield* daySection("2026-03-25");
+				expect(within(section).getAllByRole("link")).toHaveLength(5);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(section.contains(document.activeElement)).toBe(true)),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("moves sources into a compact sheet whose switches send visibility changes", () =>
-		Effect.gen(function* () {
-			const page = yield* open({ now: march14, compact: true });
-			yield* answerSources(page, [source("tasks"), source("reminders", { isHidden: true })]);
-			yield* answerOccurrences(page, "tasks", []);
-			expect(screen.queryByRole("region", { name: "Sources" })).toBeNull();
-			fireEvent.click(
+	it.live(
+		"fits the compact month to the viewport with dot cells that open the agenda",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14, compact: true, search: "layout=month" });
+				yield* answerSources(page, [source("tasks"), source("reminders")]);
+				yield* answerOccurrences(
+					page,
+					"tasks",
+					["Part 1", "Part 2", "Part 3", "Part 4"].map((caption) =>
+						occurrence("Zeta", "2026-03-25T00:00:00.000Z", caption),
+					),
+				);
+				yield* answerOccurrences(page, "reminders", [
+					occurrence("Beta", "2026-03-25T10:00:00.000Z", "Note 1"),
+				]);
+				const grid = yield* Effect.promise(() => waitFor(() => screen.getByRole("grid")));
+				expect(grid.className).not.toContain("min-w-[760px]");
+				expect(grid.parentElement?.className).not.toContain("overflow-x-auto");
+				const weeks = within(grid).getAllByRole("row").slice(1);
+				expect(weeks).toHaveLength(6);
+				for (const week of weeks) {
+					expect(within(week).getAllByRole("gridcell")).toHaveLength(7);
+				}
+				const cell = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = document.querySelector<HTMLElement>(
+							'[role="gridcell"][data-day="2026-03-25"]',
+						);
+						expect(found?.textContent).toContain("+2");
+						if (found === null) {
+							throw new Error("Missing cell");
+						}
+						return found;
+					}),
+				);
+				expect(within(cell).queryAllByRole("link")).toHaveLength(0);
+				expect(cell.textContent).not.toContain("Zeta");
+				const button = within(cell).getByRole("button", { name: /, 5 items$/ });
+				expect(button.getAttribute("aria-label")).toBe(`${dayLabel("2026-03-25")}, 5 items`);
+				expect(button.className).toContain("min-h-14");
+				expect(button.querySelectorAll('[aria-hidden="true"] > span')).toHaveLength(3);
+				fireEvent.click(button);
 				yield* Effect.promise(() =>
-					waitFor(() => screen.getByRole("button", { name: "Sources, 1 hidden" })),
-				),
-			);
-			const sheet = yield* Effect.promise(() =>
-				waitFor(() => screen.getByRole("dialog", { name: "Sources" })),
-			);
-			const hidden = within(sheet).getByRole("switch", { name: "Show reminders source" });
-			expect(hidden.getAttribute("aria-checked")).toBe("false");
-			fireEvent.click(hidden);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.calendarSourceVisibilityRequests()).toMatchObject([
-						{ isHidden: false, slug: "reminders" },
-					]),
-				),
-			);
-		}),
+					waitFor(() =>
+						expect(pageSearches(page).at(-1)?.update).toEqual({ layout: null, month: "2026-03" }),
+					),
+				);
+				const section = yield* daySection("2026-03-25");
+				expect(within(section).getAllByRole("link")).toHaveLength(5);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(section.contains(document.activeElement)).toBe(true)),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows the empty state for a month without occurrences and for no sources",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14 });
+				yield* answerSources(page, [source("tasks")]);
+				yield* answerOccurrences(page, "tasks", []);
+				yield* Effect.promise(() =>
+					waitFor(() => screen.getByText("Nothing in March 2026 from the sources you show.")),
+				);
+				page.dispose();
+				const empty = yield* open({ now: march14 });
+				yield* answerSources(empty, []);
+				yield* Effect.promise(() =>
+					waitFor(() => screen.getByText("No installed plugin adds calendar sources yet.")),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"reports one failing source while the others still render",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14 });
+				yield* answerSources(page, [source("tasks"), source("reminders")]);
+				const failing = yield* nextOccurrenceRequest(page, "reminders");
+				page.replyQuery(failing.requestId, { outcome: "failure", reason: "query-failed" });
+				yield* answerOccurrences(page, "tasks", [
+					occurrence("Alpha", "2026-03-20T00:00:00.000Z", "Step 3"),
+				]);
+				yield* daySection("2026-03-20");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("alert").textContent).toContain(
+							"reminders source could not be loaded.",
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"stops paging a source at its occurrence cap and says so",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14, search: "layout=month" });
+				yield* answerSources(page, [source("tasks")]);
+				const pages = MAX_SOURCE_OCCURRENCES / 100;
+				for (let index = 0; index < pages; index += 1) {
+					const request = yield* answerOccurrences(
+						page,
+						"tasks",
+						Array.from({ length: 100 }, (_, item) =>
+							occurrence(`Record ${index}-${item}`, "2026-03-20T00:00:00.000Z", null),
+						),
+						`cursor-${index + 1}`,
+					);
+					const output = request.document.queries["calendarOccurrences"]?.output;
+					expect(output?.type === "rows" ? output.pagination : undefined).toEqual(
+						index === 0 ? { limit: 100 } : { limit: 100, after: `cursor-${index}` },
+					);
+				}
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						screen.getByText(
+							`Showing the first ${MAX_SOURCE_OCCURRENCES.toLocaleString()} items from tasks source.`,
+						),
+					),
+				);
+				expect(occurrenceRequests(page, "tasks")).toHaveLength(pages);
+				expect(
+					screen.getByRole("button", { name: `+${MAX_SOURCE_OCCURRENCES - 3} more` }),
+				).toBeDefined();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"moves sources into a compact sheet whose switches send visibility changes",
+		() =>
+			Effect.gen(function* () {
+				const page = yield* open({ now: march14, compact: true });
+				yield* answerSources(page, [source("tasks"), source("reminders", { isHidden: true })]);
+				yield* answerOccurrences(page, "tasks", []);
+				expect(screen.queryByRole("region", { name: "Sources" })).toBeNull();
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						waitFor(() => screen.getByRole("button", { name: "Sources, 1 hidden" })),
+					),
+				);
+				const sheet = yield* Effect.promise(() =>
+					waitFor(() => screen.getByRole("dialog", { name: "Sources" })),
+				);
+				const hidden = within(sheet).getByRole("switch", { name: "Show reminders source" });
+				expect(hidden.getAttribute("aria-checked")).toBe("false");
+				fireEvent.click(hidden);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.calendarSourceVisibilityRequests()).toMatchObject([
+							{ isHidden: false, slug: "reminders" },
+						]),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
 	for (const [timeZone, midnight, beforeMidnight] of [
@@ -606,31 +639,40 @@ describe("calendar renderer", () => {
 	] as const) {
 		describe(timeZone, () => {
 			useTimeZone(timeZone);
-			it.live(`keeps date-only items on their days and instants on local days in ${timeZone}`, () =>
-				Effect.gen(function* () {
-					const page = yield* open({ now: Date.UTC(2026, 0, 20, 12) });
-					yield* answerSources(page, [
-						source("deadlines"),
-						source("reminders", { precision: "instant" }),
-					]);
-					const deadlines = yield* answerOccurrences(page, "deadlines", [
-						occurrence("Gamma", "2026-01-01T00:00:00.000Z", "Due"),
-						occurrence("Delta", "2026-01-31T00:00:00.000Z", "Due"),
-					]);
-					const reminders = yield* answerOccurrences(page, "reminders", [
-						occurrence("Epsilon", midnight, "Note 11"),
-						occurrence("Epsilon", beforeMidnight, "Note 10"),
-					]);
-					expect(yield* encodeJson(deadlines.document)).toContain("2026-01-01T00:00:00.000Z");
-					expect(yield* encodeJson(deadlines.document)).toContain("2026-02-01T00:00:00.000Z");
-					expect(yield* encodeJson(reminders.document)).toContain(localMonthStart(2026, 0));
-					expect(rowTexts(yield* daySection("2026-01-01"))).toEqual([stringContaining("Gamma")]);
-					expect(rowTexts(yield* daySection("2026-01-31"))).toEqual([stringContaining("Delta")]);
-					expect(rowTexts(yield* daySection("2026-01-15"))).toEqual([stringContaining("Note 11")]);
-					const previous = yield* daySection("2026-01-14");
-					expect(rowTexts(previous)).toEqual([stringContaining("Note 10")]);
-					expect(within(previous).getByTestId("calendar-time").textContent).toBe("23:59");
-				}),
+			it.live(
+				`keeps date-only items on their days and instants on local days in ${timeZone}`,
+				() =>
+					Effect.gen(function* () {
+						const page = yield* open({ now: Date.UTC(2026, 0, 20, 12) });
+						yield* answerSources(page, [
+							source("deadlines"),
+							source("reminders", { precision: "instant" }),
+						]);
+						const deadlines = yield* answerOccurrences(page, "deadlines", [
+							occurrence("Gamma", "2026-01-01T00:00:00.000Z", "Due"),
+							occurrence("Delta", "2026-01-31T00:00:00.000Z", "Due"),
+						]);
+						const reminders = yield* answerOccurrences(page, "reminders", [
+							occurrence("Epsilon", midnight, "Note 11"),
+							occurrence("Epsilon", beforeMidnight, "Note 10"),
+						]);
+						expect(yield* encodeJson(deadlines.document)).toContain("2026-01-01T00:00:00.000Z");
+						expect(yield* encodeJson(deadlines.document)).toContain("2026-02-01T00:00:00.000Z");
+						expect(yield* encodeJson(reminders.document)).toContain(localMonthStart(2026, 0));
+						expect(rowTexts(yield* daySection("2026-01-01"))).toEqual<unknown>([
+							stringContaining("Gamma"),
+						]);
+						expect(rowTexts(yield* daySection("2026-01-31"))).toEqual<unknown>([
+							stringContaining("Delta"),
+						]);
+						expect(rowTexts(yield* daySection("2026-01-15"))).toEqual<unknown>([
+							stringContaining("Note 11"),
+						]);
+						const previous = yield* daySection("2026-01-14");
+						expect(rowTexts(previous)).toEqual<unknown>([stringContaining("Note 10")]);
+						expect(within(previous).getByTestId("calendar-time").textContent).toBe("23:59");
+					}),
+				testTimeout,
 			);
 		});
 	}

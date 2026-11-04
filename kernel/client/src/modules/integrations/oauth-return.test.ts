@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Option } from "effect";
 
 import {
@@ -29,7 +32,7 @@ describe("OAuth return capture", () => {
 			history,
 		);
 
-		expect(Option.getOrUndefined(captured)).toEqual({
+		expect(Option.getOrUndefined(captured)).toEqual<unknown>({
 			secret: "secret-1",
 			connection: "connection-1",
 		});
@@ -60,16 +63,19 @@ describe("OAuth return capture", () => {
 		expect(replaced).toEqual([]);
 	});
 
-	it.effect("hands out a recorded fragment only once", () =>
-		Effect.gen(function* () {
-			const capture = makeOAuthReturnCapture(() => undefined);
-			const { history } = makeHistory();
-			yield* capture.record(
-				captureOAuthReturnFragment(location("/settings/oauth-return", "#status=failed"), history),
-			);
+	it.effect(
+		"hands out a recorded fragment only once",
+		() =>
+			Effect.gen(function* () {
+				const capture = makeOAuthReturnCapture(() => undefined);
+				const { history } = makeHistory();
+				yield* capture.record(
+					captureOAuthReturnFragment(location("/settings/oauth-return", "#status=failed"), history),
+				);
 
-			expect(Option.getOrUndefined(yield* capture.take)).toEqual({ status: "failed" });
-			expect(Option.isNone(yield* capture.take)).toBe(true);
-		}),
+				expect(Option.getOrUndefined(yield* capture.take)).toEqual({ status: "failed" });
+				expect(Option.isNone(yield* capture.take)).toBe(true);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { anyOf } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { adaptHardcoverCsv } from "./hardcover";
 
@@ -42,7 +43,7 @@ describe("adaptHardcoverCsv", () => {
 				{ collectionName: "Owned" },
 			],
 		});
-		expect(result.entityGroups[0]?.events).toEqual([
+		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{
 				eventSchemaSlug: "complete",
 				occurredAt: "2026-03-07T00:00:00.000Z",
@@ -65,7 +66,7 @@ describe("adaptHardcoverCsv", () => {
 
 		const result = adaptHardcoverCsv(csv);
 
-		expect(result.entityGroups[0]?.events).toEqual([
+		expect(result.entityGroups[0]?.events).toEqual<unknown>([
 			{ properties: {}, occurredAt: anyOf(String), eventSchemaSlug: "backlog" },
 		]);
 		expect(result.failures).toEqual([

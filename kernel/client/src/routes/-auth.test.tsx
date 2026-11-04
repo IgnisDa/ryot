@@ -1,6 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
@@ -99,40 +102,51 @@ const mountAuth = (plan: OAuthLaunchPlan) => {
 };
 
 describe("OAuth launch", () => {
-	it.live("opens web sign-in without waiting for the user", () =>
-		Effect.gen(function* () {
-			const plan = makePlan(null);
-			const mounted = mountAuth(plan);
+	it.live(
+		"opens web sign-in without waiting for the user",
+		() =>
+			Effect.gen(function* () {
+				const plan = makePlan(null);
+				const mounted = mountAuth(plan);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Opening sign-in" }));
-			yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toEqual([plan])));
-			expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Opening sign-in" }));
+				yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toEqual([plan])));
+				expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("waits for a native tap before opening sign-in", () =>
-		Effect.gen(function* () {
-			const plan = makePlan("io.ryot.app.dev");
-			const mounted = mountAuth(plan);
+	it.live(
+		"waits for a native tap before opening sign-in",
+		() =>
+			Effect.gen(function* () {
+				const plan = makePlan("io.ryot.app.dev");
+				const mounted = mountAuth(plan);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Sign in to Ryot" }));
-			expect(screen.getByText("Continue with ryot.example.")).not.toBeNull();
-			expect(mounted.launched).toEqual([]);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Sign in to Ryot" }));
+				expect(screen.getByText("Continue with ryot.example.")).not.toBeNull();
+				expect(mounted.launched).toEqual([]);
 
-			fireEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
-			yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toEqual([plan])));
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Continue to sign in" }));
+				yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toEqual([plan])));
+			}),
+		testTimeout,
 	);
 
-	it.live("lets a native user change server before signing in", () =>
-		Effect.gen(function* () {
-			const mounted = mountAuth(makePlan("io.ryot.app.dev"));
+	it.live(
+		"lets a native user change server before signing in",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountAuth(makePlan("io.ryot.app.dev"));
 
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Change server" })),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(mounted.changedServers).toEqual([server])));
-			expect(mounted.launched).toEqual([]);
-		}),
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Change server" })),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(mounted.changedServers).toEqual([server])),
+				);
+				expect(mounted.launched).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

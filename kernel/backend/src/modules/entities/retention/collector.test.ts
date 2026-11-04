@@ -1,11 +1,14 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, inArray, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
-import { assert } from "vitest";
 
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
@@ -132,39 +135,42 @@ const stored = Effect.fn(function* (ids: ReadonlyArray<string>) {
 const collect = Effect.flatMap(EntityGraphCollector, (collector) => collector.runBatch(500));
 
 layer(testLayer)((test) => {
-	test.effect("a reminder creation that holds the target lock wins against graph collection", () =>
-		Effect.gen(function* () {
-			const input = yield* reminderTestInput();
-			const graph = yield* installGraphPlugin();
-			const target = EntityId.make(yield* graph.entity());
-			const entities = yield* EntitiesRepository;
-			const locked = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const service = yield* RemindersService.make.pipe(
-				Effect.provideService(EntitiesRepository, {
-					...entities,
-					lockUserDataReferences: (ids) =>
-						Effect.gen(function* () {
-							yield* entities.lockUserDataReferences(ids);
-							yield* Deferred.succeed(locked, undefined);
-							yield* Deferred.await(release);
-						}),
-				}),
-			);
-			const creating = yield* service
-				.create(input.user, { ...input.body, entityId: target })
-				.pipe(Effect.forkChild);
-			yield* Deferred.await(locked);
-			yield* collect;
-			expect((yield* stored([target])).has(target)).toBe(true);
-			yield* Deferred.succeed(release, undefined);
-			const created = yield* Fiber.join(creating);
-			yield* collect;
-			expect((yield* stored([target])).has(target)).toBe(true);
-			expect(
-				yield* (yield* RemindersRepository).findForUser(input.user.id, created.id),
-			).toMatchObject({ entityId: target, state: "scheduled" });
-		}),
+	test.effect(
+		"a reminder creation that holds the target lock wins against graph collection",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* reminderTestInput();
+				const graph = yield* installGraphPlugin();
+				const target = EntityId.make(yield* graph.entity());
+				const entities = yield* EntitiesRepository;
+				const locked = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const service = yield* RemindersService.make.pipe(
+					Effect.provideService(EntitiesRepository, {
+						...entities,
+						lockUserDataReferences: (ids) =>
+							Effect.gen(function* () {
+								yield* entities.lockUserDataReferences(ids);
+								yield* Deferred.succeed(locked, undefined);
+								yield* Deferred.await(release);
+							}),
+					}),
+				);
+				const creating = yield* service
+					.create(input.user, { ...input.body, entityId: target })
+					.pipe(Effect.forkChild);
+				yield* Deferred.await(locked);
+				yield* collect;
+				expect((yield* stored([target])).has(target)).toBe(true);
+				yield* Deferred.succeed(release, undefined);
+				const created = yield* Fiber.join(creating);
+				yield* collect;
+				expect((yield* stored([target])).has(target)).toBe(true);
+				expect(
+					yield* (yield* RemindersRepository).findForUser(input.user.id, created.id),
+				).toMatchObject({ entityId: target, state: "scheduled" });
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"collection that locks first makes a racing reminder creation fail without a dangling schedule",
@@ -220,289 +226,314 @@ layer(testLayer)((test) => {
 					}),
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
-	test.effect("retains reminder-only targets and parent scopes, but not terminal history", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const scheduled = yield* graph.entity();
-			const needsScheduling = yield* graph.entity();
-			const parent = yield* graph.entity();
-			const settled = yield* graph.entity();
-			const cancelled = yield* graph.entity();
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db.insert(tables.reminder).values([
-					{
-						userId: owner,
-						dueAt: future,
-						timezone: "UTC",
-						state: "scheduled",
-						message: "Pending",
-						entityId: scheduled,
-						reconcileAt: future,
-						entityTitle: "Target",
-						parentEntityId: parent,
-						id: crypto.randomUUID(),
-						accountGeneration: "test-account-generation",
-					},
-					{
-						userId: owner,
-						message: "Imported",
-						entityTitle: "Target",
-						id: crypto.randomUUID(),
-						entityId: needsScheduling,
-						state: "needs-scheduling",
-						accountGeneration: "test-account-generation",
-						originalSchedule: {
-							dueAt: null,
-							timezone: null,
-							mayHaveSent: false,
-							date: "2026-01-01",
+	test.effect(
+		"retains reminder-only targets and parent scopes, but not terminal history",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const scheduled = yield* graph.entity();
+				const needsScheduling = yield* graph.entity();
+				const parent = yield* graph.entity();
+				const settled = yield* graph.entity();
+				const cancelled = yield* graph.entity();
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(tables.reminder).values([
+						{
+							userId: owner,
+							dueAt: future,
+							timezone: "UTC",
+							state: "scheduled",
+							message: "Pending",
+							entityId: scheduled,
+							reconcileAt: future,
+							entityTitle: "Target",
+							parentEntityId: parent,
+							id: crypto.randomUUID(),
+							accountGeneration: "test-account-generation",
 						},
-					},
-					{
-						userId: owner,
-						settledAt: due,
-						state: "settled",
-						entityId: settled,
-						outcome: "accepted",
-						message: "Completed",
-						entityTitle: "Target",
-						id: crypto.randomUUID(),
-						accountGeneration: "test-account-generation",
-					},
-					{
-						userId: owner,
-						settledAt: due,
-						state: "cancelled",
-						entityId: cancelled,
-						message: "Cancelled",
-						entityTitle: "Target",
-						id: crypto.randomUUID(),
-						accountGeneration: "test-account-generation",
-					},
-				]),
-			);
-			yield* collect;
-			expect(
-				new Set((yield* stored([scheduled, needsScheduling, parent, settled, cancelled])).keys()),
-			).toEqual(new Set([parent, scheduled, needsScheduling]));
-			const history = yield* session.run((db) =>
-				db
-					.select({ title: tables.reminder.entityTitle, entityId: tables.reminder.entityId })
-					.from(tables.reminder)
-					.where(inArray(tables.reminder.state, ["settled", "cancelled"])),
-			);
-			expect(history).toEqual([
-				{ entityId: null, title: "Target" },
-				{ entityId: null, title: "Target" },
-			]);
-		}),
+						{
+							userId: owner,
+							message: "Imported",
+							entityTitle: "Target",
+							id: crypto.randomUUID(),
+							entityId: needsScheduling,
+							state: "needs-scheduling",
+							accountGeneration: "test-account-generation",
+							originalSchedule: {
+								dueAt: null,
+								timezone: null,
+								mayHaveSent: false,
+								date: "2026-01-01",
+							},
+						},
+						{
+							userId: owner,
+							settledAt: due,
+							state: "settled",
+							entityId: settled,
+							outcome: "accepted",
+							message: "Completed",
+							entityTitle: "Target",
+							id: crypto.randomUUID(),
+							accountGeneration: "test-account-generation",
+						},
+						{
+							userId: owner,
+							settledAt: due,
+							state: "cancelled",
+							entityId: cancelled,
+							message: "Cancelled",
+							entityTitle: "Target",
+							id: crypto.randomUUID(),
+							accountGeneration: "test-account-generation",
+						},
+					]),
+				);
+				yield* collect;
+				expect(
+					new Set((yield* stored([scheduled, needsScheduling, parent, settled, cancelled])).keys()),
+				).toEqual(new Set([parent, scheduled, needsScheduling]));
+				const history = yield* session.run((db) =>
+					db
+						.select({ title: tables.reminder.entityTitle, entityId: tables.reminder.entityId })
+						.from(tables.reminder)
+						.where(inArray(tables.reminder.state, ["settled", "cancelled"])),
+				);
+				expect(history).toEqual([
+					{ entityId: null, title: "Target" },
+					{ entityId: null, title: "Target" },
+				]);
+			}),
+		testTimeout,
 	);
-	test.effect("collects due unreferenced entities with their dependent rows", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const orphan = yield* graph.entity();
-			const recent = yield* graph.entity(future);
-			yield* (yield* DatabaseSession).run((db) =>
-				db
-					.insert(tables.entityTranslation)
-					.values({ language: "es", entityId: orphan, sourceContentGeneration: 1 }),
-			);
+	test.effect(
+		"collects due unreferenced entities with their dependent rows",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const orphan = yield* graph.entity();
+				const recent = yield* graph.entity(future);
+				yield* (yield* DatabaseSession).run((db) =>
+					db
+						.insert(tables.entityTranslation)
+						.values({ language: "es", entityId: orphan, sourceContentGeneration: 1 }),
+				);
 
-			yield* collect;
+				yield* collect;
 
-			const rows = yield* stored([orphan, recent]);
-			expect([...rows.keys()]).toEqual([recent]);
-			const translations = yield* (yield* DatabaseSession).run((db) =>
-				db
-					.select()
-					.from(tables.entityTranslation)
-					.where(eq(tables.entityTranslation.entityId, orphan)),
-			);
-			expect(translations).toEqual([]);
-		}),
-	);
-
-	test.effect("defers entities kept by user relationships, events and root relationships", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const library = yield* graph.entity();
-			const watched = yield* graph.entity();
-			const trending = yield* graph.entity();
-			const other = yield* graph.entity(future);
-			yield* graph.link("credit", library, other, owner);
-			yield* graph.link("trend", trending, trending);
-			yield* (yield* DatabaseSession).run((db) =>
-				db
-					.insert(tables.event)
-					.values({ userId: owner, occurredAt: due, entityId: watched, eventSchemaSlug: "seen" }),
-			);
-
-			yield* collect;
-
-			const rows = yield* stored([library, watched, trending]);
-			expect(rows.size).toBe(3);
-			for (const row of rows.values()) {
-				expect(row.checkAfter.getTime()).toBeGreaterThan(populated.getTime());
-			}
-		}),
+				const rows = yield* stored([orphan, recent]);
+				expect([...rows.keys()]).toEqual([recent]);
+				const translations = yield* (yield* DatabaseSession).run((db) =>
+					db
+						.select()
+						.from(tables.entityTranslation)
+						.where(eq(tables.entityTranslation.entityId, orphan)),
+				);
+				expect(translations).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps or collects a composition unit as a whole", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const keptShow = yield* graph.entity();
-			const keptSeason = yield* graph.entity();
-			const keptEpisode = yield* graph.entity();
-			const lostShow = yield* graph.entity();
-			const lostSeason = yield* graph.entity();
-			yield* graph.link("part", keptShow, keptSeason);
-			yield* graph.link("part", keptSeason, keptEpisode);
-			yield* graph.link("part", lostShow, lostSeason);
-			yield* (yield* DatabaseSession).run((db) =>
-				db
-					.insert(tables.event)
-					.values({
-						userId: owner,
-						occurredAt: due,
-						entityId: keptEpisode,
-						eventSchemaSlug: "seen",
-					}),
-			);
+	test.effect(
+		"defers entities kept by user relationships, events and root relationships",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const library = yield* graph.entity();
+				const watched = yield* graph.entity();
+				const trending = yield* graph.entity();
+				const other = yield* graph.entity(future);
+				yield* graph.link("credit", library, other, owner);
+				yield* graph.link("trend", trending, trending);
+				yield* (yield* DatabaseSession).run((db) =>
+					db
+						.insert(tables.event)
+						.values({ userId: owner, occurredAt: due, entityId: watched, eventSchemaSlug: "seen" }),
+				);
 
-			yield* collect;
+				yield* collect;
 
-			const rows = yield* stored([keptShow, keptSeason, keptEpisode, lostShow, lostSeason]);
-			expect(new Set(rows.keys())).toEqual(new Set([keptShow, keptSeason, keptEpisode]));
-		}),
+				const rows = yield* stored([library, watched, trending]);
+				expect(rows.size).toBe(3);
+				for (const row of rows.values()) {
+					expect(row.checkAfter.getTime()).toBeGreaterThan(populated.getTime());
+				}
+			}),
+		testTimeout,
 	);
 
-	test.effect("retains one reference hop from a live entity and refreshes trimmed neighbors", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const show = yield* graph.entity();
-			const person = yield* graph.entity();
-			const otherShow = yield* graph.entity();
-			const otherSeason = yield* graph.entity();
-			yield* graph.link("credit", show, show, owner);
-			yield* graph.link("credit", person, show);
-			yield* graph.link("credit", person, otherShow);
-			yield* graph.link("part", otherShow, otherSeason);
+	test.effect(
+		"keeps or collects a composition unit as a whole",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const keptShow = yield* graph.entity();
+				const keptSeason = yield* graph.entity();
+				const keptEpisode = yield* graph.entity();
+				const lostShow = yield* graph.entity();
+				const lostSeason = yield* graph.entity();
+				yield* graph.link("part", keptShow, keptSeason);
+				yield* graph.link("part", keptSeason, keptEpisode);
+				yield* graph.link("part", lostShow, lostSeason);
+				yield* (yield* DatabaseSession).run((db) =>
+					db
+						.insert(tables.event)
+						.values({
+							userId: owner,
+							occurredAt: due,
+							entityId: keptEpisode,
+							eventSchemaSlug: "seen",
+						}),
+				);
 
-			yield* collect;
+				yield* collect;
 
-			const rows = yield* stored([show, person, otherShow, otherSeason]);
-			expect(new Set(rows.keys())).toEqual(new Set([show, person]));
-			expect(rows.get(show)?.relatedPopulatedAt).toEqual(populated);
-			expect(rows.get(person)?.relatedPopulatedAt).toBeNull();
-		}),
+				const rows = yield* stored([keptShow, keptSeason, keptEpisode, lostShow, lostSeason]);
+				expect(new Set(rows.keys())).toEqual(new Set([keptShow, keptSeason, keptEpisode]));
+			}),
+		testTimeout,
 	);
 
-	test.effect("typed entity references in user-owned data keep entities", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const referenced = yield* graph.entity();
-			const slug = `reference-schema-${yield* randomUuid}`;
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db
-					.insert(tables.definitionEntitySchema)
-					.values({
-						slug,
-						icon: "box",
-						position: 0,
-						name: "Reference",
-						pluginRevisionId: null,
-						mergeIdentityProperties: [],
-						propertiesSchema: {
-							fields: {
-								subjects: {
-									type: "array",
-									label: "Subjects",
-									description: "Subjects",
-									items: {
-										type: "string",
-										label: "Subject",
-										description: "Subject",
-										reference: { kind: "entity-id" },
+	test.effect(
+		"retains one reference hop from a live entity and refreshes trimmed neighbors",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const show = yield* graph.entity();
+				const person = yield* graph.entity();
+				const otherShow = yield* graph.entity();
+				const otherSeason = yield* graph.entity();
+				yield* graph.link("credit", show, show, owner);
+				yield* graph.link("credit", person, show);
+				yield* graph.link("credit", person, otherShow);
+				yield* graph.link("part", otherShow, otherSeason);
+
+				yield* collect;
+
+				const rows = yield* stored([show, person, otherShow, otherSeason]);
+				expect(new Set(rows.keys())).toEqual(new Set([show, person]));
+				expect(rows.get(show)?.relatedPopulatedAt).toEqual(populated);
+				expect(rows.get(person)?.relatedPopulatedAt).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"typed entity references in user-owned data keep entities",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const referenced = yield* graph.entity();
+				const slug = `reference-schema-${yield* randomUuid}`;
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.insert(tables.definitionEntitySchema)
+						.values({
+							slug,
+							icon: "box",
+							position: 0,
+							name: "Reference",
+							pluginRevisionId: null,
+							mergeIdentityProperties: [],
+							propertiesSchema: {
+								fields: {
+									subjects: {
+										type: "array",
+										label: "Subjects",
+										description: "Subjects",
+										items: {
+											type: "string",
+											label: "Subject",
+											description: "Subject",
+											reference: { kind: "entity-id" },
+										},
 									},
 								},
 							},
-						},
-					}),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.entity)
-					.values({
-						name: "Note",
-						userId: owner,
-						entitySchemaSlug: slug,
-						properties: { subjects: [referenced] },
-					}),
-			);
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							name: "Note",
+							userId: owner,
+							entitySchemaSlug: slug,
+							properties: { subjects: [referenced] },
+						}),
+				);
 
-			yield* collect;
+				yield* collect;
 
-			expect((yield* stored([referenced])).has(referenced)).toBe(true);
-		}),
+				expect((yield* stored([referenced])).has(referenced)).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	test.effect("waits while a backup is running", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const orphan = yield* graph.entity();
-			const session = yield* DatabaseSession;
-			const [backup] = yield* session.run((db) =>
-				db
-					.insert(tables.backupRun)
-					.values({ userId: owner, kind: "export", status: "running" })
-					.returning({ id: tables.backupRun.id }),
-			);
-			assert(backup);
+	test.effect(
+		"waits while a backup is running",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const orphan = yield* graph.entity();
+				const session = yield* DatabaseSession;
+				const [backup] = yield* session.run((db) =>
+					db
+						.insert(tables.backupRun)
+						.values({ userId: owner, kind: "export", status: "running" })
+						.returning({ id: tables.backupRun.id }),
+				);
+				assert(backup);
 
-			yield* collect;
-			expect((yield* stored([orphan])).has(orphan)).toBe(true);
+				yield* collect;
+				expect((yield* stored([orphan])).has(orphan)).toBe(true);
 
-			yield* session.run((db) =>
-				db
-					.update(tables.backupRun)
-					.set({ status: "completed" })
-					.where(eq(tables.backupRun.id, backup.id)),
-			);
-			yield* collect;
-			expect((yield* stored([orphan])).has(orphan)).toBe(false);
-		}),
+				yield* session.run((db) =>
+					db
+						.update(tables.backupRun)
+						.set({ status: "completed" })
+						.where(eq(tables.backupRun.id, backup.id)),
+				);
+				yield* collect;
+				expect((yield* stored([orphan])).has(orphan)).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	test.effect("skips an entity a writer holds, then collects it later", () =>
-		Effect.gen(function* () {
-			const graph = yield* installGraphPlugin();
-			const orphan = yield* graph.entity();
-			const session = yield* DatabaseSession;
-			const locked = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const writer = yield* Effect.forkScoped(
-				session.transaction(
-					Effect.gen(function* () {
-						yield* session.run((db) =>
-							db.execute(sql`select id from ${tables.entity} where id = ${orphan} for key share`),
-						);
-						yield* Deferred.succeed(locked, undefined);
-						yield* Deferred.await(release);
-					}),
-				),
-			);
-			yield* Deferred.await(locked);
+	test.effect(
+		"skips an entity a writer holds, then collects it later",
+		() =>
+			Effect.gen(function* () {
+				const graph = yield* installGraphPlugin();
+				const orphan = yield* graph.entity();
+				const session = yield* DatabaseSession;
+				const locked = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const writer = yield* Effect.forkScoped(
+					session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`select id from ${tables.entity} where id = ${orphan} for key share`),
+							);
+							yield* Deferred.succeed(locked, undefined);
+							yield* Deferred.await(release);
+						}),
+					),
+				);
+				yield* Deferred.await(locked);
 
-			yield* collect;
-			expect((yield* stored([orphan])).has(orphan)).toBe(true);
+				yield* collect;
+				expect((yield* stored([orphan])).has(orphan)).toBe(true);
 
-			yield* Deferred.succeed(release, undefined);
-			yield* Fiber.join(writer);
-			yield* collect;
-			expect((yield* stored([orphan])).has(orphan)).toBe(false);
-		}),
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(writer);
+				yield* collect;
+				expect((yield* stored([orphan])).has(orphan)).toBe(false);
+			}),
+		testTimeout,
 	);
 });

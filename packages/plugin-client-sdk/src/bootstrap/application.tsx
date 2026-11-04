@@ -103,7 +103,7 @@ const bootstrapClientApplication = (
 	createRuntime: (client: RyotClient, navigation: PluginRouterNavigation) => RyotPluginRuntime,
 ) => {
 	let root: Root | undefined;
-	const listener = new AbortController();
+	const listener = new window.AbortController();
 	let sdkRuntime: undefined | RyotPluginRuntime;
 	let sessionListener: undefined | AbortController;
 	let runtime: undefined | ReturnType<typeof createPluginRuntime>;
@@ -196,7 +196,7 @@ const bootstrapClientApplication = (
 			}
 
 			listener.abort();
-			sessionListener = new AbortController();
+			sessionListener = new window.AbortController();
 			window.addEventListener("error", handleFatalEvent, { signal: sessionListener.signal });
 			window.addEventListener("unhandledrejection", handleFatalEvent, {
 				signal: sessionListener.signal,

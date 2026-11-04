@@ -8,7 +8,7 @@ const OAuthErrorResponse = Schema.Struct({
 	error_description: Schema.optional(Schema.String),
 });
 
-export type OAuthFetch = typeof fetch;
+export type OAuthFetch = (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
 
 export class OAuthTransportError extends Schema.TaggedError<
 	OAuthTransportError,

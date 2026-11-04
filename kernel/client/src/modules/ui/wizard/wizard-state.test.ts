@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { createWizardState, WIZARD_STEPS, wizardReducer, wizardStepLabel } from "./wizard-state";
 

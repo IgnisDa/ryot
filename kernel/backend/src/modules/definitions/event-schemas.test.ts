@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
@@ -6,6 +7,8 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -64,33 +67,36 @@ const repositoryLayer = EventSchemaReader.layer.pipe(
 );
 
 layer(repositoryLayer)((test) => {
-	test.effect("resolves same-slug event schemas by their entity schema owner", () =>
-		Effect.gen(function* () {
-			const repository = yield* EventSchemaReader;
-			expect(
-				yield* repository.getScopeForUser({
-					eventSchemaSlug,
-					entitySchemaSlug,
-					userId: UserId.make("owner"),
-					entitySchemaPluginId: shippedOwner,
-				}),
-			).toMatchObject({ id: eventSchemaSlug, pluginId: shippedOwner });
-			expect(
-				yield* repository.getScopeForUser({
-					eventSchemaSlug,
-					entitySchemaSlug,
-					userId: UserId.make("owner"),
-					entitySchemaPluginId: privateOwner,
-				}),
-			).toMatchObject({ id: eventSchemaSlug, pluginId: privateOwner });
-			expect(
-				yield* repository.getScopeForUser({
-					eventSchemaSlug,
-					entitySchemaSlug,
-					entitySchemaPluginId: null,
-					userId: UserId.make("owner"),
-				}),
-			).toBeNull();
-		}),
+	test.effect(
+		"resolves same-slug event schemas by their entity schema owner",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EventSchemaReader;
+				expect(
+					yield* repository.getScopeForUser({
+						eventSchemaSlug,
+						entitySchemaSlug,
+						userId: UserId.make("owner"),
+						entitySchemaPluginId: shippedOwner,
+					}),
+				).toMatchObject({ id: eventSchemaSlug, pluginId: shippedOwner });
+				expect(
+					yield* repository.getScopeForUser({
+						eventSchemaSlug,
+						entitySchemaSlug,
+						userId: UserId.make("owner"),
+						entitySchemaPluginId: privateOwner,
+					}),
+				).toMatchObject({ id: eventSchemaSlug, pluginId: privateOwner });
+				expect(
+					yield* repository.getScopeForUser({
+						eventSchemaSlug,
+						entitySchemaSlug,
+						entitySchemaPluginId: null,
+						userId: UserId.make("owner"),
+					}),
+				).toBeNull();
+			}),
+		testTimeout,
 	);
 });

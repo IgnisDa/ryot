@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { asc, eq } from "drizzle-orm";
 import { Effect, Ref } from "effect";
 
@@ -109,150 +112,169 @@ const setup = (scope: string) =>
 	});
 
 layer(relationshipDatabaseLayer())((test) => {
-	test.effect("pages upsert and stamp only their entries and the sweep removes the rest", () =>
-		Effect.gen(function* () {
-			const { rows, persist } = yield* setup("pages");
-			yield* persist(
-				"seed",
-				[
-					{ rank: 1, target: t1 },
-					{ rank: 9, target: t4 },
-				],
-				{ kind: "page", value: "old-generation" },
-			);
-
-			yield* persist(
-				"page-0",
-				[
-					{ rank: 5, target: t1 },
-					{ rank: 2, target: t2 },
-				],
-				{ value: "g1", kind: "page" },
-			);
-			expect(yield* rows).toEqual([
-				{ target: t1, syncGeneration: "g1", properties: { rank: 5 } },
-				{ target: t2, syncGeneration: "g1", properties: { rank: 2 } },
-				{ target: t4, properties: { rank: 9 }, syncGeneration: "old-generation" },
-			]);
-
-			yield* persist("page-1", [{ rank: 3, target: t3 }], { value: "g1", kind: "page" });
-			expect((yield* rows).map(({ target }) => target)).toEqual([t1, t2, t3, t4]);
-
-			const swept = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
-			expect(swept.result).toEqual([{ created: 0, updated: 0, deleted: 1, upserted: 0 }]);
-			expect(yield* rows).toEqual([
-				{ target: t1, syncGeneration: "g1", properties: { rank: 5 } },
-				{ target: t2, syncGeneration: "g1", properties: { rank: 2 } },
-				{ target: t3, syncGeneration: "g1", properties: { rank: 3 } },
-			]);
-		}),
-	);
-
-	test.effect("additive pages keep existing properties while stamping the generation", () =>
-		Effect.gen(function* () {
-			const { rows, persist } = yield* setup("additive");
-			yield* persist("seed", [{ rank: 1, target: t1 }], { kind: "page", value: "old" });
-			yield* persist(
-				"page",
-				[
-					{ rank: 7, target: t1 },
-					{ rank: 2, target: t2 },
-				],
-				{ value: "g1", kind: "page", preserveExisting: true },
-			);
-			expect(yield* rows).toEqual([
-				{ target: t1, syncGeneration: "g1", properties: { rank: 1 } },
-				{ target: t2, syncGeneration: "g1", properties: { rank: 2 } },
-			]);
-		}),
-	);
-
-	test.effect("stamps unchanged rows without hooks, triggers or an updated_at bump", () =>
-		Effect.gen(function* () {
-			const { rows, persist, planned, session } = yield* setup("stamp");
-			yield* persist("seed", [{ rank: 1, target: t1 }], { value: "g1", kind: "page" });
-			const before = yield* session.run((db) =>
-				db.select().from(tables.relationship).where(eq(tables.relationship.targetEntityId, t1)),
-			);
-			const triggersBefore = yield* session.run((db) => db.select().from(tables.automationTrigger));
-			yield* Ref.set(planned, []);
-
-			const repeated = yield* persist("repopulate", [{ rank: 1, target: t1 }], {
-				value: "g2",
-				kind: "page",
-			});
-
-			expect(repeated.result).toEqual([{ created: 0, updated: 0, deleted: 0, upserted: 1 }]);
-			expect(yield* Ref.get(planned)).toEqual([]);
-			expect(yield* rows).toEqual([{ target: t1, syncGeneration: "g2", properties: { rank: 1 } }]);
-			const after = yield* session.run((db) =>
-				db.select().from(tables.relationship).where(eq(tables.relationship.targetEntityId, t1)),
-			);
-			expect(after[0]?.updatedAt).toEqual(before[0]?.updatedAt);
-			expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
-				triggersBefore,
-			);
-		}),
-	);
-
-	test.effect("a sweep deletion fires the delete hook once and replays without conflicts", () =>
-		Effect.gen(function* () {
-			const { rows, persist, planned } = yield* setup("sweep");
-			yield* persist(
-				"seed",
-				[
-					{ rank: 1, target: t1 },
-					{ rank: 2, target: t2 },
-				],
-				{ kind: "page", value: "old" },
-			);
-			yield* persist("page", [{ rank: 1, target: t1 }], { value: "g1", kind: "page" });
-			yield* Ref.set(planned, []);
-
-			const first = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
-			const deletePlans = (yield* Ref.get(planned)).filter((entry) => entry.endsWith("delete"));
-			expect(deletePlans).toEqual(["change:delete"]);
-
-			yield* Ref.set(planned, []);
-			const replayed = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
-			expect(replayed).toEqual(first);
-			expect(yield* Ref.get(planned)).toEqual([]);
-			expect((yield* rows).map(({ target }) => target)).toEqual([t1]);
-
-			const replayedPage = yield* persist("page", [{ rank: 1, target: t1 }], {
-				value: "g1",
-				kind: "page",
-			});
-			expect(replayedPage.result).toEqual([{ created: 0, updated: 0, deleted: 0, upserted: 1 }]);
-		}),
-	);
-
-	test.effect("holds a group generation only for its latest claimant", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* RelationshipsRepository;
-			const key = {
-				anchorEntityId: sourceEntityId,
-				direction: "outgoing" as const,
-				relationshipSchemaPluginId: null,
-				relationshipSchemaSlug: baseInput.relationshipSchemaSlug,
-			};
-			const holds = (generation: string) =>
-				session.transaction(repository.holdsRelationshipSyncGeneration(key, generation));
-			const claim = (generation: string) =>
-				session.transaction(
-					repository.claimRelationshipSyncGeneration(key, generation, new Date()),
+	test.effect(
+		"pages upsert and stamp only their entries and the sweep removes the rest",
+		() =>
+			Effect.gen(function* () {
+				const { rows, persist } = yield* setup("pages");
+				yield* persist(
+					"seed",
+					[
+						{ rank: 1, target: t1 },
+						{ rank: 9, target: t4 },
+					],
+					{ kind: "page", value: "old-generation" },
 				);
 
-			expect(yield* holds("g1")).toBe(false);
-			yield* claim("g1");
-			expect(yield* holds("g1")).toBe(true);
-			yield* claim("g2");
-			expect(yield* holds("g1")).toBe(false);
-			expect(yield* holds("g2")).toBe(true);
-			expect(
-				yield* session.run((db) => db.select().from(tables.relationshipSyncGeneration)),
-			).toHaveLength(1);
-		}),
+				yield* persist(
+					"page-0",
+					[
+						{ rank: 5, target: t1 },
+						{ rank: 2, target: t2 },
+					],
+					{ value: "g1", kind: "page" },
+				);
+				expect(yield* rows).toEqual([
+					{ target: t1, syncGeneration: "g1", properties: { rank: 5 } },
+					{ target: t2, syncGeneration: "g1", properties: { rank: 2 } },
+					{ target: t4, properties: { rank: 9 }, syncGeneration: "old-generation" },
+				]);
+
+				yield* persist("page-1", [{ rank: 3, target: t3 }], { value: "g1", kind: "page" });
+				expect((yield* rows).map(({ target }) => target)).toEqual([t1, t2, t3, t4]);
+
+				const swept = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
+				expect(swept.result).toEqual([{ created: 0, updated: 0, deleted: 1, upserted: 0 }]);
+				expect(yield* rows).toEqual([
+					{ target: t1, syncGeneration: "g1", properties: { rank: 5 } },
+					{ target: t2, syncGeneration: "g1", properties: { rank: 2 } },
+					{ target: t3, syncGeneration: "g1", properties: { rank: 3 } },
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"additive pages keep existing properties while stamping the generation",
+		() =>
+			Effect.gen(function* () {
+				const { rows, persist } = yield* setup("additive");
+				yield* persist("seed", [{ rank: 1, target: t1 }], { kind: "page", value: "old" });
+				yield* persist(
+					"page",
+					[
+						{ rank: 7, target: t1 },
+						{ rank: 2, target: t2 },
+					],
+					{ value: "g1", kind: "page", preserveExisting: true },
+				);
+				expect(yield* rows).toEqual([
+					{ target: t1, syncGeneration: "g1", properties: { rank: 1 } },
+					{ target: t2, syncGeneration: "g1", properties: { rank: 2 } },
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"stamps unchanged rows without hooks, triggers or an updated_at bump",
+		() =>
+			Effect.gen(function* () {
+				const { rows, persist, planned, session } = yield* setup("stamp");
+				yield* persist("seed", [{ rank: 1, target: t1 }], { value: "g1", kind: "page" });
+				const before = yield* session.run((db) =>
+					db.select().from(tables.relationship).where(eq(tables.relationship.targetEntityId, t1)),
+				);
+				const triggersBefore = yield* session.run((db) =>
+					db.select().from(tables.automationTrigger),
+				);
+				yield* Ref.set(planned, []);
+
+				const repeated = yield* persist("repopulate", [{ rank: 1, target: t1 }], {
+					value: "g2",
+					kind: "page",
+				});
+
+				expect(repeated.result).toEqual([{ created: 0, updated: 0, deleted: 0, upserted: 1 }]);
+				expect(yield* Ref.get(planned)).toEqual([]);
+				expect(yield* rows).toEqual([
+					{ target: t1, syncGeneration: "g2", properties: { rank: 1 } },
+				]);
+				const after = yield* session.run((db) =>
+					db.select().from(tables.relationship).where(eq(tables.relationship.targetEntityId, t1)),
+				);
+				expect(after[0]?.updatedAt).toEqual(before[0]?.updatedAt);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+					triggersBefore,
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"a sweep deletion fires the delete hook once and replays without conflicts",
+		() =>
+			Effect.gen(function* () {
+				const { rows, persist, planned } = yield* setup("sweep");
+				yield* persist(
+					"seed",
+					[
+						{ rank: 1, target: t1 },
+						{ rank: 2, target: t2 },
+					],
+					{ kind: "page", value: "old" },
+				);
+				yield* persist("page", [{ rank: 1, target: t1 }], { value: "g1", kind: "page" });
+				yield* Ref.set(planned, []);
+
+				const first = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
+				const deletePlans = (yield* Ref.get(planned)).filter((entry) => entry.endsWith("delete"));
+				expect(deletePlans).toEqual(["change:delete"]);
+
+				yield* Ref.set(planned, []);
+				const replayed = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
+				expect(replayed).toEqual(first);
+				expect(yield* Ref.get(planned)).toEqual([]);
+				expect((yield* rows).map(({ target }) => target)).toEqual([t1]);
+
+				const replayedPage = yield* persist("page", [{ rank: 1, target: t1 }], {
+					value: "g1",
+					kind: "page",
+				});
+				expect(replayedPage.result).toEqual([{ created: 0, updated: 0, deleted: 0, upserted: 1 }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"holds a group generation only for its latest claimant",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* RelationshipsRepository;
+				const key = {
+					anchorEntityId: sourceEntityId,
+					direction: "outgoing" as const,
+					relationshipSchemaPluginId: null,
+					relationshipSchemaSlug: baseInput.relationshipSchemaSlug,
+				};
+				const holds = (generation: string) =>
+					session.transaction(repository.holdsRelationshipSyncGeneration(key, generation));
+				const claim = (generation: string) =>
+					session.transaction(
+						repository.claimRelationshipSyncGeneration(key, generation, new Date()),
+					);
+
+				expect(yield* holds("g1")).toBe(false);
+				yield* claim("g1");
+				expect(yield* holds("g1")).toBe(true);
+				yield* claim("g2");
+				expect(yield* holds("g1")).toBe(false);
+				expect(yield* holds("g2")).toBe(true);
+				expect(
+					yield* session.run((db) => db.select().from(tables.relationshipSyncGeneration)),
+				).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });

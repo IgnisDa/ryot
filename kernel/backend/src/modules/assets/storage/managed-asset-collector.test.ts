@@ -1,8 +1,11 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { BadRequest } from "@ryot-app/contract/errors";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 
@@ -108,53 +111,59 @@ const due = new Date(0);
 const future = new Date("2999-01-01T00:00:00.000Z");
 
 layer(testLayer)((test) => {
-	test.effect("deletes due unreferenced assets and keeps referenced and fresh ones", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const collector = yield* ManagedAssetCollector;
-			const deletions = yield* ObjectDeletions;
-			const ownerUserId = UserId.make(yield* randomUuid);
-			const abandoned = yield* insertAsset(ownerUserId, due);
-			const referenced = yield* insertAsset(ownerUserId, due);
-			const fresh = yield* insertAsset(ownerUserId, future);
-			yield* session.run((db) =>
-				db
-					.insert(tables.savedView)
-					.values({
-						icon: "view",
-						name: "Reference",
-						userId: ownerUserId,
-						slug: crypto.randomUUID(),
-						settings: { cover: referenced },
-						renderer: { kind: "kernel", name: "entity-browser" },
-					}),
-			);
+	test.effect(
+		"deletes due unreferenced assets and keeps referenced and fresh ones",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const collector = yield* ManagedAssetCollector;
+				const deletions = yield* ObjectDeletions;
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const abandoned = yield* insertAsset(ownerUserId, due);
+				const referenced = yield* insertAsset(ownerUserId, due);
+				const fresh = yield* insertAsset(ownerUserId, future);
+				yield* session.run((db) =>
+					db
+						.insert(tables.savedView)
+						.values({
+							icon: "view",
+							name: "Reference",
+							userId: ownerUserId,
+							slug: crypto.randomUUID(),
+							settings: { cover: referenced },
+							renderer: { kind: "kernel", name: "entity-browser" },
+						}),
+				);
 
-			yield* collector.runBatch(100);
+				yield* collector.runBatch(100);
 
-			expect(yield* readAsset(abandoned)).toBeNull();
-			expect(yield* deletions.deleted).toContain(abandoned.key);
-			expect(yield* readAsset(referenced)).toEqual({ deferred: true, retiredAt: null });
-			expect(yield* readAsset(fresh)).toEqual({ deferred: true, retiredAt: null });
-			expect(yield* deletions.deleted).not.toContain(referenced.key);
-			expect(yield* deletions.deleted).not.toContain(fresh.key);
-		}),
+				expect(yield* readAsset(abandoned)).toBeNull();
+				expect(yield* deletions.deleted).toContain(abandoned.key);
+				expect(yield* readAsset(referenced)).toEqual({ deferred: true, retiredAt: null });
+				expect(yield* readAsset(fresh)).toEqual({ deferred: true, retiredAt: null });
+				expect(yield* deletions.deleted).not.toContain(referenced.key);
+				expect(yield* deletions.deleted).not.toContain(fresh.key);
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps a retired row until its object deletion succeeds", () =>
-		Effect.gen(function* () {
-			const collector = yield* ManagedAssetCollector;
-			const deletions = yield* ObjectDeletions;
-			const locator = yield* insertAsset(UserId.make(yield* randomUuid), due);
+	test.effect(
+		"keeps a retired row until its object deletion succeeds",
+		() =>
+			Effect.gen(function* () {
+				const collector = yield* ManagedAssetCollector;
+				const deletions = yield* ObjectDeletions;
+				const locator = yield* insertAsset(UserId.make(yield* randomUuid), due);
 
-			yield* deletions.failFor(locator.key);
-			yield* collector.runBatch(100);
-			expect((yield* readAsset(locator))?.retiredAt).toBeInstanceOf(Date);
+				yield* deletions.failFor(locator.key);
+				yield* collector.runBatch(100);
+				expect((yield* readAsset(locator))?.retiredAt).toBeInstanceOf(Date);
 
-			yield* deletions.failFor(null);
-			yield* collector.runBatch(100);
-			expect(yield* readAsset(locator)).toBeNull();
-			expect(yield* deletions.deleted).toContain(locator.key);
-		}),
+				yield* deletions.failFor(null);
+				yield* collector.runBatch(100);
+				expect(yield* readAsset(locator)).toBeNull();
+				expect(yield* deletions.deleted).toContain(locator.key);
+			}),
+		testTimeout,
 	);
 });

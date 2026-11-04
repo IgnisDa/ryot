@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { AppContract } from "@ryot-app/contract/contract";
 import { OpenApi } from "effect/http-api";
-import { describe, expect, it } from "vitest";
 
 const methods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"] as const;
 

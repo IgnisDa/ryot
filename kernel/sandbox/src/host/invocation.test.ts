@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, PlatformError } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { selectSandboxHostFunctions } from "./executor";
 import { sandboxPlatformFailureKind } from "./invocation";
@@ -64,7 +65,7 @@ describe("selectSandboxHostFunctions", () => {
 		);
 		const functions = Object.fromEntries(bound.map((name) => [name, () => Effect.void]));
 
-		expect(Object.keys(selectSandboxHostFunctions(functions, input))).toEqual(expected);
+		expect(Object.keys(selectSandboxHostFunctions(functions, input))).toEqual([...expected]);
 	});
 
 	it("exposes only resource-free capabilities to non-workflow executions", () => {

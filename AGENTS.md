@@ -43,7 +43,7 @@
 
 - Test application behavior and branches, not library behavior, schema libraries, or TypeScript assignments. Compile-time tests may constrain Ryot-owned generics.
 - Keep assertions inline and extract duplicated setup, not intent. Use package assertion helpers for test-only narrowing.
-- DOM tests use `.test.tsx`; node tests use `.test.ts`. The shared client Vitest config selects the environment; do not add environment docblocks.
+- DOM tests use `.test.tsx`; node tests use `.test.ts`. The shared client test runner selects the environment; do not add environment docblocks.
 - Do not use module mocks, spies, mock functions, or fake timers. Inject Effect Layers, TestClock, plain recording functions, and package-owned harnesses instead.
 
 ## Workflow

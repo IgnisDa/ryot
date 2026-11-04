@@ -1,5 +1,8 @@
+import { expect } from "bun:test";
+
 import { Cause, Exit, Option } from "effect";
-import { assert, expect } from "vitest";
+
+import { assert } from "./assert.js";
 
 export const assertExitFails = <A, E extends { readonly message: string }>(
 	exit: Exit.Exit<A, E>,
@@ -8,6 +11,11 @@ export const assertExitFails = <A, E extends { readonly message: string }>(
 	assert(Exit.isFailure(exit));
 	const failure = Cause.findErrorOption(exit.cause);
 	assert(Option.isSome(failure));
-	expect(failure.value).toEqual(expected);
-	expect(failure.value.message).toBe(expected.message);
+	expect({ ...failure.value, message: failure.value.message }).toEqual({
+		...expected,
+		message: expected.message,
+	});
+	if (failure.value instanceof Error && expected instanceof Error) {
+		expect(failure.value.name).toBe(expected.name);
+	}
 };

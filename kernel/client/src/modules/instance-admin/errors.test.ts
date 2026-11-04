@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { Cause, Effect, Exit } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AdminApiError } from "#/api/admin";
 import { isUnauthorizedCause, withAdminAuthorization } from "#/modules/instance-admin/errors";

@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -8,6 +9,9 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { automationLifecycleCausation } from "#modules/automations/lifecycle/command";
@@ -234,6 +238,7 @@ layer(relationshipDatabaseLayer())((test) => {
 					),
 				).toBe(true);
 			}),
+		testTimeout,
 	);
 });
 
@@ -296,5 +301,6 @@ layer(relationshipDatabaseLayer())((test) => {
 				);
 				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 });

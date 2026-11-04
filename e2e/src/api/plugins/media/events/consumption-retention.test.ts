@@ -1,6 +1,6 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	and,
@@ -202,10 +202,10 @@ describe("Media consumption basis retention", () => {
 			const targetEvents = yield* historyEventsFor(client, target.entityId);
 			expect(yield* historyEventsFor(client, source.entityId)).toEqual([]);
 			expect(targetEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-				"add-to-media-library",
-				"add-to-media-library",
-				"complete",
-				"complete",
+				EventSchemaSlug.make("add-to-media-library"),
+				EventSchemaSlug.make("add-to-media-library"),
+				EventSchemaSlug.make("complete"),
+				EventSchemaSlug.make("complete"),
 			]);
 			expect(
 				targetEvents.find(({ properties }) => properties["sourceRun"] === sourceRunA)?.properties,
@@ -442,7 +442,7 @@ describe("Media consumption restore", () => {
 						.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right))),
 				).toEqual(sourceEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort());
 				for (const fact of eventFacts) {
-					expect(archivedEvents.map(({ properties }) => properties)).toContainEqual(
+					expect(archivedEvents.map(({ properties }) => properties)).toContainEqual<unknown>(
 						fact.properties,
 					);
 				}

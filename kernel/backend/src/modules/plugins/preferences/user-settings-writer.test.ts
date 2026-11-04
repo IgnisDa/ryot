@@ -1,13 +1,16 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginRequestError } from "@ryot-app/contract/modules/plugins/schemas";
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
-import { describe } from "vitest";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -218,148 +221,158 @@ describe("PluginUserSettingsWriter.patch", () => {
 					expect(yield* storedSettings(first.installation.id)).toEqual({ theme: "dark" });
 					expect(yield* storedSettings(second.installation.id)).toEqual({});
 				}),
+			testTimeout,
 		);
 
-		test.effect("merges top-level keys and re-applies a replayed patch without change", () =>
-			Effect.gen(function* () {
-				const plugin = yield* installSettingsPlugin("settings-merge", {
-					theme: "Theme",
-					layout: "Layout",
-				});
-				const write = (values: Record<string, JsonValue>) =>
-					patch({
-						values,
-						userId: owner,
-						pluginId: plugin.pluginId,
-						revisionId: plugin.revisionId,
+		test.effect(
+			"merges top-level keys and re-applies a replayed patch without change",
+			() =>
+				Effect.gen(function* () {
+					const plugin = yield* installSettingsPlugin("settings-merge", {
+						theme: "Theme",
+						layout: "Layout",
 					});
+					const write = (values: Record<string, JsonValue>) =>
+						patch({
+							values,
+							userId: owner,
+							pluginId: plugin.pluginId,
+							revisionId: plugin.revisionId,
+						});
 
-				yield* write({ theme: "dark" });
-				yield* write({ layout: "grid" });
-				yield* write({ theme: "dark" });
+					yield* write({ theme: "dark" });
+					yield* write({ layout: "grid" });
+					yield* write({ theme: "dark" });
 
-				expect(yield* storedSettings(plugin.installation.id)).toEqual({
-					theme: "dark",
-					layout: "grid",
-				});
-			}),
-		);
-
-		test.effect("limits keys to the pinned schema and validates against the active schema", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const plugins = yield* PluginRepository;
-				const pinned = settingsPackage("settings-evolution", {
-					unknownKeys: "strict",
-					fields: {
-						theme: textField("Theme"),
-						limit: {
-							label: "Limit",
-							type: "integer",
-							description: "Limit",
-							validation: { maximum: 10 },
-						},
-					},
-				});
-				const installed = yield* installRevisionPackage(pinned);
-				const active = settingsPackage(
-					"settings-evolution",
-					{
-						...pinned.manifest.userSettingsSchema,
-						fields: { ...pinned.manifest.userSettingsSchema.fields, layout: textField("Layout") },
-					},
-					"v2",
-					pinned.manifest.metadata.packageId,
-				);
-				yield* session
-					.transaction(
-						plugins
-							.lockIngestion()
-							.pipe(Effect.andThen(plugins.persist(active, { ownerId: null, scope: "system" }))),
-					)
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				const [activePlugin] = yield* session.run((db) =>
-					db
-						.select({ activeRevisionId: tables.plugin.activeRevisionId })
-						.from(tables.plugin)
-						.where(eq(tables.plugin.id, installed.pluginId)),
-				);
-				assert(activePlugin?.activeRevisionId);
-				assert(activePlugin.activeRevisionId !== installed.revisionId);
-				const write = (revisionId: string, values: Record<string, JsonValue>) =>
-					patch({ values, revisionId, userId: owner, pluginId: installed.pluginId });
-
-				assertExitFails(
-					yield* Effect.exit(write(installed.revisionId, { layout: "grid" })),
-					rejected("Unknown plugin user settings: layout"),
-				);
-				assertExitFails(
-					yield* Effect.exit(write(installed.revisionId, { theme: "dark", missing: true })),
-					rejected("Unknown plugin user settings: missing"),
-				);
-				assertExitFails(
-					yield* Effect.exit(write(installed.revisionId, { limit: 11 })),
-					rejected("Expected a value less than or equal to 10"),
-				);
-				expect(yield* storedSettings(installed.installation.id)).toEqual({});
-
-				yield* write(activePlugin.activeRevisionId, { layout: "grid" });
-				yield* write(installed.revisionId, { theme: "dark" });
-				expect(yield* storedSettings(installed.installation.id)).toEqual({
-					theme: "dark",
-					layout: "grid",
-				});
-			}),
-		);
-
-		test.effect("caps merged settings documents for patches and whole-document saves", () =>
-			Effect.gen(function* () {
-				const writer = yield* PluginUserSettingsWriter;
-				const plugin = yield* installSettingsPlugin("settings-size", {
-					theme: "Theme",
-					layout: "Layout",
-				});
-				const half = "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES / 2);
-				const write = (values: Record<string, JsonValue>) =>
-					patch({
-						values,
-						userId: owner,
-						pluginId: plugin.pluginId,
-						revisionId: plugin.revisionId,
+					expect(yield* storedSettings(plugin.installation.id)).toEqual({
+						theme: "dark",
+						layout: "grid",
 					});
+				}),
+			testTimeout,
+		);
 
-				yield* write({ theme: half });
-				assertExitFails(
-					yield* Effect.exit(write({ layout: half })),
-					rejected(`Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`),
-				);
-				expect(yield* storedSettings(plugin.installation.id)).toEqual({ theme: half });
-
-				const oversizedSave = yield* Effect.exit(
-					writer.save(owner, plugin.installation.id, { theme: half, layout: half }, false),
-				);
-				assertExitFails(
-					oversizedSave,
-					new PluginRequestError({
-						reason: {
-							code: "validation-failed",
-							diagnostics: [
-								{
-									phase: "validate",
-									severity: "error",
-									code: "invalid-user-settings",
-									message: `Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
-								},
-							],
+		test.effect(
+			"limits keys to the pinned schema and validates against the active schema",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const plugins = yield* PluginRepository;
+					const pinned = settingsPackage("settings-evolution", {
+						unknownKeys: "strict",
+						fields: {
+							theme: textField("Theme"),
+							limit: {
+								label: "Limit",
+								type: "integer",
+								description: "Limit",
+								validation: { maximum: 10 },
+							},
 						},
-					}),
-				);
-				const locks = yield* RecordedIngestionLocks;
-				const before = (yield* locks.all).length;
-				yield* writer.save(owner, plugin.installation.id, { layout: "grid" }, false);
-				expect(yield* storedSettings(plugin.installation.id)).toEqual({ layout: "grid" });
-				expect((yield* locks.all).slice(before)).toEqual(["exclusive"]);
-			}),
+					});
+					const installed = yield* installRevisionPackage(pinned);
+					const active = settingsPackage(
+						"settings-evolution",
+						{
+							...pinned.manifest.userSettingsSchema,
+							fields: { ...pinned.manifest.userSettingsSchema.fields, layout: textField("Layout") },
+						},
+						"v2",
+						pinned.manifest.metadata.packageId,
+					);
+					yield* session
+						.transaction(
+							plugins
+								.lockIngestion()
+								.pipe(Effect.andThen(plugins.persist(active, { ownerId: null, scope: "system" }))),
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+					const [activePlugin] = yield* session.run((db) =>
+						db
+							.select({ activeRevisionId: tables.plugin.activeRevisionId })
+							.from(tables.plugin)
+							.where(eq(tables.plugin.id, installed.pluginId)),
+					);
+					assert(activePlugin?.activeRevisionId);
+					assert(activePlugin.activeRevisionId !== installed.revisionId);
+					const write = (revisionId: string, values: Record<string, JsonValue>) =>
+						patch({ values, revisionId, userId: owner, pluginId: installed.pluginId });
+
+					assertExitFails(
+						yield* Effect.exit(write(installed.revisionId, { layout: "grid" })),
+						rejected("Unknown plugin user settings: layout"),
+					);
+					assertExitFails(
+						yield* Effect.exit(write(installed.revisionId, { theme: "dark", missing: true })),
+						rejected("Unknown plugin user settings: missing"),
+					);
+					assertExitFails(
+						yield* Effect.exit(write(installed.revisionId, { limit: 11 })),
+						rejected("Expected a value less than or equal to 10"),
+					);
+					expect(yield* storedSettings(installed.installation.id)).toEqual({});
+
+					yield* write(activePlugin.activeRevisionId, { layout: "grid" });
+					yield* write(installed.revisionId, { theme: "dark" });
+					expect(yield* storedSettings(installed.installation.id)).toEqual({
+						theme: "dark",
+						layout: "grid",
+					});
+				}),
+			testTimeout,
+		);
+
+		test.effect(
+			"caps merged settings documents for patches and whole-document saves",
+			() =>
+				Effect.gen(function* () {
+					const writer = yield* PluginUserSettingsWriter;
+					const plugin = yield* installSettingsPlugin("settings-size", {
+						theme: "Theme",
+						layout: "Layout",
+					});
+					const half = "x".repeat(PLUGIN_USER_SETTINGS_MAX_BYTES / 2);
+					const write = (values: Record<string, JsonValue>) =>
+						patch({
+							values,
+							userId: owner,
+							pluginId: plugin.pluginId,
+							revisionId: plugin.revisionId,
+						});
+
+					yield* write({ theme: half });
+					assertExitFails(
+						yield* Effect.exit(write({ layout: half })),
+						rejected(`Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`),
+					);
+					expect(yield* storedSettings(plugin.installation.id)).toEqual({ theme: half });
+
+					const oversizedSave = yield* Effect.exit(
+						writer.save(owner, plugin.installation.id, { theme: half, layout: half }, false),
+					);
+					assertExitFails(
+						oversizedSave,
+						new PluginRequestError({
+							reason: {
+								code: "validation-failed",
+								diagnostics: [
+									{
+										phase: "validate",
+										severity: "error",
+										code: "invalid-user-settings",
+										message: `Plugin user settings exceed ${PLUGIN_USER_SETTINGS_MAX_BYTES} UTF-8 bytes`,
+									},
+								],
+							},
+						}),
+					);
+					const locks = yield* RecordedIngestionLocks;
+					const before = (yield* locks.all).length;
+					yield* writer.save(owner, plugin.installation.id, { layout: "grid" }, false);
+					expect(yield* storedSettings(plugin.installation.id)).toEqual({ layout: "grid" });
+					expect((yield* locks.all).slice(before)).toEqual(["exclusive"]);
+				}),
+			testTimeout,
 		);
 
 		test.effect(
@@ -405,76 +418,83 @@ describe("PluginUserSettingsWriter.patch", () => {
 					expect(yield* storedSettings(inactive.installation.id)).toEqual({});
 					expect(yield* storedSettings(incompatible.installation.id)).toEqual({});
 				}),
+			testTimeout,
 		);
 
-		test.effect("rejects retired or mismatched account generations", () =>
-			Effect.gen(function* () {
-				const plugin = yield* installSettingsPlugin("settings-generation");
-				const write = (accountGeneration: ReturnType<typeof generation>) =>
-					Effect.exit(
-						patch({
-							userId: owner,
-							accountGeneration,
-							values: { theme: "dark" },
-							pluginId: plugin.pluginId,
-							revisionId: plugin.revisionId,
-						}),
-					);
-
-				assertExitFails(
-					yield* write({ userId: owner, token: "retired-account-generation" }),
-					new DbError({ message: "Mutation command belongs to a retired account" }),
-				);
-				assertExitFails(
-					yield* write(generation(recipient)),
-					new DbError({
-						message: "Plugin user settings account does not match the execution user",
-					}),
-				);
-				expect(yield* storedSettings(plugin.installation.id)).toEqual({});
-			}),
-		);
-
-		test.effect("serializes concurrent patches per user without the exclusive ingestion lock", () =>
-			Effect.gen(function* () {
-				const keys = Array.from({ length: 10 }, (_, index) => `key${index}`);
-				const plugin = yield* installSettingsPlugin(
-					"settings-concurrency",
-					Object.fromEntries(keys.map((key) => [key, key])),
-				);
-				const recipientInstallation = yield* installForRecipient(plugin.pluginId);
-				const locks = yield* RecordedIngestionLocks;
-				const before = (yield* locks.all).length;
-
-				yield* Effect.all(
-					[
-						...keys.map((key) =>
+		test.effect(
+			"rejects retired or mismatched account generations",
+			() =>
+				Effect.gen(function* () {
+					const plugin = yield* installSettingsPlugin("settings-generation");
+					const write = (accountGeneration: ReturnType<typeof generation>) =>
+						Effect.exit(
 							patch({
 								userId: owner,
-								values: { [key]: key },
+								accountGeneration,
+								values: { theme: "dark" },
 								pluginId: plugin.pluginId,
 								revisionId: plugin.revisionId,
 							}),
-						),
-						patch({
-							userId: recipient,
-							pluginId: plugin.pluginId,
-							values: { key0: "recipient" },
-							revisionId: plugin.revisionId,
+						);
+
+					assertExitFails(
+						yield* write({ userId: owner, token: "retired-account-generation" }),
+						new DbError({ message: "Mutation command belongs to a retired account" }),
+					);
+					assertExitFails(
+						yield* write(generation(recipient)),
+						new DbError({
+							message: "Plugin user settings account does not match the execution user",
 						}),
-					],
-					{ concurrency: "unbounded" },
-				);
+					);
+					expect(yield* storedSettings(plugin.installation.id)).toEqual({});
+				}),
+			testTimeout,
+		);
 
-				expect((yield* locks.all).slice(before)).toEqual(
-					Array.from({ length: 11 }, () => "shared"),
-				);
+		test.effect(
+			"serializes concurrent patches per user without the exclusive ingestion lock",
+			() =>
+				Effect.gen(function* () {
+					const keys = Array.from({ length: 10 }, (_, index) => `key${index}`);
+					const plugin = yield* installSettingsPlugin(
+						"settings-concurrency",
+						Object.fromEntries(keys.map((key) => [key, key])),
+					);
+					const recipientInstallation = yield* installForRecipient(plugin.pluginId);
+					const locks = yield* RecordedIngestionLocks;
+					const before = (yield* locks.all).length;
 
-				expect(yield* storedSettings(plugin.installation.id)).toEqual(
-					Object.fromEntries(keys.map((key) => [key, key])),
-				);
-				expect(yield* storedSettings(recipientInstallation.id)).toEqual({ key0: "recipient" });
-			}),
+					yield* Effect.all(
+						[
+							...keys.map((key) =>
+								patch({
+									userId: owner,
+									values: { [key]: key },
+									pluginId: plugin.pluginId,
+									revisionId: plugin.revisionId,
+								}),
+							),
+							patch({
+								userId: recipient,
+								pluginId: plugin.pluginId,
+								values: { key0: "recipient" },
+								revisionId: plugin.revisionId,
+							}),
+						],
+						{ concurrency: "unbounded" },
+					);
+
+					expect((yield* locks.all).slice(before)).toEqual(
+						Array.from({ length: 11 }, () => "shared"),
+					);
+
+					expect(yield* storedSettings(plugin.installation.id)).toEqual(
+						Object.fromEntries(keys.map((key) => [key, key])),
+					);
+					expect(yield* storedSettings(recipientInstallation.id)).toEqual({ key0: "recipient" });
+				}),
+			testTimeout,
 		);
 	});
 });

@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -124,39 +127,45 @@ const makeLayer = (input: {
 	);
 
 layer(makeLayer({ run: null }))((test) => {
-	test.effect("enforces run ownership through the repository scope", () =>
-		Effect.gen(function* () {
-			const service = yield* BackupsService;
-			const error = yield* service.createDownloadTicket(user, runId).pipe(Effect.flip);
-			expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
-			expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
-		}),
+	test.effect(
+		"enforces run ownership through the repository scope",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* BackupsService;
+				const error = yield* service.createDownloadTicket(user, runId).pipe(Effect.flip);
+				expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
+				expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ run: { ...completedRun, progress: 50, expiresAt: null, status: "pending" } }))(
 	(test) => {
-		test.effect("rejects download and deletion while a run is pending or running", () =>
-			Effect.gen(function* () {
-				const service = yield* BackupsService;
-				expect(yield* service.createDownloadTicket(user, runId).pipe(Effect.flip)).toMatchObject({
-					_tag: "BackupConflict",
-					reason: { code: "export-still-running" },
-				});
-				expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
-					_tag: "BackupConflict",
-					reason: { code: "run-still-active" },
-				});
-				yield* (yield* FakeBackupRuns).setRunStatus("running");
-				expect(yield* service.createDownloadTicket(user, runId).pipe(Effect.flip)).toMatchObject({
-					_tag: "BackupConflict",
-					reason: { code: "export-still-running" },
-				});
-				expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
-					_tag: "BackupConflict",
-					reason: { code: "run-still-active" },
-				});
-			}),
+		test.effect(
+			"rejects download and deletion while a run is pending or running",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* BackupsService;
+					expect(yield* service.createDownloadTicket(user, runId).pipe(Effect.flip)).toMatchObject({
+						_tag: "BackupConflict",
+						reason: { code: "export-still-running" },
+					});
+					expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
+						_tag: "BackupConflict",
+						reason: { code: "run-still-active" },
+					});
+					yield* (yield* FakeBackupRuns).setRunStatus("running");
+					expect(yield* service.createDownloadTicket(user, runId).pipe(Effect.flip)).toMatchObject({
+						_tag: "BackupConflict",
+						reason: { code: "export-still-running" },
+					});
+					expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
+						_tag: "BackupConflict",
+						reason: { code: "run-still-active" },
+					});
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -173,45 +182,57 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("streams an owned unexpired artifact without buffering", () =>
-		Effect.gen(function* () {
-			const service = yield* BackupsService;
-			const ticket = yield* service.createDownloadTicket(user, runId);
-			const download = yield* service.downloadRunWithTicket(runId, ticket);
-			expect(download.size).toBe(archiveBytes.length);
-			expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
-		}),
+	test.effect(
+		"streams an owned unexpired artifact without buffering",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* BackupsService;
+				const ticket = yield* service.createDownloadTicket(user, runId);
+				const download = yield* service.downloadRunWithTicket(runId, ticket);
+				expect(download.size).toBe(archiveBytes.length);
+				expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("revalidates the ticket subject before streaming a backup", () =>
-		Effect.gen(function* () {
-			const service = yield* BackupsService;
-			const ticket = yield* service.createDownloadTicket(user, runId);
-			const download = yield* service.downloadRunWithTicket(runId, ticket);
+	test.effect(
+		"revalidates the ticket subject before streaming a backup",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* BackupsService;
+				const ticket = yield* service.createDownloadTicket(user, runId);
+				const download = yield* service.downloadRunWithTicket(runId, ticket);
 
-			expect(download.fileName).toBe(`ryot-backup-${runId}.zip`);
-			expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
-			expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
-		}),
+				expect(download.fileName).toBe(`ryot-backup-${runId}.zip`);
+				expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
+				expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ artifact, run: completedRun }))((test) => {
-	test.effect("deletes an artifact before its run and performs cleanup in the same order", () =>
-		Effect.gen(function* () {
-			const service = yield* BackupsService;
-			expect(yield* service.deleteRun(user, runId)).toEqual({ id: runId });
-			expect(yield* (yield* FakeBackupRuns).calls).toEqual(["artifact", "run"]);
-		}),
+	test.effect(
+		"deletes an artifact before its run and performs cleanup in the same order",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* BackupsService;
+				expect(yield* service.deleteRun(user, runId)).toEqual({ id: runId });
+				expect(yield* (yield* FakeBackupRuns).calls).toEqual(["artifact", "run"]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ expiredArtifacts: [artifact] }))((test) => {
-	test.effect("deletes expired artifact objects before race-safe run cleanup", () =>
-		Effect.gen(function* () {
-			const service = yield* BackupsService;
-			yield* service.cleanupExpiredArtifacts(100);
-			expect(yield* (yield* FakeBackupRuns).calls).toEqual(["artifact", "run"]);
-		}),
+	test.effect(
+		"deletes expired artifact objects before race-safe run cleanup",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* BackupsService;
+				yield* service.cleanupExpiredArtifacts(100);
+				expect(yield* (yield* FakeBackupRuns).calls).toEqual(["artifact", "run"]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,6 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { assert, describe, expect, layer } from "@effect/vitest";
 import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watches/contract";
 import {
 	decodeEntityWatchServerMessage,
@@ -7,8 +8,11 @@ import {
 	type EntityWatchClientMessage,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { stringMatching } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Clock, Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
 import * as Socket from "effect/socket/Socket";
 import { TestClock } from "effect/testing";
@@ -383,6 +387,7 @@ describe("entity interest socket session", () => {
 						expect(yield* store.listInterestedSessions(entityId)).not.toContain(ready.sessionId);
 					}),
 				),
+			testTimeout,
 		);
 	});
 
@@ -429,6 +434,7 @@ describe("entity interest socket session", () => {
 						return undefined;
 					}),
 				),
+			testTimeout,
 		);
 	});
 
@@ -438,29 +444,32 @@ describe("entity interest socket session", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("rechecks an impersonation session after local registration", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
+		test.effect(
+			"rechecks an impersonation session after local registration",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
 
-					const close = yield* Queue.take(socket.writes);
-					assert(Socket.isCloseEvent(close));
-					expect(close.code).toBe(4001);
-					expect(close.reason).toBe("Session expired");
-					yield* Fiber.await(fiber);
-					expect(yield* fake.activity).toEqual([
-						stringMatching(/^open:/),
-						stringMatching(/^add:.*:auth:auth-session-1$/),
-						"auth-session-check:auth-session-1:user-1",
-						stringMatching(/^remove:/),
-						stringMatching(/^close:/),
-					]);
-				}),
-			),
+						const close = yield* Queue.take(socket.writes);
+						assert(Socket.isCloseEvent(close));
+						expect(close.code).toBe(4001);
+						expect(close.reason).toBe("Session expired");
+						yield* Fiber.await(fiber);
+						expect(yield* fake.activity).toEqual<unknown>([
+							stringMatching(/^open:/),
+							stringMatching(/^add:.*:auth:auth-session-1$/),
+							"auth-session-check:auth-session-1:user-1",
+							stringMatching(/^remove:/),
+							stringMatching(/^close:/),
+						]);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -478,23 +487,26 @@ describe("entity interest socket session", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("uses the generic policy close for an invalid ticket", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "invalid", type: "authenticate" });
-					const close = yield* Queue.take(socket.writes);
-					if (!Socket.isCloseEvent(close)) {
-						return yield* Effect.die("expected close event");
-					}
-					expect(close.code).toBe(1008);
-					expect(close.reason).toBe("Authentication failed");
-					yield* Fiber.await(fiber);
-					return undefined;
-				}),
-			),
+		test.effect(
+			"uses the generic policy close for an invalid ticket",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "invalid", type: "authenticate" });
+						const close = yield* Queue.take(socket.writes);
+						if (!Socket.isCloseEvent(close)) {
+							return yield* Effect.die("expected close event");
+						}
+						expect(close.code).toBe(1008);
+						expect(close.reason).toBe("Authentication failed");
+						yield* Fiber.await(fiber);
+						return undefined;
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -515,99 +527,111 @@ describe("entity interest socket session", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("uses the internal-error close when the ticket store is unavailable", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					const close = yield* Queue.take(socket.writes);
-					expect(Socket.isCloseEvent(close) && close.code).toBe(1011);
-					expect(Socket.isCloseEvent(close) && close.reason).toBe("Internal error");
-					yield* Fiber.await(fiber);
-				}),
-			),
+		test.effect(
+			"uses the internal-error close when the ticket store is unavailable",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						const close = yield* Queue.take(socket.writes);
+						expect(Socket.isCloseEvent(close) && close.code).toBe(1011);
+						expect(Socket.isCloseEvent(close) && close.reason).toBe("Internal error");
+						yield* Fiber.await(fiber);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	layer(makeLayer())((test) => {
-		test.effect("does not process pipelined commands until ready has been written", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const readyWriteGate = yield* Deferred.make<void>();
-					const socket = yield* makeSocket(readyWriteGate);
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					yield* socket.send({
-						revision: 1,
-						type: "replace",
-						foregroundIds: [],
-						entityIds: ["entity-1"],
-					});
+		test.effect(
+			"does not process pipelined commands until ready has been written",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const readyWriteGate = yield* Deferred.make<void>();
+						const socket = yield* makeSocket(readyWriteGate);
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						yield* socket.send({
+							revision: 1,
+							type: "replace",
+							foregroundIds: [],
+							entityIds: ["entity-1"],
+						});
 
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* Effect.yieldNow;
-					expect(yield* fake.replacements).toBe(0);
-					yield* Deferred.succeed(readyWriteGate, undefined);
-					expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
-					yield* socket.remoteClose;
-					yield* Fiber.await(fiber);
-				}),
-			),
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						yield* Effect.yieldNow;
+						expect(yield* fake.replacements).toBe(0);
+						yield* Deferred.succeed(readyWriteGate, undefined);
+						expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
+						yield* socket.remoteClose;
+						yield* Fiber.await(fiber);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	layer(makeLayer())((test) => {
-		test.effect("cleans up when the writer fails before acknowledging ready", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket(undefined, true);
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					const ready = yield* socket.nextMessage();
-					if (ready.type !== "ready") {
-						return yield* Effect.die("expected ready message");
-					}
+		test.effect(
+			"cleans up when the writer fails before acknowledging ready",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket(undefined, true);
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						const ready = yield* socket.nextMessage();
+						if (ready.type !== "ready") {
+							return yield* Effect.die("expected ready message");
+						}
 
-					yield* Fiber.await(fiber);
-					expect(yield* fake.activity).toEqual([
-						`open:${ready.sessionId}`,
-						`add:${ready.sessionId}`,
-						`remove:${ready.sessionId}`,
-						`close:${ready.sessionId}`,
-					]);
-					return undefined;
-				}),
-			),
+						yield* Fiber.await(fiber);
+						expect(yield* fake.activity).toEqual([
+							`open:${ready.sessionId}`,
+							`add:${ready.sessionId}`,
+							`remove:${ready.sessionId}`,
+							`close:${ready.sessionId}`,
+						]);
+						return undefined;
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	layer(makeLayer())((test) => {
-		test.effect("stops processing buffered commands after a protocol error", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.sendFrame(
-						'{"type":"update","revision":1,"add":["invalid"],"remove":[],"addForeground":[],"removeForeground":[]}',
-					);
-					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
+		test.effect(
+			"stops processing buffered commands after a protocol error",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						yield* socket.sendFrame(
+							'{"type":"update","revision":1,"add":["invalid"],"remove":[],"addForeground":[],"removeForeground":[]}',
+						);
+						yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 
-					const close = yield* Queue.take(socket.writes);
-					expect(Socket.isCloseEvent(close) && close.code).toBe(1002);
-					yield* Fiber.await(fiber);
-					expect(yield* fake.replacements).toBe(0);
-				}),
-			),
+						const close = yield* Queue.take(socket.writes);
+						expect(Socket.isCloseEvent(close) && close.code).toBe(1002);
+						yield* Fiber.await(fiber);
+						expect(yield* fake.replacements).toBe(0);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -617,24 +641,27 @@ describe("entity interest socket session", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("closes on revision mismatch without processing another buffered command", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
-					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
+		test.effect(
+			"closes on revision mismatch without processing another buffered command",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
+						yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 
-					const close = yield* Queue.take(socket.writes);
-					expect(Socket.isCloseEvent(close) && close.code).toBe(1002);
-					yield* Fiber.await(fiber);
-					expect(yield* fake.replacements).toBe(1);
-				}),
-			),
+						const close = yield* Queue.take(socket.writes);
+						expect(Socket.isCloseEvent(close) && close.code).toBe(1002);
+						yield* Fiber.await(fiber);
+						expect(yield* fake.replacements).toBe(1);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -644,147 +671,164 @@ describe("entity interest socket session", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("rejects over-limit commands without closing the session", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
+		test.effect(
+			"rejects over-limit commands without closing the session",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
 
-					expect(yield* socket.nextMessage()).toEqual({
-						revision: 1,
-						type: "rejected",
-						maxEntityIds: 500,
-						code: "interest-limit-exceeded",
-					});
-					yield* socket.remoteClose;
-					yield* Fiber.await(fiber);
-				}),
-			),
+						expect(yield* socket.nextMessage()).toEqual({
+							revision: 1,
+							type: "rejected",
+							maxEntityIds: 500,
+							code: "interest-limit-exceeded",
+						});
+						yield* socket.remoteClose;
+						yield* Fiber.await(fiber);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	layer(obsoleteTokenLayer)((test) => {
-		test.effect("drops terminal reconciliation from an obsolete pending token", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const activity: string[] = [];
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send({
-						revision: 1,
-						type: "replace",
-						foregroundIds: [],
-						entityIds: ["entity-1"],
-					});
-					expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
-					yield* (yield* MarkAttempts).attempted;
-					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
-					yield* socket.remoteClose;
-					yield* Fiber.await(fiber);
-					expect(activity).toEqual([]);
-				}),
-			),
+		test.effect(
+			"drops terminal reconciliation from an obsolete pending token",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const activity: string[] = [];
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						yield* socket.send({
+							revision: 1,
+							type: "replace",
+							foregroundIds: [],
+							entityIds: ["entity-1"],
+						});
+						expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
+						yield* (yield* MarkAttempts).attempted;
+						expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+						yield* socket.remoteClose;
+						yield* Fiber.await(fiber);
+						expect(activity).toEqual([]);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	layer(makeLayer())((test) => {
-		test.effect("closes when a heartbeat pong does not arrive", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* TestClock.adjust("25 seconds");
-					expect((yield* socket.nextMessage()).type).toBe("ping");
-					yield* TestClock.adjust("10 seconds");
-					const close = yield* Queue.take(socket.writes);
-					expect(Socket.isCloseEvent(close) && close.code).toBe(4000);
-					yield* Fiber.await(fiber);
-				}),
-			),
-		);
-	});
-
-	layer(makeLayer())((test) => {
-		test.effect("expires an authenticated session after 15 minutes and cleans up", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket(undefined, false, true);
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					const ready = yield* socket.nextMessage();
-					assert(ready.type === "ready");
-
-					for (let interval = 0; interval < 35; interval += 1) {
+		test.effect(
+			"closes when a heartbeat pong does not arrive",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
 						yield* TestClock.adjust("25 seconds");
-						yield* Effect.yieldNow;
-					}
-					yield* TestClock.adjust("24 seconds");
-					const beforeExpiry = yield* Queue.takeAll(socket.writes);
-					expect(Array.from(beforeExpiry).every((frame) => !Socket.isCloseEvent(frame))).toBe(true);
-					expect(yield* fake.activity).toEqual([
-						`open:${ready.sessionId}`,
-						`add:${ready.sessionId}`,
-					]);
-
-					yield* TestClock.adjust("1 second");
-					const close = yield* Queue.take(socket.writes);
-					assert(Socket.isCloseEvent(close));
-					expect(close.code).toBe(4001);
-					expect(close.reason).toBe("Session expired");
-					yield* Fiber.await(fiber);
-					expect(yield* fake.activity).toEqual([
-						`open:${ready.sessionId}`,
-						`add:${ready.sessionId}`,
-						`remove:${ready.sessionId}`,
-						`close:${ready.sessionId}`,
-					]);
-				}),
-			),
+						expect((yield* socket.nextMessage()).type).toBe("ping");
+						yield* TestClock.adjust("10 seconds");
+						const close = yield* Queue.take(socket.writes);
+						expect(Socket.isCloseEvent(close) && close.code).toBe(4000);
+						yield* Fiber.await(fiber);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	layer(makeLayer())((test) => {
-		test.effect("writes derived-data updates at most once per interval, leading and trailing", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					const enqueue = yield* fake.sessionEnqueue;
+		test.effect(
+			"expires an authenticated session after 15 minutes and cleans up",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket(undefined, false, true);
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						const ready = yield* socket.nextMessage();
+						assert(ready.type === "ready");
 
-					enqueue({ type: "derived-data-updated" });
-					expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
-					enqueue({ type: "derived-data-updated" });
-					enqueue({ type: "derived-data-updated" });
-					yield* TestClock.adjust("2999 millis");
-					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+						for (let interval = 0; interval < 35; interval += 1) {
+							yield* TestClock.adjust("25 seconds");
+							yield* Effect.yieldNow;
+						}
+						yield* TestClock.adjust("24 seconds");
+						const beforeExpiry = yield* Queue.takeAll(socket.writes);
+						expect(Array.from(beforeExpiry).every((frame) => !Socket.isCloseEvent(frame))).toBe(
+							true,
+						);
+						expect(yield* fake.activity).toEqual([
+							`open:${ready.sessionId}`,
+							`add:${ready.sessionId}`,
+						]);
 
-					yield* TestClock.adjust("1 millis");
-					expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
-					yield* TestClock.adjust("3 seconds");
-					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+						yield* TestClock.adjust("1 second");
+						const close = yield* Queue.take(socket.writes);
+						assert(Socket.isCloseEvent(close));
+						expect(close.code).toBe(4001);
+						expect(close.reason).toBe("Session expired");
+						yield* Fiber.await(fiber);
+						expect(yield* fake.activity).toEqual([
+							`open:${ready.sessionId}`,
+							`add:${ready.sessionId}`,
+							`remove:${ready.sessionId}`,
+							`close:${ready.sessionId}`,
+						]);
+					}),
+				),
+			testTimeout,
+		);
+	});
 
-					enqueue({ type: "derived-data-updated" });
-					expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
-					yield* socket.remoteClose;
-					yield* Fiber.await(fiber);
-				}),
-			),
+	layer(makeLayer())((test) => {
+		test.effect(
+			"writes derived-data updates at most once per interval, leading and trailing",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						const enqueue = yield* fake.sessionEnqueue;
+
+						enqueue({ type: "derived-data-updated" });
+						expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
+						enqueue({ type: "derived-data-updated" });
+						enqueue({ type: "derived-data-updated" });
+						yield* TestClock.adjust("2999 millis");
+						expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+
+						yield* TestClock.adjust("1 millis");
+						expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
+						yield* TestClock.adjust("3 seconds");
+						expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+
+						enqueue({ type: "derived-data-updated" });
+						expect(yield* socket.nextMessage()).toEqual({ type: "derived-data-updated" });
+						yield* socket.remoteClose;
+						yield* Fiber.await(fiber);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -816,32 +860,36 @@ describe("entity interest socket session", () => {
 						yield* Fiber.await(fiber);
 					}),
 				),
+			testTimeout,
 		);
 	});
 
 	layer(makeLayer({ holdReplace: true }))((test) => {
-		test.effect("stops buffered commands when heartbeat shutdown interrupts the processor", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const fake = yield* FakeSessionDependencies;
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* socket.send({ ticket: "ticket", type: "authenticate" });
-					expect((yield* socket.nextMessage()).type).toBe("ready");
-					yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
-					yield* fake.replaceStarted;
-					yield* socket.send({ revision: 2, entityIds: [], type: "replace", foregroundIds: [] });
+		test.effect(
+			"stops buffered commands when heartbeat shutdown interrupts the processor",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const fake = yield* FakeSessionDependencies;
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* socket.send({ ticket: "ticket", type: "authenticate" });
+						expect((yield* socket.nextMessage()).type).toBe("ready");
+						yield* socket.send({ revision: 1, entityIds: [], type: "replace", foregroundIds: [] });
+						yield* fake.replaceStarted;
+						yield* socket.send({ revision: 2, entityIds: [], type: "replace", foregroundIds: [] });
 
-					yield* TestClock.adjust("25 seconds");
-					expect((yield* socket.nextMessage()).type).toBe("ping");
-					yield* TestClock.adjust("10 seconds");
-					const close = yield* Queue.take(socket.writes);
-					expect(Socket.isCloseEvent(close) && close.code).toBe(4000);
-					yield* Fiber.await(fiber);
-					expect(yield* fake.replacements).toBe(1);
-				}),
-			),
+						yield* TestClock.adjust("25 seconds");
+						expect((yield* socket.nextMessage()).type).toBe("ping");
+						yield* TestClock.adjust("10 seconds");
+						const close = yield* Queue.take(socket.writes);
+						expect(Socket.isCloseEvent(close) && close.code).toBe(4000);
+						yield* Fiber.await(fiber);
+						expect(yield* fake.replacements).toBe(1);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -857,24 +905,27 @@ describe("entity interest socket session", () => {
 			BunCrypto.layerSecureRandom,
 		),
 	)((test) => {
-		test.effect("closes unauthenticated sockets after exactly five seconds", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const socket = yield* makeSocket();
-					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
-					yield* Deferred.await(socket.opened);
-					yield* TestClock.adjust("4999 millis");
-					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
-					yield* TestClock.adjust("1 millis");
-					const close = yield* Queue.take(socket.writes);
-					if (!Socket.isCloseEvent(close)) {
-						return yield* Effect.die("expected close event");
-					}
-					expect(close.code).toBe(1008);
-					yield* Fiber.await(fiber);
-					return undefined;
-				}),
-			),
+		test.effect(
+			"closes unauthenticated sockets after exactly five seconds",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const socket = yield* makeSocket();
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
+						yield* Deferred.await(socket.opened);
+						yield* TestClock.adjust("4999 millis");
+						expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());
+						yield* TestClock.adjust("1 millis");
+						const close = yield* Queue.take(socket.writes);
+						if (!Socket.isCloseEvent(close)) {
+							return yield* Effect.die("expected close event");
+						}
+						expect(close.code).toBe(1008);
+						yield* Fiber.await(fiber);
+						return undefined;
+					}),
+				),
+			testTimeout,
 		);
 	});
 });

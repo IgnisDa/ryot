@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { triggerFixture } from "./lifecycle.test-support";
@@ -74,6 +77,7 @@ describe("owner-qualified hook matching", () => {
 				expect(matchesTarget(definitionOwner(second), local, plugin)).toBe(false);
 				expect(matchesTarget(definitionOwner(first), local, kernel)).toBe(false);
 			}),
+		testTimeout,
 	);
 	it("does not substitute another plugin or kernel owner for a same-named signal", () => {
 		const target = {
@@ -91,38 +95,44 @@ describe("owner-qualified hook matching", () => {
 			false,
 		);
 	});
-	it.effect("requires the stored event owner and parent entity schema", () =>
-		Effect.gen(function* () {
-			const trigger = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
-				...triggerFixture(),
-				payload: eventChange(first),
-				kind: { resource: "event", category: "change", operation: "create" },
-			});
-			expect(matchesTarget(definitionOwner(first), eventTarget, trigger)).toBe(true);
-			expect(matchesTarget(definitionOwner(second), eventTarget, trigger)).toBe(false);
-			expect(
-				matchesTarget(
-					definitionOwner(first),
-					{ ...eventTarget, entitySchemaSlug: "distillery" },
-					trigger,
-				),
-			).toBe(false);
-		}),
+	it.effect(
+		"requires the stored event owner and parent entity schema",
+		() =>
+			Effect.gen(function* () {
+				const trigger = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
+					...triggerFixture(),
+					payload: eventChange(first),
+					kind: { resource: "event", category: "change", operation: "create" },
+				});
+				expect(matchesTarget(definitionOwner(first), eventTarget, trigger)).toBe(true);
+				expect(matchesTarget(definitionOwner(second), eventTarget, trigger)).toBe(false);
+				expect(
+					matchesTarget(
+						definitionOwner(first),
+						{ ...eventTarget, entitySchemaSlug: "distillery" },
+						trigger,
+					),
+				).toBe(false);
+			}),
+		testTimeout,
 	);
-	it.effect("matches captured batch evidence only when that owner has a matching item", () =>
-		Effect.gen(function* () {
-			const trigger = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
-				...triggerFixture(),
-				kind: { resource: "event", category: "change", operation: "batch" },
-				payload: {
-					resource: "event",
-					category: "change",
-					operation: "batch",
-					items: [eventChange(first), eventChange(second, "distillery")],
-				},
-			});
-			expect(matchesTarget(definitionOwner(first), eventTarget, trigger)).toBe(true);
-			expect(matchesTarget(definitionOwner(second), eventTarget, trigger)).toBe(false);
-		}),
+	it.effect(
+		"matches captured batch evidence only when that owner has a matching item",
+		() =>
+			Effect.gen(function* () {
+				const trigger = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
+					...triggerFixture(),
+					kind: { resource: "event", category: "change", operation: "batch" },
+					payload: {
+						resource: "event",
+						category: "change",
+						operation: "batch",
+						items: [eventChange(first), eventChange(second, "distillery")],
+					},
+				});
+				expect(matchesTarget(definitionOwner(first), eventTarget, trigger)).toBe(true);
+				expect(matchesTarget(definitionOwner(second), eventTarget, trigger)).toBe(false);
+			}),
+		testTimeout,
 	);
 });

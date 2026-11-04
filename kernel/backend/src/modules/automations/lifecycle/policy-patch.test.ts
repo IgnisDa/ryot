@@ -1,4 +1,5 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AutomationEntityCreateRequestPayload,
 	AutomationEntityDeleteRequestPayload,
@@ -12,6 +13,9 @@ import {
 	EventId,
 	EventSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import {
@@ -133,6 +137,7 @@ it.effect(
 				applyLifecyclePolicyPatch(deletion, { resource: "entity", draft: { name: "Blocked" } }),
 			).toMatchObject({ ok: false });
 		}),
+	testTimeout,
 );
 
 it("reconstructs validated normalized successors from canonical accepted patches", () => {
@@ -160,18 +165,21 @@ it("reconstructs validated normalized successors from canonical accepted patches
 	});
 });
 
-it.effect("omits canonical no-op patches for canonically equal properties", () =>
-	Effect.gen(function* () {
-		const previous = yield* Schema.decodeEffect(AutomationEntityCreateRequestPayload)({
-			...request,
-			draft: { ...request.draft, properties: { object: { a: 1, b: 2 } } },
-		});
-		const successor = yield* Schema.decodeEffect(AutomationEntityCreateRequestPayload)({
-			...previous,
-			draft: { ...previous.draft, properties: { object: { b: 2, a: 1 } } },
-		});
-		expect(canonicalLifecyclePolicyPatch(previous, successor)).toBeNull();
-	}),
+it.effect(
+	"omits canonical no-op patches for canonically equal properties",
+	() =>
+		Effect.gen(function* () {
+			const previous = yield* Schema.decodeEffect(AutomationEntityCreateRequestPayload)({
+				...request,
+				draft: { ...request.draft, properties: { object: { a: 1, b: 2 } } },
+			});
+			const successor = yield* Schema.decodeEffect(AutomationEntityCreateRequestPayload)({
+				...previous,
+				draft: { ...previous.draft, properties: { object: { b: 2, a: 1 } } },
+			});
+			expect(canonicalLifecyclePolicyPatch(previous, successor)).toBeNull();
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -200,7 +208,7 @@ it.effect(
 				},
 			});
 			const patch = canonicalLifecyclePolicyPatch(eventUpdateRequest, successor);
-			expect(patch).toEqual({
+			expect(patch).toEqual<unknown>({
 				resource: "event",
 				draft: {
 					occurredAt: nextTimestamp,
@@ -214,47 +222,51 @@ it.effect(
 				request: successor,
 			});
 		}),
+	testTimeout,
 );
 
-it.effect("rejects event deletes and changes to event identity or schema", () =>
-	Effect.gen(function* () {
-		expect(
-			applyLifecyclePolicyPatch(eventDeleteRequest, {
-				resource: "event",
-				draft: { occurredAt: nextTimestamp },
-			}),
-		).toMatchObject({ ok: false });
-		for (const successor of [
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				draft: { ...eventUpdateRequest.draft, entityId: "entity-2" },
-			}),
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				draft: { ...eventUpdateRequest.draft, eventSchemaSlug: "another-progress" },
-			}),
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				draft: { ...eventUpdateRequest.draft, entitySchemaSlug: "another-record" },
-			}),
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				before: { ...eventUpdateRequest.before, id: "event-2" },
-			}),
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				before: { ...eventUpdateRequest.before, entityId: "entity-2" },
-			}),
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				before: { ...eventUpdateRequest.before, eventSchemaSlug: "another-progress" },
-			}),
-			yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
-				...eventUpdateRequest,
-				before: { ...eventUpdateRequest.before, entitySchemaSlug: "another-record" },
-			}),
-		]) {
-			expect(canonicalLifecyclePolicyPatch(eventUpdateRequest, successor)).toBeNull();
-		}
-	}),
+it.effect(
+	"rejects event deletes and changes to event identity or schema",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				applyLifecyclePolicyPatch(eventDeleteRequest, {
+					resource: "event",
+					draft: { occurredAt: nextTimestamp },
+				}),
+			).toMatchObject({ ok: false });
+			for (const successor of [
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					draft: { ...eventUpdateRequest.draft, entityId: "entity-2" },
+				}),
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					draft: { ...eventUpdateRequest.draft, eventSchemaSlug: "another-progress" },
+				}),
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					draft: { ...eventUpdateRequest.draft, entitySchemaSlug: "another-record" },
+				}),
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					before: { ...eventUpdateRequest.before, id: "event-2" },
+				}),
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					before: { ...eventUpdateRequest.before, entityId: "entity-2" },
+				}),
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					before: { ...eventUpdateRequest.before, eventSchemaSlug: "another-progress" },
+				}),
+				yield* Schema.decodeEffect(AutomationEventUpdateRequestPayload)({
+					...eventUpdateRequest,
+					before: { ...eventUpdateRequest.before, entitySchemaSlug: "another-record" },
+				}),
+			]) {
+				expect(canonicalLifecyclePolicyPatch(eventUpdateRequest, successor)).toBeNull();
+			}
+		}),
+	testTimeout,
 );

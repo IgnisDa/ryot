@@ -1,5 +1,7 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { afterEach, assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import { musicRecipes } from "../../shared/music-recipes";
 import {

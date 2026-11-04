@@ -71,7 +71,7 @@ it.live("reorders a kernel collection and opens memberships without member field
 		yield* order
 			.getByRole("button", { exact: true, name: `Reorder Beta ${suffix}` })
 			.waitFor({ state: "visible" });
-		expect(yield* order.locator("li").allInnerTexts()).toEqual([
+		expect(yield* order.locator("li").allInnerTexts()).toEqual<unknown>([
 			stringContaining(`Alpha ${suffix}`),
 			stringContaining(`Gamma ${suffix}`),
 			stringContaining(`Beta ${suffix}`),

@@ -1,9 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import {
@@ -75,7 +78,7 @@ it.live(
 				expect(control.getAttribute("aria-pressed")).toBe("false");
 				clickRyotElement(control);
 				yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
-				expect(background.requests).toEqual([monitoringRequest(true)]);
+				expect(background.requests).toEqual<unknown>([monitoringRequest(true)]);
 				expect(control.getAttribute("aria-pressed")).toBe("true");
 				expect(control.textContent).toBe("Monitoring");
 				yield* commit(1, true);
@@ -84,7 +87,7 @@ it.live(
 
 				clickRyotElement(control);
 				yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
-				expect(background.requests[1]).toEqual(monitoringRequest(false));
+				expect(background.requests[1]).toEqual<unknown>(monitoringRequest(false));
 				expect(control.getAttribute("aria-pressed")).toBe("false");
 				yield* commit(2, false);
 				expect(control.getAttribute("aria-pressed")).toBe("false");
@@ -93,36 +96,40 @@ it.live(
 				mounted.unmount();
 			}
 		}),
+	testTimeout,
 );
 
-it.live("rolls monitoring back visibly when the shell reports a failure", () =>
-	Effect.gen(function* () {
-		const background = createTestBackgroundSubmissions();
-		const mounted = mountRyotClient(
-			background.adapter,
-			<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })} />,
-		);
-		try {
-			const control = getByRole(mounted.container, "button", { name: "Monitor" });
-			clickRyotElement(control);
-			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
-			expect(control.getAttribute("aria-pressed")).toBe("true");
-			background.settle("submission-1", {
-				status: "failed",
-				reason: "operation-rejected",
-				message: "Monitoring needs a provider",
-			});
-			expect(control.getAttribute("aria-pressed")).toBe("false");
-			expect(getByRole(mounted.container, "alert").textContent).toBe(
-				"Unable to change monitoring. Try again.",
+it.live(
+	"rolls monitoring back visibly when the shell reports a failure",
+	() =>
+		Effect.gen(function* () {
+			const background = createTestBackgroundSubmissions();
+			const mounted = mountRyotClient(
+				background.adapter,
+				<Header media={decodeFlatSummary(fixtureSummaryRecipe, { images: [] })} />,
 			);
-			clickRyotElement(control);
-			yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
-			expect(queryByRole(mounted.container, "alert")).toBeNull();
-		} finally {
-			mounted.unmount();
-		}
-	}),
+			try {
+				const control = getByRole(mounted.container, "button", { name: "Monitor" });
+				clickRyotElement(control);
+				yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(1)));
+				expect(control.getAttribute("aria-pressed")).toBe("true");
+				background.settle("submission-1", {
+					status: "failed",
+					reason: "operation-rejected",
+					message: "Monitoring needs a provider",
+				});
+				expect(control.getAttribute("aria-pressed")).toBe("false");
+				expect(getByRole(mounted.container, "alert").textContent).toBe(
+					"Unable to change monitoring. Try again.",
+				);
+				clickRyotElement(control);
+				yield* Effect.promise(() => waitFor(() => expect(background.requests).toHaveLength(2)));
+				expect(queryByRole(mounted.container, "alert")).toBeNull();
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
 it("hides monitoring for media without a provider", () => {

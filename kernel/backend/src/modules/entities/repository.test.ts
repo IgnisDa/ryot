@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
@@ -9,7 +10,10 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, inArray } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
@@ -144,6 +148,7 @@ layer(
 				expect(totals.get(provenanceScopeKey(plugin))).toBe(7);
 				expect(totals.get(provenanceScopeKey(kernel))).toBe(3);
 			}),
+		testTimeout,
 	);
 });
 
@@ -152,37 +157,40 @@ layer(
 		execute: (statement: Statement) => record(dialect.sqlToQuery(statement).params),
 	})),
 )((test) => {
-	test.effect("locks provider entity identities in canonical order", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const common = {
-				scope: "global" as const,
-				entitySchemaPluginId: "plugin-1",
-				providerId: SandboxProviderId.make("provider-1"),
-				entitySchemaSlug: EntitySchemaSlug.make("person"),
-			};
-			const inputs = [
-				{ ...common, externalId: "zeta" },
-				{ ...common, externalId: "alpha" },
-				{ ...common, externalId: "Alpha" },
-				{ ...common, externalId: "zeta" },
-			];
-			yield* repository.lockProviderEntityMutations(inputs);
-			yield* repository.lockProviderEntityMutations(inputs.toReversed());
+	test.effect(
+		"locks provider entity identities in canonical order",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				const common = {
+					scope: "global" as const,
+					entitySchemaPluginId: "plugin-1",
+					providerId: SandboxProviderId.make("provider-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+				};
+				const inputs = [
+					{ ...common, externalId: "zeta" },
+					{ ...common, externalId: "alpha" },
+					{ ...common, externalId: "Alpha" },
+					{ ...common, externalId: "zeta" },
+				];
+				yield* repository.lockProviderEntityMutations(inputs);
+				yield* repository.lockProviderEntityMutations(inputs.toReversed());
 
-			expect(yield* recordedEntries).toEqual([
-				[
-					'["provider-entity","global","global","plugin-1","person","provider-1","Alpha"]',
-					'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
-					'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
-				],
-				[
-					'["provider-entity","global","global","plugin-1","person","provider-1","Alpha"]',
-					'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
-					'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
-				],
-			]);
-		}),
+				expect(yield* recordedEntries).toEqual([
+					[
+						'["provider-entity","global","global","plugin-1","person","provider-1","Alpha"]',
+						'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
+						'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
+					],
+					[
+						'["provider-entity","global","global","plugin-1","person","provider-1","Alpha"]',
+						'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
+						'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
+					],
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -210,39 +218,45 @@ const lockRecordingLayer = () =>
 	}));
 
 layer(lockRecordingLayer())((test) => {
-	test.effect("locks unique entity references in canonical order", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			yield* repository.lockEntityReferencesByIds([
-				EntityId.make("zeta"),
-				EntityId.make("alpha"),
-				EntityId.make("zeta"),
-			]);
+	test.effect(
+		"locks unique entity references in canonical order",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				yield* repository.lockEntityReferencesByIds([
+					EntityId.make("zeta"),
+					EntityId.make("alpha"),
+					EntityId.make("zeta"),
+				]);
 
-			expect(yield* recordedEntries).toEqual([
-				{ ordered: true, strength: "key share", predicateParams: ["alpha", "zeta"] },
-			]);
-		}),
+				expect(yield* recordedEntries).toEqual([
+					{ ordered: true, strength: "key share", predicateParams: ["alpha", "zeta"] },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(lockRecordingLayer())((test) => {
-	test.effect("locks references beyond the bind limit in globally sorted chunks", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const ids = Array.from({ length: 32_768 }, (_, index) =>
-				EntityId.make(`entity-${String(index).padStart(5, "0")}`),
-			);
-			yield* repository.lockEntityReferencesByIds(ids.toReversed());
+	test.effect(
+		"locks references beyond the bind limit in globally sorted chunks",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				const ids = Array.from({ length: 32_768 }, (_, index) =>
+					EntityId.make(`entity-${String(index).padStart(5, "0")}`),
+				);
+				yield* repository.lockEntityReferencesByIds(ids.toReversed());
 
-			expect(yield* recordedEntries).toEqual(
-				chunksOf(ids, STATEMENT_CHUNK_SIZE).map((predicateParams) => ({
-					ordered: true,
-					predicateParams,
-					strength: "key share",
-				})),
-			);
-		}),
+				expect(yield* recordedEntries).toEqual(
+					chunksOf(ids, STATEMENT_CHUNK_SIZE).map((predicateParams) => ({
+						ordered: true,
+						predicateParams,
+						strength: "key share",
+					})),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -258,20 +272,23 @@ layer(
 		}),
 	})),
 )((test) => {
-	test.effect("counts unique provenance scopes beyond the bind limit in bounded statements", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const scopes = Array.from({ length: 12_000 }, (_, index) => ({
-				entitySchemaPluginId: "plugin-1",
-				entitySchemaSlug: EntitySchemaSlug.make("person"),
-				providerId: SandboxProviderId.make(`provider-${index}`),
-			}));
-			yield* repository.countGlobalEntitiesByProvenanceScopes([...scopes, ...scopes]);
+	test.effect(
+		"counts unique provenance scopes beyond the bind limit in bounded statements",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				const scopes = Array.from({ length: 12_000 }, (_, index) => ({
+					entitySchemaPluginId: "plugin-1",
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+					providerId: SandboxProviderId.make(`provider-${index}`),
+				}));
+				yield* repository.countGlobalEntitiesByProvenanceScopes([...scopes, ...scopes]);
 
-			expect(yield* recordedEntries).toEqual(
-				chunksOf(scopes, STATEMENT_CHUNK_SIZE).map(() => STATEMENT_CHUNK_SIZE * 3),
-			);
-		}),
+				expect(yield* recordedEntries).toEqual(
+					chunksOf(scopes, STATEMENT_CHUNK_SIZE).map(() => STATEMENT_CHUNK_SIZE * 3),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -284,26 +301,30 @@ layer(
 		}),
 	})),
 )((test) => {
-	test.effect("restores an entity with its archived identity and timestamps", () => {
-		const input = {
-			name: "Archived",
-			externalId: null,
-			providerId: null,
-			populatedAt: null,
-			properties: { exact: true },
-			userId: UserId.make("user-id"),
-			id: EntityId.make("archived-id"),
-			createdAt: new Date("2024-01-01T00:00:00.000Z"),
-			updatedAt: new Date("2025-01-01T00:00:00.000Z"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
-		};
+	test.effect(
+		"restores an entity with its archived identity and timestamps",
+		() => {
+			const input = {
+				name: "Archived",
+				externalId: null,
+				providerId: null,
+				populatedAt: null,
+				properties: { exact: true },
+				userId: UserId.make("user-id"),
+				id: EntityId.make("archived-id"),
+				createdAt: new Date("2024-01-01T00:00:00.000Z"),
+				updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
+			};
 
-		return Effect.gen(function* () {
-			const persistence = yield* BackupRestorePersistence;
-			expect(yield* persistence.restoreEntity(input)).toBe(input.id);
-			expect(yield* recordedEntries).toEqual([input]);
-		});
-	});
+			return Effect.gen(function* () {
+				const persistence = yield* BackupRestorePersistence;
+				expect(yield* persistence.restoreEntity(input)).toBe(input.id);
+				expect(yield* recordedEntries).toEqual([input]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const eventStreamRepositoriesLayer = Layer.mergeAll(
@@ -315,175 +336,184 @@ const eventStreamRepositoriesLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(isolatedDatabaseLayer("entities_repository_stream_invalidation")));
 
 layer(eventStreamRepositoriesLayer)((test) => {
-	test.effect("increments content generation only for canonical name or property changes", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const entityId = EntityId.make("content-generation-entity");
-			yield* repository.insertEntities([
-				{
-					id: entityId,
-					scope: "global",
-					name: "Original",
-					populatedAt: null,
-					properties: { a: 1, b: 2 },
-					entitySchemaPluginId: null,
-					entitySchemaSlug: EntitySchemaSlug.make("record"),
-				},
-			]);
-			const generation = session
-				.run((db) =>
-					db
-						.select({ value: tables.entity.contentGeneration })
-						.from(tables.entity)
-						.where(eq(tables.entity.id, entityId)),
-				)
-				.pipe(Effect.map(([row]) => row?.value));
-			const update = (
-				name: string,
-				properties: Record<string, unknown>,
-				populatedAt: Date | null = null,
-			) =>
-				session.transaction(repository.updateEntity({ name, entityId, properties, populatedAt }));
-			expect(yield* generation).toBe(1);
-			yield* update("Renamed", { a: 1, b: 2 });
-			expect(yield* generation).toBe(2);
-			yield* update("Renamed", { a: 1, b: 3 });
-			expect(yield* generation).toBe(3);
-			yield* update("Renamed", { b: 3, a: 1 });
-			expect(yield* generation).toBe(3);
-			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			yield* update("Renamed", { a: 1, b: 3 }, populatedAt);
-			yield* session.transaction(repository.stampRelatedPopulated(entityId, populatedAt));
-			expect(yield* generation).toBe(3);
-			yield* update("Renamed", { a: 1, b: 3 });
-			yield* session.transaction(repository.stampChildRelatedPopulated([entityId]));
-			expect(yield* generation).toBe(3);
-		}),
+	test.effect(
+		"increments content generation only for canonical name or property changes",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const entityId = EntityId.make("content-generation-entity");
+				yield* repository.insertEntities([
+					{
+						id: entityId,
+						scope: "global",
+						name: "Original",
+						populatedAt: null,
+						properties: { a: 1, b: 2 },
+						entitySchemaPluginId: null,
+						entitySchemaSlug: EntitySchemaSlug.make("record"),
+					},
+				]);
+				const generation = session
+					.run((db) =>
+						db
+							.select({ value: tables.entity.contentGeneration })
+							.from(tables.entity)
+							.where(eq(tables.entity.id, entityId)),
+					)
+					.pipe(Effect.map(([row]) => row?.value));
+				const update = (
+					name: string,
+					properties: Record<string, unknown>,
+					populatedAt: Date | null = null,
+				) =>
+					session.transaction(repository.updateEntity({ name, entityId, properties, populatedAt }));
+				expect(yield* generation).toBe(1);
+				yield* update("Renamed", { a: 1, b: 2 });
+				expect(yield* generation).toBe(2);
+				yield* update("Renamed", { a: 1, b: 3 });
+				expect(yield* generation).toBe(3);
+				yield* update("Renamed", { b: 3, a: 1 });
+				expect(yield* generation).toBe(3);
+				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				yield* update("Renamed", { a: 1, b: 3 }, populatedAt);
+				yield* session.transaction(repository.stampRelatedPopulated(entityId, populatedAt));
+				expect(yield* generation).toBe(3);
+				yield* update("Renamed", { a: 1, b: 3 });
+				yield* session.transaction(repository.stampChildRelatedPopulated([entityId]));
+				expect(yield* generation).toBe(3);
+			}),
+		testTimeout,
 	);
 
-	test.effect("invalidates event streams only after entity stream data changes", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const events = yield* EventsRepository;
-			const userId = UserId.make("stream-owner");
-			const entityId = EntityId.make("stream-entity");
-			const pluginId = PluginId.make("stream-plugin");
-			const key = {
-				userId,
-				entityId,
-				eventSchemaPluginId: pluginId,
-				eventSchemaSlug: EventSchemaSlug.make("progress"),
-			};
-			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: userId, name: "Stream owner", email: "stream-owner@example.test" }),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.plugin)
-					.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.entity)
-					.values({ id: entityId, name: "Before", entitySchemaSlug: "record" }),
-			);
+	test.effect(
+		"invalidates event streams only after entity stream data changes",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const events = yield* EventsRepository;
+				const userId = UserId.make("stream-owner");
+				const entityId = EntityId.make("stream-entity");
+				const pluginId = PluginId.make("stream-plugin");
+				const key = {
+					userId,
+					entityId,
+					eventSchemaPluginId: pluginId,
+					eventSchemaSlug: EventSchemaSlug.make("progress"),
+				};
+				const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: userId, name: "Stream owner", email: "stream-owner@example.test" }),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.plugin)
+						.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({ id: entityId, name: "Before", entitySchemaSlug: "record" }),
+				);
 
-			const event = {
-				userId,
-				entityId,
-				occurredAt,
-				properties: { value: 1 },
-				eventSchemaName: "Progress",
-				eventSchemaPluginId: pluginId,
-				id: EventId.make("stream-event"),
-				eventSchemaSlug: key.eventSchemaSlug,
-			};
-			expect(yield* session.isTransactionActive).toBe(false);
-			expect(yield* Effect.flip(events.createEvent(event))).toMatchObject({
-				_tag: "DbError",
-				message: "Event writes require an active transaction",
-			});
-			const created = yield* session.transaction(
-				Effect.gen(function* () {
-					expect(yield* session.isTransactionActive).toBe(true);
-					return yield* events.createEvent(event);
-				}),
-			);
-			expect(created.id).toBe(event.id);
-			const { id: streamId } = yield* seedStreamWork(key);
-			const beforeUpdate = yield* streamState(streamId);
-			assert(beforeUpdate);
-			expect(beforeUpdate.streamRevision).toBe(1);
-			yield* session.transaction(events.createEvent(event));
-			expect((yield* streamState(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
+				const event = {
+					userId,
+					entityId,
+					occurredAt,
+					properties: { value: 1 },
+					eventSchemaName: "Progress",
+					eventSchemaPluginId: pluginId,
+					id: EventId.make("stream-event"),
+					eventSchemaSlug: key.eventSchemaSlug,
+				};
+				expect(yield* session.isTransactionActive).toBe(false);
+				expect(yield* Effect.flip(events.createEvent(event))).toMatchObject({
+					_tag: "DbError",
+					message: "Event writes require an active transaction",
+				});
+				const created = yield* session.transaction(
+					Effect.gen(function* () {
+						expect(yield* session.isTransactionActive).toBe(true);
+						return yield* events.createEvent(event);
+					}),
+				);
+				expect(created.id).toBe(event.id);
+				const { id: streamId } = yield* seedStreamWork(key);
+				const beforeUpdate = yield* streamState(streamId);
+				assert(beforeUpdate);
+				expect(beforeUpdate.streamRevision).toBe(1);
+				yield* session.transaction(events.createEvent(event));
+				expect((yield* streamState(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
 
-			yield* session.run((db) =>
-				db
-					.update(tables.eventStreamWork)
-					.set({ checkpoint: { cursor: "done" }, completedRevision: beforeUpdate.streamRevision })
-					.where(eq(tables.eventStreamWork.id, streamId)),
-			);
-			yield* session.transaction(
-				Effect.gen(function* () {
-					expect(yield* session.isTransactionActive).toBe(true);
-					yield* repository.updateEntity({
+				yield* session.run((db) =>
+					db
+						.update(tables.eventStreamWork)
+						.set({ checkpoint: { cursor: "done" }, completedRevision: beforeUpdate.streamRevision })
+						.where(eq(tables.eventStreamWork.id, streamId)),
+				);
+				yield* session.transaction(
+					Effect.gen(function* () {
+						expect(yield* session.isTransactionActive).toBe(true);
+						yield* repository.updateEntity({
+							entityId,
+							name: "After",
+							populatedAt: null,
+							properties: { value: 2 },
+						});
+					}),
+				);
+				const invalidated = yield* streamState(streamId);
+				assert(invalidated);
+				expect(invalidated.streamRevision).toBe(beforeUpdate.streamRevision + 1);
+				expect(invalidated.currentJobId).toBeNull();
+				expect(invalidated.completedRevision).not.toBe(invalidated.streamRevision);
+
+				yield* session.transaction(
+					repository.updateEntity({
 						entityId,
 						name: "After",
-						populatedAt: null,
+						populatedAt: occurredAt,
 						properties: { value: 2 },
-					});
-				}),
-			);
-			const invalidated = yield* streamState(streamId);
-			assert(invalidated);
-			expect(invalidated.streamRevision).toBe(beforeUpdate.streamRevision + 1);
-			expect(invalidated.currentJobId).toBeNull();
-			expect(invalidated.completedRevision).not.toBe(invalidated.streamRevision);
-
-			yield* session.transaction(
-				repository.updateEntity({
-					entityId,
-					name: "After",
-					populatedAt: occurredAt,
-					properties: { value: 2 },
-				}),
-			);
-			expect((yield* streamState(streamId))?.streamRevision).toBe(invalidated.streamRevision);
-		}),
+					}),
+				);
+				expect((yield* streamState(streamId))?.streamRevision).toBe(invalidated.streamRevision);
+			}),
+		testTimeout,
 	);
 });
 
 layer(eventStreamRepositoriesLayer)((test) => {
-	test.effect("stamps related population without touching populated_at", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const entityId = EntityId.make("related-stamp-entity");
-			const stampedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			yield* session.run((db) =>
-				db
-					.insert(tables.entity)
-					.values({ id: entityId, name: "Related", entitySchemaSlug: "record" }),
-			);
+	test.effect(
+		"stamps related population without touching populated_at",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const entityId = EntityId.make("related-stamp-entity");
+				const stampedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({ id: entityId, name: "Related", entitySchemaSlug: "record" }),
+				);
 
-			yield* session.transaction(repository.stampRelatedPopulated(entityId, stampedAt));
+				yield* session.transaction(repository.stampRelatedPopulated(entityId, stampedAt));
 
-			const [row] = yield* session.run((db) =>
-				db
-					.select({
-						populatedAt: tables.entity.populatedAt,
-						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
-					})
-					.from(tables.entity)
-					.where(eq(tables.entity.id, entityId)),
-			);
-			expect(row).toEqual({ populatedAt: null, relatedPopulatedAt: stampedAt });
-		}),
+				const [row] = yield* session.run((db) =>
+					db
+						.select({
+							populatedAt: tables.entity.populatedAt,
+							relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+						})
+						.from(tables.entity)
+						.where(eq(tables.entity.id, entityId)),
+				);
+				expect(row).toEqual({ populatedAt: null, relatedPopulatedAt: stampedAt });
+			}),
+		testTimeout,
 	);
 });
 
@@ -507,25 +537,28 @@ const portableQuery = {
 };
 
 layer(repositoryWithDatabase({ select: () => ({ from: () => portableQuery }) }))((test) => {
-	test.effect("lists portable entity provenance", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const row = portableRow;
-			expect(yield* repository.listUserEntitiesForBackup(UserId.make("user-id"))).toEqual([
-				{
-					id: row.id,
-					name: row.name,
-					provider: null,
-					createdAt: row.createdAt,
-					updatedAt: row.updatedAt,
-					properties: row.properties,
-					externalId: row.externalId,
-					populatedAt: row.populatedAt,
-					entitySchemaSlug: row.entitySchemaSlug,
-					entitySchemaPluginId: row.entitySchemaPluginId,
-				},
-			]);
-		}),
+	test.effect(
+		"lists portable entity provenance",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				const row = portableRow;
+				expect(yield* repository.listUserEntitiesForBackup(UserId.make("user-id"))).toEqual([
+					{
+						id: row.id,
+						name: row.name,
+						provider: null,
+						createdAt: row.createdAt,
+						updatedAt: row.updatedAt,
+						properties: row.properties,
+						externalId: row.externalId,
+						populatedAt: row.populatedAt,
+						entitySchemaSlug: row.entitySchemaSlug,
+						entitySchemaPluginId: row.entitySchemaPluginId,
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -535,34 +568,37 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("entities_repository_user_batch_reads")),
 	),
 )((test) => {
-	test.effect("reads only entities visible to the user in a batch", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const owner = UserId.make("batch-owner");
-			const other = UserId.make("batch-other");
-			yield* session.run((db) =>
-				db.insert(tables.user).values([
-					{ id: owner, name: "Owner", email: "batch-owner@example.test" },
-					{ id: other, name: "Other", email: "batch-other@example.test" },
-				]),
-			);
-			yield* session.run((db) =>
-				db.insert(tables.entity).values([
-					{ id: "owned", name: "Owned", userId: owner, entitySchemaSlug: "record" },
-					{ id: "foreign", userId: other, name: "Foreign", entitySchemaSlug: "record" },
-					{ id: "global", name: "Global", entitySchemaSlug: "record" },
-				]),
-			);
-			const found = yield* repository.getByIdsForUser({
-				userId: owner,
-				entityIds: ["missing", "foreign", "global", "owned", "owned"].map((id) =>
-					EntityId.make(id),
-				),
-			});
-			expect([...found.keys()].sort()).toEqual(["global", "owned"]);
-			expect(found.get(EntityId.make("owned"))).toMatchObject({ name: "Owned", properties: {} });
-		}),
+	test.effect(
+		"reads only entities visible to the user in a batch",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const owner = UserId.make("batch-owner");
+				const other = UserId.make("batch-other");
+				yield* session.run((db) =>
+					db.insert(tables.user).values([
+						{ id: owner, name: "Owner", email: "batch-owner@example.test" },
+						{ id: other, name: "Other", email: "batch-other@example.test" },
+					]),
+				);
+				yield* session.run((db) =>
+					db.insert(tables.entity).values([
+						{ id: "owned", name: "Owned", userId: owner, entitySchemaSlug: "record" },
+						{ id: "foreign", userId: other, name: "Foreign", entitySchemaSlug: "record" },
+						{ id: "global", name: "Global", entitySchemaSlug: "record" },
+					]),
+				);
+				const found = yield* repository.getByIdsForUser({
+					userId: owner,
+					entityIds: ["missing", "foreign", "global", "owned", "owned"].map((id) =>
+						EntityId.make(id),
+					),
+				});
+				expect([...found.keys()].sort()).toEqual<unknown>(["global", "owned"]);
+				expect(found.get(EntityId.make("owned"))).toMatchObject({ name: "Owned", properties: {} });
+			}),
+		testTimeout,
 	);
 });
 
@@ -597,172 +633,185 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("entities_repository_import_match")),
 	),
 )((test) => {
-	test.effect("matches import entities by normalized name, properties, and scope in SQL", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const owner = UserId.make("match-owner");
-			const other = UserId.make("match-other");
-			yield* session.run((db) =>
-				db.insert(tables.user).values([
-					{ id: owner, name: "Owner", email: "match-owner@example.test" },
-					{ id: other, name: "Other", email: "match-other@example.test" },
-				]),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.entity)
-					.values([
-						exercise("owned", "  Bench_Press (Barbell) ", "strength", owner),
-						exercise("owned-cardio", "Bench Press Barbell", "cardio", owner),
-						exercise("global", "bench press barbell", "strength", null),
-						exercise("foreign", "Bench Press Barbell", "strength", other),
+	test.effect(
+		"matches import entities by normalized name, properties, and scope in SQL",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const owner = UserId.make("match-owner");
+				const other = UserId.make("match-other");
+				yield* session.run((db) =>
+					db.insert(tables.user).values([
+						{ id: owner, name: "Owner", email: "match-owner@example.test" },
+						{ id: other, name: "Other", email: "match-other@example.test" },
 					]),
-			);
-			const find = (input: {
-				name: string;
-				kind: string;
-				scope?: "user" | "global";
-				nameNormalization: "slug" | "exact";
-			}) =>
-				repository.findImportMatch({
-					userId: owner,
-					name: input.name,
-					properties: { kind: input.kind },
-					nameNormalization: input.nameNormalization,
-					...(input.scope ? { scope: input.scope } : {}),
-					entitySchema: { owner: definitionOwner(null), slug: EntitySchemaSlug.make("exercise") },
-				});
-			const slug = { name: "bench-press-barbell", nameNormalization: "slug" as const };
-			expect(yield* find({ ...slug, kind: "strength" })).toBe("owned");
-			expect(yield* find({ ...slug, scope: "global", kind: "strength" })).toBe("global");
-			expect(yield* find({ ...slug, kind: "cardio", scope: "global" })).toBeNull();
-			expect(
-				yield* find({ kind: "cardio", nameNormalization: "exact", name: "Bench Press Barbell" }),
-			).toBe("owned-cardio");
-			expect(
-				yield* find({ kind: "strength", nameNormalization: "exact", name: "Bench Press Barbell" }),
-			).toBeNull();
-		}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values([
+							exercise("owned", "  Bench_Press (Barbell) ", "strength", owner),
+							exercise("owned-cardio", "Bench Press Barbell", "cardio", owner),
+							exercise("global", "bench press barbell", "strength", null),
+							exercise("foreign", "Bench Press Barbell", "strength", other),
+						]),
+				);
+				const find = (input: {
+					name: string;
+					kind: string;
+					scope?: "user" | "global";
+					nameNormalization: "slug" | "exact";
+				}) =>
+					repository.findImportMatch({
+						userId: owner,
+						name: input.name,
+						properties: { kind: input.kind },
+						nameNormalization: input.nameNormalization,
+						...(input.scope ? { scope: input.scope } : {}),
+						entitySchema: { owner: definitionOwner(null), slug: EntitySchemaSlug.make("exercise") },
+					});
+				const slug = { name: "bench-press-barbell", nameNormalization: "slug" as const };
+				expect(yield* find({ ...slug, kind: "strength" })).toBe<unknown>("owned");
+				expect(yield* find({ ...slug, scope: "global", kind: "strength" })).toBe<unknown>("global");
+				expect(yield* find({ ...slug, kind: "cardio", scope: "global" })).toBeNull();
+				expect(
+					yield* find({ kind: "cardio", nameNormalization: "exact", name: "Bench Press Barbell" }),
+				).toBe<unknown>("owned-cardio");
+				expect(
+					yield* find({
+						kind: "strength",
+						nameNormalization: "exact",
+						name: "Bench Press Barbell",
+					}),
+				).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
 layer(eventStreamRepositoriesLayer)((test) => {
-	test.effect("keeps a non-null populated_at only for flagged population root updates", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
-			const plain = EntityId.make("plain-update-entity");
-			const flagged = EntityId.make("flagged-update-entity");
-			const unpopulated = EntityId.make("flagged-unpopulated-entity");
-			yield* session.run((db) =>
-				db.insert(tables.entity).values([
-					{ id: plain, populatedAt, name: "Plain", entitySchemaSlug: "record" },
-					{ populatedAt, id: flagged, name: "Flagged", entitySchemaSlug: "record" },
-					{ id: unpopulated, name: "Unpopulated", entitySchemaSlug: "record" },
-				]),
-			);
-			const update = (entityId: EntityId, value: Date | null, preservePopulatedAt?: true) =>
-				session.transaction(
-					repository.updateEntity({
-						entityId,
-						properties: {},
-						name: "Updated",
-						populatedAt: value,
-						...(preservePopulatedAt ? { preservePopulatedAt } : {}),
-					}),
+	test.effect(
+		"keeps a non-null populated_at only for flagged population root updates",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				const later = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"));
+				const plain = EntityId.make("plain-update-entity");
+				const flagged = EntityId.make("flagged-update-entity");
+				const unpopulated = EntityId.make("flagged-unpopulated-entity");
+				yield* session.run((db) =>
+					db.insert(tables.entity).values([
+						{ id: plain, populatedAt, name: "Plain", entitySchemaSlug: "record" },
+						{ populatedAt, id: flagged, name: "Flagged", entitySchemaSlug: "record" },
+						{ id: unpopulated, name: "Unpopulated", entitySchemaSlug: "record" },
+					]),
 				);
-			const populatedAtOf = (entityId: EntityId) =>
-				session
-					.run((db) =>
-						db
-							.select({ populatedAt: tables.entity.populatedAt })
-							.from(tables.entity)
-							.where(eq(tables.entity.id, entityId)),
-					)
-					.pipe(Effect.map(([row]) => row?.populatedAt));
+				const update = (entityId: EntityId, value: Date | null, preservePopulatedAt?: true) =>
+					session.transaction(
+						repository.updateEntity({
+							entityId,
+							properties: {},
+							name: "Updated",
+							populatedAt: value,
+							...(preservePopulatedAt ? { preservePopulatedAt } : {}),
+						}),
+					);
+				const populatedAtOf = (entityId: EntityId) =>
+					session
+						.run((db) =>
+							db
+								.select({ populatedAt: tables.entity.populatedAt })
+								.from(tables.entity)
+								.where(eq(tables.entity.id, entityId)),
+						)
+						.pipe(Effect.map(([row]) => row?.populatedAt));
 
-			expect((yield* update(plain, null)).populatedAt).toBeNull();
-			expect(yield* populatedAtOf(plain)).toBeNull();
-			expect((yield* update(flagged, null, true)).populatedAt).toBe(populatedAt.toISOString());
-			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
-			expect((yield* update(flagged, later, true)).populatedAt).toBe(populatedAt.toISOString());
-			expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
-			expect((yield* update(flagged, later)).populatedAt).toBe(later.toISOString());
-			expect(yield* populatedAtOf(flagged)).toEqual(later);
-			yield* update(unpopulated, null, true);
-			expect(yield* populatedAtOf(unpopulated)).toBeNull();
-			expect((yield* update(unpopulated, later, true)).populatedAt).toBe(later.toISOString());
-			expect(yield* populatedAtOf(unpopulated)).toEqual(later);
-		}),
+				expect((yield* update(plain, null)).populatedAt).toBeNull();
+				expect(yield* populatedAtOf(plain)).toBeNull();
+				expect((yield* update(flagged, null, true)).populatedAt).toBe(populatedAt.toISOString());
+				expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
+				expect((yield* update(flagged, later, true)).populatedAt).toBe(populatedAt.toISOString());
+				expect(yield* populatedAtOf(flagged)).toEqual(populatedAt);
+				expect((yield* update(flagged, later)).populatedAt).toBe(later.toISOString());
+				expect(yield* populatedAtOf(flagged)).toEqual(later);
+				yield* update(unpopulated, null, true);
+				expect(yield* populatedAtOf(unpopulated)).toBeNull();
+				expect((yield* update(unpopulated, later, true)).populatedAt).toBe(later.toISOString());
+				expect(yield* populatedAtOf(unpopulated)).toEqual(later);
+			}),
+		testTimeout,
 	);
 
-	test.effect("stamps related population without changing content generation", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EntitiesRepository;
-			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			const earlier = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"));
-			const root = EntityId.make("related-root");
-			const child = EntityId.make("related-child");
-			const stampedChild = EntityId.make("related-stamped-child");
-			const unpopulatedChild = EntityId.make("related-unpopulated-child");
-			yield* session.run((db) =>
-				db.insert(tables.entity).values([
-					{ id: root, populatedAt, name: "Root", entitySchemaSlug: "record" },
-					{ id: child, populatedAt, name: "Child", entitySchemaSlug: "record" },
-					{
-						populatedAt,
-						name: "Stamped",
-						id: stampedChild,
-						entitySchemaSlug: "record",
-						relatedPopulatedAt: earlier,
-					},
-					{ name: "Unpopulated", id: unpopulatedChild, entitySchemaSlug: "record" },
-				]),
-			);
+	test.effect(
+		"stamps related population without changing content generation",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EntitiesRepository;
+				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				const earlier = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"));
+				const root = EntityId.make("related-root");
+				const child = EntityId.make("related-child");
+				const stampedChild = EntityId.make("related-stamped-child");
+				const unpopulatedChild = EntityId.make("related-unpopulated-child");
+				yield* session.run((db) =>
+					db.insert(tables.entity).values([
+						{ id: root, populatedAt, name: "Root", entitySchemaSlug: "record" },
+						{ id: child, populatedAt, name: "Child", entitySchemaSlug: "record" },
+						{
+							populatedAt,
+							name: "Stamped",
+							id: stampedChild,
+							entitySchemaSlug: "record",
+							relatedPopulatedAt: earlier,
+						},
+						{ name: "Unpopulated", id: unpopulatedChild, entitySchemaSlug: "record" },
+					]),
+				);
 
-			yield* session.transaction(
-				Effect.all([
-					repository.stampRelatedPopulated(root, populatedAt),
-					repository.stampChildRelatedPopulated([child, stampedChild, child, unpopulatedChild]),
-				]),
-			);
-			yield* session.transaction(repository.stampRelatedPopulated(root, earlier));
-			yield* session.transaction(repository.invalidateRelatedPopulated(root, earlier, "older"));
+				yield* session.transaction(
+					Effect.all([
+						repository.stampRelatedPopulated(root, populatedAt),
+						repository.stampChildRelatedPopulated([child, stampedChild, child, unpopulatedChild]),
+					]),
+				);
+				yield* session.transaction(repository.stampRelatedPopulated(root, earlier));
+				yield* session.transaction(repository.invalidateRelatedPopulated(root, earlier, "older"));
 
-			const rows = yield* session.run((db) =>
-				db
-					.select({
-						id: tables.entity.id,
-						contentGeneration: tables.entity.contentGeneration,
-						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
-					})
-					.from(tables.entity)
-					.where(inArray(tables.entity.id, [root, child, stampedChild, unpopulatedChild])),
-			);
-			const byId = new Map(rows.map((row) => [row.id, row]));
-			expect(byId.get(root)).toMatchObject({ relatedPopulatedAt: populatedAt });
-			expect(rows.map(({ contentGeneration }) => contentGeneration)).toEqual([1, 1, 1, 1]);
-			expect(byId.get(child)?.relatedPopulatedAt).toEqual(populatedAt);
-			expect(byId.get(stampedChild)?.relatedPopulatedAt).toEqual(earlier);
-			expect(byId.get(unpopulatedChild)?.relatedPopulatedAt).toBeNull();
-			yield* session.transaction(
-				repository.invalidateRelatedPopulated(root, populatedAt, "current"),
-			);
-			const [invalidated] = yield* session.run((db) =>
-				db
-					.select({
-						contentGeneration: tables.entity.contentGeneration,
-						relatedPopulatedAt: tables.entity.relatedPopulatedAt,
-					})
-					.from(tables.entity)
-					.where(eq(tables.entity.id, root)),
-			);
-			expect(invalidated).toEqual({ contentGeneration: 1, relatedPopulatedAt: null });
-		}),
+				const rows = yield* session.run((db) =>
+					db
+						.select({
+							id: tables.entity.id,
+							contentGeneration: tables.entity.contentGeneration,
+							relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+						})
+						.from(tables.entity)
+						.where(inArray(tables.entity.id, [root, child, stampedChild, unpopulatedChild])),
+				);
+				const byId = new Map(rows.map((row) => [row.id, row]));
+				expect(byId.get(root)).toMatchObject({ relatedPopulatedAt: populatedAt });
+				expect(rows.map(({ contentGeneration }) => contentGeneration)).toEqual([1, 1, 1, 1]);
+				expect(byId.get(child)?.relatedPopulatedAt).toEqual(populatedAt);
+				expect(byId.get(stampedChild)?.relatedPopulatedAt).toEqual(earlier);
+				expect(byId.get(unpopulatedChild)?.relatedPopulatedAt).toBeNull();
+				yield* session.transaction(
+					repository.invalidateRelatedPopulated(root, populatedAt, "current"),
+				);
+				const [invalidated] = yield* session.run((db) =>
+					db
+						.select({
+							contentGeneration: tables.entity.contentGeneration,
+							relatedPopulatedAt: tables.entity.relatedPopulatedAt,
+						})
+						.from(tables.entity)
+						.where(eq(tables.entity.id, root)),
+				);
+				expect(invalidated).toEqual({ contentGeneration: 1, relatedPopulatedAt: null });
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -840,5 +889,6 @@ layer(eventStreamRepositoriesLayer)((test) => {
 					generation: "same-time-new-owner",
 				});
 			}),
+		testTimeout,
 	);
 });

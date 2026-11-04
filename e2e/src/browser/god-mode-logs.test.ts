@@ -41,7 +41,7 @@ it.live("downloads retained server logs from Instance Admin", () =>
 		const retainedDownload = Option.getOrThrow(yield* Fiber.join(retainedDownloadFiber));
 		expect(retainedDownload.suggestedFilename()).toBe(seeded.name);
 		const retainedPath = Option.getOrThrow(yield* retainedDownload.path);
-		assert.isNotNull(retainedPath);
+		assert(retainedPath !== null);
 		const retainedBytes = yield* fs.readFile(retainedPath);
 		expect(Buffer.from(retainedBytes)).toEqual(seeded.bytes);
 		expect(gunzipSync(retainedBytes).toString("utf8")).toBe(seeded.text);
@@ -52,7 +52,7 @@ it.live("downloads retained server logs from Instance Admin", () =>
 		yield* page.getByRole("button", { name: "Download all logs" }).click();
 		const archiveDownload = Option.getOrThrow(yield* Fiber.join(archiveDownloadFiber));
 		const archivePath = Option.getOrThrow(yield* archiveDownload.path);
-		assert.isNotNull(archivePath);
+		assert(archivePath !== null);
 		expect(archiveDownload.suggestedFilename()).toMatch(/^ryot-server-logs-.+\.zip$/);
 		const archiveBytes = yield* fs.readFile(archivePath);
 		const archive = unzipSync(archiveBytes);

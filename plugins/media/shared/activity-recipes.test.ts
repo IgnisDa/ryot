@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
 
 import { mediaActivityRecipe } from "./activity-recipes";
 

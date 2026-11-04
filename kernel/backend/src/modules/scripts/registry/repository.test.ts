@@ -1,7 +1,11 @@
-import { assert, describe, expect, it, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -267,6 +271,7 @@ layer(pinRepositoryLayer)((test) => {
 					),
 				).toMatchObject({ data: { code: "installation-unavailable" } });
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"keeps private bootstrap and historical pins but blocks current quarantine and account revocation",
@@ -399,46 +404,56 @@ layer(pinRepositoryLayer)((test) => {
 					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
 				).toMatchObject({ scriptSlug: "plugin.script" });
 			}),
+		testTimeout,
 	);
-	test.effect("pins active current plugin identity and exact bootstrap declaration", () =>
-		Effect.gen(function* () {
-			expect(yield* getPin(pluginPinRow)).toMatchObject({
-				scriptSlug: "plugin.script",
-				pluginRevision: {
-					packageId,
-					ownerId: null,
-					id: "plugin-id",
-					scope: "system",
-					revisionId: "revision-1",
-					configRevisionId: "config-1",
-					userBootstrapScriptSlugs: ["plugin.script"],
-					workflowScripts: { "plugin-workflow": "plugin.workflow" },
-				},
-			});
-		}),
-	);
-});
-
-layer(pinRepositoryLayer)((test) => {
-	test.effect("rejects inactive, stale, and foreign-provider plugin pins", () =>
-		Effect.gen(function* () {
-			for (const row of [
-				{ ...pluginPinRow, pluginStatus: "inactive" },
-				{ ...pluginPinRow, activeRevisionId: "revision-2" },
-				{ ...pluginPinRow, providerPluginId: "foreign-plugin-id" },
-				{ ...pluginPinRow, pluginPackageId: PluginPackageId.make("test/mismatched") },
-			]) {
-				expect(yield* getPin(row)).toBeNull();
-			}
-		}),
+	test.effect(
+		"pins active current plugin identity and exact bootstrap declaration",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* getPin(pluginPinRow)).toMatchObject({
+					scriptSlug: "plugin.script",
+					pluginRevision: {
+						packageId,
+						ownerId: null,
+						id: "plugin-id",
+						scope: "system",
+						revisionId: "revision-1",
+						configRevisionId: "config-1",
+						userBootstrapScriptSlugs: ["plugin.script"],
+						workflowScripts: { "plugin-workflow": "plugin.workflow" },
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(pinRepositoryLayer)((test) => {
-	test.effect("rejects system plugin pins before environment configuration resolves", () =>
-		Effect.gen(function* () {
-			expect(yield* getPin({ ...pluginPinRow, environmentConfigRevisionId: null })).toBeNull();
-		}),
+	test.effect(
+		"rejects inactive, stale, and foreign-provider plugin pins",
+		() =>
+			Effect.gen(function* () {
+				for (const row of [
+					{ ...pluginPinRow, pluginStatus: "inactive" },
+					{ ...pluginPinRow, activeRevisionId: "revision-2" },
+					{ ...pluginPinRow, providerPluginId: "foreign-plugin-id" },
+					{ ...pluginPinRow, pluginPackageId: PluginPackageId.make("test/mismatched") },
+				]) {
+					expect(yield* getPin(row)).toBeNull();
+				}
+			}),
+		testTimeout,
+	);
+});
+
+layer(pinRepositoryLayer)((test) => {
+	test.effect(
+		"rejects system plugin pins before environment configuration resolves",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* getPin({ ...pluginPinRow, environmentConfigRevisionId: null })).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
@@ -471,6 +486,7 @@ layer(pinRepositoryLayer)((test) => {
 				).toBeNull();
 				expect(yield* getPin(pluginPinRow, pin, { ...config, encryptedPayload: "" })).toBeNull();
 			}),
+		testTimeout,
 	);
 });
 
@@ -530,51 +546,54 @@ const workflowRows =
 
 layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowRows(root)))))(
 	(test) => {
-		test.effect("resolves first-observed children from the pinned plugin revision", () =>
-			Effect.gen(function* () {
-				const repository = yield* SandboxRepository;
-				const database = yield* PinDatabase;
-				const pin = yield* repository.getScriptPin(rootId);
-				expect(pin?.pluginRevision).not.toBeNull();
+		test.effect(
+			"resolves first-observed children from the pinned plugin revision",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* SandboxRepository;
+					const database = yield* PinDatabase;
+					const pin = yield* repository.getScriptPin(rootId);
+					expect(pin?.pluginRevision).not.toBeNull();
 
-				yield* database.respondWith(workflowRows(replacedRoot));
-				expect(pin?.pluginRevision?.schemaScope.entitySchemaSlugs).toEqual(["original-entity"]);
+					yield* database.respondWith(workflowRows(replacedRoot));
+					expect(pin?.pluginRevision?.schemaScope.entitySchemaSlugs).toEqual(["original-entity"]);
 
-				expect(
-					yield* repository.resolveWorkflowCallScript(pin?.pluginRevision ?? null, {
-						index: 0,
-						name: "child",
-						kind: "child",
-						args: { input: {}, workflowSlug: "child" },
-					}),
-				).toEqual({ kind: "workflow", scriptId: "child-v1-id" });
-				const condition = (yield* database.conditions).find(isChildTarget);
-				if (condition === undefined) {
-					throw new Error("Expected workflow target condition");
-				}
-				expect(dialect.sqlToQuery(condition.getSQL()).params).toEqual(
-					arrayContaining(["revision-1", "plugin.child", "child-v1"]),
-				);
+					expect(
+						yield* repository.resolveWorkflowCallScript(pin?.pluginRevision ?? null, {
+							index: 0,
+							name: "child",
+							kind: "child",
+							args: { input: {}, workflowSlug: "child" },
+						}),
+					).toEqual<unknown>({ kind: "workflow", scriptId: "child-v1-id" });
+					const condition = (yield* database.conditions).find(isChildTarget);
+					if (condition === undefined) {
+						throw new Error("Expected workflow target condition");
+					}
+					expect(dialect.sqlToQuery(condition.getSQL()).params).toEqual<unknown>(
+						arrayContaining(["revision-1", "plugin.child", "child-v1"]),
+					);
 
-				yield* database.respondWith(
-					workflowRows({
-						...replacedRoot,
-						slug: "plugin.child",
+					yield* database.respondWith(
+						workflowRows({
+							...replacedRoot,
+							slug: "plugin.child",
+							contentHash: "child-v1",
+							id: SandboxScriptId.make("child-v1-id"),
+						}),
+					);
+					expect(
+						yield* repository.getScriptPin(
+							SandboxScriptId.make("child-v1-id"),
+							pin?.pluginRevision ?? undefined,
+						),
+					).toMatchObject({
+						scriptId: "child-v1-id",
 						contentHash: "child-v1",
-						id: SandboxScriptId.make("child-v1-id"),
-					}),
-				);
-				expect(
-					yield* repository.getScriptPin(
-						SandboxScriptId.make("child-v1-id"),
-						pin?.pluginRevision ?? undefined,
-					),
-				).toMatchObject({
-					scriptId: "child-v1-id",
-					contentHash: "child-v1",
-					pluginRevision: { compiledHashes: { "plugin.child": "child-v1" } },
-				});
-			}),
+						pluginRevision: { compiledHashes: { "plugin.child": "child-v1" } },
+					});
+				}),
+			testTimeout,
 		);
 	},
 );

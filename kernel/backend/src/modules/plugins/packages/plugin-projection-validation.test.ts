@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { PluginEventProjection } from "@ryot-app/contract/modules/plugins/manifest";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
-import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
 import { PluginValidationError, validatePluginManifestReferences } from "./validation";
@@ -48,35 +51,38 @@ const issuesOf = (exit: Exit.Exit<unknown, unknown>) => {
 	return failure.issues;
 };
 
-it.effect("validates relationship projection processors and output schemas", () =>
-	Effect.gen(function* () {
-		const score = { label: "Score", description: "Score", type: "number" as const };
-		yield* validatePluginManifestReferences(
-			manifestWithRelationshipProjection(["executeRyotql"], { score }),
-		);
-		expect(
-			issuesOf(
-				yield* Effect.exit(
-					validatePluginManifestReferences(
-						manifestWithRelationshipProjection(["createEvents"], { score }),
+it.effect(
+	"validates relationship projection processors and output schemas",
+	() =>
+		Effect.gen(function* () {
+			const score = { label: "Score", description: "Score", type: "number" as const };
+			yield* validatePluginManifestReferences(
+				manifestWithRelationshipProjection(["executeRyotql"], { score }),
+			);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							manifestWithRelationshipProjection(["createEvents"], { score }),
+						),
 					),
 				),
-			),
-		).toEqual([
-			"Relationship projection processor must use only read-only host capabilities and cannot start workflows",
-		]);
-		expect(
-			issuesOf(
-				yield* Effect.exit(
-					validatePluginManifestReferences(
-						manifestWithRelationshipProjection(["executeRyotql"], { note: score }),
+			).toEqual([
+				"Relationship projection processor must use only read-only host capabilities and cannot start workflows",
+			]);
+			expect(
+				issuesOf(
+					yield* Effect.exit(
+						validatePluginManifestReferences(
+							manifestWithRelationshipProjection(["executeRyotql"], { note: score }),
+						),
 					),
 				),
-			),
-		).toEqual([
-			"Relationship projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
-		]);
-	}),
+			).toEqual([
+				"Relationship projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
+			]);
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -166,4 +172,5 @@ it.effect(
 				),
 			).toEqual(["Event projection input schema missing is not declared"]);
 		}),
+	testTimeout,
 );

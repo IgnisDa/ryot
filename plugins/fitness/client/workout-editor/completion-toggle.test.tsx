@@ -1,5 +1,7 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { fireEvent, screen } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 

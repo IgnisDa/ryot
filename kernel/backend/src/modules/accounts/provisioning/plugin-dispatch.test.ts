@@ -1,11 +1,14 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
-import { assert } from "vitest";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -151,36 +154,39 @@ const layerFor = (installed: Array<ReturnType<typeof systemInstallation>>) =>
 	);
 
 layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((test) => {
-	test.effect("marks only each plugin's successful captured bootstrap completion", () =>
-		Effect.gen(function* () {
-			const marks: Array<
-				Parameters<PluginInstallationRepository["Service"]["completeSystemInitialization"]>[0]
-			> = [];
-			const repository = yield* PluginInstallationRepository;
-			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-				Effect.sync(() => {
-					if (payload.scriptId === "bootstrap.second-id") {
-						expect(marks).toEqual([]);
-					}
-					return { error: null };
-				}),
-			).pipe(
-				Effect.provideService(PluginInstallationRepository, {
-					...repository,
-					completeSystemInitialization: (input) =>
-						Effect.sync(() => {
-							marks.push(input);
-							return true;
-						}),
-				}),
-			);
-			const userId = UserId.make("user-1");
-			yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
-			expect(marks).toEqual([
-				{ userId, activationId: "example-id-activation", installationId: "example-installation" },
-				{ userId, activationId: "sample-id-activation", installationId: "sample-installation" },
-			]);
-		}),
+	test.effect(
+		"marks only each plugin's successful captured bootstrap completion",
+		() =>
+			Effect.gen(function* () {
+				const marks: Array<
+					Parameters<PluginInstallationRepository["Service"]["completeSystemInitialization"]>[0]
+				> = [];
+				const repository = yield* PluginInstallationRepository;
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						if (payload.scriptId === "bootstrap.second-id") {
+							expect(marks).toEqual([]);
+						}
+						return { error: null };
+					}),
+				).pipe(
+					Effect.provideService(PluginInstallationRepository, {
+						...repository,
+						completeSystemInitialization: (input) =>
+							Effect.sync(() => {
+								marks.push(input);
+								return true;
+							}),
+					}),
+				);
+				const userId = UserId.make("user-1");
+				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				expect(marks).toEqual([
+					{ userId, activationId: "example-id-activation", installationId: "example-installation" },
+					{ userId, activationId: "sample-id-activation", installationId: "sample-installation" },
+				]);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"dispatches sorted installed entries with bound user subject and deterministic ids",
@@ -198,7 +204,7 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 					token: "test-account-generation",
 				});
 
-				expect(payloads).toEqual([
+				expect(payloads).toEqual<unknown>([
 					{
 						context: {},
 						scriptId: "bootstrap.first-id",
@@ -250,138 +256,157 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 				]);
 			});
 		},
+		testTimeout,
 	);
 });
 
 layer(layerFor([systemInstallation("idle")]))((test) => {
-	test.effect("marks an exact no-bootstrap installation without running a script", () =>
-		Effect.gen(function* () {
-			const marks: Array<
-				Parameters<PluginInstallationRepository["Service"]["completeNoEntryInitializations"]>[0]
-			> = [];
-			const repository = yield* PluginInstallationRepository;
-			const dispatcher = yield* makePluginUserBootstrapDispatcher(() =>
-				Effect.die("No bootstrap script should run"),
-			).pipe(
-				Effect.provideService(PluginInstallationRepository, {
-					...repository,
-					completeNoEntryInitializations: (input) =>
-						Effect.sync(() => {
-							marks.push(input);
-							return [];
-						}),
-				}),
-			);
-			const userId = UserId.make("user-1");
-			yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
-			expect(marks).toEqual([
-				{
-					userId,
-					installations: [
-						{ activationId: "idle-id-activation", installationId: "idle-installation" },
-					],
-				},
-			]);
-		}),
+	test.effect(
+		"marks an exact no-bootstrap installation without running a script",
+		() =>
+			Effect.gen(function* () {
+				const marks: Array<
+					Parameters<PluginInstallationRepository["Service"]["completeNoEntryInitializations"]>[0]
+				> = [];
+				const repository = yield* PluginInstallationRepository;
+				const dispatcher = yield* makePluginUserBootstrapDispatcher(() =>
+					Effect.die("No bootstrap script should run"),
+				).pipe(
+					Effect.provideService(PluginInstallationRepository, {
+						...repository,
+						completeNoEntryInitializations: (input) =>
+							Effect.sync(() => {
+								marks.push(input);
+								return [];
+							}),
+					}),
+				);
+				const userId = UserId.make("user-1");
+				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				expect(marks).toEqual([
+					{
+						userId,
+						installations: [
+							{ activationId: "idle-id-activation", installationId: "idle-installation" },
+						],
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(layerFor([systemInstallation("idle"), systemInstallation("sample")]))((test) => {
-	test.effect("completes no-entry installations before running any bootstrap script", () =>
-		Effect.gen(function* () {
-			const steps: Array<string> = [];
-			const repository = yield* PluginInstallationRepository;
-			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-				Effect.sync(() => {
-					steps.push(`execute ${payload.scriptId}`);
-					return { error: null };
-				}),
-			).pipe(
-				Effect.provideService(PluginInstallationRepository, {
-					...repository,
-					completeSystemInitialization: ({ installationId }) =>
-						Effect.sync(() => {
-							steps.push(`complete ${installationId}`);
-							return true;
-						}),
-					completeNoEntryInitializations: ({ installations }) =>
-						Effect.sync(() => {
-							steps.push(
-								`no-entry ${installations.map(({ installationId }) => installationId).join(",")}`,
-							);
-							return [];
-						}),
-				}),
-			);
-			const userId = UserId.make("user-1");
-			yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
-			expect(steps).toEqual([
-				"no-entry idle-installation",
-				"execute bootstrap.only-id",
-				"complete sample-installation",
-			]);
-		}),
+	test.effect(
+		"completes no-entry installations before running any bootstrap script",
+		() =>
+			Effect.gen(function* () {
+				const steps: Array<string> = [];
+				const repository = yield* PluginInstallationRepository;
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						steps.push(`execute ${payload.scriptId}`);
+						return { error: null };
+					}),
+				).pipe(
+					Effect.provideService(PluginInstallationRepository, {
+						...repository,
+						completeSystemInitialization: ({ installationId }) =>
+							Effect.sync(() => {
+								steps.push(`complete ${installationId}`);
+								return true;
+							}),
+						completeNoEntryInitializations: ({ installations }) =>
+							Effect.sync(() => {
+								steps.push(
+									`no-entry ${installations.map(({ installationId }) => installationId).join(",")}`,
+								);
+								return [];
+							}),
+					}),
+				);
+				const userId = UserId.make("user-1");
+				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				expect(steps).toEqual([
+					"no-entry idle-installation",
+					"execute bootstrap.only-id",
+					"complete sample-installation",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(layerFor([]))((test) => {
-	test.effect("dispatches nothing for a user with no system installations", () => {
-		const payloads: SandboxExecutionPayload[] = [];
-		return Effect.gen(function* () {
-			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-				Effect.sync(() => {
-					payloads.push(payload);
-					return { error: null };
-				}),
-			);
-			yield* dispatcher.dispatchAll(UserId.make("user-1"), {
-				userId: UserId.make("user-1"),
-				token: "test-account-generation",
-			});
+	test.effect(
+		"dispatches nothing for a user with no system installations",
+		() => {
+			const payloads: SandboxExecutionPayload[] = [];
+			return Effect.gen(function* () {
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						payloads.push(payload);
+						return { error: null };
+					}),
+				);
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
+					userId: UserId.make("user-1"),
+					token: "test-account-generation",
+				});
 
-			expect(payloads).toEqual([]);
-		});
-	});
+				expect(payloads).toEqual([]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(layerFor([systemInstallation("sample")]))((test) => {
-	test.effect("skips snapshot plugins the user has no installation for", () => {
-		const executed: string[] = [];
-		return Effect.gen(function* () {
-			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-				Effect.sync(() => {
-					executed.push(payload.scriptId);
-					return { error: null };
-				}),
-			);
-			yield* dispatcher.dispatchAll(UserId.make("user-1"), {
-				userId: UserId.make("user-1"),
-				token: "test-account-generation",
+	test.effect(
+		"skips snapshot plugins the user has no installation for",
+		() => {
+			const executed: string[] = [];
+			return Effect.gen(function* () {
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						executed.push(payload.scriptId);
+						return { error: null };
+					}),
+				);
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
+					userId: UserId.make("user-1"),
+					token: "test-account-generation",
+				});
+
+				expect(executed).toEqual(["bootstrap.only-id"]);
 			});
+		},
+		testTimeout,
+	);
 
-			expect(executed).toEqual(["bootstrap.only-id"]);
-		});
-	});
-
-	test.effect("reruns bootstrap scripts after a reset with a new durable identity", () => {
-		const executionIds: string[] = [];
-		return Effect.gen(function* () {
-			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-				Effect.sync(() => {
-					executionIds.push(payload.executionId);
-					return { error: null };
-				}),
-			);
-			const userId = UserId.make("user-1");
-			const accountGeneration = { userId, token: "test-account-generation" };
-			yield* dispatcher.dispatchAll(userId, accountGeneration);
-			const recreatedGeneration = { userId, token: "recreated-account-generation" };
-			yield* dispatcher.dispatchAll(userId, recreatedGeneration);
-			yield* dispatcher.dispatchAll(userId, recreatedGeneration);
-			expect(executionIds[1]).not.toBe(executionIds[0]);
-			expect(executionIds[2]).toBe(executionIds[1]);
-		});
-	});
+	test.effect(
+		"reruns bootstrap scripts after a reset with a new durable identity",
+		() => {
+			const executionIds: string[] = [];
+			return Effect.gen(function* () {
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						executionIds.push(payload.executionId);
+						return { error: null };
+					}),
+				);
+				const userId = UserId.make("user-1");
+				const accountGeneration = { userId, token: "test-account-generation" };
+				yield* dispatcher.dispatchAll(userId, accountGeneration);
+				const recreatedGeneration = { userId, token: "recreated-account-generation" };
+				yield* dispatcher.dispatchAll(userId, recreatedGeneration);
+				yield* dispatcher.dispatchAll(userId, recreatedGeneration);
+				expect(executionIds[1]).not.toBe(executionIds[0]);
+				expect(executionIds[2]).toBe(executionIds[1]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(layerFor([systemInstallation("example")]))((test) => {
@@ -427,6 +452,7 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
 				expect(marks).toEqual([]);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"propagates a sandbox result error and reruns the same deterministic identity",
@@ -475,6 +501,7 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 				]);
 			});
 		},
+		testTimeout,
 	);
 });
 
@@ -494,65 +521,66 @@ const bootstrappedPackage = (slug: string, bootstrapSlugs: Array<string>) => {
 };
 
 layer(revisionDatabaseLayer)((test) => {
-	test.effect("initializes a user's installations with and without bootstrap entries", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* PluginRepository;
-			const installations = yield* PluginInstallationRepository;
-			const userId = UserId.make("owner");
-			const accountGeneration = { userId, token: "test-account-generation" };
-			const [alpha, beta, idle] = yield* session.transaction(
-				Effect.gen(function* () {
-					yield* repository.lockIngestion();
-					const pluginIds = yield* Effect.forEach(
-						[
-							bootstrappedPackage("alpha", ["seed"]),
-							bootstrappedPackage("beta", ["first", "second"]),
-							bootstrappedPackage("idle", []),
-						],
-						(plugin) => repository.persist(plugin, { ownerId: null, scope: "system" }),
-					);
-					yield* installations.provisionSystemInstallationsForUser(userId);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginInstallation)
-							.set({ health: "installing", isInitialized: false })
-							.where(eq(tables.pluginInstallation.userId, userId)),
-					);
-					return pluginIds;
-				}),
-			);
-			assert(alpha && beta && idle);
-			const executionIds: Array<string> = [];
-			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-				Effect.sync(() => {
-					executionIds.push(payload.executionId);
-					return { error: null };
-				}),
-			);
-			yield* dispatcher.dispatchAll(userId, accountGeneration);
-			expect(executionIds).toEqual([
-				userBootstrapExecutionId(userId, alpha, "seed", accountGeneration),
-				userBootstrapExecutionId(userId, beta, "first", accountGeneration),
-				userBootstrapExecutionId(userId, beta, "second", accountGeneration),
-			]);
-			const rows = yield* session.run((db) =>
-				db
-					.select({
-						health: tables.pluginInstallation.health,
-						pluginId: tables.pluginInstallation.pluginId,
-						healthReason: tables.pluginInstallation.healthReason,
-						isInitialized: tables.pluginInstallation.isInitialized,
-					})
-					.from(tables.pluginInstallation)
-					.where(eq(tables.pluginInstallation.userId, userId)),
-			);
-			const initialized = { health: "ready", healthReason: null, isInitialized: true };
-			expect(Object.fromEntries(rows.map(({ pluginId, ...state }) => [pluginId, state]))).toEqual({
-				[beta]: initialized,
-				[idle]: initialized,
-				[alpha]: initialized,
-			});
-		}),
+	test.effect(
+		"initializes a user's installations with and without bootstrap entries",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* PluginRepository;
+				const installations = yield* PluginInstallationRepository;
+				const userId = UserId.make("owner");
+				const accountGeneration = { userId, token: "test-account-generation" };
+				const [alpha, beta, idle] = yield* session.transaction(
+					Effect.gen(function* () {
+						yield* repository.lockIngestion();
+						const pluginIds = yield* Effect.forEach(
+							[
+								bootstrappedPackage("alpha", ["seed"]),
+								bootstrappedPackage("beta", ["first", "second"]),
+								bootstrappedPackage("idle", []),
+							],
+							(plugin) => repository.persist(plugin, { ownerId: null, scope: "system" }),
+						);
+						yield* installations.provisionSystemInstallationsForUser(userId);
+						yield* session.run((db) =>
+							db
+								.update(tables.pluginInstallation)
+								.set({ health: "installing", isInitialized: false })
+								.where(eq(tables.pluginInstallation.userId, userId)),
+						);
+						return pluginIds;
+					}),
+				);
+				assert(alpha && beta && idle);
+				const executionIds: Array<string> = [];
+				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+					Effect.sync(() => {
+						executionIds.push(payload.executionId);
+						return { error: null };
+					}),
+				);
+				yield* dispatcher.dispatchAll(userId, accountGeneration);
+				expect(executionIds).toEqual([
+					userBootstrapExecutionId(userId, alpha, "seed", accountGeneration),
+					userBootstrapExecutionId(userId, beta, "first", accountGeneration),
+					userBootstrapExecutionId(userId, beta, "second", accountGeneration),
+				]);
+				const rows = yield* session.run((db) =>
+					db
+						.select({
+							health: tables.pluginInstallation.health,
+							pluginId: tables.pluginInstallation.pluginId,
+							healthReason: tables.pluginInstallation.healthReason,
+							isInitialized: tables.pluginInstallation.isInitialized,
+						})
+						.from(tables.pluginInstallation)
+						.where(eq(tables.pluginInstallation.userId, userId)),
+				);
+				const initialized = { health: "ready", healthReason: null, isInitialized: true };
+				expect(
+					Object.fromEntries(rows.map(({ pluginId, ...state }) => [pluginId, state])),
+				).toEqual<unknown>({ [beta]: initialized, [idle]: initialized, [alpha]: initialized });
+			}),
+		testTimeout,
 	);
 });

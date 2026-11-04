@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
-import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
 import { decodePluginManifest } from "./validation";
@@ -32,14 +35,17 @@ const providerManifest = () => {
 	};
 };
 
-it.effect("accepts descriptive providers and generated operation bindings", () =>
-	Effect.gen(function* () {
-		const decoded = yield* decodePluginManifest(providerManifest());
-		expect(decoded.providers[0]).toMatchObject({
-			slug: "fixture-provider",
-			rootEntitySchemaSlug: "fixture-entity",
-		});
-	}),
+it.effect(
+	"accepts descriptive providers and generated operation bindings",
+	() =>
+		Effect.gen(function* () {
+			const decoded = yield* decodePluginManifest(providerManifest());
+			expect(decoded.providers[0]).toMatchObject({
+				slug: "fixture-provider",
+				rootEntitySchemaSlug: "fixture-entity",
+			});
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -68,4 +74,5 @@ it.effect(
 			}),
 		);
 	},
+	testTimeout,
 );

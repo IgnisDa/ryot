@@ -1,4 +1,5 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError, type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationPluginAfterRun,
@@ -21,10 +22,12 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
-import { assert } from "vitest";
 
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
@@ -228,6 +231,7 @@ it.effect(
 				),
 			).toEqual(retained);
 		}),
+	testTimeout,
 );
 const requestTrigger = AutomationTrigger.make({
 	...trigger,
@@ -374,7 +378,7 @@ it.effect(
 				accountGeneration,
 				{ retained: "metadata" },
 			);
-			expect(prepared).toEqual({
+			expect(prepared).toEqual<unknown>({
 				scriptId: "script-old",
 				policyItemIdentity: null,
 				lane: trigger.causation.lane,
@@ -417,7 +421,7 @@ it.effect(
 				afterScript,
 				null,
 			);
-			expect(kernel.subject).toEqual({
+			expect(kernel.subject).toEqual<unknown>({
 				...prepared.subject,
 				pluginId: null,
 				executionUserId: null,
@@ -426,6 +430,7 @@ it.effect(
 				pluginConfigRevisionId: null,
 			});
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -470,6 +475,7 @@ it.effect(
 				expect(error).toMatchObject({ kind: "invalid-input" });
 			}
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -504,6 +510,7 @@ it.effect(
 			);
 			expect(exit._tag).toBe("Failure");
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -541,6 +548,7 @@ it.effect(
 				causation: { lane: "interactive" },
 			});
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -576,186 +584,198 @@ it.effect(
 			assert(bytes !== null);
 			expect(bytes).toBeLessThan(65_536);
 		}),
+	testTimeout,
 );
 
-it.effect("projects captured references for a session changed by an earlier batch policy", () =>
-	Effect.gen(function* () {
-		const eventRequest = yield* Schema.decodeEffect(AutomationRequestPayload)({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: {
-				properties: {},
-				entityId: "entity",
-				entitySchemaSlug: "record",
-				eventSchemaSlug: "activity",
-				sessionEntityId: "original",
-				eventSchemaPluginId: "plugin",
-				entitySchemaPluginId: "plugin",
-				occurredAt: trigger.occurredAt,
-			},
-		});
-		const batchTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
-			...requestTrigger,
-			kind: { resource: "event", operation: "batch", category: "request" },
-			payload: {
-				references: {},
+it.effect(
+	"projects captured references for a session changed by an earlier batch policy",
+	() =>
+		Effect.gen(function* () {
+			const eventRequest = yield* Schema.decodeEffect(AutomationRequestPayload)({
 				resource: "event",
-				operation: "batch",
 				category: "request",
-				items: [eventRequest],
-				itemIdentities: ["item"],
-			},
-		});
-		const prepared = yield* prepareAutomationInvocation(
-			beforeRun,
-			batchTrigger,
-			{
-				...payload,
-				acceptedBatchPatches: {
-					item: [{ resource: "event", draft: { sessionEntityId: EntityId.make("replacement") } }],
+				operation: "create",
+				draft: {
+					properties: {},
+					entityId: "entity",
+					entitySchemaSlug: "record",
+					eventSchemaSlug: "activity",
+					sessionEntityId: "original",
+					eventSchemaPluginId: "plugin",
+					entitySchemaPluginId: "plugin",
+					occurredAt: trigger.occurredAt,
 				},
-				acceptedReferences: {
-					[EntityId.make("replacement")]: {
-						name: "Related",
-						providerId: null,
-						externalId: null,
-						populatedAt: null,
-						properties: { marker: "captured" },
-						entitySchemaPluginId: PluginId.make("plugin"),
-						entitySchemaSlug: EntitySchemaSlug.make("record"),
+			});
+			const batchTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
+				...requestTrigger,
+				kind: { resource: "event", operation: "batch", category: "request" },
+				payload: {
+					references: {},
+					resource: "event",
+					operation: "batch",
+					category: "request",
+					items: [eventRequest],
+					itemIdentities: ["item"],
+				},
+			});
+			const prepared = yield* prepareAutomationInvocation(
+				beforeRun,
+				batchTrigger,
+				{
+					...payload,
+					acceptedBatchPatches: {
+						item: [{ resource: "event", draft: { sessionEntityId: EntityId.make("replacement") } }],
+					},
+					acceptedReferences: {
+						[EntityId.make("replacement")]: {
+							name: "Related",
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							properties: { marker: "captured" },
+							entitySchemaPluginId: PluginId.make("plugin"),
+							entitySchemaSlug: EntitySchemaSlug.make("record"),
+						},
 					},
 				},
-			},
-			{
-				...policyScript,
-				inputProjection: {
-					event: { properties: [], entityProperties: [], sessionEntityProperties: ["marker"] },
+				{
+					...policyScript,
+					inputProjection: {
+						event: { properties: [], entityProperties: [], sessionEntityProperties: ["marker"] },
+					},
 				},
-			},
-			accountGeneration,
-		);
-		assert("items" in prepared.input);
-		expect(prepared.input.automation.references?.[EntityId.make("replacement")]).toEqual({
-			entitySchemaSlug: "record",
-			entitySchemaPluginId: "plugin",
-			properties: { marker: "captured" },
-		});
-		const item = prepared.input.items[0];
-		assert(item?.payload.resource === "event");
-		expect(item.payload.draft.sessionEntityId).toBe("replacement");
-	}),
+				accountGeneration,
+			);
+			assert("items" in prepared.input);
+			expect(prepared.input.automation.references?.[EntityId.make("replacement")]).toEqual<unknown>(
+				{
+					entitySchemaSlug: "record",
+					entitySchemaPluginId: "plugin",
+					properties: { marker: "captured" },
+				},
+			);
+			const item = prepared.input.items[0];
+			assert(item?.payload.resource === "event");
+			expect(item.payload.draft.sessionEntityId).toBe<unknown>("replacement");
+		}),
+	testTimeout,
 );
 
-it.effect("uses safe standard preparation diagnostics", () =>
-	Effect.gen(function* () {
-		const mismatch = yield* prepareAutomationInvocation(
-			beforeRun,
-			requestTrigger,
-			{ ...payload, attemptNumber: 2 },
-			policyScript,
-			accountGeneration,
-		).pipe(Effect.flip);
-		expect(mismatch).toMatchObject({
-			kind: "invalid-input",
-			message: "Automation workflow input does not match the retained run",
-		});
-		const missingScript = yield* prepareAutomationInvocation(
-			{ ...run, sandboxScriptId: null },
-			trigger,
-			payload,
-			afterScript,
-			accountGeneration,
-		).pipe(Effect.flip);
-		expect(missingScript).toMatchObject({
-			kind: "missing-artifact",
-			message: "Pinned automation script or hook declaration is unavailable",
-		});
+it.effect(
+	"uses safe standard preparation diagnostics",
+	() =>
+		Effect.gen(function* () {
+			const mismatch = yield* prepareAutomationInvocation(
+				beforeRun,
+				requestTrigger,
+				{ ...payload, attemptNumber: 2 },
+				policyScript,
+				accountGeneration,
+			).pipe(Effect.flip);
+			expect(mismatch).toMatchObject({
+				kind: "invalid-input",
+				message: "Automation workflow input does not match the retained run",
+			});
+			const missingScript = yield* prepareAutomationInvocation(
+				{ ...run, sandboxScriptId: null },
+				trigger,
+				payload,
+				afterScript,
+				accountGeneration,
+			).pipe(Effect.flip);
+			expect(missingScript).toMatchObject({
+				kind: "missing-artifact",
+				message: "Pinned automation script or hook declaration is unavailable",
+			});
 
-		const invalidProjection = yield* prepareAutomationInvocation(
-			run,
-			trigger,
-			payload,
-			{
-				...afterScript,
-				inputProjection: {
-					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+			const invalidProjection = yield* prepareAutomationInvocation(
+				run,
+				trigger,
+				payload,
+				{
+					...afterScript,
+					inputProjection: {
+						entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+					},
 				},
-			},
-			accountGeneration,
-		).pipe(Effect.flip);
-		expect(invalidProjection).toMatchObject({
-			kind: "invalid-input",
-			message:
-				"Automation input projection for script 'hook-script' and hook 'hook' does not declare the retained trigger resource",
-		});
+				accountGeneration,
+			).pipe(Effect.flip);
+			expect(invalidProjection).toMatchObject({
+				kind: "invalid-input",
+				message:
+					"Automation input projection for script 'hook-script' and hook 'hook' does not declare the retained trigger resource",
+			});
 
-		const oversizedPayload = {
-			actorUserId: "owner",
-			operation: "emit" as const,
-			signalSchemaPluginId: null,
-			category: "signal" as const,
-			resource: "signal" as const,
-			signalSchemaSlug: "fixture.signal",
-			properties: { oversized: "a".repeat(65_536) },
-		};
-		const oversizedTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
-			...trigger,
-			payload: oversizedPayload,
-		});
-		const expectedInput = {
-			automation: {
-				runId: run.id,
-				triggerId: trigger.id,
-				hookSlug: run.hookSlug,
+			const oversizedPayload = {
+				actorUserId: "owner",
+				operation: "emit" as const,
+				signalSchemaPluginId: null,
+				category: "signal" as const,
+				resource: "signal" as const,
+				signalSchemaSlug: "fixture.signal",
+				properties: { oversized: "a".repeat(65_536) },
+			};
+			const oversizedTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
+				...trigger,
 				payload: oversizedPayload,
-				causation: trigger.causation,
-				occurredAt: trigger.occurredAt,
-				executionUserId: run.executionUserId,
-			},
-		};
-		const expectedBytes = jsonByteLength(expectedInput);
-		expect(expectedBytes).not.toBeNull();
-		const oversized = yield* prepareAutomationInvocation(
-			run,
-			oversizedTrigger,
-			payload,
-			{ ...afterScript, inputProjection: { signal: { properties: ["oversized"] } } },
-			accountGeneration,
-		).pipe(Effect.flip);
-		expect(oversized).toMatchObject({
-			kind: "invalid-input",
-			message: `Automation input for hook 'hook' is ${expectedBytes} UTF-8 bytes; maximum is 65536 bytes`,
-		});
-	}),
+			});
+			const expectedInput = {
+				automation: {
+					runId: run.id,
+					triggerId: trigger.id,
+					hookSlug: run.hookSlug,
+					payload: oversizedPayload,
+					causation: trigger.causation,
+					occurredAt: trigger.occurredAt,
+					executionUserId: run.executionUserId,
+				},
+			};
+			const expectedBytes = jsonByteLength(expectedInput);
+			expect(expectedBytes).not.toBeNull();
+			const oversized = yield* prepareAutomationInvocation(
+				run,
+				oversizedTrigger,
+				payload,
+				{ ...afterScript, inputProjection: { signal: { properties: ["oversized"] } } },
+				accountGeneration,
+			).pipe(Effect.flip);
+			expect(oversized).toMatchObject({
+				kind: "invalid-input",
+				message: `Automation input for hook 'hook' is ${expectedBytes} UTF-8 bytes; maximum is 65536 bytes`,
+			});
+		}),
+	testTimeout,
 );
 
 layer(harnessLayer())((test) => {
-	test.effect("finalizes one attempt and returns only its safe summary on terminal replay", () =>
-		Effect.gen(function* () {
-			const harness = yield* RunWorkflowHarness;
-			const first = yield* execute();
-			const replay = yield* execute();
-			expect(replay).toEqual(first);
-			expect(yield* harness.children).toEqual([`${identity.workflowExecutionId}-sandbox`]);
-			const outcomes = yield* harness.outcomes;
-			expect(outcomes).toHaveLength(1);
-			expect(outcomes[0]?.returnedValue).toEqual({ secretLookingResult: "not-in-completion" });
-			expect(first).toEqual({
-				policyOutput: null,
-				attempt: {
-					...identity,
-					timing: null,
-					retryable: false,
-					failureKind: null,
-					status: "succeeded",
-					runId: payload.runId,
-					startedAt: trigger.createdAt,
-					attemptNumber: payload.attemptNumber,
-					finishedAt: "2026-09-15T00:00:01.000Z",
-				},
-			});
-		}),
+	test.effect(
+		"finalizes one attempt and returns only its safe summary on terminal replay",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* RunWorkflowHarness;
+				const first = yield* execute();
+				const replay = yield* execute();
+				expect(replay).toEqual(first);
+				expect(yield* harness.children).toEqual([`${identity.workflowExecutionId}-sandbox`]);
+				const outcomes = yield* harness.outcomes;
+				expect(outcomes).toHaveLength(1);
+				expect(outcomes[0]?.returnedValue).toEqual({ secretLookingResult: "not-in-completion" });
+				expect(first).toEqual({
+					policyOutput: null,
+					attempt: {
+						...identity,
+						timing: null,
+						retryable: false,
+						failureKind: null,
+						status: "succeeded",
+						runId: payload.runId,
+						startedAt: trigger.createdAt,
+						attemptNumber: payload.attemptNumber,
+						finishedAt: "2026-09-15T00:00:01.000Z",
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -768,14 +788,17 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("completes a terminalized claim without preparing or running a sandbox attempt", () =>
-		Effect.gen(function* () {
-			const harness = yield* RunWorkflowHarness;
-			const result = yield* execute();
-			expect(result).toEqual({ attempt: null, policyOutput: null });
-			expect(yield* harness.outcomes).toEqual([]);
-			expect(yield* harness.children).toEqual([]);
-		}),
+	test.effect(
+		"completes a terminalized claim without preparing or running a sandbox attempt",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* RunWorkflowHarness;
+				const result = yield* execute();
+				expect(result).toEqual({ attempt: null, policyOutput: null });
+				expect(yield* harness.outcomes).toEqual([]);
+				expect(yield* harness.children).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -797,6 +820,7 @@ layer(harnessLayer({ failFirstFinalize: true }))((test) => {
 				expect(result.attempt?.attemptNumber).toBe(1);
 				expect(yield* harness.outcomes).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 });
 
@@ -822,13 +846,16 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("records policy rejection as success and returns the output on replay", () =>
-		Effect.gen(function* () {
-			const result = yield* execute();
-			expect(result.policyOutput).toEqual({ action: "reject", reason: "Rule declined" });
-			expect(result.attempt?.status).toBe("succeeded");
-			expect(yield* execute()).toEqual(result);
-		}),
+	test.effect(
+		"records policy rejection as success and returns the output on replay",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* execute();
+				expect(result.policyOutput).toEqual({ action: "reject", reason: "Rule declined" });
+				expect(result.attempt?.status).toBe("succeeded");
+				expect(yield* execute()).toEqual(result);
+			}),
+		testTimeout,
 	);
 });
 
@@ -856,6 +883,7 @@ layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
 				expect(timed.attempt?.failureKind).toBe("sandbox-timeout");
 				expect(yield* harness.outcomes).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 });
 
@@ -875,16 +903,19 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("records an operation rejection as a business failure with its code", () =>
-		Effect.gen(function* () {
-			const harness = yield* RunWorkflowHarness;
-			const result = yield* execute();
-			expect(result.attempt?.failureKind).toBe("business-failure");
-			expect((yield* harness.outcomes)[0]?.error).toEqual({
-				code: "operation-rejected",
-				message: "Rule declined the request",
-			});
-		}),
+	test.effect(
+		"records an operation rejection as a business failure with its code",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* RunWorkflowHarness;
+				const result = yield* execute();
+				expect(result.attempt?.failureKind).toBe("business-failure");
+				expect((yield* harness.outcomes)[0]?.error).toEqual({
+					code: "operation-rejected",
+					message: "Rule declined the request",
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -906,6 +937,7 @@ layer(harnessLayer({ trigger: { ...trigger, payload: null } }))((test) => {
 					new DbError({ message: "Automation attempt workflow identity mismatch" }),
 				);
 			}),
+		testTimeout,
 	);
 });
 

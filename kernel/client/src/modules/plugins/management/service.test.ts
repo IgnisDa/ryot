@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -53,25 +56,28 @@ const dependencies = Layer.effectContext(
 );
 
 layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((test) => {
-	test.effect("keeps quarantined installations in the management read model", () =>
-		Effect.gen(function* () {
-			const installation = managedInstallation();
-			const client = createRyotClient(
-				createTestRyotAdapter({
-					query: () =>
-						Effect.succeed({
-							data: {
-								installations: {
-									type: "rows",
-									items: [installation],
-									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+	test.effect(
+		"keeps quarantined installations in the management read model",
+		() =>
+			Effect.gen(function* () {
+				const installation = managedInstallation();
+				const client = createRyotClient(
+					createTestRyotAdapter({
+						query: () =>
+							Effect.succeed({
+								data: {
+									installations: {
+										type: "rows",
+										items: [installation],
+										pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+									},
 								},
-							},
-						}),
-				}),
-			);
-			expect(yield* (yield* PluginManagementService).load(client)).toEqual([installation]);
-		}),
+							}),
+					}),
+				);
+				expect(yield* (yield* PluginManagementService).load(client)).toEqual([installation]);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"re-enables the retained installation without uploading or selecting the system copy",
@@ -93,46 +99,53 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 					},
 				]);
 			}),
+		testTimeout,
 	);
-	test.effect("explains why an installation that data still references cannot be removed", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginManagementService;
-			const error = yield* Effect.flip(
-				service.execute(
+	test.effect(
+		"explains why an installation that data still references cannot be removed",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginManagementService;
+				const error = yield* Effect.flip(
+					service.execute(
+						{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
+						{ kind: "uninstall", installation: managedInstallation() },
+					),
+				);
+				expect(error.detail).toBe("Your library still has entities that use this plugin.");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"updates only the displayed private installation at its expected source hash",
+		() =>
+			Effect.gen(function* () {
+				const installation = managedInstallation();
+				const service = yield* PluginManagementService;
+				const file = new File(["archive bytes"], "whiskey.zip", { type: "application/zip" });
+				yield* service.execute(
 					{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
-					{ kind: "uninstall", installation: managedInstallation() },
-				),
-			);
-			expect(error.detail).toBe("Your library still has entities that use this plugin.");
-		}),
-	);
-	test.effect("updates only the displayed private installation at its expected source hash", () =>
-		Effect.gen(function* () {
-			const installation = managedInstallation();
-			const service = yield* PluginManagementService;
-			const file = new File(["archive bytes"], "whiskey.zip", { type: "application/zip" });
-			yield* service.execute(
-				{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
-				{ file, installation, kind: "package" },
-			);
-			expect((yield* (yield* Commands).calls).slice(-2)).toEqual([
-				{
-					method: "upload",
-					request: {
-						source: file,
-						action: "temporary",
-						fileName: "whiskey.zip",
-						contentType: "application/zip",
+					{ file, installation, kind: "package" },
+				);
+				expect((yield* (yield* Commands).calls).slice(-2)).toEqual([
+					{
+						method: "upload",
+						request: {
+							source: file,
+							action: "temporary",
+							fileName: "whiskey.zip",
+							contentType: "application/zip",
+						},
 					},
-				},
-				{
-					method: "package",
-					request: {
-						params: { installationId: "private-installation" },
-						payload: { contentHash: "source-hash", uploadToken: "archive-token" },
+					{
+						method: "package",
+						request: {
+							params: { installationId: "private-installation" },
+							payload: { contentHash: "source-hash", uploadToken: "archive-token" },
+						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });

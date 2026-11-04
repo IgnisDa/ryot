@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { badRequest } from "@ryot-app/contract/errors";
 import {
@@ -7,8 +8,11 @@ import {
 } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { derivedFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	ByteSize,
 	Clock,
@@ -24,7 +28,6 @@ import {
 } from "effect";
 import { TestClock } from "effect/testing";
 import Redis from "ioredis";
-import { assert } from "vitest";
 
 import { redisKeys, RedisService } from "#platform/redis";
 import { LocalStorageService } from "#platform/storage/local-storage";
@@ -331,6 +334,7 @@ layer(makeUploadIntentsLayer({}))((test) => {
 					'"fileName":"photo.png"',
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -339,21 +343,26 @@ layer(
 		intentRecord: makeIntentRecord({ completion: { expiresAt: 900, token: "upload-token" } }),
 	}),
 )((test) => {
-	test.effect("cleans up an expired upload intent holding only the intent lock", () =>
-		Effect.gen(function* () {
-			const service = yield* UploadIntentsService;
-			const fake = yield* FakeUploadStore;
-			yield* TestClock.adjust("1000 seconds");
-			yield* service.cleanupPendingIntents(100);
-			expect(yield* fake.leased).toEqual([intentLock]);
-			expect(yield* fake.released).toEqual([intentLock]);
-			expect(yield* fake.removedMembers).toEqual([cleanupIntentId]);
-			expect(yield* fake.deletedObjects).toEqual([{ type: "local", key: "temporary/object.png" }]);
-			expect(yield* fake.deletedKeys).toEqual([
-				redisKeys.uploadToken("upload-token"),
-				redisKeys.uploadIntent(cleanupIntentId),
-			]);
-		}),
+	test.effect(
+		"cleans up an expired upload intent holding only the intent lock",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UploadIntentsService;
+				const fake = yield* FakeUploadStore;
+				yield* TestClock.adjust("1000 seconds");
+				yield* service.cleanupPendingIntents(100);
+				expect(yield* fake.leased).toEqual([intentLock]);
+				expect(yield* fake.released).toEqual([intentLock]);
+				expect(yield* fake.removedMembers).toEqual([cleanupIntentId]);
+				expect(yield* fake.deletedObjects).toEqual([
+					{ type: "local", key: "temporary/object.png" },
+				]);
+				expect(yield* fake.deletedKeys).toEqual([
+					redisKeys.uploadToken("upload-token"),
+					redisKeys.uploadIntent(cleanupIntentId),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -368,33 +377,39 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("reindexes an intent whose expiry was renewed after selection", () =>
-		Effect.gen(function* () {
-			const service = yield* UploadIntentsService;
-			const fake = yield* FakeUploadStore;
-			yield* TestClock.adjust("1000 seconds");
-			yield* service.cleanupPendingIntents(100);
-			expect(yield* fake.removedMembers).toEqual([]);
-			expect(yield* fake.deletedObjects).toEqual([]);
-			expect(yield* fake.reindexed).toEqual([{ score: 86_500, member: cleanupIntentId }]);
-		}),
-	);
-});
-
-layer(makeUploadIntentsLayer({ objectDeletionFails: true, intentRecord: makeIntentRecord() }))(
-	(test) => {
-		test.effect("leaves a failed deletion indexed for the next cleanup run", () =>
+	test.effect(
+		"reindexes an intent whose expiry was renewed after selection",
+		() =>
 			Effect.gen(function* () {
 				const service = yield* UploadIntentsService;
 				const fake = yield* FakeUploadStore;
 				yield* TestClock.adjust("1000 seconds");
 				yield* service.cleanupPendingIntents(100);
-				expect(yield* fake.released).toEqual([intentLock]);
 				expect(yield* fake.removedMembers).toEqual([]);
-				expect((yield* fake.deletedObjects).map(({ key }) => key)).toEqual([
-					"temporary/object.png",
-				]);
+				expect(yield* fake.deletedObjects).toEqual([]);
+				expect(yield* fake.reindexed).toEqual([{ score: 86_500, member: cleanupIntentId }]);
 			}),
+		testTimeout,
+	);
+});
+
+layer(makeUploadIntentsLayer({ objectDeletionFails: true, intentRecord: makeIntentRecord() }))(
+	(test) => {
+		test.effect(
+			"leaves a failed deletion indexed for the next cleanup run",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* UploadIntentsService;
+					const fake = yield* FakeUploadStore;
+					yield* TestClock.adjust("1000 seconds");
+					yield* service.cleanupPendingIntents(100);
+					expect(yield* fake.released).toEqual([intentLock]);
+					expect(yield* fake.removedMembers).toEqual([]);
+					expect((yield* fake.deletedObjects).map(({ key }) => key)).toEqual([
+						"temporary/object.png",
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -452,6 +467,7 @@ for (const provider of ["local", "s3"] as const) {
 						new UploadBadRequest({ reason: { code: "intent-expired", intentId: intent.intentId } }),
 					);
 				}),
+			testTimeout,
 		);
 	});
 }
@@ -501,7 +517,7 @@ layer(makeUploadIntentsLayer({ provider: "s3" }))((test) => {
 					user.id,
 					"first-claim",
 				);
-				expect(claimed).toEqual({
+				expect(claimed).toEqual<unknown>({
 					fileName: "photo.png",
 					intentId: intent.intentId,
 					leaseExpiresAt: "1970-01-02T00:01:40.000Z",
@@ -567,25 +583,29 @@ layer(makeUploadIntentsLayer({ provider: "s3" }))((test) => {
 				]);
 				expect(yield* fake.deletedObjects).toEqual([claimed.locator]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeUploadIntentsLayer({ intentRecord: makeIntentRecord() }))((test) => {
-	test.effect("rejects a new claim at token expiry and rejects a foreign owner", () =>
-		Effect.gen(function* () {
-			const service = yield* UploadIntentsService;
-			assertExitFails(
-				yield* Effect.exit(
-					service.claimTemporaryUpload("upload-token", UserId.make("other-user"), "claim"),
-				),
-				new UploadBadRequest({ reason: { code: "token-forbidden" } }),
-			);
-			yield* TestClock.adjust("900 seconds");
-			assertExitFails(
-				yield* Effect.exit(service.claimTemporaryUpload("upload-token", user.id, "claim")),
-				new UploadBadRequest({ reason: { code: "token-invalid" } }),
-			);
-		}),
+	test.effect(
+		"rejects a new claim at token expiry and rejects a foreign owner",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UploadIntentsService;
+				assertExitFails(
+					yield* Effect.exit(
+						service.claimTemporaryUpload("upload-token", UserId.make("other-user"), "claim"),
+					),
+					new UploadBadRequest({ reason: { code: "token-forbidden" } }),
+				);
+				yield* TestClock.adjust("900 seconds");
+				assertExitFails(
+					yield* Effect.exit(service.claimTemporaryUpload("upload-token", user.id, "claim")),
+					new UploadBadRequest({ reason: { code: "token-invalid" } }),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -645,65 +665,72 @@ layer(makeUploadIntentsLayer({ blockStat: true }))((test) => {
 				);
 				expect(yield* fake.tokenWrites).toHaveLength(2);
 			}),
+		testTimeout,
 	);
 });
 
 for (const kind of ["temporary", "permanent"] as const) {
 	layer(makeUploadIntentsLayer({}))((test) => {
-		test.effect(`rejects expired pending ${kind} completion and cleans its object`, () =>
-			Effect.gen(function* () {
-				const service = yield* UploadIntentsService;
-				const fake = yield* FakeUploadStore;
-				const intent = yield* service.createUploadIntent(user, {
-					kind,
-					fileName: "photo.png",
-					contentType: "image/png",
-				});
-				yield* TestClock.adjust("900 seconds");
-				assertExitFails(
-					yield* Effect.exit(service.completeUploadIntent(user, intent.intentId)),
-					new UploadBadRequest({ reason: { code: "intent-expired", intentId: intent.intentId } }),
-				);
-				yield* service.cleanupPendingIntents(100);
-				expect(yield* fake.deletedObjects).toHaveLength(1);
-				expect(yield* fake.storedValues).toEqual(new Map());
-			}),
+		test.effect(
+			`rejects expired pending ${kind} completion and cleans its object`,
+			() =>
+				Effect.gen(function* () {
+					const service = yield* UploadIntentsService;
+					const fake = yield* FakeUploadStore;
+					const intent = yield* service.createUploadIntent(user, {
+						kind,
+						fileName: "photo.png",
+						contentType: "image/png",
+					});
+					yield* TestClock.adjust("900 seconds");
+					assertExitFails(
+						yield* Effect.exit(service.completeUploadIntent(user, intent.intentId)),
+						new UploadBadRequest({ reason: { code: "intent-expired", intentId: intent.intentId } }),
+					);
+					yield* service.cleanupPendingIntents(100);
+					expect(yield* fake.deletedObjects).toHaveLength(1);
+					expect(yield* fake.storedValues).toEqual(new Map());
+				}),
+			testTimeout,
 		);
 	});
 }
 
 layer(makeUploadIntentsLayer({ missingObject: true }))((test) => {
-	test.effect("keeps a failed completion pending for a later upload", () =>
-		Effect.gen(function* () {
-			const service = yield* UploadIntentsService;
-			const fake = yield* FakeUploadStore;
-			const intent = yield* service.createUploadIntent(user, {
-				kind: "temporary",
-				fileName: "photo.png",
-				contentType: "image/png",
-			});
-			assertExitFails(
-				yield* Effect.exit(service.completeUploadIntent(user, intent.intentId)),
-				new UploadBadRequest({ reason: { code: "object-missing", intentId: intent.intentId } }),
-			);
-			const record = (yield* fake.storedValues).get(redisKeys.uploadIntent(intent.intentId));
-			assert(record);
-			expect(
-				yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(record),
-			).toMatchObject({
-				state: "pending",
-				expiresAt: Math.floor((yield* Clock.currentTimeMillis) / 1000) + 900,
-			});
-			yield* service.putLocalIntent(
-				intent.intentId,
-				"PUT",
-				intent.uploadUrl,
-				"image/png",
-				"3",
-				Stream.empty,
-			);
-			expect(yield* fake.writes).toHaveLength(1);
-			expect(yield* fake.tokenWrites).toEqual([]);
-		}),
+	test.effect(
+		"keeps a failed completion pending for a later upload",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UploadIntentsService;
+				const fake = yield* FakeUploadStore;
+				const intent = yield* service.createUploadIntent(user, {
+					kind: "temporary",
+					fileName: "photo.png",
+					contentType: "image/png",
+				});
+				assertExitFails(
+					yield* Effect.exit(service.completeUploadIntent(user, intent.intentId)),
+					new UploadBadRequest({ reason: { code: "object-missing", intentId: intent.intentId } }),
+				);
+				const record = (yield* fake.storedValues).get(redisKeys.uploadIntent(intent.intentId));
+				assert(record);
+				expect(
+					yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(record),
+				).toMatchObject({
+					state: "pending",
+					expiresAt: Math.floor((yield* Clock.currentTimeMillis) / 1000) + 900,
+				});
+				yield* service.putLocalIntent(
+					intent.intentId,
+					"PUT",
+					intent.uploadUrl,
+					"image/png",
+					"3",
+					Stream.empty,
+				);
+				expect(yield* fake.writes).toHaveLength(1);
+				expect(yield* fake.tokenWrites).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

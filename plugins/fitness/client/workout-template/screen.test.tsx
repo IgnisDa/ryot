@@ -1,4 +1,5 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
@@ -10,7 +11,9 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -165,121 +168,127 @@ const mountTemplate = (input: {
 	return { page, answer, queries };
 };
 
-it.live("loads distinct enriched exercises once and renders numeric partial plans in order", () =>
-	Effect.gen(function* () {
-		const { page, answer, queries } = mountTemplate({
-			properties: {
-				exercises: [
-					{ sets: [], notes: [], exerciseOrder: 7, exerciseId: "bench" },
-					{
-						...occurrence,
-						sets: [
-							{ setOrder: 9, restTime: null, setLot: "warm_up" },
-							{ ...occurrence.sets[0], rpe: 8, setOrder: 3, note: "Slow descent" },
-						],
-					},
-				],
-			},
-		});
-		yield* Effect.promise(() =>
-			waitFor(() => {
-				answer();
-				expect(screen.getByRole("heading", { name: "Partial plan" })).toBeTruthy();
-			}),
-		);
-		expect(queries).toEqual(["entity", "exercises", "membership", "targets", "equipment"]);
-		expect(page.clientMessages().filter(({ type }) => type === "ryotql-request")).toHaveLength(5);
-		expect(page.clientMessages().filter(({ type }) => type === "operation-request")).toHaveLength(
-			1,
-		);
-		expect(screen.getByText("No planned sets.")).toBeTruthy();
-		expect(screen.getByText("Keep control")).toBeTruthy();
-		expect(screen.getAllByText("Chest · Barbell")).toHaveLength(2);
-		expect(screen.getByText(/220\.46 lb/).textContent).toContain("Planned rest 0:00 · RPE 8");
-		expect(screen.getByText("“Slow descent”")).toBeTruthy();
-		const sets = within(screen.getByRole("list", { name: "Planned sets for Bench press" }));
-		expect(sets.getAllByRole("listitem").map(({ textContent }) => textContent)).toEqual([
-			"1220.46 lb · Planned rest 0:00 · RPE 8“Slow descent”",
-			"WMeasurements not specified",
-		]);
-		expect(screen.getByRole("button", { name: "Edit template (Pro)" })).toBeTruthy();
-		expect(screen.queryByRole("button", { name: "Confirm" })).toBeNull();
-		expect(page.clientMessages().filter(({ type }) => type === "device-request")).toEqual([]);
-		act(() => {
-			fireEvent.click(screen.getByRole("button", { name: "Start workout" }));
-		});
-		yield* Effect.promise(() =>
-			waitFor(() =>
-				expect(page.clientMessages()).toContainEqual(
-					objectContaining({
-						type: "navigate",
-						target: {
-							search: "",
-							kind: "plugin-route",
-							packageId: PLUGIN_PACKAGE_ID,
-							path: "/templates/template/start",
+it.live(
+	"loads distinct enriched exercises once and renders numeric partial plans in order",
+	() =>
+		Effect.gen(function* () {
+			const { page, answer, queries } = mountTemplate({
+				properties: {
+					exercises: [
+						{ sets: [], notes: [], exerciseOrder: 7, exerciseId: "bench" },
+						{
+							...occurrence,
+							sets: [
+								{ setOrder: 9, restTime: null, setLot: "warm_up" },
+								{ ...occurrence.sets[0], rpe: 8, setOrder: 3, note: "Slow descent" },
+							],
 						},
-					}),
+					],
+				},
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answer();
+					expect(screen.getByRole("heading", { name: "Partial plan" })).toBeTruthy();
+				}),
+			);
+			expect(queries).toEqual(["entity", "exercises", "membership", "targets", "equipment"]);
+			expect(page.clientMessages().filter(({ type }) => type === "ryotql-request")).toHaveLength(5);
+			expect(page.clientMessages().filter(({ type }) => type === "operation-request")).toHaveLength(
+				1,
+			);
+			expect(screen.getByText("No planned sets.")).toBeTruthy();
+			expect(screen.getByText("Keep control")).toBeTruthy();
+			expect(screen.getAllByText("Chest · Barbell")).toHaveLength(2);
+			expect(screen.getByText(/220\.46 lb/).textContent).toContain("Planned rest 0:00 · RPE 8");
+			expect(screen.getByText("“Slow descent”")).toBeTruthy();
+			const sets = within(screen.getByRole("list", { name: "Planned sets for Bench press" }));
+			expect(sets.getAllByRole("listitem").map(({ textContent }) => textContent)).toEqual([
+				"1220.46 lb · Planned rest 0:00 · RPE 8“Slow descent”",
+				"WMeasurements not specified",
+			]);
+			expect(screen.getByRole("button", { name: "Edit template (Pro)" })).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Confirm" })).toBeNull();
+			expect(page.clientMessages().filter(({ type }) => type === "device-request")).toEqual([]);
+			act(() => {
+				fireEvent.click(screen.getByRole("button", { name: "Start workout" }));
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual<unknown>(
+						objectContaining({
+							type: "navigate",
+							target: {
+								search: "",
+								kind: "plugin-route",
+								packageId: PLUGIN_PACKAGE_ID,
+								path: "/templates/template/start",
+							},
+						}),
+					),
 				),
-			),
-		);
-	}),
+			);
+		}),
+	testTimeout,
 );
 
 it.live.each([
 	{ distance: "1 km", proAvailable: true, unitSystem: "metric" },
 	{ distance: "0.62 mi", proAvailable: false, unitSystem: "imperial" },
-] as const)("preserves media, supersets, duration overrides and $unitSystem units", (input) =>
-	Effect.gen(function* () {
-		const image = { type: "remote", url: "https://assets.test/plan.png" };
-		const video = { type: "remote", url: "https://assets.test/form.mp4" };
-		const { answer } = mountTemplate({
-			...input,
-			overrides: { defaultDurationUnit: "seconds" },
-			exercises: [{ ...exercise, name: "Row", properties: { kind: "distance_and_duration" } }],
-			properties: {
-				images: [image],
-				videos: [video],
-				comment: "Weekly plan",
-				supersets: [
-					{ color: "blue", exercises: [7] },
-					{ color: "red", exercises: [0] },
-				],
-				exercises: [
-					{ ...occurrence, sets: [], notes: [], exerciseOrder: 7 },
-					{
-						...occurrence,
-						images: [image],
-						videos: [video],
-						sets: [{ setOrder: 0, distance: 1, duration: 120, setLot: "normal" }],
-					},
-				],
-			},
-		});
-		yield* Effect.promise(() =>
-			waitFor(() => {
-				answer();
-				expect(screen.getByRole("heading", { name: "Partial plan" })).toBeTruthy();
-			}),
-		);
-		expect(screen.getByText("Weekly plan")).toBeTruthy();
-		expect(screen.getByText(`${input.distance} in 120 s`)).toBeTruthy();
-		expect(screen.getByRole("region", { name: "Partial plan attachments" })).toBeTruthy();
-		expect(screen.getByRole("region", { name: "Row attachments" })).toBeTruthy();
-		expect(screen.getAllByRole("img").map((element) => element.getAttribute("alt"))).toContain(
-			"Partial plan image 1",
-		);
-		expect(screen.getByLabelText("Row video 1")).toBeTruthy();
-		expect(screen.getAllByText(/Superset [AB]/).map(({ textContent }) => textContent)).toEqual([
-			" · Superset A",
-			" · Superset B",
-		]);
-		expect(
-			screen.getByRole("button", {
-				name: input.proAvailable ? "Edit template" : "Edit template (Pro)",
-			}),
-		).toBeTruthy();
-	}),
+] as const)(
+	"preserves media, supersets, duration overrides and $unitSystem units",
+	(input) =>
+		Effect.gen(function* () {
+			const image = { type: "remote", url: "https://assets.test/plan.png" };
+			const video = { type: "remote", url: "https://assets.test/form.mp4" };
+			const { answer } = mountTemplate({
+				...input,
+				overrides: { defaultDurationUnit: "seconds" },
+				exercises: [{ ...exercise, name: "Row", properties: { kind: "distance_and_duration" } }],
+				properties: {
+					images: [image],
+					videos: [video],
+					comment: "Weekly plan",
+					supersets: [
+						{ color: "blue", exercises: [7] },
+						{ color: "red", exercises: [0] },
+					],
+					exercises: [
+						{ ...occurrence, sets: [], notes: [], exerciseOrder: 7 },
+						{
+							...occurrence,
+							images: [image],
+							videos: [video],
+							sets: [{ setOrder: 0, distance: 1, duration: 120, setLot: "normal" }],
+						},
+					],
+				},
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answer();
+					expect(screen.getByRole("heading", { name: "Partial plan" })).toBeTruthy();
+				}),
+			);
+			expect(screen.getByText("Weekly plan")).toBeTruthy();
+			expect(screen.getByText(`${input.distance} in 120 s`)).toBeTruthy();
+			expect(screen.getByRole("region", { name: "Partial plan attachments" })).toBeTruthy();
+			expect(screen.getByRole("region", { name: "Row attachments" })).toBeTruthy();
+			expect(screen.getAllByRole("img").map((element) => element.getAttribute("alt"))).toContain(
+				"Partial plan image 1",
+			);
+			expect(screen.getByLabelText("Row video 1")).toBeTruthy();
+			expect(screen.getAllByText(/Superset [AB]/).map(({ textContent }) => textContent)).toEqual([
+				" · Superset A",
+				" · Superset B",
+			]);
+			expect(
+				screen.getByRole("button", {
+					name: input.proAvailable ? "Edit template" : "Edit template (Pro)",
+				}),
+			).toBeTruthy();
+		}),
+	testTimeout,
 );
 
 it.live.each([
@@ -307,19 +316,22 @@ it.live.each([
 		name: "invalid referenced exercise kind",
 		exercises: [{ ...exercise, properties: { kind: "invalid" } }],
 	},
-])("blocks $name without exposing start or edit actions", (input) =>
-	Effect.gen(function* () {
-		const { answer } = mountTemplate(input);
-		yield* Effect.promise(() =>
-			waitFor(() => {
-				answer();
-				expect(
-					screen.getByText(/This template contains unavailable exercises or invalid data/),
-				).toBeTruthy();
-			}),
-		);
-		expect(screen.queryByRole("button", { name: "Start workout" })).toBeNull();
-		expect(screen.queryByRole("button", { name: /Edit template/ })).toBeNull();
-		expect(screen.getByRole("button", { name: "Retry template" })).toBeTruthy();
-	}),
+])(
+	"blocks $name without exposing start or edit actions",
+	(input) =>
+		Effect.gen(function* () {
+			const { answer } = mountTemplate(input);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answer();
+					expect(
+						screen.getByText(/This template contains unavailable exercises or invalid data/),
+					).toBeTruthy();
+				}),
+			);
+			expect(screen.queryByRole("button", { name: "Start workout" })).toBeNull();
+			expect(screen.queryByRole("button", { name: /Edit template/ })).toBeNull();
+			expect(screen.getByRole("button", { name: "Retry template" })).toBeTruthy();
+		}),
+	testTimeout,
 );

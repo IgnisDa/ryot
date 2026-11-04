@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { describe, expect, it } from "vitest";
 
 import {
 	episodicParentCoverageQuery,

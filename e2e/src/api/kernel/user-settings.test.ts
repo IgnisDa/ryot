@@ -19,21 +19,21 @@ describe("user settings", () => {
 			const { email, client, userId } = yield* createAuthenticatedClient();
 			const initial = yield* getUserSettings(client);
 
-			expect(initial.id).toBe(userId);
+			expect(initial.id).toBe<unknown>(userId);
 			expect(initial.email).toBe(email);
 			expect(initial.name).toBe("Test User");
 			expect(initial.preferences).toEqual({
 				language: null,
-				reportingTimeZone: "UTC",
 				disableIntegrations: false,
+				reportingTimeZone: TimeZone.make("UTC"),
 			});
 
 			yield* updateUserSettingsPreferences(client, { language: "es", disableIntegrations: true });
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",
-				reportingTimeZone: "UTC",
 				disableIntegrations: true,
+				reportingTimeZone: TimeZone.make("UTC"),
 			});
 		}),
 	);
@@ -44,8 +44,8 @@ describe("user settings", () => {
 			const other = yield* createAuthenticatedClient();
 			const defaultPreferences = {
 				language: null,
-				reportingTimeZone: "UTC",
 				disableIntegrations: false,
+				reportingTimeZone: TimeZone.make("UTC"),
 			};
 			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
 
@@ -56,7 +56,7 @@ describe("user settings", () => {
 			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
 				language: "fr",
 				disableIntegrations: false,
-				reportingTimeZone: "Asia/Kolkata",
+				reportingTimeZone: TimeZone.make("Asia/Kolkata"),
 			});
 
 			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
@@ -68,10 +68,12 @@ describe("user settings", () => {
 			const target = getSharedHarnessTarget();
 			const tokyo = yield* createAuthenticatedClient(target, "Asia/Tokyo");
 			expect((yield* getUserSettings(tokyo.client)).preferences.reportingTimeZone).toBe(
-				"Asia/Tokyo",
+				TimeZone.make("Asia/Tokyo"),
 			);
 			const invalid = yield* createAuthenticatedClient(target, "+05:30");
-			expect((yield* getUserSettings(invalid.client)).preferences.reportingTimeZone).toBe("UTC");
+			expect((yield* getUserSettings(invalid.client)).preferences.reportingTimeZone).toBe(
+				TimeZone.make("UTC"),
+			);
 		}),
 	);
 
@@ -104,8 +106,8 @@ describe("user settings", () => {
 			yield* updateUserSettingsPreferences(client, { language: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: null,
-				reportingTimeZone: "UTC",
 				disableIntegrations: true,
+				reportingTimeZone: TimeZone.make("UTC"),
 			});
 			const refreshed = yield* session();
 			expect(refreshed.status).toBe(200);
@@ -134,7 +136,9 @@ describe("user settings", () => {
 				}),
 			});
 			expect(nullZone.status).toBe(204);
-			expect((yield* getUserSettings(client)).preferences.reportingTimeZone).toBe("UTC");
+			expect((yield* getUserSettings(client)).preferences.reportingTimeZone).toBe(
+				TimeZone.make("UTC"),
+			);
 
 			const rawAuth = yield* webRequest(`${apiUrl}/auth/update-user`, {
 				method: "POST",

@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
@@ -20,6 +21,8 @@ import {
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -244,37 +247,40 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("replays capture publication without resolving the collector temporary handle", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const result = yield* references.execute(
-				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
-				{
-					runId: "run-1",
-					operation: {
-						ordinal: 0,
-						action: "capture",
-						phase: "collection",
-						captureId: "page-1",
-						checkpoint: { page: 1 },
-						handle: "deleted-temporary-handle",
+	test.effect(
+		"replays capture publication without resolving the collector temporary handle",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const result = yield* references.execute(
+					KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+					{
+						runId: "run-1",
+						operation: {
+							ordinal: 0,
+							action: "capture",
+							phase: "collection",
+							captureId: "page-1",
+							checkpoint: { page: 1 },
+							handle: "deleted-temporary-handle",
+						},
 					},
-				},
-				"background",
-				"capture-child",
-				"run-1-import",
-				yield* callerAuthority({
-					type: "user",
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-				}),
-			);
-			expect(result).toEqual({
-				captureId: "page-1",
-				handle: "deleted-temporary-handle",
-				inputFingerprint: "persisted-checksum",
-			});
-		}),
+					"background",
+					"capture-child",
+					"run-1-import",
+					yield* callerAuthority({
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					}),
+				);
+				expect(result).toEqual({
+					captureId: "page-1",
+					handle: "deleted-temporary-handle",
+					inputFingerprint: "persisted-checksum",
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -287,51 +293,54 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("binds kernel workflow user ids to the trusted execution subject", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const subject = {
-				type: "user" as const,
-				userId: UserId.make("trusted-user"),
-				accountGeneration: {
-					token: "test-account-generation",
+	test.effect(
+		"binds kernel workflow user ids to the trusted execution subject",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const subject = {
+					type: "user" as const,
 					userId: UserId.make("trusted-user"),
-				},
-			};
-			yield* references.execute(
-				KERNEL_ENTITY_IMPORT_WORKFLOW,
-				{
-					providerId: "zeta",
-					externalId: "record-1",
-					entitySchemaSlug: "record",
-					origin: { kind: "import" },
-					userId: "attacker-selected-user",
-				},
-				"interactive",
-				"entity-import-execution",
-				"parent-execution",
-				yield* callerAuthority(subject),
-			);
-			yield* references.execute(
-				KERNEL_EVENT_CREATE_WORKFLOW,
-				{ payload: [], origin: "import", userId: "attacker-selected-user" },
-				"interactive",
-				"event-create-execution",
-				"parent-execution",
-				yield* callerAuthority(subject),
-			);
+					accountGeneration: {
+						token: "test-account-generation",
+						userId: UserId.make("trusted-user"),
+					},
+				};
+				yield* references.execute(
+					KERNEL_ENTITY_IMPORT_WORKFLOW,
+					{
+						providerId: "zeta",
+						externalId: "record-1",
+						entitySchemaSlug: "record",
+						origin: { kind: "import" },
+						userId: "attacker-selected-user",
+					},
+					"interactive",
+					"entity-import-execution",
+					"parent-execution",
+					yield* callerAuthority(subject),
+				);
+				yield* references.execute(
+					KERNEL_EVENT_CREATE_WORKFLOW,
+					{ payload: [], origin: "import", userId: "attacker-selected-user" },
+					"interactive",
+					"event-create-execution",
+					"parent-execution",
+					yield* callerAuthority(subject),
+				);
 
-			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
-				{
-					executionId: "entity-import-execution",
-					entityScope: { type: "global", userId: "trusted-user" },
-				},
-				{
-					userId: "trusted-user",
-					command: { causation: { executionId: "event-create-execution" } },
-				},
-			]);
-		}),
+				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
+					{
+						executionId: "entity-import-execution",
+						entityScope: { type: "global", userId: "trusted-user" },
+					},
+					{
+						userId: "trusted-user",
+						command: { causation: { executionId: "event-create-execution" } },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -363,38 +372,41 @@ layer(
 		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
 	),
 )((test) => {
-	test.effect("resolves plugin provider slugs before dispatching entity imports", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			yield* references.execute(
-				KERNEL_ENTITY_IMPORT_WORKFLOW,
-				{
-					externalId: "group-1",
-					origin: { kind: "import" },
-					providerSlug: "group.alpha",
-					entitySchemaSlug: "attacker-selected-schema",
-				},
-				"interactive",
-				"entity-import-execution",
-				"parent-execution",
-				yield* callerAuthority({
-					type: "user",
-					userId: UserId.make("trusted-user"),
-					accountGeneration: {
-						token: "test-account-generation",
-						userId: UserId.make("trusted-user"),
+	test.effect(
+		"resolves plugin provider slugs before dispatching entity imports",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				yield* references.execute(
+					KERNEL_ENTITY_IMPORT_WORKFLOW,
+					{
+						externalId: "group-1",
+						origin: { kind: "import" },
+						providerSlug: "group.alpha",
+						entitySchemaSlug: "attacker-selected-schema",
 					},
-				}),
-			);
+					"interactive",
+					"entity-import-execution",
+					"parent-execution",
+					yield* callerAuthority({
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					}),
+				);
 
-			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
-				objectContaining({
-					entitySchemaSlug: "group",
-					providerId: "provider-group-alpha",
-					entityScope: { type: "global", userId: "trusted-user" },
-				}),
-			]);
-		}),
+				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
+					objectContaining({
+						entitySchemaSlug: "group",
+						providerId: "provider-group-alpha",
+						entityScope: { type: "global", userId: "trusted-user" },
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -441,93 +453,26 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("keeps import handles opaque across the kernel child boundary", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			yield* references.execute(
-				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
-				{
-					runId: "run-1",
-					operation: {
-						ordinal: 0,
-						action: "apply",
-						batchId: "batch",
-						captureId: "capture",
-						inputFingerprint: "fingerprint",
-					},
-				},
-				"background",
-				"child-execution",
-				"parent/execution",
-				yield* callerAuthority({
-					type: "user",
-					userId: UserId.make("trusted-user"),
-					accountGeneration: {
-						token: "test-account-generation",
-						userId: UserId.make("trusted-user"),
-					},
-				}),
-			);
-
-			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
-				objectContaining({
-					ordinal: 0,
-					batchId: "batch",
-					captureId: "capture",
-					userId: "trusted-user",
-					executionId: "child-execution",
-					inputFingerprint: "fingerprint",
-					artifactOwnerExecutionId: "parent/execution",
-					artifactReferenceExecutionId: "child-execution",
-				}),
-			]);
-		}),
-	);
-});
-
-layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
-	test.effect("rejects user-scoped kernel workflows for system executions", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const exit = yield* Effect.exit(
-				references.execute(
-					KERNEL_ENTITY_IMPORT_WORKFLOW,
-					{
-						providerId: "zeta",
-						externalId: "record-1",
-						entitySchemaSlug: "record",
-						origin: { kind: "import" },
-						userId: "attacker-selected-user",
-					},
-					"interactive",
-					"entity-import-execution",
-					"parent-execution",
-					yield* callerAuthority({ type: "system" }),
-				),
-			);
-
-			expect(exit.toString()).toContain("is not available for system executions");
-		}),
-	);
-});
-
-layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
-	test.effect("rejects an import run owned by another user", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const exit = yield* Effect.exit(
-				references.execute(
+	test.effect(
+		"keeps import handles opaque across the kernel child boundary",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				yield* references.execute(
 					KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 					{
-						totalItems: 0,
-						failureCount: 0,
-						writeItemCount: 0,
-						runId: "victim-run",
-						chunkHandles: ["harvest-handle-0"],
+						runId: "run-1",
+						operation: {
+							ordinal: 0,
+							action: "apply",
+							batchId: "batch",
+							captureId: "capture",
+							inputFingerprint: "fingerprint",
+						},
 					},
 					"background",
-					"entity-import-execution",
-					"parent-execution",
+					"child-execution",
+					"parent/execution",
 					yield* callerAuthority({
 						type: "user",
 						userId: UserId.make("trusted-user"),
@@ -536,43 +481,122 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 							userId: UserId.make("trusted-user"),
 						},
 					}),
-				),
-			);
+				);
 
-			expect(exit.toString()).toContain(
-				"import run 'victim-run' does not belong to the executing user",
-			);
-		}),
+				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
+					objectContaining({
+						ordinal: 0,
+						batchId: "batch",
+						captureId: "capture",
+						userId: "trusted-user",
+						executionId: "child-execution",
+						inputFingerprint: "fingerprint",
+						artifactOwnerExecutionId: "parent/execution",
+						artifactReferenceExecutionId: "child-execution",
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
-	test.effect("rejects a trusted integration subject owned by another user", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const exit = yield* Effect.exit(
-				references.execute(
-					KERNEL_EVENT_CREATE_WORKFLOW,
-					{ payload: [] },
-					"interactive",
-					"event-create-execution",
-					"parent-execution",
-					yield* callerAuthority({
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						integrationId: IntegrationId.make("victim-integration"),
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
+	test.effect(
+		"rejects user-scoped kernel workflows for system executions",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const exit = yield* Effect.exit(
+					references.execute(
+						KERNEL_ENTITY_IMPORT_WORKFLOW,
+						{
+							providerId: "zeta",
+							externalId: "record-1",
+							entitySchemaSlug: "record",
+							origin: { kind: "import" },
+							userId: "attacker-selected-user",
 						},
-					}),
-				),
-			);
+						"interactive",
+						"entity-import-execution",
+						"parent-execution",
+						yield* callerAuthority({ type: "system" }),
+					),
+				);
 
-			expect(exit.toString()).toContain(
-				"integration 'victim-integration' does not belong to the executing user",
-			);
-		}),
+				expect(exit.toString()).toContain("is not available for system executions");
+			}),
+		testTimeout,
+	);
+});
+
+layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
+	test.effect(
+		"rejects an import run owned by another user",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const exit = yield* Effect.exit(
+					references.execute(
+						KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+						{
+							totalItems: 0,
+							failureCount: 0,
+							writeItemCount: 0,
+							runId: "victim-run",
+							chunkHandles: ["harvest-handle-0"],
+						},
+						"background",
+						"entity-import-execution",
+						"parent-execution",
+						yield* callerAuthority({
+							type: "user",
+							userId: UserId.make("trusted-user"),
+							accountGeneration: {
+								token: "test-account-generation",
+								userId: UserId.make("trusted-user"),
+							},
+						}),
+					),
+				);
+
+				expect(exit.toString()).toContain(
+					"import run 'victim-run' does not belong to the executing user",
+				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
+	test.effect(
+		"rejects a trusted integration subject owned by another user",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const exit = yield* Effect.exit(
+					references.execute(
+						KERNEL_EVENT_CREATE_WORKFLOW,
+						{ payload: [] },
+						"interactive",
+						"event-create-execution",
+						"parent-execution",
+						yield* callerAuthority({
+							type: "user",
+							userId: UserId.make("trusted-user"),
+							integrationId: IntegrationId.make("victim-integration"),
+							accountGeneration: {
+								token: "test-account-generation",
+								userId: UserId.make("trusted-user"),
+							},
+						}),
+					),
+				);
+
+				expect(exit.toString()).toContain(
+					"integration 'victim-integration' does not belong to the executing user",
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -640,6 +664,7 @@ layer(
 					objectContaining({ externalId: "record-2", executionId: "population-reference-item-1" }),
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -658,31 +683,34 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("awaits every provider population exit and reports failures in input order", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const exit = yield* Effect.exit(
-				references.execute(
-					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-					{
-						mode: "refresh",
-						items: Array.from({ length: 5 }, (_, index) => ({
-							entitySchemaSlug: "record",
-							externalId: `record-${index}`,
-							providerId: "provider-record-catalog",
-						})),
-					},
-					"interactive",
-					"population-reference",
-					"parent-execution",
-					yield* populationAuthority({ type: "system" }),
-				),
-			);
+	test.effect(
+		"awaits every provider population exit and reports failures in input order",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const exit = yield* Effect.exit(
+					references.execute(
+						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+						{
+							mode: "refresh",
+							items: Array.from({ length: 5 }, (_, index) => ({
+								entitySchemaSlug: "record",
+								externalId: `record-${index}`,
+								providerId: "provider-record-catalog",
+							})),
+						},
+						"interactive",
+						"population-reference",
+						"parent-execution",
+						yield* populationAuthority({ type: "system" }),
+					),
+				);
 
-			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(5);
-			expect(exit.toString()).toContain("first item failed");
-			expect(exit.toString()).not.toContain("third item failed");
-		}),
+				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(5);
+				expect(exit.toString()).toContain("first item failed");
+				expect(exit.toString()).not.toContain("third item failed");
+			}),
+		testTimeout,
 	);
 });
 
@@ -727,6 +755,7 @@ layer(
 					},
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -735,40 +764,46 @@ layer(
 		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
 	),
 )((test) => {
-	test.effect("rejects unavailable user and unauthorized system provider population calls", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const userExit = yield* Effect.exit(
-				references.execute(
-					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-					populationInput,
-					"interactive",
-					"user-call",
-					"parent-execution",
-					yield* populationAuthority({
-						type: "user",
-						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-					}),
-				),
-			);
-			expect(userExit.toString()).toContain("is unavailable or has no exact binding");
+	test.effect(
+		"rejects unavailable user and unauthorized system provider population calls",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const userExit = yield* Effect.exit(
+					references.execute(
+						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+						populationInput,
+						"interactive",
+						"user-call",
+						"parent-execution",
+						yield* populationAuthority({
+							type: "user",
+							userId: UserId.make("user-1"),
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						}),
+					),
+				);
+				expect(userExit.toString()).toContain("is unavailable or has no exact binding");
 
-			const ownershipExit = yield* Effect.exit(
-				references.execute(
-					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-					populationInput,
-					"interactive",
-					"foreign-call",
-					"parent-execution",
-					yield* populationAuthority({ type: "system" }),
-				),
-			);
-			expect(ownershipExit.toString()).toContain(
-				"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
-			);
-			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
-		}),
+				const ownershipExit = yield* Effect.exit(
+					references.execute(
+						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+						populationInput,
+						"interactive",
+						"foreign-call",
+						"parent-execution",
+						yield* populationAuthority({ type: "system" }),
+					),
+				);
+				expect(ownershipExit.toString()).toContain(
+					"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
+				);
+				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -777,31 +812,34 @@ layer(
 		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
 	),
 )((test) => {
-	test.effect("authorizes every provider population item before dispatching any child", () =>
-		Effect.gen(function* () {
-			const references = yield* KernelWorkflowReferences;
-			const exit = yield* Effect.exit(
-				references.execute(
-					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-					{
-						mode: "ensure",
-						items: [
-							{ providerId: "owned", externalId: "record-1", entitySchemaSlug: "record" },
-							{ providerId: "foreign", externalId: "record-2", entitySchemaSlug: "record" },
-						],
-					},
-					"interactive",
-					"population-reference",
-					"parent-execution",
-					yield* populationAuthority({ type: "system" }),
-				),
-			);
+	test.effect(
+		"authorizes every provider population item before dispatching any child",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const exit = yield* Effect.exit(
+					references.execute(
+						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+						{
+							mode: "ensure",
+							items: [
+								{ providerId: "owned", externalId: "record-1", entitySchemaSlug: "record" },
+								{ providerId: "foreign", externalId: "record-2", entitySchemaSlug: "record" },
+							],
+						},
+						"interactive",
+						"population-reference",
+						"parent-execution",
+						yield* populationAuthority({ type: "system" }),
+					),
+				);
 
-			expect(exit.toString()).toContain(
-				"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
-			);
-			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
-		}),
+				expect(exit.toString()).toContain(
+					"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
+				);
+				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -851,5 +889,6 @@ layer(
 				}
 			});
 		},
+		testTimeout,
 	);
 });

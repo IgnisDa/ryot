@@ -1,6 +1,7 @@
+import { expect, it } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { expect, it } from "vitest";
 
 import { ExerciseOverrideUpdateInputSchema } from "../../shared/workout-editor-context-operations";
 import definition, { manifest } from "./exercise-override-update.sandbox";

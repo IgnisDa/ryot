@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
@@ -70,7 +71,7 @@ describe("media group entity schemas", () => {
 			for (const { eventSchemas } of eventSchemasBySlug) {
 				const eventSlugs = eventSchemas.map((e) => e.slug);
 
-				expect(eventSlugs).toContain("review");
+				expect(eventSlugs).toContain(EventSchemaSlug.make("review"));
 				expect(eventSlugs).not.toContain("backlog");
 				expect(eventSlugs).not.toContain("progress");
 				expect(eventSlugs).not.toContain("complete");
@@ -87,7 +88,7 @@ describe("media group entity schemas", () => {
 			assertPresent(movieGroup, "movie-group schema not found");
 
 			const fields = movieGroup.propertiesSchema.fields;
-			expect(Object.keys(fields)).toEqual(
+			expect(Object.keys(fields)).toEqual<unknown>(
 				arrayContaining(["images", "parts", "description", "sourceUrl"]),
 			);
 		}),

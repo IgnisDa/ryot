@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { IntegrationId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { anyOf } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { IngestionCaptures } from "#modules/imports/capture-service";
@@ -270,6 +273,7 @@ it.effect.each(["blocked", "pending"] as const)(
 			);
 			expect(test.calls).toEqual([]);
 		}),
+	testTimeout,
 );
 
 it.effect.each(["integration-disabled", "integrations-disabled", "pro-key-required"] as const)(
@@ -291,6 +295,7 @@ it.effect.each(["integration-disabled", "integrations-disabled", "pro-key-requir
 			expect(test.calls.some((call) => call.method === "envelope")).toBe(false);
 			expect(yield* service.release(scope, integration)).toBe(false);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -325,6 +330,7 @@ it.effect(
 			const recovered = yield* service.recoverInput(ingestionTestScope);
 			expect(recovered.sourcePayload["integrationContext"]).toEqual(envelope);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -340,13 +346,16 @@ it.effect(
 				service.admitWebhook(integration, envelope),
 			).pipe(Effect.provideContext(test.context));
 			expect(test.calls.map((call) => call.method)).toEqual(["evaluate", "admit", "envelope"]);
-			expect(test.calls[1]?.input).toMatchObject({
-				acceptedAt: anyOf(Date),
-				accountGeneration: ingestionTestScope.accountGeneration,
-				blockReasons: [{ key: "token", code: "configuration-required" }],
-			});
+			expect(test.calls[1]?.input).toEqual<unknown>(
+				objectContaining({
+					acceptedAt: anyOf(Date),
+					accountGeneration: ingestionTestScope.accountGeneration,
+					blockReasons: [objectContaining({ key: "token", code: "configuration-required" })],
+				}),
+			);
 			expect(test.calls[2]?.input).toEqual({ envelope, scope: ingestionTestScope });
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -372,44 +381,54 @@ it.effect(
 				selection: { "integration-adapter": "integration.fixture" },
 			});
 		}),
+	testTimeout,
 );
 
-it.effect("does not retain executable authority before prerequisites are ready", () =>
-	Effect.gen(function* () {
-		const test = yield* runCase({ ready: false });
-		expect(
-			yield* Effect.flatMap(IntegrationIngestion, (service) =>
+it.effect(
+	"does not retain executable authority before prerequisites are ready",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* runCase({ ready: false });
+			expect(
+				yield* Effect.flatMap(IntegrationIngestion, (service) =>
+					service.release(ingestionTestScope, integration),
+				).pipe(Effect.provideContext(test.context)),
+			).toBe(false);
+			expect(test.calls.map((call) => call.method)).toEqual(["evaluate"]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"does not pin a different integration root than the evaluated provider",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* runCase({ workflowId: "different-root" });
+			expect(
+				yield* Effect.flatMap(IntegrationIngestion, (service) =>
+					service.release(ingestionTestScope, integration),
+				).pipe(Effect.provideContext(test.context)),
+			).toBe(false);
+			expect(test.calls.map((call) => call.method)).toEqual(["evaluate", "workflow"]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects an integration plan without an adapter before pinning",
+	() =>
+		Effect.gen(function* () {
+			const test = yield* runCase({ adapter: "" });
+			const result = yield* Effect.flatMap(IntegrationIngestion, (service) =>
 				service.release(ingestionTestScope, integration),
-			).pipe(Effect.provideContext(test.context)),
-		).toBe(false);
-		expect(test.calls.map((call) => call.method)).toEqual(["evaluate"]);
-	}),
-);
-
-it.effect("does not pin a different integration root than the evaluated provider", () =>
-	Effect.gen(function* () {
-		const test = yield* runCase({ workflowId: "different-root" });
-		expect(
-			yield* Effect.flatMap(IntegrationIngestion, (service) =>
-				service.release(ingestionTestScope, integration),
-			).pipe(Effect.provideContext(test.context)),
-		).toBe(false);
-		expect(test.calls.map((call) => call.method)).toEqual(["evaluate", "workflow"]);
-	}),
-);
-
-it.effect("rejects an integration plan without an adapter before pinning", () =>
-	Effect.gen(function* () {
-		const test = yield* runCase({ adapter: "" });
-		const result = yield* Effect.flatMap(IntegrationIngestion, (service) =>
-			service.release(ingestionTestScope, integration),
-		).pipe(Effect.provideContext(test.context), Effect.exit);
-		assertExitFails(
-			result,
-			new ImportRunError({ message: "Integration execution plan does not select its adapter" }),
-		);
-		expect(test.calls.map((call) => call.method)).toEqual(["evaluate"]);
-	}),
+			).pipe(Effect.provideContext(test.context), Effect.exit);
+			assertExitFails(
+				result,
+				new ImportRunError({ message: "Integration execution plan does not select its adapter" }),
+			);
+			expect(test.calls.map((call) => call.method)).toEqual(["evaluate"]);
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -457,40 +476,44 @@ it.effect(
 				selection: { "integration-adapter": "integration.fixture" },
 			});
 		}),
+	testTimeout,
 );
 
-it.effect("captures integration settings selected when a blocked run is released", () =>
-	Effect.gen(function* () {
-		const selected = {
-			...integration,
-			minimumProgress: 15,
-			maximumProgress: 85,
-			syncOwnership: true,
-			providerSpecifics: { filters: ["item"], provider: "provider" },
-		};
-		const test = yield* runCase();
-		const service = yield* Effect.provideContext(IntegrationIngestion, test.context);
+it.effect(
+	"captures integration settings selected when a blocked run is released",
+	() =>
+		Effect.gen(function* () {
+			const selected = {
+				...integration,
+				minimumProgress: 15,
+				maximumProgress: 85,
+				syncOwnership: true,
+				providerSpecifics: { filters: ["item"], provider: "provider" },
+			};
+			const test = yield* runCase();
+			const service = yield* Effect.provideContext(IntegrationIngestion, test.context);
 
-		expect(yield* service.release(ingestionTestScope, selected)).toBe(true);
-		expect(test.calls.find((call) => call.method === "evaluate")?.input).toMatchObject({
-			settings: selected.providerSpecifics,
-		});
-		expect(test.calls.find((call) => call.method === "pin")?.input).toMatchObject({
-			preparedRelease: {
-				state: {
-					executionSettings: {
-						userSettings: { timezone: "Pacific/Auckland" },
-						integration: {
-							syncOwnership: true,
-							minimumProgress: 15,
-							maximumProgress: 85,
-							providerSpecifics: selected.providerSpecifics,
+			expect(yield* service.release(ingestionTestScope, selected)).toBe(true);
+			expect(test.calls.find((call) => call.method === "evaluate")?.input).toMatchObject({
+				settings: selected.providerSpecifics,
+			});
+			expect(test.calls.find((call) => call.method === "pin")?.input).toMatchObject({
+				preparedRelease: {
+					state: {
+						executionSettings: {
+							userSettings: { timezone: "Pacific/Auckland" },
+							integration: {
+								syncOwnership: true,
+								minimumProgress: 15,
+								maximumProgress: 85,
+								providerSpecifics: selected.providerSpecifics,
+							},
 						},
 					},
 				},
-			},
-		});
-	}),
+			});
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -521,4 +544,5 @@ it.effect(
 				);
 			}
 		}),
+	testTimeout,
 );

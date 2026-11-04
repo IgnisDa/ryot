@@ -1,6 +1,9 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
@@ -60,74 +63,81 @@ it.live(
 				fs.reads.filter((read) => read.key === "uploadToken" && read.offset < bytes.length),
 			).toHaveLength(1);
 		}),
+	testTimeout,
 );
-it.live("reads gzip XML into one cumulative event and ignores closing tags inside CDATA", () =>
-	Effect.gen(function* () {
-		const fs = mediaFilesystem({
-			mangaUploadToken: gzipSync(
-				encoder.encode(
-					"<myanimelist><manga><manga_mangadb_id>42</manga_mangadb_id><manga_title><![CDATA[Title </manga> é]]></manga_title><my_read_chapters>513</my_read_chapters><my_score>0</my_score><my_status>Plan to Read</my_status></manga></myanimelist>",
+it.live(
+	"reads gzip XML into one cumulative event and ignores closing tags inside CDATA",
+	() =>
+		Effect.gen(function* () {
+			const fs = mediaFilesystem({
+				mangaUploadToken: gzipSync(
+					encoder.encode(
+						"<myanimelist><manga><manga_mangadb_id>42</manga_mangadb_id><manga_title><![CDATA[Title </manga> é]]></manga_title><my_read_chapters>513</my_read_chapters><my_score>0</my_score><my_status>Plan to Read</my_status></manga></myanimelist>",
+					),
 				),
-			),
-		});
-		let input = mediaStageInput({ fileIndex: 1 });
-		const records: MediaSourceRecord[] = [];
-		for (;;) {
-			const result = yield* myanimelist.run(input);
-			records.push(...(yield* fs.records()));
-			if (result.done) {
-				break;
-			}
-			fs.files.set("carry", fs.scratch.get("carry.bin") ?? new Uint8Array());
-			Object.assign(input, {
-				offset: result.offset,
-				header: result.header,
-				itemIndex: result.itemIndex,
-				ingestionArtifacts: { runId: "run", captures: { carry: "carry" } },
 			});
-		}
-		const events = records.flatMap((record) => record.group?.events ?? []);
-		expect(
-			events
-				.filter((event) => event.eventSchemaSlug === "progress")
-				.map((event) => event.properties["mangaChapter"]),
-		).toEqual([513]);
-		expect(events.filter((event) => event.eventSchemaSlug === "backlog")).toHaveLength(1);
-		expect(new Set(events.map((event) => event.operationId)).size).toBe(2);
-		expect(records[0]?.group?.entityRef.sourceLabel).toBe("Title </manga> é");
-	}),
+			let input = mediaStageInput({ fileIndex: 1 });
+			const records: MediaSourceRecord[] = [];
+			for (;;) {
+				const result = yield* myanimelist.run(input);
+				records.push(...(yield* fs.records()));
+				if (result.done) {
+					break;
+				}
+				fs.files.set("carry", fs.scratch.get("carry.bin") ?? new Uint8Array());
+				Object.assign(input, {
+					offset: result.offset,
+					header: result.header,
+					itemIndex: result.itemIndex,
+					ingestionArtifacts: { runId: "run", captures: { carry: "carry" } },
+				});
+			}
+			const events = records.flatMap((record) => record.group?.events ?? []);
+			expect(
+				events
+					.filter((event) => event.eventSchemaSlug === "progress")
+					.map((event) => event.properties["mangaChapter"]),
+			).toEqual([513]);
+			expect(events.filter((event) => event.eventSchemaSlug === "backlog")).toHaveLength(1);
+			expect(new Set(events.map((event) => event.operationId)).size).toBe(2);
+			expect(records[0]?.group?.entityRef.sourceLabel).toBe("Title </manga> é");
+		}),
+	testTimeout,
 );
-it.live("keeps independent equal-time Spotify records in original order", () =>
-	Effect.gen(function* () {
-		const fs = mediaFilesystem({
-			uploadToken: encoder.encode(
-				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
-					play("2026-01-01T00:00:00Z", "First"),
-					play("2025-12-31T19:00:00-05:00", "Second"),
-					play("2026-01-01T00:00:00Z", "Duplicate"),
-				]),
-			),
-		});
-		yield* spotify.run(mediaStageInput());
-		const raw = (yield* fs.records()).sort(compareMediaRecords);
-		fs.files.set("records", encoder.encode(yield* serializeMediaRecords(raw)));
-		yield* spotify.run(
-			mediaStageInput({
-				action: "normalize",
-				ingestionArtifacts: { runId: "run", captures: { records: "records" } },
-			}),
-		);
-		const records = (yield* fs.records()).sort(compareMediaRecords);
-		expect(records.map((record) => record.itemIndex)).toEqual([0, 1, 2]);
-		expect(records.map((record) => record.group?.events[0]?.attribution?.sourceLabel)).toEqual([
-			"First",
-			"Second",
-			"Duplicate",
-		]);
-		expect(records.map((record) => record.group?.events[0]?.occurredAt)).toEqual([
-			"2026-01-01T00:00:00.000Z",
-			"2026-01-01T00:00:00.000Z",
-			"2026-01-01T00:00:00.000Z",
-		]);
-	}),
+it.live(
+	"keeps independent equal-time Spotify records in original order",
+	() =>
+		Effect.gen(function* () {
+			const fs = mediaFilesystem({
+				uploadToken: encoder.encode(
+					yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
+						play("2026-01-01T00:00:00Z", "First"),
+						play("2025-12-31T19:00:00-05:00", "Second"),
+						play("2026-01-01T00:00:00Z", "Duplicate"),
+					]),
+				),
+			});
+			yield* spotify.run(mediaStageInput());
+			const raw = (yield* fs.records()).sort(compareMediaRecords);
+			fs.files.set("records", encoder.encode(yield* serializeMediaRecords(raw)));
+			yield* spotify.run(
+				mediaStageInput({
+					action: "normalize",
+					ingestionArtifacts: { runId: "run", captures: { records: "records" } },
+				}),
+			);
+			const records = (yield* fs.records()).sort(compareMediaRecords);
+			expect(records.map((record) => record.itemIndex)).toEqual([0, 1, 2]);
+			expect(records.map((record) => record.group?.events[0]?.attribution?.sourceLabel)).toEqual([
+				"First",
+				"Second",
+				"Duplicate",
+			]);
+			expect(records.map((record) => record.group?.events[0]?.occurredAt)).toEqual([
+				"2026-01-01T00:00:00.000Z",
+				"2026-01-01T00:00:00.000Z",
+				"2026-01-01T00:00:00.000Z",
+			]);
+		}),
+	testTimeout,
 );

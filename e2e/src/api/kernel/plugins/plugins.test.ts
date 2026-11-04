@@ -331,7 +331,7 @@ export default defineAutomation({
 			const lifecycleSchema = definitions.find(({ slug }) => slug === schemaSlug);
 			assertPresent(lifecycleSchema, "Missing lifecycle entity schema catalog entry");
 			expect(lifecycleSchema.eventSchemas.items.map(({ slug }) => slug).sort()).toEqual(
-				[eventSlug, resultEventSlug].sort(),
+				[EventSchemaSlug.make(eventSlug), EventSchemaSlug.make(resultEventSlug)].sort(),
 			);
 
 			const originalDetailsScriptId = provider.scriptIds[detailsSlug];

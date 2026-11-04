@@ -1,4 +1,5 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	EntityEnrichmentRefused,
@@ -7,6 +8,8 @@ import {
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginEnrichmentRequest } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -51,76 +54,30 @@ const outcome = (request: PluginEnrichmentRequest) =>
 
 describe("plugin entity enrichment", () => {
 	layer(PluginEnrichment.layer.pipe(Layer.provide(entitiesApi)))((test) => {
-		test.effect("refuses plugins that do not contribute to the document", () =>
-			Effect.gen(function* () {
-				calls.length = 0;
-				expect(
-					yield* outcome({
-						entityId,
-						action: "retry",
-						operation: "population",
-						pluginId: PluginId.make("plugin-2"),
-						idempotencyKey: "test-enrichment-key",
-					}),
-				).toEqual({ outcome: "failure", reason: "invalid-request" });
-				expect(calls).toEqual([]);
-			}),
+		test.effect(
+			"refuses plugins that do not contribute to the document",
+			() =>
+				Effect.gen(function* () {
+					calls.length = 0;
+					expect(
+						yield* outcome({
+							entityId,
+							action: "retry",
+							operation: "population",
+							pluginId: PluginId.make("plugin-2"),
+							idempotencyKey: "test-enrichment-key",
+						}),
+					).toEqual({ outcome: "failure", reason: "invalid-request" });
+					expect(calls).toEqual([]);
+				}),
+			testTimeout,
 		);
 
-		test.effect("forwards enrichment requests and maps failures", () =>
-			Effect.gen(function* () {
-				calls.length = 0;
-				expect(
-					yield* outcome({
-						entityId,
-						action: "retry",
-						pluginId: contributor,
-						operation: "population",
-						idempotencyKey: "test-enrichment-key",
-					}),
-				).toEqual({ outcome: "success", enrichmentRequestId: "enrichment-job" });
-				expect(calls).toEqual([
-					{
-						params: { entityId },
-						payload: {
-							action: "retry",
-							pluginId: contributor,
-							operation: "population",
-							idempotencyKey: "test-enrichment-key",
-						},
-					},
-				]);
-				expect(
-					yield* outcome({
-						entityId,
-						action: "retry",
-						pluginId: contributor,
-						operation: "translation",
-						idempotencyKey: "test-enrichment-key",
-					}),
-				).toEqual({ outcome: "success", enrichmentRequestId: "enrichment-job" });
-				expect(calls.at(-1)).toEqual({
-					params: { entityId },
-					payload: {
-						action: "retry",
-						pluginId: contributor,
-						operation: "translation",
-						idempotencyKey: "test-enrichment-key",
-					},
-				});
-
-				failures.push(
-					new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
-					new EntityEnrichmentRefused({ reason: { code: "provider-unavailable" } }),
-					new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-					new Error("offline"),
-				);
-				for (const reason of [
-					"invalid-request",
-					"invalid-request",
-					"invalid-request",
-					"transport",
-				] as const) {
+		test.effect(
+			"forwards enrichment requests and maps failures",
+			() =>
+				Effect.gen(function* () {
+					calls.length = 0;
 					expect(
 						yield* outcome({
 							entityId,
@@ -129,9 +86,61 @@ describe("plugin entity enrichment", () => {
 							operation: "population",
 							idempotencyKey: "test-enrichment-key",
 						}),
-					).toEqual({ reason, outcome: "failure" });
-				}
-			}),
+					).toEqual({ outcome: "success", enrichmentRequestId: "enrichment-job" });
+					expect(calls).toEqual([
+						{
+							params: { entityId },
+							payload: {
+								action: "retry",
+								pluginId: contributor,
+								operation: "population",
+								idempotencyKey: "test-enrichment-key",
+							},
+						},
+					]);
+					expect(
+						yield* outcome({
+							entityId,
+							action: "retry",
+							pluginId: contributor,
+							operation: "translation",
+							idempotencyKey: "test-enrichment-key",
+						}),
+					).toEqual({ outcome: "success", enrichmentRequestId: "enrichment-job" });
+					expect(calls.at(-1)).toEqual({
+						params: { entityId },
+						payload: {
+							action: "retry",
+							pluginId: contributor,
+							operation: "translation",
+							idempotencyKey: "test-enrichment-key",
+						},
+					});
+
+					failures.push(
+						new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
+						new EntityEnrichmentRefused({ reason: { code: "provider-unavailable" } }),
+						new AuthUnauthorized({ reason: { code: "authentication-required" } }),
+						new Error("offline"),
+					);
+					for (const reason of [
+						"invalid-request",
+						"invalid-request",
+						"invalid-request",
+						"transport",
+					] as const) {
+						expect(
+							yield* outcome({
+								entityId,
+								action: "retry",
+								pluginId: contributor,
+								operation: "population",
+								idempotencyKey: "test-enrichment-key",
+							}),
+						).toEqual({ reason, outcome: "failure" });
+					}
+				}),
+			testTimeout,
 		);
 	});
 });

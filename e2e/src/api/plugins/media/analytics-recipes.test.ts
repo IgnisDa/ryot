@@ -349,7 +349,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 					}),
 				),
 			);
-			expect(movieRecords.items.map(({ id }) => id)).toEqual([
+			expect(movieRecords.items.map(({ id }) => id)).toEqual<unknown>([
 				sourceEventIds[3],
 				sourceEventIds[2],
 			]);

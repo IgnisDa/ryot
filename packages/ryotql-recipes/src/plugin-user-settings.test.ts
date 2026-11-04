@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { Result } from "effect";
-import { expect, it } from "vitest";
 
 import { pluginInstallationUserSettingsRecipe } from "./plugin-user-settings";
 import { requireRowsQuery, rowsResponse } from "./test-utils";
@@ -23,9 +24,9 @@ it("selects at most one active installation of the named plugin", () => {
 			fields: { limit: { label: "Limit", type: "integer", description: "Limit" } },
 		},
 	};
-	expect(Result.getOrThrow(recipe.decode(rowsResponse("installation", [row], pageInfo)))).toEqual(
-		row,
-	);
+	expect(
+		Result.getOrThrow(recipe.decode(rowsResponse("installation", [row], pageInfo))),
+	).toEqual<unknown>(row);
 	expect(
 		Result.getOrThrow(
 			recipe.decode(

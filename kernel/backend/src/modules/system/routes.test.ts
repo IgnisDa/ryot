@@ -1,4 +1,7 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Option } from "effect";
 
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
@@ -77,6 +80,7 @@ for (const oidc of [false, true]) {
 								s3 === "complete" ? "s3" : "local",
 							);
 						}),
+					testTimeout,
 				);
 			});
 		}

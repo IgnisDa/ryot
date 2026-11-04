@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { describe, expect, it } from "vitest";
 
 import { details, manifest, related } from "./shared";
 
@@ -48,7 +49,7 @@ describe("company.tmdb sandbox script", () => {
 						],
 					},
 				});
-				expect(result.relatedEntityGroups).toEqual([
+				expect(result.relatedEntityGroups).toEqual<unknown>([
 					{
 						direction: "outgoing",
 						synchronization: "additive",
@@ -107,7 +108,7 @@ describe("company.tmdb sandbox script", () => {
 					{ page: "1", company: "1", path: "/3/discover/movie" },
 					{ page: "1", company: "1", path: "/3/discover/tv" },
 				]);
-				expect(result.relatedEntityGroups).toEqual([
+				expect(result.relatedEntityGroups).toEqual<unknown>([
 					objectContaining({
 						relationshipSchemaSlug: "company-to-movie",
 						entities: [objectContaining({ externalId: "2" })],

@@ -1,10 +1,13 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	decodePluginCatalogInvalidatedMessage,
 	encodePluginCatalogInvalidatedMessage,
 } from "@ryot-app/contract/modules/plugins/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { derivedFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import {
 	Context,
 	Deferred,
@@ -36,69 +39,78 @@ import {
 const decode = (value: Uint8Array) => new TextDecoder().decode(value);
 
 layer(PluginCatalogHub.layer)((test) => {
-	test.effect("registers user-scoped queues and removes them with their scope", () =>
-		Effect.gen(function* () {
-			const hub = yield* PluginCatalogHub;
-			const firstUser = UserId.make("user-1");
-			const secondUser = UserId.make("user-2");
-			let released: undefined | Queue.Queue<Uint8Array>;
+	test.effect(
+		"registers user-scoped queues and removes them with their scope",
+		() =>
+			Effect.gen(function* () {
+				const hub = yield* PluginCatalogHub;
+				const firstUser = UserId.make("user-1");
+				const secondUser = UserId.make("user-2");
+				let released: undefined | Queue.Queue<Uint8Array>;
 
-			yield* Effect.scoped(
-				Effect.gen(function* () {
-					const first = yield* hub.subscribe(firstUser);
-					const second = yield* hub.subscribe(secondUser);
-					released = first;
-					expect(decode(yield* Queue.take(first))).toBe("event: connected\ndata:\n\n");
-					expect(decode(yield* Queue.take(second))).toBe("event: connected\ndata:\n\n");
+				yield* Effect.scoped(
+					Effect.gen(function* () {
+						const first = yield* hub.subscribe(firstUser);
+						const second = yield* hub.subscribe(secondUser);
+						released = first;
+						expect(decode(yield* Queue.take(first))).toBe("event: connected\ndata:\n\n");
+						expect(decode(yield* Queue.take(second))).toBe("event: connected\ndata:\n\n");
 
-					yield* hub.broadcast(firstUser);
-					expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
-					expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
+						yield* hub.broadcast(firstUser);
+						expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+						expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 
-					yield* hub.broadcastAll();
-					expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
-					expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
-				}),
-			);
+						yield* hub.broadcastAll();
+						expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+						expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
+					}),
+				);
 
-			expect(released).toBeDefined();
-			expect(released?.state._tag).toBe("Done");
-		}),
+				expect(released).toBeDefined();
+				expect(released?.state._tag).toBe("Done");
+			}),
+		testTimeout,
 	);
 });
 
 layer(PluginCatalogHub.layer)((test) => {
-	test.effect("emits a heartbeat after 25 seconds", () =>
-		Effect.gen(function* () {
-			const hub = yield* PluginCatalogHub;
-			const messages = yield* Queue.unbounded<string>();
-			const fiber = yield* hub.stream(UserId.make("user-1")).pipe(
-				Stream.runForEach((message) => Queue.offer(messages, decode(message))),
-				Effect.forkChild,
-			);
-			expect(yield* Queue.take(messages)).toBe("event: connected\ndata:\n\n");
-			yield* TestClock.adjust("25 seconds");
-			expect(yield* Queue.take(messages)).toBe(": ping\n\n");
-			yield* Fiber.interrupt(fiber);
-		}),
+	test.effect(
+		"emits a heartbeat after 25 seconds",
+		() =>
+			Effect.gen(function* () {
+				const hub = yield* PluginCatalogHub;
+				const messages = yield* Queue.unbounded<string>();
+				const fiber = yield* hub.stream(UserId.make("user-1")).pipe(
+					Stream.runForEach((message) => Queue.offer(messages, decode(message))),
+					Effect.forkChild,
+				);
+				expect(yield* Queue.take(messages)).toBe("event: connected\ndata:\n\n");
+				yield* TestClock.adjust("25 seconds");
+				expect(yield* Queue.take(messages)).toBe(": ping\n\n");
+				yield* Fiber.interrupt(fiber);
+			}),
+		testTimeout,
 	);
 });
 
 layer(PluginCatalogHub.layer)((test) => {
-	test.effect("streams a user invalidation after the initial connection", () =>
-		Effect.gen(function* () {
-			const hub = yield* PluginCatalogHub;
-			const userId = UserId.make("user-1");
-			const messages = yield* Queue.unbounded<string>();
-			const fiber = yield* hub.stream(userId).pipe(
-				Stream.runForEach((message) => Queue.offer(messages, decode(message))),
-				Effect.forkChild,
-			);
-			expect(yield* Queue.take(messages)).toBe("event: connected\ndata:\n\n");
-			yield* hub.broadcast(userId);
-			expect(yield* Queue.take(messages)).toBe("event: catalog-invalidated\ndata:\n\n");
-			yield* Fiber.interrupt(fiber);
-		}),
+	test.effect(
+		"streams a user invalidation after the initial connection",
+		() =>
+			Effect.gen(function* () {
+				const hub = yield* PluginCatalogHub;
+				const userId = UserId.make("user-1");
+				const messages = yield* Queue.unbounded<string>();
+				const fiber = yield* hub.stream(userId).pipe(
+					Stream.runForEach((message) => Queue.offer(messages, decode(message))),
+					Effect.forkChild,
+				);
+				expect(yield* Queue.take(messages)).toBe("event: connected\ndata:\n\n");
+				yield* hub.broadcast(userId);
+				expect(yield* Queue.take(messages)).toBe("event: catalog-invalidated\ndata:\n\n");
+				yield* Fiber.interrupt(fiber);
+			}),
+		testTimeout,
 	);
 });
 
@@ -147,31 +159,36 @@ layer(
 		Layer.provideMerge(isolatedDatabaseLayer("plugin_catalog_events")),
 	),
 )((test) => {
-	test.effect("recovers a committed invalidation after its request is interrupted", () =>
-		Effect.gen(function* () {
-			const invalidator = yield* PluginCatalogInvalidator;
-			const database = yield* DatabaseSession;
-			const recorded = yield* RecordedPublications;
-			const committed = yield* Deferred.make<void>();
-			const request = yield* database
-				.transaction(invalidator.recordAll)
-				.pipe(
-					Effect.andThen(Deferred.succeed(committed, undefined)),
-					Effect.andThen(Effect.never),
-					Effect.forkChild,
+	test.effect(
+		"recovers a committed invalidation after its request is interrupted",
+		() =>
+			Effect.gen(function* () {
+				const invalidator = yield* PluginCatalogInvalidator;
+				const database = yield* DatabaseSession;
+				const recorded = yield* RecordedPublications;
+				const committed = yield* Deferred.make<void>();
+				const request = yield* database
+					.transaction(invalidator.recordAll)
+					.pipe(
+						Effect.andThen(Deferred.succeed(committed, undefined)),
+						Effect.andThen(Effect.never),
+						Effect.forkChild,
+					);
+				yield* Deferred.await(committed);
+				yield* Fiber.interrupt(request);
+				expect(yield* recorded.published).toEqual([]);
+				expect(
+					yield* database.run((db) => db.select().from(schema.pluginCatalogChange)),
+				).toHaveLength(1);
+				yield* invalidator.deliverPending(100);
+				expect((yield* recorded.published).map(({ channel }) => channel)).toEqual([
+					redisKeys.pluginCatalogChannel,
+				]);
+				expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
+					[],
 				);
-			yield* Deferred.await(committed);
-			yield* Fiber.interrupt(request);
-			expect(yield* recorded.published).toEqual([]);
-			expect(
-				yield* database.run((db) => db.select().from(schema.pluginCatalogChange)),
-			).toHaveLength(1);
-			yield* invalidator.deliverPending(100);
-			expect((yield* recorded.published).map(({ channel }) => channel)).toEqual([
-				redisKeys.pluginCatalogChannel,
-			]);
-			expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual([]);
-		}),
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"publishes encoded user and global invalidations without surfacing Redis failures",
@@ -222,6 +239,7 @@ layer(
 					[],
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -252,73 +270,85 @@ layer(
 		Layer.provideMerge(Layer.mergeAll(PluginCatalogHub.layer, recoveringSubscriberLayer)),
 	),
 )((test) => {
-	test.effect("routes Redis invalidations by user and refreshes all streams after recovery", () =>
-		Effect.gen(function* () {
-			const hub = yield* PluginCatalogHub;
-			const subscriber = yield* PluginInvalidationSubscriber;
-			const subscriptions = yield* RedisSubscriptions;
-			const firstUser = UserId.make("user-1");
-			const secondUser = UserId.make("user-2");
+	test.effect(
+		"routes Redis invalidations by user and refreshes all streams after recovery",
+		() =>
+			Effect.gen(function* () {
+				const hub = yield* PluginCatalogHub;
+				const subscriber = yield* PluginInvalidationSubscriber;
+				const subscriptions = yield* RedisSubscriptions;
+				const firstUser = UserId.make("user-1");
+				const secondUser = UserId.make("user-2");
 
-			yield* Effect.scoped(
-				Effect.gen(function* () {
-					const first = yield* hub.subscribe(firstUser);
-					const second = yield* hub.subscribe(secondUser);
-					yield* Queue.take(first);
-					yield* Queue.take(second);
+				yield* Effect.scoped(
+					Effect.gen(function* () {
+						const first = yield* hub.subscribe(firstUser);
+						const second = yield* hub.subscribe(secondUser);
+						yield* Queue.take(first);
+						yield* Queue.take(second);
 
-					yield* subscriber.dispatch(
-						redisKeys.pluginCatalogUserChannel,
-						yield* Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId: firstUser })),
-					);
-					expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
-					expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
+						yield* subscriber.dispatch(
+							redisKeys.pluginCatalogUserChannel,
+							yield* Effect.fromResult(
+								encodePluginCatalogInvalidatedMessage({ userId: firstUser }),
+							),
+						);
+						expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+						expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 
-					yield* subscriber.dispatch(redisKeys.pluginCatalogUserChannel, "malformed");
-					expect(Option.isNone(yield* Queue.poll(first))).toBe(true);
-					expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
+						yield* subscriber.dispatch(redisKeys.pluginCatalogUserChannel, "malformed");
+						expect(Option.isNone(yield* Queue.poll(first))).toBe(true);
+						expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 
-					yield* subscriber.dispatch(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated");
-					expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
-					expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
+						yield* subscriber.dispatch(
+							redisKeys.pluginCatalogChannel,
+							"plugin-catalog-invalidated",
+						);
+						expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+						expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
 
-					yield* subscriber.recover;
-					expect(yield* subscriptions).toBe(2);
-					expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
-					expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
-				}),
-			);
-		}),
+						yield* subscriber.recover;
+						expect(yield* subscriptions).toBe(2);
+						expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
+						expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
-it.effect("fails subscriber layer acquisition when the initial Redis subscription fails", () => {
-	let quitCalls = 0;
-	let removeListenerCalls = 0;
-	const redisSubscriber = derivedFake(Redis.prototype, {
-		on: () => redisSubscriber,
-		subscribe: () => Promise.reject(new Error("redis unavailable")),
-		quit: () => {
-			quitCalls += 1;
-			return Promise.resolve("OK");
-		},
-		removeAllListeners: () => {
-			removeListenerCalls += 1;
-			return redisSubscriber;
-		},
-	});
-	const client = derivedFake(Redis.prototype, { duplicate: () => redisSubscriber });
-	const dependencies = Layer.mergeAll(
-		PluginCatalogHub.layer,
-		Layer.succeed(RedisService, makeRedisService({ client })),
-	);
-
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(
-			Layer.build(Layer.provideMerge(PluginInvalidationSubscriber.layer, dependencies)),
+it.effect(
+	"fails subscriber layer acquisition when the initial Redis subscription fails",
+	() => {
+		let quitCalls = 0;
+		let removeListenerCalls = 0;
+		const redisSubscriber = derivedFake(Redis.prototype, {
+			on: () => redisSubscriber,
+			subscribe: () => Promise.reject(new Error("redis unavailable")),
+			quit: () => {
+				quitCalls += 1;
+				return Promise.resolve("OK");
+			},
+			removeAllListeners: () => {
+				removeListenerCalls += 1;
+				return redisSubscriber;
+			},
+		});
+		const client = derivedFake(Redis.prototype, { duplicate: () => redisSubscriber });
+		const dependencies = Layer.mergeAll(
+			PluginCatalogHub.layer,
+			Layer.succeed(RedisService, makeRedisService({ client })),
 		);
-		expect(exit._tag).toBe("Failure");
-		expect(removeListenerCalls).toBe(1);
-		expect(quitCalls).toBe(1);
-	});
-});
+
+		return Effect.gen(function* () {
+			const exit = yield* Effect.exit(
+				Layer.build(Layer.provideMerge(PluginInvalidationSubscriber.layer, dependencies)),
+			);
+			expect(exit._tag).toBe("Failure");
+			expect(removeListenerCalls).toBe(1);
+			expect(quitCalls).toBe(1);
+		});
+	},
+	testTimeout,
+);

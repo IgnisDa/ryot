@@ -1,9 +1,10 @@
+import { expect, it } from "bun:test";
+
 import type { Filter, FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, join, jsonPath, rows, table } from "@ryot-app/ryotql";
 import { entityBrowserRecipe, resultsTableRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { DateTime, Result } from "effect";
-import { expect, it } from "vitest";
 
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 

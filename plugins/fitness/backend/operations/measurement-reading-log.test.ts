@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { EventId } from "@ryot-app/contract/schema/brands";
 import type {
 	CreateEventItem,
@@ -6,6 +7,8 @@ import type {
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import logDefinition, { manifest } from "./measurement-reading-log.sandbox";
@@ -38,27 +41,30 @@ const recordingHost = (
 	});
 
 describe("measurement reading log operation", () => {
-	it.live("does not report completion when a policy skips a reading", () =>
-		Effect.gen(function* () {
-			const host = defineSandboxTestHost(manifest, {
-				executeRyotql: executeMeasurementRyotql,
-				createEvents: () => Effect.succeed({ count: 0, outcomes: [] }),
-				createUserEntity: () => Effect.succeed({ entityId: "entry-test" }),
-			});
-			expect(
-				yield* runSandboxTestScript(
-					logDefinition,
-					{
-						occurredAt,
-						submittedAt: occurredAt,
-						submissionId: "skipped",
-						values: [{ value: 0, metricId: "weight" }],
-					},
-					host,
-					execution,
-				),
-			).toEqual({ count: 0, status: "incomplete" });
-		}),
+	it.live(
+		"does not report completion when a policy skips a reading",
+		() =>
+			Effect.gen(function* () {
+				const host = defineSandboxTestHost(manifest, {
+					executeRyotql: executeMeasurementRyotql,
+					createEvents: () => Effect.succeed({ count: 0, outcomes: [] }),
+					createUserEntity: () => Effect.succeed({ entityId: "entry-test" }),
+				});
+				expect(
+					yield* runSandboxTestScript(
+						logDefinition,
+						{
+							occurredAt,
+							submittedAt: occurredAt,
+							submissionId: "skipped",
+							values: [{ value: 0, metricId: "weight" }],
+						},
+						host,
+						execution,
+					),
+				).toEqual({ count: 0, status: "incomplete" });
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -130,132 +136,142 @@ describe("measurement reading log operation", () => {
 					})),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("records every value, including zero, at one time with the shared comment", () =>
-		Effect.gen(function* () {
-			const creates: (readonly CreateEventItem[])[] = [];
-			const createOptions: (undefined | CreateEventOptions)[] = [];
+	it.live(
+		"records every value, including zero, at one time with the shared comment",
+		() =>
+			Effect.gen(function* () {
+				const creates: (readonly CreateEventItem[])[] = [];
+				const createOptions: (undefined | CreateEventOptions)[] = [];
 
-			expect(
+				expect(
+					yield* runSandboxTestScript(
+						logDefinition,
+						{
+							occurredAt,
+							comment: " After run ",
+							submittedAt: occurredAt,
+							submissionId: "submission-test",
+							values: [
+								{ value: 72.4, metricId: "weight" },
+								{ value: 0, metricId: "waist" },
+							],
+						},
+						recordingHost(creates, createOptions),
+						execution,
+					),
+				).toEqual({ count: 2, status: "saved" });
+				expect(creates).toEqual([
+					[
+						{
+							occurredAt,
+							entityId: "weight",
+							properties: { value: 72.4 },
+							sessionEntityId: "entry-test",
+							eventSchemaSlug: "measurement-reading",
+						},
+						{
+							occurredAt,
+							entityId: "waist",
+							properties: { value: 0 },
+							sessionEntityId: "entry-test",
+							eventSchemaSlug: "measurement-reading",
+						},
+					],
+				]);
+				expect(createOptions).toEqual([
+					{ submittedAt: occurredAt, idempotencyKey: "submission-test" },
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"omits a blank comment",
+		() =>
+			Effect.gen(function* () {
+				const creates: (readonly CreateEventItem[])[] = [];
+				const createOptions: (undefined | CreateEventOptions)[] = [];
+
 				yield* runSandboxTestScript(
 					logDefinition,
 					{
 						occurredAt,
-						comment: " After run ",
+						comment: "  ",
 						submittedAt: occurredAt,
 						submissionId: "submission-test",
-						values: [
-							{ value: 72.4, metricId: "weight" },
-							{ value: 0, metricId: "waist" },
-						],
+						values: [{ value: 70, metricId: "weight" }],
 					},
 					recordingHost(creates, createOptions),
 					execution,
-				),
-			).toEqual({ count: 2, status: "saved" });
-			expect(creates).toEqual([
-				[
-					{
-						occurredAt,
-						entityId: "weight",
-						properties: { value: 72.4 },
-						sessionEntityId: "entry-test",
-						eventSchemaSlug: "measurement-reading",
-					},
-					{
-						occurredAt,
-						entityId: "waist",
-						properties: { value: 0 },
-						sessionEntityId: "entry-test",
-						eventSchemaSlug: "measurement-reading",
-					},
-				],
-			]);
-			expect(createOptions).toEqual([
-				{ submittedAt: occurredAt, idempotencyKey: "submission-test" },
-			]);
-		}),
-	);
-
-	it.live("omits a blank comment", () =>
-		Effect.gen(function* () {
-			const creates: (readonly CreateEventItem[])[] = [];
-			const createOptions: (undefined | CreateEventOptions)[] = [];
-
-			yield* runSandboxTestScript(
-				logDefinition,
-				{
-					occurredAt,
-					comment: "  ",
-					submittedAt: occurredAt,
-					submissionId: "submission-test",
-					values: [{ value: 70, metricId: "weight" }],
-				},
-				recordingHost(creates, createOptions),
-				execution,
-			);
-			expect(creates[0]?.[0]?.properties).toEqual({ value: 70 });
-			expect(createOptions).toEqual([
-				{ submittedAt: occurredAt, idempotencyKey: "submission-test" },
-			]);
-		}),
-	);
-
-	it.live("rejects metrics that are not the caller's measurement metrics without writing", () =>
-		Effect.gen(function* () {
-			const creates: (readonly CreateEventItem[])[] = [];
-			const createOptions: (undefined | CreateEventOptions)[] = [];
-			const host = recordingHost(creates, createOptions);
-
-			for (const metricId of ["missing", "exercise-1"]) {
-				const failure = yield* Effect.flip(
-					runSandboxTestScript(
-						logDefinition,
-						{
-							occurredAt,
-							submittedAt: occurredAt,
-							submissionId: "submission-test",
-							values: [
-								{ value: 70, metricId: "weight" },
-								{ metricId, value: 1 },
-							],
-						},
-						host,
-						execution,
-					),
 				);
-				expect(failure).toBeInstanceOf(MeasurementMetricNotFoundError);
-			}
-			for (const input of [
-				{ occurredAt, values: [], submittedAt: occurredAt, submissionId: "submission-test" },
-				{
-					occurredAt: "yesterday",
-					submittedAt: occurredAt,
-					submissionId: "submission-test",
-					values: [{ value: 70, metricId: "weight" }],
-				},
-				{
-					occurredAt,
-					submittedAt: occurredAt,
-					submissionId: "submission-test",
-					values: [{ value: Number.NaN, metricId: "weight" }],
-				},
-				{
-					occurredAt,
-					submittedAt: occurredAt,
-					submissionId: "submission-test",
-					values: [
-						{ value: 70, metricId: "weight" },
-						{ value: 71, metricId: "weight" },
-					],
-				},
-			]) {
-				yield* Effect.flip(runSandboxTestScript(logDefinition, input, host, execution));
-			}
+				expect(creates[0]?.[0]?.properties).toEqual({ value: 70 });
+				expect(createOptions).toEqual([
+					{ submittedAt: occurredAt, idempotencyKey: "submission-test" },
+				]);
+			}),
+		testTimeout,
+	);
 
-			expect(creates).toEqual([]);
-			expect(createOptions).toEqual([]);
-		}),
+	it.live(
+		"rejects metrics that are not the caller's measurement metrics without writing",
+		() =>
+			Effect.gen(function* () {
+				const creates: (readonly CreateEventItem[])[] = [];
+				const createOptions: (undefined | CreateEventOptions)[] = [];
+				const host = recordingHost(creates, createOptions);
+
+				for (const metricId of ["missing", "exercise-1"]) {
+					const failure = yield* Effect.flip(
+						runSandboxTestScript(
+							logDefinition,
+							{
+								occurredAt,
+								submittedAt: occurredAt,
+								submissionId: "submission-test",
+								values: [
+									{ value: 70, metricId: "weight" },
+									{ metricId, value: 1 },
+								],
+							},
+							host,
+							execution,
+						),
+					);
+					expect(failure).toBeInstanceOf(MeasurementMetricNotFoundError);
+				}
+				for (const input of [
+					{ occurredAt, values: [], submittedAt: occurredAt, submissionId: "submission-test" },
+					{
+						occurredAt: "yesterday",
+						submittedAt: occurredAt,
+						submissionId: "submission-test",
+						values: [{ value: 70, metricId: "weight" }],
+					},
+					{
+						occurredAt,
+						submittedAt: occurredAt,
+						submissionId: "submission-test",
+						values: [{ value: Number.NaN, metricId: "weight" }],
+					},
+					{
+						occurredAt,
+						submittedAt: occurredAt,
+						submissionId: "submission-test",
+						values: [
+							{ value: 70, metricId: "weight" },
+							{ value: 71, metricId: "weight" },
+						],
+					},
+				]) {
+					yield* Effect.flip(runSandboxTestScript(logDefinition, input, host, execution));
+				}
+
+				expect(creates).toEqual([]);
+				expect(createOptions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
-import { assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import {
 	decodeEpisodicActivity,

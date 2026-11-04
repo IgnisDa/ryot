@@ -1,6 +1,10 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
@@ -97,6 +101,7 @@ layer(
 					(yield* ingestion.recoverable({ after: null, before: "2030-01-01T00:00:00.000Z" })).runs,
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"keyset recovery crosses an unreleasable first page and excludes owners after the cutoff",
@@ -209,84 +214,88 @@ layer(
 				}
 				const first = yield* ingestion.recoverable({ before, after: null });
 				expect(first.runs.map((owner) => owner.runId)).toEqual(sorted.slice(0, 100));
-				expect(first.next).toEqual({ id: sorted[99], createdAt: before });
+				expect(first.next).toEqual<unknown>({ id: sorted[99], createdAt: before });
 				const second = yield* ingestion.recoverable({ before, after: first.next });
 				expect(second.runs.map((owner) => owner.runId)).toEqual(sorted.slice(100));
 				expect(second.next).toBeNull();
 				expect(second.runs.map((owner) => owner.runId)).not.toContain(owners[107]);
 			}),
+		testTimeout,
 	);
-	test.effect("keyset recovery pages runs whose creation times were written by the database", () =>
-		Effect.gen(function* () {
-			const database = yield* DatabaseSession;
-			const repository = yield* ImportsRepository;
-			const userId = UserId.make("database-time-user");
-			const integrationId = IntegrationId.make("database-time-integration");
-			const before = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-03T11:30:00.000Z"));
-			yield* database.run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id: userId,
-						name: "Database time",
-						accountGeneration: "generation",
-						email: "database-time@example.test",
-					}),
-			);
-			yield* database.run((db) =>
-				db
-					.insert(tables.integration)
-					.values({
-						userId,
-						lot: "sink",
-						id: integrationId,
-						provider: "data-json",
-						providerSpecifics: {},
-						clientProviderSpecifics: {},
-						webhookToken: "database-time-token",
-						extraSettings: { disableOnContinuousErrors: false },
-					}),
-			);
-			const runIds = [];
-			for (const fraction of ["000100", "000200", "000300", "001100", "002200"]) {
-				const id = yield* database.transaction(
-					repository.createBlockedRun({
-						userId,
-						integrationId,
-						inputSummary: {},
-						acceptedAt: before,
-						source: "data-json",
-						pluginInstallationId: null,
-						accountGeneration: { userId, token: "generation" },
-						blockReasons: [{ key: "endpoint", code: "configuration-required" }],
-					}),
+	test.effect(
+		"keyset recovery pages runs whose creation times were written by the database",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const repository = yield* ImportsRepository;
+				const userId = UserId.make("database-time-user");
+				const integrationId = IntegrationId.make("database-time-integration");
+				const before = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-03T11:30:00.000Z"));
+				yield* database.run((db) =>
+					db
+						.insert(tables.user)
+						.values({
+							id: userId,
+							name: "Database time",
+							accountGeneration: "generation",
+							email: "database-time@example.test",
+						}),
 				);
 				yield* database.run((db) =>
-					db.execute(
-						sql`update import_run set created_at = ${`2026-10-03T11:00:00.${fraction}Z`}::timestamptz, block_deadline = ${`2026-10-03T11:00:00.${fraction}Z`}::timestamptz + interval '168 hours' where id = ${id}`,
-					),
+					db
+						.insert(tables.integration)
+						.values({
+							userId,
+							lot: "sink",
+							id: integrationId,
+							provider: "data-json",
+							providerSpecifics: {},
+							clientProviderSpecifics: {},
+							webhookToken: "database-time-token",
+							extraSettings: { disableOnContinuousErrors: false },
+						}),
 				);
-				runIds.push(id);
-			}
-			const page = (after: null | IngestionRecoveryCursor) =>
-				repository.listIntegrationRecoveryRuns({ after, before, limit: 1 });
-			const paged = [];
-			let after: null | IngestionRecoveryCursor = null;
-			for (let attempt = 0; attempt < 5; attempt++) {
-				const rows: ReadonlyArray<{ run: typeof tables.importRun.$inferSelect }> =
-					yield* page(after);
-				const last = rows.at(-1)?.run;
-				if (!last) {
-					break;
+				const runIds = [];
+				for (const fraction of ["000100", "000200", "000300", "001100", "002200"]) {
+					const id = yield* database.transaction(
+						repository.createBlockedRun({
+							userId,
+							integrationId,
+							inputSummary: {},
+							acceptedAt: before,
+							source: "data-json",
+							pluginInstallationId: null,
+							accountGeneration: { userId, token: "generation" },
+							blockReasons: [{ key: "endpoint", code: "configuration-required" }],
+						}),
+					);
+					yield* database.run((db) =>
+						db.execute(
+							sql`update import_run set created_at = ${`2026-10-03T11:00:00.${fraction}Z`}::timestamptz, block_deadline = ${`2026-10-03T11:00:00.${fraction}Z`}::timestamptz + interval '168 hours' where id = ${id}`,
+						),
+					);
+					runIds.push(id);
 				}
-				paged.push(last.id);
-				after = {
-					id: ImportRunId.make(last.id),
-					createdAt: IsoUtcString.make(last.createdAt.toISOString()),
-				};
-			}
-			expect(paged).toEqual([...runIds.slice(0, 3).sort(), ...runIds.slice(3)]);
-		}),
+				const page = (after: null | IngestionRecoveryCursor) =>
+					repository.listIntegrationRecoveryRuns({ after, before, limit: 1 });
+				const paged = [];
+				let after: null | IngestionRecoveryCursor = null;
+				for (let attempt = 0; attempt < 5; attempt++) {
+					const rows: ReadonlyArray<{ run: typeof tables.importRun.$inferSelect }> =
+						yield* page(after);
+					const last = rows.at(-1)?.run;
+					if (!last) {
+						break;
+					}
+					paged.push(last.id);
+					after = {
+						id: ImportRunId.make(last.id),
+						createdAt: IsoUtcString.make(last.createdAt.toISOString()),
+					};
+				}
+				expect(paged).toEqual([...runIds.slice(0, 3).sort(), ...runIds.slice(3)]);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"captures a database-clock cutoff after committed database-timestamped admission",
@@ -345,5 +354,6 @@ layer(
 				} while (after);
 				expect(recovered).toContain(owner.id);
 			}),
+		testTimeout,
 	);
 });

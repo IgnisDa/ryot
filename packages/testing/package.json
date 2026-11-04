@@ -3,13 +3,17 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		"./vitest.shared": {
-			"types": "./src/vitest.shared.ts",
-			"default": "./src/vitest.shared.ts"
+		"./test-timeout": {
+			"types": "./src/test-timeout.ts",
+			"default": "./src/test-timeout.ts"
 		},
-		"./vitest.client": {
-			"types": "./src/vitest.client.ts",
-			"default": "./src/vitest.client.ts"
+		"./assert": {
+			"types": "./src/assert.ts",
+			"default": "./src/assert.ts"
+		},
+		"./runner": {
+			"types": "./src/runner.ts",
+			"default": "./src/runner.ts"
 		},
 		"./postgres-container": {
 			"types": "./src/postgres-container.ts",
@@ -18,10 +22,6 @@
 		"./redis-container": {
 			"types": "./src/redis-container.ts",
 			"default": "./src/redis-container.ts"
-		},
-		"./jsdom-blob-clone": {
-			"types": "./src/jsdom-blob-clone.ts",
-			"default": "./src/jsdom-blob-clone.ts"
 		},
 		"./effect-assertions": {
 			"types": "./src/effect-assertions.ts",
@@ -45,14 +45,18 @@
 		}
 	},
 	"scripts": {
+		"test": "bun test --isolate",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.1.0",
+		"@testing-library/react": "16.3.3",
+		"@types/jsdom": "30.0.0",
 		"effect": "4.1.0",
-		"vitest": "4.1.9"
+		"jsdom": "30.0.1"
 	},
 	"devDependencies": {
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"@testcontainers/postgresql": "11.14.0",
 		"bun-types": "1.4.4",
 		"testcontainers": "11.14.0"

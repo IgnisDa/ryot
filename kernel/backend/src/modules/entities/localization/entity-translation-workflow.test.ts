@@ -1,5 +1,9 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -90,21 +94,24 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("upserts the translation overlay and publishes an update on success", () =>
-		Effect.gen(function* () {
-			yield* runTranslateEntityAttemptWorkflow(payload, payload.executionId);
+	test.effect(
+		"upserts the translation overlay and publishes an update on success",
+		() =>
+			Effect.gen(function* () {
+				yield* runTranslateEntityAttemptWorkflow(payload, payload.executionId);
 
-			const effects = yield* FakeTranslationEffects;
-			const [upsertedInput] = yield* effects.upserts;
-			expect(upsertedInput).toMatchObject({
-				language: "es",
-				entityId: "entity-1",
-				name: "Libro de Prueba",
-				properties: { title: "Libro de Prueba" },
-			});
-			expect(yield* effects.published).toHaveLength(1);
-			expect(yield* effects.released).toEqual([]);
-		}),
+				const effects = yield* FakeTranslationEffects;
+				const [upsertedInput] = yield* effects.upserts;
+				expect(upsertedInput).toMatchObject({
+					language: "es",
+					entityId: "entity-1",
+					name: "Libro de Prueba",
+					properties: { title: "Libro de Prueba" },
+				});
+				expect(yield* effects.published).toHaveLength(1);
+				expect(yield* effects.released).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -125,19 +132,22 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("fails with the sandbox's reported error", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runTranslateEntityAttemptWorkflow(payload, payload.executionId),
-			);
+	test.effect(
+		"fails with the sandbox's reported error",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					runTranslateEntityAttemptWorkflow(payload, payload.executionId),
+				);
 
-			assert(Exit.isFailure(exit));
-			const failure = Cause.findErrorOption(exit.cause);
-			assert(Option.isSome(failure));
-			assert(failure.value instanceof Error);
-			expect(failure.value.message).toBe("Translate script execution failed");
-			expect(yield* (yield* FakeTranslationEffects).released).toEqual([]);
-		}),
+				assert(Exit.isFailure(exit));
+				const failure = Cause.findErrorOption(exit.cause);
+				assert(Option.isSome(failure));
+				assert(failure.value instanceof Error);
+				expect(failure.value.message).toBe("Translate script execution failed");
+				expect(yield* (yield* FakeTranslationEffects).released).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -149,18 +159,21 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("fails when the sandbox result does not decode as a translate result", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runTranslateEntityAttemptWorkflow(payload, payload.executionId),
-			);
+	test.effect(
+		"fails when the sandbox result does not decode as a translate result",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					runTranslateEntityAttemptWorkflow(payload, payload.executionId),
+				);
 
-			assert(Exit.isFailure(exit));
-			const failure = Cause.findErrorOption(exit.cause);
-			assert(Option.isSome(failure));
-			assert(failure.value instanceof Error);
-			expect(failure.value.message).toContain("Invalid translate result");
-		}),
+				assert(Exit.isFailure(exit));
+				const failure = Cause.findErrorOption(exit.cause);
+				assert(Option.isSome(failure));
+				assert(failure.value instanceof Error);
+				expect(failure.value.message).toContain("Invalid translate result");
+			}),
+		testTimeout,
 	);
 });
 
@@ -172,12 +185,15 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("writes a successful empty negative cache with its captured content generation", () =>
-		Effect.gen(function* () {
-			yield* runTranslateEntityAttemptWorkflow(payload, payload.executionId);
-			expect(yield* (yield* FakeTranslationEffects).upserts).toMatchObject([
-				{ name: null, properties: null, sourceContentGeneration: 1 },
-			]);
-		}),
+	test.effect(
+		"writes a successful empty negative cache with its captured content generation",
+		() =>
+			Effect.gen(function* () {
+				yield* runTranslateEntityAttemptWorkflow(payload, payload.executionId);
+				expect(yield* (yield* FakeTranslationEffects).upserts).toMatchObject([
+					{ name: null, properties: null, sourceContentGeneration: 1 },
+				]);
+			}),
+		testTimeout,
 	);
 });

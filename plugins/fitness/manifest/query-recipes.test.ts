@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import {
 	exerciseListRecipe,
@@ -27,7 +28,7 @@ describe("fitness query recipes", () => {
 			throw new Error("Expected exercise rows query");
 		}
 
-		expect(exercises.where).toEqual(
+		expect(exercises.where).toEqual<unknown>(
 			objectContaining({
 				predicates: arrayContaining([
 					objectContaining({
@@ -80,7 +81,7 @@ describe("fitness query recipes", () => {
 				},
 			],
 		});
-		expect(exercises.output).toEqual(
+		expect(exercises.output).toEqual<unknown>(
 			objectContaining({
 				orderBy: [objectContaining({ direction: "asc" })],
 				pagination: { limit: 5, after: "exercise-cursor" },
@@ -148,7 +149,7 @@ describe("fitness query recipes", () => {
 			throw new Error("Expected workout detail rows queries");
 		}
 
-		expect(workout.output).toEqual(
+		expect(workout.output).toEqual<unknown>(
 			objectContaining({
 				fields: arrayContaining([
 					objectContaining({
@@ -191,7 +192,7 @@ describe("fitness query recipes", () => {
 				]),
 			}),
 		);
-		expect(workoutTemplate.output).toEqual(
+		expect(workoutTemplate.output).toEqual<unknown>(
 			objectContaining({
 				include: arrayContaining([
 					objectContaining({
@@ -259,7 +260,7 @@ describe("fitness query recipes", () => {
 		}
 
 		expect(targetRows.output).toMatchObject({ pagination: { limit: 4, after: "target-cursor" } });
-		expect(targetRows.where).toEqual(
+		expect(targetRows.where).toEqual<unknown>(
 			objectContaining({
 				predicates: arrayContaining([
 					objectContaining({
@@ -278,28 +279,32 @@ describe("fitness query recipes", () => {
 			"kind",
 			"userId",
 		]);
-		expect(equipmentRows.where).toMatchObject({
-			predicates: [
-				objectContaining({
-					predicates: [
-						objectContaining({ right: { type: "literal", value: "exercise-equipment" } }),
-						objectContaining({ right: { type: "pluginId", reference: { kind: "self" } } }),
-					],
-				}),
-			],
-		});
-		expect(targetRelationships.output).toMatchObject({
-			pagination: { limit: 3, after: "relationship-cursor" },
-			orderBy: [objectContaining({ direction: "asc" }), objectContaining({ direction: "asc" })],
-			fields: arrayContaining([
-				objectContaining({ key: "relationshipId" }),
-				objectContaining({ key: "id" }),
-				objectContaining({ key: "userId" }),
-				objectContaining({ key: "kind" }),
-				objectContaining({ key: "role" }),
-			]),
-		});
-		expect(targetRelationships.where).toEqual(
+		expect(equipmentRows.where).toEqual<unknown>(
+			objectContaining({
+				predicates: [
+					objectContaining({
+						predicates: [
+							objectContaining({ right: { type: "literal", value: "exercise-equipment" } }),
+							objectContaining({ right: { type: "pluginId", reference: { kind: "self" } } }),
+						],
+					}),
+				],
+			}),
+		);
+		expect(targetRelationships.output).toEqual<unknown>(
+			objectContaining({
+				pagination: objectContaining({ limit: 3, after: "relationship-cursor" }),
+				orderBy: [objectContaining({ direction: "asc" }), objectContaining({ direction: "asc" })],
+				fields: arrayContaining([
+					objectContaining({ key: "relationshipId" }),
+					objectContaining({ key: "id" }),
+					objectContaining({ key: "userId" }),
+					objectContaining({ key: "kind" }),
+					objectContaining({ key: "role" }),
+				]),
+			}),
+		);
+		expect(targetRelationships.where).toEqual<unknown>(
 			objectContaining({
 				predicates: arrayContaining([
 					objectContaining({ right: { type: "literal", value: "exercise-1" } }),
@@ -308,7 +313,7 @@ describe("fitness query recipes", () => {
 				]),
 			}),
 		);
-		expect(equipmentRelationships.where).toEqual(
+		expect(equipmentRelationships.where).toEqual<unknown>(
 			objectContaining({
 				predicates: arrayContaining([
 					objectContaining({ right: { type: "literal", value: "exercise-uses-equipment" } }),

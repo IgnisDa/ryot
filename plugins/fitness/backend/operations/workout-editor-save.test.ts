@@ -1,9 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { assert, describe, expect, it } from "vitest";
 
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
 import {
@@ -264,29 +266,31 @@ describe("workout editor save", () => {
 					host,
 				);
 				expect(result.kind).toBe("saved");
-				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: {
-						baselines: [{ entityId, revision: 7 }],
-						changes: arrayContaining([
-							{
-								kind: "update",
-								itemIdentity: "occurrence-update:occurrence-0",
-								item: {
-									eventId: "occurrence-0",
-									patch: { properties: { remove: [], set: { exerciseOrder: 1 } } },
-									expected: objectContaining({
-										properties: {
-											exerciseOrder: 0,
-											equipment: ["barbell"],
-											exerciseKind: "reps_and_weight",
-											targets: [{ role: "primary", entityId: "chest" }],
-										},
-									}),
+				expect(calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+					objectContaining({
+						events: objectContaining({
+							baselines: [objectContaining({ entityId, revision: 7 })],
+							changes: arrayContaining([
+								{
+									kind: "update",
+									itemIdentity: "occurrence-update:occurrence-0",
+									item: {
+										eventId: "occurrence-0",
+										patch: { properties: { remove: [], set: { exerciseOrder: 1 } } },
+										expected: objectContaining({
+											properties: {
+												exerciseOrder: 0,
+												equipment: ["barbell"],
+												exerciseKind: "reps_and_weight",
+												targets: [{ role: "primary", entityId: "chest" }],
+											},
+										}),
+									},
 								},
-							},
-						]),
-					},
-				});
+							]),
+						}),
+					}),
+				);
 			}),
 		));
 	it("swaps repeated exercises with distinct snapshots without rebinding retained sets", () =>
@@ -349,35 +353,37 @@ describe("workout editor save", () => {
 					events: { creates: [], baselines: [{ entityId, revision: 7 }] },
 				});
 				for (const [oldOrder, eventId] of [original.id, second.id].entries()) {
-					expect(command).toMatchObject({
-						events: {
-							changes: arrayContaining([
-								{
-									kind: "update",
-									itemIdentity: `occurrence-update:anchor-${oldOrder}`,
-									item: {
-										eventId: `anchor-${oldOrder}`,
-										patch: { properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } } },
-										expected: objectContaining({
-											sessionEntityId: entityId,
-											properties: occurrences[oldOrder]?.properties,
-										}),
+					expect(command).toEqual<unknown>(
+						objectContaining({
+							events: objectContaining({
+								changes: arrayContaining([
+									{
+										kind: "update",
+										itemIdentity: `occurrence-update:anchor-${oldOrder}`,
+										item: {
+											eventId: `anchor-${oldOrder}`,
+											patch: { properties: { remove: [], set: { exerciseOrder: 1 - oldOrder } } },
+											expected: objectContaining({
+												sessionEntityId: entityId,
+												properties: occurrences[oldOrder]?.properties,
+											}),
+										},
 									},
-								},
-								objectContaining({
-									kind: "update",
-									item: objectContaining({
-										eventId,
-										patch: objectContaining({
-											properties: objectContaining({
-												set: objectContaining({ exerciseOrder: 1 - oldOrder }),
+									objectContaining({
+										kind: "update",
+										item: objectContaining({
+											eventId,
+											patch: objectContaining({
+												properties: objectContaining({
+													set: objectContaining({ exerciseOrder: 1 - oldOrder }),
+												}),
 											}),
 										}),
 									}),
-								}),
-							]),
-						},
-					});
+								]),
+							}),
+						}),
+					);
 				}
 			}),
 		));
@@ -411,20 +417,25 @@ describe("workout editor save", () => {
 						host,
 					),
 				).toMatchObject({ kind: "saved" });
-				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: {
-						baselines: [{ entityId, revision: 7 }],
-						changes: [objectContaining({ kind: "delete", eventId: original.id })],
-						creates: [
-							{
-								session: { kind: "root" },
-								eventSchemaSlug: "workout-set",
-								itemIdentity: "set:replacement",
-								properties: { exerciseOrder: 0, exerciseKind: "reps_and_weight" },
-							},
-						],
-					},
-				});
+				expect(calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+					objectContaining({
+						events: objectContaining({
+							baselines: [objectContaining({ entityId, revision: 7 })],
+							changes: [objectContaining({ kind: "delete", eventId: original.id })],
+							creates: [
+								objectContaining({
+									eventSchemaSlug: "workout-set",
+									itemIdentity: "set:replacement",
+									session: objectContaining({ kind: "root" }),
+									properties: objectContaining({
+										exerciseOrder: 0,
+										exerciseKind: "reps_and_weight",
+									}),
+								}),
+							],
+						}),
+					}),
+				);
 			}),
 		));
 
@@ -503,13 +514,15 @@ describe("workout editor save", () => {
 					host,
 				);
 				expect(result).toMatchObject({ kind: "saved" });
-				expect(calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: {
-						creates: arrayContaining([
-							objectContaining({ occurredAt: setTime, itemIdentity: "set:client-set-1" }),
-						]),
-					},
-				});
+				expect(calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+					objectContaining({
+						events: objectContaining({
+							creates: arrayContaining([
+								objectContaining({ occurredAt: setTime, itemIdentity: "set:client-set-1" }),
+							]),
+						}),
+					}),
+				);
 			}),
 		));
 	it("verifies both media kinds attached to workout occurrences", () =>
@@ -634,19 +647,23 @@ describe("workout editor save", () => {
 				expect(yield* definition.run({ ...source, data }, allowed.host)).toMatchObject({
 					kind: "saved",
 				});
-				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toMatchObject({
-					events: {
-						changes: [
-							{
-								kind: "update",
-								item: {
-									eventId: "set-1",
-									patch: { properties: { remove: arrayContaining(["note"]) } },
-								},
-							},
-						],
-					},
-				});
+				expect(allowed.calls.find(({ method }) => method === "commit")?.args[0]).toEqual<unknown>(
+					objectContaining({
+						events: objectContaining({
+							changes: [
+								objectContaining({
+									kind: "update",
+									item: objectContaining({
+										eventId: "set-1",
+										patch: objectContaining({
+											properties: objectContaining({ remove: arrayContaining(["note"]) }),
+										}),
+									}),
+								}),
+							],
+						}),
+					}),
+				);
 				const removedSet = harness({ baseline });
 				const removalData = {
 					...data,

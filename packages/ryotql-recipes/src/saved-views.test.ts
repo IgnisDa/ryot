@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import {
@@ -20,7 +22,6 @@ import {
 } from "@ryot-app/ryotql";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	entityBrowserCountRecipe,

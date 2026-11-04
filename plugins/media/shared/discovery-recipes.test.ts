@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
@@ -5,7 +7,6 @@ import {
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { anything, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { latestCompletionSuggestionsRecipe, trendingLatestMediaRecipe } from "./discovery-recipes";
 
@@ -39,7 +40,7 @@ describe("latest completion suggestions recipe", () => {
 			throw new Error("Expected the source comparison and the items predicates");
 		}
 
-		expect(itemsWhere.predicates).toContainEqual(
+		expect(itemsWhere.predicates).toContainEqual<unknown>(
 			objectContaining({ type: "comparison", right: sourceFirst.right }),
 		);
 		expect(sourceFirst.right).toMatchObject({ type: "first" });
@@ -90,7 +91,7 @@ describe("trending latest media recipe", () => {
 			throw new Error("Expected the filtered trending rows query");
 		}
 
-		expect(query.where.predicates).toContainEqual(
+		expect(query.where.predicates).toContainEqual<unknown>(
 			objectContaining({
 				right: objectContaining({
 					type: "aggregate",

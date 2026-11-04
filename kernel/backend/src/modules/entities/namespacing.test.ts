@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -11,8 +12,11 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -468,6 +472,7 @@ layer(
 					),
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"rejects foreign same-name domain writes and unrestricted relationship endpoints",
@@ -564,72 +569,76 @@ layer(
 					title: "B",
 				});
 			}),
+		testTimeout,
 	);
 
-	test.effect("rejects private global entities, batches, and relationships", () =>
-		Effect.gen(function* () {
-			const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const { command, providerId } = yield* admittedCommand(
-				installed,
-				firstUser,
-				"private-globals",
-			);
-			const entities = yield* EntitiesService;
-			const relationships = yield* RelationshipsService;
-			const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-			expect(
-				yield* Effect.flip(
-					entities.createGlobal({
-						entitySchema,
-						name: "Global",
-						lifecycle: command,
-						properties: { title: "Global" },
-					}),
-				),
-			).toMatchObject({ reason: { code: "global-scope-forbidden" } });
-			expect(
-				yield* Effect.flip(
-					entities.upsertGlobalEntities(
-						[
+	test.effect(
+		"rejects private global entities, batches, and relationships",
+		() =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const { command, providerId } = yield* admittedCommand(
+					installed,
+					firstUser,
+					"private-globals",
+				);
+				const entities = yield* EntitiesService;
+				const relationships = yield* RelationshipsService;
+				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
+				expect(
+					yield* Effect.flip(
+						entities.createGlobal({
+							entitySchema,
+							name: "Global",
+							lifecycle: command,
+							properties: { title: "Global" },
+						}),
+					),
+				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
+				expect(
+					yield* Effect.flip(
+						entities.upsertGlobalEntities(
+							[
+								{
+									entitySchema,
+									name: "Global",
+									populatedAt: null,
+									externalId: "global",
+									properties: { title: "Global" },
+								},
+							],
+							providerId,
+							nextCommand(command, "global-batch"),
+						),
+					),
+				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
+				const own = yield* entities.create({
+					name: "Own",
+					entitySchema,
+					scope: "user",
+					userId: firstUser,
+					properties: { title: "Own" },
+					lifecycle: nextCommand(command, "own"),
+				});
+				expect(
+					yield* Effect.flip(
+						relationships.create(
 							{
-								entitySchema,
-								name: "Global",
-								populatedAt: null,
-								externalId: "global",
-								properties: { title: "Global" },
+								properties: {},
+								scope: "global",
+								sourceEntityId: own.entity.id,
+								targetEntityId: own.entity.id,
+								relationshipSchema: {
+									owner: entitySchema.owner,
+									slug: RelationshipSchemaSlug.make("link"),
+								},
 							},
-						],
-						providerId,
-						nextCommand(command, "global-batch"),
+							nextCommand(command, "global-link"),
+						),
 					),
-				),
-			).toMatchObject({ reason: { code: "global-scope-forbidden" } });
-			const own = yield* entities.create({
-				name: "Own",
-				entitySchema,
-				scope: "user",
-				userId: firstUser,
-				properties: { title: "Own" },
-				lifecycle: nextCommand(command, "own"),
-			});
-			expect(
-				yield* Effect.flip(
-					relationships.create(
-						{
-							properties: {},
-							scope: "global",
-							sourceEntityId: own.entity.id,
-							targetEntityId: own.entity.id,
-							relationshipSchema: {
-								owner: entitySchema.owner,
-								slug: RelationshipSchemaSlug.make("link"),
-							},
-						},
-						nextCommand(command, "global-link"),
-					),
-				),
-			).toMatchObject({ reason: { code: "global-scope-forbidden" } });
-		}),
+				).toMatchObject({ reason: { code: "global-scope-forbidden" } });
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -730,6 +739,7 @@ layer(
 					))[0]?.properties,
 				).toEqual({ title: "Foreign event" });
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -839,138 +849,142 @@ layer(
 					(yield* entities.getByIdAnyScope(container.entity.id)).entitySchemaPluginId,
 				).toBeNull();
 			}),
+		testTimeout,
 	);
 
-	test.effect("merges plugin entity data and kernel collection memberships under the plugin", () =>
-		Effect.gen(function* () {
-			yield* ensureKernelCollections;
-			const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const { command } = yield* admittedCommand(installed, firstUser, "merge-plugin");
-			const entities = yield* EntitiesService;
-			const relationships = yield* RelationshipsService;
-			const merges = yield* userDataService;
-			const session = yield* DatabaseSession;
-			const schema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-			const collectionSchema = {
-				owner: { kind: "kernel" as const },
-				slug: EntitySchemaSlug.make("collection"),
-			};
-			const createBottle = (name: string) =>
-				entities.create({
-					name,
-					scope: "user",
-					userId: firstUser,
-					entitySchema: schema,
-					properties: { title: name },
-					lifecycle: nextCommand(command, `create-${name}`),
-				});
-			const from = (yield* createBottle("From")).entity;
-			const into = (yield* createBottle("Into")).entity;
-			const container = (yield* entities.create({
-				scope: "user",
-				properties: {},
-				userId: firstUser,
-				name: "Merge collection",
-				entitySchema: collectionSchema,
-				lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
-			})).entity;
-			const link = yield* relationships.create(
-				{
+	test.effect(
+		"merges plugin entity data and kernel collection memberships under the plugin",
+		() =>
+			Effect.gen(function* () {
+				yield* ensureKernelCollections;
+				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const { command } = yield* admittedCommand(installed, firstUser, "merge-plugin");
+				const entities = yield* EntitiesService;
+				const relationships = yield* RelationshipsService;
+				const merges = yield* userDataService;
+				const session = yield* DatabaseSession;
+				const schema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
+				const collectionSchema = {
+					owner: { kind: "kernel" as const },
+					slug: EntitySchemaSlug.make("collection"),
+				};
+				const createBottle = (name: string) =>
+					entities.create({
+						name,
+						scope: "user",
+						userId: firstUser,
+						entitySchema: schema,
+						properties: { title: name },
+						lifecycle: nextCommand(command, `create-${name}`),
+					});
+				const from = (yield* createBottle("From")).entity;
+				const into = (yield* createBottle("Into")).entity;
+				const container = (yield* entities.create({
 					scope: "user",
 					properties: {},
 					userId: firstUser,
-					sourceEntityId: from.id,
-					targetEntityId: container.id,
-					relationshipSchema: {
-						owner: collectionSchema.owner,
-						slug: RelationshipSchemaSlug.make("member-of"),
-					},
-				},
-				kernelCollectionLifecycleCommand(nextCommand(command, "membership")),
-			);
-			assert(link.relationship);
-			const tasted = yield* createEvents(
-				nextCommand(command, "tasted-event"),
-				firstUser,
-				[
+					name: "Merge collection",
+					entitySchema: collectionSchema,
+					lifecycle: kernelCollectionLifecycleCommand(nextCommand(command, "collection")),
+				})).entity;
+				const link = yield* relationships.create(
 					{
-						entityId: from.id,
-						properties: { title: "Tasted" },
-						eventSchemaSlug: EventSchemaSlug.make("tasted"),
-					},
-				],
-				"merge-tasted-workflow",
-			);
-			const added = yield* createEvents(
-				kernelCollectionLifecycleCommand(nextCommand(command, "collection-event")),
-				firstUser,
-				[
-					{
-						entityId: container.id,
-						sessionEntityId: from.id,
-						eventSchemaSlug: EventSchemaSlug.make("add-entity-to-collection"),
-						properties: {
-							entityId: from.id,
-							entitySchemaSlug: bottle,
-							relationshipProperties: {},
-							relationshipId: link.relationship.id,
+						scope: "user",
+						properties: {},
+						userId: firstUser,
+						sourceEntityId: from.id,
+						targetEntityId: container.id,
+						relationshipSchema: {
+							owner: collectionSchema.owner,
+							slug: RelationshipSchemaSlug.make("member-of"),
 						},
 					},
-				],
-				"merge-collection-event-workflow",
-			);
-			expect([tasted.count, added.count]).toEqual([1, 1]);
-			const payload = { mergeFrom: from.id, mergeInto: into.id, entitySchemaSlug: bottle };
+					kernelCollectionLifecycleCommand(nextCommand(command, "membership")),
+				);
+				assert(link.relationship);
+				const tasted = yield* createEvents(
+					nextCommand(command, "tasted-event"),
+					firstUser,
+					[
+						{
+							entityId: from.id,
+							properties: { title: "Tasted" },
+							eventSchemaSlug: EventSchemaSlug.make("tasted"),
+						},
+					],
+					"merge-tasted-workflow",
+				);
+				const added = yield* createEvents(
+					kernelCollectionLifecycleCommand(nextCommand(command, "collection-event")),
+					firstUser,
+					[
+						{
+							entityId: container.id,
+							sessionEntityId: from.id,
+							eventSchemaSlug: EventSchemaSlug.make("add-entity-to-collection"),
+							properties: {
+								entityId: from.id,
+								entitySchemaSlug: bottle,
+								relationshipProperties: {},
+								relationshipId: link.relationship.id,
+							},
+						},
+					],
+					"merge-collection-event-workflow",
+				);
+				expect([tasted.count, added.count]).toEqual([1, 1]);
+				const payload = { mergeFrom: from.id, mergeInto: into.id, entitySchemaSlug: bottle };
 
-			expect(
-				yield* Effect.flip(
-					merges.mergeEntityUserDataForCommand(
-						firstUser,
-						payload,
-						kernelCollectionLifecycleCommand({
-							...nextCommand(command, "no-plugin"),
-							writeContext: null,
-						}),
+				expect(
+					yield* Effect.flip(
+						merges.mergeEntityUserDataForCommand(
+							firstUser,
+							payload,
+							kernelCollectionLifecycleCommand({
+								...nextCommand(command, "no-plugin"),
+								writeContext: null,
+							}),
+						),
 					),
-				),
-			).toMatchObject({ message: "Entity merge requires a pinned plugin" });
+				).toMatchObject({ message: "Entity merge requires a pinned plugin" });
 
-			const merged = yield* merges.mergeEntityUserDataForCommand(
-				firstUser,
-				payload,
-				kernelCollectionLifecycleCommand(nextCommand(command, "merge")),
-			);
-			expect(merged).toMatchObject({ movedEventsCount: 2, movedRelationshipsCount: 1 });
-			expect(
-				yield* session.run((db) =>
-					db
-						.select({ source: tables.relationship.sourceEntityId })
-						.from(tables.relationship)
-						.where(eq(tables.relationship.targetEntityId, container.id)),
-				),
-			).toEqual([{ source: into.id }]);
-			expect(
-				yield* session.run((db) =>
-					db
-						.select({
-							entityId: tables.event.entityId,
-							sessionEntityId: tables.event.sessionEntityId,
-							eventSchemaSlug: tables.event.eventSchemaSlug,
-						})
-						.from(tables.event)
-						.where(eq(tables.event.userId, firstUser)),
-				),
-			).toEqual(
-				arrayContaining([
-					{ entityId: into.id, sessionEntityId: null, eventSchemaSlug: "tasted" },
-					{
-						entityId: container.id,
-						sessionEntityId: into.id,
-						eventSchemaSlug: "add-entity-to-collection",
-					},
-				]),
-			);
-		}),
+				const merged = yield* merges.mergeEntityUserDataForCommand(
+					firstUser,
+					payload,
+					kernelCollectionLifecycleCommand(nextCommand(command, "merge")),
+				);
+				expect(merged).toMatchObject({ movedEventsCount: 2, movedRelationshipsCount: 1 });
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({ source: tables.relationship.sourceEntityId })
+							.from(tables.relationship)
+							.where(eq(tables.relationship.targetEntityId, container.id)),
+					),
+				).toEqual([{ source: into.id }]);
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({
+								entityId: tables.event.entityId,
+								sessionEntityId: tables.event.sessionEntityId,
+								eventSchemaSlug: tables.event.eventSchemaSlug,
+							})
+							.from(tables.event)
+							.where(eq(tables.event.userId, firstUser)),
+					),
+				).toEqual<unknown>(
+					arrayContaining([
+						{ entityId: into.id, sessionEntityId: null, eventSchemaSlug: "tasted" },
+						{
+							entityId: container.id,
+							sessionEntityId: into.id,
+							eventSchemaSlug: "add-entity-to-collection",
+						},
+					]),
+				);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -1099,6 +1113,7 @@ layer(
 					db.delete(tables.entity).where(eq(tables.entity.id, globalSource)),
 				);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -1183,169 +1198,176 @@ layer(
 					title: "New payload",
 				});
 			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a newer stored value introduced while before policies run", () =>
-		Effect.gen(function* () {
-			const original = namespacePackage();
-			const installed = yield* installRevisionPackage(original, firstUser);
-			const { command } = yield* admittedCommand(installed, firstUser, "policy-race");
-			const service = yield* EntitiesService;
-			const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-			const created = yield* service.create({
-				name: "Old",
-				entitySchema,
-				scope: "user",
-				userId: firstUser,
-				lifecycle: command,
-				properties: { title: "Old" },
-			});
-			const newer = namespacePackage(original.manifest.metadata.packageId, "policy");
-			const script = newer.scripts.find(({ metadata }) => metadata.kind === "automation");
-			assert(script?.metadata.kind === "automation");
-			const policy = {
-				...script,
-				slug: "whiskey.guard",
-				contentHash: "whiskey-guard",
-				entry: "backend/policy.sandbox.ts",
-				metadata: {
-					...script.metadata,
-					capabilities: [],
+	test.effect(
+		"rejects a newer stored value introduced while before policies run",
+		() =>
+			Effect.gen(function* () {
+				const original = namespacePackage();
+				const installed = yield* installRevisionPackage(original, firstUser);
+				const { command } = yield* admittedCommand(installed, firstUser, "policy-race");
+				const service = yield* EntitiesService;
+				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
+				const created = yield* service.create({
+					name: "Old",
+					entitySchema,
+					scope: "user",
+					userId: firstUser,
+					lifecycle: command,
+					properties: { title: "Old" },
+				});
+				const newer = namespacePackage(original.manifest.metadata.packageId, "policy");
+				const script = newer.scripts.find(({ metadata }) => metadata.kind === "automation");
+				assert(script?.metadata.kind === "automation");
+				const policy = {
+					...script,
 					slug: "whiskey.guard",
-					automationType: "policy" as const,
-					inputProjection: { entity: { properties: ["title"] } },
-				},
-			};
-			yield* installRevisionPackage(
-				{
-					...newer,
-					scripts: [...newer.scripts, policy],
-					manifest: {
-						...newer.manifest,
-						scripts: [...newer.manifest.scripts, { ...policy.metadata, entry: policy.entry }],
-						hooks: [
-							...newer.manifest.hooks,
-							{
-								name: "Guard",
-								stage: "before",
-								slug: "whiskey.guard",
-								scriptSlug: policy.slug,
-								targets: [{ resource: "entity", operation: "update", entitySchemaSlug: bottle }],
-							},
-						],
-						entitySchemas: Array.from(newer.manifest.entitySchemas, (definition) => ({
-							...definition,
-							propertiesSchema: {
-								fields: {
-									...definition.propertiesSchema.fields,
-									newer: { type: "string", label: "Newer", description: "Newer" },
-								},
-							},
-						})),
+					contentHash: "whiskey-guard",
+					entry: "backend/policy.sandbox.ts",
+					metadata: {
+						...script.metadata,
+						capabilities: [],
+						slug: "whiskey.guard",
+						automationType: "policy" as const,
+						inputProjection: { entity: { properties: ["title"] } },
 					},
-				},
-				firstUser,
-			);
-			const execution = yield* LifecycleExecution;
-			const repository = yield* EntitiesRepository;
-			const session = yield* DatabaseSession;
-			const oldWriter = yield* EntitiesService.make.pipe(
-				Effect.provideService(LifecycleExecution, {
-					...execution,
-					executePolicy: () =>
-						session
-							.transaction(
-								repository.updateEntity({
-									populatedAt: null,
-									name: "Concurrent",
-									entityId: created.entity.id,
-									properties: { newer: "present", title: "Concurrent" },
-								}),
-							)
-							.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
-				}),
-			);
-			expect(
-				yield* Effect.flip(
-					oldWriter.update({
-						scope: "user",
-						userId: firstUser,
-						name: "Overwrite",
-						populatedAt: null,
-						entityId: created.entity.id,
-						properties: { title: "Overwrite" },
-						lifecycle: nextCommand(command, "race-update"),
+				};
+				yield* installRevisionPackage(
+					{
+						...newer,
+						scripts: [...newer.scripts, policy],
+						manifest: {
+							...newer.manifest,
+							scripts: [...newer.manifest.scripts, { ...policy.metadata, entry: policy.entry }],
+							hooks: [
+								...newer.manifest.hooks,
+								{
+									name: "Guard",
+									stage: "before",
+									slug: "whiskey.guard",
+									scriptSlug: policy.slug,
+									targets: [{ resource: "entity", operation: "update", entitySchemaSlug: bottle }],
+								},
+							],
+							entitySchemas: Array.from(newer.manifest.entitySchemas, (definition) => ({
+								...definition,
+								propertiesSchema: {
+									fields: {
+										...definition.propertiesSchema.fields,
+										newer: { type: "string", label: "Newer", description: "Newer" },
+									},
+								},
+							})),
+						},
+					},
+					firstUser,
+				);
+				const execution = yield* LifecycleExecution;
+				const repository = yield* EntitiesRepository;
+				const session = yield* DatabaseSession;
+				const oldWriter = yield* EntitiesService.make.pipe(
+					Effect.provideService(LifecycleExecution, {
+						...execution,
+						executePolicy: () =>
+							session
+								.transaction(
+									repository.updateEntity({
+										populatedAt: null,
+										name: "Concurrent",
+										entityId: created.entity.id,
+										properties: { newer: "present", title: "Concurrent" },
+									}),
+								)
+								.pipe(Effect.orDie, Effect.as({ action: "allow" as const })),
 					}),
-				),
-			).toMatchObject({ reason: { code: "mutation-conflict" } });
-			expect((yield* service.getByIdAnyScope(created.entity.id)).properties).toEqual({
-				newer: "present",
-				title: "Concurrent",
-			});
-		}),
+				);
+				expect(
+					yield* Effect.flip(
+						oldWriter.update({
+							scope: "user",
+							userId: firstUser,
+							name: "Overwrite",
+							populatedAt: null,
+							entityId: created.entity.id,
+							properties: { title: "Overwrite" },
+							lifecycle: nextCommand(command, "race-update"),
+						}),
+					),
+				).toMatchObject({ reason: { code: "mutation-conflict" } });
+				expect((yield* service.getByIdAnyScope(created.entity.id)).properties).toEqual({
+					newer: "present",
+					title: "Concurrent",
+				});
+			}),
+		testTimeout,
 	);
 
-	test.effect("preserves unknown properties deliberately allowed by the pinned declaration", () =>
-		Effect.gen(function* () {
-			const source = namespacePackage();
-			const original = {
-				...source,
-				manifest: {
-					...source.manifest,
-					entitySchemas: Array.from(source.manifest.entitySchemas, (definition) => ({
-						...definition,
-						propertiesSchema: {
-							...definition.propertiesSchema,
-							unknownKeys: "passthrough" as const,
-						},
-					})),
-				},
-			};
-			const installed = yield* installRevisionPackage(original, firstUser);
-			const { command } = yield* admittedCommand(installed, firstUser, "passthrough-writer");
-			const newer = namespacePackage(original.manifest.metadata.packageId, "passthrough");
-			yield* installRevisionPackage(
-				{
-					...newer,
+	test.effect(
+		"preserves unknown properties deliberately allowed by the pinned declaration",
+		() =>
+			Effect.gen(function* () {
+				const source = namespacePackage();
+				const original = {
+					...source,
 					manifest: {
-						...newer.manifest,
-						entitySchemas: Array.from(newer.manifest.entitySchemas, (definition) => ({
+						...source.manifest,
+						entitySchemas: Array.from(source.manifest.entitySchemas, (definition) => ({
 							...definition,
 							propertiesSchema: {
-								unknownKeys: "passthrough",
-								fields: {
-									...definition.propertiesSchema.fields,
-									newer: { type: "string", label: "Newer", description: "Newer" },
-								},
+								...definition.propertiesSchema,
+								unknownKeys: "passthrough" as const,
 							},
 						})),
 					},
-				},
-				firstUser,
-			);
-			const entities = yield* EntitiesService;
-			const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
-			const properties = { title: "Old", newer: "Allowed", opaque: { value: 1 } };
-			const created = yield* entities.create({
-				properties,
-				entitySchema,
-				scope: "user",
-				name: "Opaque",
-				userId: firstUser,
-				lifecycle: command,
-			});
-			expect(created.entity.properties).toEqual(properties);
-			const updated = yield* entities.update({
-				scope: "user",
-				name: "Updated",
-				userId: firstUser,
-				populatedAt: null,
-				entityId: created.entity.id,
-				properties: { ...properties, title: "Updated" },
-				lifecycle: nextCommand(command, "passthrough-update"),
-			});
-			expect(updated.entity.properties).toEqual({ ...properties, title: "Updated" });
-		}),
+				};
+				const installed = yield* installRevisionPackage(original, firstUser);
+				const { command } = yield* admittedCommand(installed, firstUser, "passthrough-writer");
+				const newer = namespacePackage(original.manifest.metadata.packageId, "passthrough");
+				yield* installRevisionPackage(
+					{
+						...newer,
+						manifest: {
+							...newer.manifest,
+							entitySchemas: Array.from(newer.manifest.entitySchemas, (definition) => ({
+								...definition,
+								propertiesSchema: {
+									unknownKeys: "passthrough",
+									fields: {
+										...definition.propertiesSchema.fields,
+										newer: { type: "string", label: "Newer", description: "Newer" },
+									},
+								},
+							})),
+						},
+					},
+					firstUser,
+				);
+				const entities = yield* EntitiesService;
+				const entitySchema = { slug: bottle, owner: definitionOwner(installed.pluginId) };
+				const properties = { title: "Old", newer: "Allowed", opaque: { value: 1 } };
+				const created = yield* entities.create({
+					properties,
+					entitySchema,
+					scope: "user",
+					name: "Opaque",
+					userId: firstUser,
+					lifecycle: command,
+				});
+				expect(created.entity.properties).toEqual(properties);
+				const updated = yield* entities.update({
+					scope: "user",
+					name: "Updated",
+					userId: firstUser,
+					populatedAt: null,
+					entityId: created.entity.id,
+					properties: { ...properties, title: "Updated" },
+					lifecycle: nextCommand(command, "passthrough-update"),
+				});
+				expect(updated.entity.properties).toEqual({ ...properties, title: "Updated" });
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -1450,6 +1472,7 @@ layer(
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -1476,7 +1499,7 @@ layer(
 						properties: { title: health },
 						lifecycle: nextCommand(command, health),
 					});
-					expect(result.entity.entitySchemaPluginId).toBe(installed.pluginId);
+					expect(result.entity.entitySchemaPluginId).toBe<unknown>(installed.pluginId);
 				}
 				yield* session.run((db) =>
 					db
@@ -1519,241 +1542,252 @@ layer(
 					),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
 			}),
+		testTimeout,
 	);
 
-	test.effect("rejects pinned declarations missing from the pinned or active revision", () =>
-		Effect.gen(function* () {
-			const original = namespacePackage();
-			const installed = yield* installRevisionPackage(
-				{
-					...original,
-					manifest: {
-						...original.manifest,
-						entitySchemas: [...original.manifest.entitySchemas, entityDeclaration("retired")],
-					},
-				},
-				firstUser,
-			);
-			const { command } = yield* admittedCommand(installed, firstUser, "declaration-gaps");
-			const newer = namespacePackage(original.manifest.metadata.packageId, "two");
-			const [newerBottle, ...newerEntities] = newer.manifest.entitySchemas;
-			assert(newerBottle?.slug === bottle);
-			yield* installRevisionPackage(
-				{
-					...newer,
-					manifest: {
-						...newer.manifest,
-						relationshipSchemas: [
-							...newer.manifest.relationshipSchemas,
-							{
-								name: "Added",
-								slug: "added-link",
-								sourceEntitySchemaSlug: null,
-								targetEntitySchemaSlug: null,
-								propertiesSchema: { fields: {} },
-							},
-						],
-						entitySchemas: [
-							{
-								...newerBottle,
-								eventSchemas: [
-									...newerBottle.eventSchemas,
-									{ slug: "opened", name: "Opened", propertiesSchema: titleProperties },
-								],
-							},
-							...newerEntities,
-							entityDeclaration("added"),
-						],
-					},
-				},
-				firstUser,
-			);
-			const entities = yield* EntitiesService;
-			const relationships = yield* RelationshipsService;
-			const owner = definitionOwner(installed.pluginId);
-			const create = (slug: string, itemIdentity: string) =>
-				Effect.flip(
-					entities.create({
-						name: slug,
-						scope: "user",
-						userId: firstUser,
-						properties: { title: slug },
-						lifecycle: nextCommand(command, itemIdentity),
-						entitySchema: { owner, slug: EntitySchemaSlug.make(slug) },
-					}),
-				);
-			expect(yield* create("retired", "retired-entity")).toMatchObject({
-				reason: {
-					code: "mutation-conflict",
-					message: "Pinned entity declaration has no active storage definition",
-				},
-			});
-			expect(yield* create("added", "added-entity")).toMatchObject({
-				reason: {
-					code: "mutation-conflict",
-					message: "Entity schema is not declared by the pinned writer",
-				},
-			});
-			const own = yield* entities.create({
-				name: "Own",
-				scope: "user",
-				userId: firstUser,
-				properties: { title: "Own" },
-				entitySchema: { owner, slug: bottle },
-				lifecycle: nextCommand(command, "own-entity"),
-			});
-			const eventSchemaSlug = EventSchemaSlug.make("opened");
-			const denied = yield* createEvents(
-				nextCommand(command, "added-event"),
-				firstUser,
-				[{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } }],
-				"added-event-workflow",
-			);
-			expect(denied.count).toBe(0);
-			expect(denied.failure).toEqual({
-				index: 0,
-				reason: { eventSchemaSlug, code: "event-schema-not-found" },
-			});
-			expect(
-				yield* Effect.flip(
-					relationships.create(
-						{
-							scope: "user",
-							properties: {},
-							userId: firstUser,
-							sourceEntityId: own.entity.id,
-							targetEntityId: own.entity.id,
-							relationshipSchema: { owner, slug: RelationshipSchemaSlug.make("added-link") },
-						},
-						nextCommand(command, "added-link"),
-					),
-				),
-			).toMatchObject({ reason: { code: "concurrent-relationship-change" } });
-		}),
-	);
-
-	test.effect("lets a user-scope provider upsert change an immutable property", () =>
-		Effect.gen(function* () {
-			const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const { command, providerId } = yield* admittedCommand(
-				installed,
-				firstUser,
-				"immutable-upsert",
-			);
-			const entities = yield* EntitiesService;
-			const input = {
-				providerId,
-				name: "Bottle",
-				populatedAt: null,
-				userId: firstUser,
-				updateExisting: true,
-				scope: "user" as const,
-				externalId: "immutable-bottle",
-				properties: { code: "a", title: "Bottle" },
-				entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-			};
-			yield* entities.upsert({ ...input, lifecycle: nextCommand(command, "immutable-create") });
-			const updated = yield* entities.upsert({
-				...input,
-				properties: { code: "b", title: "Bottle" },
-				lifecycle: nextCommand(command, "immutable-update"),
-			});
-			expect(updated.entity.properties).toEqual({ code: "b", title: "Bottle" });
-		}),
-	);
-
-	test.effect("rejects pinned writes after session, plugin, installation, or account changes", () =>
-		Effect.gen(function* () {
-			const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const foreignPlugin = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const { command } = yield* admittedCommand(installed, firstUser, "authority-changes");
-			const foreignCommand = (yield* admittedCommand(foreignPlugin, firstUser, "foreign-session"))
-				.command;
-			const session = yield* DatabaseSession;
-			const entities = yield* EntitiesService;
-			const own = yield* entities.create({
-				name: "Own",
-				scope: "user",
-				userId: firstUser,
-				properties: { title: "Own" },
-				lifecycle: nextCommand(command, "own-entity"),
-				entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-			});
-			const foreign = yield* entities.create({
-				scope: "user",
-				name: "Foreign",
-				userId: firstUser,
-				lifecycle: foreignCommand,
-				properties: { title: "Foreign" },
-				entitySchema: { slug: bottle, owner: definitionOwner(foreignPlugin.pluginId) },
-			});
-			const denied = yield* createEvents(
-				nextCommand(command, "foreign-session-event"),
-				firstUser,
-				[
+	test.effect(
+		"rejects pinned declarations missing from the pinned or active revision",
+		() =>
+			Effect.gen(function* () {
+				const original = namespacePackage();
+				const installed = yield* installRevisionPackage(
 					{
-						entityId: own.entity.id,
-						properties: { title: "Tasted" },
-						sessionEntityId: foreign.entity.id,
-						eventSchemaSlug: EventSchemaSlug.make("tasted"),
+						...original,
+						manifest: {
+							...original.manifest,
+							entitySchemas: [...original.manifest.entitySchemas, entityDeclaration("retired")],
+						},
 					},
-				],
-				"foreign-session-workflow",
-			);
-			expect(denied.count).toBe(0);
-			expect(denied.failure).toEqual({
-				index: 0,
-				reason: { entityId: foreign.entity.id, code: "session-entity-not-found" },
-			});
-			const rejected = (itemIdentity: string, message: string) =>
-				Effect.gen(function* () {
-					expect(
-						yield* Effect.flip(
-							entities.create({
-								scope: "user",
-								userId: firstUser,
-								name: itemIdentity,
-								properties: { title: itemIdentity },
-								lifecycle: nextCommand(command, itemIdentity),
-								entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-							}),
-						),
-					).toMatchObject({ reason: { message, code: "mutation-conflict" } });
-				});
-			const installationUnavailable = "Current domain write installation authority is unavailable";
-			const setInstallation = (values: Partial<typeof tables.pluginInstallation.$inferInsert>) =>
-				session.run((db) =>
-					db
-						.update(tables.pluginInstallation)
-						.set(values)
-						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+					firstUser,
 				);
-			yield* setInstallation({ ingestionRetiring: true });
-			yield* rejected("retiring", installationUnavailable);
-			yield* setInstallation({ ingestionRetiring: false, uninstalledAt: retiredAt });
-			yield* rejected("uninstalled", installationUnavailable);
-			yield* setInstallation({ uninstalledAt: null });
-			yield* session.run((db) =>
-				db
-					.update(tables.user)
-					.set({ accountGeneration: "rotated-account-generation" })
-					.where(eq(tables.user.id, firstUser)),
-			);
-			yield* rejected("rotated-account", "Current domain write account authority is unavailable");
-			yield* session.run((db) =>
-				db
-					.update(tables.user)
-					.set({ accountGeneration: "test-account-generation" })
-					.where(eq(tables.user.id, firstUser)),
-			);
-			yield* session.run((db) =>
-				db
-					.update(tables.plugin)
-					.set({ status: "disabled" })
-					.where(eq(tables.plugin.id, installed.pluginId)),
-			);
-			yield* rejected("disabled-plugin", "Pinned domain write authority is unavailable");
-		}),
+				const { command } = yield* admittedCommand(installed, firstUser, "declaration-gaps");
+				const newer = namespacePackage(original.manifest.metadata.packageId, "two");
+				const [newerBottle, ...newerEntities] = newer.manifest.entitySchemas;
+				assert(newerBottle?.slug === bottle);
+				yield* installRevisionPackage(
+					{
+						...newer,
+						manifest: {
+							...newer.manifest,
+							relationshipSchemas: [
+								...newer.manifest.relationshipSchemas,
+								{
+									name: "Added",
+									slug: "added-link",
+									sourceEntitySchemaSlug: null,
+									targetEntitySchemaSlug: null,
+									propertiesSchema: { fields: {} },
+								},
+							],
+							entitySchemas: [
+								{
+									...newerBottle,
+									eventSchemas: [
+										...newerBottle.eventSchemas,
+										{ slug: "opened", name: "Opened", propertiesSchema: titleProperties },
+									],
+								},
+								...newerEntities,
+								entityDeclaration("added"),
+							],
+						},
+					},
+					firstUser,
+				);
+				const entities = yield* EntitiesService;
+				const relationships = yield* RelationshipsService;
+				const owner = definitionOwner(installed.pluginId);
+				const create = (slug: string, itemIdentity: string) =>
+					Effect.flip(
+						entities.create({
+							name: slug,
+							scope: "user",
+							userId: firstUser,
+							properties: { title: slug },
+							lifecycle: nextCommand(command, itemIdentity),
+							entitySchema: { owner, slug: EntitySchemaSlug.make(slug) },
+						}),
+					);
+				expect(yield* create("retired", "retired-entity")).toMatchObject({
+					reason: {
+						code: "mutation-conflict",
+						message: "Pinned entity declaration has no active storage definition",
+					},
+				});
+				expect(yield* create("added", "added-entity")).toMatchObject({
+					reason: {
+						code: "mutation-conflict",
+						message: "Entity schema is not declared by the pinned writer",
+					},
+				});
+				const own = yield* entities.create({
+					name: "Own",
+					scope: "user",
+					userId: firstUser,
+					properties: { title: "Own" },
+					entitySchema: { owner, slug: bottle },
+					lifecycle: nextCommand(command, "own-entity"),
+				});
+				const eventSchemaSlug = EventSchemaSlug.make("opened");
+				const denied = yield* createEvents(
+					nextCommand(command, "added-event"),
+					firstUser,
+					[{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } }],
+					"added-event-workflow",
+				);
+				expect(denied.count).toBe(0);
+				expect(denied.failure).toEqual({
+					index: 0,
+					reason: { eventSchemaSlug, code: "event-schema-not-found" },
+				});
+				expect(
+					yield* Effect.flip(
+						relationships.create(
+							{
+								scope: "user",
+								properties: {},
+								userId: firstUser,
+								sourceEntityId: own.entity.id,
+								targetEntityId: own.entity.id,
+								relationshipSchema: { owner, slug: RelationshipSchemaSlug.make("added-link") },
+							},
+							nextCommand(command, "added-link"),
+						),
+					),
+				).toMatchObject({ reason: { code: "concurrent-relationship-change" } });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"lets a user-scope provider upsert change an immutable property",
+		() =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const { command, providerId } = yield* admittedCommand(
+					installed,
+					firstUser,
+					"immutable-upsert",
+				);
+				const entities = yield* EntitiesService;
+				const input = {
+					providerId,
+					name: "Bottle",
+					populatedAt: null,
+					userId: firstUser,
+					updateExisting: true,
+					scope: "user" as const,
+					externalId: "immutable-bottle",
+					properties: { code: "a", title: "Bottle" },
+					entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+				};
+				yield* entities.upsert({ ...input, lifecycle: nextCommand(command, "immutable-create") });
+				const updated = yield* entities.upsert({
+					...input,
+					properties: { code: "b", title: "Bottle" },
+					lifecycle: nextCommand(command, "immutable-update"),
+				});
+				expect(updated.entity.properties).toEqual({ code: "b", title: "Bottle" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects pinned writes after session, plugin, installation, or account changes",
+		() =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const foreignPlugin = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const { command } = yield* admittedCommand(installed, firstUser, "authority-changes");
+				const foreignCommand = (yield* admittedCommand(foreignPlugin, firstUser, "foreign-session"))
+					.command;
+				const session = yield* DatabaseSession;
+				const entities = yield* EntitiesService;
+				const own = yield* entities.create({
+					name: "Own",
+					scope: "user",
+					userId: firstUser,
+					properties: { title: "Own" },
+					lifecycle: nextCommand(command, "own-entity"),
+					entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+				});
+				const foreign = yield* entities.create({
+					scope: "user",
+					name: "Foreign",
+					userId: firstUser,
+					lifecycle: foreignCommand,
+					properties: { title: "Foreign" },
+					entitySchema: { slug: bottle, owner: definitionOwner(foreignPlugin.pluginId) },
+				});
+				const denied = yield* createEvents(
+					nextCommand(command, "foreign-session-event"),
+					firstUser,
+					[
+						{
+							entityId: own.entity.id,
+							properties: { title: "Tasted" },
+							sessionEntityId: foreign.entity.id,
+							eventSchemaSlug: EventSchemaSlug.make("tasted"),
+						},
+					],
+					"foreign-session-workflow",
+				);
+				expect(denied.count).toBe(0);
+				expect(denied.failure).toEqual({
+					index: 0,
+					reason: { entityId: foreign.entity.id, code: "session-entity-not-found" },
+				});
+				const rejected = (itemIdentity: string, message: string) =>
+					Effect.gen(function* () {
+						expect(
+							yield* Effect.flip(
+								entities.create({
+									scope: "user",
+									userId: firstUser,
+									name: itemIdentity,
+									properties: { title: itemIdentity },
+									lifecycle: nextCommand(command, itemIdentity),
+									entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+								}),
+							),
+						).toMatchObject({ reason: { message, code: "mutation-conflict" } });
+					});
+				const installationUnavailable =
+					"Current domain write installation authority is unavailable";
+				const setInstallation = (values: Partial<typeof tables.pluginInstallation.$inferInsert>) =>
+					session.run((db) =>
+						db
+							.update(tables.pluginInstallation)
+							.set(values)
+							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+					);
+				yield* setInstallation({ ingestionRetiring: true });
+				yield* rejected("retiring", installationUnavailable);
+				yield* setInstallation({ ingestionRetiring: false, uninstalledAt: retiredAt });
+				yield* rejected("uninstalled", installationUnavailable);
+				yield* setInstallation({ uninstalledAt: null });
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ accountGeneration: "rotated-account-generation" })
+						.where(eq(tables.user.id, firstUser)),
+				);
+				yield* rejected("rotated-account", "Current domain write account authority is unavailable");
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ accountGeneration: "test-account-generation" })
+						.where(eq(tables.user.id, firstUser)),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.plugin)
+						.set({ status: "disabled" })
+						.where(eq(tables.plugin.id, installed.pluginId)),
+				);
+				yield* rejected("disabled-plugin", "Pinned domain write authority is unavailable");
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -1959,6 +1993,7 @@ layer(
 				expect(firstLinks).toEqual([]);
 				expect(secondLinks).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 });
 
@@ -2104,144 +2139,148 @@ layer(relationshipDatabaseLayer())((test) => {
 					),
 				).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 });
 
 layer(relationshipDatabaseLayer())((test) => {
-	test.effect("scopes batch event updates and deletes to the writer's plugin and user", () =>
-		Effect.gen(function* () {
-			yield* ensureKernelCollections;
-			const session = yield* DatabaseSession;
-			const otherUser = UserId.make("batch-event-other-user");
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id: otherUser,
-						name: "Other",
-						email: "batch-event-other@example.test",
-						accountGeneration: "test-account-generation",
-					}),
-			);
-			const a = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const b = yield* installRevisionPackage(namespacePackage(), firstUser);
-			const c = yield* installRevisionPackage(namespacePackage(), otherUser);
-			const entities = yield* EntitiesService;
-			const events = yield* EventsService;
-			const writer = yield* admittedCommand(a, firstUser, "batch-event-a");
-			const foreignWriter = yield* admittedCommand(b, firstUser, "batch-event-b");
-			const otherWriter = yield* admittedCommand(c, otherUser, "batch-event-c");
-			const tasted = EventSchemaSlug.make("tasted");
-			const recordEvent = Effect.fnUntraced(function* (
-				command: DomainLifecycleCommand,
-				userId: UserId,
-				entity: "collection" | { readonly entitySchema: UpsertEntityInput["entitySchema"] },
-				eventSchemaSlug: EventSchemaSlug,
-				identity: string,
-			) {
-				const created = yield* entities.create({
-					userId,
-					scope: "user",
-					name: identity,
-					properties: entity === "collection" ? {} : { title: identity },
-					entitySchema:
-						entity === "collection"
-							? { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") }
-							: entity.entitySchema,
-					lifecycle:
-						entity === "collection"
-							? kernelCollectionLifecycleCommand(nextCommand(command, `${identity}-entity`))
-							: nextCommand(command, `${identity}-entity`),
-				});
-				const eventCommand = nextCommand(command, `${identity}-event`);
-				yield* createEvents(
-					entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
-					userId,
-					[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],
-					`${identity}-workflow`,
-				);
-				const [row] = yield* session.run((db) =>
-					db.select().from(tables.event).where(eq(tables.event.entityId, created.entity.id)),
-				);
-				assert(row);
-				return EventId.make(row.id);
-			});
-			const ownSchema = (installed: typeof a) => ({
-				entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
-			});
-			const foreignEvent = yield* recordEvent(
-				foreignWriter.command,
-				firstUser,
-				ownSchema(b),
-				tasted,
-				"foreign",
-			);
-			const collectionReview = yield* recordEvent(
-				writer.command,
-				firstUser,
-				"collection",
-				EventSchemaSlug.make("review"),
-				"collection-review",
-			);
-			const otherUsersEvent = yield* recordEvent(
-				otherWriter.command,
-				otherUser,
-				ownSchema(c),
-				tasted,
-				"other-user",
-			);
-			const storedProperties = session
-				.run((db) =>
+	test.effect(
+		"scopes batch event updates and deletes to the writer's plugin and user",
+		() =>
+			Effect.gen(function* () {
+				yield* ensureKernelCollections;
+				const session = yield* DatabaseSession;
+				const otherUser = UserId.make("batch-event-other-user");
+				yield* session.run((db) =>
 					db
-						.select({ id: tables.event.id, properties: tables.event.properties })
-						.from(tables.event)
-						.where(inArray(tables.event.id, [foreignEvent, collectionReview, otherUsersEvent])),
-				)
-				.pipe(Effect.map((rows) => sortBy(rows, "id")));
-			const before = yield* storedProperties;
-			expect(before).toHaveLength(3);
-			for (const eventId of [foreignEvent, collectionReview]) {
+						.insert(tables.user)
+						.values({
+							id: otherUser,
+							name: "Other",
+							email: "batch-event-other@example.test",
+							accountGeneration: "test-account-generation",
+						}),
+				);
+				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
+				const c = yield* installRevisionPackage(namespacePackage(), otherUser);
+				const entities = yield* EntitiesService;
+				const events = yield* EventsService;
+				const writer = yield* admittedCommand(a, firstUser, "batch-event-a");
+				const foreignWriter = yield* admittedCommand(b, firstUser, "batch-event-b");
+				const otherWriter = yield* admittedCommand(c, otherUser, "batch-event-c");
+				const tasted = EventSchemaSlug.make("tasted");
+				const recordEvent = Effect.fnUntraced(function* (
+					command: DomainLifecycleCommand,
+					userId: UserId,
+					entity: "collection" | { readonly entitySchema: UpsertEntityInput["entitySchema"] },
+					eventSchemaSlug: EventSchemaSlug,
+					identity: string,
+				) {
+					const created = yield* entities.create({
+						userId,
+						scope: "user",
+						name: identity,
+						properties: entity === "collection" ? {} : { title: identity },
+						entitySchema:
+							entity === "collection"
+								? { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") }
+								: entity.entitySchema,
+						lifecycle:
+							entity === "collection"
+								? kernelCollectionLifecycleCommand(nextCommand(command, `${identity}-entity`))
+								: nextCommand(command, `${identity}-entity`),
+					});
+					const eventCommand = nextCommand(command, `${identity}-event`);
+					yield* createEvents(
+						entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
+						userId,
+						[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],
+						`${identity}-workflow`,
+					);
+					const [row] = yield* session.run((db) =>
+						db.select().from(tables.event).where(eq(tables.event.entityId, created.entity.id)),
+					);
+					assert(row);
+					return EventId.make(row.id);
+				});
+				const ownSchema = (installed: typeof a) => ({
+					entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+				});
+				const foreignEvent = yield* recordEvent(
+					foreignWriter.command,
+					firstUser,
+					ownSchema(b),
+					tasted,
+					"foreign",
+				);
+				const collectionReview = yield* recordEvent(
+					writer.command,
+					firstUser,
+					"collection",
+					EventSchemaSlug.make("review"),
+					"collection-review",
+				);
+				const otherUsersEvent = yield* recordEvent(
+					otherWriter.command,
+					otherUser,
+					ownSchema(c),
+					tasted,
+					"other-user",
+				);
+				const storedProperties = session
+					.run((db) =>
+						db
+							.select({ id: tables.event.id, properties: tables.event.properties })
+							.from(tables.event)
+							.where(inArray(tables.event.id, [foreignEvent, collectionReview, otherUsersEvent])),
+					)
+					.pipe(Effect.map((rows) => sortBy(rows, "id")));
+				const before = yield* storedProperties;
+				expect(before).toHaveLength(3);
+				for (const eventId of [foreignEvent, collectionReview]) {
+					expect(
+						yield* Effect.flip(
+							events.updateBatch(
+								[{ eventId, patch: { properties: { remove: [], set: { text: "Wrong" } } } }],
+								firstUser,
+								nextCommand(writer.command, `update-${eventId}`),
+							),
+						),
+					).toMatchObject({ reason: { code: "owner-mismatch" } });
+					expect(
+						yield* Effect.flip(
+							events.deleteBatch(
+								[eventId],
+								firstUser,
+								nextCommand(writer.command, `delete-${eventId}`),
+							),
+						),
+					).toMatchObject({ reason: { code: "owner-mismatch" } });
+				}
 				expect(
 					yield* Effect.flip(
 						events.updateBatch(
-							[{ eventId, patch: { properties: { remove: [], set: { text: "Wrong" } } } }],
+							[
+								{
+									eventId: otherUsersEvent,
+									patch: { properties: { remove: [], set: { text: "Wrong" } } },
+								},
+							],
 							firstUser,
-							nextCommand(writer.command, `update-${eventId}`),
+							nextCommand(writer.command, "update-other-user"),
 						),
 					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
+				).toMatchObject({ reason: { code: "event-not-found" } });
 				expect(
-					yield* Effect.flip(
-						events.deleteBatch(
-							[eventId],
-							firstUser,
-							nextCommand(writer.command, `delete-${eventId}`),
-						),
-					),
-				).toMatchObject({ reason: { code: "owner-mismatch" } });
-			}
-			expect(
-				yield* Effect.flip(
-					events.updateBatch(
-						[
-							{
-								eventId: otherUsersEvent,
-								patch: { properties: { remove: [], set: { text: "Wrong" } } },
-							},
-						],
+					yield* events.deleteBatch(
+						[otherUsersEvent],
 						firstUser,
-						nextCommand(writer.command, "update-other-user"),
+						nextCommand(writer.command, "delete-other-user"),
 					),
-				),
-			).toMatchObject({ reason: { code: "event-not-found" } });
-			expect(
-				yield* events.deleteBatch(
-					[otherUsersEvent],
-					firstUser,
-					nextCommand(writer.command, "delete-other-user"),
-				),
-			).toMatchObject({ count: 0 });
-			expect(yield* storedProperties).toEqual(before);
-		}),
+				).toMatchObject({ count: 0 });
+				expect(yield* storedProperties).toEqual(before);
+			}),
+		testTimeout,
 	);
 });

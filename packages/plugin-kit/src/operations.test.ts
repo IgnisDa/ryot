@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { defineOperationRecipe, invokeOperationRecipe } from "./operations";
 
@@ -21,7 +22,7 @@ describe("invokeOperationRecipe", () => {
 			}),
 		);
 
-		expect(request).toEqual([
+		expect(request).toEqual<unknown>([
 			{ payload: { count: "3" }, packageId: "ryot/fixture", operationSlug: "resolve-subparts" },
 		]);
 		expect(result).toEqual({ count: 4, entityId: "entity-1" });

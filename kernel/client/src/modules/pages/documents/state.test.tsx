@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { ManageRemindersOutcome } from "@ryot-app/plugin-client-contract";
 import { render } from "@testing-library/react";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	type ClientPageDocument,

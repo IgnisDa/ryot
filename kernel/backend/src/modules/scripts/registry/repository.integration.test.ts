@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
@@ -13,12 +14,14 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { Effect, Exit, Layer, Option, Schema } from "effect";
-import { assert, describe } from "vitest";
 
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -695,186 +698,201 @@ const persistKernel = Effect.fn(function* (slug: string, compiledCode: string) {
 
 describe("single-statement script pin resolution", () => {
 	layer(SandboxExecutionAuthorityLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect("resolves every subject, pin and initialization from current persisted rows", () =>
-			Effect.gen(function* () {
-				const repository = yield* SandboxRepository;
-				const worlds = [];
-				for (const [name, mutate] of Object.entries(mutations)) {
-					for (const scope of ["user", "system"] as const) {
-						const world = yield* createWorld(scope);
-						const baseline = yield* repository.getScriptPin(
-							world.scripts.details,
-							undefined,
-							scope === "user" ? userSubject(world.userId) : undefined,
-						);
-						assert(baseline?.pluginRevision);
-						worlds.push({ name, world, mutate, expected: baseline.pluginRevision });
-					}
-				}
-				for (const persisting of [true, false]) {
-					for (const { name, world, mutate } of worlds) {
-						if (packageMutations.has(name) === persisting) {
-							yield* mutate(world);
+		test.effect(
+			"resolves every subject, pin and initialization from current persisted rows",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* SandboxRepository;
+					const worlds = [];
+					for (const [name, mutate] of Object.entries(mutations)) {
+						for (const scope of ["user", "system"] as const) {
+							const world = yield* createWorld(scope);
+							const baseline = yield* repository.getScriptPin(
+								world.scripts.details,
+								undefined,
+								scope === "user" ? userSubject(world.userId) : undefined,
+							);
+							assert(baseline?.pluginRevision);
+							worlds.push({ name, world, mutate, expected: baseline.pluginRevision });
 						}
 					}
-				}
-				const outcomes: Record<string, Record<string, Record<string, string>>> = {};
-				for (const [index, { name, world, expected }] of worlds.entries()) {
-					const foreign = worlds[(index + 1) % worlds.length];
-					assert(foreign);
-					const configRevisionId = yield* currentConfigId(world);
-					const hashes = yield* revisionHashes(world.revisionId);
-					outcomes[name] = {
-						...outcomes[name],
-						[world.scope]: yield* outcomesFor({
-							expected,
-							scripts: world.scripts,
-							subjects: subjectsFor(world),
-							foreignConfigRevisionId: foreign.expected.configRevisionId,
-							binding: { activationId: world.activationId, installationId: world.installationId },
-							verifyPin: (pin, _scriptName, mode) => {
-								expect(pin.pluginRevision).toMatchObject({
-									scope: world.scope,
-									revisionId: world.revisionId,
-									configRevisionId:
-										mode.exact === "pinned" ? expected.configRevisionId : configRevisionId,
-								});
-								expect(pin.pluginRevision?.compiledHashes).toEqual(hashes);
-							},
-						}),
-					};
-				}
-				expect(outcomes).toEqual(expectedOutcomes);
-			}),
+					for (const persisting of [true, false]) {
+						for (const { name, world, mutate } of worlds) {
+							if (packageMutations.has(name) === persisting) {
+								yield* mutate(world);
+							}
+						}
+					}
+					const outcomes: Record<string, Record<string, Record<string, string>>> = {};
+					for (const [index, { name, world, expected }] of worlds.entries()) {
+						const foreign = worlds[(index + 1) % worlds.length];
+						assert(foreign);
+						const configRevisionId = yield* currentConfigId(world);
+						const hashes = yield* revisionHashes(world.revisionId);
+						outcomes[name] = {
+							...outcomes[name],
+							[world.scope]: yield* outcomesFor({
+								expected,
+								scripts: world.scripts,
+								subjects: subjectsFor(world),
+								foreignConfigRevisionId: foreign.expected.configRevisionId,
+								binding: { activationId: world.activationId, installationId: world.installationId },
+								verifyPin: (pin, _scriptName, mode) => {
+									expect(pin.pluginRevision).toMatchObject({
+										scope: world.scope,
+										revisionId: world.revisionId,
+										configRevisionId:
+											mode.exact === "pinned" ? expected.configRevisionId : configRevisionId,
+									});
+									expect(pin.pluginRevision?.compiledHashes).toEqual(hashes);
+								},
+							}),
+						};
+					}
+					expect(outcomes).toEqual(expectedOutcomes);
+				}),
+			testTimeout,
 		);
 
-		test.effect("resolves kernel and unpinned scripts from current persisted rows", () =>
-			Effect.gen(function* () {
-				const outcomes: Record<string, Record<string, string>> = {};
-				for (const account of ["enabled", "disabled"] as const) {
-					const world = yield* createWorld("user");
-					const slug = `kernel-${world.slug}`;
-					const original = yield* persistKernel(slug, "original");
-					const current = yield* persistKernel(slug, "repointed");
-					const [unpinned] = yield* run((db) =>
-						db
-							.insert(schema.sandboxScript)
-							.values({
-								...original.kernel,
-								pluginRevisionId: null,
-								slug: `${original.kernel.slug}-unpinned`,
-							})
-							.returning({ id: schema.sandboxScript.id }),
-					);
-					assert(unpinned);
-					if (account === "disabled") {
-						yield* mutations.accountDisabled(world);
+		test.effect(
+			"resolves kernel and unpinned scripts from current persisted rows",
+			() =>
+				Effect.gen(function* () {
+					const outcomes: Record<string, Record<string, string>> = {};
+					for (const account of ["enabled", "disabled"] as const) {
+						const world = yield* createWorld("user");
+						const slug = `kernel-${world.slug}`;
+						const original = yield* persistKernel(slug, "original");
+						const current = yield* persistKernel(slug, "repointed");
+						const [unpinned] = yield* run((db) =>
+							db
+								.insert(schema.sandboxScript)
+								.values({
+									...original.kernel,
+									pluginRevisionId: null,
+									slug: `${original.kernel.slug}-unpinned`,
+								})
+								.returning({ id: schema.sandboxScript.id }),
+						);
+						assert(unpinned);
+						if (account === "disabled") {
+							yield* mutations.accountDisabled(world);
+						}
+						outcomes[account] = yield* outcomesFor({
+							subjects: subjectsFor(world),
+							foreignConfigRevisionId: PluginConfigRevisionId.make("foreign-config"),
+							binding: { activationId: world.activationId, installationId: world.installationId },
+							scripts: {
+								current: current.scriptId,
+								repointed: original.scriptId,
+								unpinned: SandboxScriptId.make(unpinned.id),
+							},
+							expected: {
+								id: PluginId.make(world.pluginId),
+								revisionId: PluginRevisionId.make(world.revisionId),
+								configRevisionId: PluginConfigRevisionId.make("kernel-config"),
+							},
+							verifyPin: (pin, scriptName) => {
+								expect(pin.pluginRevision).toBeNull();
+								if (scriptName === "current") {
+									expect(pin).toMatchObject({ kernelScript: true });
+								} else {
+									expect(pin).not.toHaveProperty("kernelScript");
+								}
+							},
+						});
 					}
-					outcomes[account] = yield* outcomesFor({
-						subjects: subjectsFor(world),
-						foreignConfigRevisionId: PluginConfigRevisionId.make("foreign-config"),
-						binding: { activationId: world.activationId, installationId: world.installationId },
-						scripts: {
-							current: current.scriptId,
-							repointed: original.scriptId,
-							unpinned: SandboxScriptId.make(unpinned.id),
+					expect(outcomes).toEqual({
+						enabled: {
+							current: "P----- P----- P----- P----- P----- P-----",
+							unpinned: "P----- P----- P----- P----- P----- P-----",
+							repointed: "P----- P----- P----- P----- P----- P-----",
 						},
-						expected: {
-							id: PluginId.make(world.pluginId),
-							revisionId: PluginRevisionId.make(world.revisionId),
-							configRevisionId: PluginConfigRevisionId.make("kernel-config"),
-						},
-						verifyPin: (pin, scriptName) => {
-							expect(pin.pluginRevision).toBeNull();
-							if (scriptName === "current") {
-								expect(pin).toMatchObject({ kernelScript: true });
-							} else {
-								expect(pin).not.toHaveProperty("kernelScript");
-							}
+						disabled: {
+							current: "P----- P----- ------ ------ P----- P-----",
+							unpinned: "P----- P----- ------ ------ P----- P-----",
+							repointed: "P----- P----- ------ ------ P----- P-----",
 						},
 					});
-				}
-				expect(outcomes).toEqual({
-					enabled: {
-						current: "P----- P----- P----- P----- P----- P-----",
-						unpinned: "P----- P----- P----- P----- P----- P-----",
-						repointed: "P----- P----- P----- P----- P----- P-----",
-					},
-					disabled: {
-						current: "P----- P----- ------ ------ P----- P-----",
-						unpinned: "P----- P----- ------ ------ P----- P-----",
-						repointed: "P----- P----- ------ ------ P----- P-----",
-					},
-				});
-			}),
+				}),
+			testTimeout,
 		);
 
-		test.effect("rejects a kernel principal once its slug is repointed to new content", () =>
-			Effect.gen(function* () {
-				const authority = yield* SandboxExecutionAuthority;
-				const repository = yield* SandboxRepository;
-				const slug = `kernel-repoint-${yield* randomUuid}`;
-				const original = yield* persistKernel(slug, "original");
-				const originalPin = yield* repository.getScriptPin(original.scriptId);
-				assert(originalPin);
-				const principal = yield* principalFor(originalPin, { type: "system" });
-				expect(yield* authority.resolve(principal)).toBe("system");
-				const current = yield* persistKernel(slug, "repointed");
-				assertExitFails(yield* Effect.exit(authority.resolve(principal)), invalidPin());
-				const currentPin = yield* repository.getScriptPin(current.scriptId);
-				assert(currentPin);
-				expect(yield* authority.resolve(yield* principalFor(currentPin, { type: "system" }))).toBe(
-					"system",
-				);
-			}),
+		test.effect(
+			"rejects a kernel principal once its slug is repointed to new content",
+			() =>
+				Effect.gen(function* () {
+					const authority = yield* SandboxExecutionAuthority;
+					const repository = yield* SandboxRepository;
+					const slug = `kernel-repoint-${yield* randomUuid}`;
+					const original = yield* persistKernel(slug, "original");
+					const originalPin = yield* repository.getScriptPin(original.scriptId);
+					assert(originalPin);
+					const principal = yield* principalFor(originalPin, { type: "system" });
+					expect(yield* authority.resolve(principal)).toBe("system");
+					const current = yield* persistKernel(slug, "repointed");
+					assertExitFails(yield* Effect.exit(authority.resolve(principal)), invalidPin());
+					const currentPin = yield* repository.getScriptPin(current.scriptId);
+					assert(currentPin);
+					expect(
+						yield* authority.resolve(yield* principalFor(currentPin, { type: "system" })),
+					).toBe("system");
+				}),
+			testTimeout,
 		);
 
-		test.effect("rejects a principal whose live revision lost scripts to garbage collection", () =>
-			Effect.gen(function* () {
-				const authority = yield* SandboxExecutionAuthority;
-				const repository = yield* SandboxRepository;
-				const world = yield* createWorld("user");
-				const subject = userSubject(world.userId);
-				const pin = yield* repository.getScriptPin(world.scripts.task, undefined, subject);
-				assert(pin?.pluginRevision);
-				expect(Object.keys(pin.pluginRevision.compiledHashes)).toHaveLength(5);
-				const principal = yield* principalFor(pin, subject);
-				expect(yield* authority.resolve(principal)).toBe("user");
-				yield* mutations.siblingsDeleted(world);
-				assertExitFails(yield* Effect.exit(authority.resolve(principal)), invalidPin());
-				const shrunk = yield* repository.getScriptPin(
-					world.scripts.task,
-					pin.pluginRevision,
-					subject,
-				);
-				expect(shrunk?.pluginRevision?.compiledHashes).toEqual({
-					[`${world.slug}.task`]: `${world.slug}.task-v1`,
-					[`${world.slug}.details`]: `${world.slug}.details-v1`,
-				});
-				yield* deleteScripts(world, ["details"]);
-				expect(
-					yield* repository.getScriptPin(world.scripts.details, pin.pluginRevision, subject),
-				).toBeNull();
-			}),
+		test.effect(
+			"rejects a principal whose live revision lost scripts to garbage collection",
+			() =>
+				Effect.gen(function* () {
+					const authority = yield* SandboxExecutionAuthority;
+					const repository = yield* SandboxRepository;
+					const world = yield* createWorld("user");
+					const subject = userSubject(world.userId);
+					const pin = yield* repository.getScriptPin(world.scripts.task, undefined, subject);
+					assert(pin?.pluginRevision);
+					expect(Object.keys(pin.pluginRevision.compiledHashes)).toHaveLength(5);
+					const principal = yield* principalFor(pin, subject);
+					expect(yield* authority.resolve(principal)).toBe("user");
+					yield* mutations.siblingsDeleted(world);
+					assertExitFails(yield* Effect.exit(authority.resolve(principal)), invalidPin());
+					const shrunk = yield* repository.getScriptPin(
+						world.scripts.task,
+						pin.pluginRevision,
+						subject,
+					);
+					expect(shrunk?.pluginRevision?.compiledHashes).toEqual({
+						[`${world.slug}.task`]: `${world.slug}.task-v1`,
+						[`${world.slug}.details`]: `${world.slug}.details-v1`,
+					});
+					yield* deleteScripts(world, ["details"]);
+					expect(
+						yield* repository.getScriptPin(world.scripts.details, pin.pluginRevision, subject),
+					).toBeNull();
+				}),
+			testTimeout,
 		);
 
-		test.effect("resolves a changed environment configuration for current system pins", () =>
-			Effect.gen(function* () {
-				const repository = yield* SandboxRepository;
-				const world = yield* createWorld("system");
-				const pin = yield* repository.getScriptPin(world.scripts.details);
-				assert(pin?.pluginRevision);
-				yield* mutations.configChanged(world);
-				const changed = yield* repository.getScriptPin(world.scripts.details);
-				expect(changed?.pluginRevision?.configRevisionId).toBe(
-					`${pin.pluginRevision.configRevisionId}-next`,
-				);
-				expect(
-					yield* repository.getScriptPin(world.scripts.details, pin.pluginRevision),
-				).toMatchObject({
-					pluginRevision: { configRevisionId: pin.pluginRevision.configRevisionId },
-				});
-			}),
+		test.effect(
+			"resolves a changed environment configuration for current system pins",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* SandboxRepository;
+					const world = yield* createWorld("system");
+					const pin = yield* repository.getScriptPin(world.scripts.details);
+					assert(pin?.pluginRevision);
+					yield* mutations.configChanged(world);
+					const changed = yield* repository.getScriptPin(world.scripts.details);
+					expect(changed?.pluginRevision?.configRevisionId).toBe<unknown>(
+						`${pin.pluginRevision.configRevisionId}-next`,
+					);
+					expect(
+						yield* repository.getScriptPin(world.scripts.details, pin.pluginRevision),
+					).toMatchObject({
+						pluginRevision: { configRevisionId: pin.pluginRevision.configRevisionId },
+					});
+				}),
+			testTimeout,
 		);
 	});
 });

@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { LogEntry, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
@@ -199,26 +202,32 @@ describe("radarr-push sandbox script", () => {
 		);
 	});
 
-	it.effect("treats an expected Radarr HTTP failure as non-fatal", () =>
-		Effect.gen(function* () {
-			const warnings: (readonly LogEntry[])[] = [];
-			const host = createHost({
-				entity: movieEntity,
-				log: createLog(warnings),
-				integrations: [radarrIntegration],
-				httpCall: () => httpFailure("already exists"),
-			});
-			const result = yield* runAutomation(host, { entityId: "movie-1", entitySchemaSlug: "movie" });
-			expect(result).toBeNull();
-			expect(warnings).toEqual([
-				[
-					{
-						level: "warning",
-						message: "Radarr push failed",
-						attributes: { error: "already exists" },
-					},
-				],
-			]);
-		}),
+	it.effect(
+		"treats an expected Radarr HTTP failure as non-fatal",
+		() =>
+			Effect.gen(function* () {
+				const warnings: (readonly LogEntry[])[] = [];
+				const host = createHost({
+					entity: movieEntity,
+					log: createLog(warnings),
+					integrations: [radarrIntegration],
+					httpCall: () => httpFailure("already exists"),
+				});
+				const result = yield* runAutomation(host, {
+					entityId: "movie-1",
+					entitySchemaSlug: "movie",
+				});
+				expect(result).toBeNull();
+				expect(warnings).toEqual([
+					[
+						{
+							level: "warning",
+							message: "Radarr push failed",
+							attributes: { error: "already exists" },
+						},
+					],
+				]);
+			}),
+		testTimeout,
 	);
 });

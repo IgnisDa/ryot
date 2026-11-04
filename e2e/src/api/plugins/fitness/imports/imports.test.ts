@@ -109,7 +109,7 @@ describe("OpenScale Import E2E", () => {
 				},
 			]);
 			expect(completedRun.activities.every(({ state }) => state === "completed")).toBe(true);
-			expect(completedRun.activities).toEqual(
+			expect(completedRun.activities).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						completed: 3,
@@ -267,7 +267,7 @@ describe("OpenScale Import E2E", () => {
 			const runData = yield* getImportRun(client, runId, undefined, 20);
 
 			expect(runData.issues.items).toHaveLength(2);
-			expect(runData.issues.items.map(({ data }) => data)).toEqual(
+			expect(runData.issues.items.map(({ data }) => data)).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						recordKind: "measurements",

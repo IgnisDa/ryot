@@ -190,8 +190,8 @@ describe("Plugin Import Public Boundary", () => {
 			const repeated = yield* owner.client.call((c) =>
 				c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
 			);
-			expect(first.id).toBe(created.id);
-			expect(repeated.id).toBe(created.id);
+			expect(first.id).toBe<unknown>(created.id);
+			expect(repeated.id).toBe<unknown>(created.id);
 
 			const cancelled = yield* pollImportRunUntilTerminal(owner.client, created.id);
 			expect(cancelled).toMatchObject({ summary: [], status: "cancelled", failureReason: null });
@@ -324,7 +324,7 @@ describe("Plugin Import Public Boundary", () => {
 			const report = yield* Schema.decodeUnknownEffect(importIssuesExportSchema)(
 				yield* Effect.promise(() => response.json()),
 			);
-			expect(report.runId).toBe(created.id);
+			expect(report.runId).toBe<unknown>(created.id);
 			expect(report.issues).toHaveLength(101);
 			expect(report.issues.map(({ attribution }) => attribution?.sourceLabel)).toContain(
 				"Harvest fixture 101",

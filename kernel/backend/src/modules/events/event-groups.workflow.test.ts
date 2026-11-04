@@ -1,11 +1,15 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
 import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import { EntityId, EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
 
@@ -66,6 +70,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					fixture.result,
 				);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -97,69 +102,77 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				expect((yield* create("anchor")).failure?.reason.code).toBe("mutation-conflict");
 				expect((yield* create("member")).count).toBe(1);
 			}),
+		testTimeout,
 	);
 
-	test.effect("rolls back direct last-member deletion and permits a complete batch deletion", () =>
-		Effect.gen(function* () {
-			const fixture = yield* compound();
-			const member = fixture.result.events.find((item) => item.itemIdentity === "member-0");
-			assert(member);
-			const events = yield* EventsService;
-			assertExitFails(
-				yield* Effect.exit(
-					events.delete({ userId: fixture.userId, eventId: member.eventId }, fixture.command),
-				),
-				new EventBadRequest({
-					reason: {
-						code: "mutation-conflict",
-						message: "Event group constraint violated: an anchor requires its declared dependents",
-					},
-				}),
-			);
-			const database = yield* DatabaseSession;
-			expect(
-				yield* database.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(eq(tables.event.sessionEntityId, fixture.result.entityId)),
-				),
-			).toHaveLength(2);
-			expect(
-				(yield* events.deleteBatch(
-					fixture.result.events.map((item) => item.eventId),
-					fixture.userId,
-					{
+	test.effect(
+		"rolls back direct last-member deletion and permits a complete batch deletion",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* compound();
+				const member = fixture.result.events.find((item) => item.itemIdentity === "member-0");
+				assert(member);
+				const events = yield* EventsService;
+				assertExitFails(
+					yield* Effect.exit(
+						events.delete({ userId: fixture.userId, eventId: member.eventId }, fixture.command),
+					),
+					new EventBadRequest({
+						reason: {
+							code: "mutation-conflict",
+							message:
+								"Event group constraint violated: an anchor requires its declared dependents",
+						},
+					}),
+				);
+				const database = yield* DatabaseSession;
+				expect(
+					yield* database.run((db) =>
+						db
+							.select()
+							.from(tables.event)
+							.where(eq(tables.event.sessionEntityId, fixture.result.entityId)),
+					),
+				).toHaveLength(2);
+				expect(
+					(yield* events.deleteBatch(
+						fixture.result.events.map((item) => item.eventId),
+						fixture.userId,
+						{
+							...fixture.command,
+							...command(yield* randomUuid),
+							writeContext: fixture.command.writeContext,
+						},
+					)).count,
+				).toBe(2);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"validates only after a whole entity cascade deletion",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* compound();
+				const entities = yield* EntitiesService;
+				expect(
+					(yield* entities.deleteByIds([fixture.result.entityId], {
 						...fixture.command,
 						...command(yield* randomUuid),
 						writeContext: fixture.command.writeContext,
-					},
-				)).count,
-			).toBe(2);
-		}),
-	);
-
-	test.effect("validates only after a whole entity cascade deletion", () =>
-		Effect.gen(function* () {
-			const fixture = yield* compound();
-			const entities = yield* EntitiesService;
-			expect(
-				(yield* entities.deleteByIds([fixture.result.entityId], {
-					...fixture.command,
-					...command(yield* randomUuid),
-					writeContext: fixture.command.writeContext,
-				})).deletedCount,
-			).toBe(1);
-			const database = yield* DatabaseSession;
-			expect(
-				yield* database.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(eq(tables.event.sessionEntityId, fixture.result.entityId)),
-				),
-			).toHaveLength(0);
-		}),
+					})).deletedCount,
+				).toBe(1);
+				const database = yield* DatabaseSession;
+				expect(
+					yield* database.run((db) =>
+						db
+							.select()
+							.from(tables.event)
+							.where(eq(tables.event.sessionEntityId, fixture.result.entityId)),
+					),
+				).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -282,6 +295,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					),
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -364,198 +378,211 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					})).events,
 				).toHaveLength(5);
 			}),
+		testTimeout,
 	);
 
-	test.effect("does not let another exact plugin borrow an existing session anchor", () =>
-		Effect.gen(function* () {
-			const fixture = yield* compound();
-			const other = yield* eventGroupFixture();
-			const result = yield* EventCreateWorkflow.execute({
-				userId: other.userId,
-				command: other.command,
-				payload: [
-					{
-						entityId: other.subjectId,
-						sessionEntityId: fixture.result.entityId,
-						properties: { position: 0, kind: "primary" },
-						eventSchemaSlug: EventSchemaSlug.make("member"),
-					},
-				],
-			});
-			expect(result.count).toBe(0);
-			expect(result.failure?.reason.code).toBe("session-entity-not-found");
-		}),
-	);
-
-	test.effect("finalizes a subject merge after moving its anchor and all retained dependents", () =>
-		Effect.gen(function* () {
-			const fixture = yield* compound();
-			const [destination] = yield* (yield* EntitiesRepository).insertEntities([
-				{
-					scope: "user",
-					properties: {},
-					populatedAt: null,
-					name: "Destination",
-					userId: fixture.userId,
-					id: EntityId.make(yield* randomUuid),
-					entitySchemaPluginId: fixture.installed.pluginId,
-					entitySchemaSlug: EntitySchemaSlug.make("subject"),
-				},
-			]);
-			assert(destination);
-			const service = yield* EntityUserDataService;
-			const result = yield* service.mergeEntityUserDataForCommand(
-				fixture.userId,
-				{
-					mergeInto: destination.id,
-					mergeFrom: fixture.subjectId,
-					entitySchemaSlug: EntitySchemaSlug.make("subject"),
-				},
-				{
-					...fixture.command,
-					...command(yield* randomUuid),
-					writeContext: fixture.command.writeContext,
-				},
-			);
-			expect(result.movedEventsCount).toBe(2);
-			const database = yield* DatabaseSession;
-			const rows = yield* database.run((db) =>
-				db.select().from(tables.event).where(eq(tables.event.entityId, destination.id)),
-			);
-			expect(rows.map((row) => row.id).sort()).toEqual(
-				fixture.result.events.map((row) => row.eventId).sort(),
-			);
-		}),
-	);
-
-	test.effect("rejects a session merge that would change retained anchor sessions", () =>
-		Effect.gen(function* () {
-			const fixture = yield* compound();
-			const [destination] = yield* (yield* EntitiesRepository).insertEntities([
-				{
-					scope: "user",
-					properties: {},
-					populatedAt: null,
-					name: "Destination",
-					userId: fixture.userId,
-					id: EntityId.make(yield* randomUuid),
-					entitySchemaPluginId: fixture.installed.pluginId,
-					entitySchemaSlug: EntitySchemaSlug.make("session"),
-				},
-			]);
-			assert(destination);
-			const service = yield* EntityUserDataService;
-			assertExitFails(
-				yield* Effect.exit(
-					service.mergeEntityUserDataForCommand(
-						fixture.userId,
+	test.effect(
+		"does not let another exact plugin borrow an existing session anchor",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* compound();
+				const other = yield* eventGroupFixture();
+				const result = yield* EventCreateWorkflow.execute({
+					userId: other.userId,
+					command: other.command,
+					payload: [
 						{
-							mergeInto: destination.id,
-							mergeFrom: fixture.result.entityId,
-							entitySchemaSlug: EntitySchemaSlug.make("session"),
-						},
-						{
-							...fixture.command,
-							...command(yield* randomUuid),
-							writeContext: fixture.command.writeContext,
-						},
-					),
-				),
-				new EntityUserDataBadRequest({
-					reason: {
-						code: "state-conflict",
-						message:
-							"Event group constraint violated: retained anchor fields and properties are immutable",
-					},
-				}),
-			);
-			const database = yield* DatabaseSession;
-			expect(
-				yield* database.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(eq(tables.event.sessionEntityId, fixture.result.entityId)),
-				),
-			).toHaveLength(2);
-		}),
-	);
-
-	test.effect("admits exactly one concurrent compound command for an absent session key", () =>
-		Effect.gen(function* () {
-			const fixture = yield* compound();
-			const root = yield* (yield* EntitiesRepository).getByIdForUser({
-				userId: fixture.userId,
-				entityId: fixture.result.entityId,
-			});
-			assert(root);
-			const input = yield* Schema.decodeUnknownEffect(UserCommand)({
-				relationships: [],
-				entity: {
-					name: root.name,
-					properties: root.properties,
-					entitySchemaSlug: "session",
-					target: {
-						kind: "update",
-						entityId: root.id,
-						expected: { name: root.name, updatedAt: root.updatedAt, properties: root.properties },
-					},
-				},
-				events: {
-					changes: [],
-					creates: [
-						{
-							session: { kind: "root" },
-							eventSchemaSlug: "anchor",
-							itemIdentity: "new-anchor",
-							entity: { kind: "existing", entityId: fixture.subjectId },
-							properties: { position: 1, kind: "primary", evidence: "recorded" },
-						},
-						{
-							session: { kind: "root" },
-							eventSchemaSlug: "member",
-							itemIdentity: "new-member",
-							properties: { position: 1, kind: "primary" },
-							entity: { kind: "existing", entityId: fixture.subjectId },
+							entityId: other.subjectId,
+							sessionEntityId: fixture.result.entityId,
+							properties: { position: 0, kind: "primary" },
+							eventSchemaSlug: EventSchemaSlug.make("member"),
 						},
 					],
-				},
-			});
-			const outcomes = yield* Effect.all(
-				Array.from({ length: 2 }, () =>
-					Effect.exit(
-						UserCommandWorkflow.execute({
-							input,
-							userId: fixture.userId,
-							command: {
+				});
+				expect(result.count).toBe(0);
+				expect(result.failure?.reason.code).toBe("session-entity-not-found");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"finalizes a subject merge after moving its anchor and all retained dependents",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* compound();
+				const [destination] = yield* (yield* EntitiesRepository).insertEntities([
+					{
+						scope: "user",
+						properties: {},
+						populatedAt: null,
+						name: "Destination",
+						userId: fixture.userId,
+						id: EntityId.make(yield* randomUuid),
+						entitySchemaPluginId: fixture.installed.pluginId,
+						entitySchemaSlug: EntitySchemaSlug.make("subject"),
+					},
+				]);
+				assert(destination);
+				const service = yield* EntityUserDataService;
+				const result = yield* service.mergeEntityUserDataForCommand(
+					fixture.userId,
+					{
+						mergeInto: destination.id,
+						mergeFrom: fixture.subjectId,
+						entitySchemaSlug: EntitySchemaSlug.make("subject"),
+					},
+					{
+						...fixture.command,
+						...command(yield* randomUuid),
+						writeContext: fixture.command.writeContext,
+					},
+				);
+				expect(result.movedEventsCount).toBe(2);
+				const database = yield* DatabaseSession;
+				const rows = yield* database.run((db) =>
+					db.select().from(tables.event).where(eq(tables.event.entityId, destination.id)),
+				);
+				expect(rows.map((row) => row.id).sort()).toEqual(
+					fixture.result.events.map((row) => row.eventId).sort(),
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a session merge that would change retained anchor sessions",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* compound();
+				const [destination] = yield* (yield* EntitiesRepository).insertEntities([
+					{
+						scope: "user",
+						properties: {},
+						populatedAt: null,
+						name: "Destination",
+						userId: fixture.userId,
+						id: EntityId.make(yield* randomUuid),
+						entitySchemaPluginId: fixture.installed.pluginId,
+						entitySchemaSlug: EntitySchemaSlug.make("session"),
+					},
+				]);
+				assert(destination);
+				const service = yield* EntityUserDataService;
+				assertExitFails(
+					yield* Effect.exit(
+						service.mergeEntityUserDataForCommand(
+							fixture.userId,
+							{
+								mergeInto: destination.id,
+								mergeFrom: fixture.result.entityId,
+								entitySchemaSlug: EntitySchemaSlug.make("session"),
+							},
+							{
 								...fixture.command,
-								...command(crypto.randomUUID()),
+								...command(yield* randomUuid),
 								writeContext: fixture.command.writeContext,
 							},
-						}),
+						),
 					),
-				),
-				{ concurrency: 2 },
-			);
-			expect(outcomes.filter(Exit.isSuccess)).toHaveLength(1);
-			const failed = outcomes.find(Exit.isFailure);
-			assert(failed);
-			assertExitFails(
-				failed,
-				new EventBadRequest({
-					reason: {
-						code: "mutation-conflict",
-						message:
-							"Event group constraint violated: an anchor key must be unique within its session",
+					new EntityUserDataBadRequest({
+						reason: {
+							code: "state-conflict",
+							message:
+								"Event group constraint violated: retained anchor fields and properties are immutable",
+						},
+					}),
+				);
+				const database = yield* DatabaseSession;
+				expect(
+					yield* database.run((db) =>
+						db
+							.select()
+							.from(tables.event)
+							.where(eq(tables.event.sessionEntityId, fixture.result.entityId)),
+					),
+				).toHaveLength(2);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"admits exactly one concurrent compound command for an absent session key",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* compound();
+				const root = yield* (yield* EntitiesRepository).getByIdForUser({
+					userId: fixture.userId,
+					entityId: fixture.result.entityId,
+				});
+				assert(root);
+				const input = yield* Schema.decodeUnknownEffect(UserCommand)({
+					relationships: [],
+					entity: {
+						name: root.name,
+						properties: root.properties,
+						entitySchemaSlug: "session",
+						target: {
+							kind: "update",
+							entityId: root.id,
+							expected: { name: root.name, updatedAt: root.updatedAt, properties: root.properties },
+						},
 					},
-				}),
-			);
-			const database = yield* DatabaseSession;
-			expect(
-				yield* database.run((db) =>
-					db.select().from(tables.event).where(eq(tables.event.sessionEntityId, root.id)),
-				),
-			).toHaveLength(4);
-		}),
+					events: {
+						changes: [],
+						creates: [
+							{
+								session: { kind: "root" },
+								eventSchemaSlug: "anchor",
+								itemIdentity: "new-anchor",
+								entity: { kind: "existing", entityId: fixture.subjectId },
+								properties: { position: 1, kind: "primary", evidence: "recorded" },
+							},
+							{
+								session: { kind: "root" },
+								eventSchemaSlug: "member",
+								itemIdentity: "new-member",
+								properties: { position: 1, kind: "primary" },
+								entity: { kind: "existing", entityId: fixture.subjectId },
+							},
+						],
+					},
+				});
+				const outcomes = yield* Effect.all(
+					Array.from({ length: 2 }, () =>
+						Effect.exit(
+							UserCommandWorkflow.execute({
+								input,
+								userId: fixture.userId,
+								command: {
+									...fixture.command,
+									...command(crypto.randomUUID()),
+									writeContext: fixture.command.writeContext,
+								},
+							}),
+						),
+					),
+					{ concurrency: 2 },
+				);
+				expect(outcomes.filter(Exit.isSuccess)).toHaveLength(1);
+				const failed = outcomes.find(Exit.isFailure);
+				assert(failed);
+				assertExitFails(
+					failed,
+					new EventBadRequest({
+						reason: {
+							code: "mutation-conflict",
+							message:
+								"Event group constraint violated: an anchor key must be unique within its session",
+						},
+					}),
+				);
+				const database = yield* DatabaseSession;
+				expect(
+					yield* database.run((db) =>
+						db.select().from(tables.event).where(eq(tables.event.sessionEntityId, root.id)),
+					),
+				).toHaveLength(4);
+			}),
+		testTimeout,
 	);
 });

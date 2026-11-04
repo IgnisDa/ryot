@@ -1,9 +1,12 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, getByText, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred } from "effect";
 
 import { activityLogQuery, contextTarget } from "../../../tests/client/activity-log/fixtures";
@@ -72,36 +75,39 @@ afterEach(() => {
 });
 
 describe("useQuickLog", () => {
-	it.live("unlocks only after a refetch that starts after the save, not an earlier one", () =>
-		Effect.gen(function* () {
-			const stale = yield* Deferred.make<void>();
-			const fresh = yield* Deferred.make<void>();
-			const mounted = mountProbe([
-				(document) => named("Heat")(document),
-				(document) => Deferred.await(stale).pipe(Effect.andThen(named("Stale")(document))),
-				(document) => Deferred.await(fresh).pipe(Effect.andThen(named("Fresh")(document))),
-			]);
-			unmount = mounted.view.unmount;
-			yield* Effect.promise(() =>
-				waitFor(() => expect(getByText(mounted.view.container, "Heat")).toBeDefined()),
-			);
-			clickRyotElement(getByRole(mounted.view.container, "button", { name: "Reload" }));
-			clickRyotElement(mounted.log());
-			yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(mounted.log().hasAttribute("disabled")).toBe(true)),
-			);
-			mounted.saved();
-			yield* Deferred.succeed(stale, undefined);
-			expect(mounted.log().hasAttribute("disabled")).toBe(true);
-			yield* Deferred.succeed(fresh, undefined);
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					expect(getByText(mounted.view.container, "Fresh")).toBeDefined();
-					expect(mounted.log().hasAttribute("disabled")).toBe(false);
-				}),
-			);
-		}),
+	it.live(
+		"unlocks only after a refetch that starts after the save, not an earlier one",
+		() =>
+			Effect.gen(function* () {
+				const stale = yield* Deferred.make<void>();
+				const fresh = yield* Deferred.make<void>();
+				const mounted = mountProbe([
+					(document) => named("Heat")(document),
+					(document) => Deferred.await(stale).pipe(Effect.andThen(named("Stale")(document))),
+					(document) => Deferred.await(fresh).pipe(Effect.andThen(named("Fresh")(document))),
+				]);
+				unmount = mounted.view.unmount;
+				yield* Effect.promise(() =>
+					waitFor(() => expect(getByText(mounted.view.container, "Heat")).toBeDefined()),
+				);
+				clickRyotElement(getByRole(mounted.view.container, "button", { name: "Reload" }));
+				clickRyotElement(mounted.log());
+				yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(mounted.log().hasAttribute("disabled")).toBe(true)),
+				);
+				mounted.saved();
+				yield* Deferred.succeed(stale, undefined);
+				expect(mounted.log().hasAttribute("disabled")).toBe(true);
+				yield* Deferred.succeed(fresh, undefined);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(getByText(mounted.view.container, "Fresh")).toBeDefined();
+						expect(mounted.log().hasAttribute("disabled")).toBe(false);
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
 	for (const [label, refresh, shown] of [
@@ -116,30 +122,33 @@ describe("useQuickLog", () => {
 			"Heat",
 		],
 	] as const) {
-		it.live(`unlocks after ${label}`, () =>
-			Effect.gen(function* () {
-				const release = yield* Deferred.make<void>();
-				const mounted = mountProbe([
-					(document) => named("Heat")(document),
-					(document) => Deferred.await(release).pipe(Effect.andThen(refresh(document))),
-				]);
-				unmount = mounted.view.unmount;
-				yield* Effect.promise(() =>
-					waitFor(() => expect(getByText(mounted.view.container, "Heat")).toBeDefined()),
-				);
-				clickRyotElement(mounted.log());
-				yield* Effect.promise(() =>
-					waitFor(() => expect(mounted.log().hasAttribute("disabled")).toBe(true)),
-				);
-				mounted.saved();
-				yield* Deferred.succeed(release, undefined);
-				yield* Effect.promise(() =>
-					waitFor(() => {
-						expect(getByText(mounted.view.container, shown)).toBeDefined();
-						expect(mounted.log().hasAttribute("disabled")).toBe(false);
-					}),
-				);
-			}),
+		it.live(
+			`unlocks after ${label}`,
+			() =>
+				Effect.gen(function* () {
+					const release = yield* Deferred.make<void>();
+					const mounted = mountProbe([
+						(document) => named("Heat")(document),
+						(document) => Deferred.await(release).pipe(Effect.andThen(refresh(document))),
+					]);
+					unmount = mounted.view.unmount;
+					yield* Effect.promise(() =>
+						waitFor(() => expect(getByText(mounted.view.container, "Heat")).toBeDefined()),
+					);
+					clickRyotElement(mounted.log());
+					yield* Effect.promise(() =>
+						waitFor(() => expect(mounted.log().hasAttribute("disabled")).toBe(true)),
+					);
+					mounted.saved();
+					yield* Deferred.succeed(release, undefined);
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							expect(getByText(mounted.view.container, shown)).toBeDefined();
+							expect(mounted.log().hasAttribute("disabled")).toBe(false);
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	}
 });

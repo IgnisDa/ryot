@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	homeTemplatesRecipe,
@@ -76,7 +77,7 @@ describe("muscleActivityRecipe", () => {
 					},
 				}),
 			),
-		).toEqual([
+		).toEqual<unknown>([
 			{ id: "private", name: "Chest", weeklySets: 0, lastTrainedAt: "2026-10-10T09:00:00.000Z" },
 			{ id: "shared", name: "Chest", weeklySets: 2, lastTrainedAt: "2026-10-15T09:00:00.000Z" },
 		]);
@@ -151,7 +152,7 @@ describe("homeTemplatesRecipe", () => {
 		);
 		expect(
 			decoded.map(({ id, exerciseIds, lastWorkout }) => [id, exerciseIds, lastWorkout]),
-		).toEqual([
+		).toEqual<unknown>([
 			[
 				"t1",
 				["bench", "press"],

@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Option, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
@@ -46,47 +49,55 @@ const requestReason = (respond: () => Effect.Effect<Response>) =>
 		return { result, redirects: yield* Ref.get(redirects) };
 	});
 
-it.effect("never follows redirects and reports only kernel failure reasons", () =>
-	Effect.gen(function* () {
-		const redirected = yield* requestReason(() =>
-			Effect.succeed(
-				new Response(null, {
-					status: 302,
-					headers: { location: "https://attacker.example.test/collect" },
-				}),
-			),
-		);
-		expect(redirected).toEqual({ result: "failed", redirects: ["manual"] });
-
-		const rejected = yield* requestReason(() =>
-			Effect.succeed(
-				Response.json(
-					{ error: "invalid_grant", error_description: "refresh-1 was revoked" },
-					{ status: 400 },
+it.effect(
+	"never follows redirects and reports only kernel failure reasons",
+	() =>
+		Effect.gen(function* () {
+			const redirected = yield* requestReason(() =>
+				Effect.succeed(
+					new Response(null, {
+						status: 302,
+						headers: { location: "https://attacker.example.test/collect" },
+					}),
 				),
-			),
-		);
-		expect(rejected.result).toBe("invalid-grant");
+			);
+			expect(redirected).toEqual({ result: "failed", redirects: ["manual"] });
 
-		const oversized = yield* requestReason(() =>
-			Effect.succeed(new Response("x".repeat(OAUTH_TOKEN_RESPONSE_MAX_BYTES + 1), { status: 200 })),
-		);
-		expect(oversized.result).toBe("failed");
+			const rejected = yield* requestReason(() =>
+				Effect.succeed(
+					Response.json(
+						{ error: "invalid_grant", error_description: "refresh-1 was revoked" },
+						{ status: 400 },
+					),
+				),
+			);
+			expect(rejected.result).toBe("invalid-grant");
 
-		const notBearer = yield* requestReason(() =>
-			Effect.succeed(Response.json({ token_type: "mac", access_token: "access-1" })),
-		);
-		expect(notBearer.result).toBe("failed");
-	}),
+			const oversized = yield* requestReason(() =>
+				Effect.succeed(
+					new Response("x".repeat(OAUTH_TOKEN_RESPONSE_MAX_BYTES + 1), { status: 200 }),
+				),
+			);
+			expect(oversized.result).toBe("failed");
+
+			const notBearer = yield* requestReason(() =>
+				Effect.succeed(Response.json({ token_type: "mac", access_token: "access-1" })),
+			);
+			expect(notBearer.result).toBe("failed");
+		}),
+	testTimeout,
 );
 
-it.effect("times out token requests", () =>
-	Effect.gen(function* () {
-		const pending = yield* Effect.forkChild(requestReason(() => Effect.never));
-		while (pending.pollUnsafe() === undefined) {
-			yield* TestClock.adjust("11 seconds");
-			yield* TestClock.withLive(Effect.sleep("5 millis"));
-		}
-		expect((yield* Fiber.join(pending)).result).toBe("failed");
-	}),
+it.effect(
+	"times out token requests",
+	() =>
+		Effect.gen(function* () {
+			const pending = yield* Effect.forkChild(requestReason(() => Effect.never));
+			while (pending.pollUnsafe() === undefined) {
+				yield* TestClock.adjust("11 seconds");
+				yield* TestClock.withLive(Effect.sleep("5 millis"));
+			}
+			expect((yield* Fiber.join(pending)).result).toBe("failed");
+		}),
+	testTimeout,
 );

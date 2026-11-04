@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type { BrowseField } from "@ryot-app/contract/modules/filters/browse";
 import { PluginId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
@@ -14,7 +16,6 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	type BrowseSchema,
@@ -143,7 +144,7 @@ describe("browse targets", () => {
 		).filters;
 		expect(
 			target?.branches.map(({ link }) => link?.kind === "relationship" && link.relationship.slug),
-		).toEqual(["movie-to-genre", "book-to-genre"]);
+		).toEqual<unknown>(["movie-to-genre", "book-to-genre"]);
 		expect(target?.branches.every(({ when }) => when !== undefined)).toBe(true);
 	});
 

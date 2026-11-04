@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
@@ -15,7 +17,6 @@ import {
 	userMediaLibraryRecipe,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 const rowsResponse = {
 	data: {

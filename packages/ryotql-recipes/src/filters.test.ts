@@ -1,3 +1,5 @@
+import { beforeAll, describe, expect, it } from "bun:test";
+
 import type {
 	Filter,
 	QueryFilterField,
@@ -41,7 +43,6 @@ import {
 } from "@ryot-app/ryotql";
 import { DateTime, Effect, Result } from "effect";
 import { TestClock } from "effect/testing";
-import { beforeAll, describe, expect, it } from "vitest";
 
 import {
 	activeRuleCount,
@@ -397,7 +398,7 @@ describe("filter targets", () => {
 					},
 				},
 			]),
-		).toEqual([
+		).toEqual<unknown>([
 			{
 				key: "related",
 				label: "Related",
@@ -621,12 +622,12 @@ describe("filter URL codec", () => {
 				}),
 				fields,
 			),
-		).toEqual({ type: "and", filters: [valid] });
+		).toEqual<unknown>({ type: "and", filters: [valid] });
 	});
 
 	it("edits one flat group and treats anything else as a single custom filter", () => {
 		expect(editableGroup(undefined)).toEqual({ rules: [], match: "all" });
-		expect(editableGroup(group)).toEqual({
+		expect(editableGroup(group)).toEqual<unknown>({
 			match: "all",
 			rules: group.type === "and" ? group.filters : [],
 		});

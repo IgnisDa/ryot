@@ -53,7 +53,7 @@ describe("notification subscription catalog and rules", () => {
 			);
 			const rules = yield* listNotificationSubscriptions(client, { limit: 100 });
 
-			expect(catalog.map((schema) => schema.slug).sort()).toEqual([
+			expect(catalog.map((schema) => schema.slug).sort()).toEqual<unknown>([
 				"company.media-group.associated",
 				"company.media.associated",
 				"integration.disabled",
@@ -74,7 +74,7 @@ describe("notification subscription catalog and rules", () => {
 				"workout.created",
 			]);
 			expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
-			expect(rules.map((rule) => rule.signalSchemaSlug)).toEqual(
+			expect(rules.map((rule) => rule.signalSchemaSlug)).toEqual<unknown>(
 				arrayContaining(catalog.map((schema) => schema.slug)),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);

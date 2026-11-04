@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ChangeUserRelationshipBatch, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	inMemoryRyotql,
@@ -34,185 +37,206 @@ const recordingHost = (
 	});
 
 describe("measurement metric create operation", () => {
-	it.live("trims a known metric name and uses its canonical unit when omitted", () =>
-		Effect.gen(function* () {
-			const writes: CreateUserEntityItem[] = [];
+	it.live(
+		"trims a known metric name and uses its canonical unit when omitted",
+		() =>
+			Effect.gen(function* () {
+				const writes: CreateUserEntityItem[] = [];
 
-			expect(
+				expect(
+					yield* runSandboxTestScript(
+						createDefinition,
+						{ name: "  Weight  " },
+						recordingHost(writes),
+						execution,
+					),
+				).toEqual({ entityId: "metric-1" });
+				expect(writes).toEqual([
+					{
+						name: "Weight",
+						entitySchemaSlug: "measurement-metric",
+						properties: { unit: "kg", key: "weight" },
+					},
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"trims custom metric names and units",
+		() =>
+			Effect.gen(function* () {
+				const writes: CreateUserEntityItem[] = [];
+
 				yield* runSandboxTestScript(
 					createDefinition,
-					{ name: "  Weight  " },
+					{ unit: " mmHg ", name: " Blood Pressure " },
 					recordingHost(writes),
 					execution,
-				),
-			).toEqual({ entityId: "metric-1" });
-			expect(writes).toEqual([
-				{
-					name: "Weight",
-					entitySchemaSlug: "measurement-metric",
-					properties: { unit: "kg", key: "weight" },
-				},
-			]);
-		}),
+				);
+
+				expect(writes).toEqual([
+					{
+						name: "Blood Pressure",
+						entitySchemaSlug: "measurement-metric",
+						properties: { unit: "mmHg", key: "blood_pressure" },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("trims custom metric names and units", () =>
-		Effect.gen(function* () {
-			const writes: CreateUserEntityItem[] = [];
+	it.live(
+		"omits blank or missing units for custom metrics",
+		() =>
+			Effect.gen(function* () {
+				const writes: CreateUserEntityItem[] = [];
 
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ unit: " mmHg ", name: " Blood Pressure " },
-				recordingHost(writes),
-				execution,
-			);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ name: "Resting Heart Rate" },
+					recordingHost(writes),
+					execution,
+				);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ unit: "  ", name: "Body Temperature" },
+					recordingHost(writes),
+					execution,
+				);
 
-			expect(writes).toEqual([
-				{
-					name: "Blood Pressure",
-					entitySchemaSlug: "measurement-metric",
-					properties: { unit: "mmHg", key: "blood_pressure" },
-				},
-			]);
-		}),
+				expect(writes).toEqual([
+					{
+						name: "Resting Heart Rate",
+						entitySchemaSlug: "measurement-metric",
+						properties: { key: "resting_heart_rate" },
+					},
+					{
+						name: "Body Temperature",
+						entitySchemaSlug: "measurement-metric",
+						properties: { key: "body_temperature" },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("omits blank or missing units for custom metrics", () =>
-		Effect.gen(function* () {
-			const writes: CreateUserEntityItem[] = [];
+	it.live(
+		"normalizes whitespace and punctuation before applying a known metric unit",
+		() =>
+			Effect.gen(function* () {
+				const writes: CreateUserEntityItem[] = [];
 
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ name: "Resting Heart Rate" },
-				recordingHost(writes),
-				execution,
-			);
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ unit: "  ", name: "Body Temperature" },
-				recordingHost(writes),
-				execution,
-			);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ name: " Waist " },
+					recordingHost(writes),
+					execution,
+				);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ name: "Waist!" },
+					recordingHost(writes),
+					execution,
+				);
 
-			expect(writes).toEqual([
-				{
-					name: "Resting Heart Rate",
-					entitySchemaSlug: "measurement-metric",
-					properties: { key: "resting_heart_rate" },
-				},
-				{
-					name: "Body Temperature",
-					entitySchemaSlug: "measurement-metric",
-					properties: { key: "body_temperature" },
-				},
-			]);
-		}),
+				expect(writes).toEqual([
+					{
+						name: "Waist",
+						entitySchemaSlug: "measurement-metric",
+						properties: { unit: "cm", key: "waist" },
+					},
+					{
+						name: "Waist!",
+						entitySchemaSlug: "measurement-metric",
+						properties: { unit: "cm", key: "waist" },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("normalizes whitespace and punctuation before applying a known metric unit", () =>
-		Effect.gen(function* () {
-			const writes: CreateUserEntityItem[] = [];
+	it.live(
+		"does not infer a unit for an unknown metric named Constructor",
+		() =>
+			Effect.gen(function* () {
+				const writes: CreateUserEntityItem[] = [];
 
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ name: " Waist " },
-				recordingHost(writes),
-				execution,
-			);
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ name: "Waist!" },
-				recordingHost(writes),
-				execution,
-			);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ name: "Constructor" },
+					recordingHost(writes),
+					execution,
+				);
 
-			expect(writes).toEqual([
-				{
-					name: "Waist",
-					entitySchemaSlug: "measurement-metric",
-					properties: { unit: "cm", key: "waist" },
-				},
-				{
-					name: "Waist!",
-					entitySchemaSlug: "measurement-metric",
-					properties: { unit: "cm", key: "waist" },
-				},
-			]);
-		}),
+				expect(writes).toEqual([
+					{
+						name: "Constructor",
+						properties: { key: "constructor" },
+						entitySchemaSlug: "measurement-metric",
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("does not infer a unit for an unknown metric named Constructor", () =>
-		Effect.gen(function* () {
-			const writes: CreateUserEntityItem[] = [];
+	it.live(
+		"pins the new metric only while the user has fewer than two metrics",
+		() =>
+			Effect.gen(function* () {
+				const pins: ChangeUserRelationshipBatch[] = [];
+				const oneMetric = {
+					...measurementTables,
+					entity: (measurementTables.entity ?? []).filter(({ id }) => id !== "waist"),
+				};
 
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ name: "Constructor" },
-				recordingHost(writes),
-				execution,
-			);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ name: "Hip" },
+					recordingHost([], pins, oneMetric),
+					execution,
+				);
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ name: "Hip" },
+					recordingHost([], pins),
+					execution,
+				);
 
-			expect(writes).toEqual([
-				{
-					name: "Constructor",
-					properties: { key: "constructor" },
-					entitySchemaSlug: "measurement-metric",
-				},
-			]);
-		}),
+				expect(pins).toEqual([
+					{
+						deletes: [],
+						creates: [
+							{
+								properties: {},
+								propertiesMode: "merge",
+								targetEntityId: "library",
+								sourceEntityId: "metric-1",
+								relationshipSchemaSlug: "measurement-metric-pinned",
+							},
+						],
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("pins the new metric only while the user has fewer than two metrics", () =>
-		Effect.gen(function* () {
-			const pins: ChangeUserRelationshipBatch[] = [];
-			const oneMetric = {
-				...measurementTables,
-				entity: (measurementTables.entity ?? []).filter(({ id }) => id !== "waist"),
-			};
+	it.live(
+		"rejects invalid names and incompatible known units without writing",
+		() =>
+			Effect.gen(function* () {
+				const writes: CreateUserEntityItem[] = [];
+				const host = recordingHost(writes);
 
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ name: "Hip" },
-				recordingHost([], pins, oneMetric),
-				execution,
-			);
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ name: "Hip" },
-				recordingHost([], pins),
-				execution,
-			);
+				for (const name of ["", "   ", "!!!", "測定"]) {
+					yield* Effect.flip(runSandboxTestScript(createDefinition, { name }, host, execution));
+				}
+				yield* Effect.flip(
+					runSandboxTestScript(createDefinition, { unit: "lb", name: "Weight" }, host, execution),
+				);
 
-			expect(pins).toEqual([
-				{
-					deletes: [],
-					creates: [
-						{
-							properties: {},
-							propertiesMode: "merge",
-							targetEntityId: "library",
-							sourceEntityId: "metric-1",
-							relationshipSchemaSlug: "measurement-metric-pinned",
-						},
-					],
-				},
-			]);
-		}),
-	);
-
-	it.live("rejects invalid names and incompatible known units without writing", () =>
-		Effect.gen(function* () {
-			const writes: CreateUserEntityItem[] = [];
-			const host = recordingHost(writes);
-
-			for (const name of ["", "   ", "!!!", "測定"]) {
-				yield* Effect.flip(runSandboxTestScript(createDefinition, { name }, host, execution));
-			}
-			yield* Effect.flip(
-				runSandboxTestScript(createDefinition, { unit: "lb", name: "Weight" }, host, execution),
-			);
-
-			expect(writes).toEqual([]);
-		}),
+				expect(writes).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

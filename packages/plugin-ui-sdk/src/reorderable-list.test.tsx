@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { createRef, type RefObject, useState } from "react";
-import { axe } from "vitest-axe";
 
 import { ReorderableList } from "./reorderable-list";
 
@@ -351,7 +354,7 @@ describe("ReorderableList", () => {
 		expect(moves).toEqual([]);
 	});
 
-	it.each([
+	test.each([
 		["reordered", rows.toReversed()],
 		["removed", rows.slice(1)],
 		["added", [...rows, { slug: "extra", name: "Extra" }]],
@@ -394,82 +397,94 @@ describe("ReorderableList", () => {
 		expect(feedback).toEqual(["drop"]);
 	});
 
-	it.live("accounts for scroll travel and stops auto-scroll after dropping", () =>
-		Effect.gen(function* () {
-			const moves: Array<[number, number]> = [];
-			const { scroller, scrollRef } = scrollHarness(0);
-			render(<Harness scrollRef={scrollRef} onReorder={(from, to) => moves.push([from, to])} />);
-			const { handle } = captureHandle("Parts");
+	it.live(
+		"accounts for scroll travel and stops auto-scroll after dropping",
+		() =>
+			Effect.gen(function* () {
+				const moves: Array<[number, number]> = [];
+				const { scroller, scrollRef } = scrollHarness(0);
+				render(<Harness scrollRef={scrollRef} onReorder={(from, to) => moves.push([from, to])} />);
+				const { handle } = captureHandle("Parts");
 
-			pointer(handle, "pointerdown", 196);
-			yield* nextFrame;
-			expect(scroller.scrollTop).toBeGreaterThan(0);
-			pointer(handle, "pointermove", 196);
-			const position = Math.min(scroller.scrollTop, 88);
-			expect(transforms()[0]).toBe(`translateY(${position}px)`);
-			pointer(handle, "pointerup", 196);
-			expect(moves).toEqual(position < 22 ? [] : [[0, Math.round(position / 44)]]);
-			const stoppedAt = scroller.scrollTop;
-			yield* nextFrame;
-			expect(scroller.scrollTop).toBe(stoppedAt);
-		}),
+				pointer(handle, "pointerdown", 196);
+				yield* nextFrame;
+				expect(scroller.scrollTop).toBeGreaterThan(0);
+				pointer(handle, "pointermove", 196);
+				const position = Math.min(scroller.scrollTop, 88);
+				expect(transforms()[0]).toBe(`translateY(${position}px)`);
+				pointer(handle, "pointerup", 196);
+				expect(moves).toEqual(position < 22 ? [] : [[0, Math.round(position / 44)]]);
+				const stoppedAt = scroller.scrollTop;
+				yield* nextFrame;
+				expect(scroller.scrollTop).toBe(stoppedAt);
+			}),
+		testTimeout,
 	);
 
-	it.live("scrolls upward, clamps the scroll bounds, and stops after unmount", () =>
-		Effect.gen(function* () {
-			const { scroller, scrollRef } = scrollHarness(4);
-			const { unmount } = render(<Harness scrollRef={scrollRef} />);
-			const { handle } = captureHandle("Items");
+	it.live(
+		"scrolls upward, clamps the scroll bounds, and stops after unmount",
+		() =>
+			Effect.gen(function* () {
+				const { scroller, scrollRef } = scrollHarness(4);
+				const { unmount } = render(<Harness scrollRef={scrollRef} />);
+				const { handle } = captureHandle("Items");
 
-			pointer(handle, "pointerdown", 0);
-			yield* nextFrame;
-			expect(scroller.scrollTop).toBe(0);
-			pointer(handle, "pointermove", 0);
-			expect(transforms()[2]).toBe("translateY(84px)");
-			unmount();
-			scroller.scrollTop = 100;
-			yield* nextFrame;
-			expect(scroller.scrollTop).toBe(100);
-		}),
+				pointer(handle, "pointerdown", 0);
+				yield* nextFrame;
+				expect(scroller.scrollTop).toBe(0);
+				pointer(handle, "pointermove", 0);
+				expect(transforms()[2]).toBe("translateY(84px)");
+				unmount();
+				scroller.scrollTop = 100;
+				yield* nextFrame;
+				expect(scroller.scrollTop).toBe(100);
+			}),
+		testTimeout,
 	);
 
-	it.live("clamps auto-scroll at the bottom and stops when external order changes", () =>
-		Effect.gen(function* () {
-			const moves: Array<[number, number]> = [];
-			const feedback: string[] = [];
-			const { scroller, scrollRef } = scrollHarness(198);
-			const props = {
-				scrollRef,
-				onDrop: () => feedback.push("drop"),
-				onReorder: (from: number, to: number) => moves.push([from, to]),
-			};
-			const { rerender } = render(<Harness {...props} />);
-			const { handle } = captureHandle("Parts");
+	it.live(
+		"clamps auto-scroll at the bottom and stops when external order changes",
+		() =>
+			Effect.gen(function* () {
+				const moves: Array<[number, number]> = [];
+				const feedback: string[] = [];
+				const { scroller, scrollRef } = scrollHarness(198);
+				const props = {
+					scrollRef,
+					onDrop: () => feedback.push("drop"),
+					onReorder: (from: number, to: number) => moves.push([from, to]),
+				};
+				const { rerender } = render(<Harness {...props} />);
+				const { handle } = captureHandle("Parts");
 
-			pointer(handle, "pointerdown", 196);
-			yield* nextFrame;
-			expect(scroller.scrollTop).toBe(200);
-			rerender(<Harness {...props} items={rows.toReversed()} />);
-			scroller.scrollTop = 100;
-			yield* nextFrame;
-			pointer(handle, "pointerup", 196);
-			expect(scroller.scrollTop).toBe(100);
-			expect(feedback).toEqual(["drop"]);
-			expect(moves).toEqual([]);
-		}),
+				pointer(handle, "pointerdown", 196);
+				yield* nextFrame;
+				expect(scroller.scrollTop).toBe(200);
+				rerender(<Harness {...props} items={rows.toReversed()} />);
+				scroller.scrollTop = 100;
+				yield* nextFrame;
+				pointer(handle, "pointerup", 196);
+				expect(scroller.scrollTop).toBe(100);
+				expect(feedback).toEqual(["drop"]);
+				expect(moves).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("passes an axe pass", () =>
-		Effect.gen(function* () {
-			render(<Harness />);
+	it.live(
+		"passes an axe pass",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness />);
 
-			const results = yield* Effect.promise(() =>
-				axe(document.body, {
-					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-				}),
-			);
+				const results = yield* Effect.promise(() =>
+					axe.run(document.body, {
+						rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+					}),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

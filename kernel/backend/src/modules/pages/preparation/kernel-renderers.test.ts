@@ -1,8 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	CALENDAR_KERNEL_RENDERER_DISPLAY_NAME,
 	KernelSavedViewRendererName,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	getKernelClientRenderer,

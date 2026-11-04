@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -15,6 +16,9 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
@@ -240,6 +244,7 @@ layer(catalogLayer)((test) => {
 					});
 				}
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -328,5 +333,6 @@ layer(catalogLayer)((test) => {
 				expect(negative.properties).toEqual(canonicalProperties);
 				expect(negative.translationStatus).toEqual({ state: "succeeded", availability: "none" });
 			}),
+		testTimeout,
 	);
 });

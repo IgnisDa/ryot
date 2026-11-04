@@ -1,6 +1,9 @@
-import { describe, expect, it, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
-import { Effect, Fiber, ManagedRuntime } from "effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
+import { Effect, Fiber, Layer } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { ServerOrigin } from "#/api/origin";
@@ -36,28 +39,23 @@ const permanentUpload = (uploadScope: typeof scope) =>
 const permanentUploadOutcome = (uploadScope: typeof scope) =>
 	Effect.flatMap(Uploads, (uploads) => uploads.outcome(uploadScope, permanentRequest));
 
-const withUploads = <A>(
+const withUploads = Effect.fnUntraced(function* <A, E>(
 	overrides: Parameters<typeof makeUploadsApi>[0],
-	body: (
-		run: <B, E>(effect: Effect.Effect<B, E, Uploads | UploadsApi>) => Promise<B>,
-	) => Promise<A>,
-) => {
-	const runtime = ManagedRuntime.make(makeUploadsApi(overrides));
-	return Effect.runPromise(
-		Effect.promise(() => body((effect) => runtime.runPromise(effect))).pipe(
-			Effect.ensuring(Effect.promise(() => runtime.dispose())),
-		),
-	);
-};
+	body: Effect.Effect<A, E, Uploads | UploadsApi>,
+) {
+	const context = yield* Layer.build(makeUploadsApi(overrides));
+	return yield* Effect.provide(body, context);
+}, Effect.scoped);
 
 describe("uploads", () => {
-	it.live("hides a temporary intent, byte transfer, and completion behind one token", () =>
-		Effect.gen(function* () {
-			const transfers: unknown[] = [];
-			const completed: string[] = [];
+	it.live(
+		"hides a temporary intent, byte transfer, and completion behind one token",
+		() =>
+			Effect.gen(function* () {
+				const transfers: unknown[] = [];
+				const completed: string[] = [];
 
-			yield* Effect.promise(() =>
-				withUploads(
+				yield* withUploads(
 					{
 						putBytes: (_scope, transfer) => {
 							transfers.push(transfer);
@@ -72,28 +70,27 @@ describe("uploads", () => {
 							return Effect.succeed(intent);
 						},
 					},
-					(run) =>
-						expect(run(temporaryUpload(scope, request))).resolves.toEqual({
-							token,
-							action: "temporary",
-						}),
-				),
-			);
+					Effect.map(temporaryUpload(scope, request), (value) =>
+						expect(value).toEqual<unknown>({ token, action: "temporary" }),
+					),
+				);
 
-			expect(completed).toEqual(["intent-1"]);
-			expect(transfers).toEqual([
-				{
-					source: request.source,
-					contentType: "text/csv",
-					uploadUrl: "/uploads/local/intent-1",
-					headers: { "content-type": "text/csv" },
-				},
-			]);
-		}),
+				expect(completed).toEqual(["intent-1"]);
+				expect(transfers).toEqual([
+					{
+						source: request.source,
+						contentType: "text/csv",
+						uploadUrl: "/uploads/local/intent-1",
+						headers: { "content-type": "text/csv" },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("creates a permanent asset through the same intent and byte transfer path", () =>
-		Effect.promise(() =>
+	it.live(
+		"creates a permanent asset through the same intent and byte transfer path",
+		() =>
 			withUploads(
 				{
 					completeIntent: () =>
@@ -107,13 +104,14 @@ describe("uploads", () => {
 						return Effect.succeed(intent);
 					},
 				},
-				(run) =>
-					expect(run(permanentUpload(scope))).resolves.toEqual({
+				Effect.map(permanentUpload(scope), (value) =>
+					expect(value).toEqual<unknown>({
 						action: "permanent",
 						asset: { type: "local", key: "permanent/items.csv" },
 					}),
+				),
 			),
-		),
+		testTimeout,
 	);
 
 	let released = false;
@@ -134,21 +132,25 @@ describe("uploads", () => {
 				),
 		}),
 	)((test) => {
-		test.effect("interrupts the byte transfer when the scope is torn down", () =>
-			Effect.gen(function* () {
-				const pending = yield* Effect.forkChild(temporaryUpload(scope, request), {
-					startImmediately: true,
-				});
+		test.effect(
+			"interrupts the byte transfer when the scope is torn down",
+			() =>
+				Effect.gen(function* () {
+					const pending = yield* Effect.forkChild(temporaryUpload(scope, request), {
+						startImmediately: true,
+					});
 
-				expect(started).toBe(true);
-				yield* Fiber.interrupt(pending);
-				expect(released).toBe(true);
-			}),
+					expect(started).toBe(true);
+					yield* Fiber.interrupt(pending);
+					expect(released).toBe(true);
+				}),
+			testTimeout,
 		);
 	});
 
-	it.live("treats a completion that is not a temporary token as a malformed result", () =>
-		Effect.promise(() =>
+	it.live(
+		"treats a completion that is not a temporary token as a malformed result",
+		() =>
 			withUploads(
 				{
 					putBytes: () => Effect.void,
@@ -156,62 +158,54 @@ describe("uploads", () => {
 					completeIntent: () =>
 						Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
 				},
-				(run) =>
-					expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-						outcome: "failure",
-						reason: "malformed-result",
-					}),
+				Effect.map(temporaryUploadOutcome(scope, request), (value) =>
+					expect(value).toEqual<unknown>({ outcome: "failure", reason: "malformed-result" }),
+				),
 			),
-		),
+		testTimeout,
 	);
 
-	it.live("treats a completion that is not a permanent locator as a malformed result", () =>
-		Effect.promise(() =>
+	it.live(
+		"treats a completion that is not a permanent locator as a malformed result",
+		() =>
 			withUploads(
 				{
 					putBytes: () => Effect.void,
 					createIntent: () => Effect.succeed(intent),
 					completeIntent: () => Effect.succeed(token),
 				},
-				(run) =>
-					expect(run(permanentUploadOutcome(scope))).resolves.toEqual({
-						outcome: "failure",
-						reason: "malformed-result",
-					}),
+				Effect.map(permanentUploadOutcome(scope), (value) =>
+					expect(value).toEqual<unknown>({ outcome: "failure", reason: "malformed-result" }),
+				),
 			),
-		),
+		testTimeout,
 	);
 
-	it.live("separates a declared upload rejection from a transport failure", () =>
-		Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				withUploads(
+	it.live(
+		"separates a declared upload rejection from a transport failure",
+		() =>
+			Effect.gen(function* () {
+				yield* withUploads(
 					{
 						createIntent: () => Effect.succeed(intent),
 						putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: 500 })),
 					},
-					(run) =>
-						expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-							outcome: "failure",
-							reason: "operation-failed",
-						}),
-				),
-			);
+					Effect.map(temporaryUploadOutcome(scope, request), (value) =>
+						expect(value).toEqual<unknown>({ outcome: "failure", reason: "operation-failed" }),
+					),
+				);
 
-			yield* Effect.promise(() =>
-				withUploads(
+				yield* withUploads(
 					{
 						createIntent: () => Effect.succeed(intent),
 						putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("offline") })),
 					},
-					(run) =>
-						expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-							outcome: "failure",
-							reason: "transport",
-						}),
-				),
-			);
-		}),
+					Effect.map(temporaryUploadOutcome(scope, request), (value) =>
+						expect(value).toEqual<unknown>({ outcome: "failure", reason: "transport" }),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("classifies declared API failures apart from unexpected ones", () => {

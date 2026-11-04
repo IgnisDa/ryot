@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { YoutubeiHost } from "@ryot-app/plugin-backend-sdk/youtubei";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	albumResponse,
@@ -297,18 +300,22 @@ it.live.each(["menu", "url"] as const)(
 				{ continuation: "page-3" },
 			]);
 		}),
+	testTimeout,
 );
 
-it.live("keeps a trusted album track total while fetching its complete playlist", () =>
-	Effect.gen(function* () {
-		const { client } = yield* recordedClient("browse", [
-			albumWithPlaylist("menu", "2 songs"),
-			artistSongsResponse(),
-		]);
-		const details = yield* buildAlbumDetails(client, "MPRalbum");
-		expect(details.properties.parts).toBe(2);
-		expect(details.relatedEntityGroups[0]?.coverage).toEqual({ status: "complete" });
-	}),
+it.live(
+	"keeps a trusted album track total while fetching its complete playlist",
+	() =>
+		Effect.gen(function* () {
+			const { client } = yield* recordedClient("browse", [
+				albumWithPlaylist("menu", "2 songs"),
+				artistSongsResponse(),
+			]);
+			const details = yield* buildAlbumDetails(client, "MPRalbum");
+			expect(details.properties.parts).toBe(2);
+			expect(details.relatedEntityGroups[0]?.coverage).toEqual({ status: "complete" });
+		}),
+	testTimeout,
 );
 
 it.live.each([{}, new Error("Album continuation unavailable")])(
@@ -341,37 +348,27 @@ it.live.each([{}, new Error("Album continuation unavailable")])(
 			expect(error.message).toContain(response instanceof Error ? "500" : "missing its tracks");
 			expect(requests).toHaveLength(4);
 		}),
+	testTimeout,
 );
 
 it.live.each([
 	{ ids: [], continuation: undefined },
 	{ continuation: "page-3", ids: ["third", "fourth"] },
-])("rejects an album track total mismatch: %s", ({ ids, continuation }) =>
-	Effect.gen(function* () {
-		const first = artistSongsResponse("token");
-		const { client } = yield* recordedClient("browse", [
-			albumWithPlaylist("menu", "3 songs"),
-			first,
-			first,
-			albumTrackContinuation(ids, continuation),
-		]);
-		const details = yield* buildAlbumDetails(client, "MPRalbum");
-		expect(details.properties.parts).toBe(3);
-		expect(details.relatedEntityGroups[0]?.coverage).toEqual({
-			status: "more",
-			continuation: {
-				offset: 2,
-				token: "page-2",
-				expectedTotal: 3,
-				previousToken: null,
-				playlistId: "album-playlist",
-			},
-		});
-		const error = yield* Effect.flip(
-			buildAlbumRelated(client, {
-				direction: "outgoing",
-				externalId: "MPRalbum",
-				relationshipSchemaSlug: "music-group-to-music",
+])(
+	"rejects an album track total mismatch: %s",
+	({ ids, continuation }) =>
+		Effect.gen(function* () {
+			const first = artistSongsResponse("token");
+			const { client } = yield* recordedClient("browse", [
+				albumWithPlaylist("menu", "3 songs"),
+				first,
+				first,
+				albumTrackContinuation(ids, continuation),
+			]);
+			const details = yield* buildAlbumDetails(client, "MPRalbum");
+			expect(details.properties.parts).toBe(3);
+			expect(details.relatedEntityGroups[0]?.coverage).toEqual({
+				status: "more",
 				continuation: {
 					offset: 2,
 					token: "page-2",
@@ -379,110 +376,135 @@ it.live.each([
 					previousToken: null,
 					playlistId: "album-playlist",
 				},
-			}),
-		);
-		expect(error.message).toBe(
-			"YouTube Music album playlist does not match its expected track total",
-		);
-	}),
+			});
+			const error = yield* Effect.flip(
+				buildAlbumRelated(client, {
+					direction: "outgoing",
+					externalId: "MPRalbum",
+					relationshipSchemaSlug: "music-group-to-music",
+					continuation: {
+						offset: 2,
+						token: "page-2",
+						expectedTotal: 3,
+						previousToken: null,
+						playlistId: "album-playlist",
+					},
+				}),
+			);
+			expect(error.message).toBe(
+				"YouTube Music album playlist does not match its expected track total",
+			);
+		}),
+	testTimeout,
 );
 
-it.live("fails when album replay exhausts its forty-source-page budget", () =>
-	Effect.gen(function* () {
-		const { client, requests } = yield* recordedClient("browse", [
-			artistSongsResponse("token"),
-			...Array.from({ length: 39 }, (_, index) => albumTrackContinuation([], `page-${index + 3}`)),
-		]);
-		const error = yield* Effect.flip(
-			buildAlbumRelated(client, {
-				direction: "outgoing",
-				externalId: "MPRalbum",
-				relationshipSchemaSlug: "music-group-to-music",
-				continuation: {
-					offset: 2,
-					token: "page-41",
-					expectedTotal: null,
-					previousToken: "page-40",
-					playlistId: "album-playlist",
-				},
-			}),
-		);
-		expect(error.message).toBe("YouTube Music album source exceeds the 40-page replay budget");
-		expect(requests).toHaveLength(40);
-	}),
+it.live(
+	"fails when album replay exhausts its forty-source-page budget",
+	() =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", [
+				artistSongsResponse("token"),
+				...Array.from({ length: 39 }, (_, index) =>
+					albumTrackContinuation([], `page-${index + 3}`),
+				),
+			]);
+			const error = yield* Effect.flip(
+				buildAlbumRelated(client, {
+					direction: "outgoing",
+					externalId: "MPRalbum",
+					relationshipSchemaSlug: "music-group-to-music",
+					continuation: {
+						offset: 2,
+						token: "page-41",
+						expectedTotal: null,
+						previousToken: "page-40",
+						playlistId: "album-playlist",
+					},
+				}),
+			);
+			expect(error.message).toBe("YouTube Music album source exceeds the 40-page replay budget");
+			expect(requests).toHaveLength(40);
+		}),
+	testTimeout,
 );
 
 it.live.each([
 	{ offset: 3, continuation: undefined },
 	{ offset: 2, continuation: "page-2" },
-])("rejects inconsistent album replay or a repeated token: %s", ({ offset, continuation }) =>
-	Effect.gen(function* () {
-		const { client } = yield* recordedClient("browse", [
-			artistSongsResponse("token"),
-			albumTrackContinuation(["third"], continuation),
-		]);
-		const error = yield* Effect.flip(
-			buildAlbumRelated(client, {
-				direction: "outgoing",
+])(
+	"rejects inconsistent album replay or a repeated token: %s",
+	({ offset, continuation }) =>
+		Effect.gen(function* () {
+			const { client } = yield* recordedClient("browse", [
+				artistSongsResponse("token"),
+				albumTrackContinuation(["third"], continuation),
+			]);
+			const error = yield* Effect.flip(
+				buildAlbumRelated(client, {
+					direction: "outgoing",
+					externalId: "MPRalbum",
+					relationshipSchemaSlug: "music-group-to-music",
+					continuation: {
+						offset,
+						token: "page-2",
+						expectedTotal: null,
+						previousToken: null,
+						playlistId: "album-playlist",
+					},
+				}),
+			);
+			expect(error.message).toBe("YouTube Music album continuation did not advance consistently");
+		}),
+	testTimeout,
+);
+
+it.live(
+	"retries an album continuation with the same offset after a failed request",
+	() =>
+		Effect.gen(function* () {
+			const first = artistSongsResponse("token");
+			const { client } = yield* recordedClient("browse", [
+				albumWithPlaylist("menu"),
+				first,
+				first,
+				new Error("Unavailable"),
+				first,
+				albumTrackContinuation(["second", "third"]),
+			]);
+			yield* buildAlbumDetails(client, "MPRalbum");
+			const input = {
 				externalId: "MPRalbum",
+				direction: "outgoing" as const,
 				relationshipSchemaSlug: "music-group-to-music",
 				continuation: {
-					offset,
+					offset: 2,
 					token: "page-2",
 					expectedTotal: null,
 					previousToken: null,
 					playlistId: "album-playlist",
 				},
-			}),
-		);
-		expect(error.message).toBe("YouTube Music album continuation did not advance consistently");
-	}),
-);
-
-it.live("retries an album continuation with the same offset after a failed request", () =>
-	Effect.gen(function* () {
-		const first = artistSongsResponse("token");
-		const { client } = yield* recordedClient("browse", [
-			albumWithPlaylist("menu"),
-			first,
-			first,
-			new Error("Unavailable"),
-			first,
-			albumTrackContinuation(["second", "third"]),
-		]);
-		yield* buildAlbumDetails(client, "MPRalbum");
-		const input = {
-			externalId: "MPRalbum",
-			direction: "outgoing" as const,
-			relationshipSchemaSlug: "music-group-to-music",
-			continuation: {
+			};
+			expect((yield* Effect.flip(buildAlbumRelated(client, input))).message).toContain("500");
+			expect(input.continuation).toEqual({
 				offset: 2,
 				token: "page-2",
 				expectedTotal: null,
 				previousToken: null,
 				playlistId: "album-playlist",
-			},
-		};
-		expect((yield* Effect.flip(buildAlbumRelated(client, input))).message).toContain("500");
-		expect(input.continuation).toEqual({
-			offset: 2,
-			token: "page-2",
-			expectedTotal: null,
-			previousToken: null,
-			playlistId: "album-playlist",
-		});
-		expect(yield* buildAlbumRelated(client, input)).toEqual({
-			coverage: { status: "complete" },
-			entities: [
-				{
-					name: "third",
-					externalId: "third",
-					providerSlug: "music.youtube-music",
-					relationshipProperties: { order: 3 },
-				},
-			],
-		});
-	}),
+			});
+			expect(yield* buildAlbumRelated(client, input)).toEqual({
+				coverage: { status: "complete" },
+				entities: [
+					{
+						name: "third",
+						externalId: "third",
+						providerSlug: "music.youtube-music",
+						relationshipProperties: { order: 3 },
+					},
+				],
+			});
+		}),
+	testTimeout,
 );
 
 it.live.each(["song", "album", "artist"] as const)(
@@ -513,21 +535,25 @@ it.live.each(["song", "album", "artist"] as const)(
 				{ continuation: "search-3" },
 			]);
 		}),
+	testTimeout,
 );
 
-it.live("does not invent a search total when more results exist", () =>
-	Effect.gen(function* () {
-		const { client, requests } = yield* recordedClient("search", [
-			continuedSearchResponse("album"),
-		]);
-		expect(yield* buildAlbumSearch(client, "query", 1)).toEqual({
-			details: { nextPage: 2 },
-			items: [
-				{ title: "Album", externalId: "MPRalbum", imageUrl: "https://example.com/cover.jpg" },
-			],
-		});
-		expect(requests).toHaveLength(1);
-	}),
+it.live(
+	"does not invent a search total when more results exist",
+	() =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("search", [
+				continuedSearchResponse("album"),
+			]);
+			expect(yield* buildAlbumSearch(client, "query", 1)).toEqual({
+				details: { nextPage: 2 },
+				items: [
+					{ title: "Album", externalId: "MPRalbum", imageUrl: "https://example.com/cover.jpg" },
+				],
+			});
+			expect(requests).toHaveLength(1);
+		}),
+	testTimeout,
 );
 
 it.live.each([{}, new Error("Search unavailable")])(
@@ -541,6 +567,7 @@ it.live.each([{}, new Error("Search unavailable")])(
 			const error = yield* Effect.flip(buildTrackSearch(client, "query", 2));
 			expect(error.message).toContain(response instanceof Error ? "500" : "missing contents");
 		}),
+	testTimeout,
 );
 
 it.live.each([undefined, "en", "fr"] as const)(
@@ -561,207 +588,223 @@ it.live.each([undefined, "en", "fr"] as const)(
 			expect(client.session.player).toBeUndefined();
 			expect(client.session.context.client.hl).toBe(language ?? "en");
 		}),
+	testTimeout,
 );
 
-it.live("maps song, artist, and album search without initialization requests", () =>
-	Effect.gen(function* () {
-		const tracks = yield* recordedClient("search", [searchResponse("song")]);
-		expect(yield* buildTrackSearch(tracks.client, "query", 20)).toEqual({
-			details: { totalItems: 1, nextPage: null },
-			items: [{ title: "Track", externalId: "track", imageUrl: "https://example.com/cover.jpg" }],
-		});
-		const artists = yield* recordedClient("search", [searchResponse("artist")]);
-		expect(yield* buildArtistSearch(artists.client, "query")).toEqual({
-			details: { totalItems: 1, nextPage: null },
-			items: [
-				{ title: "Artist", externalId: "UCartist", imageUrl: "https://example.com/cover.jpg" },
-			],
-		});
-		const albums = yield* recordedClient("search", [searchResponse("album")]);
-		expect(yield* buildAlbumSearch(albums.client, "query", 20)).toEqual({
-			details: { totalItems: 1, nextPage: null },
-			items: [
-				{ title: "Album", externalId: "MPRalbum", imageUrl: "https://example.com/cover.jpg" },
-			],
-		});
-		for (const { requests } of [tracks, artists, albums]) {
-			expect(requests).toHaveLength(1);
-			expect(requests[0]).toMatchObject({
-				method: "POST",
-				path: "/youtubei/v1/search",
-				body: { query: "query", context: { client: { hl: "en", clientName: "WEB_REMIX" } } },
+it.live(
+	"maps song, artist, and album search without initialization requests",
+	() =>
+		Effect.gen(function* () {
+			const tracks = yield* recordedClient("search", [searchResponse("song")]);
+			expect(yield* buildTrackSearch(tracks.client, "query", 20)).toEqual({
+				details: { totalItems: 1, nextPage: null },
+				items: [{ title: "Track", externalId: "track", imageUrl: "https://example.com/cover.jpg" }],
 			});
-		}
-	}),
+			const artists = yield* recordedClient("search", [searchResponse("artist")]);
+			expect(yield* buildArtistSearch(artists.client, "query")).toEqual({
+				details: { totalItems: 1, nextPage: null },
+				items: [
+					{ title: "Artist", externalId: "UCartist", imageUrl: "https://example.com/cover.jpg" },
+				],
+			});
+			const albums = yield* recordedClient("search", [searchResponse("album")]);
+			expect(yield* buildAlbumSearch(albums.client, "query", 20)).toEqual({
+				details: { totalItems: 1, nextPage: null },
+				items: [
+					{ title: "Album", externalId: "MPRalbum", imageUrl: "https://example.com/cover.jpg" },
+				],
+			});
+			for (const { requests } of [tracks, artists, albums]) {
+				expect(requests).toHaveLength(1);
+				expect(requests[0]).toMatchObject({
+					method: "POST",
+					path: "/youtubei/v1/search",
+					body: { query: "query", context: { client: { hl: "en", clientName: "WEB_REMIX" } } },
+				});
+			}
+		}),
+	testTimeout,
 );
 
-it.live.each([false, true])("maps track details through the queue (automix: %s)", (automix) =>
-	Effect.gen(function* () {
-		const responses = [...(automix ? [queueResponse("Track", true)] : []), queueResponse("Track")];
-		const { client, requests } = yield* recordedClient("next", responses);
-		expect(yield* buildTrackDetails(client, "track")).toEqual({
-			name: "Track",
-			properties: {
-				duration: 201,
-				publishYear: 2024,
-				byVariousArtists: false,
-				sourceUrl: "https://music.youtube.com/watch?v=track",
-				images: [{ type: "remote", purpose: "cover", url: "https://example.com/cover.jpg" }],
-			},
-			relatedEntityGroups: [
-				{
-					direction: "incoming",
-					synchronization: "authoritative",
-					coverage: { status: "complete" },
-					relationshipSchemaSlug: "person-to-music",
-					entities: [
-						{
-							name: "Artist",
-							externalId: "UCartist",
-							providerSlug: "person.youtube-music",
-							relationshipProperties: { roles: ["Artist"] },
-						},
-					],
+it.live.each([false, true])(
+	"maps track details through the queue (automix: %s)",
+	(automix) =>
+		Effect.gen(function* () {
+			const responses = [
+				...(automix ? [queueResponse("Track", true)] : []),
+				queueResponse("Track"),
+			];
+			const { client, requests } = yield* recordedClient("next", responses);
+			expect(yield* buildTrackDetails(client, "track")).toEqual({
+				name: "Track",
+				properties: {
+					duration: 201,
+					publishYear: 2024,
+					byVariousArtists: false,
+					sourceUrl: "https://music.youtube.com/watch?v=track",
+					images: [{ type: "remote", purpose: "cover", url: "https://example.com/cover.jpg" }],
 				},
-				{
-					direction: "incoming",
-					synchronization: "additive",
-					coverage: { status: "complete" },
-					relationshipSchemaSlug: "music-group-to-music",
-					entities: [
-						{
-							name: "Album",
-							externalId: "MPRalbum",
-							providerSlug: "music-group.youtube-music",
-							relationshipProperties: { roles: ["Member"] },
-						},
-					],
-				},
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					coverage: { status: "complete" },
-					relationshipSchemaSlug: "media-suggestion",
-					entities: [
-						{ name: "Neighbor", externalId: "neighbor", providerSlug: "music.youtube-music" },
-					],
-				},
-				{
-					entities: [],
-					direction: "outgoing",
-					synchronization: "authoritative",
-					coverage: { status: "complete" },
-					relationshipSchemaSlug: "music-to-genre",
-				},
-			],
-		});
-		expect(requests).toHaveLength(automix ? 2 : 1);
-		if (automix) {
-			expect(requests[1]).toMatchObject({ body: { videoId: "track", playlistId: "RDfixture" } });
-		}
-	}),
+				relatedEntityGroups: [
+					{
+						direction: "incoming",
+						synchronization: "authoritative",
+						coverage: { status: "complete" },
+						relationshipSchemaSlug: "person-to-music",
+						entities: [
+							{
+								name: "Artist",
+								externalId: "UCartist",
+								providerSlug: "person.youtube-music",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
+					},
+					{
+						direction: "incoming",
+						synchronization: "additive",
+						coverage: { status: "complete" },
+						relationshipSchemaSlug: "music-group-to-music",
+						entities: [
+							{
+								name: "Album",
+								externalId: "MPRalbum",
+								providerSlug: "music-group.youtube-music",
+								relationshipProperties: { roles: ["Member"] },
+							},
+						],
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						coverage: { status: "complete" },
+						relationshipSchemaSlug: "media-suggestion",
+						entities: [
+							{ name: "Neighbor", externalId: "neighbor", providerSlug: "music.youtube-music" },
+						],
+					},
+					{
+						entities: [],
+						direction: "outgoing",
+						synchronization: "authoritative",
+						coverage: { status: "complete" },
+						relationshipSchemaSlug: "music-to-genre",
+					},
+				],
+			});
+			expect(requests).toHaveLength(automix ? 2 : 1);
+			if (automix) {
+				expect(requests[1]).toMatchObject({ body: { videoId: "track", playlistId: "RDfixture" } });
+			}
+		}),
+	testTimeout,
 );
 
-it.live("maps artist album and single carousels without duplicate or unrelated credits", () =>
-	Effect.gen(function* () {
-		const { client, requests } = yield* recordedClient("browse", [artistResponse("Artist")]);
-		expect(yield* buildArtistDetails(client, "UCartist")).toEqual({
-			name: "Artist",
-			properties: {
-				alternateNames: [],
-				description: "Artist biography",
-				sourceUrl: "https://music.youtube.com/channel/UCartist",
-				images: [{ type: "remote", purpose: "profile", url: "https://example.com/cover.jpg" }],
-			},
-			relatedEntityGroups: [
-				{
-					direction: "outgoing",
-					synchronization: "additive",
-					relationshipSchemaSlug: "person-to-music",
-					coverage: {
-						status: "source-limited",
-						reason: "Artist page exposes no complete inventory endpoint",
-					},
-					entities: [
-						{
-							name: "Track",
-							externalId: "track",
-							providerSlug: "music.youtube-music",
-							relationshipProperties: { roles: ["Artist"] },
-						},
-					],
+it.live(
+	"maps artist album and single carousels without duplicate or unrelated credits",
+	() =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", [artistResponse("Artist")]);
+			expect(yield* buildArtistDetails(client, "UCartist")).toEqual({
+				name: "Artist",
+				properties: {
+					alternateNames: [],
+					description: "Artist biography",
+					sourceUrl: "https://music.youtube.com/channel/UCartist",
+					images: [{ type: "remote", purpose: "profile", url: "https://example.com/cover.jpg" }],
 				},
-				{
-					direction: "outgoing",
-					synchronization: "additive",
-					relationshipSchemaSlug: "person-to-music-group",
-					coverage: {
-						status: "source-limited",
-						reason: "Artist page exposes no complete inventory endpoint",
+				relatedEntityGroups: [
+					{
+						direction: "outgoing",
+						synchronization: "additive",
+						relationshipSchemaSlug: "person-to-music",
+						coverage: {
+							status: "source-limited",
+							reason: "Artist page exposes no complete inventory endpoint",
+						},
+						entities: [
+							{
+								name: "Track",
+								externalId: "track",
+								providerSlug: "music.youtube-music",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
 					},
-					entities: [
-						{
-							name: "Album",
-							externalId: "MPRalbum",
-							providerSlug: "music-group.youtube-music",
-							relationshipProperties: { roles: ["Artist"] },
+					{
+						direction: "outgoing",
+						synchronization: "additive",
+						relationshipSchemaSlug: "person-to-music-group",
+						coverage: {
+							status: "source-limited",
+							reason: "Artist page exposes no complete inventory endpoint",
 						},
-						{
-							name: "Single",
-							externalId: "MPRsingle",
-							providerSlug: "music-group.youtube-music",
-							relationshipProperties: { roles: ["Artist"] },
-						},
-					],
-				},
-			],
-		});
-		expect(requests).toHaveLength(1);
-		expect(requests[0]).toMatchObject({ body: { browseId: "UCartist" } });
-	}),
+						entities: [
+							{
+								name: "Album",
+								externalId: "MPRalbum",
+								providerSlug: "music-group.youtube-music",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+							{
+								name: "Single",
+								externalId: "MPRsingle",
+								providerSlug: "music-group.youtube-music",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
+					},
+				],
+			});
+			expect(requests).toHaveLength(1);
+			expect(requests[0]).toMatchObject({ body: { browseId: "UCartist" } });
+		}),
+	testTimeout,
 );
 
-it.live("maps album details and ordered members through browse", () =>
-	Effect.gen(function* () {
-		const { client, requests } = yield* recordedClient("browse", [albumResponse("Album")]);
-		expect(yield* buildAlbumDetails(client, "MPRalbum")).toEqual({
-			name: "Album",
-			properties: {
-				parts: null,
-				sourceUrl: null,
-				description: "Album description",
-				images: [{ type: "remote", purpose: "cover", url: "https://example.com/cover.jpg" }],
-			},
-			relatedEntityGroups: [
-				{
-					direction: "outgoing",
-					synchronization: "authoritative",
-					relationshipSchemaSlug: "music-group-to-music",
-					coverage: {
-						status: "source-limited",
-						reason:
-							"Album source exposes no track playlist endpoint or matching explicit track total",
-					},
-					entities: [
-						{
-							name: "Track",
-							externalId: "track",
-							providerSlug: "music.youtube-music",
-							relationshipProperties: { order: 1 },
-						},
-						{
-							name: "Neighbor",
-							externalId: "neighbor",
-							providerSlug: "music.youtube-music",
-							relationshipProperties: { order: 2 },
-						},
-					],
+it.live(
+	"maps album details and ordered members through browse",
+	() =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", [albumResponse("Album")]);
+			expect(yield* buildAlbumDetails(client, "MPRalbum")).toEqual({
+				name: "Album",
+				properties: {
+					parts: null,
+					sourceUrl: null,
+					description: "Album description",
+					images: [{ type: "remote", purpose: "cover", url: "https://example.com/cover.jpg" }],
 				},
-			],
-		});
-		expect(requests).toHaveLength(1);
-		expect(requests[0]).toMatchObject({ body: { browseId: "MPRalbum" } });
-	}),
+				relatedEntityGroups: [
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "music-group-to-music",
+						coverage: {
+							status: "source-limited",
+							reason:
+								"Album source exposes no track playlist endpoint or matching explicit track total",
+						},
+						entities: [
+							{
+								name: "Track",
+								externalId: "track",
+								providerSlug: "music.youtube-music",
+								relationshipProperties: { order: 1 },
+							},
+							{
+								name: "Neighbor",
+								externalId: "neighbor",
+								providerSlug: "music.youtube-music",
+								relationshipProperties: { order: 2 },
+							},
+						],
+					},
+				],
+			});
+			expect(requests).toHaveLength(1);
+			expect(requests[0]).toMatchObject({ body: { browseId: "MPRalbum" } });
+		}),
+	testTimeout,
 );
 
 it.live.each(["Top songs", "Canciones principales"])(
@@ -786,6 +829,7 @@ it.live.each(["Top songs", "Canciones principales"])(
 				continuation: { source: 0 },
 			});
 		}),
+	testTimeout,
 );
 
 it.live.each(["token", "endpoint"] as const)(
@@ -854,6 +898,7 @@ it.live.each(["token", "endpoint"] as const)(
 			expect(requests[4]).toMatchObject({ body: { continuation: "page-2" } });
 			expect(requests[6]).toMatchObject({ body: { continuation: "page-3" } });
 		}),
+	testTimeout,
 );
 
 it.live.each([
@@ -931,6 +976,7 @@ it.live.each([
 				{ continuation: "videos-page-2" },
 			]);
 		}),
+	testTimeout,
 );
 
 it.live.each([
@@ -956,81 +1002,94 @@ it.live.each([
 			expect(error.message).toContain("500");
 			expect(requests).toHaveLength(2);
 		}),
+	testTimeout,
 );
 
-it.live("fails artist refresh when the discography response has no inventory", () =>
-	Effect.gen(function* () {
-		const { client } = yield* recordedClient("browse", [artistInventoryResponse(), {}]);
-		const error = yield* Effect.flip(
-			buildArtistRelated(client, {
-				direction: "outgoing",
-				externalId: "UCartist",
-				continuation: { source: 0 },
-				relationshipSchemaSlug: "person-to-music-group",
-			}),
-		);
-		expect(error.message).toBe("YouTube Music artist inventory is missing items");
-	}),
+it.live(
+	"fails artist refresh when the discography response has no inventory",
+	() =>
+		Effect.gen(function* () {
+			const { client } = yield* recordedClient("browse", [artistInventoryResponse(), {}]);
+			const error = yield* Effect.flip(
+				buildArtistRelated(client, {
+					direction: "outgoing",
+					externalId: "UCartist",
+					continuation: { source: 0 },
+					relationshipSchemaSlug: "person-to-music-group",
+				}),
+			);
+			expect(error.message).toBe("YouTube Music artist inventory is missing items");
+		}),
+	testTimeout,
 );
 
-it.live("rejects malformed artist cursors before requesting an inventory", () =>
-	Effect.gen(function* () {
-		const { client, requests } = yield* recordedClient("browse", []);
-		const error = yield* Effect.flip(
-			buildArtistRelated(client, {
-				direction: "outgoing",
-				externalId: "UCartist",
-				continuation: { source: -1 },
-				relationshipSchemaSlug: "person-to-music",
-			}),
-		);
-		expect(error.message).toBe("Invalid YouTube Music artist continuation");
-		expect(requests).toHaveLength(0);
-	}),
+it.live(
+	"rejects malformed artist cursors before requesting an inventory",
+	() =>
+		Effect.gen(function* () {
+			const { client, requests } = yield* recordedClient("browse", []);
+			const error = yield* Effect.flip(
+				buildArtistRelated(client, {
+					direction: "outgoing",
+					externalId: "UCartist",
+					continuation: { source: -1 },
+					relationshipSchemaSlug: "person-to-music",
+				}),
+			);
+			expect(error.message).toBe("Invalid YouTube Music artist continuation");
+			expect(requests).toHaveLength(0);
+		}),
+	testTimeout,
 );
 
-it.live("rejects a repeated artist continuation instead of completing a partial inventory", () =>
-	Effect.gen(function* () {
-		const { client } = yield* recordedClient("browse", [
-			artistResponse("Artist", "Top songs"),
-			artistSongsResponse("token"),
-		]);
-		const error = yield* Effect.flip(
-			buildArtistRelated(client, {
-				direction: "outgoing",
-				externalId: "UCartist",
-				relationshipSchemaSlug: "person-to-music",
-				continuation: { source: 0, token: "page-2" },
-			}),
-		);
-		expect(error.message).toBe("YouTube Music artist continuation did not advance");
-	}),
+it.live(
+	"rejects a repeated artist continuation instead of completing a partial inventory",
+	() =>
+		Effect.gen(function* () {
+			const { client } = yield* recordedClient("browse", [
+				artistResponse("Artist", "Top songs"),
+				artistSongsResponse("token"),
+			]);
+			const error = yield* Effect.flip(
+				buildArtistRelated(client, {
+					direction: "outgoing",
+					externalId: "UCartist",
+					relationshipSchemaSlug: "person-to-music",
+					continuation: { source: 0, token: "page-2" },
+				}),
+			);
+			expect(error.message).toBe("YouTube Music artist continuation did not advance");
+		}),
+	testTimeout,
 );
 
-it.live("preserves the requested language for all three translations", () =>
-	Effect.gen(function* () {
-		const track = yield* recordedClient(
-			"next",
-			[queueResponse("Chanson", true), queueResponse("Chanson")],
-			"fr",
-		);
-		expect(yield* buildTrackTranslate(track.client, "track")).toEqual({ name: "Chanson" });
-		const artist = yield* recordedClient(
-			"browse",
-			[artistResponse("Artiste", "Titres populaires")],
-			"fr",
-		);
-		expect(yield* buildArtistTranslate(artist.client, "UCartist")).toEqual({ name: "Artiste" });
-		const album = yield* recordedClient("browse", [albumResponse("Disque")], "fr");
-		expect(yield* buildAlbumTranslate(album.client, "MPRalbum")).toEqual({ name: "Disque" });
-		expect(track.requests).toHaveLength(2);
-		expect(artist.requests).toHaveLength(1);
-		expect(album.requests).toHaveLength(1);
-		for (const request of [...track.requests, ...artist.requests, ...album.requests]) {
-			expect(request).toMatchObject({
-				method: "POST",
-				body: { context: { client: { hl: "fr", clientName: "WEB_REMIX" } } },
-			});
-		}
-	}),
+it.live(
+	"preserves the requested language for all three translations",
+	() =>
+		Effect.gen(function* () {
+			const track = yield* recordedClient(
+				"next",
+				[queueResponse("Chanson", true), queueResponse("Chanson")],
+				"fr",
+			);
+			expect(yield* buildTrackTranslate(track.client, "track")).toEqual({ name: "Chanson" });
+			const artist = yield* recordedClient(
+				"browse",
+				[artistResponse("Artiste", "Titres populaires")],
+				"fr",
+			);
+			expect(yield* buildArtistTranslate(artist.client, "UCartist")).toEqual({ name: "Artiste" });
+			const album = yield* recordedClient("browse", [albumResponse("Disque")], "fr");
+			expect(yield* buildAlbumTranslate(album.client, "MPRalbum")).toEqual({ name: "Disque" });
+			expect(track.requests).toHaveLength(2);
+			expect(artist.requests).toHaveLength(1);
+			expect(album.requests).toHaveLength(1);
+			for (const request of [...track.requests, ...artist.requests, ...album.requests]) {
+				expect(request).toMatchObject({
+					method: "POST",
+					body: { context: { client: { hl: "fr", clientName: "WEB_REMIX" } } },
+				});
+			}
+		}),
+	testTimeout,
 );

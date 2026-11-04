@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntityId, PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { describe, expect, it } from "vitest";
 
 import {
 	toGlobalHref,

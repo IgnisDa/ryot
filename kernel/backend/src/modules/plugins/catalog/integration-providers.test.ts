@@ -1,9 +1,12 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-import { assert, describe } from "vitest";
 
 import {
 	installRevisionPackage,
@@ -88,6 +91,7 @@ describe("revision-backed integration providers", () => {
 						}
 					}
 				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
@@ -116,73 +120,80 @@ describe("revision-backed integration providers", () => {
 					expect(resolved.script.pluginRevisionId).toBe(first.revisionId);
 					expect(resolved.provider.configContext.ownerUserId).toBe(owner);
 				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("switches both script and config references on upgrade", () =>
-			Effect.gen(function* () {
-				const original = packageWithProviders("notes", "v1");
-				const installed = yield* installRevisionPackage(original, owner);
-				const catalog = yield* IntegrationProviderCatalog.make;
-				const before = yield* catalog.resolveOwnedForUser(
-					owner,
-					"notes-sink",
-					installed.installation.id,
-				);
-				const next = packageWithProviders("notes", "v2");
-				const updated = yield* installRevisionPackage(
-					{
-						...next,
-						manifest: {
-							...next.manifest,
-							metadata: {
-								...next.manifest.metadata,
-								packageId: original.manifest.metadata.packageId,
+		test.effect(
+			"switches both script and config references on upgrade",
+			() =>
+				Effect.gen(function* () {
+					const original = packageWithProviders("notes", "v1");
+					const installed = yield* installRevisionPackage(original, owner);
+					const catalog = yield* IntegrationProviderCatalog.make;
+					const before = yield* catalog.resolveOwnedForUser(
+						owner,
+						"notes-sink",
+						installed.installation.id,
+					);
+					const next = packageWithProviders("notes", "v2");
+					const updated = yield* installRevisionPackage(
+						{
+							...next,
+							manifest: {
+								...next.manifest,
+								metadata: {
+									...next.manifest.metadata,
+									packageId: original.manifest.metadata.packageId,
+								},
 							},
 						},
-					},
-					owner,
-				);
-				const after = yield* catalog.resolveOwnedForUser(
-					owner,
-					"notes-sink",
-					installed.installation.id,
-				);
-				assert(before?.script && after?.script);
-				expect(after.script.id).not.toBe(before.script.id);
-				expect(after.provider.configContext.pluginConfigRevisionId).not.toBe(
-					before.provider.configContext.pluginConfigRevisionId,
-				);
-				expect(after.script.pluginRevisionId).toBe(updated.revisionId);
-			}),
+						owner,
+					);
+					const after = yield* catalog.resolveOwnedForUser(
+						owner,
+						"notes-sink",
+						installed.installation.id,
+					);
+					assert(before?.script && after?.script);
+					expect(after.script.id).not.toBe(before.script.id);
+					expect(after.provider.configContext.pluginConfigRevisionId).not.toBe(
+						before.provider.configContext.pluginConfigRevisionId,
+					);
+					expect(after.script.pluginRevisionId).toBe(updated.revisionId);
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("keeps same-name integration providers and selects their exact installations", () =>
-			Effect.gen(function* () {
-				const privatePlugin = yield* installRevisionPackage(clashing("whiskey"), owner);
-				const system = yield* installRevisionPackage(clashing("whiskey"));
-				const catalog = yield* IntegrationProviderCatalog.make;
-				expect(
-					(yield* catalog.listResolvedForUser(owner)).map(({ provider }) => provider.pluginId),
-				).toEqual(arrayContaining([system.pluginId, privatePlugin.pluginId]));
-				expect(yield* catalog.listResolvedForUser(owner)).toHaveLength(6);
-				expect(
-					(yield* catalog.findForUser(owner, {
-						slug: "shared-sink",
-						owner: { kind: "plugin", pluginId: PluginId.make(system.pluginId) },
-					}))?.installationId,
-				).toBe(system.installation.id);
-				expect(
-					(yield* catalog.findForUser(owner, {
-						slug: "shared-sink",
-						owner: { kind: "plugin", pluginId: PluginId.make(privatePlugin.pluginId) },
-					}))?.installationId,
-				).toBe(privatePlugin.installation.id);
-				expect(
-					yield* catalog.findForUser(owner, { slug: "shared-sink", owner: { kind: "kernel" } }),
-				).toBeNull();
-			}),
+		test.effect(
+			"keeps same-name integration providers and selects their exact installations",
+			() =>
+				Effect.gen(function* () {
+					const privatePlugin = yield* installRevisionPackage(clashing("whiskey"), owner);
+					const system = yield* installRevisionPackage(clashing("whiskey"));
+					const catalog = yield* IntegrationProviderCatalog.make;
+					expect(
+						(yield* catalog.listResolvedForUser(owner)).map(({ provider }) => provider.pluginId),
+					).toEqual<unknown>(arrayContaining([system.pluginId, privatePlugin.pluginId]));
+					expect(yield* catalog.listResolvedForUser(owner)).toHaveLength(6);
+					expect(
+						(yield* catalog.findForUser(owner, {
+							slug: "shared-sink",
+							owner: { kind: "plugin", pluginId: PluginId.make(system.pluginId) },
+						}))?.installationId,
+					).toBe(system.installation.id);
+					expect(
+						(yield* catalog.findForUser(owner, {
+							slug: "shared-sink",
+							owner: { kind: "plugin", pluginId: PluginId.make(privatePlugin.pluginId) },
+						}))?.installationId,
+					).toBe(privatePlugin.installation.id);
+					expect(
+						yield* catalog.findForUser(owner, { slug: "shared-sink", owner: { kind: "kernel" } }),
+					).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 });

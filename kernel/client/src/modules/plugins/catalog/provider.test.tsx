@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
@@ -7,7 +8,9 @@ import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Layer, ManagedRuntime, Schedule } from "effect";
 import type { ReactNode } from "react";
 
@@ -80,169 +83,185 @@ const makeView = (
 };
 
 describe("plugin catalog provider", () => {
-	it.live("reconciles on stream connection and on subsequent invalidation", () => {
-		let controller: undefined | ReadableStreamDefaultController<Uint8Array>;
-		let loads = 0;
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				Layer.succeed(PluginCatalogService, {
-					load: () =>
-						Effect.sync(() => {
-							loads += 1;
-							return catalog;
-						}),
-				}),
-				makePluginCatalogEventsLayer(
-					() =>
-						Promise.resolve({
-							ok: true,
-							status: 200,
-							body: new ReadableStream<Uint8Array>({
-								start: (value) => {
-									controller = value;
-								},
+	it.live(
+		"reconciles on stream connection and on subsequent invalidation",
+		() => {
+			let controller: undefined | ReadableStreamDefaultController<Uint8Array>;
+			let loads = 0;
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					Layer.succeed(PluginCatalogService, {
+						load: () =>
+							Effect.sync(() => {
+								loads += 1;
+								return catalog;
 							}),
-						}),
-					Schedule.spaced("1 millis"),
-				).pipe(
-					Layer.provide(
-						Layer.succeed(
-							OAuthTokenService,
-							makeOAuthTokenServiceStub({ accessToken: () => Effect.succeed("token") }),
+					}),
+					makePluginCatalogEventsLayer(
+						() =>
+							Promise.resolve({
+								ok: true,
+								status: 200,
+								body: new ReadableStream<Uint8Array>({
+									start: (value) => {
+										controller = value;
+									},
+								}),
+							}),
+						Schedule.spaced("1 millis"),
+					).pipe(
+						Layer.provide(
+							Layer.succeed(
+								OAuthTokenService,
+								makeOAuthTokenServiceStub({ accessToken: () => Effect.succeed("token") }),
+							),
 						),
 					),
 				),
-			),
-		);
-		const view = render(
-			<RyotProvider runtime={ryot.runtime} hostServices={testHostServices(scope, runtime)}>
-				<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
-					<CatalogConsumer name="catalog" />
-				</PluginCatalogProvider>
-			</RyotProvider>,
-		);
-		return Effect.gen(function* () {
-			yield* Effect.promise(() => waitFor(() => expect(controller).toBeDefined()));
-			act(() =>
-				controller?.enqueue(
-					new TextEncoder().encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata:\n\n`),
+			);
+			const view = render(
+				<RyotProvider runtime={ryot.runtime} hostServices={testHostServices(scope, runtime)}>
+					<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
+						<CatalogConsumer name="catalog" />
+					</PluginCatalogProvider>
+				</RyotProvider>,
+			);
+			return Effect.gen(function* () {
+				yield* Effect.promise(() => waitFor(() => expect(controller).toBeDefined()));
+				act(() =>
+					controller?.enqueue(
+						new TextEncoder().encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata:\n\n`),
+					),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(loads).toBe(1)));
+				expect(screen.getByText("catalog-revision:1")).toBeTruthy();
+				act(() =>
+					controller?.enqueue(
+						new TextEncoder().encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`),
+					),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(loads).toBe(2)));
+			}).pipe(
+				Effect.ensuring(
+					Effect.sync(() => view.unmount()).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
 				),
 			);
-			yield* Effect.promise(() => waitFor(() => expect(loads).toBe(1)));
-			expect(screen.getByText("catalog-revision:1")).toBeTruthy();
-			act(() =>
-				controller?.enqueue(
-					new TextEncoder().encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`),
-				),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(loads).toBe(2)));
-		}).pipe(
-			Effect.ensuring(
-				Effect.sync(() => view.unmount()).pipe(
-					Effect.andThen(Effect.promise(() => runtime.dispose())),
-				),
-			),
-		);
-	});
-
-	it.live("hydrates without a duplicate load and publishes event refreshes", () =>
-		Effect.gen(function* () {
-			let loads = 0;
-			let current = catalog;
-			const view = makeView(() =>
-				Effect.sync(() => {
-					loads += 1;
-					return current;
-				}),
-			);
-
-			expect(screen.getByText("catalog:source-hash")).toBeTruthy();
-			expect(screen.getByText("catalog-revision:0")).toBeTruthy();
-			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
-			expect(loads).toBe(0);
-
-			current = [{ ...catalog[0], contentHash: "updated-source-hash" }];
-			act(() => view.events.send());
-
-			yield* Effect.promise(() => screen.findByText("catalog:updated-source-hash"));
-			expect(loads).toBe(1);
-			expect(screen.getByText("catalog-revision:1")).toBeTruthy();
-			expect(view.events.getSubscriptionCount()).toBe(1);
-			view.unmount();
-			yield* Effect.promise(() => view.runtime.dispose());
-		}),
+		},
+		testTimeout,
 	);
 
-	it.live("keeps one subscription across child rerenders and multiple consumers", () =>
-		Effect.gen(function* () {
-			const view = makeView(
-				() => Effect.die("not used"),
-				<>
-					<CatalogConsumer name="first" />
-					<CatalogConsumer name="second" />
-				</>,
-			);
+	it.live(
+		"hydrates without a duplicate load and publishes event refreshes",
+		() =>
+			Effect.gen(function* () {
+				let loads = 0;
+				let current = catalog;
+				const view = makeView(() =>
+					Effect.sync(() => {
+						loads += 1;
+						return current;
+					}),
+				);
 
-			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
-			expect(view.events.getSubscriptionCount()).toBe(1);
+				expect(screen.getByText("catalog:source-hash")).toBeTruthy();
+				expect(screen.getByText("catalog-revision:0")).toBeTruthy();
+				yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+				expect(loads).toBe(0);
 
-			view.rerender(
-				view.tree(
+				current = [{ ...catalog[0], contentHash: "updated-source-hash" }];
+				act(() => view.events.send());
+
+				yield* Effect.promise(() => screen.findByText("catalog:updated-source-hash"));
+				expect(loads).toBe(1);
+				expect(screen.getByText("catalog-revision:1")).toBeTruthy();
+				expect(view.events.getSubscriptionCount()).toBe(1);
+				view.unmount();
+				yield* Effect.promise(() => view.runtime.dispose());
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps one subscription across child rerenders and multiple consumers",
+		() =>
+			Effect.gen(function* () {
+				const view = makeView(
+					() => Effect.die("not used"),
 					<>
 						<CatalogConsumer name="first" />
 						<CatalogConsumer name="second" />
-						<CatalogConsumer name="third" />
 					</>,
-				),
-			);
+				);
 
-			expect(screen.getByText("third:source-hash")).toBeTruthy();
-			expect(view.events.getSubscriptionCount()).toBe(1);
-			view.unmount();
-			yield* Effect.promise(() => view.runtime.dispose());
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+				expect(view.events.getSubscriptionCount()).toBe(1);
+
+				view.rerender(
+					view.tree(
+						<>
+							<CatalogConsumer name="first" />
+							<CatalogConsumer name="second" />
+							<CatalogConsumer name="third" />
+						</>,
+					),
+				);
+
+				expect(screen.getByText("third:source-hash")).toBeTruthy();
+				expect(view.events.getSubscriptionCount()).toBe(1);
+				view.unmount();
+				yield* Effect.promise(() => view.runtime.dispose());
+			}),
+		testTimeout,
 	);
 
-	it.live("interrupts the subscription and prevents refreshes after unmount", () =>
-		Effect.gen(function* () {
-			let loads = 0;
-			const view = makeView(() =>
-				Effect.sync(() => {
-					loads += 1;
-					return catalog;
-				}),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+	it.live(
+		"interrupts the subscription and prevents refreshes after unmount",
+		() =>
+			Effect.gen(function* () {
+				let loads = 0;
+				const view = makeView(() =>
+					Effect.sync(() => {
+						loads += 1;
+						return catalog;
+					}),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
 
-			view.unmount();
-			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(false)));
-			act(() => view.events.send());
-			yield* Effect.promise(() => Promise.resolve());
+				view.unmount();
+				yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(false)));
+				act(() => view.events.send());
+				yield* Effect.promise(() => Promise.resolve());
 
-			expect(loads).toBe(0);
-			yield* Effect.promise(() => view.runtime.dispose());
-		}),
+				expect(loads).toBe(0);
+				yield* Effect.promise(() => view.runtime.dispose());
+			}),
+		testTimeout,
 	);
 
-	it.live("interrupts an in-flight event refresh when the provider unmounts", () =>
-		Effect.gen(function* () {
-			const started = Deferred.makeUnsafe<void>();
-			const cancelled = Deferred.makeUnsafe<void>();
-			const view = makeView(() =>
-				Effect.acquireRelease(Deferred.succeed(started, undefined), () =>
-					Deferred.succeed(cancelled, undefined),
-				).pipe(Effect.andThen(Effect.never), Effect.scoped),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
+	it.live(
+		"interrupts an in-flight event refresh when the provider unmounts",
+		() =>
+			Effect.gen(function* () {
+				const started = Deferred.makeUnsafe<void>();
+				const cancelled = Deferred.makeUnsafe<void>();
+				const view = makeView(() =>
+					Effect.acquireRelease(Deferred.succeed(started, undefined), () =>
+						Deferred.succeed(cancelled, undefined),
+					).pipe(Effect.andThen(Effect.never), Effect.scoped),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(true)));
 
-			act(() => view.events.send());
-			yield* Deferred.await(started);
-			view.removeProvider();
+				act(() => view.events.send());
+				yield* Deferred.await(started);
+				view.removeProvider();
 
-			yield* Deferred.await(cancelled);
-			yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(false)));
-			yield* Effect.promise(() => view.runtime.dispose());
-		}),
+				yield* Deferred.await(cancelled);
+				yield* Effect.promise(() => waitFor(() => expect(view.events.isSubscribed()).toBe(false)));
+				yield* Effect.promise(() => view.runtime.dispose());
+			}),
+		testTimeout,
 	);
 
 	it("requires consumers to be inside the provider", () => {

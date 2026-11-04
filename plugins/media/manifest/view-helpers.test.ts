@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { buildViewExpressions } from "./view-helpers";
 
@@ -25,7 +25,9 @@ describe("buildViewExpressions", () => {
 		["custom-schema", ["Name", "Year"]],
 		["anime", ["Name", "Year", "Episodes"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual(labels);
+		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual<unknown>(
+			labels,
+		);
 	});
 
 	it("assigns persisted display kinds to media values", () => {

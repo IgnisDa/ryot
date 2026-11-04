@@ -1,4 +1,3 @@
-import { assert } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { EventStreamBatchInput } from "@ryot-app/contract/modules/events/stream-work";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -12,6 +11,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";

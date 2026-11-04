@@ -9,7 +9,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ../../packages/testing/src/run-client-tests.ts",
 		"build": "bun run tooling/generate-sources.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
@@ -17,7 +17,6 @@
 		"@ryot-app/ts-utils": "workspace:*"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.1.0",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",
@@ -27,12 +26,12 @@
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "10.4.1",
 		"@types/react": "19.2.15",
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"bun-types": "1.4.4",
 		"clsx": "2.1.1",
 		"effect": "4.1.0",
 		"jsdom": "30.0.1",
 		"react": "19.2.6",
-		"vite": "8.0.14",
-		"vitest": "4.1.9"
+		"vite": "8.0.14"
 	}
 }

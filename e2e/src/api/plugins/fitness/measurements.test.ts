@@ -219,7 +219,7 @@ describe("Measurements E2E", () => {
 				reference: { pluginId, kind: "local" },
 			});
 
-			expect(result.items).toEqual([
+			expect(result.items).toEqual<unknown>([
 				objectContaining({
 					metricId,
 					unit: "kg",
@@ -244,12 +244,17 @@ describe("Measurements E2E", () => {
 
 			const failure = yield* Effect.flip(deleteMeasurementReadings(otherClient, { entryId }));
 			assertTaggedError(failure, "PluginInvocationError");
-			expect(failure.reason).toMatchObject({
-				code: "runtime-failed",
-				diagnostics: [
-					{ severity: "error", message: stringContaining("Measurement entry not found") },
-				],
-			});
+			expect(failure.reason).toEqual<unknown>(
+				objectContaining({
+					code: "runtime-failed",
+					diagnostics: [
+						objectContaining({
+							severity: "error",
+							message: stringContaining("Measurement entry not found"),
+						}),
+					],
+				}),
+			);
 			expect((yield* readMeasurementLogReadings(client, { reference })).items).toHaveLength(1);
 
 			expect(yield* deleteMeasurementReadings(client, { entryId })).toEqual({ count: 1 });
@@ -287,9 +292,13 @@ describe("Measurements E2E", () => {
 
 			const foreignLog = yield* Effect.flip(logMeasurementReadings(otherClient, logged));
 			assertTaggedError(foreignLog, "PluginInvocationError");
-			expect(foreignLog.reason).toMatchObject({
-				diagnostics: [{ message: stringContaining("Measurement metric not found") }],
-			});
+			expect(foreignLog.reason).toEqual<unknown>(
+				objectContaining({
+					diagnostics: [
+						objectContaining({ message: stringContaining("Measurement metric not found") }),
+					],
+				}),
+			);
 			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2, status: "saved" });
 			expect(yield* listReadings()).toEqual([
 				{
@@ -317,9 +326,13 @@ describe("Measurements E2E", () => {
 			};
 			const foreignEdit = yield* Effect.flip(updateMeasurementReadings(otherClient, edited));
 			assertTaggedError(foreignEdit, "PluginInvocationError");
-			expect(foreignEdit.reason).toMatchObject({
-				diagnostics: [{ message: stringContaining("Measurement entry not found") }],
-			});
+			expect(foreignEdit.reason).toEqual<unknown>(
+				objectContaining({
+					diagnostics: [
+						objectContaining({ message: stringContaining("Measurement entry not found") }),
+					],
+				}),
+			);
 			expect(yield* updateMeasurementReadings(client, edited)).toEqual({ count: 3 });
 			expect(yield* listReadings()).toEqual([
 				{ value: 95, comment: null, metricKey: "hip", occurredAt: "2026-04-28T09:15:00.000Z" },
@@ -366,7 +379,7 @@ describe("Measurements E2E", () => {
 				client,
 				measurementSummaryRecipe({ reference, rangeStart: "1970-01-01T00:00:00.000Z" }),
 			);
-			expect(summary.items).toEqual(
+			expect(summary.items).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						unit: "kg",

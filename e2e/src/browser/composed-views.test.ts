@@ -263,7 +263,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* runtime.getByText(alpha.name, { exact: true }).waitFor({ state: "visible" });
 		expect(yield* runtime.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
 		expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual(["Schema", "Name"]);
-		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
+		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual<unknown>([
 			stringContaining("01 Alpha member"),
 			stringContaining("02 Zulu member"),
 		]);
@@ -285,7 +285,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
 		yield* page.keyboard.press("Escape");
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
-		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual([
+		expect(yield* runtime.locator("tbody tr").allInnerTexts()).toEqual<unknown>([
 			stringContaining("02 Zulu member"),
 			stringContaining("01 Alpha member"),
 		]);
@@ -464,7 +464,7 @@ it.live(
 				"Missing",
 			]);
 			expect(yield* rows.count).toBe(2);
-			expect(yield* rows.allInnerTexts()).toEqual([
+			expect(yield* rows.allInnerTexts()).toEqual<unknown>([
 				stringContaining("First row"),
 				stringContaining("Second row"),
 			]);
@@ -496,7 +496,7 @@ it.live(
 				.waitFor();
 			yield* rows.nth(1).waitFor({ state: "detached" });
 			yield* rows.getByText("Second row", { exact: true }).waitFor({ state: "visible" });
-			expect(yield* rows.allInnerTexts()).toEqual([stringContaining("Second row")]);
+			expect(yield* rows.allInnerTexts()).toEqual<unknown>([stringContaining("Second row")]);
 			expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
 
 			yield* page.reload;

@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import type {
 	PluginCalendarSource,
 	PluginSignalSchedule,
@@ -14,7 +16,6 @@ import {
 	pluginId,
 	table,
 } from "@ryot-app/ryotql";
-import { describe, expect, it } from "vitest";
 
 import { validateSystemPluginSet } from "#modules/plugins/packages/system-set";
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";

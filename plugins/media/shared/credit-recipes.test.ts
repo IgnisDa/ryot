@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { arrayContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { companyRecipes } from "./company-recipes";
 import { mediaPeopleRecipe } from "./media-recipes";
@@ -102,7 +103,9 @@ describe("credit pagination recipes", () => {
 			{ direction: "asc", expr: { field: "name" } },
 			{ direction: "asc", expr: { field: "id" } },
 		]);
-		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
+		expect(
+			query.output.fields.map((field) => ("key" in field ? field.key : null)),
+		).toEqual<unknown>(
 			arrayContaining([
 				"roles",
 				"character",

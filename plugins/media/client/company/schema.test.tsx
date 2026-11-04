@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "bun:test";
 
 import { companyRecipes } from "../../shared/company-recipes";
 import { decodeCreatorOverviewOf } from "../../tests/client/creator/overview-fixture";

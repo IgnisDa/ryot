@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { badRequest, DbError, internalError } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -11,8 +12,11 @@ import { AuthoredSavedViewRendererConfig } from "@ryot-app/contract/modules/save
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref, Schema, Stream } from "effect";
 
 import {
@@ -652,117 +656,136 @@ layer(
 		archiveBytes: writePluginArchive({ compiledScripts: [], manifest: privateManifest() }),
 	}),
 )((test) => {
-	test.effect("claims, reads, and best-effort deletes an uploaded plugin archive", () => {
-		const token = "plugin-upload-token";
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const installed = yield* service.installPrivatePlugin({
-				userId,
-				config: {},
-				uploadToken: token,
+	test.effect(
+		"claims, reads, and best-effort deletes an uploaded plugin archive",
+		() => {
+			const token = "plugin-upload-token";
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const installed = yield* service.installPrivatePlugin({
+					userId,
+					config: {},
+					uploadToken: token,
+				});
+				expect(installed).toEqual<unknown>({
+					pluginId: "test/private-fixture-plugin-id",
+					activationId: "test/private-fixture-activation",
+					id: "test/private-fixture-plugin-id-installation",
+				});
+				expect(yield* fake.claimedUploads).toEqual([
+					{ token, userId, claimId: `plugin-package:${sha256Hex(token)}` },
+				]);
+				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
 			});
-			expect(installed).toEqual({
-				pluginId: "test/private-fixture-plugin-id",
-				activationId: "test/private-fixture-activation",
-				id: "test/private-fixture-plugin-id-installation",
-			});
-			expect(yield* fake.claimedUploads).toEqual([
-				{ token, userId, claimId: `plugin-package:${sha256Hex(token)}` },
-			]);
-			expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
-		});
-	});
+		},
+		testTimeout,
+	);
 });
 
 layer(makeLayer({ claimUploadFails: true }))((test) => {
-	test.effect("maps an unavailable upload claim without attempting cleanup", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({ userId, config: {}, uploadToken: "missing" }),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason).toEqual({ code: "upload-unavailable" });
-			expect(yield* fake.deletedUploads).toEqual([]);
-		}),
+	test.effect(
+		"maps an unavailable upload claim without attempting cleanup",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({ userId, config: {}, uploadToken: "missing" }),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual({ code: "upload-unavailable" });
+				expect(yield* fake.deletedUploads).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ archiveBytes: new Uint8Array([1, 2, 3]) }))((test) => {
-	test.effect("maps an invalid archive and deletes the claimed upload", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({ userId, config: {}, uploadToken: "corrupt" }),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason).toEqual({ issue: "malformed-zip", code: "package-archive-invalid" });
-			expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
-		}),
+	test.effect(
+		"maps an invalid archive and deletes the claimed upload",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({ userId, config: {}, uploadToken: "corrupt" }),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual({ issue: "malformed-zip", code: "package-archive-invalid" });
+				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ archiveBytes: new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes + 1) }))(
 	(test) => {
-		test.effect("rejects a private upload beyond archive container limits before persistence", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const exit = yield* Effect.exit(
-					service.installPrivatePlugin({ userId, config: {}, uploadToken: "oversized" }),
-				);
-				const failure = failureOf(exit);
-				assert(failure instanceof PluginRequestError);
-				expect(failure.reason).toEqual({
-					code: "package-archive-invalid",
-					issue: "compressed-bytes-exceeded",
-				});
-				expect(yield* fake.persisted).toEqual([]);
-				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
-			}),
+		test.effect(
+			"rejects a private upload beyond archive container limits before persistence",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const exit = yield* Effect.exit(
+						service.installPrivatePlugin({ userId, config: {}, uploadToken: "oversized" }),
+					);
+					const failure = failureOf(exit);
+					assert(failure instanceof PluginRequestError);
+					expect(failure.reason).toEqual({
+						code: "package-archive-invalid",
+						issue: "compressed-bytes-exceeded",
+					});
+					expect(yield* fake.persisted).toEqual([]);
+					expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
+				}),
+			testTimeout,
 		);
 	},
 );
 
 layer(makeLayer({ openUploadFails: true }))((test) => {
-	test.effect("maps an unavailable archive object and deletes the claimed upload", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({ userId, config: {}, uploadToken: "missing-object" }),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason).toEqual({ code: "upload-unavailable" });
-			expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
-		}),
+	test.effect(
+		"maps an unavailable archive object and deletes the claimed upload",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({ userId, config: {}, uploadToken: "missing-object" }),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual({ code: "upload-unavailable" });
+				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("checks update ownership before claiming the upload", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.updatePrivatePlugin({
-					userId,
-					config: {},
-					uploadToken: "unused",
-					contentHash: "unknown",
-					installationId: "not-installed",
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginNotFoundError);
-			expect(yield* fake.claimedUploads).toEqual([]);
-		}),
+	test.effect(
+		"checks update ownership before claiming the upload",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.updatePrivatePlugin({
+						userId,
+						config: {},
+						uploadToken: "unused",
+						contentHash: "unknown",
+						installationId: "not-installed",
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginNotFoundError);
+				expect(yield* fake.claimedUploads).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -784,59 +807,66 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("accepts more than 32 compiled scripts within archive container limits", () => {
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* service.installPrivatePlugin({ userId, config: {}, uploadToken: "many-scripts" });
-			expect(yield* fake.persisted).toHaveLength(1);
-		});
-	});
+	test.effect(
+		"accepts more than 32 compiled scripts within archive container limits",
+		() => {
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* service.installPrivatePlugin({ userId, config: {}, uploadToken: "many-scripts" });
+				expect(yield* fake.persisted).toHaveLength(1);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("rejects only the private manifest surfaces that cannot carry user subject", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const fixture = fixtureManifest();
-			const script = requireFixtureScript();
-			const manifest = privateManifest({
-				hooks: fixture.hooks,
-				userBootstrap: [userBootstrapEntry],
-				entitySchemas: fixture.entitySchemas,
-				signalSchemas: fixture.signalSchemas,
-				scripts: [...fixture.scripts, bootstrapScript],
-				relationshipSchemas: fixture.relationshipSchemas,
-				httpRateLimits: [
-					{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
-				],
-				crons: [
-					{
-						slug: "hourly",
-						description: "Hourly",
-						scriptSlug: script.slug,
-						schedule: { cron: "0 * * * *" },
-					},
-				],
-			});
-			const files = Object.fromEntries(
-				manifest.scripts.map(({ entry }) => [entry, bytes("source")]),
-			);
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					userId,
-					manifest,
-					config: {},
-					compiledScripts: compiledScriptsFor(manifest, files),
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			assert(failure.reason.code === "unsupported-manifest-surface");
-			expect([...failure.reason.surfaces].sort((left, right) => left.localeCompare(right))).toEqual(
-				["httpRateLimits"],
-			);
-		}),
+	test.effect(
+		"rejects only the private manifest surfaces that cannot carry user subject",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fixture = fixtureManifest();
+				const script = requireFixtureScript();
+				const manifest = privateManifest({
+					hooks: fixture.hooks,
+					userBootstrap: [userBootstrapEntry],
+					entitySchemas: fixture.entitySchemas,
+					signalSchemas: fixture.signalSchemas,
+					scripts: [...fixture.scripts, bootstrapScript],
+					relationshipSchemas: fixture.relationshipSchemas,
+					httpRateLimits: [
+						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
+					],
+					crons: [
+						{
+							slug: "hourly",
+							description: "Hourly",
+							scriptSlug: script.slug,
+							schedule: { cron: "0 * * * *" },
+						},
+					],
+				});
+				const files = Object.fromEntries(
+					manifest.scripts.map(({ entry }) => [entry, bytes("source")]),
+				);
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({
+						userId,
+						manifest,
+						config: {},
+						compiledScripts: compiledScriptsFor(manifest, files),
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				assert(failure.reason.code === "unsupported-manifest-surface");
+				expect(
+					[...failure.reason.surfaces].sort((left, right) => left.localeCompare(right)),
+				).toEqual(["httpRateLimits"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -845,46 +875,53 @@ layer(
 		systemPlugins: [systemEntry(privateManifest({ metadata: { ...privateManifest().metadata } }))],
 	}),
 )((test) => {
-	test.effect("reserves package UUIDs owned by active system plugins", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					userId,
-					config: {},
-					compiledScripts: [],
-					manifest: privateManifest({ metadata: { ...privateManifest().metadata } }),
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason).toEqual({
-				code: "reserved-system-identity",
-				packageId: privateManifest().metadata.packageId,
-			});
-		}),
+	test.effect(
+		"reserves package UUIDs owned by active system plugins",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({
+						userId,
+						config: {},
+						compiledScripts: [],
+						manifest: privateManifest({ metadata: { ...privateManifest().metadata } }),
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual({
+					code: "reserved-system-identity",
+					packageId: privateManifest().metadata.packageId,
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ systemPackageIdAddedOnLock: privateManifest().metadata.packageId }))((test) => {
-	test.effect("rechecks system package UUID claims after install preparation", () => {
-		const manifest = privateManifest();
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.installPrivatePlugin({ userId, manifest, config: {}, compiledScripts: [] }),
-				),
-			);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason).toEqual({
-				code: "reserved-system-identity",
-				packageId: manifest.metadata.packageId,
+	test.effect(
+		"rechecks system package UUID claims after install preparation",
+		() => {
+			const manifest = privateManifest();
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.installPrivatePlugin({ userId, manifest, config: {}, compiledScripts: [] }),
+					),
+				);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual({
+					code: "reserved-system-identity",
+					packageId: manifest.metadata.packageId,
+				});
+				expect(yield* fake.persisted).toEqual([]);
 			});
-			expect(yield* fake.persisted).toEqual([]);
-		});
-	});
+		},
+		testTimeout,
+	);
 });
 
 const configuredManifest = privateManifest({
@@ -904,49 +941,55 @@ const configuredManifest = privateManifest({
 });
 
 layer(makeLayer())((test) => {
-	test.effect("applies config defaults and persists validated config", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const installed = yield* service.installPrivatePlugin({
-				userId,
-				compiledScripts: [],
-				manifest: configuredManifest,
-				config: { token: "secret-value" },
-			});
-			expect((yield* fake.created)[0]).toMatchObject({
-				isHidden: false,
-				health: "installing",
-				config: { region: "eu", token: "secret-value" },
-			});
-			expect(installed).toEqual({
-				pluginId: "test/private-fixture-plugin-id",
-				activationId: "test/private-fixture-activation",
-				id: "test/private-fixture-plugin-id-installation",
-			});
-			expect(yield* fake.invalidatedUsers).toEqual([userId]);
-		}),
+	test.effect(
+		"applies config defaults and persists validated config",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const installed = yield* service.installPrivatePlugin({
+					userId,
+					compiledScripts: [],
+					manifest: configuredManifest,
+					config: { token: "secret-value" },
+				});
+				expect((yield* fake.created)[0]).toMatchObject({
+					isHidden: false,
+					health: "installing",
+					config: { region: "eu", token: "secret-value" },
+				});
+				expect(installed).toEqual<unknown>({
+					pluginId: "test/private-fixture-plugin-id",
+					activationId: "test/private-fixture-activation",
+					id: "test/private-fixture-plugin-id-installation",
+				});
+				expect(yield* fake.invalidatedUsers).toEqual([userId]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("rejects config missing a required value before persisting", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					userId,
-					config: {},
-					compiledScripts: [],
-					manifest: configuredManifest,
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason.code).toBe("validation-failed");
-			expect(yield* fake.created).toEqual([]);
-		}),
+	test.effect(
+		"rejects config missing a required value before persisting",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({
+						userId,
+						config: {},
+						compiledScripts: [],
+						manifest: configuredManifest,
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason.code).toBe("validation-failed");
+				expect(yield* fake.created).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -954,24 +997,27 @@ const privatePlugin = storedPrivatePlugin(privateManifest());
 const privateInstallation = installationRow({ pluginId: privatePlugin.id });
 
 layer(makeLayer({ privatePlugins: [privatePlugin] }))((test) => {
-	test.effect("refuses a second private plugin with the same slug", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					userId,
-					config: {},
-					compiledScripts: [],
-					manifest: privateManifest(),
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginConflictError);
-			expect(failure.reason).toEqual({
-				code: "already-installed",
-				packageId: privatePlugin.packageId,
-			});
-		}),
+	test.effect(
+		"refuses a second private plugin with the same slug",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({
+						userId,
+						config: {},
+						compiledScripts: [],
+						manifest: privateManifest(),
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginConflictError);
+				expect(failure.reason).toEqual({
+					code: "already-installed",
+					packageId: privatePlugin.packageId,
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -989,40 +1035,44 @@ layer(
 		]),
 	}),
 )((test) => {
-	test.effect("sets and clears a usable home view without requiring workspace placement", () => {
-		const savedViewSlug = globalHomeViewSlug;
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			expect(
-				yield* service.setHomeView(userId, privateInstallation.id, {
-					savedView: { kind: "kernel", slug: savedViewSlug },
-				}),
-			).toEqual({ savedView: { kind: "kernel", slug: savedViewSlug } });
-			expect(
-				yield* service.setHomeView(userId, privateInstallation.id, { savedView: null }),
-			).toEqual({ savedView: null });
-			expect(yield* fake.homeViewUpdates).toEqual([
-				{
-					userId,
-					id: privateInstallation.id,
-					homeSavedView: { kind: "kernel", slug: savedViewSlug },
-				},
-				{ userId, homeSavedView: null, id: privateInstallation.id },
-			]);
-			expect(yield* fake.invalidatedUsers).toEqual([userId, userId]);
-			expect(yield* fake.homeViewEvents).toEqual([
-				"lock-saved-view",
-				"set-installation",
-				"set-installation",
-			]);
-			expect(yield* fake.homeViewTransactionScopes).toEqual([
-				"transaction",
-				"transaction",
-				"transaction",
-			]);
-		});
-	});
+	test.effect(
+		"sets and clears a usable home view without requiring workspace placement",
+		() => {
+			const savedViewSlug = globalHomeViewSlug;
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				expect(
+					yield* service.setHomeView(userId, privateInstallation.id, {
+						savedView: { kind: "kernel", slug: savedViewSlug },
+					}),
+				).toEqual({ savedView: { kind: "kernel", slug: savedViewSlug } });
+				expect(
+					yield* service.setHomeView(userId, privateInstallation.id, { savedView: null }),
+				).toEqual({ savedView: null });
+				expect(yield* fake.homeViewUpdates).toEqual([
+					{
+						userId,
+						id: privateInstallation.id,
+						homeSavedView: { kind: "kernel", slug: savedViewSlug },
+					},
+					{ userId, homeSavedView: null, id: privateInstallation.id },
+				]);
+				expect(yield* fake.invalidatedUsers).toEqual([userId, userId]);
+				expect(yield* fake.homeViewEvents).toEqual([
+					"lock-saved-view",
+					"set-installation",
+					"set-installation",
+				]);
+				expect(yield* fake.homeViewTransactionScopes).toEqual([
+					"transaction",
+					"transaction",
+					"transaction",
+				]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const pageHomeViewSlug = "plugin-view";
@@ -1060,17 +1110,21 @@ layer(
 		]),
 	}),
 )((test) => {
-	test.effect("accepts a home view backed by an advertised plugin page", () => {
-		const savedViewSlug = pageHomeViewSlug;
-		return Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			expect(
-				yield* service.setHomeView(userId, `${pagePlugin.id}-installation`, {
-					savedView: { kind: "kernel", slug: savedViewSlug },
-				}),
-			).toEqual({ savedView: { kind: "kernel", slug: savedViewSlug } });
-		});
-	});
+	test.effect(
+		"accepts a home view backed by an advertised plugin page",
+		() => {
+			const savedViewSlug = pageHomeViewSlug;
+			return Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				expect(
+					yield* service.setHomeView(userId, `${pagePlugin.id}-installation`, {
+						savedView: { kind: "kernel", slug: savedViewSlug },
+					}),
+				).toEqual({ savedView: { kind: "kernel", slug: savedViewSlug } });
+			});
+		},
+		testTimeout,
+	);
 });
 
 const hiddenHomeViewSlug = "hidden-view";
@@ -1098,30 +1152,33 @@ layer(
 		]),
 	}),
 )((test) => {
-	test.effect("rejects missing, hidden, and unusable home views", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			for (const [savedViewSlug, code] of [
-				[missingHomeViewSlug, "home-view-not-found"],
-				[hiddenHomeViewSlug, "home-view-hidden"],
-				[unavailableHomeViewSlug, "home-view-renderer-unavailable"],
-			] as const) {
-				expect(
-					failureOf(
-						yield* Effect.exit(
-							service.setHomeView(userId, privateInstallation.id, {
-								savedView: { kind: "kernel", slug: savedViewSlug },
-							}),
+	test.effect(
+		"rejects missing, hidden, and unusable home views",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				for (const [savedViewSlug, code] of [
+					[missingHomeViewSlug, "home-view-not-found"],
+					[hiddenHomeViewSlug, "home-view-hidden"],
+					[unavailableHomeViewSlug, "home-view-renderer-unavailable"],
+				] as const) {
+					expect(
+						failureOf(
+							yield* Effect.exit(
+								service.setHomeView(userId, privateInstallation.id, {
+									savedView: { kind: "kernel", slug: savedViewSlug },
+								}),
+							),
 						),
-					),
-				).toMatchObject({
-					_tag: "PluginRequestError",
-					reason: { code, reference: { kind: "kernel", slug: savedViewSlug } },
-				});
-			}
-			expect(yield* fake.homeViewUpdates).toEqual([]);
-		}),
+					).toMatchObject({
+						_tag: "PluginRequestError",
+						reason: { code, reference: { kind: "kernel", slug: savedViewSlug } },
+					});
+				}
+				expect(yield* fake.homeViewUpdates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1148,11 +1205,12 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 						sortOrder: 7,
 						config: { region: "ca", token: "stored-secret" },
 					});
-					expect(result).toEqual({
+					expect(result).toEqual<unknown>({
 						pluginId: configuredPlugin.id,
 						id: "test/private-fixture-plugin-id-installation",
 					});
 				}),
+			testTimeout,
 		);
 	},
 );
@@ -1164,56 +1222,68 @@ layer(
 		installations: [privateInstallation],
 	}),
 )((test) => {
-	test.effect("rejects an update when the installation write affects no row", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			for (const update of [
-				service.updateInstallation(userId, privateInstallation.id, { sortOrder: 1 }),
-				service.updatePrivatePlugin({
-					userId,
-					compiledScripts: [],
-					manifest: privateManifest(),
-					contentHash: privatePlugin.contentHash,
-					installationId: privateInstallation.id,
-				}),
-			]) {
-				const failure = failureOf(yield* Effect.exit(update));
-				assert(failure instanceof PluginNotFoundError);
-				expect(failure.reason).toEqual({ code: "plugin-not-found", pluginId: privatePlugin.id });
-			}
-			expect(yield* fake.invalidatedUsers).toEqual([]);
-		}),
+	test.effect(
+		"rejects an update when the installation write affects no row",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				for (const update of [
+					service.updateInstallation(userId, privateInstallation.id, { sortOrder: 1 }),
+					service.updatePrivatePlugin({
+						userId,
+						compiledScripts: [],
+						manifest: privateManifest(),
+						contentHash: privatePlugin.contentHash,
+						installationId: privateInstallation.id,
+					}),
+				]) {
+					const failure = failureOf(yield* Effect.exit(update));
+					assert(failure instanceof PluginNotFoundError);
+					expect(failure.reason).toEqual<unknown>({
+						code: "plugin-not-found",
+						pluginId: privatePlugin.id,
+					});
+				}
+				expect(yield* fake.invalidatedUsers).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configuredInstallation] }))(
 	(test) => {
-		test.effect("applies defaults after explicit unsets and rejects removing required config", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const reset = yield* service.updateInstallation(userId, configuredInstallation.id, {
-					unsetConfigKeys: ["region"],
-				});
-				expect((yield* fake.updated)[0]).toMatchObject({
-					config: { region: "eu", token: "stored-secret" },
-				});
-				expect(reset).toEqual({ id: configuredInstallation.id, pluginId: configuredPlugin.id });
+		test.effect(
+			"applies defaults after explicit unsets and rejects removing required config",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const reset = yield* service.updateInstallation(userId, configuredInstallation.id, {
+						unsetConfigKeys: ["region"],
+					});
+					expect((yield* fake.updated)[0]).toMatchObject({
+						config: { region: "eu", token: "stored-secret" },
+					});
+					expect(reset).toEqual<unknown>({
+						id: configuredInstallation.id,
+						pluginId: configuredPlugin.id,
+					});
 
-				const failure = failureOf(
-					yield* Effect.exit(
-						service.updateInstallation(userId, configuredInstallation.id, {
-							unsetConfigKeys: ["token"],
-						}),
-					),
-				);
-				expect(failure).toMatchObject({
-					_tag: "PluginRequestError",
-					reason: { code: "validation-failed" },
-				});
-				expect(yield* fake.updated).toHaveLength(1);
-			}),
+					const failure = failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, configuredInstallation.id, {
+								unsetConfigKeys: ["token"],
+							}),
+						),
+					);
+					expect(failure).toMatchObject({
+						_tag: "PluginRequestError",
+						reason: { code: "validation-failed" },
+					});
+					expect(yield* fake.updated).toHaveLength(1);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -1232,21 +1302,24 @@ layer(
 		installations: [assetConfiguredInstallation],
 	}),
 )((test) => {
-	test.effect("rejects installation settings that reference another user's managed asset", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const foreign = yield* insertManagedAsset(UserId.make("installation-asset-foreign"));
-			assertExitFails(
-				yield* Effect.exit(
-					service.updateInstallation(userId, assetConfiguredInstallation.id, {
-						config: { image: foreign },
-					}),
-				),
-				new PluginRequestError({ reason: { code: "asset-forbidden" } }),
-			);
-			expect(yield* fake.updated).toEqual([]);
-		}),
+	test.effect(
+		"rejects installation settings that reference another user's managed asset",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const foreign = yield* insertManagedAsset(UserId.make("installation-asset-foreign"));
+				assertExitFails(
+					yield* Effect.exit(
+						service.updateInstallation(userId, assetConfiguredInstallation.id, {
+							config: { image: foreign },
+						}),
+					),
+					new PluginRequestError({ reason: { code: "asset-forbidden" } }),
+				);
+				expect(yield* fake.updated).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1259,30 +1332,33 @@ const exampleSystemInstallation = installationRow({
 });
 
 layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
-	test.effect("allows system controls but rejects system config changes", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* fake.loadSystemPlugin(exampleSystemPlugin);
+	test.effect(
+		"allows system controls but rejects system config changes",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* fake.loadSystemPlugin(exampleSystemPlugin);
 
-			expect(
-				yield* service.updateInstallation(userId, exampleSystemInstallation.id, {
-					sortOrder: 4,
-					isHidden: true,
-				}),
-			).toEqual({ id: exampleSystemInstallation.id, pluginId: exampleSystemPlugin.id });
-			expect(
-				failureOf(
-					yield* Effect.exit(
-						service.updateInstallation(userId, exampleSystemInstallation.id, { config: {} }),
+				expect(
+					yield* service.updateInstallation(userId, exampleSystemInstallation.id, {
+						sortOrder: 4,
+						isHidden: true,
+					}),
+				).toEqual<unknown>({ id: exampleSystemInstallation.id, pluginId: exampleSystemPlugin.id });
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, exampleSystemInstallation.id, { config: {} }),
+						),
 					),
-				),
-			).toMatchObject({
-				_tag: "PluginConflictError",
-				reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
-			});
-			expect(yield* fake.invalidatedUsers).toEqual([userId]);
-		}),
+				).toMatchObject({
+					_tag: "PluginConflictError",
+					reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
+				});
+				expect(yield* fake.invalidatedUsers).toEqual([userId]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1299,106 +1375,127 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("hides foreign installations and rejects enabling an unready installation", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			expect(
-				failureOf(
-					yield* Effect.exit(service.updateInstallation(userId, "foreign", { sortOrder: 1 })),
-				),
-			).toMatchObject({
-				_tag: "PluginNotFoundError",
-				reason: { installationId: "foreign", code: "installation-not-found" },
-			});
-			expect(
-				failureOf(
-					yield* Effect.exit(
-						service.updateInstallation(userId, configuredInstallation.id, { isHidden: false }),
+	test.effect(
+		"hides foreign installations and rejects enabling an unready installation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				expect(
+					failureOf(
+						yield* Effect.exit(service.updateInstallation(userId, "foreign", { sortOrder: 1 })),
 					),
-				),
-			).toMatchObject({
-				_tag: "PluginConflictError",
-				reason: { health: "installing", code: "installation-not-ready" },
-			});
-		}),
+				).toMatchObject({
+					_tag: "PluginNotFoundError",
+					reason: { installationId: "foreign", code: "installation-not-found" },
+				});
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, configuredInstallation.id, { isHidden: false }),
+						),
+					),
+				).toMatchObject({
+					_tag: "PluginConflictError",
+					reason: { health: "installing", code: "installation-not-ready" },
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
-	test.effect("refuses to uninstall a system plugin through the private path", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* fake.loadSystemPlugin(exampleSystemPlugin);
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.uninstallPlugin(userId, exampleSystemInstallation.id, "example-activation"),
-				),
-			);
-			assert(failure instanceof PluginConflictError);
-			expect(failure.reason).toEqual({ code: "system-plugin", pluginId: exampleSystemPlugin.id });
-		}),
+	test.effect(
+		"refuses to uninstall a system plugin through the private path",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* fake.loadSystemPlugin(exampleSystemPlugin);
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.uninstallPlugin(userId, exampleSystemInstallation.id, "example-activation"),
+					),
+				);
+				assert(failure instanceof PluginConflictError);
+				expect(failure.reason).toEqual<unknown>({
+					code: "system-plugin",
+					pluginId: exampleSystemPlugin.id,
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("hides private plugins owned by another user", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.uninstallPlugin(userId, "someone-elses-plugin", "unknown-activation"),
-				),
-			);
-			expect(failure).toMatchObject({
-				_tag: "PluginNotFoundError",
-				reason: { code: "installation-not-found", installationId: "someone-elses-plugin" },
-			});
-		}),
+	test.effect(
+		"hides private plugins owned by another user",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.uninstallPlugin(userId, "someone-elses-plugin", "unknown-activation"),
+					),
+				);
+				expect(failure).toMatchObject({
+					_tag: "PluginNotFoundError",
+					reason: { code: "installation-not-found", installationId: "someone-elses-plugin" },
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstallation] }))(
 	(test) => {
-		test.effect("uninstalls a private plugin the caller owns", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const removed = yield* service.uninstallPlugin(
-					userId,
-					privateInstallation.id,
-					privatePlugin.activationId,
-				);
-				expect(removed).toEqual({ id: privateInstallation.id, pluginId: privatePlugin.id });
-				expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
-				expect(yield* fake.removed).toEqual([privateInstallation.id]);
-				expect(yield* fake.invalidatedUsers).toEqual([userId]);
-			}),
-		);
-		test.effect("replays a committed private uninstall without repeating the write", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const first = yield* service.uninstallPlugin(
-					userId,
-					privateInstallation.id,
-					privatePlugin.activationId,
-				);
-				expect(
-					yield* service.uninstallPlugin(
+		test.effect(
+			"uninstalls a private plugin the caller owns",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const removed = yield* service.uninstallPlugin(
 						userId,
 						privateInstallation.id,
 						privatePlugin.activationId,
-					),
-				).toEqual(first);
-				expect(yield* fake.removed).toEqual([privateInstallation.id]);
-				expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
-				expect(yield* fake.retirementEvents).toEqual([
-					`fence:${privateInstallation.id}:transaction`,
-					`cleanup:${privateInstallation.id}:root`,
-					`remove:${privateInstallation.id}:transaction`,
-				]);
-			}),
+					);
+					expect(removed).toEqual<unknown>({
+						id: privateInstallation.id,
+						pluginId: privatePlugin.id,
+					});
+					expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
+					expect(yield* fake.removed).toEqual([privateInstallation.id]);
+					expect(yield* fake.invalidatedUsers).toEqual([userId]);
+				}),
+			testTimeout,
+		);
+		test.effect(
+			"replays a committed private uninstall without repeating the write",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const first = yield* service.uninstallPlugin(
+						userId,
+						privateInstallation.id,
+						privatePlugin.activationId,
+					);
+					expect(
+						yield* service.uninstallPlugin(
+							userId,
+							privateInstallation.id,
+							privatePlugin.activationId,
+						),
+					).toEqual(first);
+					expect(yield* fake.removed).toEqual([privateInstallation.id]);
+					expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
+					expect(yield* fake.retirementEvents).toEqual([
+						`fence:${privateInstallation.id}:transaction`,
+						`cleanup:${privateInstallation.id}:root`,
+						`remove:${privateInstallation.id}:transaction`,
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -1410,22 +1507,25 @@ layer(
 		installations: [privateInstallation],
 	}),
 )((test) => {
-	test.effect("fences a private uninstall on the exact installation being removed", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
-				),
-			);
-			assert(failure instanceof PluginConflictError);
-			expect(failure.reason.code).toBe("integration-referenced");
-			expect(yield* fake.integrationFences).toEqual([
-				{ pluginId: privatePlugin.id, pluginInstallationId: privateInstallation.id },
-			]);
-			expect(yield* fake.deactivated).toEqual([]);
-		}),
+	test.effect(
+		"fences a private uninstall on the exact installation being removed",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
+					),
+				);
+				assert(failure instanceof PluginConflictError);
+				expect(failure.reason.code).toBe("integration-referenced");
+				expect(yield* fake.integrationFences).toEqual([
+					{ pluginId: privatePlugin.id, pluginInstallationId: privateInstallation.id },
+				]);
+				expect(yield* fake.deactivated).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1436,19 +1536,22 @@ layer(
 		installations: [privateInstallation],
 	}),
 )((test) => {
-	test.effect("keeps a private plugin referenced by persisted definitions", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
-				),
-			);
-			assert(failure instanceof PluginConflictError);
-			expect(failure.reason.code).toBe("entity-referenced");
-			expect(yield* fake.deactivated).toEqual([]);
-		}),
+	test.effect(
+		"keeps a private plugin referenced by persisted definitions",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
+					),
+				);
+				assert(failure instanceof PluginConflictError);
+				expect(failure.reason.code).toBe("entity-referenced");
+				expect(yield* fake.deactivated).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1459,15 +1562,22 @@ layer(
 		installations: [privateInstallation],
 	}),
 )((test) => {
-	test.effect("tombstones a private installation while accepted workflows retain their pins", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			expect(
-				yield* service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
-			).toEqual({ id: privateInstallation.id, pluginId: privatePlugin.id });
-			expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
-		}),
+	test.effect(
+		"tombstones a private installation while accepted workflows retain their pins",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				expect(
+					yield* service.uninstallPlugin(
+						userId,
+						privateInstallation.id,
+						privatePlugin.activationId,
+					),
+				).toEqual<unknown>({ id: privateInstallation.id, pluginId: privatePlugin.id });
+				expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1478,22 +1588,25 @@ layer(
 		installations: [privateInstallation],
 	}),
 )((test) => {
-	test.effect("keeps a private plugin with custom views installed", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
-				),
-			);
-			assert(failure instanceof PluginConflictError);
-			expect(failure.reason.code).toBe("saved-view-referenced");
-			expect(yield* fake.savedViewFences).toEqual([
-				{ userId, installationId: privateInstallation.id },
-			]);
-			expect(yield* fake.deactivated).toEqual([]);
-		}),
+	test.effect(
+		"keeps a private plugin with custom views installed",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.uninstallPlugin(userId, privateInstallation.id, privatePlugin.activationId),
+					),
+				);
+				assert(failure instanceof PluginConflictError);
+				expect(failure.reason.code).toBe("saved-view-referenced");
+				expect(yield* fake.savedViewFences).toEqual([
+					{ userId, installationId: privateInstallation.id },
+				]);
+				expect(yield* fake.deactivated).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1581,7 +1694,10 @@ layer(
 					id: installation.id,
 					config: { region: "ca", token: "stored-secret" },
 				});
-				expect(result).toEqual({ id: installation.id, pluginId: upgradedOperationPlugin.id });
+				expect(result).toEqual<unknown>({
+					id: installation.id,
+					pluginId: upgradedOperationPlugin.id,
+				});
 				expect(yield* fake.created).toEqual([]);
 				expect(yield* fake.healthUpdates).toEqual([]);
 				expect(yield* fake.dispatched).toEqual([]);
@@ -1589,73 +1705,78 @@ layer(
 				expect(yield* fake.invalidatedUsers).toEqual([userId]);
 			});
 		},
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configuredInstallation] }))(
 	(test) => {
-		test.effect("rejects changed identity but activates an upgrade needing configuration", () => {
-			const nextManifest: PluginManifest = {
-				...configuredManifest,
-				metadata: { ...configuredManifest.metadata, version: "2.0.0" },
-				configSchema: {
-					...configuredManifest.configSchema,
-					fields: {
-						...configuredManifest.configSchema.fields,
-						endpoint: {
-							type: "string",
-							label: "Endpoint",
-							validation: { required: true },
-							description: "Required endpoint",
+		test.effect(
+			"rejects changed identity but activates an upgrade needing configuration",
+			() => {
+				const nextManifest: PluginManifest = {
+					...configuredManifest,
+					metadata: { ...configuredManifest.metadata, version: "2.0.0" },
+					configSchema: {
+						...configuredManifest.configSchema,
+						fields: {
+							...configuredManifest.configSchema.fields,
+							endpoint: {
+								type: "string",
+								label: "Endpoint",
+								validation: { required: true },
+								description: "Required endpoint",
+							},
 						},
 					},
-				},
-			};
-			return Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const changedSlug = failureOf(
-					yield* Effect.exit(
-						service.updatePrivatePlugin({
-							userId,
-							compiledScripts: [],
-							contentHash: configuredPlugin.contentHash,
-							installationId: configuredInstallation.id,
-							manifest: {
-								...configuredManifest,
-								metadata: { ...configuredManifest.metadata, packageId: testPluginPackageId() },
-							},
-						}),
-					),
-				);
-				expect(changedSlug).toMatchObject({
-					_tag: "PluginRequestError",
-					reason: { code: "package-id-mismatch" },
-				});
-				expect(yield* fake.persisted).toEqual([]);
+				};
+				return Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const changedSlug = failureOf(
+						yield* Effect.exit(
+							service.updatePrivatePlugin({
+								userId,
+								compiledScripts: [],
+								contentHash: configuredPlugin.contentHash,
+								installationId: configuredInstallation.id,
+								manifest: {
+									...configuredManifest,
+									metadata: { ...configuredManifest.metadata, packageId: testPluginPackageId() },
+								},
+							}),
+						),
+					);
+					expect(changedSlug).toMatchObject({
+						_tag: "PluginRequestError",
+						reason: { code: "package-id-mismatch" },
+					});
+					expect(yield* fake.persisted).toEqual([]);
 
-				const invalidConfig = yield* service.updatePrivatePlugin({
-					userId,
-					compiledScripts: [],
-					manifest: nextManifest,
-					contentHash: configuredPlugin.contentHash,
-					installationId: configuredInstallation.id,
-				});
-				expect(invalidConfig).toEqual({
-					id: configuredInstallation.id,
-					pluginId: configuredPlugin.id,
-				});
-				expect((yield* fake.persisted).map(({ plugin }) => plugin)).toEqual([nextManifest]);
-				expect(yield* fake.healthUpdates).toEqual([
-					{
+					const invalidConfig = yield* service.updatePrivatePlugin({
+						userId,
+						compiledScripts: [],
+						manifest: nextManifest,
+						contentHash: configuredPlugin.contentHash,
+						installationId: configuredInstallation.id,
+					});
+					expect(invalidConfig).toEqual<unknown>({
 						id: configuredInstallation.id,
-						health: "needs-configuration",
-						healthReason: "Configuration does not match the active package revision",
-					},
-				]);
-				expect(yield* fake.updated).toEqual([]);
-			});
-		});
+						pluginId: configuredPlugin.id,
+					});
+					expect((yield* fake.persisted).map(({ plugin }) => plugin)).toEqual([nextManifest]);
+					expect(yield* fake.healthUpdates).toEqual([
+						{
+							id: configuredInstallation.id,
+							health: "needs-configuration",
+							healthReason: "Configuration does not match the active package revision",
+						},
+					]);
+					expect(yield* fake.updated).toEqual([]);
+				});
+			},
+			testTimeout,
+		);
 	},
 );
 
@@ -1695,149 +1816,167 @@ layer(
 					`remove:${privateInstallation.id}:transaction`,
 				]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [unconfiguredInstallation] }))(
 	(test) => {
-		test.effect("validates reconfiguration before enabling newly compatible definitions", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				expect(
-					failureOf(
-						yield* Effect.exit(
-							service.updateInstallation(userId, configuredInstallation.id, { isHidden: false }),
+		test.effect(
+			"validates reconfiguration before enabling newly compatible definitions",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					expect(
+						failureOf(
+							yield* Effect.exit(
+								service.updateInstallation(userId, configuredInstallation.id, { isHidden: false }),
+							),
 						),
-					),
-				).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
-				expect(yield* fake.updated).toEqual([]);
-				const result = yield* service.updateInstallation(userId, configuredInstallation.id, {
-					isHidden: false,
-					config: { token: "replacement-secret" },
-				});
-				expect(result).toEqual({ pluginId: configuredPlugin.id, id: unconfiguredInstallation.id });
-				expect(yield* fake.updated).toEqual([
-					{
-						sortOrder: 0,
+					).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
+					expect(yield* fake.updated).toEqual([]);
+					const result = yield* service.updateInstallation(userId, configuredInstallation.id, {
 						isHidden: false,
+						config: { token: "replacement-secret" },
+					});
+					expect(result).toEqual<unknown>({
+						pluginId: configuredPlugin.id,
 						id: unconfiguredInstallation.id,
-						config: { region: "us", token: "replacement-secret" },
-					},
-				]);
-			}),
+					});
+					expect(yield* fake.updated).toEqual([
+						{
+							sortOrder: 0,
+							isHidden: false,
+							id: unconfiguredInstallation.id,
+							config: { region: "us", token: "replacement-secret" },
+						},
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
 
 layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
-	test.effect("rejects package updates for system and foreign plugins", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* fake.loadSystemPlugin(exampleSystemPlugin);
+	test.effect(
+		"rejects package updates for system and foreign plugins",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* fake.loadSystemPlugin(exampleSystemPlugin);
 
-			expect(
-				failureOf(
-					yield* Effect.exit(
-						service.updatePrivatePlugin({
-							userId,
-							compiledScripts: [],
-							manifest: exampleSystemPlugin.manifest,
-							contentHash: exampleSystemPlugin.contentHash,
-							installationId: `${exampleSystemPlugin.id}-installation`,
-						}),
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updatePrivatePlugin({
+								userId,
+								compiledScripts: [],
+								manifest: exampleSystemPlugin.manifest,
+								contentHash: exampleSystemPlugin.contentHash,
+								installationId: `${exampleSystemPlugin.id}-installation`,
+							}),
+						),
 					),
-				),
-			).toMatchObject({
-				_tag: "PluginConflictError",
-				reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
-			});
-			expect(
-				failureOf(
-					yield* Effect.exit(
-						service.updatePrivatePlugin({
-							userId,
-							compiledScripts: [],
-							contentHash: "unknown",
-							installationId: "foreign",
-							manifest: configuredManifest,
-						}),
+				).toMatchObject({
+					_tag: "PluginConflictError",
+					reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
+				});
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updatePrivatePlugin({
+								userId,
+								compiledScripts: [],
+								contentHash: "unknown",
+								installationId: "foreign",
+								manifest: configuredManifest,
+							}),
+						),
 					),
-				),
-			).toMatchObject({
-				_tag: "PluginNotFoundError",
-				reason: { installationId: "foreign", code: "installation-not-found" },
-			});
-		}),
+				).toMatchObject({
+					_tag: "PluginNotFoundError",
+					reason: { installationId: "foreign", code: "installation-not-found" },
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("rejects an operation referencing an undeclared script slug", () => {
-		const manifest = privateManifest({
-			scripts: [operationScript],
-			operations: [
-				{
-					auth: "user",
-					slug: "run.fixture",
-					demoAccess: "allowed",
-					description: "Run fixture",
-					scriptSlug: "does-not-exist",
-				},
-			],
-		});
-		const files = { [operationScript.entry]: bytes(operationScriptSource) };
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					userId,
-					manifest,
-					config: {},
-					compiledScripts: compiledScriptsFor(manifest, files),
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			assert(failure.reason.code === "validation-failed");
-			expect(yield* fake.created).toEqual([]);
-		});
-	});
+	test.effect(
+		"rejects an operation referencing an undeclared script slug",
+		() => {
+			const manifest = privateManifest({
+				scripts: [operationScript],
+				operations: [
+					{
+						auth: "user",
+						slug: "run.fixture",
+						demoAccess: "allowed",
+						description: "Run fixture",
+						scriptSlug: "does-not-exist",
+					},
+				],
+			});
+			const files = { [operationScript.entry]: bytes(operationScriptSource) };
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({
+						userId,
+						manifest,
+						config: {},
+						compiledScripts: compiledScriptsFor(manifest, files),
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				assert(failure.reason.code === "validation-failed");
+				expect(yield* fake.created).toEqual([]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("rejects duplicate operation slugs before persistence", () => {
-		const operation = {
-			slug: "run.fixture",
-			auth: "user" as const,
-			description: "Run fixture",
-			demoAccess: "allowed" as const,
-			scriptSlug: operationScript.slug,
-		};
-		const manifest = privateManifest({
-			scripts: [operationScript],
-			operations: [operation, operation],
-		});
-		const files = { [operationScript.entry]: bytes(operationScriptSource) };
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					userId,
-					manifest,
-					config: {},
-					compiledScripts: compiledScriptsFor(manifest, files),
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			assert(failure.reason.code === "validation-failed");
-			expect(yield* fake.created).toEqual([]);
-		});
-	});
+	test.effect(
+		"rejects duplicate operation slugs before persistence",
+		() => {
+			const operation = {
+				slug: "run.fixture",
+				auth: "user" as const,
+				description: "Run fixture",
+				demoAccess: "allowed" as const,
+				scriptSlug: operationScript.slug,
+			};
+			const manifest = privateManifest({
+				scripts: [operationScript],
+				operations: [operation, operation],
+			});
+			const files = { [operationScript.entry]: bytes(operationScriptSource) };
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({
+						userId,
+						manifest,
+						config: {},
+						compiledScripts: compiledScriptsFor(manifest, files),
+					}),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				assert(failure.reason.code === "validation-failed");
+				expect(yield* fake.created).toEqual([]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const operationManifest = privateManifest({
@@ -1868,7 +2007,7 @@ layer(makeLayer())((test) => {
 					manifest: operationManifest,
 					compiledScripts: operationCompiledScripts,
 				});
-				expect(installed).toEqual({
+				expect(installed).toEqual<unknown>({
 					pluginId: "test/private-fixture-plugin-id",
 					activationId: "test/private-fixture-activation",
 					id: "test/private-fixture-plugin-id-installation",
@@ -1878,6 +2017,7 @@ layer(makeLayer())((test) => {
 				expect(created[0]).toMatchObject({ health: "installing" });
 				expect(yield* fake.dispatched).toEqual(["test/private-fixture-plugin-id-installation"]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -1887,52 +2027,62 @@ layer(
 		pendingLifecycle: ["test/private-fixture-plugin-id-installation"],
 	}),
 )((test) => {
-	test.effect("keeps a failed dispatch pending for reconciliation", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			const installed = yield* service.installPrivatePlugin({
-				userId,
-				config: {},
-				manifest: operationManifest,
-				compiledScripts: operationCompiledScripts,
-			});
-			expect(yield* fake.dispatched).toHaveLength(1);
-			yield* service.dispatchPendingInstallationLifecycle();
-			expect(yield* fake.dispatched).toHaveLength(2);
-			expect(yield* fake.healthUpdates).toEqual([]);
-			expect(installed).toEqual({
-				pluginId: "test/private-fixture-plugin-id",
-				activationId: "test/private-fixture-activation",
-				id: "test/private-fixture-plugin-id-installation",
-			});
-		}),
+	test.effect(
+		"keeps a failed dispatch pending for reconciliation",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const installed = yield* service.installPrivatePlugin({
+					userId,
+					config: {},
+					manifest: operationManifest,
+					compiledScripts: operationCompiledScripts,
+				});
+				expect(yield* fake.dispatched).toHaveLength(1);
+				yield* service.dispatchPendingInstallationLifecycle();
+				expect(yield* fake.dispatched).toHaveLength(2);
+				expect(yield* fake.healthUpdates).toEqual([]);
+				expect(installed).toEqual<unknown>({
+					pluginId: "test/private-fixture-plugin-id",
+					activationId: "test/private-fixture-activation",
+					id: "test/private-fixture-plugin-id-installation",
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstallation] }))(
 	(test) => {
-		test.effect("accepts user bootstrap declarations for a private package update", () => {
-			const nextManifest = privateManifest({
-				scripts: [bootstrapScript],
-				userBootstrap: [userBootstrapEntry],
-				metadata: { ...privateManifest().metadata, version: "2.0.0" },
-			});
-			const files = { [bootstrapScript.entry]: bytes(bootstrapScriptSource) };
-			return Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const updated = yield* service.updatePrivatePlugin({
-					userId,
-					manifest: nextManifest,
-					contentHash: privatePlugin.contentHash,
-					installationId: privateInstallation.id,
-					compiledScripts: compiledScriptsFor(nextManifest, files),
+		test.effect(
+			"accepts user bootstrap declarations for a private package update",
+			() => {
+				const nextManifest = privateManifest({
+					scripts: [bootstrapScript],
+					userBootstrap: [userBootstrapEntry],
+					metadata: { ...privateManifest().metadata, version: "2.0.0" },
 				});
-				expect(updated).toEqual({ id: privateInstallation.id, pluginId: privatePlugin.id });
-				expect(yield* fake.dispatched).toEqual([]);
-			});
-		});
+				const files = { [bootstrapScript.entry]: bytes(bootstrapScriptSource) };
+				return Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const updated = yield* service.updatePrivatePlugin({
+						userId,
+						manifest: nextManifest,
+						contentHash: privatePlugin.contentHash,
+						installationId: privateInstallation.id,
+						compiledScripts: compiledScriptsFor(nextManifest, files),
+					});
+					expect(updated).toEqual<unknown>({
+						id: privateInstallation.id,
+						pluginId: privatePlugin.id,
+					});
+					expect(yield* fake.dispatched).toEqual([]);
+				});
+			},
+			testTimeout,
+		);
 	},
 );
 
@@ -1998,6 +2148,7 @@ layer(
 				expect(yield* fake.invalidatedAll).toHaveLength(1);
 				expect(yield* fake.invalidatedUsers).toEqual([userId]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -2017,19 +2168,22 @@ const definitionConflictRow = privateInstallationRow({
 });
 
 layer(makeLayer({ privateInstallations: [surfaceConflictRow, definitionConflictRow] }))((test) => {
-	test.effect("keeps independent same-name surfaces and definitions available", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* fake.loadSystemPlugin(
-				shippedEntry({
-					importSources: [sharedImportSource],
-					entitySchemas: fixtureManifest().entitySchemas,
-				}),
-			);
-			yield* service.reconcileSystemInstallations();
-			expect(yield* fake.healthUpdates).toEqual([]);
-		}),
+	test.effect(
+		"keeps independent same-name surfaces and definitions available",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* fake.loadSystemPlugin(
+					shippedEntry({
+						importSources: [sharedImportSource],
+						entitySchemas: fixtureManifest().entitySchemas,
+					}),
+				);
+				yield* service.reconcileSystemInstallations();
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2072,14 +2226,17 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("keeps independent same-name saved views available", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* fake.loadSystemPlugin(shippedEntry({ savedViews: [sharedSavedView] }));
-			yield* service.reconcileSystemInstallations();
-			expect(yield* fake.healthUpdates).toEqual([]);
-		}),
+	test.effect(
+		"keeps independent same-name saved views available",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* fake.loadSystemPlugin(shippedEntry({ savedViews: [sharedSavedView] }));
+				yield* service.reconcileSystemInstallations();
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2102,14 +2259,17 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("does not recover quarantine when the conflicting system package is gone", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* service.reconcileSystemInstallations();
-			expect(yield* fake.healthUpdates).toEqual([]);
-			expect([...(yield* fake.updated), ...(yield* fake.deactivated)]).toEqual([]);
-		}),
+	test.effect(
+		"does not recover quarantine when the conflicting system package is gone",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* service.reconcileSystemInstallations();
+				expect(yield* fake.healthUpdates).toEqual([]);
+				expect([...(yield* fake.updated), ...(yield* fake.deactivated)]).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2138,27 +2298,33 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("ignores independent same-name private records in every health state", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* fake.loadSystemPlugin(shippedEntry());
-			yield* service.reconcileSystemInstallations();
-			expect(yield* fake.healthUpdates).toEqual([]);
-		}),
+	test.effect(
+		"ignores independent same-name private records in every health state",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* fake.loadSystemPlugin(shippedEntry());
+				yield* service.reconcileSystemInstallations();
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 const pendingLifecycle = ["installation-a", "installation-b", "installation-c"];
 
 layer(makeLayer({ pendingLifecycle, dispatchFailsFor: ["installation-b"] }))((test) => {
-	test.effect("dispatches every pending installation and keeps going after a failed dispatch", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationDependencies;
-			const service = yield* PluginInstallationService;
-			yield* service.dispatchPendingInstallationLifecycle();
-			expect([...(yield* fake.dispatched)].sort()).toEqual(pendingLifecycle);
-		}),
+	test.effect(
+		"dispatches every pending installation and keeps going after a failed dispatch",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				yield* service.dispatchPendingInstallationLifecycle();
+				expect([...(yield* fake.dispatched)].sort()).toEqual(pendingLifecycle);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2172,24 +2338,30 @@ const incompatibleInstallation = installationRow({
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [incompatibleInstallation] }))(
 	(test) => {
-		test.effect("clears incompatible health when a private package update succeeds", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const result = yield* service.updatePrivatePlugin({
-					userId,
-					compiledScripts: [],
-					manifest: privatePlugin.manifest,
-					contentHash: privatePlugin.contentHash,
-					installationId: incompatibleInstallation.id,
-				});
-				expect(result).toEqual({ pluginId: privatePlugin.id, id: incompatibleInstallation.id });
-				expect(yield* fake.healthUpdates).toEqual([
-					{ health: "ready", healthReason: null, id: incompatibleInstallation.id },
-				]);
-				expect(yield* fake.activationRotations).toEqual([]);
-				expect(yield* fake.dispatched).toEqual([]);
-			}),
+		test.effect(
+			"clears incompatible health when a private package update succeeds",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const result = yield* service.updatePrivatePlugin({
+						userId,
+						compiledScripts: [],
+						manifest: privatePlugin.manifest,
+						contentHash: privatePlugin.contentHash,
+						installationId: incompatibleInstallation.id,
+					});
+					expect(result).toEqual<unknown>({
+						pluginId: privatePlugin.id,
+						id: incompatibleInstallation.id,
+					});
+					expect(yield* fake.healthUpdates).toEqual([
+						{ health: "ready", healthReason: null, id: incompatibleInstallation.id },
+					]);
+					expect(yield* fake.activationRotations).toEqual([]);
+					expect(yield* fake.dispatched).toEqual([]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -2202,41 +2374,44 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("does not clear quarantine when a client dependency is unavailable", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const fake = yield* FakeInstallationDependencies;
-			const client = {
-				homeView: null,
-				apiVersion: 1 as const,
-				pluginDependencies: {
-					missing: { scope: "user" as const, packageId: testPluginPackageId() },
-				},
-			};
-			const manifest = privateManifest({ client });
-			const failure = failureOf(
-				yield* Effect.exit(
-					service.updatePrivatePlugin({
-						userId,
-						manifest,
-						compiledScripts: [],
-						contentHash: privatePlugin.contentHash,
-						installationId: incompatibleInstallation.id,
-						compiledClient: fixtureClientArtifact(
-							manifest.metadata.name,
-							manifest.metadata.packageId,
-							client,
-						),
-					}),
-				),
-			);
-			expect(failure).toMatchObject({
-				_tag: "PluginRequestError",
-				reason: { code: "validation-failed" },
-			});
-			expect(yield* fake.persisted).toEqual([]);
-			expect(yield* fake.healthUpdates).toEqual([]);
-		}),
+	test.effect(
+		"does not clear quarantine when a client dependency is unavailable",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				const client = {
+					homeView: null,
+					apiVersion: 1 as const,
+					pluginDependencies: {
+						missing: { scope: "user" as const, packageId: testPluginPackageId() },
+					},
+				};
+				const manifest = privateManifest({ client });
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.updatePrivatePlugin({
+							userId,
+							manifest,
+							compiledScripts: [],
+							contentHash: privatePlugin.contentHash,
+							installationId: incompatibleInstallation.id,
+							compiledClient: fixtureClientArtifact(
+								manifest.metadata.name,
+								manifest.metadata.packageId,
+								client,
+							),
+						}),
+					),
+				);
+				expect(failure).toMatchObject({
+					_tag: "PluginRequestError",
+					reason: { code: "validation-failed" },
+				});
+				expect(yield* fake.persisted).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2259,7 +2434,10 @@ layer(
 					contentHash: privatePlugin.contentHash,
 					installationId: incompatibleInstallation.id,
 				});
-				expect(updated).toEqual({ pluginId: privatePlugin.id, id: incompatibleInstallation.id });
+				expect(updated).toEqual<unknown>({
+					pluginId: privatePlugin.id,
+					id: incompatibleInstallation.id,
+				});
 				expect(yield* fake.activationRotations).toEqual([
 					{
 						ownerId: userId,
@@ -2279,27 +2457,34 @@ layer(
 					identity: { pluginId: privatePlugin.id },
 				});
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstallation] }))(
 	(test) => {
-		test.effect("uninstalls a private plugin shadowed by a newly shipped slug", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				yield* fake.loadSystemPlugin(
-					systemEntry(privateManifest({ metadata: { ...privateManifest().metadata } })),
-				);
-				const removed = yield* service.uninstallPlugin(
-					userId,
-					privateInstallation.id,
-					privatePlugin.activationId,
-				);
-				expect(removed).toEqual({ id: privateInstallation.id, pluginId: privatePlugin.id });
-				expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
-				expect(yield* fake.removed).toEqual([privateInstallation.id]);
-			}),
+		test.effect(
+			"uninstalls a private plugin shadowed by a newly shipped slug",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					yield* fake.loadSystemPlugin(
+						systemEntry(privateManifest({ metadata: { ...privateManifest().metadata } })),
+					);
+					const removed = yield* service.uninstallPlugin(
+						userId,
+						privateInstallation.id,
+						privatePlugin.activationId,
+					);
+					expect(removed).toEqual<unknown>({
+						id: privateInstallation.id,
+						pluginId: privatePlugin.id,
+					});
+					expect(yield* fake.deactivated).toEqual([privatePlugin.id]);
+					expect(yield* fake.removed).toEqual([privateInstallation.id]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -2319,7 +2504,7 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarant
 				const fake = yield* FakeInstallationDependencies;
 				expect(
 					yield* service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
-				).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+				).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
 				expect(yield* fake.artifactReadScopes).toEqual(["root"]);
 				expect(yield* fake.updated).toEqual([
 					{
@@ -2337,6 +2522,7 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarant
 				expect(yield* fake.persisted).toEqual([]);
 				expect(yield* fake.invalidatedUsers).toEqual([userId]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -2357,7 +2543,7 @@ layer(
 						sortOrder: 7,
 						isHidden: false,
 					}),
-				).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+				).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
 				expect(yield* fake.updated).toEqual([
 					{
 						sortOrder: 7,
@@ -2381,6 +2567,7 @@ layer(
 				]);
 				expect(yield* fake.persisted).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -2414,6 +2601,7 @@ layer(
 				expect(yield* fake.updated).toEqual([]);
 				expect(yield* fake.healthUpdates).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -2424,24 +2612,27 @@ layer(
 		systemPackageIdAddedOnLock: privatePlugin.packageId,
 	}),
 )((test) => {
-	test.effect("rechecks system UUID claims after retained archive validation", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const fake = yield* FakeInstallationDependencies;
-			expect(
-				failureOf(
-					yield* Effect.exit(
-						service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+	test.effect(
+		"rechecks system UUID claims after retained archive validation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+						),
 					),
-				),
-			).toMatchObject({
-				_tag: "PluginConflictError",
-				reason: { code: "package-identity-conflict" },
-			});
-			expect(yield* fake.artifactReadScopes).toEqual(["root"]);
-			expect(yield* fake.updated).toEqual([]);
-			expect(yield* fake.healthUpdates).toEqual([]);
-		}),
+				).toMatchObject({
+					_tag: "PluginConflictError",
+					reason: { code: "package-identity-conflict" },
+				});
+				expect(yield* fake.artifactReadScopes).toEqual(["root"]);
+				expect(yield* fake.updated).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2456,21 +2647,27 @@ for (const changed of [
 	layer(
 		makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], ...changed }),
 	)((test) => {
-		test.effect(`rejects changed retained recovery proof ${Object.keys(changed).join()}`, () =>
-			Effect.gen(function* () {
-				const service = yield* PluginInstallationService;
-				const fake = yield* FakeInstallationDependencies;
-				expect(
-					failureOf(
-						yield* Effect.exit(
-							service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+		test.effect(
+			`rejects changed retained recovery proof ${Object.keys(changed).join()}`,
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginInstallationService;
+					const fake = yield* FakeInstallationDependencies;
+					expect(
+						failureOf(
+							yield* Effect.exit(
+								service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+							),
 						),
-					),
-				).toMatchObject({ _tag: "PluginConflictError", reason: { code: "source-revision-stale" } });
-				expect(yield* fake.updated).toEqual([]);
-				expect(yield* fake.healthUpdates).toEqual([]);
-				expect(yield* fake.activationRotations).toEqual([]);
-			}),
+					).toMatchObject({
+						_tag: "PluginConflictError",
+						reason: { code: "source-revision-stale" },
+					});
+					expect(yield* fake.updated).toEqual([]);
+					expect(yield* fake.healthUpdates).toEqual([]);
+					expect(yield* fake.activationRotations).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 }
@@ -2501,6 +2698,7 @@ layer(
 				expect(yield* fake.updated).toEqual([]);
 				expect(yield* fake.healthUpdates).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -2517,29 +2715,32 @@ layer(
 		reservedPackageIds: new Set([configuredPlugin.packageId]),
 	}),
 )((test) => {
-	test.effect("allows hide and config patches without recovering a quarantined installation", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const fake = yield* FakeInstallationDependencies;
-			expect(
-				yield* service.updateInstallation(userId, configuredQuarantine.id, {
-					isHidden: true,
-					config: { region: "ca" },
-				}),
-			).toEqual({ id: configuredQuarantine.id, pluginId: configuredPlugin.id });
-			expect(yield* fake.updated).toEqual([
-				{
-					isHidden: true,
-					id: configuredQuarantine.id,
-					sortOrder: configuredQuarantine.sortOrder,
-					config: { region: "ca", token: "stored-secret" },
-				},
-			]);
-			expect(yield* fake.artifactReadScopes).toEqual([]);
-			expect(yield* fake.healthUpdates).toEqual([]);
-			expect(yield* fake.activationRotations).toEqual([]);
-			expect(yield* fake.lifecycleDispatches).toEqual([]);
-		}),
+	test.effect(
+		"allows hide and config patches without recovering a quarantined installation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					yield* service.updateInstallation(userId, configuredQuarantine.id, {
+						isHidden: true,
+						config: { region: "ca" },
+					}),
+				).toEqual<unknown>({ id: configuredQuarantine.id, pluginId: configuredPlugin.id });
+				expect(yield* fake.updated).toEqual([
+					{
+						isHidden: true,
+						id: configuredQuarantine.id,
+						sortOrder: configuredQuarantine.sortOrder,
+						config: { region: "ca", token: "stored-secret" },
+					},
+				]);
+				expect(yield* fake.artifactReadScopes).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([]);
+				expect(yield* fake.activationRotations).toEqual([]);
+				expect(yield* fake.lifecycleDispatches).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -2562,7 +2763,7 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarant
 						installationId: hiddenQuarantine.id,
 						contentHash: privatePlugin.contentHash,
 					}),
-				).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+				).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
 				expect((yield* fake.persisted)[0]).toMatchObject({
 					identity: { pluginId: privatePlugin.id },
 					plugin: { metadata: { version: "2.0.0", packageId: privatePlugin.packageId } },
@@ -2573,5 +2774,6 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarant
 				expect(yield* fake.activationRotations).toEqual([]);
 				expect(yield* fake.lifecycleDispatches).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

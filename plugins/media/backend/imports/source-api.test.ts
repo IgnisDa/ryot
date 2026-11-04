@@ -1,5 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { normalizeSourceApiUrl, sourceApiUrl, withSourceRequestOptions } from "./source-api";
@@ -19,17 +22,20 @@ it("rejects non-HTTP source URLs", () => {
 	);
 });
 
-it.live("adds insecure connection opt-in only to requests from the configured source", () =>
-	Effect.gen(function* () {
-		const options: unknown[] = [];
-		const host = stubHttpHost((request) => {
-			options.push(request.options);
-			return {};
-		});
+it.live(
+	"adds insecure connection opt-in only to requests from the configured source",
+	() =>
+		Effect.gen(function* () {
+			const options: unknown[] = [];
+			const host = stubHttpHost((request) => {
+				options.push(request.options);
+				return {};
+			});
 
-		yield* host.httpCall("GET", "https://secure.example");
-		yield* withSourceRequestOptions(host, true).httpCall("GET", "https://insecure.example");
+			yield* host.httpCall("GET", "https://secure.example");
+			yield* withSourceRequestOptions(host, true).httpCall("GET", "https://insecure.example");
 
-		expect(options).toEqual([undefined, { allowInsecureConnections: true }]);
-	}),
+			expect(options).toEqual([undefined, { allowInsecureConnections: true }]);
+		}),
+	testTimeout,
 );

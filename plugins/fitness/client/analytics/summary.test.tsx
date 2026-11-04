@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,7 +11,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { AnalyticsDisplayPreferences, AnalyticsScope } from "./reporting-model";
@@ -142,57 +145,60 @@ const mountSummary = (
 };
 
 describe("Fitness analytics summary UI", () => {
-	it.live("notes failed processing and preserves entered readings", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountSummary(clock, selection);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-				expect(screen.getByText("Loading Fitness analytics summary…")).toBeDefined();
-				page.replyQuery(page.queryRequests()[0]?.requestId ?? "", {
-					outcome: "failure",
-					reason: "query-failed",
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							screen.getByRole("button", { name: "Retry Fitness analytics summary" }),
-						).toBeDefined(),
-					),
-				);
-				fireEvent.click(screen.getByRole("button", { name: "Retry Fitness analytics summary" }));
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
-				page.replyQuery(page.queryRequests()[1]?.requestId ?? "", {
-					outcome: "success",
-					response: totals({
-						sets: 4,
-						failed: 1,
-						workouts: 1,
-						activeDays: 0,
-						calories: null,
-						activeDuration: null,
-						measurementEntries: 2,
-						measurementReadings: 5,
-					}),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(metricText("Measurement readings")).toBe("Measurement readings5readings"),
-					),
-				);
-				expect(metricText("Active days")).toBe("Active days0days");
-				expect(metricText("Measurement entries")).toBe("Measurement entries2entries");
-				expect(metricText("Active time")).toBe("Active time—0 of 1 workouts timed");
-				expect(metricText("Energy")).toBe("Energy—0 of 1 workouts with energy");
-				expect(screen.queryByText("Distance", { selector: "dt" })).toBeNull();
-				expect(screen.getAllByText("Processing failed; may be incomplete").length).toBeGreaterThan(
-					0,
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"notes failed processing and preserves entered readings",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountSummary(clock, selection);
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
+					expect(screen.getByText("Loading Fitness analytics summary…")).toBeDefined();
+					page.replyQuery(page.queryRequests()[0]?.requestId ?? "", {
+						outcome: "failure",
+						reason: "query-failed",
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								screen.getByRole("button", { name: "Retry Fitness analytics summary" }),
+							).toBeDefined(),
+						),
+					);
+					fireEvent.click(screen.getByRole("button", { name: "Retry Fitness analytics summary" }));
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
+					page.replyQuery(page.queryRequests()[1]?.requestId ?? "", {
+						outcome: "success",
+						response: totals({
+							sets: 4,
+							failed: 1,
+							workouts: 1,
+							activeDays: 0,
+							calories: null,
+							activeDuration: null,
+							measurementEntries: 2,
+							measurementReadings: 5,
+						}),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(metricText("Measurement readings")).toBe("Measurement readings5readings"),
+						),
+					);
+					expect(metricText("Active days")).toBe("Active days0days");
+					expect(metricText("Measurement entries")).toBe("Measurement entries2entries");
+					expect(metricText("Active time")).toBe("Active time—0 of 1 workouts timed");
+					expect(metricText("Energy")).toBe("Energy—0 of 1 workouts with energy");
+					expect(screen.queryByText("Distance", { selector: "dt" })).toBeNull();
+					expect(
+						screen.getAllByText("Processing failed; may be incomplete").length,
+					).toBeGreaterThan(0);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -265,5 +271,6 @@ describe("Fitness analytics summary UI", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 });

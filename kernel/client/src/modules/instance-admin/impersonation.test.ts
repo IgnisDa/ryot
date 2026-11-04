@@ -1,6 +1,9 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { StoredTokenSet } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -157,27 +160,31 @@ describe("Instance Admin impersonation", () => {
 						codeChallenge: plan.codeChallenge,
 					});
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(impersonationLayer("admin"))((test) => {
-		test.effect("keeps the existing token set when the admin request fails", () =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminImpersonationService;
-				const probe = yield* ImpersonationProbe;
-				const storage = yield* OAuthStorage;
-				const exit = yield* Effect.exit(
-					service.start("god-session", UserId.make("user-1"), origin),
-				);
+		test.effect(
+			"keeps the existing token set when the admin request fails",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminImpersonationService;
+					const probe = yield* ImpersonationProbe;
+					const storage = yield* OAuthStorage;
+					const exit = yield* Effect.exit(
+						service.start("god-session", UserId.make("user-1"), origin),
+					);
 
-				expect(Exit.isFailure(exit)).toBe(true);
-				expect((yield* probe.events).map(({ kind }) => kind)).toEqual([
-					"prepare",
-					"pending",
-					"admin",
-				]);
-				expect(yield* storage.getTokenSet(origin)).toEqual(originalTokens);
-			}),
+					expect(Exit.isFailure(exit)).toBe(true);
+					expect((yield* probe.events).map(({ kind }) => kind)).toEqual([
+						"prepare",
+						"pending",
+						"admin",
+					]);
+					expect(yield* storage.getTokenSet(origin)).toEqual(originalTokens);
+				}),
+			testTimeout,
 		);
 	});
 });

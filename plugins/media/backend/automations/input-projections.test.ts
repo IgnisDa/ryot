@@ -1,4 +1,4 @@
-import { expect, it } from "vitest";
+import { expect, it } from "bun:test";
 
 import { manifest as customPublishYear } from "./custom-publish-year-policy.sandbox";
 import { manifest as ensureMediaLibrary } from "./ensure-media-library-membership.sandbox";

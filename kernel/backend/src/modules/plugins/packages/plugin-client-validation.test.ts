@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
@@ -7,6 +8,9 @@ import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { loadPluginSource } from "../source.test-support";
@@ -77,151 +81,169 @@ layer(pluginBackendCompilerPlatformLayer)((test) => {
 				}).pipe(Effect.flip);
 				expect(invalid.issues.length).toBeGreaterThan(0);
 			}),
+		testTimeout,
 	);
-	test.effect("accepts the precompiled client artifact when its content hash matches", () =>
-		Effect.gen(function* () {
-			const pluginManifest = {
-				...fixtureManifest(),
-				client: manifest().client,
-			} satisfies PluginManifest;
-			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
-			const normalized = yield* normalizePluginSource(source);
+	test.effect(
+		"accepts the precompiled client artifact when its content hash matches",
+		() =>
+			Effect.gen(function* () {
+				const pluginManifest = {
+					...fixtureManifest(),
+					client: manifest().client,
+				} satisfies PluginManifest;
+				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+				const normalized = yield* normalizePluginSource(source);
 
-			expect(normalized.compiledClient?.hash).toBe(source.compiledClient?.hash);
-			expect(normalized.contentHash).toMatch(/^[a-f0-9]{64}$/);
-		}),
+				expect(normalized.compiledClient?.hash).toBe(source.compiledClient?.hash);
+				expect(normalized.contentHash).toMatch(/^[a-f0-9]{64}$/);
+			}),
+		testTimeout,
 	);
 
-	test.effect("preserves BOM-prefixed compiled JavaScript from archive through ingestion", () =>
-		Effect.gen(function* () {
-			const pluginManifest = {
-				...fixtureManifest(),
-				client: manifest().client,
-			} satisfies PluginManifest;
-			const clientEntry = pluginManifest.client;
-			assert(clientEntry);
-			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
-			const compiledManifest = yield* Schema.decodeEffect(PluginManifest)(source.manifest);
-			const compiledClient = source.compiledClient;
-			expect(compiledClient).toBeDefined();
-			if (!compiledClient) {
-				return;
-			}
-			const files = compiledClient.files.map((file) => {
-				if (file.name !== "plugin.js") {
-					return file;
+	test.effect(
+		"preserves BOM-prefixed compiled JavaScript from archive through ingestion",
+		() =>
+			Effect.gen(function* () {
+				const pluginManifest = {
+					...fixtureManifest(),
+					client: manifest().client,
+				} satisfies PluginManifest;
+				const clientEntry = pluginManifest.client;
+				assert(clientEntry);
+				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+				const compiledManifest = yield* Schema.decodeEffect(PluginManifest)(source.manifest);
+				const compiledClient = source.compiledClient;
+				expect(compiledClient).toBeDefined();
+				if (!compiledClient) {
+					return;
 				}
-				return clientArtifactFile({
-					path: file.name,
-					contentType: file.contentType,
-					bytes: new TextEncoder().encode("\ufeffexport {};\n"),
+				const files = compiledClient.files.map((file) => {
+					if (file.name !== "plugin.js") {
+						return file;
+					}
+					return clientArtifactFile({
+						path: file.name,
+						contentType: file.contentType,
+						bytes: new TextEncoder().encode("\ufeffexport {};\n"),
+					});
 				});
-			});
-			const artifact = {
-				...clientArtifactMetadata(
-					pluginManifest.metadata.name,
-					pluginManifest.metadata.packageId,
+				const artifact = {
+					...clientArtifactMetadata(
+						pluginManifest.metadata.name,
+						pluginManifest.metadata.packageId,
+						files,
+						{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
+					),
 					files,
-					{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
-				),
-				files,
-			};
-			const compiledScripts = source.compiledScripts.map((script) => ({
-				...script,
-				javascript: `\ufeff${script.javascript}`,
-			}));
-			const archive = writePluginArchive({
-				...source,
-				compiledScripts,
-				compiledClient: artifact,
-				manifest: compiledManifest,
-			});
-			const decoded = yield* readPluginArchive(archive);
-			const normalized = yield* normalizePluginSource(decoded);
-			expect(normalized.compiledClient).toEqual(artifact);
-			expect(normalized.compiledScripts).toEqual(compiledScripts);
-		}),
-	);
-
-	test.effect("rejects a client manifest without its precompiled client artifact", () =>
-		Effect.gen(function* () {
-			const pluginManifest = {
-				...fixtureManifest(),
-				client: manifest().client,
-			} satisfies PluginManifest;
-			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
-			const error = yield* Effect.flip(
-				normalizePluginSource({
-					manifest: source.manifest,
-					compiledScripts: source.compiledScripts,
-				}),
-			);
-
-			expect(error.issues).toEqual([
-				"Plugin client manifest is missing its compiled client artifact",
-			]);
-		}),
-	);
-
-	test.effect("rejects a precompiled client artifact with an invalid content hash", () =>
-		Effect.gen(function* () {
-			const pluginManifest = {
-				...fixtureManifest(),
-				client: manifest().client,
-			} satisfies PluginManifest;
-			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
-			const compiledClient = source.compiledClient;
-			expect(compiledClient).toBeDefined();
-			if (!compiledClient) {
-				return;
-			}
-			const error = yield* Effect.flip(
-				normalizePluginSource({
+				};
+				const compiledScripts = source.compiledScripts.map((script) => ({
+					...script,
+					javascript: `\ufeff${script.javascript}`,
+				}));
+				const archive = writePluginArchive({
 					...source,
-					compiledClient: { ...compiledClient, hash: "0".repeat(64) },
-				}),
-			);
-
-			expect(error.issues).toEqual(["Plugin compiled client artifact content hash is invalid"]);
-		}),
+					compiledScripts,
+					compiledClient: artifact,
+					manifest: compiledManifest,
+				});
+				const decoded = yield* readPluginArchive(archive);
+				const normalized = yield* normalizePluginSource(decoded);
+				expect(normalized.compiledClient).toEqual(artifact);
+				expect(normalized.compiledScripts).toEqual(compiledScripts);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects invalid UTF-8 compiled client JavaScript with a valid artifact hash", () =>
-		Effect.gen(function* () {
-			const pluginManifest = {
-				...fixtureManifest(),
-				client: manifest().client,
-			} satisfies PluginManifest;
-			const clientEntry = pluginManifest.client;
-			assert(clientEntry);
-			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
-			const compiledClient = source.compiledClient;
-			expect(compiledClient).toBeDefined();
-			if (!compiledClient) {
-				return;
-			}
-			const files = compiledClient.files.map((file) =>
-				file.name === "plugin.js"
-					? clientArtifactFile({
-							path: file.name,
-							contentType: file.contentType,
-							bytes: new Uint8Array([0xff]),
-						})
-					: file,
-			);
-			const artifact = {
-				...clientArtifactMetadata(
-					pluginManifest.metadata.name,
-					pluginManifest.metadata.packageId,
+	test.effect(
+		"rejects a client manifest without its precompiled client artifact",
+		() =>
+			Effect.gen(function* () {
+				const pluginManifest = {
+					...fixtureManifest(),
+					client: manifest().client,
+				} satisfies PluginManifest;
+				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+				const error = yield* Effect.flip(
+					normalizePluginSource({
+						manifest: source.manifest,
+						compiledScripts: source.compiledScripts,
+					}),
+				);
+
+				expect(error.issues).toEqual([
+					"Plugin client manifest is missing its compiled client artifact",
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a precompiled client artifact with an invalid content hash",
+		() =>
+			Effect.gen(function* () {
+				const pluginManifest = {
+					...fixtureManifest(),
+					client: manifest().client,
+				} satisfies PluginManifest;
+				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+				const compiledClient = source.compiledClient;
+				expect(compiledClient).toBeDefined();
+				if (!compiledClient) {
+					return;
+				}
+				const error = yield* Effect.flip(
+					normalizePluginSource({
+						...source,
+						compiledClient: { ...compiledClient, hash: "0".repeat(64) },
+					}),
+				);
+
+				expect(error.issues).toEqual(["Plugin compiled client artifact content hash is invalid"]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects invalid UTF-8 compiled client JavaScript with a valid artifact hash",
+		() =>
+			Effect.gen(function* () {
+				const pluginManifest = {
+					...fixtureManifest(),
+					client: manifest().client,
+				} satisfies PluginManifest;
+				const clientEntry = pluginManifest.client;
+				assert(clientEntry);
+				const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+				const compiledClient = source.compiledClient;
+				expect(compiledClient).toBeDefined();
+				if (!compiledClient) {
+					return;
+				}
+				const files = compiledClient.files.map((file) =>
+					file.name === "plugin.js"
+						? clientArtifactFile({
+								path: file.name,
+								contentType: file.contentType,
+								bytes: new Uint8Array([0xff]),
+							})
+						: file,
+				);
+				const artifact = {
+					...clientArtifactMetadata(
+						pluginManifest.metadata.name,
+						pluginManifest.metadata.packageId,
+						files,
+						{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
+					),
 					files,
-					{ imports: [], clientDeclarationHash: clientDeclarationHash(clientEntry) },
-				),
-				files,
-			};
-			const error = yield* normalizePluginSource({ ...source, compiledClient: artifact }).pipe(
-				Effect.flip,
-			);
-			expect(error.issues).toContain("Plugin compiled client artifact file is invalid: plugin.js");
-		}),
+				};
+				const error = yield* normalizePluginSource({ ...source, compiledClient: artifact }).pipe(
+					Effect.flip,
+				);
+				expect(error.issues).toContain(
+					"Plugin compiled client artifact file is invalid: plugin.js",
+				);
+			}),
+		testTimeout,
 	);
 });

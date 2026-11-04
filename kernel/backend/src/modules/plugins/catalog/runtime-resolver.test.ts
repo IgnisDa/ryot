@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	CLIENT_API_VERSION,
 	type PluginClientEntry,
@@ -19,9 +20,11 @@ import {
 	type PluginClientImport,
 	pluginExportSpecifier,
 } from "@ryot-app/plugin-client-contract";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
-import { assert, describe } from "vitest";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { definitionLookup } from "#modules/definitions/snapshot";
@@ -294,6 +297,7 @@ describe("revision-backed runtime resolution", () => {
 						}),
 					).toBeNull();
 				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
@@ -308,7 +312,7 @@ describe("revision-backed runtime resolution", () => {
 						owner: definitionOwner(installed.pluginId),
 					});
 					assert(fixtureProvider);
-					expect(fixtureProvider.entitySchemaSlug).toBe("fixture-entity");
+					expect(fixtureProvider.entitySchemaSlug).toBe<unknown>("fixture-entity");
 					expect(fixtureProvider.provider.pluginId).toBe(installed.pluginId);
 					expect((yield* runtime.resolveDetailsScript(fixtureProvider.provider.id)).slug).toBe(
 						"fixture.details",
@@ -354,6 +358,7 @@ describe("revision-backed runtime resolution", () => {
 						}),
 					).toBeNull();
 				}),
+			testTimeout,
 		);
 	});
 
@@ -388,6 +393,7 @@ describe("revision-backed runtime resolution", () => {
 					assert(Result.isFailure(inactive));
 					expect(inactive.failure).toMatchObject({ reason: "inactive_provider" });
 				}),
+			testTimeout,
 		);
 	});
 
@@ -425,77 +431,84 @@ describe("revision-backed runtime resolution", () => {
 					yield* installations.remove(installed.installation.id);
 					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("uses the exact private installation for private package scripts", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
-				const second = yield* installRevisionPackage(revisionPackage("notes"), other);
-				const ownScript = yield* runtime.findScriptAvailableToUser(
-					owner,
-					first.pluginId,
-					"notes.details",
-				);
-				const otherScript = yield* runtime.findScriptAvailableToUser(
-					other,
-					second.pluginId,
-					"notes.details",
-				);
-				assert(ownScript && otherScript);
-				expect(ownScript.id).not.toBe(otherScript.id);
-				expect(ownScript.pluginRevisionId).toBe(first.revisionId);
-				expect(otherScript.pluginRevisionId).toBe(second.revisionId);
-				expect(
-					yield* runtime.findScriptAvailableToUser(other, first.pluginId, "notes.details"),
-				).toBeNull();
-				expect((yield* runtime.listPluginsAvailableToUser(owner)).map(({ id }) => id)).toEqual([
-					first.pluginId,
-				]);
-				expect(
-					yield* runtime.findWorkflowScriptAvailableToUser(
+		test.effect(
+			"uses the exact private installation for private package scripts",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
+					const second = yield* installRevisionPackage(revisionPackage("notes"), other);
+					const ownScript = yield* runtime.findScriptAvailableToUser(
 						owner,
 						first.pluginId,
-						"notes-flow",
-						second.installation.id,
-					),
-				).toBeNull();
-			}),
+						"notes.details",
+					);
+					const otherScript = yield* runtime.findScriptAvailableToUser(
+						other,
+						second.pluginId,
+						"notes.details",
+					);
+					assert(ownScript && otherScript);
+					expect(ownScript.id).not.toBe(otherScript.id);
+					expect(ownScript.pluginRevisionId).toBe(first.revisionId);
+					expect(otherScript.pluginRevisionId).toBe(second.revisionId);
+					expect(
+						yield* runtime.findScriptAvailableToUser(other, first.pluginId, "notes.details"),
+					).toBeNull();
+					expect((yield* runtime.listPluginsAvailableToUser(owner)).map(({ id }) => id)).toEqual([
+						first.pluginId,
+					]);
+					expect(
+						yield* runtime.findWorkflowScriptAvailableToUser(
+							owner,
+							first.pluginId,
+							"notes-flow",
+							second.installation.id,
+						),
+					).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("resolves an active private script only for its executing user", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const privatePlugin = yield* installRevisionPackage(revisionPackage("retained"), owner);
-				const systemPlugin = yield* installRevisionPackage(revisionPackage("retained"));
-				const privateScript = yield* runtime.findScriptAvailableToUser(
-					owner,
-					privatePlugin.pluginId,
-					"retained.task",
-				);
-				const systemScript = yield* runtime.findScriptAvailableToUser(
-					owner,
-					systemPlugin.pluginId,
-					"retained.task",
-				);
-				assert(privateScript && systemScript);
+		test.effect(
+			"resolves an active private script only for its executing user",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const privatePlugin = yield* installRevisionPackage(revisionPackage("retained"), owner);
+					const systemPlugin = yield* installRevisionPackage(revisionPackage("retained"));
+					const privateScript = yield* runtime.findScriptAvailableToUser(
+						owner,
+						privatePlugin.pluginId,
+						"retained.task",
+					);
+					const systemScript = yield* runtime.findScriptAvailableToUser(
+						owner,
+						systemPlugin.pluginId,
+						"retained.task",
+					);
+					assert(privateScript && systemScript);
 
-				expect(privateScript.id).not.toBe(systemScript.id);
-				expect(yield* runtime.findActiveScriptById(privateScript.id, owner)).toMatchObject({
-					contentHash: "retained.task-v1",
-					pluginId: privatePlugin.pluginId,
-				});
-				expect(yield* runtime.findActiveScriptById(privateScript.id, other)).toBeNull();
-				expect(yield* runtime.findActiveScriptById(privateScript.id, null)).toBeNull();
-				expect(yield* runtime.findActiveScriptById(systemScript.id, null)).toMatchObject({
-					pluginId: systemPlugin.pluginId,
-					contentHash: "retained.task-v1",
-				});
-			}),
+					expect(privateScript.id).not.toBe(systemScript.id);
+					expect(yield* runtime.findActiveScriptById(privateScript.id, owner)).toMatchObject({
+						contentHash: "retained.task-v1",
+						pluginId: privatePlugin.pluginId,
+					});
+					expect(yield* runtime.findActiveScriptById(privateScript.id, other)).toBeNull();
+					expect(yield* runtime.findActiveScriptById(privateScript.id, null)).toBeNull();
+					expect(yield* runtime.findActiveScriptById(systemScript.id, null)).toMatchObject({
+						pluginId: systemPlugin.pluginId,
+						contentHash: "retained.task-v1",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -537,6 +550,7 @@ describe("revision-backed runtime resolution", () => {
 						yield* runtime.findActiveScriptById(SandboxScriptId.make(oldScript.id), owner),
 					).toBeNull();
 				}),
+			testTimeout,
 		);
 	});
 
@@ -559,6 +573,7 @@ describe("revision-backed runtime resolution", () => {
 					const [pending] = yield* runtime.listPluginsAvailableToUser(owner, true);
 					expect(pending?.id).toBe(installed.pluginId);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -597,142 +612,152 @@ describe("revision-backed runtime resolution", () => {
 					const runtime = yield* PluginRuntimeResolver;
 					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("keeps same-name schema definitions independent across owners", () =>
-			Effect.gen(function* () {
-				const repository = yield* DefinitionRepository;
-				const privatePackage = revisionPackage("notes", "v1", "shared-entity");
-				const entity = privatePackage.manifest.entitySchemas[0];
-				assert(entity);
-				const privatePlugin = yield* installRevisionPackage(
-					{
-						...privatePackage,
-						manifest: {
-							...privatePackage.manifest,
-							entitySchemas: [
-								...privatePackage.manifest.entitySchemas,
-								{ ...entity, slug: "notes-extra" },
-							],
-						},
-					},
-					owner,
-				);
-				const system = yield* installRevisionPackage(
-					revisionPackage("shared", "v1", "shared-entity"),
-				);
-				const definitions = yield* repository.getUserSnapshot(owner, { listed: false });
-				expect(
-					definitionLookup(definitions).getEntitySchema({
-						slug: "shared-entity",
-						owner: definitionOwner(system.pluginId),
-					})?.pluginId,
-				).toBe(system.pluginId);
-				expect(
-					definitionLookup(definitions).getEntitySchema({
-						slug: "shared-entity",
-						owner: definitionOwner(privatePlugin.pluginId),
-					})?.pluginId,
-				).toBe(privatePlugin.pluginId);
-				expect(
-					definitionLookup(definitions).getEntitySchema({
-						slug: "notes-extra",
-						owner: definitionOwner(privatePlugin.pluginId),
-					})?.pluginId,
-				).toBe(privatePlugin.pluginId);
-			}),
-		);
-	});
-
-	layer(revisionDatabaseLayer)((test) => {
-		test.effect("resolves cron and bootstrap declarations against their package revision", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const packageValue = revisionPackage();
-				const installed = yield* installRevisionPackage({
-					...packageValue,
-					manifest: {
-						...packageValue.manifest,
-						userBootstrap: [
-							{ slug: "user-startup", scriptSlug: "fixture.task", description: "User startup" },
-						],
-						crons: [
-							{
-								slug: "scheduled",
-								description: "Scheduled",
-								scriptSlug: "fixture.task",
-								schedule: { cron: "* * * * *" },
+		test.effect(
+			"keeps same-name schema definitions independent across owners",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* DefinitionRepository;
+					const privatePackage = revisionPackage("notes", "v1", "shared-entity");
+					const entity = privatePackage.manifest.entitySchemas[0];
+					assert(entity);
+					const privatePlugin = yield* installRevisionPackage(
+						{
+							...privatePackage,
+							manifest: {
+								...privatePackage.manifest,
+								entitySchemas: [
+									...privatePackage.manifest.entitySchemas,
+									{ ...entity, slug: "notes-extra" },
+								],
 							},
-						],
-					},
-				});
-				expect(
-					(yield* runtime.resolveActivePluginCron({
-						cronSlug: "scheduled",
-						pluginId: installed.pluginId,
-					}))?.script.pluginRevisionId,
-				).toBe(installed.revisionId);
-				expect(
-					(yield* runtime.resolveActivePluginUserBootstrap({
-						pluginId: installed.pluginId,
-						bootstrapSlug: "user-startup",
-					}))?.script.pluginRevisionId,
-				).toBe(installed.revisionId);
-				expect(
-					(yield* runtime.resolveInstallationBootstrap(installed.installation.id))?.entries,
-				).toHaveLength(1);
-			}),
+						},
+						owner,
+					);
+					const system = yield* installRevisionPackage(
+						revisionPackage("shared", "v1", "shared-entity"),
+					);
+					const definitions = yield* repository.getUserSnapshot(owner, { listed: false });
+					expect(
+						definitionLookup(definitions).getEntitySchema({
+							slug: "shared-entity",
+							owner: definitionOwner(system.pluginId),
+						})?.pluginId,
+					).toBe(system.pluginId);
+					expect(
+						definitionLookup(definitions).getEntitySchema({
+							slug: "shared-entity",
+							owner: definitionOwner(privatePlugin.pluginId),
+						})?.pluginId,
+					).toBe(privatePlugin.pluginId);
+					expect(
+						definitionLookup(definitions).getEntitySchema({
+							slug: "notes-extra",
+							owner: definitionOwner(privatePlugin.pluginId),
+						})?.pluginId,
+					).toBe(privatePlugin.pluginId);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("schedules private crons only for ready enabled exact installations", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const installations = yield* PluginInstallationRepository;
-				const packageValue = revisionPackage("notes");
-				const installed = yield* installRevisionPackage(
-					{
+		test.effect(
+			"resolves cron and bootstrap declarations against their package revision",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const packageValue = revisionPackage();
+					const installed = yield* installRevisionPackage({
 						...packageValue,
 						manifest: {
 							...packageValue.manifest,
+							userBootstrap: [
+								{ slug: "user-startup", scriptSlug: "fixture.task", description: "User startup" },
+							],
 							crons: [
 								{
 									slug: "scheduled",
-									scriptSlug: "notes.task",
 									description: "Scheduled",
+									scriptSlug: "fixture.task",
 									schedule: { cron: "* * * * *" },
 								},
 							],
 						},
-					},
-					owner,
-				);
-				expect(
-					(yield* runtime.listPrivateCronSchedules()).map(({ installationId }) => installationId),
-				).toEqual([installed.installation.id]);
-				expect(
-					(yield* runtime.resolvePrivatePluginCron({
-						cronSlug: "scheduled",
-						installationId: installed.installation.id,
-					}))?.userId,
-				).toBe(owner);
-				yield* installations.updateState({
-					config: {},
-					sortOrder: 0,
-					isHidden: true,
-					id: installed.installation.id,
-				});
-				expect(yield* runtime.listPrivateCronSchedules()).toEqual([]);
-				expect(
-					yield* runtime.resolvePrivatePluginCron({
-						cronSlug: "scheduled",
-						installationId: installed.installation.id,
-					}),
-				).toBeNull();
-			}),
+					});
+					expect(
+						(yield* runtime.resolveActivePluginCron({
+							cronSlug: "scheduled",
+							pluginId: installed.pluginId,
+						}))?.script.pluginRevisionId,
+					).toBe(installed.revisionId);
+					expect(
+						(yield* runtime.resolveActivePluginUserBootstrap({
+							pluginId: installed.pluginId,
+							bootstrapSlug: "user-startup",
+						}))?.script.pluginRevisionId,
+					).toBe(installed.revisionId);
+					expect(
+						(yield* runtime.resolveInstallationBootstrap(installed.installation.id))?.entries,
+					).toHaveLength(1);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"schedules private crons only for ready enabled exact installations",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const installations = yield* PluginInstallationRepository;
+					const packageValue = revisionPackage("notes");
+					const installed = yield* installRevisionPackage(
+						{
+							...packageValue,
+							manifest: {
+								...packageValue.manifest,
+								crons: [
+									{
+										slug: "scheduled",
+										scriptSlug: "notes.task",
+										description: "Scheduled",
+										schedule: { cron: "* * * * *" },
+									},
+								],
+							},
+						},
+						owner,
+					);
+					expect(
+						(yield* runtime.listPrivateCronSchedules()).map(({ installationId }) => installationId),
+					).toEqual([installed.installation.id]);
+					expect(
+						(yield* runtime.resolvePrivatePluginCron({
+							cronSlug: "scheduled",
+							installationId: installed.installation.id,
+						}))?.userId,
+					).toBe(owner);
+					yield* installations.updateState({
+						config: {},
+						sortOrder: 0,
+						isHidden: true,
+						id: installed.installation.id,
+					});
+					expect(yield* runtime.listPrivateCronSchedules()).toEqual([]);
+					expect(
+						yield* runtime.resolvePrivatePluginCron({
+							cronSlug: "scheduled",
+							installationId: installed.installation.id,
+						}),
+					).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
@@ -782,6 +807,7 @@ describe("revision-backed runtime resolution", () => {
 						}))?.script.pluginId,
 					).toBe(system.pluginId);
 				}),
+			testTimeout,
 		);
 	});
 });
@@ -798,59 +824,68 @@ describe("package selection for a user", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("selects a private installation when it is the only claim", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const packageId = testPluginPackageId();
-				const privatePlugin = yield* installRevisionPackage(
-					revisionPackage("whiskey", "v1", undefined, packageId),
-					owner,
-				);
-				expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
-					kind: "effective",
-					pluginId: privatePlugin.pluginId,
-				});
-				expect(yield* runtime.resolveUserPackage(other, packageId)).toEqual({ kind: "absent" });
-			}),
+		test.effect(
+			"selects a private installation when it is the only claim",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const packageId = testPluginPackageId();
+					const privatePlugin = yield* installRevisionPackage(
+						revisionPackage("whiskey", "v1", undefined, packageId),
+						owner,
+					);
+					expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual<unknown>({
+						kind: "effective",
+						pluginId: privatePlugin.pluginId,
+					});
+					expect(yield* runtime.resolveUserPackage(other, packageId)).toEqual({ kind: "absent" });
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("switches to the system copy when the private copy is quarantined", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const packageId = testPluginPackageId();
-				const privatePlugin = yield* installRevisionPackage(
-					revisionPackage("whiskey", "private", undefined, packageId),
-					owner,
-				);
-				yield* quarantine(privatePlugin.installation.id);
-				const system = yield* installRevisionPackage(
-					revisionPackage("whiskey", "system", undefined, packageId),
-				);
-				expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
-					kind: "effective",
-					pluginId: system.pluginId,
-				});
-			}),
+		test.effect(
+			"switches to the system copy when the private copy is quarantined",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const packageId = testPluginPackageId();
+					const privatePlugin = yield* installRevisionPackage(
+						revisionPackage("whiskey", "private", undefined, packageId),
+						owner,
+					);
+					yield* quarantine(privatePlugin.installation.id);
+					const system = yield* installRevisionPackage(
+						revisionPackage("whiskey", "system", undefined, packageId),
+					);
+					expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual<unknown>({
+						kind: "effective",
+						pluginId: system.pluginId,
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("reports a quarantined private copy when nothing else claims the package", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const packageId = testPluginPackageId();
-				const privatePlugin = yield* installRevisionPackage(
-					revisionPackage("whiskey", "v1", undefined, packageId),
-					owner,
-				);
-				yield* quarantine(privatePlugin.installation.id);
-				expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
-					kind: "quarantined",
-					pluginId: privatePlugin.pluginId,
-				});
-			}),
+		test.effect(
+			"reports a quarantined private copy when nothing else claims the package",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const packageId = testPluginPackageId();
+					const privatePlugin = yield* installRevisionPackage(
+						revisionPackage("whiskey", "v1", undefined, packageId),
+						owner,
+					);
+					yield* quarantine(privatePlugin.installation.id);
+					expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual<unknown>({
+						kind: "quarantined",
+						pluginId: privatePlugin.pluginId,
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -874,7 +909,7 @@ describe("package selection for a user", () => {
 						isHidden: true,
 						id: system.installation.id,
 					});
-					expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
+					expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual<unknown>({
 						kind: "effective",
 						pluginId: system.pluginId,
 					});
@@ -886,6 +921,7 @@ describe("package selection for a user", () => {
 						}),
 					).toBeNull();
 				}),
+			testTimeout,
 		);
 	});
 });
@@ -952,73 +988,89 @@ describe("catalog reads across revision boundaries", () => {
 					).toEqual([secondImport]);
 					expect(captured.clientImports).toEqual([firstImport]);
 				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("exposes only the catalog sections of the selected revision", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const client: PluginClientEntry = {
-					homeView: null,
-					apiVersion: CLIENT_API_VERSION,
-					exports: {
-						home: {
-							kind: "component",
-							entry: "client/home.tsx",
-							automaticEntityPresentations: false,
+		test.effect(
+			"exposes only the catalog sections of the selected revision",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const client: PluginClientEntry = {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							home: {
+								kind: "component",
+								entry: "client/home.tsx",
+								automaticEntityPresentations: false,
+							},
 						},
-					},
-				};
-				const withEntry = withClient(operationPackage("v1"), client, []);
-				const withoutEntry = revisionPackage("notes");
-				yield* installRevisionPackage(withEntry);
-				yield* installRevisionPackage(withoutEntry);
-				for (const listed of [false, true]) {
-					expect(
-						(yield* runtime.listPluginsAvailableToUser(owner, listed)).map(
-							({ manifest }) => manifest,
-						),
-					).toEqual(
-						[withEntry, withoutEntry]
-							.sort((left, right) =>
-								left.manifest.metadata.packageId.localeCompare(right.manifest.metadata.packageId),
-							)
-							.map(({ manifest }) => ({
-								client: manifest.client,
-								workflows: manifest.workflows,
-								operations: manifest.operations,
-								metadata: { name: manifest.metadata.name },
-							})),
-					);
-				}
-			}),
+					};
+					const withEntry = withClient(operationPackage("v1"), client, []);
+					const withoutEntry = revisionPackage("notes");
+					yield* installRevisionPackage(withEntry);
+					yield* installRevisionPackage(withoutEntry);
+					for (const listed of [false, true]) {
+						expect(
+							(yield* runtime.listPluginsAvailableToUser(owner, listed)).map(
+								({ manifest }) => manifest,
+							),
+						).toEqual(
+							[withEntry, withoutEntry]
+								.sort((left, right) =>
+									left.manifest.metadata.packageId.localeCompare(right.manifest.metadata.packageId),
+								)
+								.map(({ manifest }) => ({
+									client: manifest.client,
+									workflows: manifest.workflows,
+									operations: manifest.operations,
+									metadata: { name: manifest.metadata.name },
+								})),
+						);
+					}
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("serves the upgraded manifest and the upgraded script rows after a reinstall", () =>
-			Effect.gen(function* () {
-				const plugins = yield* PluginRepository;
-				const runtime = yield* PluginRuntimeResolver;
-				const original = revisionPackage("fixture", "v1");
-				const first = yield* installRevisionPackage(original);
-				const provider = yield* runtime.findSchemaProviderByReference({
-					slug: "fixture-provider",
-					owner: definitionOwner(first.pluginId),
-				});
-				assert(provider);
-				const firstScript = yield* runtime.resolveDetailsScript(provider.provider.id);
-				expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe("v1");
+		test.effect(
+			"serves the upgraded manifest and the upgraded script rows after a reinstall",
+			() =>
+				Effect.gen(function* () {
+					const plugins = yield* PluginRepository;
+					const runtime = yield* PluginRuntimeResolver;
+					const original = revisionPackage("fixture", "v1");
+					const first = yield* installRevisionPackage(original);
+					const provider = yield* runtime.findSchemaProviderByReference({
+						slug: "fixture-provider",
+						owner: definitionOwner(first.pluginId),
+					});
+					assert(provider);
+					const firstScript = yield* runtime.resolveDetailsScript(provider.provider.id);
+					expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe(
+						"v1",
+					);
 
-				const second = yield* installRevisionPackage(
-					revisionPackage("fixture", "v2", "fixture-entity", original.manifest.metadata.packageId),
-				);
-				expect(second.revisionId).not.toBe(first.revisionId);
-				expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe("v2");
-				const secondScript = yield* runtime.resolveDetailsScript(provider.provider.id);
-				expect(secondScript.id).not.toBe(firstScript.id);
-				expect(secondScript.contentHash).toBe("fixture.details-v2");
-			}),
+					const second = yield* installRevisionPackage(
+						revisionPackage(
+							"fixture",
+							"v2",
+							"fixture-entity",
+							original.manifest.metadata.packageId,
+						),
+					);
+					expect(second.revisionId).not.toBe(first.revisionId);
+					expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe(
+						"v2",
+					);
+					const secondScript = yield* runtime.resolveDetailsScript(provider.provider.id);
+					expect(secondScript.id).not.toBe(firstScript.id);
+					expect(secondScript.contentHash).toBe("fixture.details-v2");
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1055,44 +1107,48 @@ describe("catalog reads across revision boundaries", () => {
 					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("stops resolving a provider the new active revision no longer declares", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const original = revisionPackage("fixture", "v1");
-				const installed = yield* installRevisionPackage(original);
-				const provider = yield* runtime.findSchemaProviderByReference({
-					slug: "fixture-provider",
-					owner: definitionOwner(installed.pluginId),
-				});
-				assert(provider);
-
-				const upgraded = revisionPackage(
-					"fixture",
-					"v2",
-					"fixture-entity",
-					original.manifest.metadata.packageId,
-				);
-				yield* installRevisionPackage({
-					...upgraded,
-					scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
-					manifest: {
-						...upgraded.manifest,
-						providers: [],
-						scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
-					},
-				});
-				expect(
-					yield* runtime.findSchemaProviderByReference({
+		test.effect(
+			"stops resolving a provider the new active revision no longer declares",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const original = revisionPackage("fixture", "v1");
+					const installed = yield* installRevisionPackage(original);
+					const provider = yield* runtime.findSchemaProviderByReference({
 						slug: "fixture-provider",
 						owner: definitionOwner(installed.pluginId),
-					}),
-				).toBeNull();
-				expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
-			}),
+					});
+					assert(provider);
+
+					const upgraded = revisionPackage(
+						"fixture",
+						"v2",
+						"fixture-entity",
+						original.manifest.metadata.packageId,
+					);
+					yield* installRevisionPackage({
+						...upgraded,
+						scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
+						manifest: {
+							...upgraded.manifest,
+							providers: [],
+							scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
+						},
+					});
+					expect(
+						yield* runtime.findSchemaProviderByReference({
+							slug: "fixture-provider",
+							owner: definitionOwner(installed.pluginId),
+						}),
+					).toBeNull();
+					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -1151,139 +1207,154 @@ describe("provider eligibility", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("exposes a declared provider with an effective root and matching scripts", () =>
-			Effect.gen(function* () {
-				const { providerId } = yield* installProvider();
-				expect(yield* eligibility(providerId)).toEqual({
-					listed: true,
-					active: true,
-					details: "fixture.details",
-					userSearch: "fixture.search",
-					operations: ["details", "search"],
-				});
-			}),
+		test.effect(
+			"exposes a declared provider with an effective root and matching scripts",
+			() =>
+				Effect.gen(function* () {
+					const { providerId } = yield* installProvider();
+					expect(yield* eligibility(providerId)).toEqual({
+						listed: true,
+						active: true,
+						details: "fixture.details",
+						userSearch: "fixture.search",
+						operations: ["details", "search"],
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("withdraws a provider slug removed in the new active revision", () =>
-			Effect.gen(function* () {
-				const original = revisionPackage("fixture", "v1");
-				const { providerId } = yield* installProvider(original);
-				const upgraded = revisionPackage(
-					"fixture",
-					"v2",
-					"fixture-entity",
-					original.manifest.metadata.packageId,
-				);
-				yield* installRevisionPackage({
-					...upgraded,
-					scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
-					manifest: {
-						...upgraded.manifest,
-						providers: [],
-						scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
-					},
-				});
-				expect(yield* eligibility(providerId)).toEqual({
-					listed: false,
-					active: false,
-					operations: [],
-					details: "inactive_provider",
-					userSearch: "inactive_provider",
-				});
-			}),
+		test.effect(
+			"withdraws a provider slug removed in the new active revision",
+			() =>
+				Effect.gen(function* () {
+					const original = revisionPackage("fixture", "v1");
+					const { providerId } = yield* installProvider(original);
+					const upgraded = revisionPackage(
+						"fixture",
+						"v2",
+						"fixture-entity",
+						original.manifest.metadata.packageId,
+					);
+					yield* installRevisionPackage({
+						...upgraded,
+						scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
+						manifest: {
+							...upgraded.manifest,
+							providers: [],
+							scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
+						},
+					});
+					expect(yield* eligibility(providerId)).toEqual({
+						listed: false,
+						active: false,
+						operations: [],
+						details: "inactive_provider",
+						userSearch: "inactive_provider",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("withdraws a provider whose root differs from its declared root", () =>
-			Effect.gen(function* () {
-				const value = revisionPackage();
-				const [entity] = value.manifest.entitySchemas;
-				assert(entity);
-				const { pluginId, providerId } = yield* installProvider({
-					...value,
-					manifest: {
-						...value.manifest,
-						entitySchemas: [entity, { ...entity, slug: "other-entity" }],
-					},
-				});
-				yield* (yield* DatabaseSession).run((db) =>
-					db
-						.update(tables.sandboxProvider)
-						.set({ rootEntitySchemaSlug: "other-entity" })
-						.where(eq(tables.sandboxProvider.pluginId, pluginId)),
-				);
-				expect(yield* eligibility(providerId)).toEqual({
-					active: true,
-					listed: false,
-					operations: [],
-					details: "script_unavailable",
-					userSearch: "inactive_provider",
-				});
-			}),
+		test.effect(
+			"withdraws a provider whose root differs from its declared root",
+			() =>
+				Effect.gen(function* () {
+					const value = revisionPackage();
+					const [entity] = value.manifest.entitySchemas;
+					assert(entity);
+					const { pluginId, providerId } = yield* installProvider({
+						...value,
+						manifest: {
+							...value.manifest,
+							entitySchemas: [entity, { ...entity, slug: "other-entity" }],
+						},
+					});
+					yield* (yield* DatabaseSession).run((db) =>
+						db
+							.update(tables.sandboxProvider)
+							.set({ rootEntitySchemaSlug: "other-entity" })
+							.where(eq(tables.sandboxProvider.pluginId, pluginId)),
+					);
+					expect(yield* eligibility(providerId)).toEqual({
+						active: true,
+						listed: false,
+						operations: [],
+						details: "script_unavailable",
+						userSearch: "inactive_provider",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("withdraws a provider whose root entity schema is not effective", () =>
-			Effect.gen(function* () {
-				const { revisionId, providerId } = yield* installProvider();
-				yield* (yield* DatabaseSession).run((db) =>
-					db
-						.update(tables.definitionEntitySchema)
-						.set({ slug: "renamed-entity" })
-						.where(eq(tables.definitionEntitySchema.pluginRevisionId, revisionId)),
-				);
-				expect(yield* eligibility(providerId)).toEqual({
-					listed: false,
-					active: false,
-					operations: [],
-					details: "inactive_provider",
-					userSearch: "inactive_provider",
-				});
-			}),
+		test.effect(
+			"withdraws a provider whose root entity schema is not effective",
+			() =>
+				Effect.gen(function* () {
+					const { revisionId, providerId } = yield* installProvider();
+					yield* (yield* DatabaseSession).run((db) =>
+						db
+							.update(tables.definitionEntitySchema)
+							.set({ slug: "renamed-entity" })
+							.where(eq(tables.definitionEntitySchema.pluginRevisionId, revisionId)),
+					);
+					expect(yield* eligibility(providerId)).toEqual({
+						listed: false,
+						active: false,
+						operations: [],
+						details: "inactive_provider",
+						userSearch: "inactive_provider",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("drops operations whose script kind or provider does not match", () =>
-			Effect.gen(function* () {
-				const { revisionId, providerId } = yield* installProvider();
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					db
-						.update(tables.sandboxScript)
-						.set({ providerId: null })
-						.where(
-							and(
-								eq(tables.sandboxScript.pluginRevisionId, revisionId),
-								eq(tables.sandboxScript.slug, "fixture.details"),
+		test.effect(
+			"drops operations whose script kind or provider does not match",
+			() =>
+				Effect.gen(function* () {
+					const { revisionId, providerId } = yield* installProvider();
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						db
+							.update(tables.sandboxScript)
+							.set({ providerId: null })
+							.where(
+								and(
+									eq(tables.sandboxScript.pluginRevisionId, revisionId),
+									eq(tables.sandboxScript.slug, "fixture.details"),
+								),
 							),
-						),
-				);
-				yield* session.run((db) =>
-					db
-						.update(tables.sandboxScript)
-						.set({
-							metadata: sql`jsonb_set(${tables.sandboxScript.metadata}, '{kind}', '"script"')`,
-						})
-						.where(
-							and(
-								eq(tables.sandboxScript.pluginRevisionId, revisionId),
-								eq(tables.sandboxScript.slug, "fixture.search"),
+					);
+					yield* session.run((db) =>
+						db
+							.update(tables.sandboxScript)
+							.set({
+								metadata: sql`jsonb_set(${tables.sandboxScript.metadata}, '{kind}', '"script"')`,
+							})
+							.where(
+								and(
+									eq(tables.sandboxScript.pluginRevisionId, revisionId),
+									eq(tables.sandboxScript.slug, "fixture.search"),
+								),
 							),
-						),
-				);
-				expect(yield* eligibility(providerId)).toEqual({
-					listed: true,
-					active: true,
-					operations: [],
-					details: "script_unavailable",
-					userSearch: "script_unavailable",
-				});
-			}),
+					);
+					expect(yield* eligibility(providerId)).toEqual({
+						listed: true,
+						active: true,
+						operations: [],
+						details: "script_unavailable",
+						userSearch: "script_unavailable",
+					});
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -1365,120 +1436,129 @@ describe("normalized provider definitions", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("exposes declared providers and their mapped operations", () =>
-			Effect.gen(function* () {
-				const { idOf, multi, slugOf, privatePlugin } = yield* seedProviders;
-				const { providers, operations } = yield* providerViews();
-				expect(
-					providers.sort((left, right) =>
-						`${left.user_id}:${left.slug}` < `${right.user_id}:${right.slug}` ? -1 : 1,
-					),
-				).toEqual([
-					{
-						user_id: owner,
-						slug: "multi-provider",
-						plugin_scope: "system",
-						plugin_id: multi.pluginId,
-						id: idOf("multi-provider"),
-						root_entity_schema_slug: "multi-entity",
-					},
-					{
-						user_id: owner,
-						slug: "multi-second",
-						plugin_scope: "system",
-						id: idOf("multi-second"),
-						plugin_id: multi.pluginId,
-						root_entity_schema_slug: "multi-entity",
-					},
-					{
-						user_id: other,
-						plugin_scope: "user",
-						slug: "private-provider",
-						id: idOf("private-provider"),
-						plugin_id: privatePlugin.pluginId,
-						root_entity_schema_slug: "private-entity",
-					},
-				]);
-				expect(
-					operations
-						.map(({ user_id, operation, provider_id, options_schema }) => ({
-							options_schema,
-							operation: `${user_id}:${slugOf(provider_id)}:${operation}`,
-						}))
-						.sort((left, right) => (left.operation < right.operation ? -1 : 1)),
-				).toEqual([
-					{ options_schema: null, operation: "owner:multi-provider:details" },
-					{ options_schema: null, operation: "owner:multi-provider:resolve" },
-					{ options_schema: { fields: {} }, operation: "owner:multi-provider:search" },
-					{ options_schema: null, operation: "owner:multi-provider:search-options" },
-					{ options_schema: null, operation: "owner:multi-provider:translate" },
-					{ options_schema: null, operation: "owner:multi-second:details" },
-					{ options_schema: null, operation: "recipient:private-provider:details" },
-					{ options_schema: { fields: {} }, operation: "recipient:private-provider:search" },
-				]);
-			}),
+		test.effect(
+			"exposes declared providers and their mapped operations",
+			() =>
+				Effect.gen(function* () {
+					const { idOf, multi, slugOf, privatePlugin } = yield* seedProviders;
+					const { providers, operations } = yield* providerViews();
+					expect(
+						providers.sort((left, right) =>
+							`${left.user_id}:${left.slug}` < `${right.user_id}:${right.slug}` ? -1 : 1,
+						),
+					).toEqual([
+						{
+							user_id: owner,
+							slug: "multi-provider",
+							plugin_scope: "system",
+							plugin_id: multi.pluginId,
+							id: idOf("multi-provider"),
+							root_entity_schema_slug: "multi-entity",
+						},
+						{
+							user_id: owner,
+							slug: "multi-second",
+							plugin_scope: "system",
+							id: idOf("multi-second"),
+							plugin_id: multi.pluginId,
+							root_entity_schema_slug: "multi-entity",
+						},
+						{
+							user_id: other,
+							plugin_scope: "user",
+							slug: "private-provider",
+							id: idOf("private-provider"),
+							plugin_id: privatePlugin.pluginId,
+							root_entity_schema_slug: "private-entity",
+						},
+					]);
+					expect(
+						operations
+							.map(({ user_id, operation, provider_id, options_schema }) => ({
+								options_schema,
+								operation: `${user_id}:${slugOf(provider_id)}:${operation}`,
+							}))
+							.sort((left, right) => (left.operation < right.operation ? -1 : 1)),
+					).toEqual([
+						{ options_schema: null, operation: "owner:multi-provider:details" },
+						{ options_schema: null, operation: "owner:multi-provider:resolve" },
+						{ options_schema: { fields: {} }, operation: "owner:multi-provider:search" },
+						{ options_schema: null, operation: "owner:multi-provider:search-options" },
+						{ options_schema: null, operation: "owner:multi-provider:translate" },
+						{ options_schema: null, operation: "owner:multi-second:details" },
+						{ options_schema: null, operation: "recipient:private-provider:details" },
+						{ options_schema: { fields: {} }, operation: "recipient:private-provider:search" },
+					]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("shows a private plugin's provider and operations only to its owner", () =>
-			Effect.gen(function* () {
-				const { privatePlugin } = yield* seedProviders;
-				const { providers, operations } = yield* providerViews();
-				const usersOf = (
-					rows: ReadonlyArray<{ readonly user_id: string; readonly plugin_id: string }>,
-				) =>
-					rows
-						.filter(({ plugin_id }) => plugin_id === privatePlugin.pluginId)
-						.map(({ user_id }) => user_id);
-				expect(usersOf(providers)).toEqual([other]);
-				expect(usersOf(operations)).toEqual([other, other]);
-				expect(providers.filter(({ user_id }) => user_id === owner).length).toBe(2);
-				expect(operations.filter(({ user_id }) => user_id === owner).length).toBe(6);
-			}),
+		test.effect(
+			"shows a private plugin's provider and operations only to its owner",
+			() =>
+				Effect.gen(function* () {
+					const { privatePlugin } = yield* seedProviders;
+					const { providers, operations } = yield* providerViews();
+					const usersOf = (
+						rows: ReadonlyArray<{ readonly user_id: string; readonly plugin_id: string }>,
+					) =>
+						rows
+							.filter(({ plugin_id }) => plugin_id === privatePlugin.pluginId)
+							.map(({ user_id }) => user_id);
+					expect(usersOf(providers)).toEqual([other]);
+					expect(usersOf(operations)).toEqual([other, other]);
+					expect(providers.filter(({ user_id }) => user_id === owner).length).toBe(2);
+					expect(operations.filter(({ user_id }) => user_id === owner).length).toBe(6);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("resolves only providers the active system revision declares", () =>
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const { idOf, providers } = yield* seedProviders;
-				const active: Array<string> = [];
-				const authorized: Array<string> = [];
-				for (const provider of providers) {
-					const providerId = SandboxProviderId.make(provider.id);
-					if (yield* runtime.findActiveProviderById(providerId)) {
-						active.push(provider.id);
+		test.effect(
+			"resolves only providers the active system revision declares",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const { idOf, providers } = yield* seedProviders;
+					const active: Array<string> = [];
+					const authorized: Array<string> = [];
+					for (const provider of providers) {
+						const providerId = SandboxProviderId.make(provider.id);
+						if (yield* runtime.findActiveProviderById(providerId)) {
+							active.push(provider.id);
+						}
+						if (
+							yield* runtime.findAuthorizedSchemaProviderById({
+								providerId,
+								entitySchema: {
+									owner: definitionOwner(provider.pluginId),
+									slug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
+								},
+							})
+						) {
+							authorized.push(provider.id);
+						}
 					}
-					if (
-						yield* runtime.findAuthorizedSchemaProviderById({
-							providerId,
-							entitySchema: {
-								owner: definitionOwner(provider.pluginId),
-								slug: EntitySchemaSlug.make(provider.rootEntitySchemaSlug),
-							},
-						})
-					) {
-						authorized.push(provider.id);
-					}
-				}
-				const expected = [
-					idOf("multi-provider"),
-					idOf("multi-second"),
-					idOf("unready-provider"),
-				].sort();
-				expect(active.sort()).toEqual(expected);
-				expect(authorized.sort()).toEqual(expected);
-				expect(providers.map(({ slug }) => slug).sort()).toEqual([
-					"multi-provider",
-					"multi-retired",
-					"multi-second",
-					"private-provider",
-					"rootless-provider",
-					"unready-provider",
-				]);
-			}),
+					const expected = [
+						idOf("multi-provider"),
+						idOf("multi-second"),
+						idOf("unready-provider"),
+					].sort();
+					expect(active.sort()).toEqual(expected);
+					expect(authorized.sort()).toEqual(expected);
+					expect(providers.map(({ slug }) => slug).sort()).toEqual([
+						"multi-provider",
+						"multi-retired",
+						"multi-second",
+						"private-provider",
+						"rootless-provider",
+						"unready-provider",
+					]);
+				}),
+			testTimeout,
 		);
 	});
 });

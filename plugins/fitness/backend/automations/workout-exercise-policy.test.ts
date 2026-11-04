@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import definition, { manifest } from "./workout-exercise-policy.sandbox";
 
@@ -105,47 +108,55 @@ const host = (hasMore = false) =>
 			}),
 	});
 
-it.effect("captures identities and roles once per occurrence", () =>
-	Effect.gen(function* () {
-		const result = yield* definition.run(
-			yield* input("create", { exerciseKind: "duration" }),
-			host(),
-		);
-		expect(result.items[0]?.decision).toEqual({
-			action: "transform",
-			patch: {
-				resource: "event",
-				draft: {
-					properties: {
-						remove: [],
-						set: {
-							exerciseKind: "reps",
-							equipment: ["barbell"],
-							targets: [{ entityId: "chest", role: "secondary" }],
+it.effect(
+	"captures identities and roles once per occurrence",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* definition.run(
+				yield* input("create", { exerciseKind: "duration" }),
+				host(),
+			);
+			expect(result.items[0]?.decision).toEqual({
+				action: "transform",
+				patch: {
+					resource: "event",
+					draft: {
+						properties: {
+							remove: [],
+							set: {
+								exerciseKind: "reps",
+								equipment: ["barbell"],
+								targets: [{ entityId: "chest", role: "secondary" }],
+							},
 						},
 					},
 				},
-			},
-		});
-	}),
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("allows occurrence updates without reading taxonomy", () =>
-	Effect.gen(function* () {
-		expect(
-			(yield* definition.run(
-				yield* input("update", { exerciseOrder: 2 }),
-				defineSandboxTestHost(manifest, {}),
-			)).items[0]?.decision,
-		).toEqual({ action: "allow" });
-	}),
+it.effect(
+	"allows occurrence updates without reading taxonomy",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				(yield* definition.run(
+					yield* input("update", { exerciseOrder: 2 }),
+					defineSandboxTestHost(manifest, {}),
+				)).items[0]?.decision,
+			).toEqual({ action: "allow" });
+		}),
+	testTimeout,
 );
 
-it.effect("fails closed instead of truncating taxonomy", () =>
-	Effect.gen(function* () {
-		expect((yield* definition.run(yield* input("create"), host(true))).items[0]?.decision).toEqual({
-			action: "reject",
-			reason: "workout_taxonomy_capacity",
-		});
-	}),
+it.effect(
+	"fails closed instead of truncating taxonomy",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				(yield* definition.run(yield* input("create"), host(true))).items[0]?.decision,
+			).toEqual({ action: "reject", reason: "workout_taxonomy_capacity" });
+		}),
+	testTimeout,
 );

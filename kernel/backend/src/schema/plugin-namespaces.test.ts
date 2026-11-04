@@ -1,7 +1,11 @@
-import { assert, describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
@@ -20,180 +24,183 @@ import * as tables from "./tables/combined";
 
 describe("plugin namespaces in the generated migration baseline", () => {
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("enforces plugin identity and saved-view namespace constraints", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const owner = UserId.make("owner");
-				const packageValue = revisionPackage("whiskey", "v1", "bottle");
-				const otherPackage = revisionPackage("other", "v1", "other-bottle");
-				const system = yield* installRevisionPackage(packageValue);
-				const privatePlugin = yield* installRevisionPackage(packageValue, owner);
-				const otherSystem = yield* installRevisionPackage(otherPackage);
+		test.effect(
+			"enforces plugin identity and saved-view namespace constraints",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const owner = UserId.make("owner");
+					const packageValue = revisionPackage("whiskey", "v1", "bottle");
+					const otherPackage = revisionPackage("other", "v1", "other-bottle");
+					const system = yield* installRevisionPackage(packageValue);
+					const privatePlugin = yield* installRevisionPackage(packageValue, owner);
+					const otherSystem = yield* installRevisionPackage(otherPackage);
 
-				const duplicateSystemPackage = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.insert(tables.plugin)
-								.values({
-									status: "installing",
-									packageId: packageValue.manifest.metadata.packageId,
+					const duplicateSystemPackage = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.insert(tables.plugin)
+									.values({
+										status: "installing",
+										packageId: packageValue.manifest.metadata.packageId,
+									}),
+							),
+						),
+					);
+					assert(Result.isFailure(duplicateSystemPackage));
+					assert(duplicateSystemPackage.failure instanceof DbError);
+					expect(duplicateSystemPackage.failure.code).toBe("23505");
+
+					const duplicatePrivatePackage = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.insert(tables.plugin)
+									.values({
+										ownerId: owner,
+										status: "installing",
+										packageId: packageValue.manifest.metadata.packageId,
+									}),
+							),
+						),
+					);
+					assert(Result.isFailure(duplicatePrivatePackage));
+					assert(duplicatePrivatePackage.failure instanceof DbError);
+					expect(duplicatePrivatePackage.failure.code).toBe("23505");
+
+					const malformedPackageId = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.insert(tables.plugin)
+									.values({ status: "installing", packageId: sql`'malformed'` }),
+							),
+						),
+					);
+					assert(Result.isFailure(malformedPackageId));
+					assert(malformedPackageId.failure instanceof DbError);
+					expect(malformedPackageId.failure.code).toBe("23514");
+
+					const changedPackageId = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.update(tables.plugin)
+									.set({ packageId: testPluginPackageId() })
+									.where(eq(tables.plugin.id, system.pluginId)),
+							),
+						),
+					);
+					assert(Result.isFailure(changedPackageId));
+					assert(changedPackageId.failure instanceof DbError);
+					expect(changedPackageId.failure.code).toBe("23001");
+
+					const mismatchedRevisionIdentity = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								insertPluginRevision(tx, {
+									pluginId: system.pluginId,
+									id: "mismatched-revision",
+									manifest: otherPackage.manifest,
+									contentHash: otherPackage.contentHash,
 								}),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(duplicateSystemPackage));
-				assert(duplicateSystemPackage.failure instanceof DbError);
-				expect(duplicateSystemPackage.failure.code).toBe("23505");
+					);
+					assert(Result.isFailure(mismatchedRevisionIdentity));
+					assert(mismatchedRevisionIdentity.failure instanceof DbError);
+					expect(mismatchedRevisionIdentity.failure.code).toBe("23503");
 
-				const duplicatePrivatePackage = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.insert(tables.plugin)
-								.values({
-									ownerId: owner,
-									status: "installing",
-									packageId: packageValue.manifest.metadata.packageId,
-								}),
+					const changedRevisionSection = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.update(tables.pluginRevision)
+									.set({ hooks: [] })
+									.where(eq(tables.pluginRevision.id, system.revisionId)),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(duplicatePrivatePackage));
-				assert(duplicatePrivatePackage.failure instanceof DbError);
-				expect(duplicatePrivatePackage.failure.code).toBe("23505");
+					);
+					assert(Result.isFailure(changedRevisionSection));
+					assert(changedRevisionSection.failure instanceof DbError);
+					expect(changedRevisionSection.failure.code).toBe("P0001");
 
-				const malformedPackageId = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.insert(tables.plugin)
-								.values({ status: "installing", packageId: sql`'malformed'` }),
+					const changedRevisionManifest = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.update(tables.pluginRevisionManifest)
+									.set({ manifest: otherPackage.manifest })
+									.where(eq(tables.pluginRevisionManifest.pluginRevisionId, system.revisionId)),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(malformedPackageId));
-				assert(malformedPackageId.failure instanceof DbError);
-				expect(malformedPackageId.failure.code).toBe("23514");
+					);
+					assert(Result.isFailure(changedRevisionManifest));
+					assert(changedRevisionManifest.failure instanceof DbError);
+					expect(changedRevisionManifest.failure.code).toBe("P0001");
 
-				const changedPackageId = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.update(tables.plugin)
-								.set({ packageId: testPluginPackageId() })
-								.where(eq(tables.plugin.id, system.pluginId)),
+					const mismatchedActiveRevision = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.update(tables.plugin)
+									.set({ activeRevisionId: otherSystem.revisionId })
+									.where(eq(tables.plugin.id, system.pluginId)),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(changedPackageId));
-				assert(changedPackageId.failure instanceof DbError);
-				expect(changedPackageId.failure.code).toBe("23001");
+					);
+					assert(Result.isFailure(mismatchedActiveRevision));
+					assert(mismatchedActiveRevision.failure instanceof DbError);
+					expect(mismatchedActiveRevision.failure.code).toBe("23503");
 
-				const mismatchedRevisionIdentity = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							insertPluginRevision(tx, {
-								pluginId: system.pluginId,
-								id: "mismatched-revision",
-								manifest: otherPackage.manifest,
-								contentHash: otherPackage.contentHash,
-							}),
+					const override = { sortOrder: 0, userId: owner, slug: "bottle" };
+					yield* session.run((db) =>
+						db.insert(tables.savedViewOverride).values([
+							{ ...override, pluginId: null },
+							{ ...override, pluginId: system.pluginId },
+							{ ...override, pluginId: privatePlugin.pluginId },
+						]),
+					);
+
+					const duplicateKernelOverride = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx.insert(tables.savedViewOverride).values({ ...override, pluginId: null }),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(mismatchedRevisionIdentity));
-				assert(mismatchedRevisionIdentity.failure instanceof DbError);
-				expect(mismatchedRevisionIdentity.failure.code).toBe("23503");
+					);
+					assert(Result.isFailure(duplicateKernelOverride));
+					assert(duplicateKernelOverride.failure instanceof DbError);
+					expect(duplicateKernelOverride.failure.code).toBe("23505");
 
-				const changedRevisionSection = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.update(tables.pluginRevision)
-								.set({ hooks: [] })
-								.where(eq(tables.pluginRevision.id, system.revisionId)),
+					const duplicateSystemOverride = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.insert(tables.savedViewOverride)
+									.values({ ...override, pluginId: system.pluginId }),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(changedRevisionSection));
-				assert(changedRevisionSection.failure instanceof DbError);
-				expect(changedRevisionSection.failure.code).toBe("P0001");
+					);
+					assert(Result.isFailure(duplicateSystemOverride));
+					assert(duplicateSystemOverride.failure instanceof DbError);
+					expect(duplicateSystemOverride.failure.code).toBe("23505");
 
-				const changedRevisionManifest = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.update(tables.pluginRevisionManifest)
-								.set({ manifest: otherPackage.manifest })
-								.where(eq(tables.pluginRevisionManifest.pluginRevisionId, system.revisionId)),
+					const duplicatePrivateOverride = yield* Effect.result(
+						session.run((db) =>
+							db.transaction((tx) =>
+								tx
+									.insert(tables.savedViewOverride)
+									.values({ ...override, pluginId: privatePlugin.pluginId }),
+							),
 						),
-					),
-				);
-				assert(Result.isFailure(changedRevisionManifest));
-				assert(changedRevisionManifest.failure instanceof DbError);
-				expect(changedRevisionManifest.failure.code).toBe("P0001");
-
-				const mismatchedActiveRevision = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.update(tables.plugin)
-								.set({ activeRevisionId: otherSystem.revisionId })
-								.where(eq(tables.plugin.id, system.pluginId)),
-						),
-					),
-				);
-				assert(Result.isFailure(mismatchedActiveRevision));
-				assert(mismatchedActiveRevision.failure instanceof DbError);
-				expect(mismatchedActiveRevision.failure.code).toBe("23503");
-
-				const override = { sortOrder: 0, userId: owner, slug: "bottle" };
-				yield* session.run((db) =>
-					db.insert(tables.savedViewOverride).values([
-						{ ...override, pluginId: null },
-						{ ...override, pluginId: system.pluginId },
-						{ ...override, pluginId: privatePlugin.pluginId },
-					]),
-				);
-
-				const duplicateKernelOverride = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx.insert(tables.savedViewOverride).values({ ...override, pluginId: null }),
-						),
-					),
-				);
-				assert(Result.isFailure(duplicateKernelOverride));
-				assert(duplicateKernelOverride.failure instanceof DbError);
-				expect(duplicateKernelOverride.failure.code).toBe("23505");
-
-				const duplicateSystemOverride = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.insert(tables.savedViewOverride)
-								.values({ ...override, pluginId: system.pluginId }),
-						),
-					),
-				);
-				assert(Result.isFailure(duplicateSystemOverride));
-				assert(duplicateSystemOverride.failure instanceof DbError);
-				expect(duplicateSystemOverride.failure.code).toBe("23505");
-
-				const duplicatePrivateOverride = yield* Effect.result(
-					session.run((db) =>
-						db.transaction((tx) =>
-							tx
-								.insert(tables.savedViewOverride)
-								.values({ ...override, pluginId: privatePlugin.pluginId }),
-						),
-					),
-				);
-				assert(Result.isFailure(duplicatePrivateOverride));
-				assert(duplicatePrivateOverride.failure instanceof DbError);
-				expect(duplicatePrivateOverride.failure.code).toBe("23505");
-			}),
+					);
+					assert(Result.isFailure(duplicatePrivateOverride));
+					assert(duplicatePrivateOverride.failure instanceof DbError);
+					expect(duplicatePrivateOverride.failure.code).toBe("23505");
+				}),
+			testTimeout,
 		);
 	});
 
@@ -267,6 +274,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 					assert(authority);
 					expect(authority.sandboxAuthority.packageId).toBe(a.manifest.metadata.packageId);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -347,6 +355,7 @@ describe("plugin namespaces in the generated migration baseline", () => {
 					);
 					expect(activeRows).toEqual([{ revision: upgraded.revisionId }]);
 				}),
+			testTimeout,
 		);
 	});
 });

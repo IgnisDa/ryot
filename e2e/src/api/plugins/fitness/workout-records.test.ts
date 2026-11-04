@@ -297,7 +297,9 @@ describe("Workout records E2E", () => {
 				editedNewerItems[0],
 				"Expected the newer workout set after historical edit",
 			);
-			expect(editedNewerSet.personalBests).toEqual(arrayContaining(["reps", "one_rm", "volume"]));
+			expect(editedNewerSet.personalBests).toEqual<unknown>(
+				arrayContaining(["reps", "one_rm", "volume"]),
+			);
 			expect(editedNewerSet.personalBests).not.toContain("weight");
 
 			const olderBaseline = yield* loadWorkoutBaseline(client, olderWorkoutId);

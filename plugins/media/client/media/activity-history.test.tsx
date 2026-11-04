@@ -1,7 +1,10 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	flatCollectionAddedEventRow,
@@ -38,28 +41,31 @@ afterEach(() => {
 });
 
 describe("complete activity history", () => {
-	it.live("hides the button and footer when all activities are already shown", () =>
-		Effect.gen(function* () {
-			const view = mountRyotClient(
-				{
-					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-					query: (document) =>
-						Effect.succeed(
-							"work" in document.queries
-								? { data: { work: rows([]), active: rows([]), checkpoint: rows([]) } }
-								: activity(false),
-						),
-				},
-				<fixtureSchema.ActivityTab compact safeAreaTop={12} entityId="media-1" />,
-			);
-			yield* Effect.promise(() => flushRyotClient());
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("The twist still lands.")),
-			);
-			expect(queryByRole(view.container, "button", { name: "View complete history" })).toBeNull();
-			expect(view.container.textContent).not.toContain("Only your most recent activity");
-			view.unmount();
-		}),
+	it.live(
+		"hides the button and footer when all activities are already shown",
+		() =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(
+					{
+						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+						query: (document) =>
+							Effect.succeed(
+								"work" in document.queries
+									? { data: { work: rows([]), active: rows([]), checkpoint: rows([]) } }
+									: activity(false),
+							),
+					},
+					<fixtureSchema.ActivityTab compact safeAreaTop={12} entityId="media-1" />,
+				);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("The twist still lands.")),
+				);
+				expect(queryByRole(view.container, "button", { name: "View complete history" })).toBeNull();
+				expect(view.container.textContent).not.toContain("Only your most recent activity");
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -138,5 +144,6 @@ describe("complete activity history", () => {
 				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
 				view.unmount();
 			}),
+		testTimeout,
 	);
 });

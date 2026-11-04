@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import { table } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { libraryLinkExists } from "../shared/entity-selections";
 import { mediaPlugin } from "./plugin";
@@ -91,7 +92,7 @@ describe("media signal schedules", () => {
 		const nested = predicates("show-episode-releases").flatMap((predicate) =>
 			predicate.type === "and" ? predicate.predicates : [predicate],
 		);
-		expect(nested).toContainEqual(
+		expect(nested).toContainEqual<unknown>(
 			objectContaining({
 				operator: "gt",
 				type: "comparison",

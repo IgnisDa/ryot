@@ -1,4 +1,5 @@
-import { layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
@@ -17,7 +18,9 @@ const ChildWorkflowLayer = implementWorkflow(ChildWorkflow, () => Effect.void).p
 );
 
 layer(ChildWorkflowLayer)((test) => {
-	test.effect("provides an in-memory workflow test runtime", () =>
-		ChildWorkflow.execute({ executionId: "memory" }),
+	test.effect(
+		"provides an in-memory workflow test runtime",
+		() => ChildWorkflow.execute({ executionId: "memory" }),
+		testTimeout,
 	);
 });

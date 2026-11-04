@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	add,
 	and,
@@ -15,7 +17,6 @@ import {
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { describe, expect, it } from "vitest";
 
 import { visualNovelRecipes } from "./visual-novel-recipes";
 

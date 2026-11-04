@@ -1,5 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { exerciseRecord } from "../../tests/client/exercise-fixtures";
 import {

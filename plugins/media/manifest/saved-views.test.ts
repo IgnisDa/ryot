@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
-import { describe, expect, it } from "vitest";
 
 import { mediaSavedViews } from "./saved-views";
 

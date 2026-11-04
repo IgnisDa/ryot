@@ -1,6 +1,7 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type {
 	AutomationBlockedReason,
@@ -29,14 +30,16 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-import { assert, describe } from "vitest";
 
 import {
 	insertManagedAsset,
@@ -575,88 +578,98 @@ const expectInvariant = (counts: ReadonlyArray<ReturnType<typeof countStatementC
 
 describe("EntitiesService committed lifecycle", () => {
 	layer(entitiesLayer())((test) => {
-		test.effect("rejects stale loaded snapshots but replays a committed conditional update", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const created = yield* service.create(createInput("conditional-create"));
-				const input = {
-					userId: owner,
-					name: "Changed",
-					scope: "user" as const,
-					requireUserOwned: true,
-					entityId: created.entity.id,
-					properties: { title: "changed" },
-					lifecycle: command("conditional-update"),
-					expected: {
-						name: created.entity.name,
-						updatedAt: created.entity.updatedAt,
-						properties: created.entity.properties,
-					},
-				};
-				const saved = yield* service.update(input);
-				expect(saved.entity.properties).toEqual({ title: "changed" });
-				const receiptCount = (yield* session.run((db) => db.select().from(tables.mutationReceipt)))
-					.length;
-				expect(yield* service.update(input)).toEqual(saved);
-				expect((yield* session.run((db) => db.select().from(tables.mutationReceipt))).length).toBe(
-					receiptCount,
-				);
-				assertExitFails(
-					yield* Effect.exit(service.update({ ...input, lifecycle: command("stale-update") })),
-					new EntityStale({ reason: { code: "entity-stale", entityId: created.entity.id } }),
-				);
-				expect(
-					yield* service.update({ ...input, name: "Different" }).pipe(Effect.flip),
-				).toMatchObject({ reason: { code: "mutation-conflict" } });
-			}),
+		test.effect(
+			"rejects stale loaded snapshots but replays a committed conditional update",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const created = yield* service.create(createInput("conditional-create"));
+					const input = {
+						userId: owner,
+						name: "Changed",
+						scope: "user" as const,
+						requireUserOwned: true,
+						entityId: created.entity.id,
+						properties: { title: "changed" },
+						lifecycle: command("conditional-update"),
+						expected: {
+							name: created.entity.name,
+							updatedAt: created.entity.updatedAt,
+							properties: created.entity.properties,
+						},
+					};
+					const saved = yield* service.update(input);
+					expect(saved.entity.properties).toEqual({ title: "changed" });
+					const receiptCount = (yield* session.run((db) =>
+						db.select().from(tables.mutationReceipt),
+					)).length;
+					expect(yield* service.update(input)).toEqual(saved);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.mutationReceipt))).length,
+					).toBe(receiptCount);
+					assertExitFails(
+						yield* Effect.exit(service.update({ ...input, lifecycle: command("stale-update") })),
+						new EntityStale({ reason: { code: "entity-stale", entityId: created.entity.id } }),
+					);
+					expect(
+						yield* service.update({ ...input, name: "Different" }).pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("rejects user updates that change or omit an immutable property", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const created = yield* service.create({
-					...createInput("immutable-create"),
-					properties: { code: "a", title: "original" },
-				});
-				const update = (id: string, properties: Record<string, unknown>) =>
-					service.update({
-						properties,
-						userId: owner,
-						scope: "user",
-						name: "Changed",
-						requireUserOwned: true,
-						lifecycle: command(id),
-						entityId: created.entity.id,
+		test.effect(
+			"rejects user updates that change or omit an immutable property",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const created = yield* service.create({
+						...createInput("immutable-create"),
+						properties: { code: "a", title: "original" },
 					});
-				expect(yield* update("immutable-changed", { code: "b" }).pipe(Effect.flip)).toMatchObject({
-					reason: { property: "code", code: "immutable-property" },
-				});
-				expect(yield* update("immutable-omitted", { title: "x" }).pipe(Effect.flip)).toMatchObject({
-					reason: { property: "code", code: "immutable-property" },
-				});
-				const unchanged = yield* update("immutable-kept", { code: "a", title: "changed" });
-				expect(unchanged.entity.properties).toEqual({ code: "a", title: "changed" });
-			}),
+					const update = (id: string, properties: Record<string, unknown>) =>
+						service.update({
+							properties,
+							userId: owner,
+							scope: "user",
+							name: "Changed",
+							requireUserOwned: true,
+							lifecycle: command(id),
+							entityId: created.entity.id,
+						});
+					expect(yield* update("immutable-changed", { code: "b" }).pipe(Effect.flip)).toMatchObject(
+						{ reason: { property: "code", code: "immutable-property" } },
+					);
+					expect(
+						yield* update("immutable-omitted", { title: "x" }).pipe(Effect.flip),
+					).toMatchObject({ reason: { property: "code", code: "immutable-property" } });
+					const unchanged = yield* update("immutable-kept", { code: "a", title: "changed" });
+					expect(unchanged.entity.properties).toEqual({ code: "a", title: "changed" });
+				}),
+			testTimeout,
 		);
-		test.effect("leaves global updates unaffected by immutable properties", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const global = yield* service.create({
-					...createInput("immutable-global"),
-					scope: "global",
-					properties: { code: "a" },
-				});
-				const updated = yield* service.update({
-					scope: "global",
-					name: "Changed",
-					properties: { code: "b" },
-					entityId: global.entity.id,
-					lifecycle: command("immutable-global-update"),
-				});
-				expect(updated.entity.properties).toEqual({ code: "b" });
-			}),
+		test.effect(
+			"leaves global updates unaffected by immutable properties",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const global = yield* service.create({
+						...createInput("immutable-global"),
+						scope: "global",
+						properties: { code: "a" },
+					});
+					const updated = yield* service.update({
+						scope: "global",
+						name: "Changed",
+						properties: { code: "b" },
+						entityId: global.entity.id,
+						lifecycle: command("immutable-global-update"),
+					});
+					expect(updated.entity.properties).toEqual({ code: "b" });
+				}),
+			testTimeout,
 		);
 	});
 	layer(
@@ -669,89 +682,105 @@ describe("EntitiesService committed lifecycle", () => {
 			],
 		}),
 	)((test) => {
-		test.effect("rejects a before-stage policy that removes a stored immutable property", () =>
-			Effect.gen(function* () {
-				const repository = yield* EntitiesRepository;
-				const session = yield* DatabaseSession;
-				const service = yield* EntitiesService;
-				const [stored] = yield* session.transaction(
-					repository.insertEntities([
-						{
-							scope: "user",
-							userId: owner,
-							name: "Stored",
-							populatedAt: null,
-							entitySchemaSlug: slug,
-							properties: { code: "a" },
-							entitySchemaPluginId: null,
-							id: EntityId.make("stored-immutable"),
-							createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z")),
-						},
-					]),
-				);
-				assert(stored);
-				expect(
-					yield* service
-						.update({
-							userId: owner,
-							scope: "user",
-							name: "Changed",
-							entityId: stored.id,
-							requireUserOwned: true,
-							properties: { code: "a" },
-							lifecycle: command("immutable-policy"),
-						})
-						.pipe(Effect.flip),
-				).toMatchObject({ reason: { property: "code", code: "immutable-property" } });
-				expect(
-					(yield* repository.getByIdForUser({ userId: owner, entityId: stored.id }))?.properties,
-				).toEqual({ code: "a" });
-			}),
+		test.effect(
+			"rejects a before-stage policy that removes a stored immutable property",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* EntitiesRepository;
+					const session = yield* DatabaseSession;
+					const service = yield* EntitiesService;
+					const [stored] = yield* session.transaction(
+						repository.insertEntities([
+							{
+								scope: "user",
+								userId: owner,
+								name: "Stored",
+								populatedAt: null,
+								entitySchemaSlug: slug,
+								properties: { code: "a" },
+								entitySchemaPluginId: null,
+								id: EntityId.make("stored-immutable"),
+								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z")),
+							},
+						]),
+					);
+					assert(stored);
+					expect(
+						yield* service
+							.update({
+								userId: owner,
+								scope: "user",
+								name: "Changed",
+								entityId: stored.id,
+								requireUserOwned: true,
+								properties: { code: "a" },
+								lifecycle: command("immutable-policy"),
+							})
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { property: "code", code: "immutable-property" } });
+					expect(
+						(yield* repository.getByIdForUser({ userId: owner, entityId: stored.id }))?.properties,
+					).toEqual({ code: "a" });
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
-		test.effect("user-owned updates reject global records", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const global = yield* service.create({ ...createInput("global-record"), scope: "global" });
-				expect(
-					yield* service
-						.update({
-							userId: owner,
-							scope: "user",
-							name: "Changed",
-							requireUserOwned: true,
-							entityId: global.entity.id,
-							properties: { title: "changed" },
-							lifecycle: command("forbidden-global-update"),
-						})
-						.pipe(Effect.flip),
-				).toMatchObject({ reason: { code: "entity-not-found" } });
-			}),
+		test.effect(
+			"user-owned updates reject global records",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const global = yield* service.create({
+						...createInput("global-record"),
+						scope: "global",
+					});
+					expect(
+						yield* service
+							.update({
+								userId: owner,
+								scope: "user",
+								name: "Changed",
+								requireUserOwned: true,
+								entityId: global.entity.id,
+								properties: { title: "changed" },
+								lifecycle: command("forbidden-global-update"),
+							})
+							.pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "entity-not-found" } });
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
-		test.effect("replays a no-hook create after source deletion without new history", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const input = createInput("no-hook-replay");
-				const first = yield* service.create(input);
-				expect(first.warnings).toEqual([]);
-				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
-				const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-				expect(receipts.filter(({ receiptType }) => receiptType === "item")).toHaveLength(1);
-				expect(receipts.every(({ evidence }) => evidence === null)).toBe(true);
-				yield* session.run((db) =>
-					db.delete(tables.entity).where(eq(tables.entity.id, first.entity.id)),
-				);
-				expect(yield* service.create(input)).toEqual(first);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				expect(
-					yield* service.create({ ...input, name: "Different" }).pipe(Effect.flip),
-				).toMatchObject({ reason: { code: "mutation-conflict" } });
-				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
-			}),
+		test.effect(
+			"replays a no-hook create after source deletion without new history",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const input = createInput("no-hook-replay");
+					const first = yield* service.create(input);
+					expect(first.warnings).toEqual([]);
+					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+						[],
+					);
+					const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+					expect(receipts.filter(({ receiptType }) => receiptType === "item")).toHaveLength(1);
+					expect(receipts.every(({ evidence }) => evidence === null)).toBe(true);
+					yield* session.run((db) =>
+						db.delete(tables.entity).where(eq(tables.entity.id, first.entity.id)),
+					);
+					expect(yield* service.create(input)).toEqual(first);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					expect(
+						yield* service.create({ ...input, name: "Different" }).pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "mutation-conflict" } });
+					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+						[],
+					);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
@@ -773,6 +802,7 @@ describe("EntitiesService committed lifecycle", () => {
 						after: { properties: { score: 25.56, title: "numeric" } },
 					});
 				}),
+			testTimeout,
 		);
 	});
 
@@ -787,7 +817,7 @@ describe("EntitiesService committed lifecycle", () => {
 						code: "automation-limit-reached",
 					});
 					const created = yield* service.create(createInput("limited-create"));
-					expect(created.warnings).toEqual([blocked, blocked]);
+					expect(created.warnings).toEqual<unknown>([blocked, blocked]);
 					const updated = yield* service.update({
 						userId: owner,
 						scope: "user",
@@ -797,13 +827,14 @@ describe("EntitiesService committed lifecycle", () => {
 						properties: { title: "updated" },
 						lifecycle: command("limited-update"),
 					});
-					expect(updated.warnings).toEqual([blocked, blocked]);
+					expect(updated.warnings).toEqual<unknown>([blocked, blocked]);
 					const deleted = yield* service.deleteByIds(
 						[created.entity.id],
 						command("limited-delete"),
 					);
-					expect(deleted.warnings).toEqual([blocked, blocked]);
+					expect(deleted.warnings).toEqual<unknown>([blocked, blocked]);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -842,8 +873,8 @@ describe("EntitiesService committed lifecycle", () => {
 							row.commandKind === "entity:update",
 					);
 					assert(updateReceipt && noopReceipt);
-					expect(updateReceipt.result).toEqual({ entity: updated.entity });
-					expect(noopReceipt.result).toEqual({ entity: noop.entity });
+					expect(updateReceipt.result).toEqual<unknown>({ entity: updated.entity });
+					expect(noopReceipt.result).toEqual<unknown>({ entity: noop.entity });
 					expect(noopReceipt.dispatch).toEqual([]);
 					yield* service.update({
 						...input,
@@ -889,62 +920,72 @@ describe("EntitiesService committed lifecycle", () => {
 						))[0]?.dispatch,
 					).toEqual(updateReceipt.dispatch);
 				}),
+			testTimeout,
 		);
-		test.effect("commits in prepare without policies and after policies with the same rows", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const fast = yield* service.prepareCreateStep(createInput("step-fast"));
-				assert(fast._tag === "Committed");
-				expect(fast.result.entity.name).toBe("Original");
-				expect(fast.dispatch.map(({ triggerId }) => typeof triggerId)).toEqual([
-					"string",
-					"string",
-				]);
-				const replay = yield* service.prepareCreateStep(createInput("step-fast"));
-				assert(replay._tag === "Committed");
-				expect(replay.result.entity.id).toBe(fast.result.entity.id);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
-				).toEqual([fast.result.entity.id]);
-			}),
+		test.effect(
+			"commits in prepare without policies and after policies with the same rows",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const fast = yield* service.prepareCreateStep(createInput("step-fast"));
+					assert(fast._tag === "Committed");
+					expect(fast.result.entity.name).toBe("Original");
+					expect(fast.dispatch.map(({ triggerId }) => typeof triggerId)).toEqual([
+						"string",
+						"string",
+					]);
+					const replay = yield* service.prepareCreateStep(createInput("step-fast"));
+					assert(replay._tag === "Committed");
+					expect(replay.result.entity.id).toBe(fast.result.entity.id);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
+					).toEqual([fast.result.entity.id]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ policies: [{ action: "allow" }] }))((test) => {
-		test.effect("runs prepared policies outside the commit and keeps the recorded rows", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const prepared = yield* service.prepareCreateStep(createInput("step-policies"));
-				assert(prepared._tag === "PoliciesRequired");
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				const accepted = yield* service.applyMutationPolicies(prepared.pending);
-				const committed = yield* service.commitMutation(accepted);
-				expect(committed.result.entity.name).toBe("Original");
-				expect(
-					(yield* session.run((db) => db.select().from(tables.entity))).map(({ name }) => name),
-				).toEqual(["Original"]);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
-						({ category }) => category,
-					),
-				).toEqual(["request", "change", "change"]);
-				expect(committed.dispatch).toHaveLength(2);
-			}),
+		test.effect(
+			"runs prepared policies outside the commit and keeps the recorded rows",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const prepared = yield* service.prepareCreateStep(createInput("step-policies"));
+					assert(prepared._tag === "PoliciesRequired");
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					const accepted = yield* service.applyMutationPolicies(prepared.pending);
+					const committed = yield* service.commitMutation(accepted);
+					expect(committed.result.entity.name).toBe("Original");
+					expect(
+						(yield* session.run((db) => db.select().from(tables.entity))).map(({ name }) => name),
+					).toEqual(["Original"]);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+							({ category }) => category,
+						),
+					).toEqual(["request", "change", "change"]);
+					expect(committed.dispatch).toHaveLength(2);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ activateSchemaOnLock: 1 }))((test) => {
-		test.effect("revalidates the entity schema under the catalog lock before writing", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				expect(yield* service.create(createInput("schema-race")).pipe(Effect.flip)).toMatchObject({
-					reason: { code: "mutation-conflict" },
-				});
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-			}),
+		test.effect(
+			"revalidates the entity schema under the catalog lock before writing",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					expect(yield* service.create(createInput("schema-race")).pipe(Effect.flip)).toMatchObject(
+						{ reason: { code: "mutation-conflict" } },
+					);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -980,160 +1021,179 @@ describe("EntitiesService committed lifecycle", () => {
 						[],
 					);
 				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ failChange: 2 }))((test) => {
-		test.effect("rolls all bulk rows and change plans back when the second plan fails", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const items = ["one", "two"].map((externalId) => ({
-					externalId,
-					name: externalId,
-					populatedAt: null,
-					properties: { title: externalId },
-					entitySchema: providerEntitySchema,
-				}));
-				expect(
-					yield* service
-						.upsertGlobalEntities(items, providerId, command("bulk-rollback"))
-						.pipe(Effect.flip),
-				).toMatchObject({ _tag: "DbError" });
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
-						(row) => row.category,
-					),
-				).toEqual(["request", "request"]);
-			}),
+		test.effect(
+			"rolls all bulk rows and change plans back when the second plan fails",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const items = ["one", "two"].map((externalId) => ({
+						externalId,
+						name: externalId,
+						populatedAt: null,
+						properties: { title: externalId },
+						entitySchema: providerEntitySchema,
+					}));
+					expect(
+						yield* service
+							.upsertGlobalEntities(items, providerId, command("bulk-rollback"))
+							.pipe(Effect.flip),
+					).toMatchObject({ _tag: "DbError" });
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+							(row) => row.category,
+						),
+					).toEqual(["request", "request"]);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ failChange: 3 }))((test) => {
-		test.effect("rolls a delete back with its change plan", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const created = yield* service.create(createInput("before-delete"));
-				expect(
-					yield* service
-						.deleteByIds([created.entity.id], command("delete-rollback"))
-						.pipe(Effect.flip),
-				).toMatchObject({ _tag: "DbError" });
-				expect(yield* service.getByIdAnyScope(created.entity.id)).toEqual(created.entity);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger)))
-						.filter((row) => row.category === "change")
-						.map((row) => row.operation),
-				).toEqual(["create", "batch"]);
-			}),
+		test.effect(
+			"rolls a delete back with its change plan",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const created = yield* service.create(createInput("before-delete"));
+					expect(
+						yield* service
+							.deleteByIds([created.entity.id], command("delete-rollback"))
+							.pipe(Effect.flip),
+					).toMatchObject({ _tag: "DbError" });
+					expect(yield* service.getByIdAnyScope(created.entity.id)).toEqual<unknown>(
+						created.entity,
+					);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger)))
+							.filter((row) => row.category === "change")
+							.map((row) => row.operation),
+					).toEqual(["create", "batch"]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect("deletes record-session events with item and batch lifecycle plans", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const events = yield* EventsRepository;
-				const session = yield* DatabaseSession;
-				const recordSession = yield* service.create({
-					...createInput("record-session-cascade"),
-					name: "Record Session",
-				});
-				const record = yield* service.create({
-					...createInput("record-set-cascade"),
-					name: "Record Set",
-				});
-				const eventIds = [EventId.make("record-event-1"), EventId.make("record-event-2")];
-				for (const eventId of eventIds) {
-					yield* createEvent(eventId, owner, record.entity.id, recordSession.entity.id);
-				}
-				const lifecycle = command("record-session-delete");
-				const deleted = yield* service.deleteByIds([recordSession.entity.id], lifecycle);
-				expect(deleted.deletedCount).toBe(1);
-				expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
-				const triggers = yield* session.run((db) =>
-					db
-						.select()
-						.from(tables.automationTrigger)
-						.where(eq(tables.automationTrigger.executionId, lifecycle.causation.executionId)),
-				);
-				const eventDeletes = triggers.filter(
-					({ category, operation, resourceKind }) =>
-						category === "change" && resourceKind === "event" && operation === "delete",
-				);
-				const eventBatches = triggers.filter(
-					({ category, operation, resourceKind }) =>
-						category === "change" && resourceKind === "event" && operation === "batch",
-				);
-				expect(
-					eventDeletes.map(({ payload }) =>
-						payload?.category === "change" &&
-						payload.resource === "event" &&
-						payload.operation === "delete"
-							? payload.before.id
-							: null,
-					),
-				).toEqual(eventIds);
-				expect(eventBatches).toHaveLength(1);
-				assert(eventBatches[0]?.payload?.operation === "batch");
-				expect(eventBatches[0].payload.items).toHaveLength(2);
-				const [batchReceipt] = yield* session.run((db) =>
-					db
-						.select()
-						.from(tables.mutationReceipt)
-						.where(eq(tables.mutationReceipt.commandKind, "entity:delete-batch")),
-				);
-				assert(batchReceipt);
-				for (const trigger of [...eventDeletes, ...eventBatches]) {
-					expect(batchReceipt.dispatch).toContainEqual(objectContaining({ triggerId: trigger.id }));
-				}
-				const receiptCount = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-				expect(yield* service.deleteByIds([recordSession.entity.id], lifecycle)).toEqual(deleted);
-				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
-					receiptCount,
-				);
-				expect(yield* events.listEventIdentitiesForEntities([recordSession.entity.id])).toEqual([]);
-			}),
+		test.effect(
+			"deletes record-session events with item and batch lifecycle plans",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const events = yield* EventsRepository;
+					const session = yield* DatabaseSession;
+					const recordSession = yield* service.create({
+						...createInput("record-session-cascade"),
+						name: "Record Session",
+					});
+					const record = yield* service.create({
+						...createInput("record-set-cascade"),
+						name: "Record Set",
+					});
+					const eventIds = [EventId.make("record-event-1"), EventId.make("record-event-2")];
+					for (const eventId of eventIds) {
+						yield* createEvent(eventId, owner, record.entity.id, recordSession.entity.id);
+					}
+					const lifecycle = command("record-session-delete");
+					const deleted = yield* service.deleteByIds([recordSession.entity.id], lifecycle);
+					expect(deleted.deletedCount).toBe(1);
+					expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
+					const triggers = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.automationTrigger)
+							.where(eq(tables.automationTrigger.executionId, lifecycle.causation.executionId)),
+					);
+					const eventDeletes = triggers.filter(
+						({ category, operation, resourceKind }) =>
+							category === "change" && resourceKind === "event" && operation === "delete",
+					);
+					const eventBatches = triggers.filter(
+						({ category, operation, resourceKind }) =>
+							category === "change" && resourceKind === "event" && operation === "batch",
+					);
+					expect(
+						eventDeletes.map(({ payload }) =>
+							payload?.category === "change" &&
+							payload.resource === "event" &&
+							payload.operation === "delete"
+								? payload.before.id
+								: null,
+						),
+					).toEqual(eventIds);
+					expect(eventBatches).toHaveLength(1);
+					assert(eventBatches[0]?.payload?.operation === "batch");
+					expect(eventBatches[0].payload.items).toHaveLength(2);
+					const [batchReceipt] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.mutationReceipt)
+							.where(eq(tables.mutationReceipt.commandKind, "entity:delete-batch")),
+					);
+					assert(batchReceipt);
+					for (const trigger of [...eventDeletes, ...eventBatches]) {
+						expect(batchReceipt.dispatch).toContainEqual<unknown>(
+							objectContaining({ triggerId: trigger.id }),
+						);
+					}
+					const receiptCount = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+					expect(yield* service.deleteByIds([recordSession.entity.id], lifecycle)).toEqual(deleted);
+					expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
+						receiptCount,
+					);
+					expect(yield* events.listEventIdentitiesForEntities([recordSession.entity.id])).toEqual(
+						[],
+					);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ lateEventOnDelete: true }))((test) => {
-		test.effect("rolls back a cascade when an event appears after deletion preparation", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const events = yield* EventsRepository;
-				const session = yield* DatabaseSession;
-				const recordSession = yield* service.create(createInput("late-event-session"));
-				const record = yield* service.create(createInput("late-event-record"));
-				yield* createEvent(
-					EventId.make("initial-cascade-event"),
-					owner,
-					record.entity.id,
-					recordSession.entity.id,
-				);
-				const failure = yield* service
-					.deleteByIds([recordSession.entity.id], command("late-event-delete"))
-					.pipe(Effect.flip);
-				expect(failure).toMatchObject({
-					_tag: "DbError",
-					message: "Entity event references changed while deletion policies ran",
-				});
-				expect(yield* service.getByIdAnyScope(recordSession.entity.id)).toEqual(
-					recordSession.entity,
-				);
-				expect(
-					yield* events.listEventIdentitiesForEntities([recordSession.entity.id]),
-				).toHaveLength(2);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
-						({ category, operation, resourceKind }) =>
-							category === "change" &&
-							resourceKind === "event" &&
-							(operation === "delete" || operation === "batch"),
-					),
-				).toEqual([]);
-			}),
+		test.effect(
+			"rolls back a cascade when an event appears after deletion preparation",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const events = yield* EventsRepository;
+					const session = yield* DatabaseSession;
+					const recordSession = yield* service.create(createInput("late-event-session"));
+					const record = yield* service.create(createInput("late-event-record"));
+					yield* createEvent(
+						EventId.make("initial-cascade-event"),
+						owner,
+						record.entity.id,
+						recordSession.entity.id,
+					);
+					const failure = yield* service
+						.deleteByIds([recordSession.entity.id], command("late-event-delete"))
+						.pipe(Effect.flip);
+					expect(failure).toMatchObject({
+						_tag: "DbError",
+						message: "Entity event references changed while deletion policies ran",
+					});
+					expect(yield* service.getByIdAnyScope(recordSession.entity.id)).toEqual<unknown>(
+						recordSession.entity,
+					);
+					expect(
+						yield* events.listEventIdentitiesForEntities([recordSession.entity.id]),
+					).toHaveLength(2);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
+							({ category, operation, resourceKind }) =>
+								category === "change" &&
+								resourceKind === "event" &&
+								(operation === "delete" || operation === "batch"),
+						),
+					).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1178,170 +1238,186 @@ describe("EntitiesService committed lifecycle", () => {
 						(yield* service.deleteByIds([record.entity.id], lifecycle, target)).deletedCount,
 					).toBe(1);
 					expect(yield* events.listEventIdentitiesForEntities([part.entity.id])).toEqual([]);
-					expect(yield* service.getByIdAnyScope(part.entity.id)).toEqual(part.entity);
+					expect(yield* service.getByIdAnyScope(part.entity.id)).toEqual<unknown>(part.entity);
 					expect(
 						(yield* service.deleteByIds([record.entity.id], lifecycle, target)).deletedCount,
 					).toBe(1);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ noHooks: true }))((test) => {
-		test.effect("rejects a second kernel collection with the same trimmed name per user", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const collection = {
-					owner: { kind: "kernel" as const },
-					slug: EntitySchemaSlug.make("collection"),
-				};
-				const create = (id: string, name: string) =>
-					service.create({
-						name,
-						userId: owner,
-						scope: "user",
-						properties: {},
-						lifecycle: command(id),
-						entitySchema: collection,
-					});
-				const first = yield* create("collection-first", "Favorites");
-				const other = yield* create("collection-other", "Other");
-				yield* service.create({ ...createInput("record-same-name"), name: "Favorites" });
-				const duplicate = new EntityBadRequest({ reason: { code: "duplicate-collection-name" } });
-				assertExitFails(yield* Effect.exit(create("collection-second", " Favorites ")), duplicate);
-				assertExitFails(
-					yield* Effect.exit(
-						service.update({
+		test.effect(
+			"rejects a second kernel collection with the same trimmed name per user",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const collection = {
+						owner: { kind: "kernel" as const },
+						slug: EntitySchemaSlug.make("collection"),
+					};
+					const create = (id: string, name: string) =>
+						service.create({
+							name,
+							userId: owner,
 							scope: "user",
-							userId: owner,
 							properties: {},
-							name: "Favorites",
-							requireUserOwned: true,
-							entityId: other.entity.id,
-							lifecycle: command("collection-rename"),
-						}),
-					),
-					duplicate,
-				);
-				expect(yield* service.getByIdAnyScope(other.entity.id)).toMatchObject({ name: "Other" });
-				expect(first.entity.name).toBe("Favorites");
-			}),
-		);
-	});
-
-	layer(entitiesLayer())((test) => {
-		test.effect("does not allow a user-scoped delete to remove a global entity", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const global = yield* service.createGlobal({
-					entitySchema,
-					name: "Global",
-					properties: { title: "global" },
-					lifecycle: systemCommand("scoped-global-create"),
-				});
-				expect(
-					yield* service
-						.deleteByIds([global.entity.id], command("scoped-global-delete"), {
-							entitySchema,
-							userId: owner,
-						})
-						.pipe(Effect.flip),
-				).toMatchObject({ _tag: "EntityNotFound" });
-				expect(yield* service.getByIdAnyScope(global.entity.id)).toEqual(global.entity);
-			}),
-		);
-	});
-
-	layer(entitiesLayer())((test) => {
-		test.effect("deletes an event once when both entity reference roles match the batch", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const primary = yield* service.create(createInput("overlap-primary"));
-				const sessionEntity = yield* service.create(createInput("overlap-session"));
-				const eventId = EventId.make("overlapping-event");
-				yield* createEvent(eventId, owner, primary.entity.id, sessionEntity.entity.id);
-				const lifecycle = command("overlap-cascade-delete");
-				expect(
-					(yield* service.deleteByIds([primary.entity.id, sessionEntity.entity.id], lifecycle))
-						.deletedCount,
-				).toBe(2);
-				const eventDeletes = (yield* session.run((db) =>
-					db.select().from(tables.automationTrigger),
-				))
-					.filter(
-						({ category, operation, resourceKind }) =>
-							category === "change" && resourceKind === "event" && operation === "delete",
-					)
-					.map(({ payload }) =>
-						payload?.category === "change" &&
-						payload.resource === "event" &&
-						payload.operation === "delete"
-							? payload.before.id
-							: null,
+							lifecycle: command(id),
+							entitySchema: collection,
+						});
+					const first = yield* create("collection-first", "Favorites");
+					const other = yield* create("collection-other", "Other");
+					yield* service.create({ ...createInput("record-same-name"), name: "Favorites" });
+					const duplicate = new EntityBadRequest({ reason: { code: "duplicate-collection-name" } });
+					assertExitFails(
+						yield* Effect.exit(create("collection-second", " Favorites ")),
+						duplicate,
 					);
-				expect(eventDeletes).toEqual([eventId]);
-			}),
+					assertExitFails(
+						yield* Effect.exit(
+							service.update({
+								scope: "user",
+								userId: owner,
+								properties: {},
+								name: "Favorites",
+								requireUserOwned: true,
+								entityId: other.entity.id,
+								lifecycle: command("collection-rename"),
+							}),
+						),
+						duplicate,
+					);
+					expect(yield* service.getByIdAnyScope(other.entity.id)).toMatchObject({ name: "Other" });
+					expect(first.entity.name).toBe("Favorites");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect("deletes events for every user of a global entity", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const secondUser = UserId.make("second-owner");
-				yield* session.run((db) =>
-					db
-						.insert(tables.user)
-						.values({
-							id: secondUser,
-							name: "Second owner",
-							email: "second@example.test",
-							accountGeneration: "second-account-generation",
-						}),
-				);
-				const globalEntity = yield* service.createGlobal({
-					entitySchema,
-					name: "Global",
-					properties: { title: "global" },
-					lifecycle: systemCommand("global-create"),
-				});
-				const eventIds: [EventId, EventId] = [
-					EventId.make("global-event-owner"),
-					EventId.make("global-event-second"),
-				];
-				yield* createEvent(eventIds[0], owner, globalEntity.entity.id);
-				yield* createEvent(eventIds[1], secondUser, globalEntity.entity.id);
-				const lifecycle = systemCommand("global-cascade-delete");
-				yield* service.deleteByIds([globalEntity.entity.id], lifecycle);
-				expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
-				const eventChanges = (yield* session.run((db) =>
-					db.select().from(tables.automationTrigger),
-				))
-					.filter(
-						({ category, operation, resourceKind }) =>
-							category === "change" && resourceKind === "event" && operation === "delete",
-					)
-					.map(({ payload }) =>
-						payload?.category === "change" &&
-						payload.resource === "event" &&
-						payload.operation === "delete"
-							? payload.before.id
-							: null,
+		test.effect(
+			"does not allow a user-scoped delete to remove a global entity",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const global = yield* service.createGlobal({
+						entitySchema,
+						name: "Global",
+						properties: { title: "global" },
+						lifecycle: systemCommand("scoped-global-create"),
+					});
+					expect(
+						yield* service
+							.deleteByIds([global.entity.id], command("scoped-global-delete"), {
+								entitySchema,
+								userId: owner,
+							})
+							.pipe(Effect.flip),
+					).toMatchObject({ _tag: "EntityNotFound" });
+					expect(yield* service.getByIdAnyScope(global.entity.id)).toEqual<unknown>(global.entity);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect(
+			"deletes an event once when both entity reference roles match the batch",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const primary = yield* service.create(createInput("overlap-primary"));
+					const sessionEntity = yield* service.create(createInput("overlap-session"));
+					const eventId = EventId.make("overlapping-event");
+					yield* createEvent(eventId, owner, primary.entity.id, sessionEntity.entity.id);
+					const lifecycle = command("overlap-cascade-delete");
+					expect(
+						(yield* service.deleteByIds([primary.entity.id, sessionEntity.entity.id], lifecycle))
+							.deletedCount,
+					).toBe(2);
+					const eventDeletes = (yield* session.run((db) =>
+						db.select().from(tables.automationTrigger),
+					))
+						.filter(
+							({ category, operation, resourceKind }) =>
+								category === "change" && resourceKind === "event" && operation === "delete",
+						)
+						.map(({ payload }) =>
+							payload?.category === "change" &&
+							payload.resource === "event" &&
+							payload.operation === "delete"
+								? payload.before.id
+								: null,
+						);
+					expect(eventDeletes).toEqual([eventId]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect(
+			"deletes events for every user of a global entity",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const secondUser = UserId.make("second-owner");
+					yield* session.run((db) =>
+						db
+							.insert(tables.user)
+							.values({
+								id: secondUser,
+								name: "Second owner",
+								email: "second@example.test",
+								accountGeneration: "second-account-generation",
+							}),
 					);
-				expect(eventChanges).toEqual(eventIds);
-				const eventBatches = (yield* session.run((db) =>
-					db.select().from(tables.automationTrigger),
-				)).filter(
-					({ category, operation, resourceKind }) =>
-						category === "change" && resourceKind === "event" && operation === "batch",
-				);
-				expect(
-					eventBatches
-						.map(({ scopeUserId }) => scopeUserId)
-						.sort((left, right) => (left ?? "").localeCompare(right ?? "")),
-				).toEqual([owner, secondUser]);
-			}),
+					const globalEntity = yield* service.createGlobal({
+						entitySchema,
+						name: "Global",
+						properties: { title: "global" },
+						lifecycle: systemCommand("global-create"),
+					});
+					const eventIds: [EventId, EventId] = [
+						EventId.make("global-event-owner"),
+						EventId.make("global-event-second"),
+					];
+					yield* createEvent(eventIds[0], owner, globalEntity.entity.id);
+					yield* createEvent(eventIds[1], secondUser, globalEntity.entity.id);
+					const lifecycle = systemCommand("global-cascade-delete");
+					yield* service.deleteByIds([globalEntity.entity.id], lifecycle);
+					expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
+					const eventChanges = (yield* session.run((db) =>
+						db.select().from(tables.automationTrigger),
+					))
+						.filter(
+							({ category, operation, resourceKind }) =>
+								category === "change" && resourceKind === "event" && operation === "delete",
+						)
+						.map(({ payload }) =>
+							payload?.category === "change" &&
+							payload.resource === "event" &&
+							payload.operation === "delete"
+								? payload.before.id
+								: null,
+						);
+					expect(eventChanges).toEqual(eventIds);
+					const eventBatches = (yield* session.run((db) =>
+						db.select().from(tables.automationTrigger),
+					)).filter(
+						({ category, operation, resourceKind }) =>
+							category === "change" && resourceKind === "event" && operation === "batch",
+					);
+					expect(
+						eventBatches
+							.map(({ scopeUserId }) => scopeUserId)
+							.sort((left, right) => (left ?? "").localeCompare(right ?? "")),
+					).toEqual([owner, secondUser]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1426,108 +1502,114 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("rejects ordinary private-provider edits but permits provider corrections", () =>
-			Effect.gen(function* () {
-				yield* installProvider("user");
-				const service = yield* EntitiesService;
-				const repository = yield* EntitiesRepository;
-				const input = {
-					...createInput("private-provider-create"),
-					providerId,
-					populatedAt: null,
-					updateExisting: true,
-					externalId: "private-source",
-					entitySchema: providerEntitySchema,
-					properties: { code: "original", title: "original" },
-				};
-				const { entity } = yield* service.upsert(input);
-				const expected = {
-					name: entity.name,
-					updatedAt: entity.updatedAt,
-					properties: entity.properties,
-				};
-				const refusal = new EntityNotFound({
-					reason: { entityId: entity.id, code: "entity-not-found" },
-				});
-				assertExitFails(
-					yield* Effect.exit(
-						service.update({
-							scope: "user",
-							userId: owner,
-							name: "User edit",
-							entityId: entity.id,
-							requireUserOwned: true,
-							properties: { title: "user" },
-							lifecycle: command("private-provider-edit"),
-						}),
-					),
-					refusal,
-				);
-				assertExitFails(
-					yield* Effect.exit(
-						service.prepareUserSave({
-							userId: owner,
-							name: "Editor edit",
-							properties: { title: "editor" },
-							entitySchema: providerEntitySchema,
-							lifecycle: command("private-provider-editor"),
-							target: { expected, kind: "update", entityId: entity.id },
-						}),
-					),
-					refusal,
-				);
-				expect((yield* repository.getById(entity.id))?.name).toBe(entity.name);
-				const corrected = yield* service.upsert({
-					...input,
-					name: "Source correction",
-					lifecycle: command("private-provider-correction"),
-					properties: { title: "source", code: "corrected" },
-				});
-				expect(corrected.entity).toMatchObject({
-					name: "Source correction",
-					properties: { title: "source", code: "corrected" },
-				});
-			}),
+		test.effect(
+			"rejects ordinary private-provider edits but permits provider corrections",
+			() =>
+				Effect.gen(function* () {
+					yield* installProvider("user");
+					const service = yield* EntitiesService;
+					const repository = yield* EntitiesRepository;
+					const input = {
+						...createInput("private-provider-create"),
+						providerId,
+						populatedAt: null,
+						updateExisting: true,
+						externalId: "private-source",
+						entitySchema: providerEntitySchema,
+						properties: { code: "original", title: "original" },
+					};
+					const { entity } = yield* service.upsert(input);
+					const expected = {
+						name: entity.name,
+						updatedAt: entity.updatedAt,
+						properties: entity.properties,
+					};
+					const refusal = new EntityNotFound({
+						reason: { entityId: entity.id, code: "entity-not-found" },
+					});
+					assertExitFails(
+						yield* Effect.exit(
+							service.update({
+								scope: "user",
+								userId: owner,
+								name: "User edit",
+								entityId: entity.id,
+								requireUserOwned: true,
+								properties: { title: "user" },
+								lifecycle: command("private-provider-edit"),
+							}),
+						),
+						refusal,
+					);
+					assertExitFails(
+						yield* Effect.exit(
+							service.prepareUserSave({
+								userId: owner,
+								name: "Editor edit",
+								properties: { title: "editor" },
+								entitySchema: providerEntitySchema,
+								lifecycle: command("private-provider-editor"),
+								target: { expected, kind: "update", entityId: entity.id },
+							}),
+						),
+						refusal,
+					);
+					expect((yield* repository.getById(entity.id))?.name).toBe(entity.name);
+					const corrected = yield* service.upsert({
+						...input,
+						name: "Source correction",
+						lifecycle: command("private-provider-correction"),
+						properties: { title: "source", code: "corrected" },
+					});
+					expect(corrected.entity).toMatchObject({
+						name: "Source correction",
+						properties: { title: "source", code: "corrected" },
+					});
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("rechecks provider ownership when committing a prepared user save", () =>
-			Effect.gen(function* () {
-				yield* installProvider("user");
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const { entity } = yield* service.createFromApi({
-					...createInput("prepared-custom-create"),
-					entitySchema: providerEntitySchema,
-				});
-				const prepared = yield* service.prepareUserSave({
-					userId: owner,
-					name: "User edit",
-					properties: { title: "user" },
-					entitySchema: providerEntitySchema,
-					lifecycle: command("prepared-custom-update"),
-					target: {
-						kind: "update",
-						entityId: entity.id,
-						expected: {
-							name: entity.name,
-							updatedAt: entity.updatedAt,
-							properties: entity.properties,
+		test.effect(
+			"rechecks provider ownership when committing a prepared user save",
+			() =>
+				Effect.gen(function* () {
+					yield* installProvider("user");
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const { entity } = yield* service.createFromApi({
+						...createInput("prepared-custom-create"),
+						entitySchema: providerEntitySchema,
+					});
+					const prepared = yield* service.prepareUserSave({
+						userId: owner,
+						name: "User edit",
+						properties: { title: "user" },
+						entitySchema: providerEntitySchema,
+						lifecycle: command("prepared-custom-update"),
+						target: {
+							kind: "update",
+							entityId: entity.id,
+							expected: {
+								name: entity.name,
+								updatedAt: entity.updatedAt,
+								properties: entity.properties,
+							},
 						},
-					},
-				});
-				yield* session.run((db) =>
-					db
-						.update(tables.entity)
-						.set({ providerId, externalId: "attached-source" })
-						.where(eq(tables.entity.id, entity.id)),
-				);
-				assertExitFails(
-					yield* Effect.exit(session.transaction(service.persistPreparedUserSave(prepared))),
-					new EntityNotFound({ reason: { entityId: entity.id, code: "entity-not-found" } }),
-				);
-				expect((yield* (yield* EntitiesRepository).getById(entity.id))?.name).toBe(entity.name);
-			}),
+					});
+					yield* session.run((db) =>
+						db
+							.update(tables.entity)
+							.set({ providerId, externalId: "attached-source" })
+							.where(eq(tables.entity.id, entity.id)),
+					);
+					assertExitFails(
+						yield* Effect.exit(session.transaction(service.persistPreparedUserSave(prepared))),
+						new EntityNotFound({ reason: { entityId: entity.id, code: "entity-not-found" } }),
+					);
+					expect((yield* (yield* EntitiesRepository).getById(entity.id))?.name).toBe(entity.name);
+				}),
+			testTimeout,
 		);
 	});
 	layer(
@@ -1536,59 +1618,67 @@ describe("EntitiesService committed lifecycle", () => {
 			policyEntityProvenance: { providerId, entityId: EntityId.make("policy-provider-entity") },
 		}),
 	)((test) => {
-		test.effect("rechecks user-only updates after policies change provider ownership", () =>
-			Effect.gen(function* () {
-				yield* installProvider("user");
-				const repository = yield* EntitiesRepository;
-				const service = yield* EntitiesService;
-				const entityId = EntityId.make("policy-provider-entity");
-				yield* repository.insertEntities([
-					{
-						id: entityId,
-						scope: "user",
-						userId: owner,
-						properties: {},
-						name: "Original",
-						entitySchemaSlug: slug,
-						entitySchemaPluginId: "provider-plugin",
-					},
-				]);
-				assertExitFails(
-					yield* Effect.exit(
-						service.update({
-							entityId,
+		test.effect(
+			"rechecks user-only updates after policies change provider ownership",
+			() =>
+				Effect.gen(function* () {
+					yield* installProvider("user");
+					const repository = yield* EntitiesRepository;
+					const service = yield* EntitiesService;
+					const entityId = EntityId.make("policy-provider-entity");
+					yield* repository.insertEntities([
+						{
+							id: entityId,
 							scope: "user",
 							userId: owner,
 							properties: {},
-							name: "User edit",
-							requireUserOwned: true,
-							lifecycle: command("policy-provider-update"),
-						}),
-					),
-					new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
-				);
-				expect((yield* repository.getById(entityId))?.name).toBe("Original");
-			}),
+							name: "Original",
+							entitySchemaSlug: slug,
+							entitySchemaPluginId: "provider-plugin",
+						},
+					]);
+					assertExitFails(
+						yield* Effect.exit(
+							service.update({
+								entityId,
+								scope: "user",
+								userId: owner,
+								properties: {},
+								name: "User edit",
+								requireUserOwned: true,
+								lifecycle: command("policy-provider-update"),
+							}),
+						),
+						new EntityNotFound({ reason: { entityId, code: "entity-not-found" } }),
+					);
+					expect((yield* repository.getById(entityId))?.name).toBe("Original");
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("rejects private API entities with system-provider provenance", () =>
-			Effect.gen(function* () {
-				yield* installProvider("system");
-				const session = yield* DatabaseSession;
-				const service = yield* EntitiesService;
-				const exit = yield* Effect.exit(
-					service.createFromApi({
-						...createInput("private-system-provider"),
-						providerId,
-						externalId: "external",
-						entitySchema: providerEntitySchema,
-					}),
-				);
-				assertExitFails(exit, new EntityBadRequest({ reason: { code: "provider-owned" } }));
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
-			}),
+		test.effect(
+			"rejects private API entities with system-provider provenance",
+			() =>
+				Effect.gen(function* () {
+					yield* installProvider("system");
+					const session = yield* DatabaseSession;
+					const service = yield* EntitiesService;
+					const exit = yield* Effect.exit(
+						service.createFromApi({
+							...createInput("private-system-provider"),
+							providerId,
+							externalId: "external",
+							entitySchema: providerEntitySchema,
+						}),
+					);
+					assertExitFails(exit, new EntityBadRequest({ reason: { code: "provider-owned" } }));
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+						[],
+					);
+				}),
+			testTimeout,
 		);
 	});
 	for (const planned of [false, true]) {
@@ -1624,6 +1714,7 @@ describe("EntitiesService committed lifecycle", () => {
 							[],
 						);
 					}),
+				testTimeout,
 			);
 		});
 	}
@@ -1657,6 +1748,7 @@ describe("EntitiesService committed lifecycle", () => {
 							userId: scope === "system" ? null : owner,
 						});
 					}),
+				testTimeout,
 			);
 		});
 	}
@@ -1713,41 +1805,45 @@ describe("EntitiesService committed lifecycle", () => {
 						).length,
 					).toBe(4);
 				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ warnings: [warning] }))((test) => {
-		test.effect("caps global bulk writes under lock and returns dispatched warnings", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const items = ["one", "two", "three"].map((externalId) => ({
-					externalId,
-					name: externalId,
-					populatedAt: null,
-					properties: { title: externalId },
-					entitySchema: providerEntitySchema,
-				}));
-				const result = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
-					maximumTotal: 2,
-				});
-				expect(result.results.map((item) => item.status)).toEqual([
-					"upserted",
-					"upserted",
-					"skipped",
-				]);
-				expect(result.warnings).toEqual([warning, warning, warning]);
-				const replay = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
-					maximumTotal: 2,
-				});
-				expect(replay.results).toEqual(result.results);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(2);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
-						(row) => row.category === "change",
-					).length,
-				).toBe(3);
-			}),
+		test.effect(
+			"caps global bulk writes under lock and returns dispatched warnings",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const items = ["one", "two", "three"].map((externalId) => ({
+						externalId,
+						name: externalId,
+						populatedAt: null,
+						properties: { title: externalId },
+						entitySchema: providerEntitySchema,
+					}));
+					const result = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
+						maximumTotal: 2,
+					});
+					expect(result.results.map((item) => item.status)).toEqual([
+						"upserted",
+						"upserted",
+						"skipped",
+					]);
+					expect(result.warnings).toEqual([warning, warning, warning]);
+					const replay = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
+						maximumTotal: 2,
+					});
+					expect(replay.results).toEqual(result.results);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(2);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
+							(row) => row.category === "change",
+						).length,
+					).toBe(3);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ failChange: true }))((test) => {
@@ -1770,28 +1866,32 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(entities).toEqual([]);
 					expect(triggers).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ deadlockOnce: true }))((test) => {
-		test.effect("retries the entire source write and change plan after a deadlock", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const saved = yield* service.create(createInput("deadlock-retry"));
-				expect(
-					(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
-				).toEqual([saved.entity.id]);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
-						({ category, operation }) => ({ category, operation }),
-					),
-				).toEqual([
-					{ category: "request", operation: "create" },
-					{ category: "change", operation: "create" },
-					{ category: "change", operation: "batch" },
-				]);
-			}),
+		test.effect(
+			"retries the entire source write and change plan after a deadlock",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const saved = yield* service.create(createInput("deadlock-retry"));
+					expect(
+						(yield* session.run((db) => db.select().from(tables.entity))).map(({ id }) => id),
+					).toEqual([saved.entity.id]);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+							({ category, operation }) => ({ category, operation }),
+						),
+					).toEqual([
+						{ category: "request", operation: "create" },
+						{ category: "change", operation: "create" },
+						{ category: "change", operation: "batch" },
+					]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1824,7 +1924,7 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					const request = triggers.find((row) => row.category === "request");
 					assert(change && request);
-					expect(change.payload).toEqual({
+					expect(change.payload).toEqual<unknown>({
 						category: "change",
 						resource: "entity",
 						operation: "create",
@@ -1832,6 +1932,7 @@ describe("EntitiesService committed lifecycle", () => {
 					});
 					expect(change.parentTriggerId).toBe(request.id);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -1864,14 +1965,14 @@ describe("EntitiesService committed lifecycle", () => {
 						db.select().from(tables.automationTrigger),
 					)).filter((row) => row.category === "change");
 					expect(changes.length).toBe(6);
-					expect(changes.find((row) => row.operation === "update")?.payload).toEqual({
+					expect(changes.find((row) => row.operation === "update")?.payload).toEqual<unknown>({
 						category: "change",
 						resource: "entity",
 						operation: "update",
 						after: updated.entity,
 						before: created.entity,
 					});
-					expect(changes.find((row) => row.operation === "delete")?.payload).toEqual({
+					expect(changes.find((row) => row.operation === "delete")?.payload).toEqual<unknown>({
 						category: "change",
 						resource: "entity",
 						operation: "delete",
@@ -1879,6 +1980,7 @@ describe("EntitiesService committed lifecycle", () => {
 					});
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -1901,32 +2003,35 @@ describe("EntitiesService committed lifecycle", () => {
 		],
 	] as const) {
 		layer(entitiesLayer(options))((test) => {
-			test.effect(`retains ${name} request without a source mutation`, () =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const error = yield* service.create(createInput(name)).pipe(Effect.flip);
-					expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
-					if (name === "rejected") {
-						expect(error).toMatchObject({ reason: { message: "Denied" } });
-					}
-					if (name === "failed") {
-						expect(error).toMatchObject({ reason: { runId: "policy-0" } });
-					}
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-					const [request] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.automationTrigger)
-							.where(eq(tables.automationTrigger.category, "request")),
-					);
-					assert(request);
-					const lifecycle = yield* FakeEntityLifecycle;
-					expect(yield* lifecycle.policyCalls).toEqual(name === "blocked" ? [] : ["policy-0"]);
-					expect(yield* lifecycle.skippedPolicyTriggers).toEqual(
-						name === "blocked" ? [] : [request.id],
-					);
-				}),
+			test.effect(
+				`retains ${name} request without a source mutation`,
+				() =>
+					Effect.gen(function* () {
+						const service = yield* EntitiesService;
+						const session = yield* DatabaseSession;
+						const error = yield* service.create(createInput(name)).pipe(Effect.flip);
+						expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
+						if (name === "rejected") {
+							expect(error).toMatchObject({ reason: { message: "Denied" } });
+						}
+						if (name === "failed") {
+							expect(error).toMatchObject({ reason: { runId: "policy-0" } });
+						}
+						expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+						const [request] = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.automationTrigger)
+								.where(eq(tables.automationTrigger.category, "request")),
+						);
+						assert(request);
+						const lifecycle = yield* FakeEntityLifecycle;
+						expect(yield* lifecycle.policyCalls).toEqual(name === "blocked" ? [] : ["policy-0"]);
+						expect(yield* lifecycle.skippedPolicyTriggers).toEqual(
+							name === "blocked" ? [] : [request.id],
+						);
+					}),
+				testTimeout,
 			);
 		});
 	}
@@ -1936,26 +2041,32 @@ describe("EntitiesService committed lifecycle", () => {
 			policies: [proposal("First", { title: "first" }), proposal("Second", { title: "second" })],
 		}),
 	)((test) => {
-		test.effect("chains transforms in order then validates the final draft", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				expect((yield* service.create(createInput("transform"))).entity).toMatchObject({
-					name: "Second",
-					properties: { title: "second" },
-				});
-			}),
+		test.effect(
+			"chains transforms in order then validates the final draft",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					expect((yield* service.create(createInput("transform"))).entity).toMatchObject({
+						name: "Second",
+						properties: { title: "second" },
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ policies: [proposal("Changed", { title: "changed" })] }))((test) => {
-		test.effect("applies only the fields exposed by a strict entity patch", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				expect((yield* service.create(createInput("identity"))).entity).toMatchObject({
-					name: "Changed",
-					properties: { title: "changed" },
-				});
-			}),
+		test.effect(
+			"applies only the fields exposed by a strict entity patch",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					expect((yield* service.create(createInput("identity"))).entity).toMatchObject({
+						name: "Changed",
+						properties: { title: "changed" },
+					});
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1969,91 +2080,104 @@ describe("EntitiesService committed lifecycle", () => {
 			],
 		}),
 	)((test) => {
-		test.effect("revalidates transformed properties against AppSchema", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				expect(yield* service.create(createInput("invalid")).pipe(Effect.flip)).toMatchObject({
-					reason: { code: "invalid-properties" },
-				});
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-			}),
+		test.effect(
+			"revalidates transformed properties against AppSchema",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					expect(yield* service.create(createInput("invalid")).pipe(Effect.flip)).toMatchObject({
+						reason: { code: "invalid-properties" },
+					});
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect("rejects enclosing caller transactions before request planning", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const error = yield* session
-					.transaction(service.create(createInput("nested")))
-					.pipe(Effect.flip);
-				expect(error).toMatchObject({ reason: { code: "enclosing-transaction" } });
-				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
-			}),
+		test.effect(
+			"rejects enclosing caller transactions before request planning",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const error = yield* session
+						.transaction(service.create(createInput("nested")))
+						.pipe(Effect.flip);
+					expect(error).toMatchObject({ reason: { code: "enclosing-transaction" } });
+					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+						[],
+					);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect("requires an active transaction and returns committed dispatch references", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const input = {
-					providerId,
-					name: "Planned",
-					populatedAt: null,
-					updateExisting: true,
-					externalId: "planned",
-					scope: "global" as const,
-					lifecycle: command("planned"),
-					properties: { title: "planned" },
-					entitySchema: providerEntitySchema,
-				};
-				expect(yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip)).toMatchObject({
-					code: "active-transaction-required",
-				});
-				const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
-				expect(work.result.entity.name).toBe("Planned");
-				const triggers = yield* AutomationTriggerRepository;
-				const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
-					triggers.findById(triggerId),
-				);
-				expect(planned.map((trigger) => trigger?.kind)).toEqual([
-					{ category: "change", resource: "entity", operation: "create" },
-					{ category: "change", operation: "batch", resource: "entity" },
-				]);
-				const batch = planned[1]?.payload;
-				assert(batch?.operation === "batch");
-				expect(batch.items).toEqual([planned[0]?.payload]);
-				const newerInput = {
-					...input,
-					name: "Newer",
-					properties: { title: "newer" },
-					lifecycle: command("planned-newer"),
-				};
-				const newer = yield* session.transaction(service.persistPlannedProviderUpsert(newerInput));
-				const noopInput = { ...newerInput, lifecycle: command("planned-noop") };
-				const noop = yield* session.transaction(service.persistPlannedProviderUpsert(noopInput));
-				expect(noop.result).toEqual(newer.result);
-				expect(noop.dispatch).toEqual([]);
-				expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
-					work,
-				);
-				yield* service.deleteByIds([work.result.entity.id], command("planned-delete"));
-				expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
-					work,
-				);
-				expect(
-					yield* session.transaction(service.persistPlannedProviderUpsert(newerInput)),
-				).toEqual(newer);
-				expect(yield* session.transaction(service.persistPlannedProviderUpsert(noopInput))).toEqual(
-					noop,
-				);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-			}),
+		test.effect(
+			"requires an active transaction and returns committed dispatch references",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const input = {
+						providerId,
+						name: "Planned",
+						populatedAt: null,
+						updateExisting: true,
+						externalId: "planned",
+						scope: "global" as const,
+						lifecycle: command("planned"),
+						properties: { title: "planned" },
+						entitySchema: providerEntitySchema,
+					};
+					expect(
+						yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip),
+					).toMatchObject({ code: "active-transaction-required" });
+					const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
+					expect(work.result.entity.name).toBe("Planned");
+					const triggers = yield* AutomationTriggerRepository;
+					const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
+						triggers.findById(triggerId),
+					);
+					expect(planned.map((trigger) => trigger?.kind)).toEqual([
+						{ category: "change", resource: "entity", operation: "create" },
+						{ category: "change", operation: "batch", resource: "entity" },
+					]);
+					const batch = planned[1]?.payload;
+					assert(batch?.operation === "batch");
+					expect(batch.items).toEqual<unknown>([planned[0]?.payload]);
+					const newerInput = {
+						...input,
+						name: "Newer",
+						properties: { title: "newer" },
+						lifecycle: command("planned-newer"),
+					};
+					const newer = yield* session.transaction(
+						service.persistPlannedProviderUpsert(newerInput),
+					);
+					const noopInput = { ...newerInput, lifecycle: command("planned-noop") };
+					const noop = yield* session.transaction(service.persistPlannedProviderUpsert(noopInput));
+					expect(noop.result).toEqual(newer.result);
+					expect(noop.dispatch).toEqual([]);
+					expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
+						work,
+					);
+					yield* service.deleteByIds([work.result.entity.id], command("planned-delete"));
+					expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
+						work,
+					);
+					expect(
+						yield* session.transaction(service.persistPlannedProviderUpsert(newerInput)),
+					).toEqual(newer);
+					expect(
+						yield* session.transaction(service.persistPlannedProviderUpsert(noopInput)),
+					).toEqual(noop);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -2111,135 +2235,152 @@ describe("EntitiesService committed lifecycle", () => {
 					);
 					expect(refreshed.result.entity.populatedAt).toBe(later.toISOString());
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer())((test) => {
-		test.effect("covers one batch-scoped provider write with a single batch trigger", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const lifecycle = command("planned-batch");
-				const item = (externalId: string) => ({
-					providerId,
-					externalId,
-					name: externalId,
-					populatedAt: null,
-					updateExisting: true,
-					scope: "global" as const,
-					properties: { title: externalId },
-					entitySchema: providerEntitySchema,
-					lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
-				});
-				const work = yield* session.transaction(
-					service.persistPlannedProviderUpserts({
-						items: [item("first"), item("second")],
-						batch: { command: lifecycle, identity: ["children"] },
-					}),
-				);
-				expect(work.results.map(({ entity }) => entity.externalId)).toEqual(["first", "second"]);
-				const triggers = yield* AutomationTriggerRepository;
-				const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
-					triggers.findById(triggerId),
-				);
-				expect(planned.map((trigger) => trigger?.kind.operation)).toEqual([
-					"create",
-					"create",
-					"batch",
-				]);
-				const batch = planned[2]?.payload;
-				assert(batch?.operation === "batch");
-				expect(batch.items).toEqual(planned.slice(0, 2).map((trigger) => trigger?.payload));
-			}),
+		test.effect(
+			"covers one batch-scoped provider write with a single batch trigger",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("planned-batch");
+					const item = (externalId: string) => ({
+						providerId,
+						externalId,
+						name: externalId,
+						populatedAt: null,
+						updateExisting: true,
+						scope: "global" as const,
+						properties: { title: externalId },
+						entitySchema: providerEntitySchema,
+						lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
+					});
+					const work = yield* session.transaction(
+						service.persistPlannedProviderUpserts({
+							items: [item("first"), item("second")],
+							batch: { command: lifecycle, identity: ["children"] },
+						}),
+					);
+					expect(work.results.map(({ entity }) => entity.externalId)).toEqual(["first", "second"]);
+					const triggers = yield* AutomationTriggerRepository;
+					const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
+						triggers.findById(triggerId),
+					);
+					expect(planned.map((trigger) => trigger?.kind.operation)).toEqual([
+						"create",
+						"create",
+						"batch",
+					]);
+					const batch = planned[2]?.payload;
+					assert(batch?.operation === "batch");
+					expect(batch.items).toEqual<unknown>(
+						planned.slice(0, 2).map((trigger) => trigger?.payload),
+					);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ policies: [{ action: "allow" }] }))((test) => {
-		test.effect("persists provider writes without planning before policies", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const lifecycle = yield* FakeEntityLifecycle;
-				const work = yield* session.transaction(
-					service.persistPlannedProviderUpsert({
-						providerId,
-						name: "Policy",
-						scope: "global",
-						populatedAt: null,
-						externalId: "policy",
-						updateExisting: true,
-						properties: { title: "policy" },
-						entitySchema: providerEntitySchema,
-						lifecycle: command("planned-policy"),
-					}),
-				);
-				expect(work.result.entity.properties).toEqual({ title: "policy" });
-				const triggers = yield* session.run((db) =>
-					db.select({ category: tables.automationTrigger.category }).from(tables.automationTrigger),
-				);
-				expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
-				expect(yield* lifecycle.policyCalls).toEqual([]);
-			}),
+		test.effect(
+			"persists provider writes without planning before policies",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = yield* FakeEntityLifecycle;
+					const work = yield* session.transaction(
+						service.persistPlannedProviderUpsert({
+							providerId,
+							name: "Policy",
+							scope: "global",
+							populatedAt: null,
+							externalId: "policy",
+							updateExisting: true,
+							properties: { title: "policy" },
+							entitySchema: providerEntitySchema,
+							lifecycle: command("planned-policy"),
+						}),
+					);
+					expect(work.result.entity.properties).toEqual({ title: "policy" });
+					const triggers = yield* session.run((db) =>
+						db
+							.select({ category: tables.automationTrigger.category })
+							.from(tables.automationTrigger),
+					);
+					expect(triggers.filter(({ category }) => category === "request")).toEqual([]);
+					expect(yield* lifecycle.policyCalls).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ warnings: [warning] }))((test) => {
-		test.effect("ensures bootstrap entities with warnings and no duplicate changes", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const items = [{ entitySchema, name: "Routine", properties: { title: "routine" } }];
-				const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
-				expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
-				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(1);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
-						(row) => row.category === "change",
-					).length,
-				).toBe(2);
-				const noop = yield* service.ensureUserEntities(owner, items, command("ensure-noop"));
-				expect(noop).toEqual(
-					first.map(({ entityId }) => ({ entityId, warnings: [], wasInserted: false })),
-				);
-				const [ensured] = first;
-				assert(ensured);
-				yield* service.deleteByIds([ensured.entityId], command("ensure-delete"));
-				yield* session.run((db) =>
-					db
-						.delete(tables.mutationReceipt)
-						.where(eq(tables.mutationReceipt.commandKind, "entity:ensure-batch")),
-				);
-				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
-				expect(yield* service.ensureUserEntities(owner, items, command("ensure-noop"))).toEqual(
-					noop,
-				);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-			}),
+		test.effect(
+			"ensures bootstrap entities with warnings and no duplicate changes",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const items = [{ entitySchema, name: "Routine", properties: { title: "routine" } }];
+					const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
+					expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
+					expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(1);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
+							(row) => row.category === "change",
+						).length,
+					).toBe(2);
+					const noop = yield* service.ensureUserEntities(owner, items, command("ensure-noop"));
+					expect(noop).toEqual(
+						first.map(({ entityId }) => ({ entityId, warnings: [], wasInserted: false })),
+					);
+					const [ensured] = first;
+					assert(ensured);
+					yield* service.deleteByIds([ensured.entityId], command("ensure-delete"));
+					yield* session.run((db) =>
+						db
+							.delete(tables.mutationReceipt)
+							.where(eq(tables.mutationReceipt.commandKind, "entity:ensure-batch")),
+					);
+					expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
+					expect(yield* service.ensureUserEntities(owner, items, command("ensure-noop"))).toEqual(
+						noop,
+					);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(entitiesLayer({ failChange: true }))((test) => {
-		test.effect("rolls the entire ensure batch back when its change plan fails", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				yield* service
-					.ensureUserEntities(
-						owner,
-						[{ entitySchema, name: "Routine", properties: { title: "routine" } }],
-						command("ensure-rollback"),
-					)
-					.pipe(Effect.flip);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				expect(
-					(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
-						(row) => row.category,
-					),
-				).toEqual(["request"]);
-			}),
+		test.effect(
+			"rolls the entire ensure batch back when its change plan fails",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					yield* service
+						.ensureUserEntities(
+							owner,
+							[{ entitySchema, name: "Routine", properties: { title: "routine" } }],
+							command("ensure-rollback"),
+						)
+						.pipe(Effect.flip);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					expect(
+						(yield* session.run((db) => db.select().from(tables.automationTrigger))).map(
+							(row) => row.category,
+						),
+					).toEqual(["request"]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -2350,6 +2491,7 @@ describe("EntitiesService committed lifecycle", () => {
 						),
 					);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -2400,11 +2542,12 @@ describe("EntitiesService committed lifecycle", () => {
 							for (const id of [`single-${round}`, `batch-${round}`]) {
 								const receipt = receipts.find(({ executionId }) => executionId === id);
 								assert(receipt);
-								expect(receipt.result).toEqual({ entity: stored });
+								expect(receipt.result).toEqual<unknown>({ entity: stored });
 							}
 						}
 						expect(yield* log.errorCodes).not.toContain("40P01");
 					}),
+				testTimeout,
 			);
 		},
 	);
@@ -2438,6 +2581,7 @@ describe("EntitiesService committed lifecycle", () => {
 					});
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -2509,7 +2653,7 @@ describe("EntitiesService committed lifecycle", () => {
 						[ensureItem, ensureItem],
 						command("ensure-duplicates"),
 					);
-					expect(ensured[1]).toEqual({ ...ensured[0], warnings: [] });
+					expect(ensured[1]).toEqual<unknown>({ ...ensured[0], warnings: [] });
 					expect(
 						yield* service
 							.ensureUserEntities(
@@ -2525,271 +2669,299 @@ describe("EntitiesService committed lifecycle", () => {
 							.sort(),
 					).toEqual(["Ensured", "global-same", "same"]);
 				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("assigns maximumTotal ordinals per provenance scope after existing rows", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const statuses = (
-					items: ReadonlyArray<ReturnType<typeof globalItem>>,
-					id: string,
-					maximumTotal: number,
-				) =>
-					service
-						.upsertGlobalEntities(items, providerId, command(id), { maximumTotal })
-						.pipe(Effect.map(({ results }) => results));
-				const inserted = { wasInserted: true, status: "upserted" };
-				const skipped = { status: "skipped" };
-				expect(
-					yield* statuses(
-						[
-							globalItem("a-1"),
-							globalItem("b-1", otherProviderEntitySchema),
-							globalItem("a-2"),
-							globalItem("b-2", otherProviderEntitySchema),
-						],
-						"per-scope",
-						1,
-					),
-				).toMatchObject([inserted, inserted, skipped, skipped]);
-				expect(
-					yield* statuses([globalItem("a-1"), globalItem("a-3"), globalItem("a-4")], "boundary", 2),
-				).toMatchObject([{ status: "upserted", wasInserted: false }, inserted, skipped]);
-				expect(yield* statuses([globalItem("a-5")], "at-limit", 2)).toEqual([skipped]);
-			}),
-		);
-	});
-	layer(entitiesLayer())((test) => {
-		test.effect("reports the first invalid provider item in input order before writing", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const lifecycle = command("invalid-provider-items");
-				assertExitFails(
-					yield* Effect.exit(
-						session.transaction(
-							service.persistPlannedProviderUpserts({
-								batch: { command: lifecycle, identity: ["children"] },
-								items: [
-									{ ...providerItem("zeta", lifecycle), properties: { title: 42 } },
-									{ ...providerItem("Alpha", lifecycle), properties: null },
-								],
-							}),
+		test.effect(
+			"assigns maximumTotal ordinals per provenance scope after existing rows",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const statuses = (
+						items: ReadonlyArray<ReturnType<typeof globalItem>>,
+						id: string,
+						maximumTotal: number,
+					) =>
+						service
+							.upsertGlobalEntities(items, providerId, command(id), { maximumTotal })
+							.pipe(Effect.map(({ results }) => results));
+					const inserted = { wasInserted: true, status: "upserted" };
+					const skipped = { status: "skipped" };
+					expect(
+						yield* statuses(
+							[
+								globalItem("a-1"),
+								globalItem("b-1", otherProviderEntitySchema),
+								globalItem("a-2"),
+								globalItem("b-2", otherProviderEntitySchema),
+							],
+							"per-scope",
+							1,
 						),
-					),
-					new EntityBadRequest({ reason: { paths: [["title"]], code: "invalid-properties" } }),
-				);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual([]);
-			}),
+					).toMatchObject([inserted, inserted, skipped, skipped]);
+					expect(
+						yield* statuses(
+							[globalItem("a-1"), globalItem("a-3"), globalItem("a-4")],
+							"boundary",
+							2,
+						),
+					).toMatchObject([{ status: "upserted", wasInserted: false }, inserted, skipped]);
+					expect(yield* statuses([globalItem("a-5")], "at-limit", 2)).toEqual<unknown>([skipped]);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("records and replays provider-order results, receipt indexes, and dispatch", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const lifecycle = command("batch-replay");
-				const input = {
-					batch: { command: lifecycle, identity: ["children"] },
-					items: ["zeta", "Alpha", "alpha"].map((externalId) =>
-						providerItem(externalId, lifecycle),
-					),
-				};
-				const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
-				expect(first.results.map(({ entity }) => entity.externalId)).toEqual([
-					"zeta",
-					"Alpha",
-					"alpha",
-				]);
-				const receipts = yield* session.run((db) =>
-					db.select().from(tables.mutationReceipt).orderBy(tables.mutationReceipt.batchIndex),
-				);
-				const items = receipts.filter(
-					({ receiptType, commandKind }) =>
-						receiptType === "item" && commandKind === "entity:upsert",
-				);
-				expect(items.map(({ result, batchIndex }) => ({ result, batchIndex }))).toEqual(
-					first.results.map((result, batchIndex) => ({ result, batchIndex })),
-				);
-				expect(first.dispatch.slice(0, 3)).toEqual(items.flatMap(({ dispatch }) => dispatch));
-				expect(first.dispatch).toHaveLength(4);
-				const snapshotRows = Effect.all([
-					session.run((db) => db.select().from(tables.entity)),
-					session.run((db) => db.select().from(tables.mutationReceipt)),
-				]);
-				const before = yield* snapshotRows;
-				expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
-					first,
-				);
-				expect(yield* snapshotRows).toEqual(before);
-			}),
+		test.effect(
+			"reports the first invalid provider item in input order before writing",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("invalid-provider-items");
+					assertExitFails(
+						yield* Effect.exit(
+							session.transaction(
+								service.persistPlannedProviderUpserts({
+									batch: { command: lifecycle, identity: ["children"] },
+									items: [
+										{ ...providerItem("zeta", lifecycle), properties: { title: 42 } },
+										{ ...providerItem("Alpha", lifecycle), properties: null },
+									],
+								}),
+							),
+						),
+						new EntityBadRequest({ reason: { paths: [["title"]], code: "invalid-properties" } }),
+					);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer())((test) => {
-		test.effect("matches batch rows only within each item's exact scope and owner", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const secondUser = UserId.make("second-scope-owner");
-				yield* session.run((db) =>
-					db
-						.insert(tables.user)
-						.values({
-							id: secondUser,
-							name: "Second",
-							email: "second-scope@example.test",
-							accountGeneration: "second-account-generation",
-						}),
-				);
-				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-14T00:00:00.000Z"));
-				const row = (id: string, userId: null | UserId, entitySchemaPluginId: null | string) => ({
-					id,
-					userId,
-					name: id,
-					providerId,
-					populatedAt,
-					entitySchemaPluginId,
-					externalId: "shared",
-					entitySchemaSlug: slug,
-					properties: { title: id },
-				});
-				yield* session.run((db) =>
-					db
-						.insert(tables.entity)
-						.values([
-							row("global-plugin", null, "provider-plugin"),
-							row("global-kernel", null, null),
-							row("owner-plugin", owner, "provider-plugin"),
-							row("second-plugin", secondUser, "provider-plugin"),
-							{
-								id: "second-plain",
-								userId: secondUser,
-								name: "Second plain",
-								entitySchemaSlug: slug,
-								properties: { title: "second" },
-								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z")),
-							},
-							{
-								userId: owner,
-								name: "Owner newer",
-								entitySchemaSlug: slug,
-								id: "owner-plain-newer",
-								properties: { title: "newer" },
-								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-03T00:00:00.000Z")),
-							},
-							{
-								userId: owner,
-								name: "Owner older",
-								entitySchemaSlug: slug,
-								id: "owner-plain-older",
-								properties: { title: "older" },
-								createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-02T00:00:00.000Z")),
-							},
-						]),
-				);
-				const lifecycle = command("scoped-batch");
-				const scoped = yield* session.transaction(
-					service.persistPlannedProviderUpserts({
+		test.effect(
+			"records and replays provider-order results, receipt indexes, and dispatch",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("batch-replay");
+					const input = {
 						batch: { command: lifecycle, identity: ["children"] },
-						items: [{ ...providerItem("shared", lifecycle), updateExisting: false }],
-					}),
-				);
-				expect(scoped.results.map(({ entity }) => entity.id)).toEqual(["global-plugin"]);
-				const global = yield* service.upsertGlobalEntities(
-					[globalItem("shared"), globalItem("fresh"), globalItem("over-limit")],
-					providerId,
-					command("scoped-global"),
-					{ maximumTotal: 2 },
-				);
-				expect(global.results).toEqual([
-					{ status: "upserted", wasInserted: false, entityId: "global-plugin" },
-					{ wasInserted: true, status: "upserted", entityId: anyOf(String) },
-					{ status: "skipped" },
-				]);
-				const ensured = yield* service.ensureUserEntities(
-					owner,
-					[{ entitySchema, name: "Ensured", properties: { title: "ensured" } }],
-					command("scoped-ensure"),
-				);
-				expect(ensured).toEqual([
-					{ warnings: [], wasInserted: false, entityId: "owner-plain-older" },
-				]);
-			}),
+						items: ["zeta", "Alpha", "alpha"].map((externalId) =>
+							providerItem(externalId, lifecycle),
+						),
+					};
+					const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
+					expect(first.results.map(({ entity }) => entity.externalId)).toEqual([
+						"zeta",
+						"Alpha",
+						"alpha",
+					]);
+					const receipts = yield* session.run((db) =>
+						db.select().from(tables.mutationReceipt).orderBy(tables.mutationReceipt.batchIndex),
+					);
+					const items = receipts.filter(
+						({ receiptType, commandKind }) =>
+							receiptType === "item" && commandKind === "entity:upsert",
+					);
+					expect(items.map(({ result, batchIndex }) => ({ result, batchIndex }))).toEqual<unknown>(
+						first.results.map((result, batchIndex) => ({ result, batchIndex })),
+					);
+					expect(first.dispatch.slice(0, 3)).toEqual<unknown>(
+						items.flatMap(({ dispatch }) => dispatch),
+					);
+					expect(first.dispatch).toHaveLength(4);
+					const snapshotRows = Effect.all([
+						session.run((db) => db.select().from(tables.entity)),
+						session.run((db) => db.select().from(tables.mutationReceipt)),
+					]);
+					const before = yield* snapshotRows;
+					expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
+						first,
+					);
+					expect(yield* snapshotRows).toEqual(before);
+				}),
+			testTimeout,
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect(
+			"matches batch rows only within each item's exact scope and owner",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const secondUser = UserId.make("second-scope-owner");
+					yield* session.run((db) =>
+						db
+							.insert(tables.user)
+							.values({
+								id: secondUser,
+								name: "Second",
+								email: "second-scope@example.test",
+								accountGeneration: "second-account-generation",
+							}),
+					);
+					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-14T00:00:00.000Z"));
+					const row = (id: string, userId: null | UserId, entitySchemaPluginId: null | string) => ({
+						id,
+						userId,
+						name: id,
+						providerId,
+						populatedAt,
+						entitySchemaPluginId,
+						externalId: "shared",
+						entitySchemaSlug: slug,
+						properties: { title: id },
+					});
+					yield* session.run((db) =>
+						db
+							.insert(tables.entity)
+							.values([
+								row("global-plugin", null, "provider-plugin"),
+								row("global-kernel", null, null),
+								row("owner-plugin", owner, "provider-plugin"),
+								row("second-plugin", secondUser, "provider-plugin"),
+								{
+									id: "second-plain",
+									userId: secondUser,
+									name: "Second plain",
+									entitySchemaSlug: slug,
+									properties: { title: "second" },
+									createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z")),
+								},
+								{
+									userId: owner,
+									name: "Owner newer",
+									entitySchemaSlug: slug,
+									id: "owner-plain-newer",
+									properties: { title: "newer" },
+									createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-03T00:00:00.000Z")),
+								},
+								{
+									userId: owner,
+									name: "Owner older",
+									entitySchemaSlug: slug,
+									id: "owner-plain-older",
+									properties: { title: "older" },
+									createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-02T00:00:00.000Z")),
+								},
+							]),
+					);
+					const lifecycle = command("scoped-batch");
+					const scoped = yield* session.transaction(
+						service.persistPlannedProviderUpserts({
+							batch: { command: lifecycle, identity: ["children"] },
+							items: [{ ...providerItem("shared", lifecycle), updateExisting: false }],
+						}),
+					);
+					expect(scoped.results.map(({ entity }) => entity.id)).toEqual<unknown>(["global-plugin"]);
+					const global = yield* service.upsertGlobalEntities(
+						[globalItem("shared"), globalItem("fresh"), globalItem("over-limit")],
+						providerId,
+						command("scoped-global"),
+						{ maximumTotal: 2 },
+					);
+					expect(global.results).toEqual<unknown>([
+						{ status: "upserted", wasInserted: false, entityId: "global-plugin" },
+						{ wasInserted: true, status: "upserted", entityId: anyOf(String) },
+						{ status: "skipped" },
+					]);
+					const ensured = yield* service.ensureUserEntities(
+						owner,
+						[{ entitySchema, name: "Ensured", properties: { title: "ensured" } }],
+						command("scoped-ensure"),
+					);
+					expect(ensured).toEqual<unknown>([
+						{ warnings: [], wasInserted: false, entityId: "owner-plain-older" },
+					]);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
-		test.effect("commits a provider batch larger than one statement's bind parameter budget", () =>
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const session = yield* DatabaseSession;
-				const lifecycle = command("bind-budget");
-				const input = {
-					batch: { command: lifecycle, identity: ["children"] },
-					items: Array.from({ length: 4_200 }, (_, index) =>
-						providerItem(`bulk-${index}`, lifecycle),
-					),
-				};
-				const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
-				expect(new Set(first.results.map(({ entity }) => entity.id)).size).toBe(4_200);
-				expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
-					first,
-				);
-				expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
-			}),
+		test.effect(
+			"commits a provider batch larger than one statement's bind parameter budget",
+			() =>
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const lifecycle = command("bind-budget");
+					const input = {
+						batch: { command: lifecycle, identity: ["children"] },
+						items: Array.from({ length: 4_200 }, (_, index) =>
+							providerItem(`bulk-${index}`, lifecycle),
+						),
+					};
+					const first = yield* session.transaction(service.persistPlannedProviderUpserts(input));
+					expect(new Set(first.results.map(({ entity }) => entity.id)).size).toBe(4_200);
+					expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
+						first,
+					);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(4_200);
+				}),
+			testTimeout,
 		);
 	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
-		test.effect("rejects another user's managed asset on entity create and update", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const foreign = yield* insertManagedAsset(UserId.make("asset-foreign-owner"));
-				expect(
-					yield* service
-						.create({
-							...createInput("foreign-asset-create"),
-							properties: { image: foreign, title: "original" },
-						})
-						.pipe(Effect.flip),
-				).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
-				const created = yield* service.create(createInput("foreign-asset-base"));
-				expect(
-					yield* service
-						.update({
-							userId: owner,
-							scope: "user",
-							name: "Changed",
-							requireUserOwned: true,
-							entityId: created.entity.id,
-							lifecycle: command("foreign-asset-update"),
-							properties: { image: foreign, title: "changed" },
-						})
-						.pipe(Effect.flip),
-				).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
-			}),
+		test.effect(
+			"rejects another user's managed asset on entity create and update",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const foreign = yield* insertManagedAsset(UserId.make("asset-foreign-owner"));
+					expect(
+						yield* service
+							.create({
+								...createInput("foreign-asset-create"),
+								properties: { image: foreign, title: "original" },
+							})
+							.pipe(Effect.flip),
+					).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
+					const created = yield* service.create(createInput("foreign-asset-base"));
+					expect(
+						yield* service
+							.update({
+								userId: owner,
+								scope: "user",
+								name: "Changed",
+								requireUserOwned: true,
+								entityId: created.entity.id,
+								lifecycle: command("foreign-asset-update"),
+								properties: { image: foreign, title: "changed" },
+							})
+							.pipe(Effect.flip),
+					).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
+				}),
+			testTimeout,
 		);
 
-		test.effect("rejects the owner's own managed asset on a global entity", () =>
-			Effect.gen(function* () {
-				const service = yield* EntitiesService;
-				const own = yield* insertManagedAsset(owner);
-				expect(
-					yield* service
-						.createGlobal({
-							entitySchema,
-							name: "Global",
-							properties: { image: own, title: "global" },
-							lifecycle: systemCommand("global-own-asset"),
-						})
-						.pipe(Effect.flip),
-				).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
-			}),
+		test.effect(
+			"rejects the owner's own managed asset on a global entity",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const own = yield* insertManagedAsset(owner);
+					expect(
+						yield* service
+							.createGlobal({
+								entitySchema,
+								name: "Global",
+								properties: { image: own, title: "global" },
+								lifecycle: systemCommand("global-own-asset"),
+							})
+							.pipe(Effect.flip),
+					).toEqual(new EntityBadRequest({ reason: { code: "asset-forbidden" } }));
+				}),
+			testTimeout,
 		);
 	});
 });

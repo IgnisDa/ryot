@@ -1,8 +1,11 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -106,58 +109,67 @@ const makeRepositoryLayer = (options: {
 	);
 
 layer(makeRepositoryLayer({ updatedRows: [row] }))((test) => {
-	test.effect("scopes every workflow run mutation by run and user IDs", () =>
-		Effect.gen(function* () {
-			const repository = yield* BackupsRepository;
-			yield* repository.markRunRunning({ runId, userId, progress: 5 });
-			yield* repository.updateProgress({ runId, userId, progress: 90 });
-			yield* repository.completeRun({ runId, userId });
-			yield* repository.failRun({
-				runId,
-				userId,
-				failure: { operation: "restore", code: "unexpected-failure" },
-			});
+	test.effect(
+		"scopes every workflow run mutation by run and user IDs",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* BackupsRepository;
+				yield* repository.markRunRunning({ runId, userId, progress: 5 });
+				yield* repository.updateProgress({ runId, userId, progress: 90 });
+				yield* repository.completeRun({ runId, userId });
+				yield* repository.failRun({
+					runId,
+					userId,
+					failure: { operation: "restore", code: "unexpected-failure" },
+				});
 
-			const predicates = yield* (yield* FakeBackupRunsDatabase).updatePredicates;
-			expect(predicates).toHaveLength(4);
-			for (const predicate of predicates) {
-				expect(predicate.params).toContain(runId);
-				expect(predicate.params).toContain(userId);
-			}
-		}),
+				const predicates = yield* (yield* FakeBackupRunsDatabase).updatePredicates;
+				expect(predicates).toHaveLength(4);
+				for (const predicate of predicates) {
+					expect(predicate.params).toContain(runId);
+					expect(predicate.params).toContain(userId);
+				}
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeRepositoryLayer({ updatedRows: [], selectedRows: [row] }))((test) => {
-	test.effect("returns an existing running run without resetting its start time", () =>
-		Effect.gen(function* () {
-			const repository = yield* BackupsRepository;
-			const replayed = yield* repository.markRunRunning({ runId, userId, progress: 5 });
-			expect(yield* (yield* FakeBackupRunsDatabase).updatePredicates).toHaveLength(1);
-			expect(replayed?.startedAt).toBe(startedAt);
-			expect(replayed?.progress).toBe(90);
-		}),
+	test.effect(
+		"returns an existing running run without resetting its start time",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* BackupsRepository;
+				const replayed = yield* repository.markRunRunning({ runId, userId, progress: 5 });
+				expect(yield* (yield* FakeBackupRunsDatabase).updatePredicates).toHaveLength(1);
+				expect(replayed?.startedAt).toBe(startedAt);
+				expect(replayed?.progress).toBe(90);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeRepositoryLayer({ updatedRows: [] }))((test) => {
-	test.effect("translates the concurrent active-run insert loser to Conflict", () =>
-		Effect.gen(function* () {
-			const repository = yield* BackupsRepository;
-			const exits = yield* Effect.forEach(
-				[
-					repository.createRun({ userId, kind: "export" }),
-					repository.createRun({ userId, kind: "restore" }),
-				],
-				Effect.exit,
-				{ concurrency: "unbounded" },
-			);
-			expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);
-			const failure = exits.find((exit) => exit._tag === "Failure");
-			expect(failure?._tag).toBe("Failure");
-			if (failure?._tag === "Failure") {
-				assertExitFails(failure, new BackupConflict({ reason: { code: "active-run-exists" } }));
-			}
-		}),
+	test.effect(
+		"translates the concurrent active-run insert loser to Conflict",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* BackupsRepository;
+				const exits = yield* Effect.forEach(
+					[
+						repository.createRun({ userId, kind: "export" }),
+						repository.createRun({ userId, kind: "restore" }),
+					],
+					Effect.exit,
+					{ concurrency: "unbounded" },
+				);
+				expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);
+				const failure = exits.find((exit) => exit._tag === "Failure");
+				expect(failure?._tag).toBe("Failure");
+				if (failure?._tag === "Failure") {
+					assertExitFails(failure, new BackupConflict({ reason: { code: "active-run-exists" } }));
+				}
+			}),
+		testTimeout,
 	);
 });

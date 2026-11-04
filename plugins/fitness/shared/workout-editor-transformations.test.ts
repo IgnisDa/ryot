@@ -1,6 +1,10 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
@@ -63,27 +67,30 @@ const makeDraft = (values: Record<string, unknown> = {}) =>
 		...values,
 	}).pipe(Effect.orDie);
 
-it.effect("omits blank session energy rather than converting it to zero", () =>
-	Effect.gen(function* () {
-		const result = buildWorkoutEditorSaveInput(
-			yield* makeDraft({ caloriesBurnt: "  " }),
-			{ submittedAt: timestamp, submissionId: "blank-energy" },
-			{
-				unitSystem: "metric",
-				exerciseOverridesById: {},
-				restSettings: {
-					dropRestTime: 0,
-					warmUpRestTime: 0,
-					normalRestTime: 60,
-					failureRestTime: 0,
+it.effect(
+	"omits blank session energy rather than converting it to zero",
+	() =>
+		Effect.gen(function* () {
+			const result = buildWorkoutEditorSaveInput(
+				yield* makeDraft({ caloriesBurnt: "  " }),
+				{ submittedAt: timestamp, submissionId: "blank-energy" },
+				{
+					unitSystem: "metric",
+					exerciseOverridesById: {},
+					restSettings: {
+						dropRestTime: 0,
+						warmUpRestTime: 0,
+						normalRestTime: 60,
+						failureRestTime: 0,
+					},
 				},
-			},
-		);
-		assert(result.input !== undefined);
-		assert(result.input.data.kind === "workout");
-		expect(result.input.data.caloriesBurnt).toBeUndefined();
-		expect(result.input.data).not.toHaveProperty("caloriesBurnt");
-	}),
+			);
+			assert(result.input !== undefined);
+			assert(result.input.data.kind === "workout");
+			expect(result.input.data.caloriesBurnt).toBeUndefined();
+			expect(result.input.data).not.toHaveProperty("caloriesBurnt");
+		}),
+	testTimeout,
 );
 
 it.effect.each(["historical", "template-create"] as const)(
@@ -120,325 +127,363 @@ it.effect.each(["historical", "template-create"] as const)(
 				expect(result.input.data).not.toHaveProperty("caloriesBurnt");
 			}
 		}),
+	testTimeout,
 );
 
-it.effect("reuses the complete frozen submission after recovery or context changes", () =>
-	Effect.gen(function* () {
-		const source = yield* makeDraft();
-		const context = {
-			exerciseOverridesById: {},
-			unitSystem: "metric" as const,
-			restSettings: { dropRestTime: 0, warmUpRestTime: 0, normalRestTime: 60, failureRestTime: 0 },
-		};
-		const first = buildWorkoutEditorSaveInput(
-			source,
-			{ submissionId: "first", submittedAt: timestamp },
-			context,
-		);
-		assert(first.input !== undefined);
-		const pending = yield* makeDraft({ submission: first.input, name: "Changed while saving" });
-		const retried = buildWorkoutEditorSaveInput(
-			pending,
-			{ submissionId: "different", submittedAt: "2026-10-16T10:00:00.000Z" },
-			{
-				...context,
-				unitSystem: "imperial",
-				restSettings: { ...context.restSettings, normalRestTime: 120 },
-			},
-		);
-		expect(retried).toEqual({ issues: [], input: first.input });
-	}),
-);
-
-it.effect("replaces only one occurrence when the exercise kind stays the same", () =>
-	Effect.gen(function* () {
-		const draft = yield* makeDraft({
-			restCountdown: {
-				setId: "set-2",
-				deadline: timestamp,
-				durationSeconds: 90,
-				clientId: "rest-countdown",
-				occurrenceId: "occurrence-2",
-				exerciseId: "exercise-occurrence-2",
-			},
-			executionCountdown: {
-				setId: "set-1",
-				deadline: timestamp,
-				durationSeconds: 60,
-				occurrenceId: "occurrence-1",
-				clientId: "execution-countdown",
-				exerciseId: "exercise-occurrence-1",
-			},
-			occurrences: [
-				occurrence(
-					"occurrence-1",
-					[set("set-1", { included: true, eventId: "event-1", confirmedAt: timestamp })],
-					{ images: [{ type: "s3", key: "occurrence/first.jpg" }] },
-				),
-				occurrence("occurrence-2", [set("set-2")]),
-			],
-		});
-		const replaced = replaceWorkoutOccurrence(draft, "occurrence-1", {
-			exerciseKind: "reps_and_weight",
-			exerciseId: yield* Schema.decodeEffect(EntityId)("replacement-exercise"),
-		});
-
-		expect(replaced.kind).toBe("replaced");
-		if (replaced.kind !== "replaced") {
-			return;
-		}
-		expect(replaced.draft.occurrences[0]).toMatchObject({ exerciseId: "replacement-exercise" });
-		expect(replaced.draft.occurrences[0]).toMatchObject({
-			images: [{ type: "s3", key: "occurrence/first.jpg" }],
-		});
-		expect(replaced.draft.occurrences[0]?.sets).toEqual(draft.occurrences[0]?.sets);
-		expect(replaced.draft.occurrences[1]).toEqual(draft.occurrences[1]);
-		expect(replaced.draft.executionCountdown).toBeUndefined();
-		expect(replaced.draft.restCountdown).toEqual(draft.restCountdown);
-		expect(
-			replaceWorkoutOccurrence(draft, "occurrence-1", {
-				exerciseKind: "duration",
-				exerciseId: yield* Schema.decodeEffect(EntityId)("other-kind"),
-			}).kind,
-		).toBe("kind-mismatch");
-	}),
-);
-
-it.effect("repeats reusable data with fresh identities and clears session-only state", () =>
-	Effect.gen(function* () {
-		const source = yield* makeDraft({
-			images: [{ type: "s3", key: "workout/cover.jpg" }],
-			supersets: [
-				{ color: "blue", clientId: "superset-1", occurrenceIds: ["occurrence-1", "occurrence-2"] },
-			],
-			occurrences: [
-				occurrence(
-					"occurrence-1",
-					[
-						set("set-1", {
-							rpe: "8",
-							eventId: "event-1",
-							confirmedAt: timestamp,
-							note: "Keep this set note",
-							restTimerStartedAt: timestamp,
-							restChoice: { seconds: "90", kind: "explicit" },
-						}),
-					],
-					{
-						notes: ["Keep this exercise cue"],
-						videos: [{ type: "s3", key: "occurrence/video.mp4" }],
-						images: [{ type: "s3", key: "occurrence/image.jpg" }],
-					},
-				),
-				occurrence("occurrence-2", [set("set-2")]),
-			],
-		});
-		let id = 0;
-		const repeated = cloneWorkoutEditorSource(source, {
-			kind: "repeat",
-			draftId: "draft-repeat",
-			name: "Upper body repeat",
-			idFor: () => `fresh-${(id += 1)}`,
-			startedAt: "2026-10-16T10:00:00.000Z",
-			sourceWorkoutId: yield* Schema.decodeEffect(EntityId)("workout-1"),
-		});
-		const repeatedSet = repeated.occurrences[0]?.sets[0];
-
-		expect(repeated).toMatchObject({
-			videos: [],
-			images: [],
-			activeDuration: 0,
-			comment: undefined,
-			caloriesBurnt: undefined,
-			startedAt: "2026-10-16T10:00:00.000Z",
-			activeDurationStartedAt: "2026-10-16T10:00:00.000Z",
-			mode: { kind: "live", source: { kind: "repeat", entityId: "workout-1" } },
-		});
-		expect(repeated.occurrences[0]?.notes).toEqual(["Keep this exercise cue"]);
-		expect(repeated.occurrences[0]).toMatchObject({ images: [], videos: [] });
-		expect(repeatedSet).toMatchObject({
-			reps: "5",
-			rpe: undefined,
-			included: false,
-			eventId: undefined,
-			confirmedAt: undefined,
-			note: "Keep this set note",
-			restTimerStartedAt: undefined,
-			restChoice: { seconds: "90", kind: "explicit" },
-		});
-		expect(repeatedSet?.clientId).not.toBe("set-1");
-		expect(repeated.supersets[0]?.occurrenceIds).toEqual([
-			repeated.occurrences[0]?.clientId,
-			repeated.occurrences[1]?.clientId,
-		]);
-	}),
-);
-
-it.effect("keeps repeated exercise occurrences distinct when selecting sets", () =>
-	Effect.gen(function* () {
-		const workout = yield* makeDraft({
-			occurrences: [
-				occurrence("first", [set("first-set")], { exerciseId: "shared-exercise" }),
-				occurrence("second", [set("second-set")], { exerciseId: "shared-exercise" }),
-			],
-		});
-		expect(
-			includedWorkoutOccurrences(workout).map(({ occurrence: item }) => item.clientId),
-		).toEqual(["first", "second"]);
-	}),
-);
-
-it.effect("retains meaningful template sets and exercise-only entries but omits empty rows", () =>
-	Effect.gen(function* () {
-		const plan = yield* makeDraft({
-			mode: { kind: "template-create" },
-			occurrences: [
-				occurrence("exercise-only", [
-					set("empty", { included: false, reps: undefined, weight: undefined }),
-				]),
-				occurrence("planned-zero", [
-					set("zero", { reps: "0", included: false, weight: undefined }),
-				]),
-				occurrence("planned-rest", [
-					set("rest", {
-						included: false,
-						reps: undefined,
-						weight: undefined,
-						restChoice: { seconds: "0", kind: "explicit" },
-					}),
-				]),
-			],
-		});
-		expect(
-			includedWorkoutOccurrences(plan).map(({ sets, occurrence: item }) => [
-				item.clientId,
-				sets.length,
-			]),
-		).toEqual([
-			["exercise-only", 0],
-			["planned-zero", 1],
-			["planned-rest", 1],
-		]);
-		const save = buildWorkoutEditorSaveInput(
-			plan,
-			{ submittedAt: timestamp, submissionId: "template-submission" },
-			{
-				unitSystem: "metric",
+it.effect(
+	"reuses the complete frozen submission after recovery or context changes",
+	() =>
+		Effect.gen(function* () {
+			const source = yield* makeDraft();
+			const context = {
 				exerciseOverridesById: {},
+				unitSystem: "metric" as const,
 				restSettings: {
 					dropRestTime: 0,
 					warmUpRestTime: 0,
-					failureRestTime: 0,
 					normalRestTime: 60,
+					failureRestTime: 0,
 				},
-			},
-		);
-		expect(save.issues).toEqual([]);
-		if (save.input?.data.kind !== "template") {
-			throw new Error("Expected template save input");
-		}
-		expect(save.input.data.occurrences.map(({ sets }) => sets.length)).toEqual([0, 1, 1]);
-	}),
+			};
+			const first = buildWorkoutEditorSaveInput(
+				source,
+				{ submissionId: "first", submittedAt: timestamp },
+				context,
+			);
+			assert(first.input !== undefined);
+			const pending = yield* makeDraft({ submission: first.input, name: "Changed while saving" });
+			const retried = buildWorkoutEditorSaveInput(
+				pending,
+				{ submissionId: "different", submittedAt: "2026-10-16T10:00:00.000Z" },
+				{
+					...context,
+					unitSystem: "imperial",
+					restSettings: { ...context.restSettings, normalRestTime: 120 },
+				},
+			);
+			expect(retried).toEqual({ issues: [], input: first.input });
+		}),
+	testTimeout,
 );
 
-it.effect("allows zero values, preserves untimed saved sets, and validates new included sets", () =>
-	Effect.gen(function* () {
-		const draft = yield* makeDraft({
-			mode: { kind: "historical", entityId: "workout-1", conflictToken: "source-token" },
-			occurrences: [
-				occurrence("occurrence-1", [
-					set("saved", { included: true, reps: undefined, weight: undefined, eventId: "event-1" }),
-					set("deleted", { included: false, eventId: "event-2" }),
-					set("new", { reps: "0", weight: "0", included: true }),
-				]),
-			],
-		});
-		const issues = validateWorkoutDraft(draft);
+it.effect(
+	"replaces only one occurrence when the exercise kind stays the same",
+	() =>
+		Effect.gen(function* () {
+			const draft = yield* makeDraft({
+				restCountdown: {
+					setId: "set-2",
+					deadline: timestamp,
+					durationSeconds: 90,
+					clientId: "rest-countdown",
+					occurrenceId: "occurrence-2",
+					exerciseId: "exercise-occurrence-2",
+				},
+				executionCountdown: {
+					setId: "set-1",
+					deadline: timestamp,
+					durationSeconds: 60,
+					occurrenceId: "occurrence-1",
+					clientId: "execution-countdown",
+					exerciseId: "exercise-occurrence-1",
+				},
+				occurrences: [
+					occurrence(
+						"occurrence-1",
+						[set("set-1", { included: true, eventId: "event-1", confirmedAt: timestamp })],
+						{ images: [{ type: "s3", key: "occurrence/first.jpg" }] },
+					),
+					occurrence("occurrence-2", [set("set-2")]),
+				],
+			});
+			const replaced = replaceWorkoutOccurrence(draft, "occurrence-1", {
+				exerciseKind: "reps_and_weight",
+				exerciseId: yield* Schema.decodeEffect(EntityId)("replacement-exercise"),
+			});
 
-		expect(issues).toEqual([]);
-		expect(includedWorkoutOccurrences(draft)[0]?.sets.map(({ clientId }) => clientId)).toEqual([
-			"saved",
-			"new",
-		]);
-		const unconfirmed = yield* makeDraft({
-			mode: { kind: "live" },
-			occurrences: [occurrence("occurrence-1", [set("set-1", { confirmedAt: undefined })])],
-		});
-		expect(validateWorkoutDraft(unconfirmed).map(({ code }) => code)).toContain("unconfirmed-set");
-		const unsafeReps = yield* makeDraft({
-			occurrences: [
-				occurrence("occurrence-1", [set("set-1", { included: true, reps: "9007199254740992" })]),
-			],
-		});
-		expect(validateWorkoutDraft(unsafeReps).map(({ code }) => code)).toContain(
-			"invalid-measurement",
-		);
-	}),
+			expect(replaced.kind).toBe("replaced");
+			if (replaced.kind !== "replaced") {
+				return;
+			}
+			expect(replaced.draft.occurrences[0]).toMatchObject({ exerciseId: "replacement-exercise" });
+			expect(replaced.draft.occurrences[0]).toMatchObject({
+				images: [{ type: "s3", key: "occurrence/first.jpg" }],
+			});
+			expect(replaced.draft.occurrences[0]?.sets).toEqual(draft.occurrences[0]?.sets);
+			expect(replaced.draft.occurrences[1]).toEqual(draft.occurrences[1]);
+			expect(replaced.draft.executionCountdown).toBeUndefined();
+			expect(replaced.draft.restCountdown).toEqual(draft.restCountdown);
+			expect(
+				replaceWorkoutOccurrence(draft, "occurrence-1", {
+					exerciseKind: "duration",
+					exerciseId: yield* Schema.decodeEffect(EntityId)("other-kind"),
+				}).kind,
+			).toBe("kind-mismatch");
+		}),
+	testTimeout,
 );
 
-it.effect("builds compact historical input in canonical units and preserves source times", () =>
-	Effect.gen(function* () {
-		const draft = yield* makeDraft({
-			caloriesBurnt: "418.4",
-			occurrences: [
-				occurrence(
-					"occurrence-1",
-					[
-						set("set-1", {
-							eventId: "event-1",
-							distance: undefined,
-							duration: undefined,
-							weight: "220.462262",
-							note: "Preserved note",
-							occurredAt: "2020-02-03T04:05:06.000Z",
+it.effect(
+	"repeats reusable data with fresh identities and clears session-only state",
+	() =>
+		Effect.gen(function* () {
+			const source = yield* makeDraft({
+				images: [{ type: "s3", key: "workout/cover.jpg" }],
+				supersets: [
+					{
+						color: "blue",
+						clientId: "superset-1",
+						occurrenceIds: ["occurrence-1", "occurrence-2"],
+					},
+				],
+				occurrences: [
+					occurrence(
+						"occurrence-1",
+						[
+							set("set-1", {
+								rpe: "8",
+								eventId: "event-1",
+								confirmedAt: timestamp,
+								note: "Keep this set note",
+								restTimerStartedAt: timestamp,
+								restChoice: { seconds: "90", kind: "explicit" },
+							}),
+						],
+						{
+							notes: ["Keep this exercise cue"],
+							videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+							images: [{ type: "s3", key: "occurrence/image.jpg" }],
+						},
+					),
+					occurrence("occurrence-2", [set("set-2")]),
+				],
+			});
+			let id = 0;
+			const repeated = cloneWorkoutEditorSource(source, {
+				kind: "repeat",
+				draftId: "draft-repeat",
+				name: "Upper body repeat",
+				idFor: () => `fresh-${(id += 1)}`,
+				startedAt: "2026-10-16T10:00:00.000Z",
+				sourceWorkoutId: yield* Schema.decodeEffect(EntityId)("workout-1"),
+			});
+			const repeatedSet = repeated.occurrences[0]?.sets[0];
+
+			expect(repeated).toMatchObject({
+				videos: [],
+				images: [],
+				activeDuration: 0,
+				comment: undefined,
+				caloriesBurnt: undefined,
+				startedAt: "2026-10-16T10:00:00.000Z",
+				activeDurationStartedAt: "2026-10-16T10:00:00.000Z",
+				mode: { kind: "live", source: { kind: "repeat", entityId: "workout-1" } },
+			});
+			expect(repeated.occurrences[0]?.notes).toEqual(["Keep this exercise cue"]);
+			expect(repeated.occurrences[0]).toMatchObject({ images: [], videos: [] });
+			expect(repeatedSet).toMatchObject({
+				reps: "5",
+				rpe: undefined,
+				included: false,
+				eventId: undefined,
+				confirmedAt: undefined,
+				note: "Keep this set note",
+				restTimerStartedAt: undefined,
+				restChoice: { seconds: "90", kind: "explicit" },
+			});
+			expect(repeatedSet?.clientId).not.toBe("set-1");
+			expect(repeated.supersets[0]?.occurrenceIds).toEqual<unknown>([
+				repeated.occurrences[0]?.clientId,
+				repeated.occurrences[1]?.clientId,
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"keeps repeated exercise occurrences distinct when selecting sets",
+	() =>
+		Effect.gen(function* () {
+			const workout = yield* makeDraft({
+				occurrences: [
+					occurrence("first", [set("first-set")], { exerciseId: "shared-exercise" }),
+					occurrence("second", [set("second-set")], { exerciseId: "shared-exercise" }),
+				],
+			});
+			expect(
+				includedWorkoutOccurrences(workout).map(({ occurrence: item }) => item.clientId),
+			).toEqual(["first", "second"]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"retains meaningful template sets and exercise-only entries but omits empty rows",
+	() =>
+		Effect.gen(function* () {
+			const plan = yield* makeDraft({
+				mode: { kind: "template-create" },
+				occurrences: [
+					occurrence("exercise-only", [
+						set("empty", { included: false, reps: undefined, weight: undefined }),
+					]),
+					occurrence("planned-zero", [
+						set("zero", { reps: "0", included: false, weight: undefined }),
+					]),
+					occurrence("planned-rest", [
+						set("rest", {
+							included: false,
+							reps: undefined,
+							weight: undefined,
 							restChoice: { seconds: "0", kind: "explicit" },
 						}),
-					],
-					{
-						images: [{ type: "s3", key: "occurrence/image.jpg" }],
-						videos: [{ type: "s3", key: "occurrence/video.mp4" }],
-						display: { weightUnit: "lb", distanceUnit: "mi", durationUnit: "minutes" },
+					]),
+				],
+			});
+			expect(
+				includedWorkoutOccurrences(plan).map(({ sets, occurrence: item }) => [
+					item.clientId,
+					sets.length,
+				]),
+			).toEqual([
+				["exercise-only", 0],
+				["planned-zero", 1],
+				["planned-rest", 1],
+			]);
+			const save = buildWorkoutEditorSaveInput(
+				plan,
+				{ submittedAt: timestamp, submissionId: "template-submission" },
+				{
+					unitSystem: "metric",
+					exerciseOverridesById: {},
+					restSettings: {
+						dropRestTime: 0,
+						warmUpRestTime: 0,
+						failureRestTime: 0,
+						normalRestTime: 60,
 					},
-				),
-			],
-		});
-		const result = buildWorkoutEditorSaveInput(
-			draft,
-			{ submittedAt: timestamp, submissionId: "submission-1" },
-			{
-				unitSystem: "metric",
-				exerciseOverridesById: {},
-				restSettings: {
-					dropRestTime: 0,
-					warmUpRestTime: 0,
-					failureRestTime: 0,
-					normalRestTime: 60,
 				},
-			},
-		);
+			);
+			expect(save.issues).toEqual([]);
+			if (save.input?.data.kind !== "template") {
+				throw new Error("Expected template save input");
+			}
+			expect(save.input.data.occurrences.map(({ sets }) => sets.length)).toEqual([0, 1, 1]);
+		}),
+	testTimeout,
+);
 
-		expect(result.issues).toEqual([]);
-		expect(result.input?.data).toMatchObject({
-			kind: "workout",
-			startedAt: timestamp,
-			activeDuration: { kind: "preserve" },
-		});
-		if (result.input?.data.kind !== "workout") {
-			throw new Error("Expected workout save input");
-		}
-		expect(result.input.data.occurrences[0]).toMatchObject({
-			images: [{ type: "s3", key: "occurrence/image.jpg" }],
-			videos: [{ type: "s3", key: "occurrence/video.mp4" }],
-		});
-		expect(result.input.data.caloriesBurnt).toBeCloseTo(100);
-		expect(result.input.data.occurrences[0]?.sets[0]).toMatchObject({
-			restTime: 0,
-			eventId: "event-1",
-			note: "Preserved note",
-			measurements: { reps: 5, weight: 100 },
-			occurredAt: "2020-02-03T04:05:06.000Z",
-		});
-	}),
+it.effect(
+	"allows zero values, preserves untimed saved sets, and validates new included sets",
+	() =>
+		Effect.gen(function* () {
+			const draft = yield* makeDraft({
+				mode: { kind: "historical", entityId: "workout-1", conflictToken: "source-token" },
+				occurrences: [
+					occurrence("occurrence-1", [
+						set("saved", {
+							included: true,
+							reps: undefined,
+							weight: undefined,
+							eventId: "event-1",
+						}),
+						set("deleted", { included: false, eventId: "event-2" }),
+						set("new", { reps: "0", weight: "0", included: true }),
+					]),
+				],
+			});
+			const issues = validateWorkoutDraft(draft);
+
+			expect(issues).toEqual([]);
+			expect(includedWorkoutOccurrences(draft)[0]?.sets.map(({ clientId }) => clientId)).toEqual([
+				"saved",
+				"new",
+			]);
+			const unconfirmed = yield* makeDraft({
+				mode: { kind: "live" },
+				occurrences: [occurrence("occurrence-1", [set("set-1", { confirmedAt: undefined })])],
+			});
+			expect(validateWorkoutDraft(unconfirmed).map(({ code }) => code)).toContain(
+				"unconfirmed-set",
+			);
+			const unsafeReps = yield* makeDraft({
+				occurrences: [
+					occurrence("occurrence-1", [set("set-1", { included: true, reps: "9007199254740992" })]),
+				],
+			});
+			expect(validateWorkoutDraft(unsafeReps).map(({ code }) => code)).toContain(
+				"invalid-measurement",
+			);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"builds compact historical input in canonical units and preserves source times",
+	() =>
+		Effect.gen(function* () {
+			const draft = yield* makeDraft({
+				caloriesBurnt: "418.4",
+				occurrences: [
+					occurrence(
+						"occurrence-1",
+						[
+							set("set-1", {
+								eventId: "event-1",
+								distance: undefined,
+								duration: undefined,
+								weight: "220.462262",
+								note: "Preserved note",
+								occurredAt: "2020-02-03T04:05:06.000Z",
+								restChoice: { seconds: "0", kind: "explicit" },
+							}),
+						],
+						{
+							images: [{ type: "s3", key: "occurrence/image.jpg" }],
+							videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+							display: { weightUnit: "lb", distanceUnit: "mi", durationUnit: "minutes" },
+						},
+					),
+				],
+			});
+			const result = buildWorkoutEditorSaveInput(
+				draft,
+				{ submittedAt: timestamp, submissionId: "submission-1" },
+				{
+					unitSystem: "metric",
+					exerciseOverridesById: {},
+					restSettings: {
+						dropRestTime: 0,
+						warmUpRestTime: 0,
+						failureRestTime: 0,
+						normalRestTime: 60,
+					},
+				},
+			);
+
+			expect(result.issues).toEqual([]);
+			expect(result.input?.data).toMatchObject({
+				kind: "workout",
+				startedAt: timestamp,
+				activeDuration: { kind: "preserve" },
+			});
+			if (result.input?.data.kind !== "workout") {
+				throw new Error("Expected workout save input");
+			}
+			expect(result.input.data.occurrences[0]).toMatchObject({
+				images: [{ type: "s3", key: "occurrence/image.jpg" }],
+				videos: [{ type: "s3", key: "occurrence/video.mp4" }],
+			});
+			expect(result.input.data.caloriesBurnt).toBeCloseTo(100);
+			expect(result.input.data.occurrences[0]?.sets[0]).toMatchObject({
+				restTime: 0,
+				eventId: "event-1",
+				note: "Preserved note",
+				measurements: { reps: 5, weight: 100 },
+				occurredAt: "2020-02-03T04:05:06.000Z",
+			});
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -492,36 +537,40 @@ it.effect(
 				distance: 1.609344,
 			});
 		}),
+	testTimeout,
 );
 
-it.effect("adds the unpaused active interval to a new workout save", () =>
-	Effect.gen(function* () {
-		const draft = yield* makeDraft({
-			activeDuration: 1.7,
-			mode: { kind: "live" },
-			activeDurationIntent: "set",
-			activeDurationStartedAt: "2026-10-15T10:00:00.400Z",
-			occurrences: [occurrence("occurrence-1", [set("set-1", { confirmedAt: timestamp })])],
-		});
-		const result = buildWorkoutEditorSaveInput(
-			draft,
-			{ submissionId: "submission-duration", submittedAt: "2026-10-15T10:00:02.000Z" },
-			{
-				unitSystem: "metric",
-				exerciseOverridesById: {},
-				restSettings: {
-					dropRestTime: 0,
-					warmUpRestTime: 0,
-					failureRestTime: 0,
-					normalRestTime: 60,
+it.effect(
+	"adds the unpaused active interval to a new workout save",
+	() =>
+		Effect.gen(function* () {
+			const draft = yield* makeDraft({
+				activeDuration: 1.7,
+				mode: { kind: "live" },
+				activeDurationIntent: "set",
+				activeDurationStartedAt: "2026-10-15T10:00:00.400Z",
+				occurrences: [occurrence("occurrence-1", [set("set-1", { confirmedAt: timestamp })])],
+			});
+			const result = buildWorkoutEditorSaveInput(
+				draft,
+				{ submissionId: "submission-duration", submittedAt: "2026-10-15T10:00:02.000Z" },
+				{
+					unitSystem: "metric",
+					exerciseOverridesById: {},
+					restSettings: {
+						dropRestTime: 0,
+						warmUpRestTime: 0,
+						failureRestTime: 0,
+						normalRestTime: 60,
+					},
 				},
-			},
-		);
+			);
 
-		expect(result.issues).toEqual([]);
-		if (result.input?.data.kind !== "workout") {
-			throw new Error("Expected workout save input");
-		}
-		expect(result.input.data.activeDuration).toEqual({ seconds: 3, kind: "set" });
-	}),
+			expect(result.issues).toEqual([]);
+			if (result.input?.data.kind !== "workout") {
+				throw new Error("Expected workout save input");
+			}
+			expect(result.input.data.activeDuration).toEqual({ seconds: 3, kind: "set" });
+		}),
+	testTimeout,
 );

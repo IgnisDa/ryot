@@ -1,7 +1,8 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { IngestionRunReport } from "./ingestion-run-report";
 

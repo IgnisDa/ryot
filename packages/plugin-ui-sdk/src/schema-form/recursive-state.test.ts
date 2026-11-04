@@ -1,6 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { initialSchemaFormValues, schemaFormIssues, toSchemaFormPayload } from "./state";
 

@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
@@ -13,7 +14,9 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, getByText, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import type { MediaActivity } from "../../shared/activity-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -224,58 +227,61 @@ describe("ActivitySectionView", () => {
 });
 
 describe("ActivitySection reporting window", () => {
-	it.live("uses the account time zone at UTC date boundaries and links to kernel analytics", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T03:30:00.000Z")));
-			const page = mountActivity(clock);
-			try {
-				const preference = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 0),
-				);
-				replyReportingPreferences(page, preference.requestId, "success");
-				const request = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 0),
-				);
-				const document = yield* documentText(request.document);
-				const window = activityWindow("2026-10-31", TIME_ZONE);
-				expect(document).toContain(window.from);
-				expect(document).toContain(window.until);
-				replyActivity(page, request, { finished: 3, activeDay: "2026-10-31" });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("3"),
-					),
-				);
-				expect(screen.getByText("Day streak").nextElementSibling?.textContent).toBe("1");
-				expect(
-					page.container?.querySelector('.ts-chart__rect rect[data-ts-key$=":2026-10-31"]'),
-				).not.toBeNull();
-				expect(
-					page.container?.querySelector('.ts-chart__rect rect[data-ts-key$=":2026-11-01"]'),
-				).toBeNull();
+	it.live(
+		"uses the account time zone at UTC date boundaries and links to kernel analytics",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-01T03:30:00.000Z")));
+				const page = mountActivity(clock);
+				try {
+					const preference = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 0),
+					);
+					replyReportingPreferences(page, preference.requestId, "success");
+					const request = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 0),
+					);
+					const document = yield* documentText(request.document);
+					const window = activityWindow("2026-10-31", TIME_ZONE);
+					expect(document).toContain(window.from);
+					expect(document).toContain(window.until);
+					replyActivity(page, request, { finished: 3, activeDay: "2026-10-31" });
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("3"),
+						),
+					);
+					expect(screen.getByText("Day streak").nextElementSibling?.textContent).toBe("1");
+					expect(
+						page.container?.querySelector('.ts-chart__rect rect[data-ts-key$=":2026-10-31"]'),
+					).not.toBeNull();
+					expect(
+						page.container?.querySelector('.ts-chart__rect rect[data-ts-key$=":2026-11-01"]'),
+					).toBeNull();
 
-				clickRyotElement(screen.getByRole("link", { name: "Analytics" }));
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							page
-								.clientMessages()
-								.some(
-									(message) =>
-										message.type === "navigate" &&
-										message.target.kind === "saved-view" &&
-										message.target.reference.kind === "kernel" &&
-										message.target.reference.slug === "analytics",
-								),
-						).toBe(true),
-					),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+					clickRyotElement(screen.getByRole("link", { name: "Analytics" }));
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								page
+									.clientMessages()
+									.some(
+										(message) =>
+											message.type === "navigate" &&
+											message.target.kind === "saved-view" &&
+											message.target.reference.kind === "kernel" &&
+											message.target.reference.slug === "analytics",
+									),
+							).toBe(true),
+						),
+					);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -334,47 +340,146 @@ describe("ActivitySection reporting window", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
 	for (const sample of [
 		{ hours: 23, start: "2026-03-08T05:00:00.000Z" },
 		{ hours: 25, start: "2026-11-01T04:00:00.000Z" },
 	]) {
-		it.live(`schedules account midnight after ${sample.hours} elapsed hours`, () =>
+		it.live(
+			`schedules account midnight after ${sample.hours} elapsed hours`,
+			() =>
+				Effect.gen(function* () {
+					const clock = createTestRyotClock();
+					yield* Effect.promise(() => clock.setTime(Date.parse(sample.start)));
+					const page = mountActivity(clock);
+					try {
+						const preference = yield* Effect.promise(() =>
+							waitForRequest(() => reportingPreferenceRequests(page), 0),
+						);
+						replyReportingPreferences(page, preference.requestId, "success");
+						const first = yield* Effect.promise(() =>
+							waitForRequest(() => activityRequests(page), 0),
+						);
+						replyActivity(page, first);
+						yield* Effect.promise(() =>
+							waitFor(() =>
+								expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("1"),
+							),
+						);
+
+						yield* Effect.promise(() => clock.advance(`${sample.hours - 1} hours`));
+						expect(activityRequests(page)).toHaveLength(1);
+						yield* Effect.promise(() => clock.advance("1 hour"));
+						const refreshed = yield* Effect.promise(() =>
+							waitForRequest(() => activityRequests(page), 1),
+						);
+						const expectedToday = sample.hours === 23 ? "2026-03-09" : "2026-11-02";
+						const expectedWindow = activityWindow(expectedToday, TIME_ZONE);
+						const document = yield* documentText(refreshed.document);
+						expect(document).toContain(expectedWindow.from);
+						expect(document).toContain(expectedWindow.until);
+						replyActivity(page, refreshed, { finished: 2, activeDay: expectedToday });
+						yield* Effect.promise(() =>
+							waitFor(() =>
+								expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("2"),
+							),
+						);
+					} finally {
+						page.dispose();
+						yield* Effect.promise(() => clock.dispose());
+					}
+				}),
+			testTimeout,
+		);
+	}
+
+	it.live(
+		"retries initial and retained failures without dropping loaded activity",
+		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
-				yield* Effect.promise(() => clock.setTime(Date.parse(sample.start)));
 				const page = mountActivity(clock);
 				try {
-					const preference = yield* Effect.promise(() =>
+					const firstPreference = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 0),
 					);
-					replyReportingPreferences(page, preference.requestId, "success");
-					const first = yield* Effect.promise(() =>
-						waitForRequest(() => activityRequests(page), 0),
-					);
-					replyActivity(page, first);
+					expect(screen.getByRole("status", { name: "Loading Your activity" })).toBeDefined();
+					replyReportingPreferences(page, firstPreference.requestId, "failure");
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("1"),
+							expect(screen.getByRole("alert").textContent).toContain("Unable to load"),
+						),
+					);
+					expect(activityRequests(page)).toHaveLength(0);
+					clickRyotElement(screen.getByRole("button", { name: "Try again" }));
+					const preferenceRetry = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 1),
+					);
+					replyReportingPreferences(page, preferenceRetry.requestId, "success");
+					const firstActivity = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 0),
+					);
+					replyActivity(page, firstActivity, { finished: 10 });
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("10"),
 						),
 					);
 
-					yield* Effect.promise(() => clock.advance(`${sample.hours - 1} hours`));
-					expect(activityRequests(page)).toHaveLength(1);
-					yield* Effect.promise(() => clock.advance("1 hour"));
-					const refreshed = yield* Effect.promise(() =>
-						waitForRequest(() => activityRequests(page), 1),
+					clickRyotElement(screen.getByRole("button", { name: "Refresh reporting preferences" }));
+					const preferenceRefresh = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 2),
 					);
-					const expectedToday = sample.hours === 23 ? "2026-03-09" : "2026-11-02";
-					const expectedWindow = activityWindow(expectedToday, TIME_ZONE);
-					const document = yield* documentText(refreshed.document);
-					expect(document).toContain(expectedWindow.from);
-					expect(document).toContain(expectedWindow.until);
-					replyActivity(page, refreshed, { finished: 2, activeDay: expectedToday });
+					replyReportingPreferences(page, preferenceRefresh.requestId, "failure");
 					yield* Effect.promise(() =>
 						waitFor(() =>
-							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("2"),
+							expect(screen.getByText(/last loaded time zone is being used/)).toBeDefined(),
+						),
+					);
+					expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("10");
+					clickRyotElement(screen.getByRole("button", { name: "Retry preferences" }));
+					const retainedPreferenceRetry = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 3),
+					);
+					replyReportingPreferences(page, retainedPreferenceRetry.requestId, "success");
+
+					clickRyotElement(screen.getByRole("button", { name: "Refresh activity" }));
+					yield* Effect.promise(() => clock.advance(250));
+					const activityRefresh = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 1),
+					);
+					page.replyQuery(activityRefresh.requestId, {
+						outcome: "failure",
+						reason: "query-failed",
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText(/Your activity could not be refreshed/)).toBeDefined(),
+						),
+					);
+					expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("10");
+					const activityAlert = screen
+						.getAllByRole("alert")
+						.find((element) =>
+							element.textContent.includes("Your activity could not be refreshed"),
+						);
+					if (activityAlert === undefined) {
+						throw new Error("Expected the activity refresh failure notice");
+					}
+					const activityNotice = activityAlert.parentElement;
+					if (activityNotice === null) {
+						throw new Error("Expected the activity refresh failure notice container");
+					}
+					clickRyotElement(getByRole(activityNotice, "button", { name: "Try again" }));
+					const activityRetry = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 2),
+					);
+					replyActivity(page, activityRetry, { finished: 11 });
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("11"),
 						),
 					);
 				} finally {
@@ -382,170 +487,91 @@ describe("ActivitySection reporting window", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
-		);
-	}
-
-	it.live("retries initial and retained failures without dropping loaded activity", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountActivity(clock);
-			try {
-				const firstPreference = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 0),
-				);
-				expect(screen.getByRole("status", { name: "Loading Your activity" })).toBeDefined();
-				replyReportingPreferences(page, firstPreference.requestId, "failure");
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Unable to load")),
-				);
-				expect(activityRequests(page)).toHaveLength(0);
-				clickRyotElement(screen.getByRole("button", { name: "Try again" }));
-				const preferenceRetry = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 1),
-				);
-				replyReportingPreferences(page, preferenceRetry.requestId, "success");
-				const firstActivity = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 0),
-				);
-				replyActivity(page, firstActivity, { finished: 10 });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("10"),
-					),
-				);
-
-				clickRyotElement(screen.getByRole("button", { name: "Refresh reporting preferences" }));
-				const preferenceRefresh = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 2),
-				);
-				replyReportingPreferences(page, preferenceRefresh.requestId, "failure");
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText(/last loaded time zone is being used/)).toBeDefined(),
-					),
-				);
-				expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("10");
-				clickRyotElement(screen.getByRole("button", { name: "Retry preferences" }));
-				const retainedPreferenceRetry = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 3),
-				);
-				replyReportingPreferences(page, retainedPreferenceRetry.requestId, "success");
-
-				clickRyotElement(screen.getByRole("button", { name: "Refresh activity" }));
-				yield* Effect.promise(() => clock.advance(250));
-				const activityRefresh = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 1),
-				);
-				page.replyQuery(activityRefresh.requestId, { outcome: "failure", reason: "query-failed" });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText(/Your activity could not be refreshed/)).toBeDefined(),
-					),
-				);
-				expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("10");
-				const activityAlert = screen
-					.getAllByRole("alert")
-					.find((element) => element.textContent.includes("Your activity could not be refreshed"));
-				if (activityAlert === undefined) {
-					throw new Error("Expected the activity refresh failure notice");
-				}
-				const activityNotice = activityAlert.parentElement;
-				if (activityNotice === null) {
-					throw new Error("Expected the activity refresh failure notice container");
-				}
-				clickRyotElement(getByRole(activityNotice, "button", { name: "Try again" }));
-				const activityRetry = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 2),
-				);
-				replyActivity(page, activityRetry, { finished: 11 });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("11"),
-					),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+		testTimeout,
 	);
 
-	it.live("uses a changed reporting zone and ignores a late result for the previous zone", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-01-01T01:00:00.000Z")));
-			const page = mountActivity(clock);
-			try {
-				const preference = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 0),
-				);
-				replyReportingPreferences(page, preference.requestId, "success", TimeZone.make("UTC"));
-				const oldZoneRequest = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 0),
-				);
+	it.live(
+		"uses a changed reporting zone and ignores a late result for the previous zone",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-01-01T01:00:00.000Z")));
+				const page = mountActivity(clock);
+				try {
+					const preference = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 0),
+					);
+					replyReportingPreferences(page, preference.requestId, "success", TimeZone.make("UTC"));
+					const oldZoneRequest = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 0),
+					);
 
-				clickRyotElement(screen.getByRole("button", { name: "Refresh reporting preferences" }));
-				const changedPreference = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 1),
-				);
-				replyReportingPreferences(page, changedPreference.requestId, "success", TIME_ZONE);
-				const newZoneRequest = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 1),
-				);
-				const expected = activityWindow("2025-12-31", TIME_ZONE);
-				const newDocument = yield* documentText(newZoneRequest.document);
-				expect(newDocument).toContain(expected.from);
-				expect(newDocument).toContain(expected.until);
-				replyActivity(page, newZoneRequest, { finished: 2, activeDay: "2025-12-31" });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("2"),
-					),
-				);
+					clickRyotElement(screen.getByRole("button", { name: "Refresh reporting preferences" }));
+					const changedPreference = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 1),
+					);
+					replyReportingPreferences(page, changedPreference.requestId, "success", TIME_ZONE);
+					const newZoneRequest = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 1),
+					);
+					const expected = activityWindow("2025-12-31", TIME_ZONE);
+					const newDocument = yield* documentText(newZoneRequest.document);
+					expect(newDocument).toContain(expected.from);
+					expect(newDocument).toContain(expected.until);
+					replyActivity(page, newZoneRequest, { finished: 2, activeDay: "2025-12-31" });
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("2"),
+						),
+					);
 
-				replyActivity(page, oldZoneRequest, { finished: 99, activeDay: "2026-01-01" });
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Finished")).toBeDefined()),
-				);
-				expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("2");
-				expect(page.container?.textContent).not.toContain("99");
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
-
-	it.live("cancels the account-midnight refetch when the section unmounts", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-03-08T05:00:00.000Z")));
-			const page = mountActivity(clock);
-			let disposed = false;
-			try {
-				const preference = yield* Effect.promise(() =>
-					waitForRequest(() => reportingPreferenceRequests(page), 0),
-				);
-				replyReportingPreferences(page, preference.requestId, "success");
-				const request = yield* Effect.promise(() =>
-					waitForRequest(() => activityRequests(page), 0),
-				);
-				replyActivity(page, request);
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("1"),
-					),
-				);
-				page.dispose();
-				disposed = true;
-				yield* Effect.promise(() => clock.advance("1 day"));
-				expect(activityRequests(page)).toHaveLength(1);
-			} finally {
-				if (!disposed) {
+					replyActivity(page, oldZoneRequest, { finished: 99, activeDay: "2026-01-01" });
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("Finished")).toBeDefined()),
+					);
+					expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("2");
+					expect(page.container?.textContent).not.toContain("99");
+				} finally {
 					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
 				}
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"cancels the account-midnight refetch when the section unmounts",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-03-08T05:00:00.000Z")));
+				const page = mountActivity(clock);
+				let disposed = false;
+				try {
+					const preference = yield* Effect.promise(() =>
+						waitForRequest(() => reportingPreferenceRequests(page), 0),
+					);
+					replyReportingPreferences(page, preference.requestId, "success");
+					const request = yield* Effect.promise(() =>
+						waitForRequest(() => activityRequests(page), 0),
+					);
+					replyActivity(page, request);
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText("Finished").nextElementSibling?.textContent).toBe("1"),
+						),
+					);
+					page.dispose();
+					disposed = true;
+					yield* Effect.promise(() => clock.advance("1 day"));
+					expect(activityRequests(page)).toHaveLength(1);
+				} finally {
+					if (!disposed) {
+						page.dispose();
+					}
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 });

@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { parseRegistryImportSourceInput } from "@ryot-app/kernel-backend/modules/imports/runtime/source-metadata";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { mediaPlugin } from "./plugin";
@@ -43,18 +46,21 @@ const validInputs = {
 	},
 };
 
-it.effect("admits each manifest source and rejects its unknown fields", () =>
-	Effect.gen(function* () {
-		expect(mediaPlugin.importSources.map(({ slug }) => slug).sort()).toEqual(
-			Object.keys(validInputs).sort(),
-		);
-		for (const [slug, properties] of Object.entries(validInputs)) {
-			expect(yield* admit(slug, properties)).toEqual(properties);
-			const error = yield* Effect.flip(admit(slug, { ...properties, undeclared: true }));
-			expect(error).toContain("Import source input is invalid:");
-			expect(error).toContain("undeclared");
-		}
-	}),
+it.effect(
+	"admits each manifest source and rejects its unknown fields",
+	() =>
+		Effect.gen(function* () {
+			expect(mediaPlugin.importSources.map(({ slug }) => slug).sort()).toEqual<unknown>(
+				Object.keys(validInputs).sort(),
+			);
+			for (const [slug, properties] of Object.entries(validInputs)) {
+				expect(yield* admit(slug, properties)).toEqual(properties);
+				const error = yield* Effect.flip(admit(slug, { ...properties, undeclared: true }));
+				expect(error).toContain("Import source input is invalid:");
+				expect(error).toContain("undeclared");
+			}
+		}),
+	testTimeout,
 );
 
 it.effect.each([
@@ -69,12 +75,15 @@ it.effect.each([
 	["igdb", "collection", { uploadToken }],
 	["jellyfin", "username", { username: "", apiUrl: "https://jellyfin.example" }],
 	["jellyfin", "password", { password: "", username: "alice", apiUrl: "https://jellyfin.example" }],
-] as const)("rejects invalid source input %j %#", ([slug, field, properties]) =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(admit(slug, properties));
-		expect(error).toContain("Import source input is invalid:");
-		expect(error).toContain(field);
-	}),
+] as const)(
+	"rejects invalid source input %j %#",
+	([slug, field, properties]) =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(admit(slug, properties));
+			expect(error).toContain("Import source input is invalid:");
+			expect(error).toContain(field);
+		}),
+	testTimeout,
 );
 
 it.effect.each([
@@ -89,20 +98,26 @@ it.effect.each([
 			apiUrl: "https://jellyfin.example",
 		},
 	],
-] as const)("admits null optional fields %j", ([slug, properties]) =>
-	Effect.gen(function* () {
-		expect(yield* admit(slug, properties)).toEqual(properties);
-	}),
+] as const)(
+	"admits null optional fields %j",
+	([slug, properties]) =>
+		Effect.gen(function* () {
+			expect(yield* admit(slug, properties)).toEqual(properties);
+		}),
+	testTimeout,
 );
 
 it.effect.each<Record<string, JsonValue>>([
 	{ mode: "export", exportUploadToken: uploadToken },
 	{ mode: "user", username: "alice" },
 	{ mode: "list", collection: "Favorites", url: "https://trakt.tv/users/alice/lists/favorites" },
-] as const)("admits Trakt $mode input", (properties) =>
-	Effect.gen(function* () {
-		expect(yield* admit("trakt", properties)).toEqual(properties);
-	}),
+] as const)(
+	"admits Trakt $mode input",
+	(properties) =>
+		Effect.gen(function* () {
+			expect(yield* admit("trakt", properties)).toEqual(properties);
+		}),
+	testTimeout,
 );
 
 it.effect.each([
@@ -136,12 +151,15 @@ it.effect.each([
 		},
 	],
 	["url", { mode: "list", url: "not-a-url", collection: "Favorites" }],
-] as const)("rejects invalid Trakt input %j %#", ([field, properties]) =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(admit("trakt", properties));
-		expect(error).toContain("Import source input is invalid:");
-		expect(error).toContain(field);
-	}),
+] as const)(
+	"rejects invalid Trakt input %j %#",
+	([field, properties]) =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(admit("trakt", properties));
+			expect(error).toContain("Import source input is invalid:");
+			expect(error).toContain(field);
+		}),
+	testTimeout,
 );
 
 it.effect.each<Record<string, JsonValue>>([
@@ -150,10 +168,13 @@ it.effect.each<Record<string, JsonValue>>([
 	{ animeUploadToken: uploadToken, mangaUploadToken: uploadToken },
 	{ mangaUploadToken: null, animeUploadToken: uploadToken },
 	{ animeUploadToken: null, mangaUploadToken: uploadToken },
-] as const)("admits MyAnimeList export alternatives %#", (properties) =>
-	Effect.gen(function* () {
-		expect(yield* admit("myanimelist", properties)).toEqual(properties);
-	}),
+] as const)(
+	"admits MyAnimeList export alternatives %#",
+	(properties) =>
+		Effect.gen(function* () {
+			expect(yield* admit("myanimelist", properties)).toEqual(properties);
+		}),
+	testTimeout,
 );
 
 it.effect.each<Record<string, JsonValue>>([
@@ -161,12 +182,15 @@ it.effect.each<Record<string, JsonValue>>([
 	{ animeUploadToken: null, mangaUploadToken: null },
 	{ animeUploadToken: "" },
 	{ mangaUploadToken: "" },
-] as const)("rejects MyAnimeList input without a usable export %#", (properties) =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(admit("myanimelist", properties));
-		expect(error).toContain("Import source input is invalid:");
-		expect(error).toContain("UploadToken");
-	}),
+] as const)(
+	"rejects MyAnimeList input without a usable export %#",
+	(properties) =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(admit("myanimelist", properties));
+			expect(error).toContain("Import source input is invalid:");
+			expect(error).toContain("UploadToken");
+		}),
+	testTimeout,
 );
 
 it.effect.each<Record<string, JsonValue>>([
@@ -174,10 +198,13 @@ it.effect.each<Record<string, JsonValue>>([
 	{ timezone: null },
 	{ timezone: "" },
 	{ timezone: "not-a-timezone" },
-])("rejects missing or invalid AniList timezone %#", (properties) =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(admit("anilist", { uploadToken, ...properties }));
-		expect(error).toContain("Import source input is invalid:");
-		expect(error).toContain("timezone");
-	}),
+])(
+	"rejects missing or invalid AniList timezone %#",
+	(properties) =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(admit("anilist", { uploadToken, ...properties }));
+			expect(error).toContain("Import source input is invalid:");
+			expect(error).toContain("timezone");
+		}),
+	testTimeout,
 );

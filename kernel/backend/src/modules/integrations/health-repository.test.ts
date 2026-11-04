@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { DateTime, Effect, Layer } from "effect";
 
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
@@ -99,6 +102,7 @@ layer(services)((test) => {
 					}),
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -119,5 +123,6 @@ layer(services)((test) => {
 				});
 				expect((yield* repository.getForUser(owner))?.lastFinishedAt).toBe(newer.toISOString());
 			}),
+		testTimeout,
 	);
 });

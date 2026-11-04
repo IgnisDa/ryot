@@ -1,5 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { notificationChannelsRecipe } from "./notification-channels";
 import { rowsResponse } from "./test-utils";
@@ -27,7 +29,7 @@ describe("notification channel recipes", () => {
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),
 		).toEqual(["id", "createdAt", "updatedAt", "isDisabled", "description", "channel"]);
-		expect(Result.getOrThrow(recipe.decode(responseWithItems([channel])))).toEqual({
+		expect(Result.getOrThrow(recipe.decode(responseWithItems([channel])))).toEqual<unknown>({
 			pageInfo,
 			items: [
 				{

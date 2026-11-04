@@ -396,7 +396,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* installedPlugins.waitFor({ state: "visible" });
 		expect(
 			(yield* installedPlugins.innerText()).replace("Installed client plugins: ", "").split(", "),
-		).toEqual(arrayContaining(["ryot/fitness", "ryot/media", installed.packageId]));
+		).toEqual<unknown>(arrayContaining(["ryot/fitness", "ryot/media", installed.packageId]));
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();

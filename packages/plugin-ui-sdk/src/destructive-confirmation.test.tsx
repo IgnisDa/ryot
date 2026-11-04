@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useRef, useState } from "react";
 
@@ -141,22 +144,25 @@ describe("DestructiveConfirmation", () => {
 		expect(events).toEqual(["close", "close"]);
 	});
 
-	it.live("restores trigger focus and clears the phrase after close and reopen", () =>
-		Effect.gen(function* () {
-			const events: Event[] = [];
-			const { adapter } = createBackAdapter();
-			render(<ConfirmationPage events={events} adapter={adapter} confirmationPhrase="DELETE" />);
-			const trigger = screen.getByRole("button", { name: "Open confirmation" });
-			fireEvent.click(trigger);
-			const field = screen.getByRole<HTMLInputElement>("textbox");
-			fireEvent.change(field, { target: { value: "DELETE" } });
-			fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-			yield* Effect.promise(() => act(() => Promise.resolve()));
+	it.live(
+		"restores trigger focus and clears the phrase after close and reopen",
+		() =>
+			Effect.gen(function* () {
+				const events: Event[] = [];
+				const { adapter } = createBackAdapter();
+				render(<ConfirmationPage events={events} adapter={adapter} confirmationPhrase="DELETE" />);
+				const trigger = screen.getByRole("button", { name: "Open confirmation" });
+				fireEvent.click(trigger);
+				const field = screen.getByRole<HTMLInputElement>("textbox");
+				fireEvent.change(field, { target: { value: "DELETE" } });
+				fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+				yield* Effect.promise(() => act(() => Promise.resolve()));
 
-			expect(document.activeElement).toBe(trigger);
-			fireEvent.click(trigger);
-			expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
-		}),
+				expect(document.activeElement).toBe(trigger);
+				fireEvent.click(trigger);
+				expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("");
+			}),
+		testTimeout,
 	);
 
 	it("needs no phrase and initially focuses Cancel when none is provided", () => {

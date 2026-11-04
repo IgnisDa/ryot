@@ -1,4 +1,7 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { userBootstrapFrequentTask } from "./frequent-task";
@@ -22,21 +25,27 @@ const recordingSchedulingLayer = Layer.unwrap(
 );
 
 layer(recordingSchedulingLayer)((test) => {
-	test.effect("reconciles incomplete users on a frequent tick", () =>
-		Effect.gen(function* () {
-			yield* userBootstrapFrequentTask.run({ executionId: "tick-1" });
-			expect(yield* (yield* RecordedReconcileLimit).limit).toBe(100);
-		}),
+	test.effect(
+		"reconciles incomplete users on a frequent tick",
+		() =>
+			Effect.gen(function* () {
+				yield* userBootstrapFrequentTask.run({ executionId: "tick-1" });
+				expect(yield* (yield* RecordedReconcileLimit).limit).toBe(100);
+			}),
+		testTimeout,
 	);
 });
 
 layer(Layer.mock(UserBootstrapScheduling)({ reconcile: () => Effect.die("database down") }))(
 	(test) => {
-		test.effect("keeps the frequent tick alive when reconciliation fails", () =>
-			userBootstrapFrequentTask.run({ executionId: "tick-1" }).pipe(
-				Effect.exit,
-				Effect.map((exit) => expect(exit._tag).toBe("Success")),
-			),
+		test.effect(
+			"keeps the frequent tick alive when reconciliation fails",
+			() =>
+				userBootstrapFrequentTask.run({ executionId: "tick-1" }).pipe(
+					Effect.exit,
+					Effect.map((exit) => expect(exit._tag).toBe("Success")),
+				),
+			testTimeout,
 		);
 	},
 );

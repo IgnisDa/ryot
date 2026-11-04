@@ -1,4 +1,5 @@
-import { layer } from "@effect/vitest";
+import { describe, expect, it } from "bun:test";
+
 import {
 	CalendarSourceSlug,
 	NotificationSubscriptionId,
@@ -10,10 +11,12 @@ import {
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
@@ -141,81 +144,90 @@ const builtinView = (
 });
 
 layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-	test.effect("compares account defaults with its persisted installation-scoped definitions", () =>
-		Effect.gen(function* () {
-			const userId = UserId.make("recipient");
-			const definitions = yield* DefinitionRepository;
-			const savedViews = yield* SavedViewsRepository;
-			const installations = yield* PluginInstallationRepository;
-			yield* seedKernelDefinitions();
-			const packageValue = revisionPackage("late-system");
-			const installed = yield* installRevisionPackage({
-				...packageValue,
-				manifest: { ...packageValue.manifest, client: viewClient, savedViews: [authoredView()] },
-			});
-			const global = yield* definitions.getGlobalSnapshot;
-			const account = yield* definitions.getUserSnapshot(userId, { listed: true });
-			const actual = yield* savedViews.listForBackup(userId);
-			expect(
-				Object.values(global.savedViews)
-					.map(({ slug }) => slug)
-					.sort(),
-			).toEqual(["analytics", "calendar", "catalog", "collections"]);
-			expect(actual.map(({ reference }) => reference)).toEqual([
-				{ kind: "kernel", slug: "collections" },
-				{ kind: "kernel", slug: "calendar" },
-				{ kind: "kernel", slug: "analytics" },
-			]);
-			expect(yield* installations.listHydratedForUser(userId)).toEqual([]);
-			expect(
-				classifyAccountCleanliness(
-					cleanState({ savedViews: actual, expectedSavedViews: Object.values(global.savedViews) }),
-				),
-			).toBe("saved-views");
-			expect(
-				classifyAccountCleanliness(
-					cleanState({ savedViews: actual, expectedSavedViews: Object.values(account.savedViews) }),
-				),
-			).toBeNull();
-			yield* installations.provisionSystemInstallationsForUser(userId);
-			const provisioned = yield* savedViews.listForBackup(userId);
-			expect(provisioned).toContainEqual(
-				objectContaining({
-					reference: { kind: "plugin", slug: "catalog", pluginId: installed.pluginId },
-					renderer: { kind: "plugin", exportName: "catalog", pluginId: installed.pluginId },
-				}),
-			);
-			expect(
-				classifyAccountCleanliness(
-					cleanState({
-						savedViews: provisioned,
-						pluginState: yield* installations.listHydratedForUser(userId),
-						expectedSavedViews: Object.values(
-							(yield* definitions.getUserSnapshot(userId, { listed: true })).savedViews,
-						),
+	test.effect(
+		"compares account defaults with its persisted installation-scoped definitions",
+		() =>
+			Effect.gen(function* () {
+				const userId = UserId.make("recipient");
+				const definitions = yield* DefinitionRepository;
+				const savedViews = yield* SavedViewsRepository;
+				const installations = yield* PluginInstallationRepository;
+				yield* seedKernelDefinitions();
+				const packageValue = revisionPackage("late-system");
+				const installed = yield* installRevisionPackage({
+					...packageValue,
+					manifest: { ...packageValue.manifest, client: viewClient, savedViews: [authoredView()] },
+				});
+				const global = yield* definitions.getGlobalSnapshot;
+				const account = yield* definitions.getUserSnapshot(userId, { listed: true });
+				const actual = yield* savedViews.listForBackup(userId);
+				expect(
+					Object.values(global.savedViews)
+						.map(({ slug }) => slug)
+						.sort(),
+				).toEqual(["analytics", "calendar", "catalog", "collections"]);
+				expect(actual.map(({ reference }) => reference)).toEqual([
+					{ kind: "kernel", slug: "collections" },
+					{ kind: "kernel", slug: "calendar" },
+					{ kind: "kernel", slug: "analytics" },
+				]);
+				expect(yield* installations.listHydratedForUser(userId)).toEqual([]);
+				expect(
+					classifyAccountCleanliness(
+						cleanState({
+							savedViews: actual,
+							expectedSavedViews: Object.values(global.savedViews),
+						}),
+					),
+				).toBe("saved-views");
+				expect(
+					classifyAccountCleanliness(
+						cleanState({
+							savedViews: actual,
+							expectedSavedViews: Object.values(account.savedViews),
+						}),
+					),
+				).toBeNull();
+				yield* installations.provisionSystemInstallationsForUser(userId);
+				const provisioned = yield* savedViews.listForBackup(userId);
+				expect(provisioned).toContainEqual<unknown>(
+					objectContaining({
+						reference: { kind: "plugin", slug: "catalog", pluginId: installed.pluginId },
+						renderer: { kind: "plugin", exportName: "catalog", pluginId: installed.pluginId },
 					}),
-				),
-			).toBeNull();
-			const kernelView = kernelDefinitionSource().savedViews[0];
-			assert(kernelView);
-			yield* savedViews.create(userId, {
-				...kernelView,
-				userId,
-				slug: "sentinel",
-				name: "Destination must survive preflight",
-			});
-			expect(
-				classifyAccountCleanliness(
-					cleanState({
-						savedViews: yield* savedViews.listForBackup(userId),
-						pluginState: yield* installations.listHydratedForUser(userId),
-						expectedSavedViews: Object.values(
-							(yield* definitions.getUserSnapshot(userId, { listed: true })).savedViews,
-						),
-					}),
-				),
-			).toBe("saved-views");
-		}),
+				);
+				expect(
+					classifyAccountCleanliness(
+						cleanState({
+							savedViews: provisioned,
+							pluginState: yield* installations.listHydratedForUser(userId),
+							expectedSavedViews: Object.values(
+								(yield* definitions.getUserSnapshot(userId, { listed: true })).savedViews,
+							),
+						}),
+					),
+				).toBeNull();
+				const kernelView = kernelDefinitionSource().savedViews[0];
+				assert(kernelView);
+				yield* savedViews.create(userId, {
+					...kernelView,
+					userId,
+					slug: "sentinel",
+					name: "Destination must survive preflight",
+				});
+				expect(
+					classifyAccountCleanliness(
+						cleanState({
+							savedViews: yield* savedViews.listForBackup(userId),
+							pluginState: yield* installations.listHydratedForUser(userId),
+							expectedSavedViews: Object.values(
+								(yield* definitions.getUserSnapshot(userId, { listed: true })).savedViews,
+							),
+						}),
+					),
+				).toBe("saved-views");
+			}),
+		testTimeout,
 	);
 });
 
@@ -478,94 +490,110 @@ layer(
 		Layer.provide(makeAppConfigLayer()),
 	),
 )((test) => {
-	test.effect("checks bootstrap identity and retained reminder fences without loading rows", () =>
-		Effect.gen(function* () {
-			const database = yield* DatabaseSession;
-			const reads = yield* BackupExportRepository.make;
-			const userId = UserId.make(yield* randomUuid);
-			const reminderId = yield* randomUuid;
-			yield* database.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: userId, name: "Restore target", email: `${userId}@example.com` }),
-			);
-			const packageValue = revisionPackage("bootstrap-identity");
-			const installed = yield* installRevisionPackage({
-				...packageValue,
-				manifest: { ...packageValue.manifest, hooks: [], signalSchemas: [] },
-			});
-			yield* database.run((db) =>
-				db.insert(tables.entity).values([
-					{ userId, name: "Kernel", entitySchemaSlug: "record" },
+	test.effect(
+		"checks bootstrap identity and retained reminder fences without loading rows",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const reads = yield* BackupExportRepository.make;
+				const userId = UserId.make(yield* randomUuid);
+				const reminderId = yield* randomUuid;
+				yield* database.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: userId, name: "Restore target", email: `${userId}@example.com` }),
+				);
+				const packageValue = revisionPackage("bootstrap-identity");
+				const installed = yield* installRevisionPackage({
+					...packageValue,
+					manifest: { ...packageValue.manifest, hooks: [], signalSchemas: [] },
+				});
+				yield* database.run((db) =>
+					db.insert(tables.entity).values([
+						{ userId, name: "Kernel", entitySchemaSlug: "record" },
+						{
+							userId,
+							name: "Plugin",
+							entitySchemaSlug: "record",
+							entitySchemaPluginId: installed.pluginId,
+						},
+					]),
+				);
+				expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(false);
+				yield* database.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({ userId, name: "Duplicate", entitySchemaSlug: "record" }),
+				);
+				expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
+				yield* database.run((db) =>
+					db
+						.insert(tables.reminder)
+						.values({
+							userId,
+							id: reminderId,
+							state: "cancelled",
+							removedAt: new Date(0),
+							accountGeneration: "generation",
+						}),
+				);
+				expect((yield* reads.inspectRestoreTarget(userId))?.hasReminders).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects externally identified entities through the aggregate inspection",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const reads = yield* BackupExportRepository.make;
+				const userId = UserId.make(yield* randomUuid);
+				yield* database.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: userId, name: "External target", email: `${userId}@example.com` }),
+				);
+				yield* database.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							userId,
+							name: "External",
+							externalId: "external",
+							entitySchemaSlug: "record",
+						}),
+				);
+				expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects restores onto an account with a calendar source override",
+		() =>
+			Effect.gen(function* () {
+				const cleanliness = yield* BackupAccountCleanliness;
+				const calendar = yield* CalendarSourcesService;
+				const packageValue = calendarSourcePackage("calendar");
+				const installed = yield* installRevisionPackage({
+					...packageValue,
+					manifest: { ...packageValue.manifest, hooks: [], signalSchemas: [] },
+				});
+				yield* cleanliness.assertAccountIsClean(UserId.make("owner"));
+				yield* calendar.setVisibility(
+					{ id: UserId.make("owner") },
 					{
-						userId,
-						name: "Plugin",
-						entitySchemaSlug: "record",
-						entitySchemaPluginId: installed.pluginId,
+						isHidden: true,
+						slug: CalendarSourceSlug.make("dates"),
+						pluginId: PluginId.make(installed.pluginId),
 					},
-				]),
-			);
-			expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(false);
-			yield* database.run((db) =>
-				db.insert(tables.entity).values({ userId, name: "Duplicate", entitySchemaSlug: "record" }),
-			);
-			expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
-			yield* database.run((db) =>
-				db
-					.insert(tables.reminder)
-					.values({
-						userId,
-						id: reminderId,
-						state: "cancelled",
-						removedAt: new Date(0),
-						accountGeneration: "generation",
-					}),
-			);
-			expect((yield* reads.inspectRestoreTarget(userId))?.hasReminders).toBe(true);
-		}),
-	);
-
-	test.effect("rejects externally identified entities through the aggregate inspection", () =>
-		Effect.gen(function* () {
-			const database = yield* DatabaseSession;
-			const reads = yield* BackupExportRepository.make;
-			const userId = UserId.make(yield* randomUuid);
-			yield* database.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: userId, name: "External target", email: `${userId}@example.com` }),
-			);
-			yield* database.run((db) =>
-				db
-					.insert(tables.entity)
-					.values({ userId, name: "External", externalId: "external", entitySchemaSlug: "record" }),
-			);
-			expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
-		}),
-	);
-
-	test.effect("rejects restores onto an account with a calendar source override", () =>
-		Effect.gen(function* () {
-			const cleanliness = yield* BackupAccountCleanliness;
-			const calendar = yield* CalendarSourcesService;
-			const packageValue = calendarSourcePackage("calendar");
-			const installed = yield* installRevisionPackage({
-				...packageValue,
-				manifest: { ...packageValue.manifest, hooks: [], signalSchemas: [] },
-			});
-			yield* cleanliness.assertAccountIsClean(UserId.make("owner"));
-			yield* calendar.setVisibility(
-				{ id: UserId.make("owner") },
-				{
-					isHidden: true,
-					slug: CalendarSourceSlug.make("dates"),
-					pluginId: PluginId.make(installed.pluginId),
-				},
-			);
-			const error = yield* Effect.flip(cleanliness.assertAccountIsClean(UserId.make("owner")));
-			expect(error).toMatchObject({
-				reason: { code: "account-not-clean", category: "calendar-source-overrides" },
-			});
-		}),
+				);
+				const error = yield* Effect.flip(cleanliness.assertAccountIsClean(UserId.make("owner")));
+				expect(error).toMatchObject({
+					reason: { code: "account-not-clean", category: "calendar-source-overrides" },
+				});
+			}),
+		testTimeout,
 	);
 });

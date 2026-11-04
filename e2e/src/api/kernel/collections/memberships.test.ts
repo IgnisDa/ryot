@@ -351,7 +351,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({
+			expect(error.reason).toEqual<unknown>({
 				code: "collection-not-found",
 				collectionId: "nonexistent-collection-id",
 			});
@@ -379,7 +379,10 @@ describe("POST /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({ code: "entity-not-found", entityId: "nonexistent-entity-id" });
+			expect(error.reason).toEqual<unknown>({
+				code: "entity-not-found",
+				entityId: "nonexistent-entity-id",
+			});
 		}),
 	);
 
@@ -495,7 +498,7 @@ describe("DELETE /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({
+			expect(error.reason).toEqual<unknown>({
 				code: "collection-not-found",
 				collectionId: "nonexistent-collection-id",
 			});

@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { imagesField, managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { useEffect } from "react";
 
@@ -264,78 +267,86 @@ function SchemaFormHarness(props: {
 }
 
 describe("SchemaForm", () => {
-	it.live("keeps schema keys literal rather than interpreting dots or brackets as form paths", () =>
-		Effect.gen(function* () {
-			const literalKeys: AppSchema = {
-				fields: {
-					"title.name": { label: "Title", type: "string", description: "Title" },
-					"ids[0]": { type: "string", label: "Identifier", description: "Identifier" },
-				},
-			};
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness schema={literalKeys} onSubmit={(values) => submitted.push(values)} />,
-			);
-			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Literal" } });
-			fireEvent.change(screen.getByLabelText("Identifier"), { target: { value: "a" } });
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ "ids[0]": "a", "title.name": "Literal" }])),
-			);
-		}),
+	it.live(
+		"keeps schema keys literal rather than interpreting dots or brackets as form paths",
+		() =>
+			Effect.gen(function* () {
+				const literalKeys: AppSchema = {
+					fields: {
+						"title.name": { label: "Title", type: "string", description: "Title" },
+						"ids[0]": { type: "string", label: "Identifier", description: "Identifier" },
+					},
+				};
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness schema={literalKeys} onSubmit={(values) => submitted.push(values)} />,
+				);
+				fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Literal" } });
+				fireEvent.change(screen.getByLabelText("Identifier"), { target: { value: "a" } });
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ "ids[0]": "a", "title.name": "Literal" }])),
+				);
+			}),
+		testTimeout,
 	);
-	it.live("edits and reorders recursive object lists without replacing the surviving inputs", () =>
-		Effect.gen(function* () {
-			const nested: AppSchema = {
-				fields: {
-					groups: {
-						type: "array",
-						label: "Groups",
-						description: "Groups",
-						items: {
-							type: "object",
-							label: "Group",
-							description: "Group",
-							properties: {
-								name: {
-									label: "Name",
-									type: "string",
-									description: "Name",
-									validation: { required: true },
-								},
-								dates: {
-									type: "array",
-									label: "Dates",
-									description: "Dates",
-									items: { type: "date", label: "Date", description: "Date" },
+	it.live(
+		"edits and reorders recursive object lists without replacing the surviving inputs",
+		() =>
+			Effect.gen(function* () {
+				const nested: AppSchema = {
+					fields: {
+						groups: {
+							type: "array",
+							label: "Groups",
+							description: "Groups",
+							items: {
+								type: "object",
+								label: "Group",
+								description: "Group",
+								properties: {
+									name: {
+										label: "Name",
+										type: "string",
+										description: "Name",
+										validation: { required: true },
+									},
+									dates: {
+										type: "array",
+										label: "Dates",
+										description: "Dates",
+										items: { type: "date", label: "Date", description: "Date" },
+									},
 								},
 							},
 						},
 					},
-				},
-			};
-			const submitted: SchemaFormValues[] = [];
-			render(<SchemaFormHarness schema={nested} onSubmit={(values) => submitted.push(values)} />);
-			fireEvent.click(screen.getByRole("button", { name: "Add Groups item" }));
-			const first = screen.getByLabelText("Name");
-			fireEvent.change(first, { target: { value: "First" } });
-			fireEvent.click(screen.getByRole("button", { name: "Add Dates item" }));
-			fireEvent.change(screen.getByLabelText("Dates item 1"), { target: { value: "2026-10-19" } });
-			fireEvent.click(screen.getByRole("button", { name: "Add Groups item" }));
-			const second = screen.getAllByLabelText("Name")[1];
-			if (second === undefined) {
-				throw new Error("Second group is missing");
-			}
-			fireEvent.change(second, { target: { value: "Second" } });
-			fireEvent.click(screen.getByRole("button", { name: "Move Groups item 2 up" }));
-			expect(screen.getAllByLabelText("Name")).toEqual([second, first]);
-			fireEvent.click(screen.getByRole("button", { name: "Remove Groups item 2" }));
-			expect(screen.getByLabelText("Name")).toBe(second);
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ groups: [{ name: "Second" }] }])),
-			);
-		}),
+				};
+				const submitted: SchemaFormValues[] = [];
+				render(<SchemaFormHarness schema={nested} onSubmit={(values) => submitted.push(values)} />);
+				fireEvent.click(screen.getByRole("button", { name: "Add Groups item" }));
+				const first = screen.getByLabelText("Name");
+				fireEvent.change(first, { target: { value: "First" } });
+				fireEvent.click(screen.getByRole("button", { name: "Add Dates item" }));
+				fireEvent.change(screen.getByLabelText("Dates item 1"), {
+					target: { value: "2026-10-19" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Add Groups item" }));
+				const second = screen.getAllByLabelText("Name")[1];
+				if (second === undefined) {
+					throw new Error("Second group is missing");
+				}
+				fireEvent.change(second, { target: { value: "Second" } });
+				fireEvent.click(screen.getByRole("button", { name: "Move Groups item 2 up" }));
+				expect(screen.getAllByLabelText("Name")).toEqual([second, first]);
+				fireEvent.click(screen.getByRole("button", { name: "Remove Groups item 2" }));
+				expect(screen.getByLabelText("Name")).toBe(second);
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ groups: [{ name: "Second" }] }])),
+				);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -373,48 +384,59 @@ describe("SchemaForm", () => {
 				);
 				expect(document.activeElement).toBe(screen.getByLabelText("Name"));
 			}),
+		testTimeout,
 	);
 
-	it.live("edits required asset metadata without changing the asset locator", () =>
-		Effect.gen(function* () {
-			const images: AppSchema = {
-				fields: {
-					images: {
-						type: "array",
-						label: "Images",
-						description: "Images",
-						defaultValue: [{ type: "local", key: "images/a.png" }],
-						items: {
-							...managedAssetItemSchema,
-							properties: {
-								...managedAssetItemSchema.properties,
-								purpose: {
-									type: "enum",
-									label: "Purpose",
-									description: "Purpose",
-									validation: { required: true },
-									choices: { kind: "static", values: [{ value: "cover" }, { value: "backdrop" }] },
+	it.live(
+		"edits required asset metadata without changing the asset locator",
+		() =>
+			Effect.gen(function* () {
+				const images: AppSchema = {
+					fields: {
+						images: {
+							type: "array",
+							label: "Images",
+							description: "Images",
+							defaultValue: [{ type: "local", key: "images/a.png" }],
+							items: {
+								...managedAssetItemSchema,
+								properties: {
+									...managedAssetItemSchema.properties,
+									purpose: {
+										type: "enum",
+										label: "Purpose",
+										description: "Purpose",
+										validation: { required: true },
+										choices: {
+											kind: "static",
+											values: [{ value: "cover" }, { value: "backdrop" }],
+										},
+									},
 								},
 							},
 						},
 					},
-				},
-			};
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness assets schema={images} onSubmit={(values) => submitted.push(values)} />,
-			);
-			const purpose = screen.getByRole("radiogroup", { name: "Purpose" });
-			fireEvent.click(within(purpose).getByRole("radio", { name: "cover" }));
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(submitted).toEqual([
-						{ images: [{ type: "local", purpose: "cover", key: "images/a.png" }] },
-					]),
-				),
-			);
-		}),
+				};
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						assets
+						schema={images}
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
+				const purpose = screen.getByRole("radiogroup", { name: "Purpose" });
+				fireEvent.click(within(purpose).getByRole("radio", { name: "cover" }));
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(submitted).toEqual([
+							{ images: [{ type: "local", purpose: "cover", key: "images/a.png" }] },
+						]),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("renders a boolean as a switch, a string as text and a small enum as segmented", () => {
@@ -475,62 +497,75 @@ describe("SchemaForm", () => {
 		}
 	});
 
-	it.live("marks required fields and shows validation errors only after a submit attempt", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
+	it.live(
+		"marks required fields and shows validation errors only after a submit attempt",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
 
-			const label = screen.getByText("Title *").closest("span");
-			expect(label?.textContent).toBe("Title *");
-			expect(screen.queryByRole("alert")).toBeNull();
+				const label = screen.getByText("Title *").closest("span");
+				expect(label?.textContent).toBe("Title *");
+				expect(screen.queryByRole("alert")).toBeNull();
 
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-			const element = yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(element.textContent).toContain("Title is required");
-			expect(submitted).toEqual([]);
+				const element = yield* Effect.promise(() => screen.findByRole("alert"));
+				expect(element.textContent).toContain("Title is required");
+				expect(submitted).toEqual([]);
 
-			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Sample" } });
+				fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Sample" } });
 
-			expect(screen.queryByRole("alert")).toBeNull();
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Sample" }])),
-			);
-		}),
+				expect(screen.queryByRole("alert")).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(submitted).toEqual([{ adult: false, region: "us", title: "Sample" }]),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("submits typed values after validation succeeds", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
+	it.live(
+		"submits typed values after validation succeeds",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
 
-			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Sample" } });
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Sample" } });
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Sample" }])),
-			);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(submitted).toEqual([{ adult: false, region: "us", title: "Sample" }]),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("routes scalar property validation errors to their own field", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness
-					schema={scalarValidationSchema}
-					onSubmit={(values) => submitted.push(values)}
-				/>,
-			);
+	it.live(
+		"routes scalar property validation errors to their own field",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						schema={scalarValidationSchema}
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
 
-			fireEvent.change(screen.getByLabelText("Handle"), { target: { value: "ab" } });
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				fireEvent.change(screen.getByLabelText("Handle"), { target: { value: "ab" } });
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-			const element = yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(element.textContent).toContain("at least 3");
-			expect(submitted).toEqual([]);
-		}),
+				const element = yield* Effect.promise(() => screen.findByRole("alert"));
+				expect(element.textContent).toContain("at least 3");
+				expect(submitted).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it("recomputes visible fields from current form values", () => {
@@ -579,28 +614,32 @@ describe("SchemaForm", () => {
 					),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("still demands a required secret when creating", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness
-					schema={credentialsSchema}
-					onSubmit={(values) => submitted.push(values)}
-				/>,
-			);
+	it.live(
+		"still demands a required secret when creating",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						schema={credentialsSchema}
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
 
-			expect(screen.queryByText("Leave blank to keep the current value.")).toBeNull();
+				expect(screen.queryByText("Leave blank to keep the current value.")).toBeNull();
 
-			fireEvent.change(screen.getByLabelText("Base URL"), {
-				target: { value: "https://a.example" },
-			});
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				fireEvent.change(screen.getByLabelText("Base URL"), {
+					target: { value: "https://a.example" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-			expect(yield* Effect.promise(() => screen.findByText("API key is required"))).toBeTruthy();
-			expect(submitted).toEqual([]);
-		}),
+				expect(yield* Effect.promise(() => screen.findByText("API key is required"))).toBeTruthy();
+				expect(submitted).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -629,6 +668,7 @@ describe("SchemaForm", () => {
 					waitFor(() => expect(submitted).toEqual([{ sites: ["b.example"] }])),
 				);
 			}),
+		testTimeout,
 	);
 
 	it("renders a larger static enum as chips and reports the clicked choice", () => {
@@ -644,55 +684,61 @@ describe("SchemaForm", () => {
 		expect(comedy.getAttribute("aria-checked")).toBe("true");
 	});
 
-	it.live("searches a long static enum and submits the selected value", () =>
-		Effect.gen(function* () {
-			const longEnumSchema: AppSchema = {
-				fields: {
-					source: {
-						type: "enum",
-						label: "Source",
-						defaultValue: "alpha",
-						description: "Source",
-						choices: {
-							kind: "static",
-							values: [
-								"alpha",
-								"beta",
-								"gamma",
-								"delta",
-								"epsilon",
-								"zeta",
-								"eta",
-								"theta",
-								"iota",
-							].map((value) => ({ value })),
+	it.live(
+		"searches a long static enum and submits the selected value",
+		() =>
+			Effect.gen(function* () {
+				const longEnumSchema: AppSchema = {
+					fields: {
+						source: {
+							type: "enum",
+							label: "Source",
+							defaultValue: "alpha",
+							description: "Source",
+							choices: {
+								kind: "static",
+								values: [
+									"alpha",
+									"beta",
+									"gamma",
+									"delta",
+									"epsilon",
+									"zeta",
+									"eta",
+									"theta",
+									"iota",
+								].map((value) => ({ value })),
+							},
 						},
 					},
-				},
-			};
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness schema={longEnumSchema} onSubmit={(values) => submitted.push(values)} />,
-			);
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Source: alpha" })),
-			);
-			fireEvent.change(screen.getByRole("textbox", { name: "Search Source" }), {
-				target: { value: "iot" },
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.queryByRole("radio", { name: "beta" })).toBeNull()),
-			);
-			fireEvent.click(screen.getByRole("radio", { name: "iota" }));
-			expect(screen.getByRole("button", { name: "Source: iota" })).toBeTruthy();
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() => waitFor(() => expect(submitted).toEqual([{ source: "iota" }])));
-			fireEvent.click(screen.getByRole("button", { name: "Clear Source" }));
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ source: "iota" }, { source: null }])),
-			);
-		}),
+				};
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						schema={longEnumSchema}
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Source: alpha" })),
+				);
+				fireEvent.change(screen.getByRole("textbox", { name: "Search Source" }), {
+					target: { value: "iot" },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.queryByRole("radio", { name: "beta" })).toBeNull()),
+				);
+				fireEvent.click(screen.getByRole("radio", { name: "iota" }));
+				expect(screen.getByRole("button", { name: "Source: iota" })).toBeTruthy();
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() => waitFor(() => expect(submitted).toEqual([{ source: "iota" }])));
+				fireEvent.click(screen.getByRole("button", { name: "Clear Source" }));
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ source: "iota" }, { source: null }])),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("renders an enum-array as a multi-select trigger", () => {
@@ -701,31 +747,37 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("button", { name: "Tags" })).toBeTruthy();
 	});
 
-	it.live("renders a timezone as a searchable picker and stores the chosen zone", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness schema={timezoneSchema} onSubmit={(values) => submitted.push(values)} />,
-			);
+	it.live(
+		"renders a timezone as a searchable picker and stores the chosen zone",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						schema={timezoneSchema}
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
 
-			fireEvent.click(
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						screen.findByRole("button", { name: "Timezone: Asia/Calcutta" }),
+					),
+				);
+				fireEvent.change(screen.getByRole("textbox", { name: "Search Timezone" }), {
+					target: { value: "tokyo" },
+				});
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Timezone: Asia/Calcutta" }),
-				),
-			);
-			fireEvent.change(screen.getByRole("textbox", { name: "Search Timezone" }), {
-				target: { value: "tokyo" },
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.queryByRole("radio", { name: "Europe/Paris" })).toBeNull()),
-			);
-			fireEvent.click(screen.getByRole("radio", { name: "Asia/Tokyo" }));
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+					waitFor(() => expect(screen.queryByRole("radio", { name: "Europe/Paris" })).toBeNull()),
+				);
+				fireEvent.click(screen.getByRole("radio", { name: "Asia/Tokyo" }));
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ timezone: "Asia/Tokyo" }])),
-			);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ timezone: "Asia/Tokyo" }])),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("renders date and datetime properties with native date controls", () => {
@@ -734,69 +786,81 @@ describe("SchemaForm", () => {
 		expect(screen.getByLabelText("Start date").getAttribute("type")).toBe("date");
 		expect(screen.getByLabelText("Start at").getAttribute("type")).toBe("datetime-local");
 	});
-	it.live("requires a fold choice before submitting a schema datetime", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness
-					schema={dateSchema}
-					timeZone="America/New_York"
-					onSubmit={(values) => submitted.push(values)}
-				/>,
-			);
-			fireEvent.change(screen.getByLabelText("Start at"), {
-				target: { value: "2026-11-01T01:30:37.456" },
-			});
-			expect(screen.getByText("This local time occurs twice. Choose an occurrence.")).toBeTruthy();
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByLabelText("Start at").closest('[data-invalid="true"]')).not.toBeNull(),
-				),
-			);
-			expect(submitted).toEqual([]);
-			fireEvent.click(
-				screen.getByRole("button", { name: "Start at occurrence: Choose an occurrence" }),
-			);
-			fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),
-			);
-		}),
+	it.live(
+		"requires a fold choice before submitting a schema datetime",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						schema={dateSchema}
+						timeZone="America/New_York"
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
+				fireEvent.change(screen.getByLabelText("Start at"), {
+					target: { value: "2026-11-01T01:30:37.456" },
+				});
+				expect(
+					screen.getByText("This local time occurs twice. Choose an occurrence."),
+				).toBeTruthy();
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByLabelText("Start at").closest('[data-invalid="true"]'),
+						).not.toBeNull(),
+					),
+				);
+				expect(submitted).toEqual([]);
+				fireEvent.click(
+					screen.getByRole("button", { name: "Start at occurrence: Choose an occurrence" }),
+				);
+				fireEvent.click(screen.getByRole("radio", { name: "Second occurrence (UTC-05:00)" }));
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),
+				);
+			}),
+		testTimeout,
 	);
-	it.live("preserves stored schema datetime precision and rejects a DST gap edit", () =>
-		Effect.gen(function* () {
-			const submitted: SchemaFormValues[] = [];
-			render(
-				<SchemaFormHarness
-					schema={dateSchema}
-					timeZone="America/New_York"
-					onSubmit={(values) => submitted.push(values)}
-					stored={{ startAt: "2026-11-01T06:30:37.456Z" }}
-				/>,
-			);
-			expect(screen.getByLabelText("Start at").getAttribute("value")).toBe(
-				"2026-11-01T01:30:37.456",
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),
-			);
-			fireEvent.change(screen.getByLabelText("Start at"), {
-				target: { value: "2026-03-08T02:30" },
-			});
-			expect(
-				screen.getByText("This local date and time does not exist. Choose another time."),
-			).toBeTruthy();
-			fireEvent.click(screen.getByRole("button", { name: "Search" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByLabelText("Start at").closest('[data-invalid="true"]')).not.toBeNull(),
-				),
-			);
-			expect(submitted).toHaveLength(1);
-		}),
+	it.live(
+		"preserves stored schema datetime precision and rejects a DST gap edit",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						schema={dateSchema}
+						timeZone="America/New_York"
+						onSubmit={(values) => submitted.push(values)}
+						stored={{ startAt: "2026-11-01T06:30:37.456Z" }}
+					/>,
+				);
+				expect(screen.getByLabelText("Start at").getAttribute("value")).toBe(
+					"2026-11-01T01:30:37.456",
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ startAt: "2026-11-01T06:30:37.456Z" }])),
+				);
+				fireEvent.change(screen.getByLabelText("Start at"), {
+					target: { value: "2026-03-08T02:30" },
+				});
+				expect(
+					screen.getByText("This local date and time does not exist. Choose another time."),
+				).toBeTruthy();
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByLabelText("Start at").closest('[data-invalid="true"]'),
+						).not.toBeNull(),
+					),
+				);
+				expect(submitted).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
 	it("lets an optional object be added and explicitly cleared", () => {

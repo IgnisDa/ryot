@@ -257,7 +257,7 @@ describe("Workout Templates E2E", () => {
 						],
 					},
 				});
-				expect(savedViewSource.output.fields).toEqual(
+				expect(savedViewSource.output.fields).toEqual<unknown>(
 					arrayContaining([
 						objectContaining({
 							key: "entityId",
@@ -273,29 +273,36 @@ describe("Workout Templates E2E", () => {
 						}),
 					]),
 				);
-				expect(savedViewSource).toMatchObject({
-					output: {
-						orderBy: [{ direction: "desc", expr: { type: "column", field: "createdAt" } }],
-					},
-					where: {
-						type: "and",
-						predicates: arrayContaining([
-							objectContaining({
-								type: "and",
-								predicates: arrayContaining([
-									objectContaining({
-										right: { type: "literal", value: "workout-template" },
-										left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-									}),
-									objectContaining({
-										right: { type: "pluginId", reference: { pluginId, kind: "local" } },
-										left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
-									}),
-								]),
-							}),
-						]),
-					},
-				});
+				expect(savedViewSource).toEqual<unknown>(
+					objectContaining({
+						output: objectContaining({
+							orderBy: [
+								objectContaining({
+									direction: "desc",
+									expr: objectContaining({ type: "column", field: "createdAt" }),
+								}),
+							],
+						}),
+						where: objectContaining({
+							type: "and",
+							predicates: arrayContaining([
+								objectContaining({
+									type: "and",
+									predicates: arrayContaining([
+										objectContaining({
+											right: { type: "literal", value: "workout-template" },
+											left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+										}),
+										objectContaining({
+											right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+											left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+										}),
+									]),
+								}),
+							]),
+						}),
+					}),
+				);
 				expect(
 					savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
 				).toEqual([

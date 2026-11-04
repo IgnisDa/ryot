@@ -1,5 +1,9 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect, test } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Option, Schema } from "effect";
 
 import { buildHttpRateLimitLookups } from "#modules/plugins/catalog/http-rate-limits";
@@ -7,23 +11,28 @@ import { buildHttpRateLimitLookups } from "#modules/plugins/catalog/http-rate-li
 import { SandboxHttpPolicy, SandboxHttpProgress, ScriptInlineProgress } from "./http-progress";
 import { httpProgressPhases, rateLimitFailure } from "./http-progress.test-support";
 
-it.effect("round-trips an origin-matched policy through its durable schema", () =>
-	Effect.gen(function* () {
-		const origin = "https://api.example.com";
-		const policy = buildHttpRateLimitLookups([
-			{
-				packageId: "test/catalog",
-				owner: definitionOwner("catalog"),
-				httpRateLimits: [{ requests: 2, intervalMs: 1_000, origins: [origin], key: "catalog.api" }],
-			},
-		]).byOrigin[origin];
-		assert(policy);
-		const durable = { ...policy, origin, durationMs: 0, matched: true as const };
+it.effect(
+	"round-trips an origin-matched policy through its durable schema",
+	() =>
+		Effect.gen(function* () {
+			const origin = "https://api.example.com";
+			const policy = buildHttpRateLimitLookups([
+				{
+					packageId: "test/catalog",
+					owner: definitionOwner("catalog"),
+					httpRateLimits: [
+						{ requests: 2, intervalMs: 1_000, origins: [origin], key: "catalog.api" },
+					],
+				},
+			]).byOrigin[origin];
+			assert(policy);
+			const durable = { ...policy, origin, durationMs: 0, matched: true as const };
 
-		const encoded = yield* Schema.encodeEffect(SandboxHttpPolicy)(durable);
+			const encoded = yield* Schema.encodeEffect(SandboxHttpPolicy)(durable);
 
-		expect(yield* Schema.decodeEffect(SandboxHttpPolicy)(encoded)).toEqual(durable);
-	}),
+			expect(yield* Schema.decodeEffect(SandboxHttpPolicy)(encoded)).toEqual(durable);
+		}),
+	testTimeout,
 );
 
 const declaration = { requests: 1, intervalMs: 1_000, key: "catalog.api", hash: "catalog-hash" };
@@ -67,9 +76,10 @@ it.effect.each(phases)(
 			const encoded = yield* Schema.encodeEffect(boundary)(entry);
 			expect(yield* Schema.decodeEffect(boundary)(encoded)).toEqual(entry);
 		}),
+	testTimeout,
 );
 
-it.each([
+test.each([
 	{ _tag: "Admitting" },
 	{ delayMs: 1, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
 	{ delayMs: 1, declaration, _tag: "ApplyingRateLimitBlock" },
@@ -96,7 +106,7 @@ it.each([
 	).toBe(true);
 });
 
-it.each([-1, 6])("rejects a prepared hop outside the redirect budget: %i", (hop) => {
+test.each([-1, 6])("rejects a prepared hop outside the redirect budget: %i", (hop) => {
 	expect(
 		Option.isNone(
 			Schema.decodeOption(SandboxHttpProgress)({

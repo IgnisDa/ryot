@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { prepareCollectionFields } from "./fields";
 

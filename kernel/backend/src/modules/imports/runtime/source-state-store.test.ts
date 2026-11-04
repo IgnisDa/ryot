@@ -1,9 +1,12 @@
+import { expect } from "bun:test";
 import { tmpdir } from "node:os";
 
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, it } from "@effect/vitest";
 import type { IngestionCapture } from "@ryot-app/contract/modules/imports/ingestion";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer } from "effect";
 
 import {
@@ -142,9 +145,13 @@ it.effect(
 		Effect.gen(function* () {
 			return yield* runStateCase(false).pipe(Effect.provideContext(yield* Layer.build(platform)));
 		}),
+	testTimeout,
 );
-it.effect("rejects changed admitted credentials on replay", () =>
-	Effect.gen(function* () {
-		return yield* runStateCase(true).pipe(Effect.provideContext(yield* Layer.build(platform)));
-	}),
+it.effect(
+	"rejects changed admitted credentials on replay",
+	() =>
+		Effect.gen(function* () {
+			return yield* runStateCase(true).pipe(Effect.provideContext(yield* Layer.build(platform)));
+		}),
+	testTimeout,
 );

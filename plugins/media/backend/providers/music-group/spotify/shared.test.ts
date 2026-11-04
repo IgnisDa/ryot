@@ -1,7 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import relatedScript, { manifest as relatedManifest } from "./related.sandbox";

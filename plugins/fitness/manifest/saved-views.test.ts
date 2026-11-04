@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { fitnessSavedViews } from "./saved-views";
 
@@ -16,7 +17,7 @@ describe("fitness saved-view presentations", () => {
 			const fields = output.fields.flatMap((selection) =>
 				"key" in selection ? [selection.key] : [],
 			);
-			expect(fields).toEqual(
+			expect(fields).toEqual<unknown>(
 				arrayContaining([
 					"presentationName",
 					"presentationImage",
@@ -37,9 +38,9 @@ describe("fitness saved-view presentations", () => {
 		const image = exercise.output.fields.find(
 			(selection) => "key" in selection && selection.key === "presentationImage",
 		);
-		expect(image).toMatchObject({
-			expr: objectContaining({ type: "jsonPath", path: ["images", 0] }),
-		});
+		expect(image).toEqual<unknown>(
+			objectContaining({ expr: objectContaining({ type: "jsonPath", path: ["images", 0] }) }),
+		);
 	});
 
 	it.each([

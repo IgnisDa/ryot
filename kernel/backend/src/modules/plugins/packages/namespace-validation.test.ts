@@ -1,5 +1,9 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { calendarSourcePackage } from "#modules/calendar-sources/test-support";
@@ -7,25 +11,28 @@ import { calendarSourcePackage } from "#modules/calendar-sources/test-support";
 import { fixtureManifest } from "../test-support";
 import { validatePluginManifestPolicy, validatePluginManifestReferences } from "./validation";
 
-it.effect("resolves hook targets and relationship endpoints only from local declarations", () =>
-	Effect.gen(function* () {
-		const manifest = fixtureManifest();
-		expect(yield* validatePluginManifestReferences(manifest)).toBeUndefined();
-		const foreignHook = { ...manifest, entitySchemas: [], relationshipSchemas: [] };
-		expect(yield* Effect.flip(validatePluginManifestReferences(foreignHook))).toMatchObject({
-			issues: ["Automation hook references missing definition: fixture-entity"],
-		});
-		const foreignEndpoint = {
-			...manifest,
-			relationshipSchemas: Array.from(manifest.relationshipSchemas, (definition) => ({
-				...definition,
-				targetEntitySchemaSlug: "collection",
-			})),
-		};
-		expect(yield* Effect.flip(validatePluginManifestReferences(foreignEndpoint))).toMatchObject({
-			issues: ["Relationship endpoint references missing definition: collection"],
-		});
-	}),
+it.effect(
+	"resolves hook targets and relationship endpoints only from local declarations",
+	() =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			expect(yield* validatePluginManifestReferences(manifest)).toBeUndefined();
+			const foreignHook = { ...manifest, entitySchemas: [], relationshipSchemas: [] };
+			expect(yield* Effect.flip(validatePluginManifestReferences(foreignHook))).toMatchObject({
+				issues: ["Automation hook references missing definition: fixture-entity"],
+			});
+			const foreignEndpoint = {
+				...manifest,
+				relationshipSchemas: Array.from(manifest.relationshipSchemas, (definition) => ({
+					...definition,
+					targetEntitySchemaSlug: "collection",
+				})),
+			};
+			expect(yield* Effect.flip(validatePluginManifestReferences(foreignEndpoint))).toMatchObject({
+				issues: ["Relationship endpoint references missing definition: collection"],
+			});
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -45,6 +52,7 @@ it.effect(
 				),
 			).toMatchObject({ issues: ["Duplicate entity schema slug: fixture-entity"] });
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -100,43 +108,53 @@ it.effect(
 			};
 			expect(yield* validatePluginManifestReferences(localImport)).toBeUndefined();
 		}),
+	testTimeout,
 );
 
-it.effect("reserves canonical package identities rather than route or display names", () =>
-	Effect.gen(function* () {
-		const manifest = fixtureManifest();
-		expect(
-			yield* Effect.flip(
-				validatePluginManifestPolicy(manifest, {
-					scope: "user",
-					systemPackageIds: new Set([manifest.metadata.packageId]),
-				}),
-			),
-		).toMatchObject({ _tag: "PluginPackageReservedError", packageId: manifest.metadata.packageId });
-		expect(yield* validatePluginManifestPolicy(manifest, { scope: "system" })).toBeUndefined();
-	}),
+it.effect(
+	"reserves canonical package identities rather than route or display names",
+	() =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			expect(
+				yield* Effect.flip(
+					validatePluginManifestPolicy(manifest, {
+						scope: "user",
+						systemPackageIds: new Set([manifest.metadata.packageId]),
+					}),
+				),
+			).toMatchObject({
+				_tag: "PluginPackageReservedError",
+				packageId: manifest.metadata.packageId,
+			});
+			expect(yield* validatePluginManifestPolicy(manifest, { scope: "system" })).toBeUndefined();
+		}),
+	testTimeout,
 );
 
-it.effect("rejects duplicate and path-like calendar source slugs", () =>
-	Effect.gen(function* () {
-		const manifest = fixtureManifest();
-		const [source] = calendarSourcePackage("fixture").manifest.calendarSources;
-		assert(source);
-		expect(
-			yield* validatePluginManifestReferences({ ...manifest, calendarSources: [source] }),
-		).toBeUndefined();
-		expect(
-			yield* Effect.flip(
-				validatePluginManifestReferences({ ...manifest, calendarSources: [source, source] }),
-			),
-		).toMatchObject({ issues: ["Duplicate calendar source slug: dates"] });
-		expect(
-			yield* Effect.flip(
-				validatePluginManifestReferences({
-					...manifest,
-					calendarSources: [{ ...source, slug: "nested/dates" }],
-				}),
-			),
-		).toMatchObject({ issues: ["calendar source slug cannot contain '/': nested/dates"] });
-	}),
+it.effect(
+	"rejects duplicate and path-like calendar source slugs",
+	() =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			const [source] = calendarSourcePackage("fixture").manifest.calendarSources;
+			assert(source);
+			expect(
+				yield* validatePluginManifestReferences({ ...manifest, calendarSources: [source] }),
+			).toBeUndefined();
+			expect(
+				yield* Effect.flip(
+					validatePluginManifestReferences({ ...manifest, calendarSources: [source, source] }),
+				),
+			).toMatchObject({ issues: ["Duplicate calendar source slug: dates"] });
+			expect(
+				yield* Effect.flip(
+					validatePluginManifestReferences({
+						...manifest,
+						calendarSources: [{ ...source, slug: "nested/dates" }],
+					}),
+				),
+			).toMatchObject({ issues: ["calendar source slug cannot contain '/': nested/dates"] });
+		}),
+	testTimeout,
 );

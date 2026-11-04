@@ -1,4 +1,7 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -46,24 +49,27 @@ const serverLayer = Layer.unwrap(
 
 describe("server service", () => {
 	layer(serverLayer)((test) => {
-		test.effect("persists only after a healthy response and checks again when retried", () =>
-			Effect.gen(function* () {
-				const service = yield* ServerService;
-				const dependencies = yield* FakeServerDependencies;
-				expect(yield* service.selected).toBe(window.location.origin);
+		test.effect(
+			"persists only after a healthy response and checks again when retried",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* ServerService;
+					const dependencies = yield* FakeServerDependencies;
+					expect(yield* service.selected).toBe<unknown>(window.location.origin);
 
-				const failed = yield* service
-					.connect(origin)
-					.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
-				const succeeded = yield* service
-					.connect(origin)
-					.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
+					const failed = yield* service
+						.connect(origin)
+						.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
+					const succeeded = yield* service
+						.connect(origin)
+						.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
 
-				expect(failed).toBe(false);
-				expect(succeeded).toBe(true);
-				expect(yield* dependencies.healthChecks).toBe(2);
-				expect(yield* dependencies.savedSelections).toEqual(["https://example.com"]);
-			}),
+					expect(failed).toBe(false);
+					expect(succeeded).toBe(true);
+					expect(yield* dependencies.healthChecks).toBe(2);
+					expect(yield* dependencies.savedSelections).toEqual(["https://example.com"]);
+				}),
+			testTimeout,
 		);
 	});
 });

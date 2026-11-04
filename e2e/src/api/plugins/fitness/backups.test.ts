@@ -145,7 +145,7 @@ it.live("remaps Fitness occurrence targets and equipment without replacing froze
 		const restoredOccurrenceEvents = restoredEvents.filter(
 			({ eventSchemaSlug: slug }) => slug === eventSchemaSlug,
 		);
-		expect(restoredOccurrenceEvents).toEqual([
+		expect(restoredOccurrenceEvents).toEqual<unknown>([
 			{
 				eventSchemaSlug,
 				id: anyOf(String),
@@ -161,7 +161,7 @@ it.live("remaps Fitness occurrence targets and equipment without replacing froze
 		const restoredSetEvents = restoredEvents.filter(
 			({ eventSchemaSlug: slug }) => slug === "workout-set",
 		);
-		expect(restoredSetEvents).toContainEqual(
+		expect(restoredSetEvents).toContainEqual<unknown>(
 			objectContaining({ sessionEntityId: restoredWorkoutId }),
 		);
 		expect(

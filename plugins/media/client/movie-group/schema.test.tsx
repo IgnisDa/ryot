@@ -1,5 +1,6 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { movieGroupRecipes } from "../../shared/movie-group-recipes";
 import { decodeGroupPresentation } from "../../tests/client/group/fixtures";

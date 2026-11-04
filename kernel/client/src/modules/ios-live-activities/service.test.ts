@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	IosLiveActivityContent,
 	PluginIosLiveActivityRequest,
 } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -74,30 +77,34 @@ const harness = (
 };
 
 describe("iOS Live Activity authority", () => {
-	it.effect("rejects foreign contributors, installations, scopes, and inactive starts", () => {
-		const state = harness();
-		return Effect.gen(function* () {
-			const service = yield* state.service;
-			yield* service.setScope(scope, [installation]);
-			expect(yield* service.outcome(scope, [], true, request)).toEqual({
-				outcome: "failure",
-				reason: "invalid-request",
+	it.effect(
+		"rejects foreign contributors, installations, scopes, and inactive starts",
+		() => {
+			const state = harness();
+			return Effect.gen(function* () {
+				const service = yield* state.service;
+				yield* service.setScope(scope, [installation]);
+				expect(yield* service.outcome(scope, [], true, request)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				expect(
+					yield* service.outcome({ ...scope, userId: "other" }, contributors, true, request),
+				).toEqual({ outcome: "failure", reason: "invalid-request" });
+				expect(yield* service.outcome(scope, contributors, false, request)).toEqual({
+					outcome: "success",
+					value: { status: "foreground-required" },
+				});
+				yield* service.setScope(scope, [{ ...installation, installationId: "replacement" }]);
+				expect(yield* service.outcome(scope, contributors, true, request)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				expect(state.calls).toEqual([]);
 			});
-			expect(
-				yield* service.outcome({ ...scope, userId: "other" }, contributors, true, request),
-			).toEqual({ outcome: "failure", reason: "invalid-request" });
-			expect(yield* service.outcome(scope, contributors, false, request)).toEqual({
-				outcome: "success",
-				value: { status: "foreground-required" },
-			});
-			yield* service.setScope(scope, [{ ...installation, installationId: "replacement" }]);
-			expect(yield* service.outcome(scope, contributors, true, request)).toEqual({
-				outcome: "failure",
-				reason: "invalid-request",
-			});
-			expect(state.calls).toEqual([]);
-		});
-	});
+		},
+		testTimeout,
+	);
 
 	it.effect(
 		"derives opaque owners and clears native ownership on logout and catalog removal",
@@ -125,62 +132,76 @@ describe("iOS Live Activity authority", () => {
 				});
 			});
 		},
+		testTimeout,
 	);
 
-	it.effect("does not publish a request whose scope changed during native reconciliation", () => {
-		let block = false;
-		return Effect.gen(function* () {
-			const started = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
-			const state = harness({
-				retain: () =>
-					block
-						? Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(release)))
-						: Effect.void,
+	it.effect(
+		"does not publish a request whose scope changed during native reconciliation",
+		() => {
+			let block = false;
+			return Effect.gen(function* () {
+				const started = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const state = harness({
+					retain: () =>
+						block
+							? Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(release)))
+							: Effect.void,
+				});
+				const service = yield* state.service;
+				yield* service.setScope(scope, [installation]);
+				block = true;
+				const pending = yield* Effect.forkChild(
+					service.outcome(scope, contributors, true, request),
+				);
+				yield* Deferred.await(started);
+				const logout = yield* Effect.forkChild(service.setScope(undefined));
+				yield* Effect.yieldNow;
+				block = false;
+				yield* Deferred.succeed(release, undefined);
+				expect(yield* Fiber.join(pending)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				yield* Fiber.join(logout);
+				expect(state.calls).toEqual([]);
 			});
-			const service = yield* state.service;
-			yield* service.setScope(scope, [installation]);
-			block = true;
-			const pending = yield* Effect.forkChild(service.outcome(scope, contributors, true, request));
-			yield* Deferred.await(started);
-			const logout = yield* Effect.forkChild(service.setScope(undefined));
-			yield* Effect.yieldNow;
-			block = false;
-			yield* Deferred.succeed(release, undefined);
-			expect(yield* Fiber.join(pending)).toEqual({ outcome: "failure", reason: "invalid-request" });
-			yield* Fiber.join(logout);
-			expect(state.calls).toEqual([]);
-		});
-	});
+		},
+		testTimeout,
+	);
 
-	it.effect("bounds UTF-8 content and classifies native failures", () => {
-		const state = harness({ fail: true });
-		return Effect.gen(function* () {
-			const service = yield* state.service;
-			yield* service.setScope(scope, [installation]);
-			const text = "界".repeat(96);
-			expect(
-				yield* service.outcome(scope, contributors, true, {
-					...request,
-					content: {
-						...content,
-						title: text,
-						status: text,
-						detail: "界".repeat(160),
-						primary: { text, label: text, kind: "text" },
-						secondary: { text, label: text, kind: "text" },
-						metrics: [
-							{ label: text, value: text },
-							{ label: text, value: text },
-						],
-					},
-				}),
-			).toEqual({ outcome: "failure", reason: "invalid-request" });
-			expect(state.calls).toEqual([]);
-			expect(yield* service.outcome(scope, contributors, true, request)).toEqual({
-				outcome: "failure",
-				reason: "transport",
+	it.effect(
+		"bounds UTF-8 content and classifies native failures",
+		() => {
+			const state = harness({ fail: true });
+			return Effect.gen(function* () {
+				const service = yield* state.service;
+				yield* service.setScope(scope, [installation]);
+				const text = "界".repeat(96);
+				expect(
+					yield* service.outcome(scope, contributors, true, {
+						...request,
+						content: {
+							...content,
+							title: text,
+							status: text,
+							detail: "界".repeat(160),
+							primary: { text, label: text, kind: "text" },
+							secondary: { text, label: text, kind: "text" },
+							metrics: [
+								{ label: text, value: text },
+								{ label: text, value: text },
+							],
+						},
+					}),
+				).toEqual({ outcome: "failure", reason: "invalid-request" });
+				expect(state.calls).toEqual([]);
+				expect(yield* service.outcome(scope, contributors, true, request)).toEqual({
+					outcome: "failure",
+					reason: "transport",
+				});
 			});
-		});
-	});
+		},
+		testTimeout,
+	);
 });

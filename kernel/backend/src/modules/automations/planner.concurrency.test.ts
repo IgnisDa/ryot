@@ -1,16 +1,19 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	AutomationExecutionId,
 	AutomationTriggerId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { assert } from "@ryot-app/testing/assert";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
-import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
@@ -142,191 +145,208 @@ const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
 
 describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 	layer(plannerSchemaLayer)((test) => {
-		test.effect("serializes a shared root budget and replays without spending it twice", () =>
-			Effect.gen(function* () {
-				const planner = yield* LifecyclePlanner;
-				const plugins = yield* PluginRepository;
-				const { statements, transaction } = yield* PlannerSchema;
-				yield* transaction(
-					Effect.gen(function* () {
-						yield* (yield* DatabaseSession).run((db) =>
-							Effect.gen(function* () {
-								yield* applyBaselineMigration(statements, (statement) =>
-									db.execute(sql.raw(statement)),
-								);
-								yield* db
-									.insert(tables.user)
-									.values({ id: "owner", name: "Owner", email: "owner@example.test" });
-								yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
-									kernelDefinitionSource(),
-								);
-								yield* db
-									.insert(tables.notificationSubscription)
-									.values({ userId: "owner", signalSchemaSlug: "integration.disabled" });
-								yield* plugins.persistKernelScript({
-									name: "Notify",
-									source: "code",
-									compiledFormat: 1,
-									compiledCode: "code",
-									contentHash: "kernel-current",
-									slug: "automation.notification",
-									metadata: {
+		test.effect(
+			"serializes a shared root budget and replays without spending it twice",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const plugins = yield* PluginRepository;
+					const { statements, transaction } = yield* PlannerSchema;
+					yield* transaction(
+						Effect.gen(function* () {
+							yield* (yield* DatabaseSession).run((db) =>
+								Effect.gen(function* () {
+									yield* applyBaselineMigration(statements, (statement) =>
+										db.execute(sql.raw(statement)),
+									);
+									yield* db
+										.insert(tables.user)
+										.values({ id: "owner", name: "Owner", email: "owner@example.test" });
+									yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
+										kernelDefinitionSource(),
+									);
+									yield* db
+										.insert(tables.notificationSubscription)
+										.values({ userId: "owner", signalSchemaSlug: "integration.disabled" });
+									yield* plugins.persistKernelScript({
 										name: "Notify",
-										...emptySandboxExecutionMetadata,
-										kind: "automation",
-										automationType: "automation",
+										source: "code",
+										compiledFormat: 1,
+										compiledCode: "code",
+										contentHash: "kernel-current",
 										slug: "automation.notification",
-										inputProjection: {
-											entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+										metadata: {
+											name: "Notify",
+											...emptySandboxExecutionMetadata,
+											kind: "automation",
+											automationType: "automation",
+											slug: "automation.notification",
+											inputProjection: {
+												entity: {
+													properties: [],
+													compareProperties: [],
+													parentEntityProperties: [],
+												},
+											},
 										},
-									},
-								});
-							}),
-						);
-					}),
-				);
-				const inputs = ["left", "right"].map((id) => {
-					const trigger = triggerFixture(id);
-					assert(trigger.payload?.resource === "signal");
-					return {
+									});
+								}),
+							);
+						}),
+					);
+					const inputs = ["left", "right"].map((id) => {
+						const trigger = triggerFixture(id);
+						assert(trigger.payload?.resource === "signal");
+						return {
+							trigger: {
+								...trigger,
+								causation: { ...trigger.causation, depth: 1 },
+								payload: {
+									...trigger.payload,
+									signalSchemaSlug: SignalSchemaSlug.make("integration.disabled"),
+								},
+							},
+						};
+					});
+					const results = yield* Effect.forEach(
+						inputs,
+						(input) => transaction(planner.plan(input)),
+						{ concurrency: 2 },
+					);
+					expect(results.map(({ runs }) => runs.length).sort((a, b) => a - b)).toEqual([0, 1]);
+					expect(results.find(({ runs }) => runs.length === 0)).toMatchObject({
+						policies: [],
+						trigger: { blockedReason: { hasRequiredHooks: false } },
+					});
+					const replayed = yield* Effect.forEach(
+						inputs,
+						(input) => transaction(planner.plan(input)),
+						{ concurrency: 2 },
+					);
+					expect(replayed).toEqual(
+						results.map((result) => Object.assign(result, { wasCreated: false })),
+					);
+					yield* transaction(
+						Effect.gen(function* () {
+							const { runCount, triggers } = yield* (yield* DatabaseSession).run((db) =>
+								Effect.gen(function* () {
+									const runs = yield* db.select().from(tables.automationRun);
+									const triggerRows = yield* db.select().from(tables.automationTrigger);
+									return { triggers: triggerRows, runCount: runs.length };
+								}),
+							);
+							expect(runCount).toBe(1);
+							expect(triggers).toHaveLength(2);
+							expect(
+								triggers
+									.filter(({ blockedReason }) => blockedReason !== null)
+									.map(({ blockedReason }) => blockedReason),
+							).toEqual<unknown>([
+								{
+									hasRequiredHooks: false,
+									code: "automation-limit-reached",
+									omittedHooks: [{ pluginId: null, hookSlug: "automation.notification" }],
+								},
+							]);
+						}),
+					);
+					const original = inputs[0];
+					assert(original);
+					const duplicate = {
 						trigger: {
-							...trigger,
-							causation: { ...trigger.causation, depth: 1 },
-							payload: {
-								...trigger.payload,
-								signalSchemaSlug: SignalSchemaSlug.make("integration.disabled"),
+							...original.trigger,
+							id: AutomationTriggerId.make("concurrent-identical"),
+							causation: {
+								...original.trigger.causation,
+								rootExecutionId: AutomationExecutionId.make("another-root"),
 							},
 						},
 					};
-				});
-				const results = yield* Effect.forEach(inputs, (input) => transaction(planner.plan(input)), {
-					concurrency: 2,
-				});
-				expect(results.map(({ runs }) => runs.length).sort((a, b) => a - b)).toEqual([0, 1]);
-				expect(results.find(({ runs }) => runs.length === 0)).toMatchObject({
-					policies: [],
-					trigger: { blockedReason: { hasRequiredHooks: false } },
-				});
-				const replayed = yield* Effect.forEach(
-					inputs,
-					(input) => transaction(planner.plan(input)),
-					{ concurrency: 2 },
-				);
-				expect(replayed).toEqual(
-					results.map((result) => Object.assign(result, { wasCreated: false })),
-				);
-				yield* transaction(
-					Effect.gen(function* () {
-						const { runCount, triggers } = yield* (yield* DatabaseSession).run((db) =>
-							Effect.gen(function* () {
-								const runs = yield* db.select().from(tables.automationRun);
-								const triggerRows = yield* db.select().from(tables.automationTrigger);
-								return { triggers: triggerRows, runCount: runs.length };
-							}),
-						);
-						expect(runCount).toBe(1);
-						expect(triggers).toHaveLength(2);
-						expect(
-							triggers
-								.filter(({ blockedReason }) => blockedReason !== null)
-								.map(({ blockedReason }) => blockedReason),
-						).toEqual([
-							{
-								hasRequiredHooks: false,
-								code: "automation-limit-reached",
-								omittedHooks: [{ pluginId: null, hookSlug: "automation.notification" }],
-							},
-						]);
-					}),
-				);
-				const original = inputs[0];
-				assert(original);
-				const duplicate = {
-					trigger: {
-						...original.trigger,
-						id: AutomationTriggerId.make("concurrent-identical"),
-						causation: {
-							...original.trigger.causation,
-							rootExecutionId: AutomationExecutionId.make("another-root"),
-						},
-					},
-				};
-				const identical = yield* Effect.forEach(
-					[duplicate, duplicate],
-					(input) => transaction(planner.plan(input)),
-					{ concurrency: 2 },
-				);
-				expect(
-					identical
-						.map(({ wasCreated }) => wasCreated)
-						.sort((left, right) => Number(left) - Number(right)),
-				).toEqual([false, true]);
-				expect(identical[0]?.runs).toEqual(identical[1]?.runs);
-			}),
+					const identical = yield* Effect.forEach(
+						[duplicate, duplicate],
+						(input) => transaction(planner.plan(input)),
+						{ concurrency: 2 },
+					);
+					expect(
+						identical
+							.map(({ wasCreated }) => wasCreated)
+							.sort((left, right) => Number(left) - Number(right)),
+					).toEqual([false, true]);
+					expect(identical[0]?.runs).toEqual(identical[1]?.runs);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(plannerSchemaLayer)((test) => {
-		test.effect("plans while another planner holds the catalog lock open", () =>
-			Effect.gen(function* () {
-				const planner = yield* LifecyclePlanner;
-				const { statements, transaction } = yield* PlannerSchema;
-				yield* transaction(seedCatalog(statements));
-				const holding = yield* Deferred.make<void>();
-				const release = yield* Deferred.make<void>();
-				const holder = yield* Effect.forkChild(
-					transaction(
-						planner
-							.plan({ trigger: withRoot("holder", "holder-root") })
-							.pipe(
-								Effect.andThen(Deferred.succeed(holding, undefined)),
-								Effect.andThen(Deferred.await(release)),
-							),
-					),
-				);
-				yield* Deferred.await(holding);
-				const planned = yield* transaction(
-					setLocalStatementTimeout(2_000).pipe(
-						Effect.andThen(planner.plan({ trigger: withRoot("reader", "reader-root") })),
-					),
-				).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
-				expect(planned).toMatchObject({ runs: [], policies: [], wasCreated: true });
-				yield* Fiber.join(holder);
-			}),
+		test.effect(
+			"plans while another planner holds the catalog lock open",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const { statements, transaction } = yield* PlannerSchema;
+					yield* transaction(seedCatalog(statements));
+					const holding = yield* Deferred.make<void>();
+					const release = yield* Deferred.make<void>();
+					const holder = yield* Effect.forkChild(
+						transaction(
+							planner
+								.plan({ trigger: withRoot("holder", "holder-root") })
+								.pipe(
+									Effect.andThen(Deferred.succeed(holding, undefined)),
+									Effect.andThen(Deferred.await(release)),
+								),
+						),
+					);
+					yield* Deferred.await(holding);
+					const planned = yield* transaction(
+						setLocalStatementTimeout(2_000).pipe(
+							Effect.andThen(planner.plan({ trigger: withRoot("reader", "reader-root") })),
+						),
+					).pipe(Effect.ensuring(Deferred.succeed(release, undefined)));
+					expect(planned).toMatchObject({ runs: [], policies: [], wasCreated: true });
+					yield* Fiber.join(holder);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(plannerSchemaLayer)((test) => {
-		test.effect("cannot plan while a configuration writer holds the catalog lock", () =>
-			Effect.gen(function* () {
-				const planner = yield* LifecyclePlanner;
-				const { statements, transaction } = yield* PlannerSchema;
-				yield* transaction(seedCatalog(statements));
-				const holding = yield* Deferred.make<void>();
-				const release = yield* Deferred.make<void>();
-				const configs = yield* PluginConfigRevisions;
-				const holder = yield* Effect.forkChild(
-					transaction(
-						configs
-							.lock(pluginId)
-							.pipe(
-								Effect.andThen(Deferred.succeed(holding, undefined)),
-								Effect.andThen(Deferred.await(release)),
-							),
-					),
-				);
-				yield* Deferred.await(holding);
-				const failure = yield* transaction(
-					setLocalStatementTimeout(250).pipe(
-						Effect.andThen(planner.plan({ trigger: withRoot("blocked", "blocked-root") })),
-					),
-				).pipe(Effect.flip, Effect.ensuring(Deferred.succeed(release, undefined)));
-				expect(failure).toMatchObject({
-					_tag: "DbError",
-					message: stringContaining("canceling statement due to statement timeout"),
-				});
-				yield* Fiber.join(holder);
-			}),
+		test.effect(
+			"cannot plan while a configuration writer holds the catalog lock",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const { statements, transaction } = yield* PlannerSchema;
+					yield* transaction(seedCatalog(statements));
+					const holding = yield* Deferred.make<void>();
+					const release = yield* Deferred.make<void>();
+					const configs = yield* PluginConfigRevisions;
+					const holder = yield* Effect.forkChild(
+						transaction(
+							configs
+								.lock(pluginId)
+								.pipe(
+									Effect.andThen(Deferred.succeed(holding, undefined)),
+									Effect.andThen(Deferred.await(release)),
+								),
+						),
+					);
+					yield* Deferred.await(holding);
+					const failure = yield* transaction(
+						setLocalStatementTimeout(250).pipe(
+							Effect.andThen(planner.plan({ trigger: withRoot("blocked", "blocked-root") })),
+						),
+					).pipe(Effect.flip, Effect.ensuring(Deferred.succeed(release, undefined)));
+					expect(failure).toEqual<unknown>(
+						objectContaining({
+							_tag: "DbError",
+							message: stringContaining("canceling statement due to statement timeout"),
+						}),
+					);
+					yield* Fiber.join(holder);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -353,6 +373,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					expect(counted(many)).toEqual({ shared: 2, catalog: 3, exclusive: 3 });
 					expect(counted(single)).toEqual({ shared: 2, catalog: 3, exclusive: 1 });
 				}),
+			testTimeout,
 		);
 	});
 });

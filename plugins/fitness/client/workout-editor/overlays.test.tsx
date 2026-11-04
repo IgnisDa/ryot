@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { disposePluginBridges } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
@@ -10,8 +13,6 @@ import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-pref
 import { mountDialogInPluginPage } from "../../tests/client/plugin-page";
 import { emptyWorkoutDraft, newWorkoutOccurrence, newWorkoutSet } from "./actions";
 import { BulkDeleteOverlay, ReorderOverlay, SupersetOverlay } from "./overlays";
-
-Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const settings: WorkoutPreferenceSettings = {
 	dropRestTime: 0,
@@ -131,135 +132,149 @@ describe("workout editor overlays", () => {
 				expect(result.occurrences[0]?.clientId).toBe("press");
 				expect(result.occurrences[0]?.sets).toEqual([]);
 			}),
+		testTimeout,
 	);
 
-	it.effect("preselects the initial exercise for bulk deletion", () =>
-		Effect.gen(function* () {
-			const { draft, names } = workout();
-			yield* mountDialogInPluginPage(() => (
-				<BulkDeleteOverlay
-					draft={draft}
-					names={names}
-					onClose={() => {}}
-					onChange={() => {}}
-					onDeletedSets={() => {}}
-					initialOccurrenceId="press"
-				/>
-			));
+	it.effect(
+		"preselects the initial exercise for bulk deletion",
+		() =>
+			Effect.gen(function* () {
+				const { draft, names } = workout();
+				yield* mountDialogInPluginPage(() => (
+					<BulkDeleteOverlay
+						draft={draft}
+						names={names}
+						onClose={() => {}}
+						onChange={() => {}}
+						onDeletedSets={() => {}}
+						initialOccurrenceId="press"
+					/>
+				));
 
-			expect(
-				screen.getByRole("checkbox", { checked: true, name: /Press.*whole exercise/ }),
-			).toBeTruthy();
-		}),
+				expect(
+					screen.getByRole("checkbox", { checked: true, name: /Press.*whole exercise/ }),
+				).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.effect("confirms superset deletion without removing its exercises or sets", () =>
-		Effect.gen(function* () {
-			const { draft, names } = workout();
-			const currentDraft: WorkoutEditorDraft = {
-				...draft,
-				supersets: [
-					{ color: "teal", clientId: "superset-stable-id", occurrenceIds: ["squat", "press"] },
-				],
-			};
-			const changes: string[] = [];
-			const closes: string[] = [];
-			let result = currentDraft;
-			yield* mountDialogInPluginPage(() => (
-				<SupersetOverlay
-					names={names}
-					draft={currentDraft}
-					initialOccurrenceId="squat"
-					onClose={() => closes.push("close")}
-					onChange={(transform) => {
-						result = transform(result);
-						changes.push("change");
-					}}
-				/>
-			));
+	it.effect(
+		"confirms superset deletion without removing its exercises or sets",
+		() =>
+			Effect.gen(function* () {
+				const { draft, names } = workout();
+				const currentDraft: WorkoutEditorDraft = {
+					...draft,
+					supersets: [
+						{ color: "teal", clientId: "superset-stable-id", occurrenceIds: ["squat", "press"] },
+					],
+				};
+				const changes: string[] = [];
+				const closes: string[] = [];
+				let result = currentDraft;
+				yield* mountDialogInPluginPage(() => (
+					<SupersetOverlay
+						names={names}
+						draft={currentDraft}
+						initialOccurrenceId="squat"
+						onClose={() => closes.push("close")}
+						onChange={(transform) => {
+							result = transform(result);
+							changes.push("change");
+						}}
+					/>
+				));
 
-			expect(screen.getByText("Editing Superset A")).toBeTruthy();
-			expect(screen.getByRole("radio", { name: "Teal", checked: true })).toBeTruthy();
-			click(screen.getByRole("button", { name: "Delete Superset A" }));
-			const confirmation = screen.getByRole("dialog", { name: "Delete Superset A?" });
-			expect(
-				within(confirmation).getByText(
-					"The superset will be removed. Its exercises and sets will remain in the workout.",
-				),
-			).toBeTruthy();
-			click(within(confirmation).getByRole("button", { name: "Cancel" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1)),
-			);
-			expect(changes).toEqual([]);
-			expect(closes).toEqual([]);
+				expect(screen.getByText("Editing Superset A")).toBeTruthy();
+				expect(screen.getByRole("radio", { name: "Teal", checked: true })).toBeTruthy();
+				click(screen.getByRole("button", { name: "Delete Superset A" }));
+				const confirmation = screen.getByRole("dialog", { name: "Delete Superset A?" });
+				expect(
+					within(confirmation).getByText(
+						"The superset will be removed. Its exercises and sets will remain in the workout.",
+					),
+				).toBeTruthy();
+				click(within(confirmation).getByRole("button", { name: "Cancel" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.querySelectorAll('[role="dialog"]')).toHaveLength(1)),
+				);
+				expect(changes).toEqual([]);
+				expect(closes).toEqual([]);
 
-			click(screen.getByRole("button", { name: "Delete Superset A" }));
-			click(screen.getByRole("button", { name: "Delete superset" }));
+				click(screen.getByRole("button", { name: "Delete Superset A" }));
+				click(screen.getByRole("button", { name: "Delete superset" }));
 
-			expect(changes).toEqual(["change"]);
-			expect(result.supersets).toEqual([]);
-			expect(result.occurrences).toEqual(currentDraft.occurrences);
-		}),
+				expect(changes).toEqual(["change"]);
+				expect(result.supersets).toEqual([]);
+				expect(result.occurrences).toEqual(currentDraft.occurrences);
+			}),
+		testTimeout,
 	);
 
-	it.effect("shows exercise progress and reports the moved occurrence after reordering", () =>
-		Effect.gen(function* () {
-			const { draft } = workout();
-			const [squat, press] = draft.occurrences;
-			if (squat === undefined || press === undefined) {
-				throw new Error("Expected two exercise occurrences");
-			}
-			const complete = {
-				...occurrence("row", "exercise-row", "row-set"),
-				sets: [{ ...newWorkoutSet("row-set", "reps"), included: true }],
-			};
-			const inProgress = {
-				...press,
-				sets: [
-					...press.sets.map((set) => ({ ...set, included: true })),
-					newWorkoutSet("press-set-2", "reps"),
-				],
-			};
-			const reorderDraft: WorkoutEditorDraft = {
-				...draft,
-				occurrences: [squat, inProgress, complete],
-			};
-			const reorderNames = new Map([
-				[squat.exerciseId, "Squat"],
-				[press.exerciseId, "Press"],
-				[complete.exerciseId, "Row"],
-			]);
-			const events: string[] = [];
-			let result = reorderDraft;
-			yield* mountDialogInPluginPage(() => (
-				<ReorderOverlay
-					onDrop={() => {}}
-					onClose={() => {}}
-					onPickUp={() => {}}
-					draft={reorderDraft}
-					names={reorderNames}
-					initialOccurrenceId="row"
-					onMoved={(id) => events.push(`moved:${id}`)}
-					onChange={(transform) => {
-						result = transform(result);
-						events.push("change");
-					}}
-				/>
-			));
+	it.effect(
+		"shows exercise progress and reports the moved occurrence after reordering",
+		() =>
+			Effect.gen(function* () {
+				const { draft } = workout();
+				const [squat, press] = draft.occurrences;
+				if (squat === undefined || press === undefined) {
+					throw new Error("Expected two exercise occurrences");
+				}
+				const complete = {
+					...occurrence("row", "exercise-row", "row-set"),
+					sets: [{ ...newWorkoutSet("row-set", "reps"), included: true }],
+				};
+				const inProgress = {
+					...press,
+					sets: [
+						...press.sets.map((set) => ({ ...set, included: true })),
+						newWorkoutSet("press-set-2", "reps"),
+					],
+				};
+				const reorderDraft: WorkoutEditorDraft = {
+					...draft,
+					occurrences: [squat, inProgress, complete],
+				};
+				const reorderNames = new Map([
+					[squat.exerciseId, "Squat"],
+					[press.exerciseId, "Press"],
+					[complete.exerciseId, "Row"],
+				]);
+				const events: string[] = [];
+				let result = reorderDraft;
+				yield* mountDialogInPluginPage(() => (
+					<ReorderOverlay
+						onDrop={() => {}}
+						onClose={() => {}}
+						onPickUp={() => {}}
+						draft={reorderDraft}
+						names={reorderNames}
+						initialOccurrenceId="row"
+						onMoved={(id) => events.push(`moved:${id}`)}
+						onChange={(transform) => {
+							result = transform(result);
+							events.push("change");
+						}}
+					/>
+				));
 
-			expect(screen.getByText("Not started")).toBeTruthy();
-			expect(screen.getByText("In progress")).toBeTruthy();
-			expect(screen.getByText("Complete")).toBeTruthy();
-			expect(screen.getByText("Row").closest("[class~='bg-accent-soft']")).not.toBeNull();
-			void act(() =>
-				fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Squat" }), {
-					key: "ArrowDown",
-				}),
-			);
+				expect(screen.getByText("Not started")).toBeTruthy();
+				expect(screen.getByText("In progress")).toBeTruthy();
+				expect(screen.getByText("Complete")).toBeTruthy();
+				expect(screen.getByText("Row").closest("[class~='bg-accent-soft']")).not.toBeNull();
+				void act(() =>
+					fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Squat" }), {
+						key: "ArrowDown",
+					}),
+				);
 
-			expect(result.occurrences.map(({ clientId }) => clientId)).toEqual(["press", "squat", "row"]);
-			expect(events).toEqual(["change", "moved:squat"]);
-		}),
+				expect(result.occurrences.map(({ clientId }) => clientId)).toEqual([
+					"press",
+					"squat",
+					"row",
+				]);
+				expect(events).toEqual(["change", "moved:squat"]);
+			}),
+		testTimeout,
 	);
 });

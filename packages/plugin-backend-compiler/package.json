@@ -45,7 +45,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ../../packages/testing/src/run-tests.ts --timeout=20000",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix",
 		"build": "bun build src/compiler-worker.ts --outdir dist --entry-naming plugin-backend-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler"
 	},
@@ -61,9 +61,8 @@
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
-		"bun-types": "1.4.4",
-		"vitest": "4.1.9"
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
 	}
 }

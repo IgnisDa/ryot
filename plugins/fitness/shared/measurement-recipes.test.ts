@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
 
 import { MEASUREMENT_SERIES_BATCH_SIZE, measurementSeriesRecipe } from "./measurement-recipes";
 

@@ -1,8 +1,9 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { getByRole, queryByRole, queryByText } from "@testing-library/dom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	decodeEpisodicActivity,

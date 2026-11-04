@@ -1,7 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 import { stringMatching } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import type { WorkoutListItem, WorkoutSummary } from "../../shared/workout-list-recipes";
 import {
@@ -185,15 +186,17 @@ describe("groupByWeek", () => {
 				workout({ id: "c", startedAt: "2026-09-29T17:00:00.000Z" }),
 			]),
 		});
-		expect(sections.map(({ title, range, totals }) => ({ title, range, totals }))).toEqual([
-			{
-				title: "This week",
-				range: stringMatching(/^Oct 12\s–\s18$/u),
-				totals: "3 workouts · 4h 43m active · 34.7K kg × reps · 1 personal-best award",
-			},
-			{ totals: null, title: "Last week", range: stringMatching(/^Oct 5\s–\s11$/u) },
-			{ range: null, totals: null, title: stringMatching(/^Sep 28\s–\sOct 4$/u) },
-		]);
+		expect(sections.map(({ title, range, totals }) => ({ title, range, totals }))).toEqual<unknown>(
+			[
+				{
+					title: "This week",
+					range: stringMatching(/^Oct 12\s–\s18$/u),
+					totals: "3 workouts · 4h 43m active · 34.7K kg × reps · 1 personal-best award",
+				},
+				{ totals: null, title: "Last week", range: stringMatching(/^Oct 5\s–\s11$/u) },
+				{ range: null, totals: null, title: stringMatching(/^Sep 28\s–\sOct 4$/u) },
+			],
+		);
 	});
 });
 

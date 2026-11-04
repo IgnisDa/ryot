@@ -1,4 +1,4 @@
-import { assert } from "@effect/vitest";
+import { assert } from "@ryot-app/testing/assert";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Context, Effect, Layer, Option, Queue } from "effect";

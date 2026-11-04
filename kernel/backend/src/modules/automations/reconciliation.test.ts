@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Duration, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -141,6 +144,7 @@ layer(liveSubmissionLayer)((test) => {
 					]);
 				}
 			}),
+		testTimeout,
 	);
 });
 
@@ -171,6 +175,7 @@ layer(
 					Array.from({ length: AUTOMATION_RECONCILIATION_BATCH_SIZE }, (_, i) => String(i)),
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -186,16 +191,19 @@ layer(
 			),
 	}),
 )((test) => {
-	test.effect("bounds concurrent handoffs and releases stalled submissions so later rows run", () =>
-		Effect.gen(function* () {
-			const { submitted } = yield* ReconciliationCalls;
-			const fiber = yield* reconcile.pipe(Effect.forkChild);
-			yield* TestClock.adjust(1);
-			expect(yield* submitted).toHaveLength(AUTOMATION_IMMEDIATE_CONCURRENCY);
-			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
-			yield* Fiber.join(fiber);
-			expect(yield* submitted).toHaveLength(AUTOMATION_IMMEDIATE_CONCURRENCY + 1);
-		}),
+	test.effect(
+		"bounds concurrent handoffs and releases stalled submissions so later rows run",
+		() =>
+			Effect.gen(function* () {
+				const { submitted } = yield* ReconciliationCalls;
+				const fiber = yield* reconcile.pipe(Effect.forkChild);
+				yield* TestClock.adjust(1);
+				expect(yield* submitted).toHaveLength(AUTOMATION_IMMEDIATE_CONCURRENCY);
+				yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
+				yield* Fiber.join(fiber);
+				expect(yield* submitted).toHaveLength(AUTOMATION_IMMEDIATE_CONCURRENCY + 1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -218,5 +226,6 @@ layer(
 				expect(yield* calls.reads).toHaveLength(2);
 				expect(yield* calls.submitted).toEqual(["recovered"]);
 			}),
+		testTimeout,
 	);
 });

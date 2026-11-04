@@ -1,10 +1,14 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, TimeoutError } from "@ryot-app/contract/errors";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	Cause,
 	Deferred,
@@ -225,99 +229,102 @@ const nextCall = Effect.fnUntraced(function* (
 layer(Layer.provideMerge(nativeMemoryLayer, BunCrypto.layerSecureRandom), {
 	excludeTestServices: true,
 })((test) => {
-	test.effect("preserves large pinned journal prefixes through bounded journal read frames", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const service = yield* SandboxExecutor;
-				const evidence = yield* NativeMemoryEvidence;
-				const track = yield* trackNativeKeys;
-				const tokenEncoding = yield* encodedToken;
-				const compiled = yield* compileTestScript(journalSource(tokenEncoding));
-				const value = token.repeat(tokenEncoding.repetitions);
-				const journal: WorkflowReplayJournalEntry[] = Array.from(
-					{ length: journalEntries },
-					(_, index) => ({ request: request(index), value: { value, state: "success" } }),
-				);
-				const last = journal[replayedEntries - 1];
-				assert(last !== undefined);
-				const remaining =
-					SANDBOX_LIMITS.journalBytes -
-					new TextEncoder().encode(yield* encodeJson(journal)).byteLength;
-				journal[replayedEntries - 1] = {
-					...last,
-					value: { state: "success", value: value + "x".repeat(remaining) },
-				};
-				const expected = [
-					...Array.from({ length: replayedEntries - 1 }, () => ({
-						padding: 0,
-						last: token,
-						first: token,
-						lastToken: token,
-						length: value.length,
-					})),
-					{
-						first: token,
-						lastToken: token,
-						padding: remaining,
-						last: "x".repeat(token.length),
-						length: value.length + remaining,
-					},
-				];
-				const replayJournal = yield* memoryPinnedJournal(journal);
-				const inputs = [0, 1].map((index) =>
-					makeRunnerInput(
-						compiled,
-						{ mode: "journal" },
-						{
-							replayJournal,
-							workflowExecutionId: `native-memory-parent-${index}`,
-							executionId: testExecutionId(`native-memory-journal-${index}`),
-							inlineDurableHost: {
-								settle: unusedSettlement,
-								cancel: () => Effect.void,
-								capabilities: ["getCachedValue"],
-							},
-						},
-					),
-				);
-				for (const input of inputs) {
-					yield* track(input);
-				}
-				const results = yield* Effect.forEach(inputs, (input) => service.run(input), {
-					concurrency: 2,
-				});
-				for (const [index, result] of results.entries()) {
-					expect(result).toMatchObject({
-						inline: [],
-						error: null,
-						success: true,
-						value: { output: expected, state: "completed", journalLength: journalEntries },
-					});
-					const input = inputs[index];
-					assert(input !== undefined);
-					const run = evidence.runs.get(input.executionId);
-					assert(run !== undefined);
-					const gate = evidence.registrations.get(run.handle);
-					assert(gate?.journal !== undefined);
-					expect(gate.journal.totalBytes + journalEntries + 1).toBe(SANDBOX_LIMITS.journalBytes);
-					const calls = evidence.calls.filter((call) => call.handle === run.handle);
-					expect(calls.length).toBeGreaterThan(replayedEntries);
-					expect(calls.every((call) => call.name === "journalRead")).toBe(true);
-					const ranges = evidence.ranges.filter((range) => range.handle === run.handle);
-					expect(ranges.reduce((total, range) => total + range.bytes, 0)).toBe(
-						gate.journal.offsets[replayedEntries],
+	test.effect(
+		"preserves large pinned journal prefixes through bounded journal read frames",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const evidence = yield* NativeMemoryEvidence;
+					const track = yield* trackNativeKeys;
+					const tokenEncoding = yield* encodedToken;
+					const compiled = yield* compileTestScript(journalSource(tokenEncoding));
+					const value = token.repeat(tokenEncoding.repetitions);
+					const journal: WorkflowReplayJournalEntry[] = Array.from(
+						{ length: journalEntries },
+						(_, index) => ({ request: request(index), value: { value, state: "success" } }),
 					);
-					expect(ranges.every((range) => range.bytes > 0 && range.bytes <= MiB)).toBe(true);
-					const offsets = ranges.slice(0, 3).map((range) => range.offset);
-					expect(new Set(offsets)).toEqual(new Set(gate.journal.offsets.slice(0, 3)));
-					yield* assertDisposed(input.executionId);
-				}
-				expect(evidence.reservations.some((snapshot) => snapshot.runs === 2)).toBe(true);
-				expect(evidence.reservations.every((snapshot) => snapshot.bytes <= snapshot.budget)).toBe(
-					true,
-				);
-			}),
-		),
+					const last = journal[replayedEntries - 1];
+					assert(last !== undefined);
+					const remaining =
+						SANDBOX_LIMITS.journalBytes -
+						new TextEncoder().encode(yield* encodeJson(journal)).byteLength;
+					journal[replayedEntries - 1] = {
+						...last,
+						value: { state: "success", value: value + "x".repeat(remaining) },
+					};
+					const expected = [
+						...Array.from({ length: replayedEntries - 1 }, () => ({
+							padding: 0,
+							last: token,
+							first: token,
+							lastToken: token,
+							length: value.length,
+						})),
+						{
+							first: token,
+							lastToken: token,
+							padding: remaining,
+							last: "x".repeat(token.length),
+							length: value.length + remaining,
+						},
+					];
+					const replayJournal = yield* memoryPinnedJournal(journal);
+					const inputs = [0, 1].map((index) =>
+						makeRunnerInput(
+							compiled,
+							{ mode: "journal" },
+							{
+								replayJournal,
+								workflowExecutionId: `native-memory-parent-${index}`,
+								executionId: testExecutionId(`native-memory-journal-${index}`),
+								inlineDurableHost: {
+									settle: unusedSettlement,
+									cancel: () => Effect.void,
+									capabilities: ["getCachedValue"],
+								},
+							},
+						),
+					);
+					for (const input of inputs) {
+						yield* track(input);
+					}
+					const results = yield* Effect.forEach(inputs, (input) => service.run(input), {
+						concurrency: 2,
+					});
+					for (const [index, result] of results.entries()) {
+						expect(result).toMatchObject({
+							inline: [],
+							error: null,
+							success: true,
+							value: { output: expected, state: "completed", journalLength: journalEntries },
+						});
+						const input = inputs[index];
+						assert(input !== undefined);
+						const run = evidence.runs.get(input.executionId);
+						assert(run !== undefined);
+						const gate = evidence.registrations.get(run.handle);
+						assert(gate?.journal !== undefined);
+						expect(gate.journal.totalBytes + journalEntries + 1).toBe(SANDBOX_LIMITS.journalBytes);
+						const calls = evidence.calls.filter((call) => call.handle === run.handle);
+						expect(calls.length).toBeGreaterThan(replayedEntries);
+						expect(calls.every((call) => call.name === "journalRead")).toBe(true);
+						const ranges = evidence.ranges.filter((range) => range.handle === run.handle);
+						const replayedOffset = gate.journal.offsets[replayedEntries];
+						assert(replayedOffset !== undefined);
+						expect(ranges.reduce((total, range) => total + range.bytes, 0)).toBe(replayedOffset);
+						expect(ranges.every((range) => range.bytes > 0 && range.bytes <= MiB)).toBe(true);
+						const offsets = ranges.slice(0, 3).map((range) => range.offset);
+						expect(new Set(offsets)).toEqual(new Set(gate.journal.offsets.slice(0, 3)));
+						yield* assertDisposed(input.executionId);
+					}
+					expect(evidence.reservations.some((snapshot) => snapshot.runs === 2)).toBe(true);
+					expect(evidence.reservations.every((snapshot) => snapshot.bytes <= snapshot.budget)).toBe(
+						true,
+					);
+				}),
+			),
+		testTimeout,
 	);
 
 	test.effect(
@@ -401,6 +408,7 @@ layer(Layer.provideMerge(nativeMemoryLayer, BunCrypto.layerSecureRandom), {
 					}
 				}),
 			),
+		testTimeout,
 	);
 
 	test.effect(
@@ -530,167 +538,177 @@ layer(Layer.provideMerge(nativeMemoryLayer, BunCrypto.layerSecureRandom), {
 					yield* assertDisposed(neighbour.executionId);
 				}),
 			),
+		testTimeout,
 	);
 
-	test.effect("disposes isolates and retires handles on every replay exit path", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const service = yield* SandboxExecutor;
-				const evidence = yield* NativeMemoryEvidence;
-				const track = yield* trackNativeKeys;
-				const compiled = yield* compileTestScript(exitSource);
-				const fresh = yield* compileTestScript(freshSource);
-				const file = yield* compileTestScript(fileSource);
-				for (const mode of [
-					"success",
-					"pending",
-					"failure",
-					"timeout",
-					"cancel-host",
-					"cancel-inline",
-					"scratch-cancel",
-				]) {
-					const input = makeRunnerInput(
-						mode.startsWith("scratch-") ? file : compiled,
-						{ mode },
-						{
-							executionId: testExecutionId(`native-disposal-${mode}`),
-							...(mode === "success" ||
-							mode === "pending" ||
-							mode === "failure" ||
+	test.effect(
+		"disposes isolates and retires handles on every replay exit path",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const evidence = yield* NativeMemoryEvidence;
+					const track = yield* trackNativeKeys;
+					const compiled = yield* compileTestScript(exitSource);
+					const fresh = yield* compileTestScript(freshSource);
+					const file = yield* compileTestScript(fileSource);
+					for (const mode of [
+						"success",
+						"pending",
+						"failure",
+						"timeout",
+						"cancel-host",
+						"cancel-inline",
+						"scratch-cancel",
+					]) {
+						const input = makeRunnerInput(
+							mode.startsWith("scratch-") ? file : compiled,
+							{ mode },
+							{
+								executionId: testExecutionId(`native-disposal-${mode}`),
+								...(mode === "success" ||
+								mode === "pending" ||
+								mode === "failure" ||
+								mode === "cancel-inline"
+									? {
+											replayJournal: emptyPinnedJournal,
+											workflowExecutionId: `native-disposal-parent-${mode}`,
+										}
+									: {}),
+							},
+						);
+						const started = yield* Deferred.make<void>();
+						const interrupted = yield* Deferred.make<void>();
+						evidence.blocked.set(mode, { started, interrupted });
+						const target =
 							mode === "cancel-inline"
 								? {
-										replayJournal: emptyPinnedJournal,
-										workflowExecutionId: `native-disposal-parent-${mode}`,
-									}
-								: {}),
-						},
-					);
-					const started = yield* Deferred.make<void>();
-					const interrupted = yield* Deferred.make<void>();
-					evidence.blocked.set(mode, { started, interrupted });
-					const target =
-						mode === "cancel-inline"
-							? {
-									...input,
-									lane: "background" as const,
-									inlineDurableHost: {
-										cancel: () => Effect.void,
-										capabilities: ["getCachedValue"] as const,
-										settle: () =>
-											Deferred.succeed(started, undefined).pipe(
-												Effect.andThen(Effect.never),
-												Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
-											),
-									},
-								}
-							: input;
-					yield* track(target);
-					if (mode === "cancel-host" || mode === "cancel-inline" || mode === "scratch-cancel") {
-						const fiber = yield* Effect.forkChild(service.run(target));
-						if (mode === "scratch-cancel") {
-							yield* nextCall(input.executionId, "scratchWrite", 256 * 1024);
-						} else {
-							yield* Deferred.await(started);
-						}
-						yield* Fiber.interrupt(fiber);
-						const exit = yield* Fiber.await(fiber);
-						assert(Exit.isFailure(exit));
-						expect(Cause.hasInterrupts(exit.cause)).toBe(true);
-						if (mode !== "scratch-cancel") {
-							yield* Deferred.await(interrupted);
-						}
-					} else if (mode === "timeout") {
-						evidence.shortDeadline.add(input.executionId);
-						const exit = yield* Effect.exit(service.run(target));
-						assert(Exit.isFailure(exit));
-						const error = Cause.findErrorOption(exit.cause);
-						assert(Option.isSome(error));
-						expect(error.value).toBeInstanceOf(TimeoutError);
-					} else {
-						const result = yield* service.run(target);
-						if (mode === "success") {
-							expect(result).toMatchObject({
-								success: true,
-								value: { requests: [], journalLength: 0, state: "completed", output: "finished" },
-							});
-						}
-						if (mode === "pending") {
-							expect(result).toMatchObject({
-								success: true,
-								value: {
-									state: "pending",
-									journalLength: 0,
-									requests: [
-										{
-											index: 0,
-											kind: "host",
-											name: "getCachedValue",
-											args: { args: ["pending"], capability: "getCachedValue" },
+										...input,
+										lane: "background" as const,
+										inlineDurableHost: {
+											cancel: () => Effect.void,
+											capabilities: ["getCachedValue"] as const,
+											settle: () =>
+												Deferred.succeed(started, undefined).pipe(
+													Effect.andThen(Effect.never),
+													Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
+												),
 										},
-									],
-								},
-							});
+									}
+								: input;
+						yield* track(target);
+						if (mode === "cancel-host" || mode === "cancel-inline" || mode === "scratch-cancel") {
+							const fiber = yield* Effect.forkChild(service.run(target));
+							if (mode === "scratch-cancel") {
+								yield* nextCall(input.executionId, "scratchWrite", 256 * 1024);
+							} else {
+								yield* Deferred.await(started);
+							}
+							yield* Fiber.interrupt(fiber);
+							const exit = yield* Fiber.await(fiber);
+							assert(Exit.isFailure(exit));
+							expect(Cause.hasInterrupts(exit.cause)).toBe(true);
+							if (mode !== "scratch-cancel") {
+								yield* Deferred.await(interrupted);
+							}
+						} else if (mode === "timeout") {
+							evidence.shortDeadline.add(input.executionId);
+							const exit = yield* Effect.exit(service.run(target));
+							assert(Exit.isFailure(exit));
+							const error = Cause.findErrorOption(exit.cause);
+							assert(Option.isSome(error));
+							expect(error.value).toBeInstanceOf(TimeoutError);
+						} else {
+							const result = yield* service.run(target);
+							if (mode === "success") {
+								expect(result).toMatchObject({
+									success: true,
+									value: { requests: [], journalLength: 0, state: "completed", output: "finished" },
+								});
+							}
+							if (mode === "pending") {
+								expect(result).toMatchObject({
+									success: true,
+									value: {
+										state: "pending",
+										journalLength: 0,
+										requests: [
+											{
+												index: 0,
+												kind: "host",
+												name: "getCachedValue",
+												args: { args: ["pending"], capability: "getCachedValue" },
+											},
+										],
+									},
+								});
+							}
+							if (mode === "failure") {
+								expect(result).toMatchObject({
+									success: true,
+									value: {
+										requests: [],
+										state: "failed",
+										journalLength: 0,
+										error: "expected disposal failure",
+									},
+								});
+							}
 						}
-						if (mode === "failure") {
-							expect(result).toMatchObject({
-								success: true,
-								value: {
-									requests: [],
-									state: "failed",
-									journalLength: 0,
-									error: "expected disposal failure",
-								},
-							});
-						}
+						yield* assertDisposed(input.executionId);
+						const neighbour = makeRunnerInput(
+							fresh,
+							{ mode: "fresh" },
+							{ executionId: testExecutionId(`native-disposal-fresh-${mode}`) },
+						);
+						yield* track(neighbour);
+						expect(yield* service.run(neighbour)).toMatchObject({ success: true, value: "fresh" });
+						yield* assertDisposed(neighbour.executionId);
 					}
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"returns a native scratch write failure after cleaning up the partial upload",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutor;
+					const evidence = yield* NativeMemoryEvidence;
+					const track = yield* trackNativeKeys;
+					const compiled = yield* compileTestScript(fileSource);
+					const input = makeRunnerInput(
+						compiled,
+						{ mode: "scratch-overflow" },
+						{ executionId: testExecutionId("native-memory-scratch-failure") },
+					);
+					yield* track(input);
+					const result = yield* service.run(input);
+					const handle = evidence.runs.get(input.executionId)?.handle;
+					assert(handle !== undefined);
+					expect(evidence.failures.filter((failure) => failure.handle === handle)).toEqual([
+						{ handle, error: "Sandbox scratch write exceeds its 5 MiB quota" },
+					]);
 					yield* assertDisposed(input.executionId);
+					const fresh = yield* compileTestScript(freshSource);
 					const neighbour = makeRunnerInput(
 						fresh,
 						{ mode: "fresh" },
-						{ executionId: testExecutionId(`native-disposal-fresh-${mode}`) },
+						{ executionId: testExecutionId("native-memory-fresh-scratch-failure") },
 					);
 					yield* track(neighbour);
 					expect(yield* service.run(neighbour)).toMatchObject({ success: true, value: "fresh" });
 					yield* assertDisposed(neighbour.executionId);
-				}
-			}),
-		),
-	);
-
-	test.effect("returns a native scratch write failure after cleaning up the partial upload", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const service = yield* SandboxExecutor;
-				const evidence = yield* NativeMemoryEvidence;
-				const track = yield* trackNativeKeys;
-				const compiled = yield* compileTestScript(fileSource);
-				const input = makeRunnerInput(
-					compiled,
-					{ mode: "scratch-overflow" },
-					{ executionId: testExecutionId("native-memory-scratch-failure") },
-				);
-				yield* track(input);
-				const result = yield* service.run(input);
-				const handle = evidence.runs.get(input.executionId)?.handle;
-				expect(evidence.failures.filter((failure) => failure.handle === handle)).toEqual([
-					{ handle, error: "Sandbox scratch write exceeds its 5 MiB quota" },
-				]);
-				yield* assertDisposed(input.executionId);
-				const fresh = yield* compileTestScript(freshSource);
-				const neighbour = makeRunnerInput(
-					fresh,
-					{ mode: "fresh" },
-					{ executionId: testExecutionId("native-memory-fresh-scratch-failure") },
-				);
-				yield* track(neighbour);
-				expect(yield* service.run(neighbour)).toMatchObject({ success: true, value: "fresh" });
-				yield* assertDisposed(neighbour.executionId);
-				expect(result).toMatchObject({
-					success: false,
-					error: { message: stringContaining("quota") },
-				});
-			}),
-		),
+					expect(result).toEqual<unknown>(
+						objectContaining({
+							success: false,
+							error: objectContaining({ message: stringContaining("quota") }),
+						}),
+					);
+				}),
+			),
+		testTimeout,
 	);
 });

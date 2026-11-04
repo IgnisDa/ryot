@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { PluginId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -243,39 +246,52 @@ it.effect(
 			expect(result.dispatched[0]).not.toHaveProperty("payload.sourcePayload");
 			expect(result.dispatched[0]).not.toHaveProperty("payload.apiKey");
 		}),
+	testTimeout,
 );
-it.effect("snapshots the current user timezone for each accepted import", () =>
-	Effect.gen(function* () {
-		const initial = yield* serviceCase("success", { timezone: "America/Los_Angeles" });
-		const later = yield* serviceCase("success", { timezone: "Asia/Tokyo" });
+it.effect(
+	"snapshots the current user timezone for each accepted import",
+	() =>
+		Effect.gen(function* () {
+			const initial = yield* serviceCase("success", { timezone: "America/Los_Angeles" });
+			const later = yield* serviceCase("success", { timezone: "Asia/Tokyo" });
 
-		expect(initial.states[0]?.executionSettings.userSettings).toEqual({
-			timezone: "America/Los_Angeles",
-		});
-		expect(later.states[0]?.executionSettings.userSettings).toEqual({ timezone: "Asia/Tokyo" });
-	}),
+			expect(initial.states[0]?.executionSettings.userSettings).toEqual({
+				timezone: "America/Los_Angeles",
+			});
+			expect(later.states[0]?.executionSettings.userSettings).toEqual({ timezone: "Asia/Tokyo" });
+		}),
+	testTimeout,
 );
-it.effect("keeps durable admitted input and pins when dispatch must be retried", () =>
-	Effect.gen(function* () {
-		const result = yield* serviceCase("dispatch-failed");
-		expect(result.exit._tag).toBe("Success");
-		expect(result.events).toEqual(["create", "register", "store", "pin-plan", "dispatch"]);
-	}),
+it.effect(
+	"keeps durable admitted input and pins when dispatch must be retried",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* serviceCase("dispatch-failed");
+			expect(result.exit._tag).toBe("Success");
+			expect(result.events).toEqual(["create", "register", "store", "pin-plan", "dispatch"]);
+		}),
+	testTimeout,
 );
-it.effect("rolls back incomplete admission when pinning or durable storage fails", () =>
-	Effect.gen(function* () {
-		for (const mode of ["pin-failed", "store-failed"] as const) {
-			const result = yield* serviceCase(mode);
+it.effect(
+	"rolls back incomplete admission when pinning or durable storage fails",
+	() =>
+		Effect.gen(function* () {
+			for (const mode of ["pin-failed", "store-failed"] as const) {
+				const result = yield* serviceCase(mode);
+				expect(result.exit._tag).toBe("Failure");
+				expect(result.events.at(-1)).toBe("abort");
+				expect(result.dispatched).toEqual([]);
+			}
+		}),
+	testTimeout,
+);
+it.effect(
+	"rejects missing readiness before creating an import",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* serviceCase("not-ready");
 			expect(result.exit._tag).toBe("Failure");
-			expect(result.events.at(-1)).toBe("abort");
-			expect(result.dispatched).toEqual([]);
-		}
-	}),
-);
-it.effect("rejects missing readiness before creating an import", () =>
-	Effect.gen(function* () {
-		const result = yield* serviceCase("not-ready");
-		expect(result.exit._tag).toBe("Failure");
-		expect(result.events).toEqual([]);
-	}),
+			expect(result.events).toEqual([]);
+		}),
+	testTimeout,
 );

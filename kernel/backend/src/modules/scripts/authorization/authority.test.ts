@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
@@ -6,12 +7,14 @@ import { column, field, rows as queryRows, table } from "@ryot-app/ryotql";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { nativeRecoveryLayer } from "@ryot-app/sandbox/host/recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
-import { assert, describe } from "vitest";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -233,7 +236,7 @@ describe("sandbox execution authority", () => {
 					});
 					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(row.id));
 					assert(pin?.pluginRevision);
-					expect(pin.pluginRevision.revisionId).toBe(installed.revisionId);
+					expect(pin.pluginRevision.revisionId).toBe<unknown>(installed.revisionId);
 					expect(pin.pluginRevision).toMatchObject({
 						userBootstrapScriptSlugs: [],
 						schemaScope: expectedSandboxAuthority.schemaScope,
@@ -292,6 +295,7 @@ describe("sandbox execution authority", () => {
 					);
 					expect(yield* sandbox.getScriptPin(SandboxScriptId.make(row.id))).toBeNull();
 				}),
+			testTimeout,
 		);
 		test.effect(
 			"rejects tampered, swapped and ownership-violating principals as an invalid pin",
@@ -330,61 +334,68 @@ describe("sandbox execution authority", () => {
 						{ ...principal, kernelScript: true as const },
 					]);
 				}),
+			testTimeout,
 		);
 
-		test.effect("resolves stored kernel scripts as system-owned", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const authority = yield* SandboxExecutionAuthority;
-					const plugins = yield* PluginRepository;
-					const runtime = yield* PluginRuntimeResolver;
-					const sandbox = yield* SandboxRepository;
-					const session = yield* DatabaseSession;
-					const script = persistedScript(`runtime-authority-kernel-${yield* randomUuid}`);
-					yield* addScriptCleanup(session, script.slug);
+		test.effect(
+			"resolves stored kernel scripts as system-owned",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const authority = yield* SandboxExecutionAuthority;
+						const plugins = yield* PluginRepository;
+						const runtime = yield* PluginRuntimeResolver;
+						const sandbox = yield* SandboxRepository;
+						const session = yield* DatabaseSession;
+						const script = persistedScript(`runtime-authority-kernel-${yield* randomUuid}`);
+						yield* addScriptCleanup(session, script.slug);
 
-					yield* plugins.persistKernelScript(script);
-					const kernelScript = yield* runtime.findKernelScript(script.slug);
-					assert(kernelScript);
-					const pin = yield* sandbox.getScriptPin(kernelScript.id);
-					assert(pin);
-					expect(pin).toMatchObject({ kernelScript: true });
+						yield* plugins.persistKernelScript(script);
+						const kernelScript = yield* runtime.findKernelScript(script.slug);
+						assert(kernelScript);
+						const pin = yield* sandbox.getScriptPin(kernelScript.id);
+						assert(pin);
+						expect(pin).toMatchObject({ kernelScript: true });
 
-					const principal = {
-						...pin,
-						subject: { type: "system" },
-					} satisfies ScriptExecutionPrincipal;
-					expect(yield* authority.resolve(principal)).toBe("system");
-				}),
-			),
+						const principal = {
+							...pin,
+							subject: { type: "system" },
+						} satisfies ScriptExecutionPrincipal;
+						expect(yield* authority.resolve(principal)).toBe("system");
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("authority_rejects_scripts_that_are_neither_plugin_nor_kernel", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const authority = yield* SandboxExecutionAuthority;
-					const sandbox = yield* SandboxRepository;
-					const session = yield* DatabaseSession;
-					const script = persistedScript(`runtime-authority-unpinned-${yield* randomUuid}`);
-					yield* addScriptCleanup(session, script.slug);
+		test.effect(
+			"authority_rejects_scripts_that_are_neither_plugin_nor_kernel",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const authority = yield* SandboxExecutionAuthority;
+						const sandbox = yield* SandboxRepository;
+						const session = yield* DatabaseSession;
+						const script = persistedScript(`runtime-authority-unpinned-${yield* randomUuid}`);
+						yield* addScriptCleanup(session, script.slug);
 
-					const [stored] = yield* session.run((db) =>
-						db
-							.insert(tables.sandboxScript)
-							.values({ ...script, pluginRevisionId: null })
-							.returning({ id: tables.sandboxScript.id }),
-					);
-					assert(stored);
-					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(stored.id));
-					assert(pin);
-					expect(pin).not.toHaveProperty("kernelScript");
+						const [stored] = yield* session.run((db) =>
+							db
+								.insert(tables.sandboxScript)
+								.values({ ...script, pluginRevisionId: null })
+								.returning({ id: tables.sandboxScript.id }),
+						);
+						assert(stored);
+						const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(stored.id));
+						assert(pin);
+						expect(pin).not.toHaveProperty("kernelScript");
 
-					yield* assertRejected(authority, [
-						{ ...pin, subject: { type: "system" } },
-						{ ...pin, subject: ownerSubject },
-					]);
-				}),
-			),
+						yield* assertRejected(authority, [
+							{ ...pin, subject: { type: "system" } },
+							{ ...pin, subject: ownerSubject },
+						]);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -394,96 +405,99 @@ describe("sandbox execution authority", () => {
 		),
 		{ excludeTestServices: true },
 	)((test) => {
-		test.effect("user_revisions_and_unverified_null_principals_cannot_reach_system_sidecars", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const plugins = yield* PluginRepository;
-					const runtime = yield* PluginRuntimeResolver;
-					const sandbox = yield* SandboxRepository;
-					const session = yield* DatabaseSession;
-					const supervisor = yield* SandboxSidecarSupervisor.make;
-					const scriptPin = Effect.fnUntraced(function* (scriptSlug: string) {
-						const [row] = yield* session.run((db) =>
+		test.effect(
+			"user_revisions_and_unverified_null_principals_cannot_reach_system_sidecars",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const plugins = yield* PluginRepository;
+						const runtime = yield* PluginRuntimeResolver;
+						const sandbox = yield* SandboxRepository;
+						const session = yield* DatabaseSession;
+						const supervisor = yield* SandboxSidecarSupervisor.make;
+						const scriptPin = Effect.fnUntraced(function* (scriptSlug: string) {
+							const [row] = yield* session.run((db) =>
+								db
+									.select({ id: tables.sandboxScript.id })
+									.from(tables.sandboxScript)
+									.where(eq(tables.sandboxScript.slug, scriptSlug)),
+							);
+							assert(row);
+							const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(row.id));
+							assert(pin);
+							return pin;
+						});
+						const locatesTo = Effect.fnUntraced(function* (
+							principal: ScriptExecutionPrincipal,
+							instance: string,
+						) {
+							expect(yield* supervisor.locate(principal)).toMatchObject({ instance });
+						});
+						const rejected = Effect.fnUntraced(function* (principal: ScriptExecutionPrincipal) {
+							assertExitFails(yield* Effect.exit(supervisor.locate(principal)), missingArtifact());
+						});
+
+						const userSlug = `runtime-authority-user-${yield* randomUuid}`;
+						yield* installRevisionPackage(revisionPackage(userSlug), owner);
+						const userPin = yield* scriptPin(`${userSlug}.details`);
+						assert(userPin.pluginRevision);
+						const userRevision = { ...userPin, subject: ownerSubject };
+						yield* locatesTo(userRevision, "user/core");
+						yield* rejected({ ...userPin, subject: { type: "system" } });
+						yield* rejected({
+							...userRevision,
+							pluginRevision: { ...userPin.pluginRevision, ownerId: null, scope: "system" },
+						});
+						yield* rejected({ ...userRevision, kernelScript: true });
+
+						const unpinned = persistedScript(`runtime-authority-null-${yield* randomUuid}`);
+						yield* addScriptCleanup(session, unpinned.slug);
+						const [stored] = yield* session.run((db) =>
 							db
-								.select({ id: tables.sandboxScript.id })
-								.from(tables.sandboxScript)
-								.where(eq(tables.sandboxScript.slug, scriptSlug)),
+								.insert(tables.sandboxScript)
+								.values({ ...unpinned, pluginRevisionId: null })
+								.returning({ id: tables.sandboxScript.id }),
 						);
-						assert(row);
-						const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(row.id));
-						assert(pin);
-						return pin;
-					});
-					const locatesTo = Effect.fnUntraced(function* (
-						principal: ScriptExecutionPrincipal,
-						instance: string,
-					) {
-						expect(yield* supervisor.locate(principal)).toMatchObject({ instance });
-					});
-					const rejected = Effect.fnUntraced(function* (principal: ScriptExecutionPrincipal) {
-						assertExitFails(yield* Effect.exit(supervisor.locate(principal)), missingArtifact());
-					});
+						assert(stored);
+						const nullPin = yield* sandbox.getScriptPin(SandboxScriptId.make(stored.id));
+						assert(nullPin);
+						expect(nullPin.pluginRevision).toBeNull();
+						yield* rejected({ ...nullPin, subject: { type: "system" } });
+						yield* rejected({ ...nullPin, kernelScript: true, subject: { type: "system" } });
 
-					const userSlug = `runtime-authority-user-${yield* randomUuid}`;
-					yield* installRevisionPackage(revisionPackage(userSlug), owner);
-					const userPin = yield* scriptPin(`${userSlug}.details`);
-					assert(userPin.pluginRevision);
-					const userRevision = { ...userPin, subject: ownerSubject };
-					yield* locatesTo(userRevision, "user/core");
-					yield* rejected({ ...userPin, subject: { type: "system" } });
-					yield* rejected({
-						...userRevision,
-						pluginRevision: { ...userPin.pluginRevision, ownerId: null, scope: "system" },
-					});
-					yield* rejected({ ...userRevision, kernelScript: true });
+						const kernel = persistedScript(`runtime-authority-source-zero-${yield* randomUuid}`);
+						yield* addScriptCleanup(session, kernel.slug);
+						yield* plugins.persistKernelScript(kernel);
+						const kernelScript = yield* runtime.findKernelScript(kernel.slug);
+						assert(kernelScript);
+						const kernelPin = yield* sandbox.getScriptPin(kernelScript.id);
+						assert(kernelPin);
+						yield* locatesTo({ ...kernelPin, subject: { type: "system" } }, "system/core");
 
-					const unpinned = persistedScript(`runtime-authority-null-${yield* randomUuid}`);
-					yield* addScriptCleanup(session, unpinned.slug);
-					const [stored] = yield* session.run((db) =>
-						db
-							.insert(tables.sandboxScript)
-							.values({ ...unpinned, pluginRevisionId: null })
-							.returning({ id: tables.sandboxScript.id }),
-					);
-					assert(stored);
-					const nullPin = yield* sandbox.getScriptPin(SandboxScriptId.make(stored.id));
-					assert(nullPin);
-					expect(nullPin.pluginRevision).toBeNull();
-					yield* rejected({ ...nullPin, subject: { type: "system" } });
-					yield* rejected({ ...nullPin, kernelScript: true, subject: { type: "system" } });
-
-					const kernel = persistedScript(`runtime-authority-source-zero-${yield* randomUuid}`);
-					yield* addScriptCleanup(session, kernel.slug);
-					yield* plugins.persistKernelScript(kernel);
-					const kernelScript = yield* runtime.findKernelScript(kernel.slug);
-					assert(kernelScript);
-					const kernelPin = yield* sandbox.getScriptPin(kernelScript.id);
-					assert(kernelPin);
-					yield* locatesTo({ ...kernelPin, subject: { type: "system" } }, "system/core");
-
-					const firstPartySlug = `runtime-authority-first-party-${yield* randomUuid}`;
-					const firstPartyPackage = revisionPackage(firstPartySlug);
-					const bootstrapScriptSlug = `${firstPartySlug}.task`;
-					yield* installRevisionPackage({
-						...firstPartyPackage,
-						manifest: {
-							...firstPartyPackage.manifest,
-							userBootstrap: [
-								{
-									scriptSlug: bootstrapScriptSlug,
-									slug: `${firstPartySlug}-bootstrap`,
-									description: "First-party bootstrap",
-								},
-							],
-						},
-					});
-					const firstPartyPin = yield* scriptPin(`${firstPartySlug}.details`);
-					expect(firstPartyPin.pluginRevision?.userBootstrapScriptSlugs).toEqual([
-						bootstrapScriptSlug,
-					]);
-					yield* locatesTo({ ...firstPartyPin, subject: ownerSubject }, "system/core");
-				}),
-			),
+						const firstPartySlug = `runtime-authority-first-party-${yield* randomUuid}`;
+						const firstPartyPackage = revisionPackage(firstPartySlug);
+						const bootstrapScriptSlug = `${firstPartySlug}.task`;
+						yield* installRevisionPackage({
+							...firstPartyPackage,
+							manifest: {
+								...firstPartyPackage.manifest,
+								userBootstrap: [
+									{
+										scriptSlug: bootstrapScriptSlug,
+										slug: `${firstPartySlug}-bootstrap`,
+										description: "First-party bootstrap",
+									},
+								],
+							},
+						});
+						const firstPartyPin = yield* scriptPin(`${firstPartySlug}.details`);
+						expect(firstPartyPin.pluginRevision?.userBootstrapScriptSlugs).toEqual([
+							bootstrapScriptSlug,
+						]);
+						yield* locatesTo({ ...firstPartyPin, subject: ownerSubject }, "system/core");
+					}),
+				),
+			testTimeout,
 		);
 	});
 
@@ -501,36 +515,39 @@ describe("sandbox execution authority", () => {
 		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
 		{ excludeTestServices: true },
 	)((test) => {
-		test.effect("locates the principal that the workflow pinning step produces", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const pinning = yield* SandboxWorkflowPinning;
-					const session = yield* DatabaseSession;
-					const supervisor = yield* SandboxSidecarSupervisor.make;
-					const slug = `authority-workflow-${yield* randomUuid}`;
-					yield* installRevisionPackage(revisionPackage(slug), owner);
-					const [row] = yield* session.run((db) =>
-						db
-							.select({ id: tables.sandboxScript.id })
-							.from(tables.sandboxScript)
-							.where(eq(tables.sandboxScript.slug, `${slug}.details`))
-							.limit(1),
-					);
-					assert(row);
-					const executionId = `authority-workflow-${yield* randomUuid}`;
-					const payload = yield* Schema.decodeEffect(ScriptExecutionWorkflowPayload)({
-						input: {},
-						executionId,
-						lane: "interactive",
-						subject: ownerSubject,
-						resolutionMode: "exact",
-						scriptId: SandboxScriptId.make(row.id),
-					});
-					const { principal } = yield* pinning.establish(payload, executionId);
-					expect(principal.metadata).toHaveProperty("providerOperation", "details");
-					expect(yield* supervisor.locate(principal)).toMatchObject({ instance: "user/core" });
-				}),
-			),
+		test.effect(
+			"locates the principal that the workflow pinning step produces",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const pinning = yield* SandboxWorkflowPinning;
+						const session = yield* DatabaseSession;
+						const supervisor = yield* SandboxSidecarSupervisor.make;
+						const slug = `authority-workflow-${yield* randomUuid}`;
+						yield* installRevisionPackage(revisionPackage(slug), owner);
+						const [row] = yield* session.run((db) =>
+							db
+								.select({ id: tables.sandboxScript.id })
+								.from(tables.sandboxScript)
+								.where(eq(tables.sandboxScript.slug, `${slug}.details`))
+								.limit(1),
+						);
+						assert(row);
+						const executionId = `authority-workflow-${yield* randomUuid}`;
+						const payload = yield* Schema.decodeEffect(ScriptExecutionWorkflowPayload)({
+							input: {},
+							executionId,
+							lane: "interactive",
+							subject: ownerSubject,
+							resolutionMode: "exact",
+							scriptId: SandboxScriptId.make(row.id),
+						});
+						const { principal } = yield* pinning.establish(payload, executionId);
+						expect(principal.metadata).toHaveProperty("providerOperation", "details");
+						expect(yield* supervisor.locate(principal)).toMatchObject({ instance: "user/core" });
+					}),
+				),
+			testTimeout,
 		);
 	});
 });

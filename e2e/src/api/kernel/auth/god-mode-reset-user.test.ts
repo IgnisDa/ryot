@@ -135,7 +135,7 @@ describe("Reset user for credential user", () => {
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
 
 			const accepted = yield* requestUserReset(userId);
-			expect(accepted).toEqual({ operationId: anyOf(String) });
+			expect(accepted).toEqual<unknown>({ operationId: anyOf(String) });
 
 			const oldSession = yield* Effect.flip(
 				listPluginsWithHeaders({ Authorization: `Bearer ${authToken}` }),

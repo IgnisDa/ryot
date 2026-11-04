@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -9,7 +10,10 @@ import {
 	clientDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, ZipPassThrough, zipSync } from "fflate";
 
@@ -313,100 +317,111 @@ const excludedAccountArchiveSections = [
 ] as const;
 
 layer(BunFileSystem.layer)((test) => {
-	test.effect("closes the active ZIP input when the archive consumer stops early", () =>
-		Effect.gen(function* () {
-			let closed = false;
-			function* chunks() {
-				try {
-					yield new Uint8Array([1]);
-					yield new Uint8Array([2]);
-				} finally {
-					closed = true;
+	test.effect(
+		"closes the active ZIP input when the archive consumer stops early",
+		() =>
+			Effect.gen(function* () {
+				let closed = false;
+				function* chunks() {
+					try {
+						yield new Uint8Array([1]);
+						yield new Uint8Array([2]);
+					} finally {
+						closed = true;
+					}
 				}
-			}
-			const archive = zipChunks([{ path: "fixture", chunks: chunks(), compression: "store" }]);
-			yield* Effect.promise(() => archive.next());
-			yield* Effect.promise(() => archive.next());
-			yield* Effect.promise(() => archive.return());
-			expect(closed).toBe(true);
-		}),
+				const archive = zipChunks([{ path: "fixture", chunks: chunks(), compression: "store" }]);
+				yield* Effect.promise(() => archive.next());
+				yield* Effect.promise(() => archive.next());
+				yield* Effect.promise(() => archive.return());
+				expect(closed).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	test.effect("round-trips source-free compiled packages and binary client assets", () =>
-		Effect.gen(function* () {
-			const manifest = {
-				...fixtureManifest(),
-				client: {
-					homeView: null,
-					apiVersion: CLIENT_API_VERSION,
-					exports: {
-						card: {
-							entry: "client/card.tsx",
-							kind: "component" as const,
-							automaticEntityPresentations: false,
+	test.effect(
+		"round-trips source-free compiled packages and binary client assets",
+		() =>
+			Effect.gen(function* () {
+				const manifest = {
+					...fixtureManifest(),
+					client: {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							card: {
+								entry: "client/card.tsx",
+								kind: "component" as const,
+								automaticEntityPresentations: false,
+							},
 						},
 					},
-				},
-			};
-			const files = [
-				...fixtureClientArtifact(
-					manifest.metadata.name,
-					manifest.metadata.packageId,
-					manifest.client,
-				).files,
-				{
-					name: "asset.png",
-					contentType: "image/png",
-					contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
-				},
-			];
-			const compiledClient = {
-				...clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, files, {
-					imports: [],
-					clientDeclarationHash: clientDeclarationHash(manifest.client),
-				}),
-				files,
-			};
-			const compiledScripts = manifest.scripts.map(({ entry }) => ({
-				entry,
-				format: 1,
-				javascript: "export {};",
-			}));
-			const contentHash = pluginContentHash(manifest, compiledScripts, compiledClient);
-			const privatePlugin = {
-				manifest,
-				contentHash,
-				compiledClient,
-				compiledScripts,
-				version: manifest.metadata.version,
-				packageId: manifest.metadata.packageId,
-				key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
-			};
-			const archive = yield* archiveBytes(
-				input({ records: { ...records, privatePlugins: [privatePlugin] } }),
-			);
-			const section = unzipSync(archive)["private-plugins.ndjson"];
-			assert(section);
-			const text = new TextDecoder().decode(section);
-			const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(ArchivePrivatePlugin))(text);
-			expect(decoded).not.toHaveProperty("files");
-			expect(decoded.compiledScripts).toEqual(compiledScripts);
-			expect(text).not.toContain('"source":');
-			expect(text).toContain('"contents":"AP+AQQ=="');
-			const validated = yield* validateArchive(asChunks(archive));
-			expect(validated.records.privatePlugins).toEqual([privatePlugin]);
-		}).pipe(Effect.scoped),
+				};
+				const files = [
+					...fixtureClientArtifact(
+						manifest.metadata.name,
+						manifest.metadata.packageId,
+						manifest.client,
+					).files,
+					{
+						name: "asset.png",
+						contentType: "image/png",
+						contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
+					},
+				];
+				const compiledClient = {
+					...clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, files, {
+						imports: [],
+						clientDeclarationHash: clientDeclarationHash(manifest.client),
+					}),
+					files,
+				};
+				const compiledScripts = manifest.scripts.map(({ entry }) => ({
+					entry,
+					format: 1,
+					javascript: "export {};",
+				}));
+				const contentHash = pluginContentHash(manifest, compiledScripts, compiledClient);
+				const privatePlugin = {
+					manifest,
+					contentHash,
+					compiledClient,
+					compiledScripts,
+					version: manifest.metadata.version,
+					packageId: manifest.metadata.packageId,
+					key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
+				};
+				const archive = yield* archiveBytes(
+					input({ records: { ...records, privatePlugins: [privatePlugin] } }),
+				);
+				const section = unzipSync(archive)["private-plugins.ndjson"];
+				assert(section);
+				const text = new TextDecoder().decode(section);
+				const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(ArchivePrivatePlugin))(
+					text,
+				);
+				expect(decoded).not.toHaveProperty("files");
+				expect(decoded.compiledScripts).toEqual(compiledScripts);
+				expect(text).not.toContain('"source":');
+				expect(text).toContain('"contents":"AP+AQQ=="');
+				const validated = yield* validateArchive(asChunks(archive));
+				expect(validated.records.privatePlugins).toEqual([privatePlugin]);
+			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 
-	test.effect("creates deterministic V1 archives and validates the round trip", () =>
-		Effect.gen(function* () {
-			const first = yield* archiveBytes();
-			const second = yield* archiveBytes();
-			expect(first).toEqual(second);
-			const validated = yield* validateArchive(asChunks(first));
-			expect(validated.manifest.version).toBe(1);
-			expect(yield* collectFixtureRecords(validated)).toEqual(records);
-		}).pipe(Effect.scoped),
+	test.effect(
+		"creates deterministic V1 archives and validates the round trip",
+		() =>
+			Effect.gen(function* () {
+				const first = yield* archiveBytes();
+				const second = yield* archiveBytes();
+				expect(first).toEqual(second);
+				const validated = yield* validateArchive(asChunks(first));
+				expect(validated.manifest.version).toBe(1);
+				expect(yield* collectFixtureRecords(validated)).toEqual<unknown>(records);
+			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 
 	test.effect(
@@ -463,8 +478,8 @@ layer(BunFileSystem.layer)((test) => {
 					privateKey,
 				]);
 				const collected = yield* collectFixtureRecords(validated);
-				expect(collected.savedViews).toEqual(archiveRecords.savedViews);
-				expect(collected.integrations).toEqual(archiveRecords.integrations);
+				expect(collected.savedViews).toEqual<unknown>(archiveRecords.savedViews);
+				expect(collected.integrations).toEqual<unknown>(archiveRecords.integrations);
 				for (const state of validated.records.installations) {
 					expect(state).not.toHaveProperty("id");
 				}
@@ -472,60 +487,67 @@ layer(BunFileSystem.layer)((test) => {
 					expect(record).not.toHaveProperty("installationId");
 				}
 			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 
-	test.effect("rejects duplicate installation keys and missing installation plugin keys", () =>
-		Effect.gen(function* () {
-			const installation = records.installations[0];
-			assert(installation);
-			for (const { path, values, reason } of [
-				{
-					path: "installations.ndjson",
-					reason: "duplicate_record_id",
-					values: [installation, installation],
-				},
-				{
-					path: "installations.ndjson",
-					reason: "missing_reference_mapping",
-					values: [{ ...installation, packageKey: "undeclared" }],
-				},
-			] as const) {
-				const archive = yield* mutateArchive(input(), (files) => {
-					return replaceSection(
-						files,
-						path,
-						encoder.encode(values.map((value) => `${JSON.stringify(value)}\n`).join("")),
-						values.length,
-					);
-				});
-				expect((yield* validationError(archive)).reason).toBe(reason);
-			}
-		}),
+	test.effect(
+		"rejects duplicate installation keys and missing installation plugin keys",
+		() =>
+			Effect.gen(function* () {
+				const installation = records.installations[0];
+				assert(installation);
+				for (const { path, values, reason } of [
+					{
+						path: "installations.ndjson",
+						reason: "duplicate_record_id",
+						values: [installation, installation],
+					},
+					{
+						path: "installations.ndjson",
+						reason: "missing_reference_mapping",
+						values: [{ ...installation, packageKey: "undeclared" }],
+					},
+				] as const) {
+					const archive = yield* mutateArchive(input(), (files) => {
+						return replaceSection(
+							files,
+							path,
+							encoder.encode(values.map((value) => `${JSON.stringify(value)}\n`).join("")),
+							values.length,
+						);
+					});
+					expect((yield* validationError(archive)).reason).toBe(reason);
+				}
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects source installation IDs and invalid null integration ownership", () =>
-		Effect.gen(function* () {
-			const installation = records.installations[0];
-			const view = records.savedViews[0];
-			assert(installation && view);
-			for (const { path, value } of [
-				{ path: "installations.ndjson", value: { ...installation, id: "source-installation" } },
-				{ path: "saved-views.ndjson", value: { ...view, installationId: "source-installation" } },
-				{
-					path: "integrations.ndjson",
-					value: { ...integration(systemKey), installationId: "source-installation" },
-				},
-				{
-					path: "integrations.ndjson",
-					value: { ...integration(null), provider: "plugin-provider" },
-				},
-			] as const) {
-				const archive = yield* mutateArchive(input(), (files) => {
-					return replaceSection(files, path, encoder.encode(`${JSON.stringify(value)}\n`), 1);
-				});
-				expect(yield* validationError(archive)).toMatchObject({ path, reason: "invalid_entry" });
-			}
-		}),
+	test.effect(
+		"rejects source installation IDs and invalid null integration ownership",
+		() =>
+			Effect.gen(function* () {
+				const installation = records.installations[0];
+				const view = records.savedViews[0];
+				assert(installation && view);
+				for (const { path, value } of [
+					{ path: "installations.ndjson", value: { ...installation, id: "source-installation" } },
+					{ path: "saved-views.ndjson", value: { ...view, installationId: "source-installation" } },
+					{
+						path: "integrations.ndjson",
+						value: { ...integration(systemKey), installationId: "source-installation" },
+					},
+					{
+						path: "integrations.ndjson",
+						value: { ...integration(null), provider: "plugin-provider" },
+					},
+				] as const) {
+					const archive = yield* mutateArchive(input(), (files) => {
+						return replaceSection(files, path, encoder.encode(`${JSON.stringify(value)}\n`), 1);
+					});
+					expect(yield* validationError(archive)).toMatchObject({ path, reason: "invalid_entry" });
+				}
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -587,353 +609,403 @@ layer(BunFileSystem.layer)((test) => {
 					path: "installations.ndjson",
 				});
 			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 
-	test.effect("round-trips dependency translations by entity and language", () =>
-		Effect.gen(function* () {
-			const dependency = {
-				...entity(),
-				kind: "snapshot" as const,
-				identity: { kind: "unmanaged" as const },
-				translations: [
-					{
-						language: "es",
-						name: "Entidad",
-						createdAt: timestamp,
-						updatedAt: timestamp,
-						populatedAt: timestamp,
-						properties: { description: "Traducida" },
-					},
-				],
-			};
-			const validated = yield* validateArchive(
-				asChunks(
-					yield* archiveBytes(input({ records: { ...records, entityDependencies: [dependency] } })),
-				),
-			);
-			expect((yield* collectFixtureRecords(validated)).entityDependencies).toEqual([dependency]);
-		}).pipe(Effect.scoped),
-	);
-
-	test.effect("excludes automation history and configuration revision sections", () =>
-		Effect.gen(function* () {
-			const files = unzipSync(yield* archiveBytes());
-			const manifestFile = files["manifest.json"];
-			assert(manifestFile);
-			const sectionPaths = (yield* decodeManifest(manifestFile)).sections.map(({ path }) => path);
-			for (const path of excludedAccountArchiveSections) {
-				expect(files).not.toHaveProperty(path);
-				expect(sectionPaths).not.toContain(path);
-			}
-		}),
-	);
-
-	test.effect("rejects a non-V1 manifest", () =>
-		Effect.gen(function* () {
-			const files = unzipSync(yield* archiveBytes());
-			const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(
-				new TextDecoder().decode(files["manifest.json"]),
-			);
-			files["manifest.json"] = new TextEncoder().encode(
-				stableStringify({ ...manifest, version: 2 }),
-			);
-			const error = yield* validateArchive(asChunks(zipSync(files))).pipe(
-				Effect.scoped,
-				Effect.flip,
-			);
-			expect(error).toBeInstanceOf(BackupArchiveError);
-			expect(error.reason).toBe("unsupported_format");
-		}),
-	);
-
-	test.effect("rejects unsafe ZIP paths", () =>
-		Effect.gen(function* () {
-			const error = yield* validateArchive(
-				asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
-			).pipe(Effect.scoped, Effect.flip);
-			expect(error).toBeInstanceOf(BackupArchiveError);
-			expect(error.reason).toBe("invalid_path");
-		}),
-	);
-
-	test.effect("enforces record, entry, and total archive limits", () =>
-		Effect.gen(function* () {
-			const { asset } = assetInput();
-			const archive = yield* archiveBytes(
-				input({ assets: [asset], records: { ...records, entities: [entity()] } }),
-			);
-			const cases = [
-				{ reason: "count_mismatch", limits: { maxRecordsPerSection: 0 } },
-				{ limits: { maxEntryCount: 1 }, reason: "entry_count_exceeded" },
-				{ reason: "entry_too_large", limits: { maxEntryBytes: 1 } },
-				{ reason: "entry_too_large", limits: { maxMetadataEntryBytes: 1 } },
-				{ reason: "total_size_exceeded", limits: { maxTotalUncompressedBytes: 1 } },
-			] as const;
-			for (const testCase of cases) {
-				const error = yield* validationError(archive, { limits: testCase.limits });
-				expect(error.reason).toBe(testCase.reason);
-			}
-		}),
-	);
-
-	test.effect("reports the path and byte limit for an oversized export entry", () =>
-		Effect.gen(function* () {
-			const { asset } = assetInput();
-			const error = yield* Stream.runCollect(
-				createArchiveStream(
-					input({
-						assets: [asset],
-						records: { ...records, savedViews: [], calendarSourceOverrides: [] },
-					}),
-					{ maxEntryBytes: 1 },
-				),
-			).pipe(Effect.flip);
-
-			expect(error).toBeInstanceOf(BackupArchiveError);
-			expect(error).toMatchObject({
-				maxBytes: 1,
-				path: asset.metadata.path,
-				reason: "entry_too_large",
-				actualBytes: asset.metadata.size,
-			});
-		}),
-	);
-
-	test.effect("rejects section digest and count mismatches including streamed events", () =>
-		Effect.gen(function* () {
-			const populated = input({
-				events: eventsInput([event()]),
-				records: { ...records, entities: [entity()] },
-			});
-			const boundedDigest = yield* mutateArchive(populated, (files) =>
-				Effect.sync(() => {
-					files["entities.ndjson"] = encoder.encode("\n");
-				}),
-			);
-			expect((yield* validationError(boundedDigest)).reason).toBe("checksum_mismatch");
-
-			const eventDigest = yield* mutateArchive(populated, (files) =>
-				Effect.sync(() => {
-					files["events.ndjson"] = encoder.encode("\n");
-				}),
-			);
-			expect((yield* validationError(eventDigest)).reason).toBe("checksum_mismatch");
-
-			const boundedCount = yield* mutateArchive(populated, (files) => {
-				return updateManifest(files, (manifest) => ({
-					...manifest,
-					sections: manifest.sections.map((section) =>
-						section.path === "entities.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
+	test.effect(
+		"round-trips dependency translations by entity and language",
+		() =>
+			Effect.gen(function* () {
+				const dependency = {
+					...entity(),
+					kind: "snapshot" as const,
+					identity: { kind: "unmanaged" as const },
+					translations: [
+						{
+							language: "es",
+							name: "Entidad",
+							createdAt: timestamp,
+							updatedAt: timestamp,
+							populatedAt: timestamp,
+							properties: { description: "Traducida" },
+						},
+					],
+				};
+				const validated = yield* validateArchive(
+					asChunks(
+						yield* archiveBytes(
+							input({ records: { ...records, entityDependencies: [dependency] } }),
+						),
 					),
-				}));
-			});
-			expect((yield* validationError(boundedCount)).reason).toBe("count_mismatch");
+				);
+				expect((yield* collectFixtureRecords(validated)).entityDependencies).toEqual([dependency]);
+			}).pipe(Effect.scoped),
+		testTimeout,
+	);
 
-			const eventCount = yield* mutateArchive(populated, (files) => {
-				return updateManifest(files, (manifest) => ({
-					...manifest,
-					sections: manifest.sections.map((section) =>
-						section.path === "events.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
-					),
-				}));
-			});
-			yield* Effect.gen(function* () {
-				const validated = yield* validateArchive(asChunks(eventCount));
-				const error = yield* Stream.runDrain(validated.sections["events.ndjson"].read()).pipe(
+	test.effect(
+		"excludes automation history and configuration revision sections",
+		() =>
+			Effect.gen(function* () {
+				const files = unzipSync(yield* archiveBytes());
+				const manifestFile = files["manifest.json"];
+				assert(manifestFile);
+				const sectionPaths = (yield* decodeManifest(manifestFile)).sections.map(({ path }) => path);
+				for (const path of excludedAccountArchiveSections) {
+					expect(files).not.toHaveProperty(path);
+					expect(sectionPaths).not.toContain(path);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a non-V1 manifest",
+		() =>
+			Effect.gen(function* () {
+				const files = unzipSync(yield* archiveBytes());
+				const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveManifest))(
+					new TextDecoder().decode(files["manifest.json"]),
+				);
+				files["manifest.json"] = new TextEncoder().encode(
+					stableStringify({ ...manifest, version: 2 }),
+				);
+				const error = yield* validateArchive(asChunks(zipSync(files))).pipe(
+					Effect.scoped,
 					Effect.flip,
 				);
-				expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
-			}).pipe(Effect.scoped);
-		}),
+				expect(error).toBeInstanceOf(BackupArchiveError);
+				expect(error.reason).toBe("unsupported_format");
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects duplicate and missing paths and unsupported compression", () =>
-		Effect.gen(function* () {
-			expect((yield* validationError(rawZip(["manifest.json", "manifest.json"]))).reason).toBe(
-				"duplicate_path",
-			);
-			const missing = yield* mutateArchive(input(), (files) =>
-				Effect.sync(() => {
-					Reflect.deleteProperty(files, "entities.ndjson");
-				}),
-			);
-			expect((yield* validationError(missing)).reason).toBe("missing_entry");
+	test.effect(
+		"rejects unsafe ZIP paths",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* validateArchive(
+					asChunks(zipSync({ "../manifest.json": new Uint8Array() })),
+				).pipe(Effect.scoped, Effect.flip);
+				expect(error).toBeInstanceOf(BackupArchiveError);
+				expect(error.reason).toBe("invalid_path");
+			}),
+		testTimeout,
+	);
 
-			const unsupported = (yield* archiveBytes()).slice();
-			const view = new DataView(unsupported.buffer, unsupported.byteOffset, unsupported.byteLength);
-			for (let offset = 0; offset <= unsupported.byteLength - 12; offset += 1) {
-				const signature = view.getUint32(offset, true);
-				if (signature === 0x04034b50) {
-					view.setUint16(offset + 8, 99, true);
-				} else if (signature === 0x02014b50) {
-					view.setUint16(offset + 10, 99, true);
+	test.effect(
+		"enforces record, entry, and total archive limits",
+		() =>
+			Effect.gen(function* () {
+				const { asset } = assetInput();
+				const archive = yield* archiveBytes(
+					input({ assets: [asset], records: { ...records, entities: [entity()] } }),
+				);
+				const cases = [
+					{ reason: "count_mismatch", limits: { maxRecordsPerSection: 0 } },
+					{ limits: { maxEntryCount: 1 }, reason: "entry_count_exceeded" },
+					{ reason: "entry_too_large", limits: { maxEntryBytes: 1 } },
+					{ reason: "entry_too_large", limits: { maxMetadataEntryBytes: 1 } },
+					{ reason: "total_size_exceeded", limits: { maxTotalUncompressedBytes: 1 } },
+				] as const;
+				for (const testCase of cases) {
+					const error = yield* validationError(archive, { limits: testCase.limits });
+					expect(error.reason).toBe(testCase.reason);
 				}
-			}
-			expect((yield* validationError(unsupported)).reason).toBe("unsupported_compression");
-		}),
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
-		Effect.gen(function* () {
-			for (const { reason, payload } of [
-				{ payload: "not-json\n", reason: "invalid_entry" },
-				{ payload: '{"id":', reason: "truncated_ndjson" },
-			] as const) {
-				const bounded = yield* mutateArchive(input(), (files) => {
-					return replaceSection(files, "entities.ndjson", encoder.encode(payload));
-				});
-				expect((yield* validationError(bounded)).reason).toBe(reason);
+	test.effect(
+		"reports the path and byte limit for an oversized export entry",
+		() =>
+			Effect.gen(function* () {
+				const { asset } = assetInput();
+				const error = yield* Stream.runCollect(
+					createArchiveStream(
+						input({
+							assets: [asset],
+							records: { ...records, savedViews: [], calendarSourceOverrides: [] },
+						}),
+						{ maxEntryBytes: 1 },
+					),
+				).pipe(Effect.flip);
 
-				const streamed = yield* mutateArchive(input(), (files) => {
-					return replaceSection(files, "events.ndjson", encoder.encode(payload));
+				expect(error).toBeInstanceOf(BackupArchiveError);
+				expect(error).toMatchObject({
+					maxBytes: 1,
+					path: asset.metadata.path,
+					reason: "entry_too_large",
+					actualBytes: asset.metadata.size,
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects section digest and count mismatches including streamed events",
+		() =>
+			Effect.gen(function* () {
+				const populated = input({
+					events: eventsInput([event()]),
+					records: { ...records, entities: [entity()] },
+				});
+				const boundedDigest = yield* mutateArchive(populated, (files) =>
+					Effect.sync(() => {
+						files["entities.ndjson"] = encoder.encode("\n");
+					}),
+				);
+				expect((yield* validationError(boundedDigest)).reason).toBe("checksum_mismatch");
+
+				const eventDigest = yield* mutateArchive(populated, (files) =>
+					Effect.sync(() => {
+						files["events.ndjson"] = encoder.encode("\n");
+					}),
+				);
+				expect((yield* validationError(eventDigest)).reason).toBe("checksum_mismatch");
+
+				const boundedCount = yield* mutateArchive(populated, (files) => {
+					return updateManifest(files, (manifest) => ({
+						...manifest,
+						sections: manifest.sections.map((section) =>
+							section.path === "entities.ndjson"
+								? Object.assign({}, section, { count: 2 })
+								: section,
+						),
+					}));
+				});
+				expect((yield* validationError(boundedCount)).reason).toBe("count_mismatch");
+
+				const eventCount = yield* mutateArchive(populated, (files) => {
+					return updateManifest(files, (manifest) => ({
+						...manifest,
+						sections: manifest.sections.map((section) =>
+							section.path === "events.ndjson" ? Object.assign({}, section, { count: 2 }) : section,
+						),
+					}));
 				});
 				yield* Effect.gen(function* () {
-					const validated = yield* validateArchive(asChunks(streamed));
+					const validated = yield* validateArchive(asChunks(eventCount));
 					const error = yield* Stream.runDrain(validated.sections["events.ndjson"].read()).pipe(
 						Effect.flip,
 					);
-					expect(error).toMatchObject({ reason, path: "events.ndjson" });
+					expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
 				}).pipe(Effect.scoped);
-			}
-		}),
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects undeclared, missing, and mismatched assets", () =>
-		Effect.gen(function* () {
-			const { asset } = assetInput();
-			const archiveInput = input({ assets: [asset] });
-			const undeclared = yield* mutateArchive(archiveInput, (files) =>
-				Effect.sync(() => {
-					files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
-				}),
-			);
-			expect((yield* validationError(undeclared)).reason).toBe("undeclared_asset");
-
-			const missing = yield* mutateArchive(archiveInput, (files) =>
-				Effect.sync(() => {
-					Reflect.deleteProperty(files, asset.metadata.path);
-				}),
-			);
-			expect((yield* validationError(missing)).reason).toBe("missing_entry");
-
-			const digest = yield* mutateArchive(archiveInput, (files) =>
-				Effect.sync(() => {
-					files[asset.metadata.path] = encoder.encode("changed asset");
-				}),
-			);
-			expect((yield* validationError(digest)).reason).toBe("checksum_mismatch");
-
-			const size = yield* mutateArchive(archiveInput, (files) => {
-				return updateManifest(files, (manifest) => ({
-					...manifest,
-					assets: manifest.assets.map((item) => Object.assign({}, item, { size: item.size + 1 })),
-				}));
-			});
-			expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
-		}),
-	);
-
-	test.effect("releases the spool directory on success, failure, and interruption", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const root = yield* fs.makeTempDirectory({ prefix: "ryot-backup-spool-test-" });
-			const spooled = yield* archiveBytes(input({ records: { ...records, entities: [entity()] } }));
-			const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
-
-			const held = yield* Effect.gen(function* () {
-				const validated = yield* validateArchive(asChunks(spooled), { directory: root });
-				expect(yield* spoolEntries()).toBe(1);
-				return validated.assets.length;
-			}).pipe(Effect.scoped);
-			expect(held).toBe(0);
-			expect(yield* spoolEntries()).toBe(0);
-
-			const truncated = yield* mutateArchive(input(), (files) => {
-				return replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
-			});
-			yield* Effect.gen(function* () {
-				const validated = yield* validateArchive(asChunks(truncated), { directory: root });
-				return yield* Stream.runDrain(validated.sections["events.ndjson"].read());
-			}).pipe(Effect.scoped, Effect.flip);
-			expect(yield* spoolEntries()).toBe(0);
-
-			expect(
-				(yield* validationError(rawZip(["manifest.json", "manifest.json"]), { directory: root }))
-					.reason,
-			).toBe("duplicate_path");
-			expect(yield* spoolEntries()).toBe(0);
-
-			const exit = yield* Effect.exit(
-				Effect.gen(function* () {
-					yield* validateArchive(asChunks(spooled), { directory: root });
-					return yield* Effect.interrupt;
-				}).pipe(Effect.scoped),
-			);
-			expect(exit._tag).toBe("Failure");
-			expect(yield* spoolEntries()).toBe(0);
-
-			yield* fs.remove(root, { force: true, recursive: true });
-		}),
-	);
-
-	test.effect("rejects invalid private plugin archive records", () =>
-		Effect.gen(function* () {
-			const archive = yield* mutateArchive(input(), (files) => {
-				return replaceSection(
-					files,
-					"private-plugins.ndjson",
-					encoder.encode(
-						`${JSON.stringify({
-							packageId,
-							manifest: {},
-							version: "1.0.0",
-							compiledScripts: [],
-							contentHash: "a".repeat(64),
-							key: pluginPackageKey({ packageId, scope: "user" }),
-						})}\n`,
-					),
+	test.effect(
+		"rejects duplicate and missing paths and unsupported compression",
+		() =>
+			Effect.gen(function* () {
+				expect((yield* validationError(rawZip(["manifest.json", "manifest.json"]))).reason).toBe(
+					"duplicate_path",
 				);
-			});
-			const error = yield* validationError(archive);
-			expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
-		}),
+				const missing = yield* mutateArchive(input(), (files) =>
+					Effect.sync(() => {
+						Reflect.deleteProperty(files, "entities.ndjson");
+					}),
+				);
+				expect((yield* validationError(missing)).reason).toBe("missing_entry");
+
+				const unsupported = (yield* archiveBytes()).slice();
+				const view = new DataView(
+					unsupported.buffer,
+					unsupported.byteOffset,
+					unsupported.byteLength,
+				);
+				for (let offset = 0; offset <= unsupported.byteLength - 12; offset += 1) {
+					const signature = view.getUint32(offset, true);
+					if (signature === 0x04034b50) {
+						view.setUint16(offset + 8, 99, true);
+					} else if (signature === 0x02014b50) {
+						view.setUint16(offset + 10, 99, true);
+					}
+				}
+				expect((yield* validationError(unsupported)).reason).toBe("unsupported_compression");
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects invalid reminder time zones in archive records", () =>
-		Effect.gen(function* () {
-			const archive = yield* mutateArchive(input(), (files) => {
-				const reminder = {
-					reason: null,
-					entityId: null,
-					state: "settled",
-					dueAt: timestamp,
-					message: "Message",
-					processingAt: null,
-					id: "reminder-zone",
-					outcome: "accepted",
-					replacementId: null,
-					parentEntityId: null,
-					createdAt: timestamp,
-					updatedAt: timestamp,
-					settledAt: timestamp,
-					entityTitle: "Target",
-					timezone: "Not/A_Zone",
-					originalSchedule: null,
-				};
-				return replaceSection(
-					files,
-					"reminders.ndjson",
-					encoder.encode(`${JSON.stringify(reminder)}\n`),
-					1,
+	test.effect(
+		"rejects malformed and truncated bounded and streamed NDJSON",
+		() =>
+			Effect.gen(function* () {
+				for (const { reason, payload } of [
+					{ payload: "not-json\n", reason: "invalid_entry" },
+					{ payload: '{"id":', reason: "truncated_ndjson" },
+				] as const) {
+					const bounded = yield* mutateArchive(input(), (files) => {
+						return replaceSection(files, "entities.ndjson", encoder.encode(payload));
+					});
+					expect((yield* validationError(bounded)).reason).toBe(reason);
+
+					const streamed = yield* mutateArchive(input(), (files) => {
+						return replaceSection(files, "events.ndjson", encoder.encode(payload));
+					});
+					yield* Effect.gen(function* () {
+						const validated = yield* validateArchive(asChunks(streamed));
+						const error = yield* Stream.runDrain(validated.sections["events.ndjson"].read()).pipe(
+							Effect.flip,
+						);
+						expect(error).toMatchObject({ reason, path: "events.ndjson" });
+					}).pipe(Effect.scoped);
+				}
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects undeclared, missing, and mismatched assets",
+		() =>
+			Effect.gen(function* () {
+				const { asset } = assetInput();
+				const archiveInput = input({ assets: [asset] });
+				const undeclared = yield* mutateArchive(archiveInput, (files) =>
+					Effect.sync(() => {
+						files[`assets/${"a".repeat(64)}`] = encoder.encode("undeclared");
+					}),
 				);
-			});
-			const error = yield* validationError(archive);
-			expect(error).toBeInstanceOf(BackupArchiveError);
-			expect(error).toMatchObject({
-				reason: "invalid_entry",
-				path: "reminders.ndjson",
-				_tag: "BackupArchiveError",
-			});
-		}),
+				expect((yield* validationError(undeclared)).reason).toBe("undeclared_asset");
+
+				const missing = yield* mutateArchive(archiveInput, (files) =>
+					Effect.sync(() => {
+						Reflect.deleteProperty(files, asset.metadata.path);
+					}),
+				);
+				expect((yield* validationError(missing)).reason).toBe("missing_entry");
+
+				const digest = yield* mutateArchive(archiveInput, (files) =>
+					Effect.sync(() => {
+						files[asset.metadata.path] = encoder.encode("changed asset");
+					}),
+				);
+				expect((yield* validationError(digest)).reason).toBe("checksum_mismatch");
+
+				const size = yield* mutateArchive(archiveInput, (files) => {
+					return updateManifest(files, (manifest) => ({
+						...manifest,
+						assets: manifest.assets.map((item) => Object.assign({}, item, { size: item.size + 1 })),
+					}));
+				});
+				expect((yield* validationError(size)).reason).toBe("checksum_mismatch");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"releases the spool directory on success, failure, and interruption",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const root = yield* fs.makeTempDirectory({ prefix: "ryot-backup-spool-test-" });
+				const spooled = yield* archiveBytes(
+					input({ records: { ...records, entities: [entity()] } }),
+				);
+				const spoolEntries = () => fs.readDirectory(root).pipe(Effect.map((paths) => paths.length));
+
+				const held = yield* Effect.gen(function* () {
+					const validated = yield* validateArchive(asChunks(spooled), { directory: root });
+					expect(yield* spoolEntries()).toBe(1);
+					return validated.assets.length;
+				}).pipe(Effect.scoped);
+				expect(held).toBe(0);
+				expect(yield* spoolEntries()).toBe(0);
+
+				const truncated = yield* mutateArchive(input(), (files) => {
+					return replaceSection(files, "events.ndjson", encoder.encode('{"id":'));
+				});
+				yield* Effect.gen(function* () {
+					const validated = yield* validateArchive(asChunks(truncated), { directory: root });
+					return yield* Stream.runDrain(validated.sections["events.ndjson"].read());
+				}).pipe(Effect.scoped, Effect.flip);
+				expect(yield* spoolEntries()).toBe(0);
+
+				expect(
+					(yield* validationError(rawZip(["manifest.json", "manifest.json"]), { directory: root }))
+						.reason,
+				).toBe("duplicate_path");
+				expect(yield* spoolEntries()).toBe(0);
+
+				const exit = yield* Effect.exit(
+					Effect.gen(function* () {
+						yield* validateArchive(asChunks(spooled), { directory: root });
+						return yield* Effect.interrupt;
+					}).pipe(Effect.scoped),
+				);
+				expect(exit._tag).toBe("Failure");
+				expect(yield* spoolEntries()).toBe(0);
+
+				yield* fs.remove(root, { force: true, recursive: true });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects invalid private plugin archive records",
+		() =>
+			Effect.gen(function* () {
+				const archive = yield* mutateArchive(input(), (files) => {
+					return replaceSection(
+						files,
+						"private-plugins.ndjson",
+						encoder.encode(
+							`${JSON.stringify({
+								packageId,
+								manifest: {},
+								version: "1.0.0",
+								compiledScripts: [],
+								contentHash: "a".repeat(64),
+								key: pluginPackageKey({ packageId, scope: "user" }),
+							})}\n`,
+						),
+					);
+				});
+				const error = yield* validationError(archive);
+				expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects invalid reminder time zones in archive records",
+		() =>
+			Effect.gen(function* () {
+				const archive = yield* mutateArchive(input(), (files) => {
+					const reminder = {
+						reason: null,
+						entityId: null,
+						state: "settled",
+						dueAt: timestamp,
+						message: "Message",
+						processingAt: null,
+						id: "reminder-zone",
+						outcome: "accepted",
+						replacementId: null,
+						parentEntityId: null,
+						createdAt: timestamp,
+						updatedAt: timestamp,
+						settledAt: timestamp,
+						entityTitle: "Target",
+						timezone: "Not/A_Zone",
+						originalSchedule: null,
+					};
+					return replaceSection(
+						files,
+						"reminders.ndjson",
+						encoder.encode(`${JSON.stringify(reminder)}\n`),
+						1,
+					);
+				});
+				const error = yield* validationError(archive);
+				expect(error).toBeInstanceOf(BackupArchiveError);
+				expect(error).toMatchObject({
+					reason: "invalid_entry",
+					path: "reminders.ndjson",
+					_tag: "BackupArchiveError",
+				});
+			}),
+		testTimeout,
 	);
 });

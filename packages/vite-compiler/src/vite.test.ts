@@ -1,5 +1,8 @@
+import { describe, expect } from "bun:test";
+
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { describe, expect, layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import type { InlineConfig } from "vite";
 
@@ -68,67 +71,73 @@ describe("Vite build", () => {
 			}),
 		),
 	)((test) => {
-		test.effect("enforces protected configuration through an injected Vite service", () =>
-			Effect.gen(function* () {
-				const result = yield* buildWithVite({
-					typeScriptProject,
-					workspace: virtualWorkspace,
-					config: {
-						appType: "spa",
-						root: "/caller-root",
-						envDir: "/caller-env",
-						build: { write: true },
-						publicDir: "/caller-public",
-						configFile: "caller.config.ts",
-					},
-				});
-				const [config] = yield* (yield* FakeViteBuild).builds;
-				expect(protectedConfiguration(config)).toEqual({
-					oxc: false,
-					write: false,
-					envDir: false,
-					publicDir: false,
-					appType: "custom",
-					configFile: false,
-					root: "/virtual/job",
-					rolldownTsconfig: false,
-					postcss: { plugins: [] },
-					outDir: "/virtual/job/output",
-					cacheDir: "/virtual/job/generated/vite-cache",
-				});
-				expect(result.files.map(({ path }) => path)).toEqual(["app.js"]);
-				expect(result.diagnostics).toEqual([
-					{
-						severity: "warning",
-						plugin: "test-plugin",
-						code: "PLUGIN_WARNING",
-						file: "source/entry.ts",
-						message: "captured warning",
-						location: { line: 1, column: 7 },
-					},
-				]);
-			}),
+		test.effect(
+			"enforces protected configuration through an injected Vite service",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildWithVite({
+						typeScriptProject,
+						workspace: virtualWorkspace,
+						config: {
+							appType: "spa",
+							root: "/caller-root",
+							envDir: "/caller-env",
+							build: { write: true },
+							publicDir: "/caller-public",
+							configFile: "caller.config.ts",
+						},
+					});
+					const [config] = yield* (yield* FakeViteBuild).builds;
+					expect(protectedConfiguration(config)).toEqual({
+						oxc: false,
+						write: false,
+						envDir: false,
+						publicDir: false,
+						appType: "custom",
+						configFile: false,
+						root: "/virtual/job",
+						rolldownTsconfig: false,
+						postcss: { plugins: [] },
+						outDir: "/virtual/job/output",
+						cacheDir: "/virtual/job/generated/vite-cache",
+					});
+					expect(result.files.map(({ path }) => path)).toEqual(["app.js"]);
+					expect(result.diagnostics).toEqual([
+						{
+							severity: "warning",
+							plugin: "test-plugin",
+							code: "PLUGIN_WARNING",
+							file: "source/entry.ts",
+							message: "captured warning",
+							location: { line: 1, column: 7 },
+						},
+					]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(fakeViteBuildLayer(() => Effect.succeed(output)))((test) => {
-		test.effect("allows only the generated directory as an alternate Vite root", () =>
-			Effect.gen(function* () {
-				yield* buildWithVite({
-					config: {},
-					typeScriptProject,
-					workspace: virtualWorkspace,
-					root: virtualWorkspace.generatedPath,
-				});
-				for (const root of [virtualWorkspace.sourcePath, "/virtual/arbitrary"]) {
-					const failure = yield* Effect.flip(
-						buildWithVite({ root, config: {}, typeScriptProject, workspace: virtualWorkspace }),
-					);
-					expect(failure.reason).toBe("invalid-input");
-				}
-				const builds = yield* (yield* FakeViteBuild).builds;
-				expect(builds.map(({ root }) => root)).toEqual([virtualWorkspace.generatedPath]);
-			}),
+		test.effect(
+			"allows only the generated directory as an alternate Vite root",
+			() =>
+				Effect.gen(function* () {
+					yield* buildWithVite({
+						config: {},
+						typeScriptProject,
+						workspace: virtualWorkspace,
+						root: virtualWorkspace.generatedPath,
+					});
+					for (const root of [virtualWorkspace.sourcePath, "/virtual/arbitrary"]) {
+						const failure = yield* Effect.flip(
+							buildWithVite({ root, config: {}, typeScriptProject, workspace: virtualWorkspace }),
+						);
+						expect(failure.reason).toBe("invalid-input");
+					}
+					const builds = yield* (yield* FakeViteBuild).builds;
+					expect(builds.map(({ root }) => root)).toEqual([virtualWorkspace.generatedPath]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -148,19 +157,22 @@ describe("Vite build", () => {
 			}),
 		),
 	)((test) => {
-		test.effect("normalizes diagnostics with a generated Vite root", () =>
-			Effect.gen(function* () {
-				const result = yield* buildWithVite({
-					config: {},
-					typeScriptProject,
-					workspace: virtualWorkspace,
-					root: virtualWorkspace.generatedPath,
-				});
-				expect(result.diagnostics).toEqual([
-					{ severity: "warning", message: "generated warning", file: "generated/bootstrap.tsx" },
-					{ severity: "warning", message: "source warning", file: "source/client/index.tsx" },
-				]);
-			}),
+		test.effect(
+			"normalizes diagnostics with a generated Vite root",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildWithVite({
+						config: {},
+						typeScriptProject,
+						workspace: virtualWorkspace,
+						root: virtualWorkspace.generatedPath,
+					});
+					expect(result.diagnostics).toEqual([
+						{ severity: "warning", message: "generated warning", file: "generated/bootstrap.tsx" },
+						{ severity: "warning", message: "source warning", file: "source/client/index.tsx" },
+					]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -175,68 +187,77 @@ describe("Vite build", () => {
 			),
 		),
 	)((test) => {
-		test.effect("normalizes the original injected Vite failure", () =>
-			Effect.gen(function* () {
-				const failure = yield* Effect.flip(
-					buildWithVite({ config: {}, typeScriptProject, workspace: virtualWorkspace }),
-				);
-				expect(failure.reason).toBe("vite-build");
-				expect(failure.cause).toBe(injectedFailure);
-				expect(failure.diagnostics?.[0]).toMatchObject({
-					code: "BUILD_FAILURE",
-					file: "source/entry.ts",
-					message: "expected build failure",
-				});
-			}),
+		test.effect(
+			"normalizes the original injected Vite failure",
+			() =>
+				Effect.gen(function* () {
+					const failure = yield* Effect.flip(
+						buildWithVite({ config: {}, typeScriptProject, workspace: virtualWorkspace }),
+					);
+					expect(failure.reason).toBe("vite-build");
+					expect(failure.cause).toBe(injectedFailure);
+					expect(failure.diagnostics?.[0]).toMatchObject({
+						code: "BUILD_FAILURE",
+						file: "source/entry.ts",
+						message: "expected build failure",
+					});
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(liveLayer)((test) => {
-		test.effect("builds with the live Vite layer and keeps output in memory", () =>
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const path = yield* Path.Path;
-				const workspace = yield* acquireCompilerWorkspace({
-					generated: [{ path: "entry.ts", contents: "export const value: number = 1;" }],
-				});
-				const result = yield* buildWithVite({
-					workspace,
-					typeScriptProject,
-					config: {
-						build: { rolldownOptions: { input: path.join(workspace.generatedPath, "entry.ts") } },
-					},
-				});
-				expect(result.files).toHaveLength(1);
-				expect(result.files[0]?.path).toMatch(/^assets\/entry-[A-Za-z0-9_-]+\.js$/);
-				expect(yield* fs.readDirectory(workspace.outputPath)).toEqual([]);
-			}),
+		test.effect(
+			"builds with the live Vite layer and keeps output in memory",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const path = yield* Path.Path;
+					const workspace = yield* acquireCompilerWorkspace({
+						generated: [{ path: "entry.ts", contents: "export const value: number = 1;" }],
+					});
+					const result = yield* buildWithVite({
+						workspace,
+						typeScriptProject,
+						config: {
+							build: { rolldownOptions: { input: path.join(workspace.generatedPath, "entry.ts") } },
+						},
+					});
+					expect(result.files).toHaveLength(1);
+					expect(result.files[0]?.path).toMatch(/^assets\/entry-[A-Za-z0-9_-]+\.js$/);
+					expect(yield* fs.readDirectory(workspace.outputPath)).toEqual([]);
+				}),
+			testTimeout,
 		);
 
-		test.effect("does not load a staged source package tsconfig", () =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				const workspace = yield* acquireCompilerWorkspace({
-					generated: [
-						{ path: "entry.ts", contents: 'export { value } from "../source/dependency/index";' },
-					],
-					sources: [
-						{ path: "dependency/index.ts", contents: "export const value: number = 1;" },
-						{
-							path: "dependency/tsconfig.json",
-							contents: '{"extends":"../../missing-tsconfig.json"}',
+		test.effect(
+			"does not load a staged source package tsconfig",
+			() =>
+				Effect.gen(function* () {
+					const path = yield* Path.Path;
+					const workspace = yield* acquireCompilerWorkspace({
+						generated: [
+							{ path: "entry.ts", contents: 'export { value } from "../source/dependency/index";' },
+						],
+						sources: [
+							{ path: "dependency/index.ts", contents: "export const value: number = 1;" },
+							{
+								path: "dependency/tsconfig.json",
+								contents: '{"extends":"../../missing-tsconfig.json"}',
+							},
+						],
+					});
+					const result = yield* buildWithVite({
+						workspace,
+						typeScriptProject,
+						config: {
+							build: { rolldownOptions: { input: path.join(workspace.generatedPath, "entry.ts") } },
 						},
-					],
-				});
-				const result = yield* buildWithVite({
-					workspace,
-					typeScriptProject,
-					config: {
-						build: { rolldownOptions: { input: path.join(workspace.generatedPath, "entry.ts") } },
-					},
-				});
-				expect(result.files).toHaveLength(1);
-				expect(result.diagnostics).toEqual([]);
-			}),
+					});
+					expect(result.files).toHaveLength(1);
+					expect(result.diagnostics).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 });

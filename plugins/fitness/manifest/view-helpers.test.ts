@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { buildViewExpressions } from "./view-helpers";
 
@@ -20,6 +20,8 @@ describe("buildViewExpressions", () => {
 		["exercise", ["Name", "Level"]],
 		["workout-template", ["Name", "Created At", "Comment"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual(labels);
+		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual<unknown>(
+			labels,
+		);
 	});
 });

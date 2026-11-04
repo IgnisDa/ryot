@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { Field, TextField } from "./text-field";
 

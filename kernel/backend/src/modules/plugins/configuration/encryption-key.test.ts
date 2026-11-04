@@ -1,10 +1,13 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Layer, Redacted, Schema } from "effect";
-import { assert, describe } from "vitest";
 
 import { ARCHIVE_CODECS } from "#modules/backups/archive/schemas";
 import { DatabaseSession } from "#platform/db/session";
@@ -64,40 +67,43 @@ const sharedDatabaseEncryptionKeyLayer = Layer.provideMerge(
 
 describe("persisted plugin configuration encryption key", () => {
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("retries after missing schema and never caches a rolled-back key", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const service = yield* PluginConfigEncryptionKey;
-				yield* session
-					.transaction(
-						session.run((tx) =>
+		test.effect(
+			"retries after missing schema and never caches a rolled-back key",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const service = yield* PluginConfigEncryptionKey;
+					yield* session
+						.transaction(
+							session.run((tx) =>
+								Effect.gen(function* () {
+									yield* tx.execute(sql`set local search_path to pg_catalog`);
+									expect((yield* Effect.flip(service.load)).message).toBe(
+										"Cannot load persisted plugin configuration encryption key",
+									);
+									return yield* new RollbackKeyTest();
+								}),
+							),
+						)
+						.pipe(Effect.catchTag("RollbackKeyTest", () => Effect.void));
+					let rolledBackId = "";
+					yield* session
+						.transaction(
 							Effect.gen(function* () {
-								yield* tx.execute(sql`set local search_path to pg_catalog`);
-								expect((yield* Effect.flip(service.load)).message).toBe(
-									"Cannot load persisted plugin configuration encryption key",
-								);
+								rolledBackId = (yield* service.load).activeKeyId;
 								return yield* new RollbackKeyTest();
 							}),
-						),
-					)
-					.pipe(Effect.catchTag("RollbackKeyTest", () => Effect.void));
-				let rolledBackId = "";
-				yield* session
-					.transaction(
-						Effect.gen(function* () {
-							rolledBackId = (yield* service.load).activeKeyId;
-							return yield* new RollbackKeyTest();
-						}),
-					)
-					.pipe(Effect.catchTag("RollbackKeyTest", () => Effect.void));
-				expect(
-					yield* session.run((db) => db.select().from(tables.pluginConfigEncryptionKey)),
-				).toEqual([]);
-				expect((yield* service.load).activeKeyId).not.toBe(rolledBackId);
-				expect(
-					yield* session.run((db) => db.select().from(tables.pluginConfigEncryptionKey)),
-				).toHaveLength(1);
-			}),
+						)
+						.pipe(Effect.catchTag("RollbackKeyTest", () => Effect.void));
+					expect(
+						yield* session.run((db) => db.select().from(tables.pluginConfigEncryptionKey)),
+					).toEqual([]);
+					expect((yield* service.load).activeKeyId).not.toBe(rolledBackId);
+					expect(
+						yield* session.run((db) => db.select().from(tables.pluginConfigEncryptionKey)),
+					).toHaveLength(1);
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
@@ -135,6 +141,7 @@ describe("persisted plugin configuration encryption key", () => {
 						/encryption|keyring|config[_-]revisions/i,
 					);
 				}),
+			testTimeout,
 		);
 	});
 	layer(restartedConfigRevisionsLayer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
@@ -175,6 +182,7 @@ describe("persisted plugin configuration encryption key", () => {
 						yield* session.run((db) => db.select().from(tables.pluginConfigEncryptionKey)),
 					).toEqual([key]);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -231,93 +239,98 @@ describe("persisted plugin configuration encryption key", () => {
 						"Invalid persisted plugin configuration encryption key",
 					);
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(sharedDatabaseEncryptionKeyLayer)((test) => {
-		test.effect("uses one first-start winner across real concurrent PostgreSQL connections", () => {
-			const name = `key_concurrency_${crypto.randomUUID().replaceAll("-", "")}`;
-			return Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const statements = yield* baselineMigrationStatements();
-				yield* Effect.acquireUseRelease(
-					session.transaction(
-						session.run((tx) =>
-							Effect.gen(function* () {
-								yield* tx.execute(sql`create schema ${sql.identifier(name)}`);
-								yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-								yield* applyBaselineMigration(statements, (statement) =>
-									tx.execute(sql.raw(statement)),
-								);
-							}),
+		test.effect(
+			"uses one first-start winner across real concurrent PostgreSQL connections",
+			() => {
+				const name = `key_concurrency_${crypto.randomUUID().replaceAll("-", "")}`;
+				return Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const statements = yield* baselineMigrationStatements();
+					yield* Effect.acquireUseRelease(
+						session.transaction(
+							session.run((tx) =>
+								Effect.gen(function* () {
+									yield* tx.execute(sql`create schema ${sql.identifier(name)}`);
+									yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
+									yield* applyBaselineMigration(statements, (statement) =>
+										tx.execute(sql.raw(statement)),
+									);
+								}),
+							),
 						),
-					),
-					() =>
-						Effect.gen(function* () {
-							const ready = yield* Deferred.make<void>();
-							let arrivals = 0;
-							const results = yield* Effect.all(
-								Array.from({ length: 4 }, () =>
-									session.transaction(
-										session.run((tx) =>
-											Effect.gen(function* () {
-												yield* tx.execute(
-													sql`set local search_path to ${sql.identifier(name)}, public`,
-												);
-												const [connection] = yield* tx
-													.select({ pid: sql<number>`pid` })
-													.from(sql`(select pg_backend_pid() as pid) as connection`);
-												assert(connection);
-												expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toEqual(
-													[],
-												);
-												arrivals += 1;
-												if (arrivals === 4) {
-													yield* Deferred.succeed(ready, undefined);
-												}
-												yield* Deferred.await(ready);
-												const encryption = yield* PluginConfigEncryptionKey;
-												const loaded = yield* encryption.load;
-												return {
-													pid: connection.pid,
-													envelope: yield* loaded.encrypt({ token: "shared" }, { owner: "test" }),
-												};
-											}),
+						() =>
+							Effect.gen(function* () {
+								const ready = yield* Deferred.make<void>();
+								let arrivals = 0;
+								const results = yield* Effect.all(
+									Array.from({ length: 4 }, () =>
+										session.transaction(
+											session.run((tx) =>
+												Effect.gen(function* () {
+													yield* tx.execute(
+														sql`set local search_path to ${sql.identifier(name)}, public`,
+													);
+													const [connection] = yield* tx
+														.select({ pid: sql<number>`pid` })
+														.from(sql`(select pg_backend_pid() as pid) as connection`);
+													assert(connection);
+													expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toEqual(
+														[],
+													);
+													arrivals += 1;
+													if (arrivals === 4) {
+														yield* Deferred.succeed(ready, undefined);
+													}
+													yield* Deferred.await(ready);
+													const encryption = yield* PluginConfigEncryptionKey;
+													const loaded = yield* encryption.load;
+													return {
+														pid: connection.pid,
+														envelope: yield* loaded.encrypt({ token: "shared" }, { owner: "test" }),
+													};
+												}),
+											),
 										),
 									),
-								),
-								{ concurrency: "unbounded" },
-							);
-							expect(new Set(results.map((result) => result.pid)).size).toBe(4);
-							expect(new Set(results.map((result) => result.envelope.encryptionKeyId)).size).toBe(
-								1,
-							);
-							yield* session.transaction(
-								session.run((tx) =>
-									Effect.gen(function* () {
-										yield* tx.execute(
-											sql`set local search_path to ${sql.identifier(name)}, public`,
-										);
-										const encryption = yield* PluginConfigEncryptionKey;
-										const loaded = yield* encryption.load;
-										for (const result of results) {
-											expect(yield* loaded.decrypt(result.envelope, { owner: "test" })).toEqual({
-												token: "shared",
-											});
-										}
-										expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toHaveLength(
-											1,
-										);
-									}),
-								),
-							);
-						}),
-					() =>
-						session
-							.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
-							.pipe(Effect.orDie),
-				);
-			});
-		});
+									{ concurrency: "unbounded" },
+								);
+								expect(new Set(results.map((result) => result.pid)).size).toBe(4);
+								expect(new Set(results.map((result) => result.envelope.encryptionKeyId)).size).toBe(
+									1,
+								);
+								yield* session.transaction(
+									session.run((tx) =>
+										Effect.gen(function* () {
+											yield* tx.execute(
+												sql`set local search_path to ${sql.identifier(name)}, public`,
+											);
+											const encryption = yield* PluginConfigEncryptionKey;
+											const loaded = yield* encryption.load;
+											for (const result of results) {
+												expect(yield* loaded.decrypt(result.envelope, { owner: "test" })).toEqual({
+													token: "shared",
+												});
+											}
+											expect(
+												yield* tx.select().from(tables.pluginConfigEncryptionKey),
+											).toHaveLength(1);
+										}),
+									),
+								);
+							}),
+						() =>
+							session
+								.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
+								.pipe(Effect.orDie),
+					);
+				});
+			},
+			testTimeout,
+		);
 	});
 });

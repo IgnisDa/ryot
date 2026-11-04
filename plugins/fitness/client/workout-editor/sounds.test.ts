@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Deferred, Effect, Fiber } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { createWorkoutEditorSounds } from "./sounds";
 

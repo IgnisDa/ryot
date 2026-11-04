@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred } from "effect";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -122,6 +125,7 @@ describe("episode details", () => {
 					yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
 					view.unmount();
 				}),
+			testTimeout,
 		);
 	}
 
@@ -184,59 +188,65 @@ describe("episode details", () => {
 					}
 					view.unmount();
 				}),
+			testTimeout,
 		);
 	}
 
-	it.live("opens next-up details with missing optional metadata", () =>
-		Effect.gen(function* () {
-			const [nextUp] = decodeEpisodicEpisodePage({
-				episodes: [
-					episodicEpisode({
-						images: [],
-						runtime: null,
-						description: null,
-						publishDate: null,
-						name: "Next chapter",
-					}),
-				],
-			}).items;
-			if (nextUp === undefined) {
-				throw new Error("Expected next-up episode");
-			}
-			const view = mountRyotClient(
-				{
-					watchEntities,
-					query: (document) =>
-						JSON.stringify(document).includes("fixtureEpisode")
-							? Effect.succeed(episodicEpisodePageData({}))
-							: contextQuery(document),
-				},
-				<MediaEpisodePages
-					compact
-					copy={COPY}
-					safeAreaTop={0}
-					nextUp={nextUp}
-					editable={false}
-					entityId="parent-1"
-					containerId="parent-1"
-					log={EPISODIC_FIXTURE_LOG}
-					render={EPISODIC_FIXTURE_RENDER}
-					query={episodicFixtureEpisodesQuery}
-				/>,
-			);
-			yield* Effect.promise(() => flushRyotClient());
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(getByRole(view.container, "button", { name: "Open Next chapter" })).toBeDefined(),
-				),
-			);
-			clickRyotElement(getByRole(view.container, "button", { name: "Open Next chapter" }));
-			const dialog = getByRole(document.body, "dialog", { name: "Next chapter" });
-			expect(dialog.textContent).not.toContain("null");
-			expect(dialog.textContent).not.toContain("undefined");
-			expect(dialog.textContent).not.toContain(" min");
-			view.unmount();
-		}),
+	it.live(
+		"opens next-up details with missing optional metadata",
+		() =>
+			Effect.gen(function* () {
+				const [nextUp] = decodeEpisodicEpisodePage({
+					episodes: [
+						episodicEpisode({
+							images: [],
+							runtime: null,
+							description: null,
+							publishDate: null,
+							name: "Next chapter",
+						}),
+					],
+				}).items;
+				if (nextUp === undefined) {
+					throw new Error("Expected next-up episode");
+				}
+				const view = mountRyotClient(
+					{
+						watchEntities,
+						query: (document) =>
+							JSON.stringify(document).includes("fixtureEpisode")
+								? Effect.succeed(episodicEpisodePageData({}))
+								: contextQuery(document),
+					},
+					<MediaEpisodePages
+						compact
+						copy={COPY}
+						safeAreaTop={0}
+						nextUp={nextUp}
+						editable={false}
+						entityId="parent-1"
+						containerId="parent-1"
+						log={EPISODIC_FIXTURE_LOG}
+						render={EPISODIC_FIXTURE_RENDER}
+						query={episodicFixtureEpisodesQuery}
+					/>,
+				);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							getByRole(view.container, "button", { name: "Open Next chapter" }),
+						).toBeDefined(),
+					),
+				);
+				clickRyotElement(getByRole(view.container, "button", { name: "Open Next chapter" }));
+				const dialog = getByRole(document.body, "dialog", { name: "Next chapter" });
+				expect(dialog.textContent).not.toContain("null");
+				expect(dialog.textContent).not.toContain("undefined");
+				expect(dialog.textContent).not.toContain(" min");
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });
 
@@ -328,26 +338,29 @@ const openDetails = (mounted: ReturnType<typeof mountDetails>) =>
 	});
 
 describe("episode details actions", () => {
-	it.live("marks the episode with a single episodes entry", () =>
-		Effect.gen(function* () {
-			const mounted = mountDetails({});
-			const dialog = yield* openDetails(mounted);
-			clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
-			yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
-			expect(mounted.requests[0]).toMatchObject({
-				slug: "media-activity-log",
-				label: "Marked The Arrival listened.",
-				input: {
-					entry: {
-						kind: "episodes",
-						when: { kind: "now" },
-						episodeEntityIds: ["p1"],
-						parentEntityId: "parent-1",
+	it.live(
+		"marks the episode with a single episodes entry",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountDetails({});
+				const dialog = yield* openDetails(mounted);
+				clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
+				yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
+				expect(mounted.requests[0]).toMatchObject({
+					slug: "media-activity-log",
+					label: "Marked The Arrival listened.",
+					input: {
+						entry: {
+							kind: "episodes",
+							when: { kind: "now" },
+							episodeEntityIds: ["p1"],
+							parentEntityId: "parent-1",
+						},
 					},
-				},
-			});
-			mounted.view.unmount();
-		}),
+				});
+				mounted.view.unmount();
+			}),
+		testTimeout,
 	);
 
 	for (const [label, state, fails] of [
@@ -355,75 +368,86 @@ describe("episode details actions", () => {
 		["a refresh that succeeds for an already complete episode", "complete", false],
 		["a refresh that fails", "untracked", true],
 	] as const) {
-		it.live(`keeps Mark disabled until the context settles after ${label}`, () =>
-			Effect.gen(function* () {
-				const release = yield* Deferred.make<void>();
-				const mounted = mountDetails({
-					state,
-					refresh: (answer) =>
-						Deferred.await(release).pipe(
-							Effect.andThen(
-								fails ? Effect.fail(new RyotClientError({ reason: "operation-failed" })) : answer,
+		it.live(
+			`keeps Mark disabled until the context settles after ${label}`,
+			() =>
+				Effect.gen(function* () {
+					const release = yield* Deferred.make<void>();
+					const mounted = mountDetails({
+						state,
+						refresh: (answer) =>
+							Deferred.await(release).pipe(
+								Effect.andThen(
+									fails ? Effect.fail(new RyotClientError({ reason: "operation-failed" })) : answer,
+								),
 							),
-						),
-				});
-				const dialog = yield* openDetails(mounted);
-				const mark = () => getByRole(dialog, "button", { name: "Mark listened" });
-				clickRyotElement(mark());
-				yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
-				expect(mark().hasAttribute("disabled")).toBe(true);
-				mounted.saved();
-				yield* Effect.promise(() => mounted.view.advance(250));
-				yield* Effect.promise(() => waitFor(() => expect(mounted.contexts).toHaveLength(2)));
-				clickRyotElement(mark());
-				expect(mounted.requests).toHaveLength(1);
-				expect(mark().hasAttribute("disabled")).toBe(true);
-				yield* Deferred.succeed(release, undefined);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(mark().hasAttribute("disabled")).toBe(false)),
-				);
-				mounted.view.unmount();
-			}),
+					});
+					const dialog = yield* openDetails(mounted);
+					const mark = () => getByRole(dialog, "button", { name: "Mark listened" });
+					clickRyotElement(mark());
+					yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(1)));
+					expect(mark().hasAttribute("disabled")).toBe(true);
+					mounted.saved();
+					yield* Effect.promise(() => mounted.view.advance(250));
+					yield* Effect.promise(() => waitFor(() => expect(mounted.contexts).toHaveLength(2)));
+					clickRyotElement(mark());
+					expect(mounted.requests).toHaveLength(1);
+					expect(mark().hasAttribute("disabled")).toBe(true);
+					yield* Deferred.succeed(release, undefined);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(mark().hasAttribute("disabled")).toBe(false)),
+					);
+					mounted.view.unmount();
+				}),
+			testTimeout,
 		);
 	}
 
-	it.live("shows a refused mark and lets the user try again", () =>
-		Effect.gen(function* () {
-			const mounted = mountDetails({
-				accept: (attempt) =>
-					attempt === 1
-						? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
-						: Effect.succeed(`submission-${attempt}`),
-			});
-			const dialog = yield* openDetails(mounted);
-			clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(getByRole(dialog, "alert").textContent).toBe("Couldn't start saving. Try again."),
-				),
-			);
-			clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
-			yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(2)));
-			expect(mounted.requests[1]?.idempotencyKey).not.toBe(mounted.requests[0]?.idempotencyKey);
-			yield* Effect.promise(() => waitFor(() => expect(queryByRole(dialog, "alert")).toBeNull()));
-			mounted.view.unmount();
-		}),
+	it.live(
+		"shows a refused mark and lets the user try again",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountDetails({
+					accept: (attempt) =>
+						attempt === 1
+							? Effect.fail(new RyotClientError({ reason: "operation-failed" }))
+							: Effect.succeed(`submission-${attempt}`),
+				});
+				const dialog = yield* openDetails(mounted);
+				clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(getByRole(dialog, "alert").textContent).toBe(
+							"Couldn't start saving. Try again.",
+						),
+					),
+				);
+				clickRyotElement(getByRole(dialog, "button", { name: "Mark listened" }));
+				yield* Effect.promise(() => waitFor(() => expect(mounted.requests).toHaveLength(2)));
+				expect(mounted.requests[1]?.idempotencyKey).not.toBe(mounted.requests[0]?.idempotencyKey);
+				yield* Effect.promise(() => waitFor(() => expect(queryByRole(dialog, "alert")).toBeNull()));
+				mounted.view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("hides both actions for an upcoming episode but not one airing today", () =>
-		Effect.gen(function* () {
-			const upcoming = mountDetails({ publishDate: "2026-10-21" });
-			const upcomingDialog = yield* openDetails(upcoming);
-			expect(queryByRole(upcomingDialog, "button", { name: "Mark listened" })).toBeNull();
-			expect(queryByRole(upcomingDialog, "button", { name: "Log with details…" })).toBeNull();
-			upcoming.view.unmount();
-			document.body.innerHTML = "";
-			const today = mountDetails({ publishDate: "2026-10-20" });
-			const todayDialog = yield* openDetails(today);
-			expect(getByRole(todayDialog, "button", { name: "Mark listened" })).toBeDefined();
-			expect(getByRole(todayDialog, "button", { name: "Log with details…" })).toBeDefined();
-			today.view.unmount();
-		}),
+	it.live(
+		"hides both actions for an upcoming episode but not one airing today",
+		() =>
+			Effect.gen(function* () {
+				const upcoming = mountDetails({ publishDate: "2026-10-21" });
+				const upcomingDialog = yield* openDetails(upcoming);
+				expect(queryByRole(upcomingDialog, "button", { name: "Mark listened" })).toBeNull();
+				expect(queryByRole(upcomingDialog, "button", { name: "Log with details…" })).toBeNull();
+				upcoming.view.unmount();
+				document.body.innerHTML = "";
+				const today = mountDetails({ publishDate: "2026-10-20" });
+				const todayDialog = yield* openDetails(today);
+				expect(getByRole(todayDialog, "button", { name: "Mark listened" })).toBeDefined();
+				expect(getByRole(todayDialog, "button", { name: "Log with details…" })).toBeDefined();
+				today.view.unmount();
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -448,5 +472,6 @@ describe("episode details actions", () => {
 				expect(mounted.requests).toEqual([]);
 				mounted.view.unmount();
 			}),
+		testTimeout,
 	);
 });

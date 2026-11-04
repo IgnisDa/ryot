@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { describe, expect, it } from "vitest";
 
 import { creatorFixtureRecipes, creatorPlainFixtureRecipes } from "../tests/client/creator/recipes";
 

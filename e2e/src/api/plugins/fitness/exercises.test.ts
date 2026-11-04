@@ -2,6 +2,7 @@ import {
 	builtinSavedViewReference,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -48,7 +49,7 @@ describe("Exercises E2E", () => {
 
 			assertPresent(exerciseSchema, "Fitness exercise schema missing");
 			expect(exerciseSchema.name).toBe("Exercise");
-			expect(exerciseSchema.slug).toBe("exercise");
+			expect(exerciseSchema.slug).toBe(EntitySchemaSlug.make("exercise"));
 			expect(exerciseSchema.icon).toBe("zap");
 			expect(exerciseSchema.isBuiltin).toBe(true);
 			expect(exerciseSchema.pluginId).toBe(pluginId);
@@ -56,7 +57,7 @@ describe("Exercises E2E", () => {
 				exerciseSchema.providers.find(
 					({ providerSlug }) => providerSlug === "exercise.free-exercise-db",
 				),
-			).toMatchObject({ name: "Free Exercise DB", providerId: anyOf(String) });
+			).toEqual<unknown>(objectContaining({ name: "Free Exercise DB", providerId: anyOf(String) }));
 			expect(exerciseSchema.propertiesSchema.fields.images).toMatchObject({
 				type: "array",
 				label: "Images",
@@ -113,7 +114,7 @@ describe("Exercises E2E", () => {
 					},
 				},
 			});
-			expect(savedViewSource.output.fields).toEqual(
+			expect(savedViewSource.output.fields).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						key: "entityId",
@@ -129,35 +130,37 @@ describe("Exercises E2E", () => {
 					}),
 				]),
 			);
-			expect(savedViewSource.where).toMatchObject({
-				type: "and",
-				predicates: arrayContaining([
-					objectContaining({
-						type: "and",
-						predicates: arrayContaining([
-							objectContaining({
-								right: { type: "literal", value: "exercise" },
-								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-							}),
-							objectContaining({
-								right: { type: "pluginId", reference: { pluginId, kind: "local" } },
-								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
-							}),
-						]),
-					}),
-					objectContaining({
-						type: "exists",
-						query: objectContaining({
-							where: objectContaining({
-								predicates: arrayContaining([
-									objectContaining({ right: { type: "literal", value: "in-fitness-library" } }),
-									objectContaining({ right: { type: "literal", value: "fitness-library" } }),
-								]),
+			expect(savedViewSource.where).toEqual<unknown>(
+				objectContaining({
+					type: "and",
+					predicates: arrayContaining([
+						objectContaining({
+							type: "and",
+							predicates: arrayContaining([
+								objectContaining({
+									right: { type: "literal", value: "exercise" },
+									left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+								}),
+								objectContaining({
+									right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+									left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+								}),
+							]),
+						}),
+						objectContaining({
+							type: "exists",
+							query: objectContaining({
+								where: objectContaining({
+									predicates: arrayContaining([
+										objectContaining({ right: { type: "literal", value: "in-fitness-library" } }),
+										objectContaining({ right: { type: "literal", value: "fitness-library" } }),
+									]),
+								}),
 							}),
 						}),
-					}),
-				]),
-			});
+					]),
+				}),
+			);
 			expect(
 				savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
 			).toEqual([

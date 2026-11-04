@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
@@ -19,6 +20,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -346,13 +350,13 @@ layer(
 				});
 				expect(yield* persistedExternalIds).toEqual(["b", "A"]);
 				expect(result.processedChildren.map(({ entity }) => entity.externalId)).toEqual(["b", "A"]);
-				expect(yield* (yield* FakeProviderWrites).stampedChildren).toEqual([
+				expect(yield* (yield* FakeProviderWrites).stampedChildren).toEqual<unknown>([
 					["entity-b", "entity-A"],
 				]);
 				expect(result.relationshipResults).toEqual([
 					{ created: 2, updated: 0, deleted: 0, upserted: 2 },
 				]);
-				expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual([
+				expect(result.dispatch.map(({ triggerId }) => triggerId)).toEqual<unknown>([
 					"entity-b",
 					"entity-A",
 					"entities-batch",
@@ -361,7 +365,7 @@ layer(
 				const [reconciliation] = yield* (yield* FakeProviderWrites).reconciliations;
 				expect(
 					reconciliation?.groups[0]?.relationships.map(({ targetEntityId }) => targetEntityId),
-				).toEqual(["entity-b", "entity-A"]);
+				).toEqual<unknown>(["entity-b", "entity-A"]);
 				expect(reconciliation).toMatchObject({
 					scope: { scope: "global" },
 					command: {
@@ -380,54 +384,66 @@ layer(
 					},
 				});
 			}),
+		testTimeout,
 	);
 });
 
 layer(providerWritesLayer({ reconciled: "fail" }))((it) => {
-	it.effect("rolls back every child entity when relationship planning fails", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				writeChildEntitySet({
-					command,
-					pluginId,
-					population,
-					providerId,
-					definitions,
-					scope: "global",
-					parentEntityId: rootEntityId,
-					parentEntitySchemaSlug: rootSchemaSlug,
-					expectedChildEntitySchemaSlug: childSchemaSlug,
-					childEntities: [
-						{ name: "First", properties: {}, externalId: "a", entitySchemaSlug: childSchemaSlug },
-						{ name: "Second", properties: {}, externalId: "b", entitySchemaSlug: childSchemaSlug },
-					],
-				}),
-			);
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(yield* persistedExternalIds).toEqual([]);
-		}),
+	it.effect(
+		"rolls back every child entity when relationship planning fails",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					writeChildEntitySet({
+						command,
+						pluginId,
+						population,
+						providerId,
+						definitions,
+						scope: "global",
+						parentEntityId: rootEntityId,
+						parentEntitySchemaSlug: rootSchemaSlug,
+						expectedChildEntitySchemaSlug: childSchemaSlug,
+						childEntities: [
+							{ name: "First", properties: {}, externalId: "a", entitySchemaSlug: childSchemaSlug },
+							{
+								name: "Second",
+								properties: {},
+								externalId: "b",
+								entitySchemaSlug: childSchemaSlug,
+							},
+						],
+					}),
+				);
+				expect(Exit.isFailure(exit)).toBe(true);
+				expect(yield* persistedExternalIds).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) => {
-	it.effect("rejects a child entity when its schema is missing from the population catalog", () =>
-		Effect.gen(function* () {
-			const error = yield* Effect.flip(
-				writeChildEntitySet({
-					command,
-					pluginId,
-					population,
-					providerId,
-					scope: "global",
-					childEntities: [],
-					parentEntityId: rootEntityId,
-					parentEntitySchemaSlug: rootSchemaSlug,
-					definitions: definitionsWithoutChildSchema,
-					expectedChildEntitySchemaSlug: childSchemaSlug,
-				}),
-			);
-			expect(error.message).toBe("Child entity schema not found: part");
-		}),
+	it.effect(
+		"rejects a child entity when its schema is missing from the population catalog",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* Effect.flip(
+					writeChildEntitySet({
+						command,
+						pluginId,
+						population,
+						providerId,
+						scope: "global",
+						childEntities: [],
+						parentEntityId: rootEntityId,
+						parentEntitySchemaSlug: rootSchemaSlug,
+						definitions: definitionsWithoutChildSchema,
+						expectedChildEntitySchemaSlug: childSchemaSlug,
+					}),
+				);
+				expect(error.message).toBe("Child entity schema not found: part");
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -450,6 +466,7 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 				);
 				expect(error.message).toBe("Child relationship schema not found: record -> part");
 			}),
+		testTimeout,
 	);
 });
 
@@ -611,31 +628,35 @@ const rootPopulationLayer = Layer.unwrap(
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
 layer(rootPopulationLayer)((it) => {
-	it.effect("uses command causation for deterministic root and final lifecycle writes", () => {
-		return Effect.gen(function* () {
-			const fake = yield* FakeRootPopulation;
-			const payload = fake.payload;
-			const result = yield* runProviderEntityPopulationAttemptWorkflow(
-				payload,
-				payload.executionId,
-			);
-			const commands = yield* fake.commands;
-			expect(result.populatedAt).not.toBeNull();
-			expect(commands).toHaveLength(2);
-			expect(commands.map(({ causation }) => causation)).toEqual([
-				command.causation,
-				command.causation,
-			]);
-			expect(commands.map(({ itemIdentity }) => itemIdentity)).toEqual([
-				'["provider-population","root","upsert"]',
-				'["provider-population","root","stamp"]',
-			]);
-			expect(commands[0]?.population).toMatchObject({
-				rootPreviouslyPopulated: false,
-				scopeEntity: { name: "Record", entitySchemaSlug: rootSchemaSlug },
+	it.effect(
+		"uses command causation for deterministic root and final lifecycle writes",
+		() => {
+			return Effect.gen(function* () {
+				const fake = yield* FakeRootPopulation;
+				const payload = fake.payload;
+				const result = yield* runProviderEntityPopulationAttemptWorkflow(
+					payload,
+					payload.executionId,
+				);
+				const commands = yield* fake.commands;
+				expect(result.populatedAt).not.toBeNull();
+				expect(commands).toHaveLength(2);
+				expect(commands.map(({ causation }) => causation)).toEqual([
+					command.causation,
+					command.causation,
+				]);
+				expect(commands.map(({ itemIdentity }) => itemIdentity)).toEqual([
+					'["provider-population","root","upsert"]',
+					'["provider-population","root","stamp"]',
+				]);
+				expect(commands[0]?.population).toMatchObject({
+					rootPreviouslyPopulated: false,
+					scopeEntity: { name: "Record", entitySchemaSlug: rootSchemaSlug },
+				});
+				expect(commands[1]?.population).toEqual(commands[0]?.population);
+				expect(yield* fake.postCommitCount).toBe(2);
 			});
-			expect(commands[1]?.population).toEqual(commands[0]?.population);
-			expect(yield* fake.postCommitCount).toBe(2);
-		});
-	});
+		},
+		testTimeout,
+	);
 });

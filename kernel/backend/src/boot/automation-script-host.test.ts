@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
@@ -9,6 +10,9 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
@@ -142,33 +146,36 @@ const automationHostLayer = Layer.unwrap(
 );
 
 layer(automationHostLayer)((test) => {
-	test.effect("derives a child lifecycle command from the trusted automation run", () =>
-		Effect.gen(function* () {
-			const host = yield* makeAutomationScriptHostFunctions;
-			expect(
-				yield* host.emitSignal(runInput(), {
-					discriminator: "part-1",
-					schemaSlug: "review.created",
-					properties: { title: "Sample" },
-				}),
-			).toEqual({ wasCreated: true, triggerId: "signal-trigger" });
-			expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual([
-				{
-					occurredAt,
-					itemIdentity: "emitSignal:part-1",
-					writeContext: runInput().principal,
-					accountGeneration: { userId, token: "test-account-generation" },
-					causation: {
-						...causation,
-						depth: 3,
-						parentRunId: runId,
-						source: "automation",
-						parentTriggerId: triggerId,
-						executionId: "run-1-host-4",
+	test.effect(
+		"derives a child lifecycle command from the trusted automation run",
+		() =>
+			Effect.gen(function* () {
+				const host = yield* makeAutomationScriptHostFunctions;
+				expect(
+					yield* host.emitSignal(runInput(), {
+						discriminator: "part-1",
+						schemaSlug: "review.created",
+						properties: { title: "Sample" },
+					}),
+				).toEqual<unknown>({ wasCreated: true, triggerId: "signal-trigger" });
+				expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual<unknown>([
+					{
+						occurredAt,
+						itemIdentity: "emitSignal:part-1",
+						writeContext: runInput().principal,
+						accountGeneration: { userId, token: "test-account-generation" },
+						causation: {
+							...causation,
+							depth: 3,
+							parentRunId: runId,
+							source: "automation",
+							parentTriggerId: triggerId,
+							executionId: "run-1-host-4",
+						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -180,7 +187,7 @@ layer(automationHostLayer)((test) => {
 				const input = runInput(null, { ...causation, initiator: { id: userId, kind: "user" } });
 				const command = yield* sandboxLifecycleCommand(input, "api", "emitSignal:part-1");
 				expect(command.accountGeneration).toBeNull();
-				expect(command.causation).toEqual({
+				expect(command.causation).toEqual<unknown>({
 					...causation,
 					depth: 3,
 					parentRunId: runId,
@@ -194,6 +201,7 @@ layer(automationHostLayer)((test) => {
 					"emitSignal system access requires a pinned system plugin script",
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -219,6 +227,7 @@ layer(automationHostLayer)((test) => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -249,40 +258,47 @@ layer(automationHostLayer)((test) => {
 				}
 				expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(automationHostLayer)((test) => {
-	test.effect("uses one logical-run and host-index notification identity across attempts", () =>
-		Effect.gen(function* () {
-			const host = yield* makeAutomationScriptHostFunctions;
-			expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
-			expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
-			expect(yield* (yield* AutomationHostCalls).notificationDeliveries).toEqual([
-				{
-					message: "Ready",
-					sourceRunId: runId,
-					sourceKey: "run-1-host-4-notification",
-					accountGeneration: { userId, token: "test-account-generation" },
-				},
-				{
-					message: "Ready",
-					sourceRunId: runId,
-					sourceKey: "run-1-host-4-notification",
-					accountGeneration: { userId, token: "test-account-generation" },
-				},
-			]);
-		}),
+	test.effect(
+		"uses one logical-run and host-index notification identity across attempts",
+		() =>
+			Effect.gen(function* () {
+				const host = yield* makeAutomationScriptHostFunctions;
+				expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
+				expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
+				expect(yield* (yield* AutomationHostCalls).notificationDeliveries).toEqual([
+					{
+						message: "Ready",
+						sourceRunId: runId,
+						sourceKey: "run-1-host-4-notification",
+						accountGeneration: { userId, token: "test-account-generation" },
+					},
+					{
+						message: "Ready",
+						sourceRunId: runId,
+						sourceKey: "run-1-host-4-notification",
+						accountGeneration: { userId, token: "test-account-generation" },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(automationHostLayer)((test) => {
-	test.effect("rejects notifications without an automation-run user", () =>
-		Effect.gen(function* () {
-			const host = yield* makeAutomationScriptHostFunctions;
-			const error = yield* Effect.flip(host.sendNotification(runInput(null), "Ready"));
-			expect(error.message).toBe("sendNotification is available only to user automation runs");
-		}),
+	test.effect(
+		"rejects notifications without an automation-run user",
+		() =>
+			Effect.gen(function* () {
+				const host = yield* makeAutomationScriptHostFunctions;
+				const error = yield* Effect.flip(host.sendNotification(runInput(null), "Ready"));
+				expect(error.message).toBe("sendNotification is available only to user automation runs");
+			}),
+		testTimeout,
 	);
 });
 
@@ -295,17 +311,20 @@ layer(
 		}),
 	),
 )((test) => {
-	test.effect("maps a rejected managed-asset signal reference to asset-forbidden", () =>
-		Effect.gen(function* () {
-			const host = yield* makeAutomationScriptHostFunctions;
-			const error = yield* Effect.flip(
-				host.emitSignal(runInput(), {
-					discriminator: "part-1",
-					schemaSlug: "review.created",
-					properties: { title: "Sample" },
-				}),
-			);
-			expect(error.data).toEqual({ code: "asset-forbidden" });
-		}),
+	test.effect(
+		"maps a rejected managed-asset signal reference to asset-forbidden",
+		() =>
+			Effect.gen(function* () {
+				const host = yield* makeAutomationScriptHostFunctions;
+				const error = yield* Effect.flip(
+					host.emitSignal(runInput(), {
+						discriminator: "part-1",
+						schemaSlug: "review.created",
+						properties: { title: "Sample" },
+					}),
+				);
+				expect(error.data).toEqual({ code: "asset-forbidden" });
+			}),
+		testTimeout,
 	);
 });

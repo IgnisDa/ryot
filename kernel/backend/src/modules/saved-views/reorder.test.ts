@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { buildSavedViewReorderPlan } from "./reorder";
@@ -21,12 +24,13 @@ it.effect(
 	"carries exact owners, hidden state and defaults into requested-first shared positions",
 	() =>
 		Effect.gen(function* () {
-			expect(yield* buildSavedViewReorderPlan(views, [custom])).toEqual([
+			expect(yield* buildSavedViewReorderPlan(views, [custom])).toEqual<unknown>([
 				{ ...views[2], sortOrder: 0, currentSortOrder: 2 },
 				{ ...views[0], sortOrder: 1, currentSortOrder: 0 },
 				{ ...views[1], sortOrder: 2, currentSortOrder: 1 },
 			]);
 		}),
+	testTimeout,
 );
 
 for (const [issue, references] of [
@@ -37,12 +41,15 @@ for (const [issue, references] of [
 ] satisfies ReadonlyArray<
 	readonly ["empty" | "duplicate" | "unknown-view", ReadonlyArray<SavedViewReference>]
 >) {
-	it.effect(`rejects ${issue}: ${JSON.stringify(references)}`, () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* Effect.exit(buildSavedViewReorderPlan(views, references)),
-				new SavedViewBadRequest({ reason: { issue, references, code: "invalid-reorder" } }),
-			);
-		}),
+	it.effect(
+		`rejects ${issue}: ${JSON.stringify(references)}`,
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit(buildSavedViewReorderPlan(views, references)),
+					new SavedViewBadRequest({ reason: { issue, references, code: "invalid-reorder" } }),
+				);
+			}),
+		testTimeout,
 	);
 }

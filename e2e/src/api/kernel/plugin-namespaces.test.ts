@@ -138,14 +138,14 @@ describe("plugin namespaces", () => {
 							},
 						}),
 					);
-					expect(aRows).toEqual([
+					expect(aRows).toEqual<unknown>([
 						objectContaining({
 							owner: a.pluginId,
 							name: "A1 bottle",
 							properties: { strength: "forty", opaque: packages.externalId },
 						}),
 					]);
-					expect(bRows).toEqual([
+					expect(bRows).toEqual<unknown>([
 						objectContaining({
 							owner: b.pluginId,
 							name: "B1 bottle",
@@ -177,7 +177,7 @@ describe("plugin namespaces", () => {
 					);
 					for (const entries of [imports, integrations]) {
 						expect(entries).toHaveLength(2);
-						expect(entries.map(({ reference }) => reference)).toEqual(
+						expect(entries.map(({ reference }) => reference)).toEqual<unknown>(
 							arrayContaining([
 								{ slug: "import", owner: { kind: "plugin", pluginId: a.pluginId } },
 								{ slug: "import", owner: { kind: "plugin", pluginId: b.pluginId } },

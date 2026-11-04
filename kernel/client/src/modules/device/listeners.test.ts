@@ -1,5 +1,8 @@
+import { expect } from "bun:test";
+
 import type { PluginListenerHandle } from "@capacitor/core";
-import { expect, it, layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Effect, Exit, Fiber, Layer, ManagedRuntime } from "effect";
 
 import { listenDeviceEvents } from "#/modules/device/listeners";
@@ -148,25 +151,28 @@ const failureCases = [
 for (const [failure, expectedReleased] of failureCases) {
 	const h = harness({ failure });
 	layer(h.layer)((test) => {
-		test.effect(`releases prior listeners when ${failure} fails, then retries and stops once`, () =>
-			Effect.gen(function* () {
-				const service = yield* DeviceService;
-				expect(Exit.isFailure(yield* Effect.exit(service.start))).toBe(true);
-				expect(h.released).toEqual(expectedReleased);
-				expect(h.foreground).toEqual([]);
-				h.visibility("hidden");
-				expect(h.foreground).toEqual([]);
-				h.retry();
-				yield* service.start;
-				yield* service.start;
-				expect(h.foreground).toEqual([false]);
-				yield* service.stop;
-				yield* service.stop;
-				expect(h.released).toEqual([...expectedReleased, "app", "received", "action", "dom"]);
-				h.visibility("visible");
-				expect(h.foreground).toEqual([false]);
-				expect(h.acquired).toHaveLength(expectedReleased.length + 4);
-			}),
+		test.effect(
+			`releases prior listeners when ${failure} fails, then retries and stops once`,
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					expect(Exit.isFailure(yield* Effect.exit(service.start))).toBe(true);
+					expect(h.released).toEqual<unknown>(expectedReleased);
+					expect(h.foreground).toEqual([]);
+					h.visibility("hidden");
+					expect(h.foreground).toEqual([]);
+					h.retry();
+					yield* service.start;
+					yield* service.start;
+					expect(h.foreground).toEqual([false]);
+					yield* service.stop;
+					yield* service.stop;
+					expect(h.released).toEqual([...expectedReleased, "app", "received", "action", "dom"]);
+					h.visibility("visible");
+					expect(h.foreground).toEqual([false]);
+					expect(h.acquired).toHaveLength(expectedReleased.length + 4);
+				}),
+			testTimeout,
 		);
 	});
 }
@@ -178,25 +184,28 @@ for (const [blocked, expectedReleased] of [
 ] as const) {
 	const h = harness({ blocked });
 	layer(h.layer)((test) => {
-		test.effect(`releases the eventual ${blocked} handle when start is interrupted`, () =>
-			Effect.gen(function* () {
-				const service = yield* DeviceService;
-				const starting = yield* Effect.forkChild(service.start);
-				yield* h.entered;
-				const interrupting = yield* Effect.forkChild(Fiber.interrupt(starting), {
-					startImmediately: true,
-				});
-				expect(h.released).toEqual([]);
-				h.resume();
-				yield* Fiber.join(interrupting);
-				expect(h.released).toEqual(expectedReleased);
-				expect(h.foreground).toEqual([]);
-				const previousReleased = [...h.released];
-				yield* service.start;
-				expect(h.foreground).toEqual([true]);
-				yield* service.stop;
-				expect(h.released).toEqual([...previousReleased, "app", "received", "action", "dom"]);
-			}),
+		test.effect(
+			`releases the eventual ${blocked} handle when start is interrupted`,
+			() =>
+				Effect.gen(function* () {
+					const service = yield* DeviceService;
+					const starting = yield* Effect.forkChild(service.start);
+					yield* h.entered;
+					const interrupting = yield* Effect.forkChild(Fiber.interrupt(starting), {
+						startImmediately: true,
+					});
+					expect(h.released).toEqual([]);
+					h.resume();
+					yield* Fiber.join(interrupting);
+					expect(h.released).toEqual<unknown>(expectedReleased);
+					expect(h.foreground).toEqual([]);
+					const previousReleased = [...h.released];
+					yield* service.start;
+					expect(h.foreground).toEqual([true]);
+					yield* service.stop;
+					expect(h.released).toEqual([...previousReleased, "app", "received", "action", "dom"]);
+				}),
+			testTimeout,
 		);
 	});
 }
@@ -230,6 +239,7 @@ layer(interruptedState.layer)((test) => {
 				]);
 			});
 		},
+		testTimeout,
 	);
 });
 
@@ -267,6 +277,7 @@ layer(concurrentRegistration.layer)((test) => {
 				]);
 			});
 		},
+		testTimeout,
 	);
 });
 
@@ -285,83 +296,95 @@ for (const active of [false, true]) {
 					expect(h.foreground).toEqual([active, false, active]);
 					yield* service.stop;
 				}),
+			testTimeout,
 		);
 	});
 }
 
 const webRegistration = harness({ native: false });
 layer(webRegistration.layer)((test) => {
-	test.effect("registers only document visibility on web and releases it on stop", () => {
-		const h = webRegistration;
-		return Effect.gen(function* () {
-			const service = yield* DeviceService;
-			yield* service.start;
-			expect(h.acquired).toEqual(["dom"]);
-			expect(h.foreground).toEqual([true]);
-			h.visibility("hidden");
-			expect(h.foreground).toEqual([true, false]);
-			yield* service.stop;
-			expect(h.released).toEqual(["dom"]);
-			h.visibility("visible");
-			expect(h.foreground).toEqual([true, false]);
-		});
-	});
+	test.effect(
+		"registers only document visibility on web and releases it on stop",
+		() => {
+			const h = webRegistration;
+			return Effect.gen(function* () {
+				const service = yield* DeviceService;
+				yield* service.start;
+				expect(h.acquired).toEqual(["dom"]);
+				expect(h.foreground).toEqual([true]);
+				h.visibility("hidden");
+				expect(h.foreground).toEqual([true, false]);
+				yield* service.stop;
+				expect(h.released).toEqual(["dom"]);
+				h.visibility("visible");
+				expect(h.foreground).toEqual([true, false]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const failedRemoval = harness({ removeFailure: "app" });
 layer(failedRemoval.layer)((test) => {
-	test.effect("releases remaining listeners when one native removal fails", () => {
-		const h = failedRemoval;
-		return Effect.gen(function* () {
-			const service = yield* DeviceService;
-			yield* service.start;
-			yield* service.stop;
-			expect(h.released).toEqual(["app", "received", "action", "dom"]);
-		});
-	});
+	test.effect(
+		"releases remaining listeners when one native removal fails",
+		() => {
+			const h = failedRemoval;
+			return Effect.gen(function* () {
+				const service = yield* DeviceService;
+				yield* service.start;
+				yield* service.stop;
+				expect(h.released).toEqual(["app", "received", "action", "dom"]);
+			});
+		},
+		testTimeout,
+	);
 });
 
 const interruptedStop = harness({ blockedRemoval: "app" });
 layer(interruptedStop.layer)((test) => {
-	test.effect("finishes interrupted stop before a queued restart acquires listeners", () =>
-		Effect.gen(function* () {
-			const h = interruptedStop;
-			const service = yield* DeviceService;
-			yield* service.start;
-			const stopping = yield* Effect.forkChild(service.stop);
-			yield* h.removalEntered;
-			const interrupting = yield* Effect.forkChild(Fiber.interrupt(stopping), {
-				startImmediately: true,
-			});
-			const restarting = yield* Effect.forkChild(service.start, { startImmediately: true });
-			expect(h.acquired).toEqual(["dom", "action", "received", "app"]);
-			expect(h.released).toEqual(["app"]);
-			h.resumeRemoval();
-			yield* Fiber.join(interrupting);
-			yield* Fiber.join(restarting);
-			expect(h.acquired).toEqual([
-				"dom",
-				"action",
-				"received",
-				"app",
-				"dom",
-				"action",
-				"received",
-				"app",
-			]);
-			expect(h.released).toEqual(["app", "received", "action", "dom"]);
-			yield* service.stop;
-			expect(h.released).toEqual([
-				"app",
-				"received",
-				"action",
-				"dom",
-				"app",
-				"received",
-				"action",
-				"dom",
-			]);
-		}),
+	test.effect(
+		"finishes interrupted stop before a queued restart acquires listeners",
+		() =>
+			Effect.gen(function* () {
+				const h = interruptedStop;
+				const service = yield* DeviceService;
+				yield* service.start;
+				const stopping = yield* Effect.forkChild(service.stop);
+				yield* h.removalEntered;
+				const interrupting = yield* Effect.forkChild(Fiber.interrupt(stopping), {
+					startImmediately: true,
+				});
+				const restarting = yield* Effect.forkChild(service.start, { startImmediately: true });
+				expect(h.acquired).toEqual(["dom", "action", "received", "app"]);
+				expect(h.released).toEqual(["app"]);
+				h.resumeRemoval();
+				yield* Fiber.join(interrupting);
+				yield* Fiber.join(restarting);
+				expect(h.acquired).toEqual([
+					"dom",
+					"action",
+					"received",
+					"app",
+					"dom",
+					"action",
+					"received",
+					"app",
+				]);
+				expect(h.released).toEqual(["app", "received", "action", "dom"]);
+				yield* service.stop;
+				expect(h.released).toEqual([
+					"app",
+					"received",
+					"action",
+					"dom",
+					"app",
+					"received",
+					"action",
+					"dom",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -378,4 +401,5 @@ it.effect(
 			yield* runtime.disposeEffect;
 			expect(h.released).toEqual(["app", "received", "action", "dom"]);
 		}),
+	testTimeout,
 );

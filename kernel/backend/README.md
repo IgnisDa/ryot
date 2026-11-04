@@ -71,10 +71,12 @@ and [authentication/proxy rules](src/modules/accounts/auth/README.md) for those 
 
 ## Tests
 
-`global-setup.ts` provisions one PostgreSQL and one Redis for the run, reusing `TEST_DATABASE_URL`
-and `TEST_REDIS_URL` when supplied. Vitest provides the URLs as `databaseUrl` and `redisUrl`.
+`test.ts` provisions one PostgreSQL and one Redis for the run, reusing `TEST_DATABASE_URL`
+and `TEST_REDIS_URL` when supplied. Bun test workers inherit these URLs from the parent process.
 Suites read them through `testDatabaseUrl` and `testRedisUrl`; database suites isolate schemas or
 databases and Redis suites namespace keys. Missing URLs never cause silent skips.
+The launcher defaults to one worker to bound database pools and native sidecars. Use an explicit
+`--parallel=N` only when the machine and shared infrastructure have capacity.
 
 Use `assertExitFails` from `@ryot-app/testing/effect-assertions` for typed failures: structural
 `Exit.fail` equality omits error messages. Admin-only e2e operations are described in

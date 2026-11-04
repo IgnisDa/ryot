@@ -1,10 +1,14 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { ReminderInvalid } from "@ryot-app/contract/modules/reminders/schemas";
 import { AutomationExecutionId, EntityId, ReminderId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
@@ -244,6 +248,7 @@ layer(services)((test) => {
 				);
 				expect(yield* (yield* WorkerEvidence).sends).toBe(before);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"clears delayed formatter work and retains its cancellation fence after erasing history",
@@ -269,6 +274,7 @@ layer(services)((test) => {
 					new DbError({ message: "Notification source has been cancelled or settled" }),
 				);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"clearing during preparation revokes the queued send before it can claim transport",
@@ -307,6 +313,7 @@ layer(services)((test) => {
 					yield* (yield* NotificationDeliveryRepository).deliveries(notification.id),
 				).toMatchObject([{ status: "skipped", reason: "source-cancelled" }]);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"clearing after a send claim preserves its result without allowing a second request",
@@ -352,6 +359,7 @@ layer(services)((test) => {
 					yield* (yield* NotificationDeliveryRepository).deliveries(notification.id),
 				).toMatchObject([{ status: "accepted" }]);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"merges independent occurrences without changing admitted messages or occurrence identities",
@@ -405,6 +413,7 @@ layer(services)((test) => {
 				).toEqual(input.admission.request);
 				expect(yield* (yield* NotificationAdmissions).admit(input.admission)).toEqual(notification);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"crosses due pages and isolates a planning failure without consuming its occurrence",
@@ -443,37 +452,41 @@ layer(services)((test) => {
 				yield* (yield* ReminderWorker).run();
 				expect((yield* repository.findForUser(user.id, first.id))?.state).toBe("processing");
 			}),
+		testTimeout,
 	);
-	test.effect("reports no enabled channels without claiming successful delivery", () =>
-		Effect.gen(function* () {
-			const { user, body } = yield* enabledInput();
-			const created = yield* (yield* RemindersService).create(user, body);
-			yield* TestClock.adjust("2 hours");
-			const now = yield* DateTime.nowAsDate;
-			expect(now.getTime()).toBeGreaterThan(Date.parse(body.dueAt));
-			const scheduled = yield* (yield* RemindersRepository).findForUser(user.id, created.id);
-			expect(scheduled?.dueAt?.getTime()).toBeLessThan(now.getTime());
-			expect((yield* (yield* RemindersRepository).listDue(now, null)).length).toBeGreaterThan(0);
-			yield* (yield* ReminderWorker).run();
-			const repository = yield* RemindersRepository;
-			const processing = yield* repository.findForUser(user.id, created.id);
-			assert(processing?.formatterRunId);
-			yield* (yield* NotificationAdmissions).admit({
-				userId: user.id,
-				sourceSubmittedAt: null,
-				sourceKey: "no-channels",
-				sourceRunId: processing.formatterRunId,
-				accountGeneration: user.accountGeneration,
-				request: { kind: "message", message: "Reminder" },
-			});
-			yield* TestClock.adjust("2 minutes");
-			yield* (yield* ReminderWorker).run();
-			expect(yield* repository.findForUser(user.id, created.id)).toMatchObject({
-				state: "settled",
-				outcome: "not-sent",
-				reason: "no-enabled-channels",
-			});
-		}),
+	test.effect(
+		"reports no enabled channels without claiming successful delivery",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* enabledInput();
+				const created = yield* (yield* RemindersService).create(user, body);
+				yield* TestClock.adjust("2 hours");
+				const now = yield* DateTime.nowAsDate;
+				expect(now.getTime()).toBeGreaterThan(Date.parse(body.dueAt));
+				const scheduled = yield* (yield* RemindersRepository).findForUser(user.id, created.id);
+				expect(scheduled?.dueAt?.getTime()).toBeLessThan(now.getTime());
+				expect((yield* (yield* RemindersRepository).listDue(now, null)).length).toBeGreaterThan(0);
+				yield* (yield* ReminderWorker).run();
+				const repository = yield* RemindersRepository;
+				const processing = yield* repository.findForUser(user.id, created.id);
+				assert(processing?.formatterRunId);
+				yield* (yield* NotificationAdmissions).admit({
+					userId: user.id,
+					sourceSubmittedAt: null,
+					sourceKey: "no-channels",
+					sourceRunId: processing.formatterRunId,
+					accountGeneration: user.accountGeneration,
+					request: { kind: "message", message: "Reminder" },
+				});
+				yield* TestClock.adjust("2 minutes");
+				yield* (yield* ReminderWorker).run();
+				expect(yield* repository.findForUser(user.id, created.id)).toMatchObject({
+					state: "settled",
+					outcome: "not-sent",
+					reason: "no-enabled-channels",
+				});
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"settles missing admission, failed formatters and expired evidence without allowing delayed sends",
@@ -542,6 +555,7 @@ layer(services)((test) => {
 					);
 				}
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"admits one immutable formatter under concurrent overdue scans and dispatches after commit",
@@ -584,6 +598,7 @@ layer(services)((test) => {
 					new ReminderInvalid({ reason: "invalid-state" }),
 				);
 			}),
+		testTimeout,
 	);
 	test.effect.each(["edit", "cancel"] as const)(
 		"due/%s race preserves the committed change",
@@ -643,6 +658,7 @@ layer(services)((test) => {
 					expect(stored.state).toBe("cancelled");
 				}
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"settles a missing subscription as Not sent and never replays it when enabled later",
@@ -671,6 +687,7 @@ layer(services)((test) => {
 				yield* (yield* ReminderWorker).run();
 				expect((yield* repository.findForUser(user.id, created.id))?.formatterRunId).toBeNull();
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"settles from the delivery ledger, not formatter completion, and blocks a later formatter call",
@@ -716,100 +733,107 @@ layer(services)((test) => {
 					new DbError({ message: "Notification source has been cancelled or settled" }),
 				);
 			}),
+		testTimeout,
 	);
-	test.effect("cancellation revokes queued delivery and delayed formatter authority", () =>
-		Effect.gen(function* () {
-			const { user, body } = yield* enabledInput();
-			yield* (yield* NotificationsRepository).createForUser({
-				userId: user.id,
-				isDisabled: false,
-				channelSpecifics: { kind: "ntfy", topic: "topic" },
-			});
-			const service = yield* RemindersService;
-			const created = yield* service.create(user, body);
-			yield* TestClock.adjust("2 hours");
-			yield* (yield* ReminderWorker).run();
-			const processing = yield* (yield* RemindersRepository).findForUser(user.id, created.id);
-			assert(processing?.formatterRunId);
-			const input = {
-				userId: user.id,
-				sourceSubmittedAt: null,
-				sourceKey: "before-cancel",
-				sourceRunId: processing.formatterRunId,
-				accountGeneration: user.accountGeneration,
-				request: { kind: "message" as const, message: "Target: A reminder" },
-			};
-			const notification = yield* (yield* NotificationAdmissions).admit(input);
-			const before = yield* (yield* WorkerEvidence).sends;
-			expect(
-				(yield* service.cancel(user, created.id, {
-					idempotencyKey: "cancel",
-					submittedAt: body.submittedAt,
-					revision: processing.revision,
-				})).sendStarted,
-			).toBe(false);
-			yield* deliverEnabledChannels({
-				executionId: "after-cancel",
-				notificationId: notification.id,
-				accountGeneration: user.accountGeneration,
-			});
-			expect(yield* (yield* WorkerEvidence).sends).toBe(before);
-			expect(
-				yield* (yield* NotificationDeliveryRepository).deliveries(notification.id),
-			).toMatchObject([{ status: "skipped", reason: "source-cancelled" }]);
-			assertExitFails(
-				yield* (yield* NotificationAdmissions).admit(input).pipe(Effect.exit),
-				new DbError({ message: "Notification source has been cancelled or settled" }),
-			);
-		}),
-	);
-	test.effect("marks an abandoned send Unknown without acquiring another transport claim", () =>
-		Effect.gen(function* () {
-			const { user, body } = yield* enabledInput();
-			const channel = yield* (yield* NotificationsRepository).createForUser({
-				userId: user.id,
-				isDisabled: false,
-				channelSpecifics: { kind: "ntfy", topic: "topic" },
-			});
-			const created = yield* (yield* RemindersService).create(user, body);
-			yield* TestClock.adjust("2 hours");
-			yield* (yield* ReminderWorker).run();
-			const repository = yield* RemindersRepository;
-			const processing = yield* repository.findForUser(user.id, created.id);
-			assert(processing?.formatterRunId);
-			const notification = yield* (yield* NotificationAdmissions).admit({
-				userId: user.id,
-				sourceSubmittedAt: null,
-				sourceKey: "interrupted",
-				sourceRunId: processing.formatterRunId,
-				accountGeneration: user.accountGeneration,
-				request: { kind: "message", message: "Target: A reminder" },
-			});
-			const ledger = yield* NotificationDeliveryRepository;
-			const now = yield* DateTime.nowAsDate;
-			yield* (yield* DatabaseSession).transaction(
-				ledger.claim({
-					now,
-					disabled: false,
-					channelId: channel.id,
-					sourceAuthorized: true,
-					attemptId: "abandoned-attempt",
+	test.effect(
+		"cancellation revokes queued delivery and delayed formatter authority",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* enabledInput();
+				yield* (yield* NotificationsRepository).createForUser({
+					userId: user.id,
+					isDisabled: false,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const service = yield* RemindersService;
+				const created = yield* service.create(user, body);
+				yield* TestClock.adjust("2 hours");
+				yield* (yield* ReminderWorker).run();
+				const processing = yield* (yield* RemindersRepository).findForUser(user.id, created.id);
+				assert(processing?.formatterRunId);
+				const input = {
+					userId: user.id,
+					sourceSubmittedAt: null,
+					sourceKey: "before-cancel",
+					sourceRunId: processing.formatterRunId,
+					accountGeneration: user.accountGeneration,
+					request: { kind: "message" as const, message: "Target: A reminder" },
+				};
+				const notification = yield* (yield* NotificationAdmissions).admit(input);
+				const before = yield* (yield* WorkerEvidence).sends;
+				expect(
+					(yield* service.cancel(user, created.id, {
+						idempotencyKey: "cancel",
+						submittedAt: body.submittedAt,
+						revision: processing.revision,
+					})).sendStarted,
+				).toBe(false);
+				yield* deliverEnabledChannels({
+					executionId: "after-cancel",
 					notificationId: notification.id,
-				}),
-			);
-			yield* TestClock.adjust("2 minutes");
-			const before = yield* (yield* WorkerEvidence).sends;
-			yield* (yield* ReminderWorker).run();
-			expect(yield* repository.findForUser(user.id, created.id)).toMatchObject({
-				state: "settled",
-				outcome: "unknown",
-			});
-			yield* deliverEnabledChannels({
-				executionId: "recovery",
-				notificationId: notification.id,
-				accountGeneration: user.accountGeneration,
-			});
-			expect(yield* (yield* WorkerEvidence).sends).toBe(before);
-		}),
+					accountGeneration: user.accountGeneration,
+				});
+				expect(yield* (yield* WorkerEvidence).sends).toBe(before);
+				expect(
+					yield* (yield* NotificationDeliveryRepository).deliveries(notification.id),
+				).toMatchObject([{ status: "skipped", reason: "source-cancelled" }]);
+				assertExitFails(
+					yield* (yield* NotificationAdmissions).admit(input).pipe(Effect.exit),
+					new DbError({ message: "Notification source has been cancelled or settled" }),
+				);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"marks an abandoned send Unknown without acquiring another transport claim",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* enabledInput();
+				const channel = yield* (yield* NotificationsRepository).createForUser({
+					userId: user.id,
+					isDisabled: false,
+					channelSpecifics: { kind: "ntfy", topic: "topic" },
+				});
+				const created = yield* (yield* RemindersService).create(user, body);
+				yield* TestClock.adjust("2 hours");
+				yield* (yield* ReminderWorker).run();
+				const repository = yield* RemindersRepository;
+				const processing = yield* repository.findForUser(user.id, created.id);
+				assert(processing?.formatterRunId);
+				const notification = yield* (yield* NotificationAdmissions).admit({
+					userId: user.id,
+					sourceSubmittedAt: null,
+					sourceKey: "interrupted",
+					sourceRunId: processing.formatterRunId,
+					accountGeneration: user.accountGeneration,
+					request: { kind: "message", message: "Target: A reminder" },
+				});
+				const ledger = yield* NotificationDeliveryRepository;
+				const now = yield* DateTime.nowAsDate;
+				yield* (yield* DatabaseSession).transaction(
+					ledger.claim({
+						now,
+						disabled: false,
+						channelId: channel.id,
+						sourceAuthorized: true,
+						attemptId: "abandoned-attempt",
+						notificationId: notification.id,
+					}),
+				);
+				yield* TestClock.adjust("2 minutes");
+				const before = yield* (yield* WorkerEvidence).sends;
+				yield* (yield* ReminderWorker).run();
+				expect(yield* repository.findForUser(user.id, created.id)).toMatchObject({
+					state: "settled",
+					outcome: "unknown",
+				});
+				yield* deliverEnabledChannels({
+					executionId: "recovery",
+					notificationId: notification.id,
+					accountGeneration: user.accountGeneration,
+				});
+				expect(yield* (yield* WorkerEvidence).sends).toBe(before);
+			}),
+		testTimeout,
 	);
 });

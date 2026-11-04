@@ -295,7 +295,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 		interest = undefined;
 		interestIds.clear();
-		clearTimeout(timer);
+		window.clearTimeout(timer);
 		if (overlayDismiss !== undefined) {
 			overlayDismiss.cancelTimeout();
 			overlayDismiss = undefined;
@@ -927,7 +927,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				return;
 			}
 			state = "active";
-			clearTimeout(timer);
+			window.clearTimeout(timer);
 			if (pendingDocument) {
 				const { key, page } = pendingDocument;
 				pendingDocument = undefined;

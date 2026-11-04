@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginId, resolveReportingSelection, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { describe, expect, it } from "vitest";
 
 import {
 	type AnalyticsInput,

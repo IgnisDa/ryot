@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import {
@@ -16,6 +17,7 @@ import {
 	TimeZone,
 } from "@ryot-app/plugin-kit/schema";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	consumptionMeasures,
@@ -77,7 +79,7 @@ describe("Media analytics recipes", () => {
 			expect(validate(mediaAnalyticsSummaryRecipe(value).document)).toBeNull();
 		}
 	});
-	it.each([
+	test.each([
 		{ failed: 0, pending: 0, processing: "ready" },
 		{ failed: 0, pending: 2, processing: "pending" },
 		{ failed: 1, pending: 2, processing: "failed" },
@@ -112,22 +114,24 @@ describe("Media analytics recipes", () => {
 		}
 		expect(queries["processing"]?.from.table).toBe("eventStream");
 		expect(JSON.stringify(queries["undated"])).not.toContain("projection");
-		expect(queries["currentReviews"]?.output).toMatchObject({
-			type: "aggregate",
-			measures: arrayContaining([
-				objectContaining({
-					key: "averageRating",
-					aggregation: objectContaining({ function: "average" }),
-				}),
-				objectContaining({
-					key: "rated",
-					aggregation: objectContaining({
-						function: "sum",
-						expr: objectContaining({ condition: objectContaining({ type: "isNotNull" }) }),
+		expect(queries["currentReviews"]?.output).toEqual<unknown>(
+			objectContaining({
+				type: "aggregate",
+				measures: arrayContaining([
+					objectContaining({
+						key: "averageRating",
+						aggregation: objectContaining({ function: "average" }),
 					}),
-				}),
-			]),
-		});
+					objectContaining({
+						key: "rated",
+						aggregation: objectContaining({
+							function: "sum",
+							expr: objectContaining({ condition: objectContaining({ type: "isNotNull" }) }),
+						}),
+					}),
+				]),
+			}),
+		);
 	});
 	it("keeps date-only days and excludes unknown precision from the instant calendar conversion", () => {
 		const event = table("event", "source");
@@ -177,7 +181,7 @@ describe("Media analytics recipes", () => {
 		expect(validate(recipe.document)).toBeNull();
 		expect(
 			Result.getOrThrow(recipe.decode({ data: { hourly: aggregate([{ ...zeros, hour: 7 }]) } })),
-		).toEqual([{ ...zeros, hour: 7 }]);
+		).toEqual<unknown>([{ ...zeros, hour: 7 }]);
 	});
 	it("ranks titles by one grouped aggregate over period contributions with cursor pages", () => {
 		const recipe = mediaAnalyticsRankingRecipe({

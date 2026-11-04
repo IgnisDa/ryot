@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
 
 import type { HomeTemplate, MuscleActivity } from "../../shared/home-recipes";
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
@@ -177,7 +178,7 @@ describe("buildTemplateCards", () => {
 				{ id: "press", targets: [{ role: null, id: "shoulders", name: "Shoulders" }] },
 			],
 		});
-		expect(cards.map(({ id }) => id)).toEqual(["never", "legs"]);
+		expect(cards.map(({ id }) => id)).toEqual<unknown>(["never", "legs"]);
 		expect(cards[0]).toMatchObject({ last: "Never done", meta: "2 exercises" });
 		expect(cards[1]).toMatchObject({
 			moreChips: 0,

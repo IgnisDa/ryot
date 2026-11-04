@@ -1,5 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { it } from "@voila.dev/effect-bun-test";
 import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 
 import {
@@ -65,7 +67,7 @@ it("defines automation trigger columns and indexes", () => {
 		["initiator_kind", true],
 	];
 	expect(columns).toHaveLength(expectedColumns.length);
-	expect(columns).toEqual(arrayContaining(expectedColumns));
+	expect(columns).toEqual<unknown>(arrayContaining(expectedColumns));
 	expect(config.indexes.map((entry) => entry.config.name)).toEqual([
 		"automation_trigger_root_idx",
 		"automation_trigger_parent_run_idx",

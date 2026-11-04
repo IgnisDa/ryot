@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { Option, Result } from "effect";
-import { expect, it } from "vitest";
 
 import { backupRunRecipe } from "./backups";
 import { importSourcesRecipe } from "./import-sources";

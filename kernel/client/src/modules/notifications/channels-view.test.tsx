@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { NotificationChannelsView } from "#/modules/notifications/channels-view";
 

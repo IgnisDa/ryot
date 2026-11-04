@@ -1,6 +1,7 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { fireEvent } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { mountRyotClient } from "../../tests/client/test-support";
 import type { MediaPresentationSubject } from "./entity-presentation";

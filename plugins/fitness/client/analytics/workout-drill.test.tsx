@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,7 +11,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -182,71 +185,75 @@ describe("Fitness analytics workout drill", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("retries a failed append without dropping the loaded workout rows", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountPage(clock, () => (
-				<AnalyticsWorkoutDrill
-					scope={scope}
-					compact={false}
-					request={request}
-					onClose={() => {}}
-					preferences={preferences}
-				/>
-			));
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(1)),
-				);
-				page.replyQuery(itemAt(page.queryRequests("workouts"), 0).requestId, {
-					outcome: "success",
-					response: workoutsResponse("workout-cursor", [
-						workoutRow("workout-kept", "Kept workout", "2026-09-02T01:30:00.000Z", 600),
-					]),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Kept workout")).toBeDefined()),
-				);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Show more workouts" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(2)),
-				);
-				const append = itemAt(page.queryRequests("workouts"), 1);
-				expect(yield* documentText(append.document)).toContain("workout-cursor");
-				page.replyQuery(append.requestId, { outcome: "failure", reason: "query-failed" });
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText("More workouts couldn't be loaded.")).toBeDefined(),
-					),
-				);
-				expect(screen.getByText("Kept workout")).toBeDefined();
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(3)),
-				);
-				const retry = itemAt(page.queryRequests("workouts"), 2);
-				expect(yield* documentText(retry.document)).toContain("workout-cursor");
-				page.replyQuery(retry.requestId, {
-					outcome: "success",
-					response: workoutsResponse(null, [
-						workoutRow("workout-next", "Next workout", "2026-09-03T01:30:00.000Z", 0),
-					]),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Next workout")).toBeDefined()),
-				);
-				expect(screen.getByText("Kept workout")).toBeDefined();
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"retries a failed append without dropping the loaded workout rows",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountPage(clock, () => (
+					<AnalyticsWorkoutDrill
+						scope={scope}
+						compact={false}
+						request={request}
+						onClose={() => {}}
+						preferences={preferences}
+					/>
+				));
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(1)),
+					);
+					page.replyQuery(itemAt(page.queryRequests("workouts"), 0).requestId, {
+						outcome: "success",
+						response: workoutsResponse("workout-cursor", [
+							workoutRow("workout-kept", "Kept workout", "2026-09-02T01:30:00.000Z", 600),
+						]),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("Kept workout")).toBeDefined()),
+					);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Show more workouts" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(2)),
+					);
+					const append = itemAt(page.queryRequests("workouts"), 1);
+					expect(yield* documentText(append.document)).toContain("workout-cursor");
+					page.replyQuery(append.requestId, { outcome: "failure", reason: "query-failed" });
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(screen.getByText("More workouts couldn't be loaded.")).toBeDefined(),
+						),
+					);
+					expect(screen.getByText("Kept workout")).toBeDefined();
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(3)),
+					);
+					const retry = itemAt(page.queryRequests("workouts"), 2);
+					expect(yield* documentText(retry.document)).toContain("workout-cursor");
+					page.replyQuery(retry.requestId, {
+						outcome: "success",
+						response: workoutsResponse(null, [
+							workoutRow("workout-next", "Next workout", "2026-09-03T01:30:00.000Z", 0),
+						]),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("Next workout")).toBeDefined()),
+					);
+					expect(screen.getByText("Kept workout")).toBeDefined();
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -305,5 +312,6 @@ describe("Fitness analytics workout drill", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 });

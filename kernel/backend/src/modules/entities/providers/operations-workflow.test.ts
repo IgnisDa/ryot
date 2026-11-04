@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AutomationPluginAfterRun,
 	type AutomationTrigger,
@@ -21,6 +22,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -261,5 +264,6 @@ layer(
 				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			);
 		},
+		testTimeout,
 	);
 });

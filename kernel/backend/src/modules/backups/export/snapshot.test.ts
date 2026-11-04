@@ -1,7 +1,7 @@
+import { expect } from "bun:test";
 import { tmpdir } from "node:os";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { assert, expect, it, layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
@@ -26,9 +26,12 @@ import {
 	clientDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
@@ -142,49 +145,55 @@ it("collects nested managed assets once per locator", () => {
 	]);
 });
 
-it.effect("rejects non-null notification metadata without its signal schema", () =>
-	Effect.gen(function* () {
-		const error = yield* requireNotificationMetadataSchema(
-			{
-				isActive: false,
-				signalSchemaPluginKey: null,
-				metadata: { token: "secret" },
-				signalSchemaSlug: "missing.signal",
-			},
-			undefined,
-		).pipe(Effect.flip);
-		expect(error.message).toContain("unavailable signal schema 'missing.signal'");
-		expect(
-			yield* requireNotificationMetadataSchema(
+it.effect(
+	"rejects non-null notification metadata without its signal schema",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* requireNotificationMetadataSchema(
 				{
-					metadata: null,
 					isActive: false,
 					signalSchemaPluginKey: null,
+					metadata: { token: "secret" },
 					signalSchemaSlug: "missing.signal",
 				},
 				undefined,
-			),
-		).toBeUndefined();
-	}),
+			).pipe(Effect.flip);
+			expect(error.message).toContain("unavailable signal schema 'missing.signal'");
+			expect(
+				yield* requireNotificationMetadataSchema(
+					{
+						metadata: null,
+						isActive: false,
+						signalSchemaPluginKey: null,
+						signalSchemaSlug: "missing.signal",
+					},
+					undefined,
+				),
+			).toBeUndefined();
+		}),
+	testTimeout,
 );
 
-it.effect("resolves archive keys from persisted plugin IDs", () =>
-	Effect.gen(function* () {
-		const persistedKey = pluginPackageKey({
-			scope: "user",
-			packageId: fixtureManifest().metadata.packageId,
-		});
-		const currentKey = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
-		const keys = new Map([
-			["current-plugin", currentKey],
-			["persisted-plugin", persistedKey],
-		]);
-		expect(yield* requirePluginKey(keys, "persisted-plugin")).toBe(persistedKey);
-		assertExitFails(
-			yield* Effect.exit(requirePluginKey(keys, "unavailable-plugin")),
-			new BadRequest({ message: "Backup references unavailable plugin 'unavailable-plugin'" }),
-		);
-	}),
+it.effect(
+	"resolves archive keys from persisted plugin IDs",
+	() =>
+		Effect.gen(function* () {
+			const persistedKey = pluginPackageKey({
+				scope: "user",
+				packageId: fixtureManifest().metadata.packageId,
+			});
+			const currentKey = pluginPackageKey({ scope: "user", packageId: testPluginPackageId() });
+			const keys = new Map([
+				["current-plugin", currentKey],
+				["persisted-plugin", persistedKey],
+			]);
+			expect(yield* requirePluginKey(keys, "persisted-plugin")).toBe(persistedKey);
+			assertExitFails(
+				yield* Effect.exit(requirePluginKey(keys, "unavailable-plugin")),
+				new BadRequest({ message: "Backup references unavailable plugin 'unavailable-plugin'" }),
+			);
+		}),
+	testTimeout,
 );
 
 it("uses current definitions only when their owner matches persisted provenance", () => {
@@ -759,7 +768,7 @@ layer(privateRecordsExportLayer())((test) => {
 					systemKey,
 					privateKey,
 				]);
-				expect(prepared.records.privatePlugins).toEqual([
+				expect(prepared.records.privatePlugins).toEqual<unknown>([
 					objectContaining({
 						key: privateKey,
 						compiledScripts: [],
@@ -769,7 +778,7 @@ layer(privateRecordsExportLayer())((test) => {
 					}),
 				]);
 				expect(prepared.records.privatePlugins[0]).not.toHaveProperty("files");
-				expect(records.savedViews).toEqual([
+				expect(records.savedViews).toEqual<unknown>([
 					objectContaining({
 						sortOrder: 4,
 						isHidden: true,
@@ -781,7 +790,7 @@ layer(privateRecordsExportLayer())((test) => {
 				expect(records.calendarSourceOverrides).toEqual([
 					{ isHidden: true, pluginKey: privateKey, slug: "retained-dates" },
 				]);
-				expect(records.entities).toEqual([
+				expect(records.entities).toEqual<unknown>([
 					objectContaining({
 						id: "private-entity",
 						entitySchemaPluginKey: privateKey,
@@ -825,7 +834,7 @@ layer(privateRecordsExportLayer())((test) => {
 						signalSchemaSlug: "changed.signal",
 					},
 				]);
-				expect(records.integrations).toEqual([
+				expect(records.integrations).toEqual<unknown>([
 					objectContaining({
 						packageKey: privateKey,
 						configuredSecretPaths: ["/credentials/token"],
@@ -839,6 +848,7 @@ layer(privateRecordsExportLayer())((test) => {
 					{ version: "1.0.0", packageId: systemPackageId, contentHash: "a".repeat(64) },
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -863,16 +873,21 @@ layer(
 		},
 	]),
 )((test) => {
-	test.effect("rejects a missing source workspace instead of exporting an unassociated view", () =>
-		Effect.gen(function* () {
-			const snapshot = yield* BackupExportSnapshot;
-			assertExitFails(
-				yield* Effect.exit(
-					snapshot.prepareExportSnapshot(userId, privateRecordsEventsPath, privateRecordsRunId),
-				),
-				new BadRequest({ message: "Backup saved view references unavailable plugin installation" }),
-			);
-		}),
+	test.effect(
+		"rejects a missing source workspace instead of exporting an unassociated view",
+		() =>
+			Effect.gen(function* () {
+				const snapshot = yield* BackupExportSnapshot;
+				assertExitFails(
+					yield* Effect.exit(
+						snapshot.prepareExportSnapshot(userId, privateRecordsEventsPath, privateRecordsRunId),
+					),
+					new BadRequest({
+						message: "Backup saved view references unavailable plugin installation",
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1081,44 +1096,47 @@ const eventPagesExportLayer = withExportReads((reads) =>
 );
 
 layer(eventPagesExportLayer)((test) => {
-	test.effect("reuses one export context across every event page", () =>
-		Effect.gen(function* () {
-			const snapshot = yield* BackupExportSnapshot;
-			const prepared = yield* snapshot.prepareExportSnapshot(
-				userId,
-				eventPagesPath,
-				eventPagesRunId,
-			);
-			const reads = yield* FakeExportReads;
-			expect(yield* reads.portableReads).toBe(1);
-			expect(yield* reads.privateReads).toBe(1);
-			expect(yield* reads.eventPageRequests).toEqual([undefined, "event-1", "event-2"]);
-			expect(yield* reads.requestedAssetKeys).toEqual([
-				"permanent/event-1.bin",
-				"permanent/event-2.bin",
-			]);
-			expect(prepared.redactions).toEqual([
-				"/events/event-1/properties/token",
-				"/events/event-2/properties/token",
-			]);
-			const fs = yield* FileSystem.FileSystem;
-			const eventSection = prepared.sections.find(({ path }) => path === "events.ndjson");
-			assert(eventSection !== undefined);
-			expect(eventSection.count).toBe(2);
-			const eventBytes = yield* fs.readFile(eventSection.filePath);
-			const eventHash = new IncrementalSha256();
-			eventHash.update(eventBytes);
-			expect(eventSection.bytes).toBe(eventBytes.byteLength);
-			expect(eventSection.sha256).toBe(eventHash.digest().sha256);
-			const written = Array.from(
-				decodeNdjson([eventBytes], ARCHIVE_CODECS["events.ndjson"], eventSection.path),
-			);
-			expect(written.map(({ id }) => id)).toEqual(["event-1", "event-2"]);
-			expect(written.map(({ properties }) => properties)).toEqual([
-				{ note: "first", poster: { type: "local", key: "sha-permanent/event-1.bin" } },
-				{ note: "second", poster: { type: "local", key: "sha-permanent/event-2.bin" } },
-			]);
-		}),
+	test.effect(
+		"reuses one export context across every event page",
+		() =>
+			Effect.gen(function* () {
+				const snapshot = yield* BackupExportSnapshot;
+				const prepared = yield* snapshot.prepareExportSnapshot(
+					userId,
+					eventPagesPath,
+					eventPagesRunId,
+				);
+				const reads = yield* FakeExportReads;
+				expect(yield* reads.portableReads).toBe(1);
+				expect(yield* reads.privateReads).toBe(1);
+				expect(yield* reads.eventPageRequests).toEqual([undefined, "event-1", "event-2"]);
+				expect(yield* reads.requestedAssetKeys).toEqual([
+					"permanent/event-1.bin",
+					"permanent/event-2.bin",
+				]);
+				expect(prepared.redactions).toEqual([
+					"/events/event-1/properties/token",
+					"/events/event-2/properties/token",
+				]);
+				const fs = yield* FileSystem.FileSystem;
+				const eventSection = prepared.sections.find(({ path }) => path === "events.ndjson");
+				assert(eventSection !== undefined);
+				expect(eventSection.count).toBe(2);
+				const eventBytes = yield* fs.readFile(eventSection.filePath);
+				const eventHash = new IncrementalSha256();
+				eventHash.update(eventBytes);
+				expect(eventSection.bytes).toBe(eventBytes.byteLength);
+				expect(eventSection.sha256).toBe(eventHash.digest().sha256);
+				const written = Array.from(
+					decodeNdjson([eventBytes], ARCHIVE_CODECS["events.ndjson"], eventSection.path),
+				);
+				expect(written.map(({ id }) => id)).toEqual(["event-1", "event-2"]);
+				expect(written.map(({ properties }) => properties)).toEqual([
+					{ note: "first", poster: { type: "local", key: "sha-permanent/event-1.bin" } },
+					{ note: "second", poster: { type: "local", key: "sha-permanent/event-2.bin" } },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1377,5 +1395,6 @@ layer(
 					(yield* staging.listRecords(noOpRunId, "entity-dependencies.ndjson")).map(({ id }) => id),
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

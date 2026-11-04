@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import { describe, expect, it } from "vitest";
 
 import { redisKeys } from "./redis";
 

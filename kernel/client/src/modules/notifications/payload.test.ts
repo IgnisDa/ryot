@@ -1,7 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { notificationChannelKinds } from "@ryot-app/contract/modules/notifications/types";
 import type { SchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { createNotificationChannelBody, initialNotificationChannelFormValues } from "./payload";
 
@@ -29,7 +30,7 @@ describe("createNotificationChannelBody", () => {
 	it.each(notificationChannelKinds)("builds a %s channel from its required fields", (kind) => {
 		const body = succeed(kind, { ...complete[kind] });
 
-		expect(body).toEqual({ channelSpecifics: { kind, ...complete[kind] } });
+		expect(body).toEqual<unknown>({ channelSpecifics: { kind, ...complete[kind] } });
 	});
 
 	it("omits optional fields the user left blank rather than sending empty strings", () => {

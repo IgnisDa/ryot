@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,7 +11,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
@@ -103,29 +106,32 @@ const mountSummary = (clock: ReturnType<typeof createTestRyotClock>, props: Summ
 	});
 
 describe("Media analytics summary UI", () => {
-	it.live("lists only known amounts per unit and every active media type", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const props = summaryProps();
-			const page = mountSummary(clock, props);
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByRole("heading", { name: "Amounts" })).toBeDefined()),
-				);
-				expect(screen.getByRole("img", { name: /^Pages sources/ })).toBeDefined();
-				expect(screen.getByRole("img", { name: /^Time spent sources/ })).toBeDefined();
-				expect(screen.queryByRole("img", { name: /^Episodes sources/ })).toBeNull();
-				expect(screen.queryByRole("img", { name: /^Chapters sources/ })).toBeNull();
-				expect(screen.queryByRole("img", { name: /^Volumes sources/ })).toBeNull();
-				expect(screen.getAllByText("0 pages").length).toBeGreaterThan(0);
-				const rows = screen.getAllByRole("rowheader").map((row) => row.textContent);
-				expect(rows).toEqual(["Book", "Show", "Show episode", "Person", "Show episode"]);
-				expect(screen.getByText("Not counted in any period: 3 undated entries.")).toBeDefined();
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"lists only known amounts per unit and every active media type",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const props = summaryProps();
+				const page = mountSummary(clock, props);
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByRole("heading", { name: "Amounts" })).toBeDefined()),
+					);
+					expect(screen.getByRole("img", { name: /^Pages sources/ })).toBeDefined();
+					expect(screen.getByRole("img", { name: /^Time spent sources/ })).toBeDefined();
+					expect(screen.queryByRole("img", { name: /^Episodes sources/ })).toBeNull();
+					expect(screen.queryByRole("img", { name: /^Chapters sources/ })).toBeNull();
+					expect(screen.queryByRole("img", { name: /^Volumes sources/ })).toBeNull();
+					expect(screen.getAllByText("0 pages").length).toBeGreaterThan(0);
+					const rows = screen.getAllByRole("rowheader").map((row) => row.textContent);
+					expect(rows).toEqual(["Book", "Show", "Show episode", "Person", "Show episode"]);
+					expect(screen.getByText("Not counted in any period: 3 undated entries.")).toBeDefined();
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -147,53 +153,60 @@ describe("Media analytics summary UI", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("splits each unit into recorded and estimated shares without combining units", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const props = summaryProps("ready", { pagesRecorded: 70.125, pagesEstimated: 29.875 });
-			const page = mountSummary(clock, props);
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							screen.getByRole("img", {
-								name: "Pages sources: Recorded 70.1 pages, Estimated 29.9 pages",
-							}),
-						).toBeDefined(),
-					),
-				);
-				expect(
-					screen.getByRole("img", { name: "Time spent sources: Recorded 20m, Estimated 0s" }),
-				).toBeDefined();
-				expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"splits each unit into recorded and estimated shares without combining units",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const props = summaryProps("ready", { pagesRecorded: 70.125, pagesEstimated: 29.875 });
+				const page = mountSummary(clock, props);
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								screen.getByRole("img", {
+									name: "Pages sources: Recorded 70.1 pages, Estimated 29.9 pages",
+								}),
+							).toBeDefined(),
+						),
+					);
+					expect(
+						screen.getByRole("img", { name: "Time spent sources: Recorded 20m, Estimated 0s" }),
+					).toBeDefined();
+					expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps consumption and review values visible while processing is pending", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mountSummary(
-				clock,
-				summaryProps("pending", { pagesRecorded: 70.125, pagesEstimated: 29.875 }),
-			);
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0)),
+	it.live(
+		"keeps consumption and review values visible while processing is pending",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mountSummary(
+					clock,
+					summaryProps("pending", { pagesRecorded: 70.125, pagesEstimated: 29.875 }),
 				);
-				expect(screen.getByText("Average rating", { selector: "dt" })).toBeDefined();
-				expect(screen.getByText("40")).toBeDefined();
-				expect(screen.getByText("0/100")).toBeDefined();
-				expect(screen.getByText("80/100")).toBeDefined();
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0)),
+					);
+					expect(screen.getByText("Average rating", { selector: "dt" })).toBeDefined();
+					expect(screen.getByText("40")).toBeDefined();
+					expect(screen.getByText("0/100")).toBeDefined();
+					expect(screen.getByText("80/100")).toBeDefined();
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 });

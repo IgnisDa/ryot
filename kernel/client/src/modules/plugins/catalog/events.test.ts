@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Fiber, Layer, ManagedRuntime, Schedule } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -105,206 +108,259 @@ const waitUntil = (predicate: () => boolean, message: string) =>
 	);
 
 describe("plugin catalog events service", () => {
-	it.live("reconciles on connection and invalidation but not on heartbeat", () => {
-		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
-		let refreshes = 0;
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => {
-					refreshes += 1;
-				}),
-			),
-		);
-
-		return Effect.gen(function* () {
-			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
-			expect(requests[0]?.url).toBe(`${serverOrigin}/api/plugins/events`);
-			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
-			expect(requests[0]?.headers.accept).toBe("text/event-stream");
-
-			streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
-			yield* Effect.promise(() => waitUntil(() => refreshes === 1, "connection not reconciled"));
-			streams[0]?.send(": ping\n\n");
-			streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
-			yield* Effect.promise(() =>
-				waitUntil(() => refreshes === 2, "catalog invalidation was never routed"),
-			);
-			yield* Effect.sleep("20 millis");
-			expect(refreshes).toBe(2);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
-
-	it.live("routes events split across chunk boundaries", () => {
-		const { runtime, streams } = makeRuntime({ token: "token-1" });
-		let refreshes = 0;
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => {
-					refreshes += 1;
-				}),
-			),
-		);
-
-		return Effect.gen(function* () {
-			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
-			streams[0]?.send(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}`);
-			streams[0]?.send("\nid: 7\nretry: 5000\ndata:");
-			expect(refreshes).toBe(0);
-			streams[0]?.send("\n\n");
-			yield* Effect.promise(() =>
-				waitUntil(() => refreshes === 1, "chunked catalog event was never routed"),
-			);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
-
-	it.live("reconnects with a fresh token when the stream ends", () => {
-		const { runtime, streams, requests, setToken } = makeRuntime({ token: "token-1" });
-		let refreshes = 0;
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => {
-					refreshes += 1;
-				}),
-			),
-		);
-
-		return Effect.gen(function* () {
-			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
-			setToken("token-2");
-			streams[0]?.end();
-
-			yield* Effect.promise(() =>
-				waitUntil(() => streams.length === 2, "stream was never reopened"),
-			);
-			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
-			streams[1]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
-			yield* Effect.promise(() =>
-				waitUntil(() => refreshes === 1, "reconnected stream never reconciled"),
-			);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
-
-	it.live("reconnects when the server rejects the stream", () => {
-		const { runtime, streams, requests } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => undefined),
-			),
-		);
-
-		return Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				waitUntil(() => streams.length === 1, "rejected stream was never retried"),
-			);
-			expect(requests).toHaveLength(3);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
-
-	it.live("aborts the stream on interruption and stops reconnecting", () =>
-		Effect.gen(function* () {
+	it.live(
+		"reconciles on connection and invalidation but not on heartbeat",
+		() => {
 			const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
+			let refreshes = 0;
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => {
+						refreshes += 1;
+					}),
+				),
+			);
+
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 1, "stream was never opened"),
+				);
+				expect(requests[0]?.url).toBe(`${serverOrigin}/api/plugins/events`);
+				expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
+				expect(requests[0]?.headers.accept).toBe("text/event-stream");
+
+				streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
+				yield* Effect.promise(() => waitUntil(() => refreshes === 1, "connection not reconciled"));
+				streams[0]?.send(": ping\n\n");
+				streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
+				yield* Effect.promise(() =>
+					waitUntil(() => refreshes === 2, "catalog invalidation was never routed"),
+				);
+				yield* Effect.sleep("20 millis");
+				expect(refreshes).toBe(2);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
+			);
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"routes events split across chunk boundaries",
+		() => {
+			const { runtime, streams } = makeRuntime({ token: "token-1" });
+			let refreshes = 0;
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => {
+						refreshes += 1;
+					}),
+				),
+			);
+
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 1, "stream was never opened"),
+				);
+				streams[0]?.send(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}`);
+				streams[0]?.send("\nid: 7\nretry: 5000\ndata:");
+				expect(refreshes).toBe(0);
+				streams[0]?.send("\n\n");
+				yield* Effect.promise(() =>
+					waitUntil(() => refreshes === 1, "chunked catalog event was never routed"),
+				);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
+			);
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"reconnects with a fresh token when the stream ends",
+		() => {
+			const { runtime, streams, requests, setToken } = makeRuntime({ token: "token-1" });
+			let refreshes = 0;
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => {
+						refreshes += 1;
+					}),
+				),
+			);
+
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 1, "stream was never opened"),
+				);
+				setToken("token-2");
+				streams[0]?.end();
+
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 2, "stream was never reopened"),
+				);
+				expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
+				streams[1]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
+				yield* Effect.promise(() =>
+					waitUntil(() => refreshes === 1, "reconnected stream never reconciled"),
+				);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
+			);
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"reconnects when the server rejects the stream",
+		() => {
+			const { runtime, streams, requests } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
 			const subscription = runtime.runFork(
 				Effect.flatMap(PluginCatalogEventsService, (service) =>
 					service.subscribe(scope, () => undefined),
 				),
 			);
 
-			yield* Effect.promise(() => waitUntil(() => streams.length === 1, "stream was never opened"));
-			yield* Fiber.interrupt(subscription);
-			expect(streams[0]?.aborted).toBe(true);
-
-			yield* Effect.sleep("50 millis");
-			expect(requests).toHaveLength(1);
-			yield* Effect.promise(() => runtime.dispose());
-		}),
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 1, "rejected stream was never retried"),
+				);
+				expect(requests).toHaveLength(3);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
+			);
+		},
+		testTimeout,
 	);
 
-	it.live("does not open a stream when no token is stored", () => {
-		const { runtime, requests, tokenRequests } = makeRuntime();
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => undefined),
-			),
-		);
+	it.live(
+		"aborts the stream on interruption and stops reconnecting",
+		() =>
+			Effect.gen(function* () {
+				const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
+				const subscription = runtime.runFork(
+					Effect.flatMap(PluginCatalogEventsService, (service) =>
+						service.subscribe(scope, () => undefined),
+					),
+				);
 
-		return Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				waitUntil(() => tokenRequests.length === 1, "token was never requested"),
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 1, "stream was never opened"),
+				);
+				yield* Fiber.interrupt(subscription);
+				expect(streams[0]?.aborted).toBe(true);
+
+				yield* Effect.sleep("50 millis");
+				expect(requests).toHaveLength(1);
+				yield* Effect.promise(() => runtime.dispose());
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does not open a stream when no token is stored",
+		() => {
+			const { runtime, requests, tokenRequests } = makeRuntime();
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => undefined),
+				),
 			);
-			expect(requests).toHaveLength(0);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
 
-	it.live("force-refreshes once and retries once after an unauthorized response", () => {
-		const { runtime, streams, requests, tokenRequests } = makeRuntime({
-			token: "token-1",
-			refreshedToken: "token-2",
-			responseStatuses: [401, 200],
-		});
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => undefined),
-			),
-		);
-
-		return Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				waitUntil(() => streams.length === 1, "refreshed stream was never opened"),
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => tokenRequests.length === 1, "token was never requested"),
+				);
+				expect(requests).toHaveLength(0);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
 			);
-			expect(requests).toHaveLength(2);
-			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
-			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
-			expect(tokenRequests).toEqual([false, true]);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
+		},
+		testTimeout,
+	);
 
-	it.live("stops after a second unauthorized response", () => {
-		const { runtime, requests, tokenRequests } = makeRuntime({
-			token: "token-1",
-			refreshedToken: "token-2",
-			responseStatuses: [401, 401],
-		});
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => undefined),
-			),
-		);
-
-		return Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				waitUntil(() => requests.length === 2, "unauthorized stream was never retried"),
+	it.live(
+		"force-refreshes once and retries once after an unauthorized response",
+		() => {
+			const { runtime, streams, requests, tokenRequests } = makeRuntime({
+				token: "token-1",
+				refreshedToken: "token-2",
+				responseStatuses: [401, 200],
+			});
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => undefined),
+				),
 			);
-			yield* Effect.sleep("20 millis");
-			expect(requests).toHaveLength(2);
-			expect(tokenRequests).toEqual([false, true]);
-		}).pipe(
-			Effect.ensuring(
-				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
-			),
-		);
-	});
+
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => streams.length === 1, "refreshed stream was never opened"),
+				);
+				expect(requests).toHaveLength(2);
+				expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
+				expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
+				expect(tokenRequests).toEqual([false, true]);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
+			);
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"stops after a second unauthorized response",
+		() => {
+			const { runtime, requests, tokenRequests } = makeRuntime({
+				token: "token-1",
+				refreshedToken: "token-2",
+				responseStatuses: [401, 401],
+			});
+			const subscription = runtime.runFork(
+				Effect.flatMap(PluginCatalogEventsService, (service) =>
+					service.subscribe(scope, () => undefined),
+				),
+			);
+
+			return Effect.gen(function* () {
+				yield* Effect.promise(() =>
+					waitUntil(() => requests.length === 2, "unauthorized stream was never retried"),
+				);
+				yield* Effect.sleep("20 millis");
+				expect(requests).toHaveLength(2);
+				expect(tokenRequests).toEqual([false, true]);
+			}).pipe(
+				Effect.ensuring(
+					Fiber.interrupt(subscription).pipe(
+						Effect.andThen(Effect.promise(() => runtime.dispose())),
+					),
+				),
+			);
+		},
+		testTimeout,
+	);
 });

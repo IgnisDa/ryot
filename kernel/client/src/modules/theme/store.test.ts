@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
-import { describe, expect, it } from "vitest";
 
 import { createThemeStore } from "#/modules/theme/store";
 

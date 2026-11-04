@@ -1,6 +1,9 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Redacted } from "effect";
 
@@ -123,5 +126,6 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 					expect(captures).toHaveLength(1);
 				}
 			}),
+		testTimeout,
 	);
 });

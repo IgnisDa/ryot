@@ -1,9 +1,12 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { compileClientPluginModule } from "@ryot-app/plugin-client-compiler";
 import { CLIENT_API_VERSION, clientDeclarationHash } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer } from "effect";
 
 const bytes = (contents: string) => new TextEncoder().encode(contents);
@@ -36,31 +39,36 @@ export default function WorkoutEditorContractPage() { return null; }
 `;
 
 layer(compilerLayer)((test) =>
-	test.effect("compiles editor shared modules under the client shared-source policy", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			const sharedFiles = (yield* fs.readDirectory("shared")).filter(
-				(file) => file.endsWith(".ts") && !file.includes(".test."),
-			);
-			const sharedSources = yield* Effect.forEach(sharedFiles, (file) =>
-				fs
-					.readFile(`shared/${file}`)
-					.pipe(Effect.map((contents) => [`shared/${file}`, contents] as const)),
-			);
-			const input = {
-				name: "Fitness",
-				kind: "plugin" as const,
-				apiVersion: CLIENT_API_VERSION,
-				packageId: PluginPackageId.make("ryot/fitness"),
-				files: Object.fromEntries([...sharedSources, ["client/contracts.ts", bytes(entry)]]),
-				publicExports: { contracts: { kind: "component" as const, entry: "client/contracts.ts" } },
-				clientDeclarationHash: clientDeclarationHash({
-					homeView: null,
+	test.effect(
+		"compiles editor shared modules under the client shared-source policy",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const sharedFiles = (yield* fs.readDirectory("shared")).filter(
+					(file) => file.endsWith(".ts") && !file.includes(".test."),
+				);
+				const sharedSources = yield* Effect.forEach(sharedFiles, (file) =>
+					fs
+						.readFile(`shared/${file}`)
+						.pipe(Effect.map((contents) => [`shared/${file}`, contents] as const)),
+				);
+				const input = {
+					name: "Fitness",
+					kind: "plugin" as const,
 					apiVersion: CLIENT_API_VERSION,
-				}),
-			};
-			const compiled = yield* compileClientPluginModule(input);
-			expect(compiled.artifact.files.map(({ name }) => name)).toContain("module.js");
-		}),
+					packageId: PluginPackageId.make("ryot/fitness"),
+					files: Object.fromEntries([...sharedSources, ["client/contracts.ts", bytes(entry)]]),
+					publicExports: {
+						contracts: { kind: "component" as const, entry: "client/contracts.ts" },
+					},
+					clientDeclarationHash: clientDeclarationHash({
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+					}),
+				};
+				const compiled = yield* compileClientPluginModule(input);
+				expect(compiled.artifact.files.map(({ name }) => name)).toContain("module.js");
+			}),
+		testTimeout,
 	),
 );

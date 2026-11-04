@@ -1,5 +1,9 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID } from "@ryot-app/plugin-client-contract";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result } from "effect";
 import { forwardRef, memo } from "react";
 
@@ -81,8 +85,12 @@ const harness = (
 };
 
 const rejects = (message: string, dependencies: CompositionDependencies) =>
-	Effect.promise(() =>
-		expect(bootstrapComposition(dependencies)).rejects.toThrow(new Error(message).message),
+	Effect.map(
+		Effect.tryPromise(() => bootstrapComposition(dependencies)).pipe(Effect.flip),
+		({ cause: error }) => {
+			assert(error instanceof Error);
+			expect(error.message).toContain(new Error(message).message);
+		},
 	);
 
 afterEach(() => {
@@ -129,11 +137,17 @@ describe("composition bootstrap", () => {
 				const section = registrations?.[0];
 				assert(section?.load);
 				const load = section.load;
-				expect(section.ownerPluginId).toBe("private-owner");
+				expect(section.ownerPluginId).toBe<unknown>("private-owner");
 				expect(registrations?.[1]?.load).toBeNull();
-				yield* Effect.promise(() => expect(load()).rejects.toThrow("Module failed: /section.js"));
+				yield* Effect.map(Effect.tryPromise(() => load()).pipe(Effect.flip), ({ cause: error }) => {
+					assert(error instanceof Error);
+					expect(error.message).toContain("Module failed: /section.js");
+				});
 				failures.splice(0);
-				yield* Effect.promise(() => expect(load()).resolves.toBe(About));
+				yield* Effect.map(
+					Effect.promise(() => load()),
+					(value) => expect(value).toBe(About),
+				);
 				expect(recorded.loaded).toEqual(["/page.js", "/section.js", "/section.js"]);
 				expect(recorded.stylesheets).toEqual([
 					"/dependency.css",
@@ -142,29 +156,39 @@ describe("composition bootstrap", () => {
 					"/section.css",
 				]);
 			}),
+		testTimeout,
 	);
-	it.effect("rejects a missing descriptor element", () =>
-		rejects(
-			"Client composition descriptor is missing or has an invalid type",
-			harness({}).dependencies,
-		),
-	);
-
-	it.effect("rejects a descriptor element with the wrong type", () =>
-		Effect.gen(function* () {
-			mountDescriptor({}, "text/plain");
-			yield* rejects(
+	it.effect(
+		"rejects a missing descriptor element",
+		() =>
+			rejects(
 				"Client composition descriptor is missing or has an invalid type",
 				harness({}).dependencies,
-			);
-		}),
+			),
+		testTimeout,
 	);
 
-	it.effect("rejects a descriptor that is not JSON", () =>
-		Effect.gen(function* () {
-			mountDescriptor("{not json");
-			yield* rejects("Client composition descriptor is not valid JSON", harness({}).dependencies);
-		}),
+	it.effect(
+		"rejects a descriptor element with the wrong type",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({}, "text/plain");
+				yield* rejects(
+					"Client composition descriptor is missing or has an invalid type",
+					harness({}).dependencies,
+				);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"rejects a descriptor that is not JSON",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor("{not json");
+				yield* rejects("Client composition descriptor is not valid JSON", harness({}).dependencies);
+			}),
+		testTimeout,
 	);
 
 	const invalidShapes: readonly (readonly [string, unknown])[] = [
@@ -196,120 +220,141 @@ describe("composition bootstrap", () => {
 		],
 	];
 	for (const [name, descriptor] of invalidShapes) {
-		it.effect(`rejects an invalid shape: ${name}`, () =>
-			Effect.gen(function* () {
-				mountDescriptor(descriptor);
-				const { recorded, dependencies } = harness({});
-				yield* rejects("Client composition descriptor has an invalid shape", dependencies);
-				expect(recorded.loaded).toEqual([]);
-			}),
+		it.effect(
+			`rejects an invalid shape: ${name}`,
+			() =>
+				Effect.gen(function* () {
+					mountDescriptor(descriptor);
+					const { recorded, dependencies } = harness({});
+					yield* rejects("Client composition descriptor has an invalid shape", dependencies);
+					expect(recorded.loaded).toEqual([]);
+				}),
+			testTimeout,
 		);
 	}
 
-	it.effect("bootstraps a page with its entry component", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				application: "page",
-				automaticRegistry: [],
-				entry: reference("/page.js", "Home"),
-			});
-			const { recorded, dependencies } = harness({ "/page.js": { Home } });
-			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.pages).toEqual([
-				{ component: Home, options: { analyticsSections: [], entityPresentations: [] } },
-			]);
-			expect(recorded.plugins).toEqual([]);
-		}),
+	it.effect(
+		"bootstraps a page with its entry component",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					application: "page",
+					automaticRegistry: [],
+					entry: reference("/page.js", "Home"),
+				});
+				const { recorded, dependencies } = harness({ "/page.js": { Home } });
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.pages).toEqual([
+					{ component: Home, options: { analyticsSections: [], entityPresentations: [] } },
+				]);
+				expect(recorded.plugins).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("bootstraps a plugin with routes, loading each specifier once", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				automaticRegistry: [],
-				application: "plugin-route",
-				routes: {
-					home: reference("/routes.js", "Home"),
-					notFound: reference("/routes.js", "Missing"),
-					routes: [{ path: "/about", module: reference("/routes.js", "About") }],
-				},
-			});
-			const { recorded, dependencies } = harness({ "/routes.js": { Home, About, Missing } });
-			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.loaded).toEqual(["/routes.js"]);
-			expect(recorded.pages).toEqual([]);
-			expect(recorded.plugins).toEqual([
-				{
-					options: { entityPresentations: [] },
-					definition: {
-						notFound: Missing,
-						home: { component: Home },
-						routes: [{ path: "/about", component: About }],
+	it.effect(
+		"bootstraps a plugin with routes, loading each specifier once",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					automaticRegistry: [],
+					application: "plugin-route",
+					routes: {
+						home: reference("/routes.js", "Home"),
+						notFound: reference("/routes.js", "Missing"),
+						routes: [{ path: "/about", module: reference("/routes.js", "About") }],
 					},
-				},
-			]);
-		}),
+				});
+				const { recorded, dependencies } = harness({ "/routes.js": { Home, About, Missing } });
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.loaded).toEqual(["/routes.js"]);
+				expect(recorded.pages).toEqual([]);
+				expect(recorded.plugins).toEqual([
+					{
+						options: { entityPresentations: [] },
+						definition: {
+							notFound: Missing,
+							home: { component: Home },
+							routes: [{ path: "/about", component: About }],
+						},
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("omits notFound when the descriptor has none", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				automaticRegistry: [],
-				application: "plugin-route",
-				routes: { routes: [], home: reference("/routes.js", "Home") },
-			});
-			const { recorded, dependencies } = harness({ "/routes.js": { Home } });
-			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.plugins[0]?.definition).toEqual({ routes: [], home: { component: Home } });
-		}),
+	it.effect(
+		"omits notFound when the descriptor has none",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					automaticRegistry: [],
+					application: "plugin-route",
+					routes: { routes: [], home: reference("/routes.js", "Home") },
+				});
+				const { recorded, dependencies } = harness({ "/routes.js": { Home } });
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.plugins[0]?.definition).toEqual({ routes: [], home: { component: Home } });
+			}),
+		testTimeout,
 	);
 
-	it.effect("bootstraps explicit routes without a home component", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				automaticRegistry: [],
-				application: "plugin-route",
-				routes: { routes: [{ path: "/items/new", module: reference("/routes.js", "About") }] },
-			});
-			const { recorded, dependencies } = harness({ "/routes.js": { About } });
-			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.plugins[0]?.definition).toEqual({
-				routes: [{ component: About, path: "/items/new" }],
-			});
-		}),
+	it.effect(
+		"bootstraps explicit routes without a home component",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					automaticRegistry: [],
+					application: "plugin-route",
+					routes: { routes: [{ path: "/items/new", module: reference("/routes.js", "About") }] },
+				});
+				const { recorded, dependencies } = harness({ "/routes.js": { About } });
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.plugins[0]?.definition).toEqual({
+					routes: [{ component: About, path: "/items/new" }],
+				});
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects a missing export with its specifier and binding", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				application: "page",
-				automaticRegistry: [],
-				entry: reference("/page.js", "Home"),
-			});
-			const { recorded, dependencies } = harness({ "/page.js": {} });
-			yield* rejects("Client composition export is missing: /page.js#Home", dependencies);
-			expect(recorded.pages).toEqual([]);
-		}),
+	it.effect(
+		"rejects a missing export with its specifier and binding",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					application: "page",
+					automaticRegistry: [],
+					entry: reference("/page.js", "Home"),
+				});
+				const { recorded, dependencies } = harness({ "/page.js": {} });
+				yield* rejects("Client composition export is missing: /page.js#Home", dependencies);
+				expect(recorded.pages).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("accepts memo and forwardRef components", () =>
-		Effect.gen(function* () {
-			const MemoHome = memo(Home);
-			const ForwardedAbout = forwardRef(About);
-			mountDescriptor({
-				automaticRegistry: [],
-				application: "plugin-route",
-				routes: {
-					home: reference("/routes.js", "MemoHome"),
-					routes: [{ path: "/about", module: reference("/routes.js", "ForwardedAbout") }],
-				},
-			});
-			const { recorded, dependencies } = harness({ "/routes.js": { MemoHome, ForwardedAbout } });
-			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.plugins[0]?.definition).toEqual({
-				home: { component: MemoHome },
-				routes: [{ path: "/about", component: ForwardedAbout }],
-			});
-		}),
+	it.effect(
+		"accepts memo and forwardRef components",
+		() =>
+			Effect.gen(function* () {
+				const MemoHome = memo(Home);
+				const ForwardedAbout = forwardRef(About);
+				mountDescriptor({
+					automaticRegistry: [],
+					application: "plugin-route",
+					routes: {
+						home: reference("/routes.js", "MemoHome"),
+						routes: [{ path: "/about", module: reference("/routes.js", "ForwardedAbout") }],
+					},
+				});
+				const { recorded, dependencies } = harness({ "/routes.js": { MemoHome, ForwardedAbout } });
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.plugins[0]?.definition).toEqual({
+					home: { component: MemoHome },
+					routes: [{ path: "/about", component: ForwardedAbout }],
+				});
+			}),
+		testTimeout,
 	);
 
 	for (const [name, value] of [
@@ -317,74 +362,92 @@ describe("composition bootstrap", () => {
 		["array", []],
 		["null", null],
 	] as const) {
-		it.effect(`rejects a present but invalid component export: ${name}`, () =>
+		it.effect(
+			`rejects a present but invalid component export: ${name}`,
+			() =>
+				Effect.gen(function* () {
+					mountDescriptor({
+						application: "page",
+						automaticRegistry: [],
+						entry: reference("/page.js", "Home"),
+					});
+					const { recorded, dependencies } = harness({ "/page.js": { Home: value } });
+					yield* rejects("Client composition export is invalid: /page.js#Home", dependencies);
+					expect(recorded.pages).toEqual([]);
+				}),
+			testTimeout,
+		);
+	}
+
+	it.effect(
+		"rejects when a route module fails to load",
+		() =>
 			Effect.gen(function* () {
 				mountDescriptor({
 					application: "page",
 					automaticRegistry: [],
 					entry: reference("/page.js", "Home"),
 				});
-				const { recorded, dependencies } = harness({ "/page.js": { Home: value } });
-				yield* rejects("Client composition export is invalid: /page.js#Home", dependencies);
+				const { recorded, dependencies } = harness({}, { modules: ["/page.js"] });
+				yield* rejects("Module failed: /page.js", dependencies);
 				expect(recorded.pages).toEqual([]);
 			}),
-		);
-	}
-
-	it.effect("rejects when a route module fails to load", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				application: "page",
-				automaticRegistry: [],
-				entry: reference("/page.js", "Home"),
-			});
-			const { recorded, dependencies } = harness({}, { modules: ["/page.js"] });
-			yield* rejects("Module failed: /page.js", dependencies);
-			expect(recorded.pages).toEqual([]);
-		}),
+		testTimeout,
 	);
 
-	it.effect("loads presentations lazily with their stylesheets and shared module loads", () =>
-		Effect.gen(function* () {
-			mountDescriptor({
-				application: "page",
-				entry: reference("/page.js", "Home"),
-				automaticRegistry: [
-					{
-						layout: "grid",
-						ownerPluginId: "owner",
-						entitySchemaSlug: "item",
-						stylesheets: ["/a.css", "/b.css"],
-						module: reference("/page.js", "itemGrid"),
+	it.effect(
+		"loads presentations lazily with their stylesheets and shared module loads",
+		() =>
+			Effect.gen(function* () {
+				mountDescriptor({
+					application: "page",
+					entry: reference("/page.js", "Home"),
+					automaticRegistry: [
+						{
+							layout: "grid",
+							ownerPluginId: "owner",
+							entitySchemaSlug: "item",
+							stylesheets: ["/a.css", "/b.css"],
+							module: reference("/page.js", "itemGrid"),
+						},
+						{
+							layout: "list",
+							stylesheets: [],
+							ownerPluginId: "owner",
+							entitySchemaSlug: "item",
+							module: reference("/page.js", "absent"),
+						},
+					],
+				});
+				const { recorded, dependencies } = harness({
+					"/page.js": { Home, itemGrid: presentation },
+				});
+				yield* Effect.promise(() => bootstrapComposition(dependencies));
+				expect(recorded.stylesheets).toEqual([]);
+				const options = recorded.pages[0]?.options;
+				const registrations = options?.entityPresentations;
+				expect(registrations).toHaveLength(2);
+				const [grid, list] = registrations ?? [];
+				assert(grid && list);
+				expect(grid).toMatchObject({ layout: "grid", ownerPluginId: "owner" });
+				yield* Effect.map(
+					Effect.promise(() => grid.load()),
+					(value) => expect(value).toBe(presentation),
+				);
+				expect(recorded.stylesheets).toEqual(["/a.css", "/b.css"]);
+				expect(recorded.loaded).toEqual(["/page.js"]);
+				yield* Effect.map(
+					Effect.tryPromise(() => list.load()).pipe(Effect.flip),
+					({ cause: error }) => {
+						assert(error instanceof Error);
+						expect(error.message).toContain(
+							"Client composition export is missing: /page.js#absent",
+						);
 					},
-					{
-						layout: "list",
-						stylesheets: [],
-						ownerPluginId: "owner",
-						entitySchemaSlug: "item",
-						module: reference("/page.js", "absent"),
-					},
-				],
-			});
-			const { recorded, dependencies } = harness({ "/page.js": { Home, itemGrid: presentation } });
-			yield* Effect.promise(() => bootstrapComposition(dependencies));
-			expect(recorded.stylesheets).toEqual([]);
-			const options = recorded.pages[0]?.options;
-			const registrations = options?.entityPresentations;
-			expect(registrations).toHaveLength(2);
-			const [grid, list] = registrations ?? [];
-			assert(grid && list);
-			expect(grid).toMatchObject({ layout: "grid", ownerPluginId: "owner" });
-			yield* Effect.promise(() => expect(grid.load()).resolves.toBe(presentation));
-			expect(recorded.stylesheets).toEqual(["/a.css", "/b.css"]);
-			expect(recorded.loaded).toEqual(["/page.js"]);
-			yield* Effect.promise(() =>
-				expect(list.load()).rejects.toThrow(
-					"Client composition export is missing: /page.js#absent",
-				),
-			);
-			expect(recorded.loaded).toEqual(["/page.js"]);
-		}),
+				);
+				expect(recorded.loaded).toEqual(["/page.js"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -419,12 +482,18 @@ const registrationsFor = (
 	});
 
 describe("composition bootstrap presentations", () => {
-	it.effect("accepts a memo presentation component", () =>
-		Effect.gen(function* () {
-			const definition = { ...presentation, component: memo(presentation.component) };
-			const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: definition } });
-			yield* Effect.promise(() => expect(load()).resolves.toBe(definition));
-		}),
+	it.effect(
+		"accepts a memo presentation component",
+		() =>
+			Effect.gen(function* () {
+				const definition = { ...presentation, component: memo(presentation.component) };
+				const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: definition } });
+				yield* Effect.map(
+					Effect.promise(() => load()),
+					(value) => expect(value).toBe(definition),
+				);
+			}),
+		testTimeout,
 	);
 
 	for (const [name, value] of [
@@ -433,35 +502,52 @@ describe("composition bootstrap presentations", () => {
 		["plain object component", { ...presentation, component: {} }],
 		["missing component", { loader: presentation.loader, prepare: presentation.prepare }],
 	] as const) {
-		it.effect(`rejects a present but invalid presentation export: ${name}`, () =>
-			Effect.gen(function* () {
-				const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: value } });
-				yield* Effect.promise(() =>
-					expect(load()).rejects.toThrow(
-						"Client composition export is invalid: /presentation.js#itemGrid",
-					),
-				);
-			}),
+		it.effect(
+			`rejects a present but invalid presentation export: ${name}`,
+			() =>
+				Effect.gen(function* () {
+					const { load } = yield* registrationsFor({ "/presentation.js": { itemGrid: value } });
+					yield* Effect.map(
+						Effect.tryPromise(() => load()).pipe(Effect.flip),
+						({ cause: error }) => {
+							assert(error instanceof Error);
+							expect(error.message).toContain(
+								"Client composition export is invalid: /presentation.js#itemGrid",
+							);
+						},
+					);
+				}),
+			testTimeout,
 		);
 	}
 
-	it.effect("rejects a presentation whose stylesheet fails to load", () =>
-		Effect.gen(function* () {
-			const { load, recorded } = yield* registrationsFor(
-				{ "/presentation.js": { itemGrid: presentation } },
-				{ stylesheets: ["/grid.css"] },
-			);
-			yield* Effect.promise(() => expect(load()).rejects.toThrow("Stylesheet failed: /grid.css"));
-			expect(recorded.loaded).not.toContain("/presentation.js");
-		}),
+	it.effect(
+		"rejects a presentation whose stylesheet fails to load",
+		() =>
+			Effect.gen(function* () {
+				const { load, recorded } = yield* registrationsFor(
+					{ "/presentation.js": { itemGrid: presentation } },
+					{ stylesheets: ["/grid.css"] },
+				);
+				yield* Effect.map(Effect.tryPromise(() => load()).pipe(Effect.flip), ({ cause: error }) => {
+					assert(error instanceof Error);
+					expect(error.message).toContain("Stylesheet failed: /grid.css");
+				});
+				expect(recorded.loaded).not.toContain("/presentation.js");
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects a presentation whose module fails to load", () =>
-		Effect.gen(function* () {
-			const { load } = yield* registrationsFor({}, { modules: ["/presentation.js"] });
-			yield* Effect.promise(() =>
-				expect(load()).rejects.toThrow("Module failed: /presentation.js"),
-			);
-		}),
+	it.effect(
+		"rejects a presentation whose module fails to load",
+		() =>
+			Effect.gen(function* () {
+				const { load } = yield* registrationsFor({}, { modules: ["/presentation.js"] });
+				yield* Effect.map(Effect.tryPromise(() => load()).pipe(Effect.flip), ({ cause: error }) => {
+					assert(error instanceof Error);
+					expect(error.message).toContain("Module failed: /presentation.js");
+				});
+			}),
+		testTimeout,
 	);
 });

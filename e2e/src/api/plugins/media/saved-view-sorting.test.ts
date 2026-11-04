@@ -137,7 +137,7 @@ describe("Media saved-view sorting", () => {
 			yield* insertLibraryMembership(client, { mediaEntityId: newer.id });
 			const podcastIds = yield* savedViewIds(client, older.pluginId, "all-podcasts");
 			expect(podcastIds).toHaveLength(2);
-			expect(podcastIds).toEqual(expect.arrayContaining([newer.id, older.id]));
+			expect(podcastIds).toEqual<unknown>(expect.arrayContaining([newer.id, older.id]));
 			const { schema: episodeSchema } = yield* findMediaEntitySchema(client, "podcast-episode");
 			const events = yield* listEventSchemas(client, episodeSchema.reference);
 			yield* createEventFixture(client, {
@@ -256,7 +256,7 @@ describe("Media saved-view sorting", () => {
 
 			const userOnePeople = yield* savedViewIds(client, savedPerson.pluginId, "all-people");
 			expect(userOnePeople).toHaveLength(3);
-			expect(userOnePeople).toEqual(
+			expect(userOnePeople).toEqual<unknown>(
 				expect.arrayContaining([savedPerson.id, creditedPerson.id, duplicateCreditPerson.id]),
 			);
 			const userTwoPeople = yield* savedViewIds(otherClient, otherPluginId, "all-people");

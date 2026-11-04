@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { propertyFilterFields } from "./property-filter-fields";
 

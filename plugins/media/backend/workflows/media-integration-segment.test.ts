@@ -1,4 +1,5 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
@@ -6,6 +7,9 @@ import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { mediaImportTestCommand } from "../imports/ingestion.test-support";
@@ -87,7 +91,7 @@ it.live(
 						record(request, { chunkHandles: [`writes-${applied}`] });
 					} else {
 						expect(request.args.scriptSlug).toBe("integration.spotify");
-						expect(request.args.input).toEqual({
+						expect(request.args.input).toEqual<unknown>({
 							marker: "original-context",
 							ingestionConfirmation: {
 								part: 0,
@@ -136,4 +140,5 @@ it.live(
 				}
 			}
 		}),
+	testTimeout,
 );

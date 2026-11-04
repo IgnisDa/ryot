@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -49,7 +50,7 @@ describe("Event automations", () => {
 
 			const completionEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-			expect(completionEvent.eventSchemaSlug).toBe("complete");
+			expect(completionEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 			expect(completionEvent.properties).not.toHaveProperty("completedOn");
 			expect(completionEvent.properties).not.toHaveProperty("completionMode");
 			expect(completionEvent.occurredAt).toBe(isoAt(1));
@@ -158,7 +159,7 @@ describe("Event automations", () => {
 
 			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 			expect(completeEvent.properties).not.toHaveProperty("completedOn");
 			expect(completeEvent.occurredAt).toBe(isoAt(2));
 
@@ -280,7 +281,7 @@ describe("Event automations", () => {
 
 			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 		}),
 	);
 
@@ -374,7 +375,7 @@ describe("Event automations", () => {
 
 			const completeEvent = yield* waitForEventWithSchema(client, entity.id, "complete");
 
-			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 			expect(completeEvent.sessionEntityId).toBe(podcast.id);
 		}),
 	);
@@ -404,7 +405,7 @@ describe("Event automations", () => {
 
 			const completeEvent = yield* waitForEventWithSchema(client, episodeId, "complete");
 
-			expect(completeEvent.eventSchemaSlug).toBe("complete");
+			expect(completeEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 			expect(completeEvent.sessionEntityId).toBe(showId);
 		}),
 	);
@@ -435,7 +436,7 @@ describe("Event automations", () => {
 
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-				expect(completeEvent.eventSchemaSlug).toBe("complete");
+				expect(completeEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 				expect(completeEvent.properties).not.toHaveProperty("completedOn");
 				expect(completeEvent.properties).not.toHaveProperty("completionMode");
 				expect(completeEvent.occurredAt).toBe(isoAt(1));

@@ -1,8 +1,12 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EntityUserDataBadRequest } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -261,92 +265,11 @@ const lifecycleCommand = (input: Effect.Success<ReturnType<typeof reminderTestIn
 	});
 
 layer(services)((test) => {
-	test.effect("clears a detached child reminder through its source parent", () =>
-		Effect.gen(function* () {
-			const input = yield* fixture([7]);
-			const repository = yield* RemindersRepository;
-			const sourceBefore = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
-			const destinationBefore = yield* repository.findForUser(
-				input.user.id,
-				input.destinationReminder.id,
-			);
-			assert(sourceBefore);
-			assert(destinationBefore);
-
-			yield* (yield* EntityUserDataService).clearEntityUserData(
-				input.user,
-				input.sourceRootId,
-				lifecycleCommand(input),
-			);
-
-			const sourceAfter = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
-			expect(sourceAfter).toMatchObject({
-				message: null,
-				entityId: null,
-				state: "cancelled",
-				parentEntityId: null,
-				id: input.sourceReminder.id,
-			});
-			expect(sourceAfter?.removedAt).not.toBeNull();
-			expect(sourceAfter?.dueAt).toBeNull();
-			expect(yield* repository.findForUser(input.user.id, input.destinationReminder.id)).toEqual(
-				destinationBefore,
-			);
-		}),
-	);
-
-	test.effect("moves a detached child reminder to its matching destination child", () =>
-		Effect.gen(function* () {
-			const input = yield* fixture([7]);
-			const repository = yield* RemindersRepository;
-			const sourceBefore = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
-			const destinationBefore = yield* repository.findForUser(
-				input.user.id,
-				input.destinationReminder.id,
-			);
-			assert(sourceBefore);
-			assert(destinationBefore);
-			const [destinationPart] = input.destinationParts;
-			assert(destinationPart);
-
-			yield* (yield* EntityUserDataService).mergeEntityUserData(
-				input.user,
-				{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
-				lifecycleCommand(input),
-			);
-
-			const moved = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
-			const destination = yield* repository.findForUser(
-				input.user.id,
-				input.destinationReminder.id,
-			);
-			expect(moved).toMatchObject({
-				dueAt: sourceBefore.dueAt,
-				id: input.sourceReminder.id,
-				entityId: destinationPart.id,
-				message: sourceBefore.message,
-				parentEntityId: input.destinationRootId,
-			});
-			expect(destination).toMatchObject({
-				entityId: destinationPart.id,
-				dueAt: destinationBefore.dueAt,
-				id: input.destinationReminder.id,
-				message: destinationBefore.message,
-				parentEntityId: input.destinationRootId,
-			});
-			expect(new Set([moved?.id, destination?.id])).toEqual(
-				new Set([input.sourceReminder.id, input.destinationReminder.id]),
-			);
-		}),
-	);
-
-	for (const [caseName, destinationPartNumbers] of [
-		["missing", [8]],
-		["ambiguous", [7, 7]],
-	] as const) {
-		test.effect(`rejects ${caseName} child mapping before moving either reminder`, () =>
+	test.effect(
+		"clears a detached child reminder through its source parent",
+		() =>
 			Effect.gen(function* () {
-				const input = yield* fixture(destinationPartNumbers);
+				const input = yield* fixture([7]);
 				const repository = yield* RemindersRepository;
 				const sourceBefore = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
 				const destinationBefore = yield* repository.findForUser(
@@ -355,31 +278,124 @@ layer(services)((test) => {
 				);
 				assert(sourceBefore);
 				assert(destinationBefore);
-				const exit = yield* (yield* EntityUserDataService)
-					.mergeEntityUserData(
-						input.user,
-						{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
-						lifecycleCommand(input),
-					)
-					.pipe(Effect.exit);
-				assertExitFails(
-					exit,
-					new EntityUserDataBadRequest({
-						reason: {
-							code: "child-mapping-conflict",
-							entityIds: [input.sourcePartId],
-							message:
-								"Cannot merge 1 child item(s) without a unique matching destination: Source part (number=7). Refresh source data or correct the custom child names and identity fields, then try again. No data was moved.",
-						},
-					}),
+
+				yield* (yield* EntityUserDataService).clearEntityUserData(
+					input.user,
+					input.sourceRootId,
+					lifecycleCommand(input),
 				);
-				expect(yield* repository.findForUser(input.user.id, input.sourceReminder.id)).toEqual(
-					sourceBefore,
-				);
+
+				const sourceAfter = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
+				expect(sourceAfter).toMatchObject({
+					message: null,
+					entityId: null,
+					state: "cancelled",
+					parentEntityId: null,
+					id: input.sourceReminder.id,
+				});
+				expect(sourceAfter?.removedAt).not.toBeNull();
+				expect(sourceAfter?.dueAt).toBeNull();
 				expect(yield* repository.findForUser(input.user.id, input.destinationReminder.id)).toEqual(
 					destinationBefore,
 				);
 			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"moves a detached child reminder to its matching destination child",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* fixture([7]);
+				const repository = yield* RemindersRepository;
+				const sourceBefore = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
+				const destinationBefore = yield* repository.findForUser(
+					input.user.id,
+					input.destinationReminder.id,
+				);
+				assert(sourceBefore);
+				assert(destinationBefore);
+				const [destinationPart] = input.destinationParts;
+				assert(destinationPart);
+
+				yield* (yield* EntityUserDataService).mergeEntityUserData(
+					input.user,
+					{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
+					lifecycleCommand(input),
+				);
+
+				const moved = yield* repository.findForUser(input.user.id, input.sourceReminder.id);
+				const destination = yield* repository.findForUser(
+					input.user.id,
+					input.destinationReminder.id,
+				);
+				expect(moved).toMatchObject({
+					dueAt: sourceBefore.dueAt,
+					id: input.sourceReminder.id,
+					entityId: destinationPart.id,
+					message: sourceBefore.message,
+					parentEntityId: input.destinationRootId,
+				});
+				expect(destination).toMatchObject({
+					entityId: destinationPart.id,
+					dueAt: destinationBefore.dueAt,
+					id: input.destinationReminder.id,
+					message: destinationBefore.message,
+					parentEntityId: input.destinationRootId,
+				});
+				expect(new Set([moved?.id, destination?.id])).toEqual(
+					new Set([input.sourceReminder.id, input.destinationReminder.id]),
+				);
+			}),
+		testTimeout,
+	);
+
+	for (const [caseName, destinationPartNumbers] of [
+		["missing", [8]],
+		["ambiguous", [7, 7]],
+	] as const) {
+		test.effect(
+			`rejects ${caseName} child mapping before moving either reminder`,
+			() =>
+				Effect.gen(function* () {
+					const input = yield* fixture(destinationPartNumbers);
+					const repository = yield* RemindersRepository;
+					const sourceBefore = yield* repository.findForUser(
+						input.user.id,
+						input.sourceReminder.id,
+					);
+					const destinationBefore = yield* repository.findForUser(
+						input.user.id,
+						input.destinationReminder.id,
+					);
+					assert(sourceBefore);
+					assert(destinationBefore);
+					const exit = yield* (yield* EntityUserDataService)
+						.mergeEntityUserData(
+							input.user,
+							{ mergeFrom: input.sourceRootId, mergeInto: input.destinationRootId },
+							lifecycleCommand(input),
+						)
+						.pipe(Effect.exit);
+					assertExitFails(
+						exit,
+						new EntityUserDataBadRequest({
+							reason: {
+								code: "child-mapping-conflict",
+								entityIds: [input.sourcePartId],
+								message:
+									"Cannot merge 1 child item(s) without a unique matching destination: Source part (number=7). Refresh source data or correct the custom child names and identity fields, then try again. No data was moved.",
+							},
+						}),
+					);
+					expect(yield* repository.findForUser(input.user.id, input.sourceReminder.id)).toEqual(
+						sourceBefore,
+					);
+					expect(
+						yield* repository.findForUser(input.user.id, input.destinationReminder.id),
+					).toEqual(destinationBefore);
+				}),
+			testTimeout,
 		);
 	}
 });

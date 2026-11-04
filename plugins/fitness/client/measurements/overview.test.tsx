@@ -1,4 +1,5 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -7,7 +8,10 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { buildMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
@@ -62,33 +66,36 @@ function Overview() {
 }
 
 describe("measurement overview source labels", () => {
-	it.live("labels grouped averages and uses source reading counts rather than bucket counts", () =>
-		Effect.gen(function* () {
-			mountPluginPage(Overview, {
-				location: routeLocation("/v/all-measurements"),
-				page: savedViewPageContext({
-					settings: {},
-					dataSources: { queries: {} },
-					rendererName: "measurements",
-					savedViewId: "all-measurements",
-					view: { icon: "ruler", name: "All Measurements" },
-				}),
-			});
-			const body = within(document.body);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(body.getByRole("region", { name: "Metric chart" })).toBeTruthy()),
-			);
-			expect(body.getByRole("group", { name: "Pinned metrics" }).textContent).toContain(
-				"5 readings in 30 days",
-			);
-			const chart = body.getByRole("region", { name: "Metric chart" });
-			expect(chart.textContent).toContain("3- or 7-bucket smoothing within continuous runs");
-			expect(chart.textContent).toContain(
-				"Dots and the shaded low-to-high band show grouped averages",
-			);
-			expect(chart.textContent).toContain("Smoothing restarts after missing buckets");
-			expect(chart.textContent).not.toContain("dots are readings");
-			expect(chart.textContent).toContain("mg/dL");
-		}),
+	it.live(
+		"labels grouped averages and uses source reading counts rather than bucket counts",
+		() =>
+			Effect.gen(function* () {
+				mountPluginPage(Overview, {
+					location: routeLocation("/v/all-measurements"),
+					page: savedViewPageContext({
+						settings: {},
+						dataSources: { queries: {} },
+						rendererName: "measurements",
+						savedViewId: "all-measurements",
+						view: { icon: "ruler", name: "All Measurements" },
+					}),
+				});
+				const body = within(document.body);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(body.getByRole("region", { name: "Metric chart" })).toBeTruthy()),
+				);
+				expect(body.getByRole("group", { name: "Pinned metrics" }).textContent).toContain(
+					"5 readings in 30 days",
+				);
+				const chart = body.getByRole("region", { name: "Metric chart" });
+				expect(chart.textContent).toContain("3- or 7-bucket smoothing within continuous runs");
+				expect(chart.textContent).toContain(
+					"Dots and the shaded low-to-high band show grouped averages",
+				);
+				expect(chart.textContent).toContain("Smoothing restarts after missing buckets");
+				expect(chart.textContent).not.toContain("dots are readings");
+				expect(chart.textContent).toContain("mg/dL");
+			}),
+		testTimeout,
 	);
 });

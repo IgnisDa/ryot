@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { fitnessPlugin } from "../../manifest/plugin";
 import definition, { manifest } from "./workout-records.sandbox";
@@ -169,18 +172,22 @@ describe("workout start change", () => {
 					}),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.effect("requests nothing when the workout update leaves its start unchanged", () =>
-		Effect.gen(function* () {
-			const { host, requests } = recordingHost(undefined, []);
-			return yield* definition.run(yield* workoutUpdateInput([]), host).pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(requests).toEqual([]);
-				}),
-			);
-		}),
+	it.effect(
+		"requests nothing when the workout update leaves its start unchanged",
+		() =>
+			Effect.gen(function* () {
+				const { host, requests } = recordingHost(undefined, []);
+				return yield* definition.run(yield* workoutUpdateInput([]), host).pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(requests).toEqual([]);
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -234,101 +241,111 @@ describe("workout record automation", () => {
 					}),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.effect("requests work for source updates and declares the batch hook", () =>
-		Effect.gen(function* () {
-			const before = eventSnapshot("event-1", "exercise-1");
-			const sourceUpdate = yield* automationInput([
-				{
-					before,
-					resource: "event",
-					category: "change",
-					operation: "update",
-					changedProperties: ["weight"],
-					after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
-				},
-			]);
-			const { host, requests } = recordingHost();
+	it.effect(
+		"requests work for source updates and declares the batch hook",
+		() =>
+			Effect.gen(function* () {
+				const before = eventSnapshot("event-1", "exercise-1");
+				const sourceUpdate = yield* automationInput([
+					{
+						before,
+						resource: "event",
+						category: "change",
+						operation: "update",
+						changedProperties: ["weight"],
+						after: eventSnapshot("event-1", "exercise-1", { properties: { weight: 30 } }),
+					},
+				]);
+				const { host, requests } = recordingHost();
 
-			expect(yield* definition.run(sourceUpdate, host)).toBeNull();
-			expect(requests).toHaveLength(1);
-			expect(requests).toEqual([
-				objectContaining({ request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" } }),
-			]);
-			const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
-			expect(hook).toMatchObject({
-				stage: "after",
-				delivery: "async",
-				batchMaxItems: 50,
-				frequency: "batch",
-				executionScope: "user",
-			});
-			expect(hook).not.toHaveProperty("causationSources");
-			expect(manifest.inputProjection.event).toEqual({
-				properties: [],
-				compareProperties: [
-					{ equality: "json", property: "confirmedAt" },
-					{ equality: "json", property: "distance" },
-					{ equality: "json", property: "duration" },
-					{ equality: "json", property: "exerciseKind" },
-					{ equality: "json", property: "exerciseOrder" },
-					{ property: "reps", equality: "json" },
-					{ equality: "json", property: "setOrder" },
-					{ equality: "json", property: "weight" },
-				],
-			});
-			expect(manifest.inputProjection.entity).toEqual({
-				properties: [],
-				parentEntityProperties: [],
-				compareProperties: [{ equality: "json", property: "startedAt" }],
-			});
-		}),
+				expect(yield* definition.run(sourceUpdate, host)).toBeNull();
+				expect(requests).toHaveLength(1);
+				expect(requests).toEqual([
+					objectContaining({ request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" } }),
+				]);
+				const hook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
+				expect(hook).toMatchObject({
+					stage: "after",
+					delivery: "async",
+					batchMaxItems: 50,
+					frequency: "batch",
+					executionScope: "user",
+				});
+				expect(hook).not.toHaveProperty("causationSources");
+				expect(manifest.inputProjection.event).toEqual({
+					properties: [],
+					compareProperties: [
+						{ equality: "json", property: "confirmedAt" },
+						{ equality: "json", property: "distance" },
+						{ equality: "json", property: "duration" },
+						{ equality: "json", property: "exerciseKind" },
+						{ equality: "json", property: "exerciseOrder" },
+						{ property: "reps", equality: "json" },
+						{ equality: "json", property: "setOrder" },
+						{ equality: "json", property: "weight" },
+					],
+				});
+				expect(manifest.inputProjection.entity).toEqual({
+					properties: [],
+					parentEntityProperties: [],
+					compareProperties: [{ equality: "json", property: "startedAt" }],
+				});
+			}),
+		testTimeout,
 	);
 
-	it.effect("skips streams whose exercise entity no longer exists", () =>
-		Effect.gen(function* () {
-			const input = yield* automationInput([
-				{
-					resource: "event",
-					category: "change",
-					operation: "delete",
-					before: eventSnapshot("event-deleted", "deleted-exercise"),
-				},
-			]);
-			const { host, requests } = recordingHost([]);
+	it.effect(
+		"skips streams whose exercise entity no longer exists",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* automationInput([
+					{
+						resource: "event",
+						category: "change",
+						operation: "delete",
+						before: eventSnapshot("event-deleted", "deleted-exercise"),
+					},
+				]);
+				const { host, requests } = recordingHost([]);
 
-			return yield* definition.run(input, host).pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(requests).toEqual([]);
-				}),
-			);
-		}),
+				return yield* definition.run(input, host).pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(requests).toEqual([]);
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("requests work without explicit workflow dispatch", () =>
-		Effect.gen(function* () {
-			const input = yield* automationInput([
-				{
-					resource: "event",
-					category: "change",
-					operation: "create",
-					after: eventSnapshot("event-1", "exercise-1"),
-				},
-			]);
-			const { host, requests } = recordingHost();
+	it.effect(
+		"requests work without explicit workflow dispatch",
+		() =>
+			Effect.gen(function* () {
+				const input = yield* automationInput([
+					{
+						resource: "event",
+						category: "change",
+						operation: "create",
+						after: eventSnapshot("event-1", "exercise-1"),
+					},
+				]);
+				const { host, requests } = recordingHost();
 
-			return yield* definition.run(input, host).pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(requests).toEqual([
-						objectContaining({
-							request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
-						}),
-					]);
-				}),
-			);
-		}),
+				return yield* definition.run(input, host).pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(requests).toEqual([
+							objectContaining({
+								request: { entityId: "exercise-1", eventSchemaSlug: "workout-set" },
+							}),
+						]);
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });

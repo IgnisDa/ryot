@@ -1,11 +1,13 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import {
 	PluginInvocationError,
 	PluginOperationRejected,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
 

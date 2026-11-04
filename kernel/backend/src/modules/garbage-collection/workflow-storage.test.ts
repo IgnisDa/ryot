@@ -1,5 +1,9 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Clock, Effect, Exit, Layer, Option, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { DurableDeferred, Workflow } from "effect/workflow";
@@ -169,92 +173,102 @@ layer(
 				expect(yield* Ref.get(parentRuns)).toBe(runsBeforeGc);
 				expect(yield* Ref.get(childRuns)).toBe(1);
 			}).pipe(TestClock.withLive),
+		testTimeout,
 	);
 
-	test.effect("publishes a committed terminal reply but not a suspended reply", () =>
-		Effect.gen(function* () {
-			const database = yield* IsolatedDatabase;
-			const infrastructure = Layer.effectContext(
-				Layer.build(
-					WorkflowEngineLive.pipe(
-						Layer.provideMerge(DatabaseSession.layer),
-						Layer.provide(
-							makeAppConfigLayer({
-								redisUrl: Redacted.make(testRedisUrl()),
-								database: { url: Redacted.make(database.url) },
+	test.effect(
+		"publishes a committed terminal reply but not a suspended reply",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* IsolatedDatabase;
+				const infrastructure = Layer.effectContext(
+					Layer.build(
+						WorkflowEngineLive.pipe(
+							Layer.provideMerge(DatabaseSession.layer),
+							Layer.provide(
+								makeAppConfigLayer({
+									redisUrl: Redacted.make(testRedisUrl()),
+									database: { url: Redacted.make(database.url) },
+								}),
+							),
+							Layer.provide(BunServices.layer),
+						),
+					),
+				);
+				const definitions = Layer.mergeAll(
+					implementWorkflow(Child, () => Effect.succeed("child")),
+					implementWorkflow(Failing, () => Effect.fail("failed")),
+					implementWorkflow(Parent, () =>
+						Effect.flatMap(WorkflowEngine, (engine) =>
+							Effect.gen(function* () {
+								yield* engine.execute(Child, {
+									payload: { id: "child" },
+									executionId: "notification-child",
+								});
+								return yield* DurableDeferred.await(finish);
 							}),
 						),
-						Layer.provide(BunServices.layer),
 					),
-				),
-			);
-			const definitions = Layer.mergeAll(
-				implementWorkflow(Child, () => Effect.succeed("child")),
-				implementWorkflow(Failing, () => Effect.fail("failed")),
-				implementWorkflow(Parent, () =>
-					Effect.flatMap(WorkflowEngine, (engine) =>
-						Effect.gen(function* () {
-							yield* engine.execute(Child, {
-								payload: { id: "child" },
-								executionId: "notification-child",
-							});
-							return yield* DurableDeferred.await(finish);
-						}),
-					),
-				),
-			).pipe(Layer.provideMerge(infrastructure));
-			const executionId = "notification-parent";
-			yield* withRuntime(
-				definitions,
-				Effect.gen(function* () {
-					const notifications = yield* WorkflowExecutionNotifications;
-					const engine = yield* WorkflowEngine;
-					const failureExecutionId = "notification-failure";
-					const awaitFailureNotification = yield* notifications.listen({
-						workflowName: Failing._tag,
-						executionId: failureExecutionId,
-					});
-					yield* engine.execute(Failing, {
-						discard: true,
-						payload: { id: "failed" },
-						executionId: failureExecutionId,
-					});
-					expect(
-						Option.isSome(yield* Effect.timeoutOption(awaitFailureNotification, "5 seconds")),
-					).toBe(true);
-					const failedRows = yield* (yield* DatabaseSession).run((db) =>
-						db.select().from(workflowExecution),
-					);
-					expect(failedRows.filter((row) => row.executionId === failureExecutionId)).toMatchObject([
-						{ status: "failed", workflowName: Failing._tag, executionId: failureExecutionId },
-					]);
+				).pipe(Layer.provideMerge(infrastructure));
+				const executionId = "notification-parent";
+				yield* withRuntime(
+					definitions,
+					Effect.gen(function* () {
+						const notifications = yield* WorkflowExecutionNotifications;
+						const engine = yield* WorkflowEngine;
+						const failureExecutionId = "notification-failure";
+						const awaitFailureNotification = yield* notifications.listen({
+							workflowName: Failing._tag,
+							executionId: failureExecutionId,
+						});
+						yield* engine.execute(Failing, {
+							discard: true,
+							payload: { id: "failed" },
+							executionId: failureExecutionId,
+						});
+						expect(
+							Option.isSome(yield* Effect.timeoutOption(awaitFailureNotification, "5 seconds")),
+						).toBe(true);
+						const failedRows = yield* (yield* DatabaseSession).run((db) =>
+							db.select().from(workflowExecution),
+						);
+						expect(
+							failedRows.filter((row) => row.executionId === failureExecutionId),
+						).toMatchObject([
+							{ status: "failed", workflowName: Failing._tag, executionId: failureExecutionId },
+						]);
 
-					const awaitNotification = yield* notifications.listen({
-						executionId,
-						workflowName: Parent._tag,
-					});
-					yield* engine.execute(Parent, { executionId, discard: true, payload: { id: "parent" } });
-					yield* waitForSuspension(executionId);
-					expect(Option.isNone(yield* Effect.timeoutOption(awaitNotification, "0 millis"))).toBe(
-						true,
-					);
-					yield* engine.deferredDone(finish, {
-						executionId,
-						workflowName: Parent._tag,
-						deferredName: finish.name,
-						exit: Exit.succeed("finished"),
-					});
-					expect(Option.isSome(yield* Effect.timeoutOption(awaitNotification, "5 seconds"))).toBe(
-						true,
-					);
-					const rows = yield* (yield* DatabaseSession).run((db) =>
-						db.select().from(workflowExecution),
-					);
-					expect(rows.filter((row) => row.executionId === executionId)).toMatchObject([
-						{ executionId, status: "succeeded", workflowName: Parent._tag },
-					]);
-				}),
-			);
-		}).pipe(TestClock.withLive),
+						const awaitNotification = yield* notifications.listen({
+							executionId,
+							workflowName: Parent._tag,
+						});
+						yield* engine.execute(Parent, {
+							executionId,
+							discard: true,
+							payload: { id: "parent" },
+						});
+						yield* waitForSuspension(executionId);
+						expect(Option.isNone(yield* Effect.timeoutOption(awaitNotification, "0 millis"))).toBe(
+							true,
+						);
+						yield* engine.deferredDone(finish, {
+							executionId,
+							workflowName: Parent._tag,
+							deferredName: finish.name,
+							exit: Exit.succeed("finished"),
+						});
+						expect(Option.isSome(yield* Effect.timeoutOption(awaitNotification, "5 seconds"))).toBe(
+							true,
+						);
+						const rows = yield* (yield* DatabaseSession).run((db) =>
+							db.select().from(workflowExecution),
+						);
+						expect(rows.filter((row) => row.executionId === executionId)).toMatchObject([
+							{ executionId, status: "succeeded", workflowName: Parent._tag },
+						]);
+					}),
+				);
+			}).pipe(TestClock.withLive),
+		testTimeout,
 	);
 });

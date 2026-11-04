@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import { buildSearchPayload } from "#/modules/provider-add/search-controller";
 

@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginDeviceRequest } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { DateTime, Effect } from "effect";
 
 import {
@@ -26,26 +29,29 @@ const request: Extract<PluginDeviceRequest, { action: "schedule" }> = {
 	},
 };
 
-it.effect("cancels both pending and delivered instances of a native alert", () =>
-	Effect.gen(function* () {
-		const pending: unknown[] = [];
-		const delivered: unknown[] = [];
-		yield* cancelNativeAlert(
-			{
-				cancel: (input) => {
-					pending.push(input);
-					return Promise.resolve();
+it.effect(
+	"cancels both pending and delivered instances of a native alert",
+	() =>
+		Effect.gen(function* () {
+			const pending: unknown[] = [];
+			const delivered: unknown[] = [];
+			yield* cancelNativeAlert(
+				{
+					cancel: (input) => {
+						pending.push(input);
+						return Promise.resolve();
+					},
+					removeDeliveredNotificationsById: (input) => {
+						delivered.push(input);
+						return Promise.resolve();
+					},
 				},
-				removeDeliveredNotificationsById: (input) => {
-					delivered.push(input);
-					return Promise.resolve();
-				},
-			},
-			7,
-		);
-		expect(pending).toEqual([{ notifications: [{ id: 7 }] }]);
-		expect(delivered).toEqual([{ ids: [7] }]);
-	}),
+				7,
+			);
+			expect(pending).toEqual([{ notifications: [{ id: 7 }] }]);
+			expect(delivered).toEqual([{ ids: [7] }]);
+		}),
+	testTimeout,
 );
 
 const deliveredHarness = (notifications: { id: number; body: string; title: string }[]) => {
@@ -62,23 +68,29 @@ const deliveredHarness = (notifications: { id: number; body: string; title: stri
 	};
 };
 
-it.effect("removes every delivered native notification", () =>
-	Effect.gen(function* () {
-		const state = deliveredHarness([
-			{ id: 7, title: "Delivered 7", body: "Delivered notification" },
-			{ id: 8, title: "Delivered 8", body: "Delivered notification" },
-		]);
-		yield* removeDeliveredNativeAlerts(state.platform);
-		expect(state.removedIds).toEqual([[7, 8]]);
-	}),
+it.effect(
+	"removes every delivered native notification",
+	() =>
+		Effect.gen(function* () {
+			const state = deliveredHarness([
+				{ id: 7, title: "Delivered 7", body: "Delivered notification" },
+				{ id: 8, title: "Delivered 8", body: "Delivered notification" },
+			]);
+			yield* removeDeliveredNativeAlerts(state.platform);
+			expect(state.removedIds).toEqual([[7, 8]]);
+		}),
+	testTimeout,
 );
 
-it.effect("does not call removal when there are no delivered notifications", () =>
-	Effect.gen(function* () {
-		const state = deliveredHarness([]);
-		yield* removeDeliveredNativeAlerts(state.platform);
-		expect(state.removedIds).toEqual([]);
-	}),
+it.effect(
+	"does not call removal when there are no delivered notifications",
+	() =>
+		Effect.gen(function* () {
+			const state = deliveredHarness([]);
+			yield* removeDeliveredNativeAlerts(state.platform);
+			expect(state.removedIds).toEqual([]);
+		}),
+	testTimeout,
 );
 
 const harness = (options: { exact?: boolean; denied?: boolean } = {}) => {
@@ -110,110 +122,135 @@ const harness = (options: { exact?: boolean; denied?: boolean } = {}) => {
 	return { calls, adapter, updates, channels, prompted: () => prompted };
 };
 
-it.effect("uses inexact Android scheduling without opening system settings", () =>
-	Effect.gen(function* () {
-		const h = harness();
-		expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({ status: "inexact" });
-		expect(h.calls).toEqual([
-			{
-				notifications: [
-					{
-						id: 7,
-						body: "",
-						sound: "default",
-						foreground: false,
-						title: "Rest complete",
-						isExactMandatory: false,
-						isExactNotification: false,
-						channelId: "scheduled-audible",
-						schedule: {
-							repeats: false,
-							allowWhileIdle: true,
-							at: DateTime.toDateUtc(DateTime.makeUnsafe(request.deadline)),
+it.effect(
+	"uses inexact Android scheduling without opening system settings",
+	() =>
+		Effect.gen(function* () {
+			const h = harness();
+			expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({
+				status: "inexact",
+			});
+			expect(h.calls).toEqual([
+				{
+					notifications: [
+						{
+							id: 7,
+							body: "",
+							sound: "default",
+							foreground: false,
+							title: "Rest complete",
+							isExactMandatory: false,
+							isExactNotification: false,
+							channelId: "scheduled-audible",
+							schedule: {
+								repeats: false,
+								allowWhileIdle: true,
+								at: DateTime.toDateUtc(DateTime.makeUnsafe(request.deadline)),
+							},
 						},
-					},
-				],
-			},
-		]);
-		expect(h.prompted()).toBe(1);
-	}),
+					],
+				},
+			]);
+			expect(h.prompted()).toBe(1);
+		}),
+	testTimeout,
 );
 
-it.effect("upgrades to exact scheduling through the non-prompting update path", () =>
-	Effect.gen(function* () {
-		const h = harness({ exact: true });
-		expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({
-			status: "scheduled",
-		});
-		expect(h.calls[0]?.notifications[0]?.isExactNotification).toBe(false);
-		expect(h.updates[0]?.notifications[0]?.isExactNotification).toBe(true);
-	}),
+it.effect(
+	"upgrades to exact scheduling through the non-prompting update path",
+	() =>
+		Effect.gen(function* () {
+			const h = harness({ exact: true });
+			expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({
+				status: "scheduled",
+			});
+			expect(h.calls[0]?.notifications[0]?.isExactNotification).toBe(false);
+			expect(h.updates[0]?.notifications[0]?.isExactNotification).toBe(true);
+		}),
+	testTimeout,
 );
 
-it.effect("does not schedule after notification permission is denied", () =>
-	Effect.gen(function* () {
-		const h = harness({ denied: true });
-		expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({ status: "denied" });
-		expect(h.calls).toEqual([]);
-		expect(h.channels).toEqual([]);
-	}),
+it.effect(
+	"does not schedule after notification permission is denied",
+	() =>
+		Effect.gen(function* () {
+			const h = harness({ denied: true });
+			expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({ status: "denied" });
+			expect(h.calls).toEqual([]);
+			expect(h.channels).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.effect("reports permission revocation during scheduling without requesting exact access", () =>
-	Effect.gen(function* () {
-		const h = harness({ exact: true });
-		h.adapter.update = (input) => {
-			h.updates.push(input);
-			h.adapter.checkExactNotificationSetting = () => Promise.resolve({ exact_alarm: "denied" });
-			return Promise.resolve({ notifications: [{ id: 7 }] });
-		};
-		expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({ status: "inexact" });
-	}),
+it.effect(
+	"reports permission revocation during scheduling without requesting exact access",
+	() =>
+		Effect.gen(function* () {
+			const h = harness({ exact: true });
+			h.adapter.update = (input) => {
+				h.updates.push(input);
+				h.adapter.checkExactNotificationSetting = () => Promise.resolve({ exact_alarm: "denied" });
+				return Promise.resolve({ notifications: [{ id: 7 }] });
+			};
+			expect(yield* scheduleNativeAlert(h.adapter, true, 7, request)).toEqual({
+				status: "inexact",
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("selects a quiet Android channel and bundled silence for pre-channel devices", () =>
-	Effect.gen(function* () {
-		const h = harness({ exact: true });
-		expect(yield* scheduleNativeAlert(h.adapter, true, 7, { ...request, audible: false })).toEqual({
-			status: "scheduled",
-		});
-		expect(h.calls[0]?.notifications[0]).toMatchObject({
-			sound: "silent.wav",
-			channelId: "scheduled-silent",
-		});
-		expect(h.channels).toContainEqual({
-			importance: 2,
-			vibration: false,
-			id: "scheduled-silent",
-			name: "Silent timer alerts",
-		});
-	}),
+it.effect(
+	"selects a quiet Android channel and bundled silence for pre-channel devices",
+	() =>
+		Effect.gen(function* () {
+			const h = harness({ exact: true });
+			expect(
+				yield* scheduleNativeAlert(h.adapter, true, 7, { ...request, audible: false }),
+			).toEqual({ status: "scheduled" });
+			expect(h.calls[0]?.notifications[0]).toMatchObject({
+				sound: "silent.wav",
+				channelId: "scheduled-silent",
+			});
+			expect(h.channels).toContainEqual({
+				importance: 2,
+				vibration: false,
+				id: "scheduled-silent",
+				name: "Silent timer alerts",
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("leaves iOS muted alerts without a sound and never checks Android alarm settings", () =>
-	Effect.gen(function* () {
-		const h = harness();
-		h.adapter.checkExactNotificationSetting = () => {
-			throw new Error("Android only");
-		};
-		expect(yield* scheduleNativeAlert(h.adapter, false, 7, { ...request, audible: false })).toEqual(
-			{ status: "scheduled" },
-		);
-		expect(h.calls[0]?.notifications[0]?.sound).toBeUndefined();
-		expect(h.channels).toEqual([]);
-	}),
+it.effect(
+	"leaves iOS muted alerts without a sound and never checks Android alarm settings",
+	() =>
+		Effect.gen(function* () {
+			const h = harness();
+			h.adapter.checkExactNotificationSetting = () => {
+				throw new Error("Android only");
+			};
+			expect(
+				yield* scheduleNativeAlert(h.adapter, false, 7, { ...request, audible: false }),
+			).toEqual({ status: "scheduled" });
+			expect(h.calls[0]?.notifications[0]?.sound).toBeUndefined();
+			expect(h.channels).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.effect("schedules audible iOS alerts in the background without Android settings", () =>
-	Effect.gen(function* () {
-		const h = harness();
-		h.adapter.checkExactNotificationSetting = () => {
-			throw new Error("Android only");
-		};
-		expect(yield* scheduleNativeAlert(h.adapter, false, 7, request)).toEqual({
-			status: "scheduled",
-		});
-		expect(h.calls[0]?.notifications[0]).toMatchObject({ sound: "default", foreground: false });
-		expect(h.channels).toEqual([]);
-	}),
+it.effect(
+	"schedules audible iOS alerts in the background without Android settings",
+	() =>
+		Effect.gen(function* () {
+			const h = harness();
+			h.adapter.checkExactNotificationSetting = () => {
+				throw new Error("Android only");
+			};
+			expect(yield* scheduleNativeAlert(h.adapter, false, 7, request)).toEqual({
+				status: "scheduled",
+			});
+			expect(h.calls[0]?.notifications[0]).toMatchObject({ sound: "default", foreground: false });
+			expect(h.channels).toEqual([]);
+		}),
+	testTimeout,
 );

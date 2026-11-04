@@ -1,12 +1,14 @@
+import { expect } from "bun:test";
 import { tmpdir } from "node:os";
 
 import { BunCrypto, BunFileSystem } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Exit, Fiber, Layer, Ref, Stream } from "effect";
@@ -258,98 +260,208 @@ const prepare = Effect.fnUntraced(function* (scenario: Scenario) {
 });
 
 layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) => {
-	test.effect("commits historical data and completion before unavailable cleanup or replay", () =>
-		Effect.gen(function* () {
-			const payload = yield* prepare("success");
-			const repository = yield* BackupsRepository;
-			const operations = yield* RestoreBackupWorkflowOperations;
-			const database = yield* DatabaseSession;
-			yield* repository.updateProgress({ ...payload, progress: 90 });
-			yield* operations.restore(payload, archiveLocator);
-			const [restored] = yield* database.run((db) =>
-				db.select().from(user).where(eq(user.id, payload.userId)),
-			);
-			expect(restored).toMatchObject(profile);
-			const completed = yield* repository.getRunById(payload);
-			expect(completed).toMatchObject({ progress: 100, failure: null, status: "completed" });
-			expect(completed?.finishedAt).toEqual(anyOf(String));
-			yield* operations.cleanup(payload, archiveLocator);
-			expect(yield* operations.begin(payload)).toBe(false);
-			yield* operations.restore(payload, archiveLocator);
-			const restoredReminders = yield* database.run((db) =>
-				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
-			);
-			expect(restoredReminders).toHaveLength(1);
-			expect(restoredReminders[0]).toMatchObject({
-				dueAt: null,
-				entityId: null,
-				timezone: null,
-				dispatch: null,
-				triggerId: null,
-				reconcileAt: null,
-				processingAt: null,
-				parentEntityId: null,
-				formatterRunId: null,
-				userId: payload.userId,
-				state: "needs-scheduling",
-				message: "Restored reminder",
-				entityTitle: "Retained target",
-				createdAt: restoredReminderDate,
-				updatedAt: restoredReminderDate,
-				id: `${payload.userId}-restored-reminder`,
-				accountGeneration: "test-account-generation",
-				originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
-			});
-			yield* operations.fail(payload, failure);
-			expect(yield* repository.getRunById(payload)).toEqual(completed);
-			expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
-				"open",
-				"restore",
-				"completion-written",
-				"delete",
-				"delete",
-				"delete",
-			]);
-		}),
+	test.effect(
+		"commits historical data and completion before unavailable cleanup or replay",
+		() =>
+			Effect.gen(function* () {
+				const payload = yield* prepare("success");
+				const repository = yield* BackupsRepository;
+				const operations = yield* RestoreBackupWorkflowOperations;
+				const database = yield* DatabaseSession;
+				yield* repository.updateProgress({ ...payload, progress: 90 });
+				yield* operations.restore(payload, archiveLocator);
+				const [restored] = yield* database.run((db) =>
+					db.select().from(user).where(eq(user.id, payload.userId)),
+				);
+				expect(restored).toMatchObject(profile);
+				const completed = yield* repository.getRunById(payload);
+				expect(completed).toMatchObject({ progress: 100, failure: null, status: "completed" });
+				expect(completed?.finishedAt).toEqual<unknown>(anyOf(String));
+				yield* operations.cleanup(payload, archiveLocator);
+				expect(yield* operations.begin(payload)).toBe(false);
+				yield* operations.restore(payload, archiveLocator);
+				const restoredReminders = yield* database.run((db) =>
+					db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+				);
+				expect(restoredReminders).toHaveLength(1);
+				expect(restoredReminders[0]).toMatchObject({
+					dueAt: null,
+					entityId: null,
+					timezone: null,
+					dispatch: null,
+					triggerId: null,
+					reconcileAt: null,
+					processingAt: null,
+					parentEntityId: null,
+					formatterRunId: null,
+					userId: payload.userId,
+					state: "needs-scheduling",
+					message: "Restored reminder",
+					entityTitle: "Retained target",
+					createdAt: restoredReminderDate,
+					updatedAt: restoredReminderDate,
+					id: `${payload.userId}-restored-reminder`,
+					accountGeneration: "test-account-generation",
+					originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
+				});
+				yield* operations.fail(payload, failure);
+				expect(yield* repository.getRunById(payload)).toEqual(completed);
+				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
+					"open",
+					"restore",
+					"completion-written",
+					"delete",
+					"delete",
+					"delete",
+				]);
+			}),
+		testTimeout,
 	);
 
 	for (const scenario of ["write-failure", "completion-rollback"] as const) {
-		test.effect(`rolls back historical data and real run completion on ${scenario}`, () =>
-			Effect.gen(function* () {
-				const payload = yield* prepare(scenario);
-				const operations = yield* RestoreBackupWorkflowOperations;
-				yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
-				const database = yield* DatabaseSession;
-				const [unchanged] = yield* database.run((db) =>
-					db.select().from(user).where(eq(user.id, payload.userId)),
-				);
-				expect(unchanged?.name).toBe("Before restore");
-				expect(
-					yield* database.run((db) =>
-						db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
-					),
-				).toHaveLength(0);
-				const repository = yield* BackupsRepository;
-				expect(yield* repository.getRunById(payload)).toMatchObject({
-					progress: 5,
-					finishedAt: null,
-					status: "running",
-				});
-				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual(
-					scenario === "write-failure"
-						? ["open", "restore"]
-						: ["open", "restore", "completion-written"],
-				);
-				yield* operations.fail(payload, failure);
-				expect(yield* repository.getRunById(payload)).toMatchObject({ status: "failed" });
-			}),
+		test.effect(
+			`rolls back historical data and real run completion on ${scenario}`,
+			() =>
+				Effect.gen(function* () {
+					const payload = yield* prepare(scenario);
+					const operations = yield* RestoreBackupWorkflowOperations;
+					yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
+					const database = yield* DatabaseSession;
+					const [unchanged] = yield* database.run((db) =>
+						db.select().from(user).where(eq(user.id, payload.userId)),
+					);
+					expect(unchanged?.name).toBe("Before restore");
+					expect(
+						yield* database.run((db) =>
+							db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+						),
+					).toHaveLength(0);
+					const repository = yield* BackupsRepository;
+					expect(yield* repository.getRunById(payload)).toMatchObject({
+						progress: 5,
+						finishedAt: null,
+						status: "running",
+					});
+					expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual(
+						scenario === "write-failure"
+							? ["open", "restore"]
+							: ["open", "restore", "completion-written"],
+					);
+					yield* operations.fail(payload, failure);
+					expect(yield* repository.getRunById(payload)).toMatchObject({ status: "failed" });
+				}),
+			testTimeout,
 		);
 	}
 
 	for (const scenario of ["commit-error", "commit-deadlock"] as const) {
-		test.effect(`resolves ${scenario} from completed status without retrying or failing`, () =>
+		test.effect(
+			`resolves ${scenario} from completed status without retrying or failing`,
+			() =>
+				Effect.gen(function* () {
+					const payload = yield* prepare(scenario);
+					yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
+					expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
+						progress: 100,
+						status: "completed",
+					});
+					const database = yield* DatabaseSession;
+					const restoredReminders = yield* database.run((db) =>
+						db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+					);
+					expect(restoredReminders).toHaveLength(1);
+					expect(restoredReminders[0]).toMatchObject({
+						dueAt: null,
+						entityId: null,
+						timezone: null,
+						dispatch: null,
+						triggerId: null,
+						reconcileAt: null,
+						processingAt: null,
+						parentEntityId: null,
+						formatterRunId: null,
+						userId: payload.userId,
+						state: "needs-scheduling",
+						message: "Restored reminder",
+						entityTitle: "Retained target",
+						createdAt: restoredReminderDate,
+						updatedAt: restoredReminderDate,
+						id: `${payload.userId}-restored-reminder`,
+						accountGeneration: "test-account-generation",
+						originalSchedule: {
+							dueAt: null,
+							timezone: null,
+							mayHaveSent: true,
+							date: "2025-01-01",
+						},
+					});
+					expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
+						"open",
+						"restore",
+						"completion-written",
+						"commit-unacknowledged",
+					]);
+				}),
+			testTimeout,
+		);
+	}
+
+	test.effect(
+		"replays completed data after interruption between commit and acknowledgement",
+		() =>
 			Effect.gen(function* () {
-				const payload = yield* prepare(scenario);
+				const payload = yield* prepare("commit-interrupt");
+				const operations = yield* RestoreBackupWorkflowOperations;
+				const fiber = yield* operations.restore(payload, archiveLocator).pipe(Effect.forkChild);
+				yield* (yield* RestoreDatabaseHarness).committed;
+				yield* Fiber.interrupt(fiber);
+				expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
+				expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
+					progress: 100,
+					status: "completed",
+				});
+				expect(yield* operations.begin(payload)).toBe(false);
+				yield* operations.restore(payload, archiveLocator);
+				const database = yield* DatabaseSession;
+				const restoredReminders = yield* database.run((db) =>
+					db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
+				);
+				expect(restoredReminders).toHaveLength(1);
+				expect(restoredReminders[0]).toMatchObject({
+					dueAt: null,
+					entityId: null,
+					timezone: null,
+					dispatch: null,
+					triggerId: null,
+					reconcileAt: null,
+					processingAt: null,
+					parentEntityId: null,
+					formatterRunId: null,
+					userId: payload.userId,
+					state: "needs-scheduling",
+					message: "Restored reminder",
+					entityTitle: "Retained target",
+					createdAt: restoredReminderDate,
+					updatedAt: restoredReminderDate,
+					id: `${payload.userId}-restored-reminder`,
+					accountGeneration: "test-account-generation",
+					originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
+				});
+				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
+					"open",
+					"restore",
+					"completion-written",
+					"commit-unacknowledged",
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"retries a rolled-back deadlock and commits data with real completion once",
+		() =>
+			Effect.gen(function* () {
+				const payload = yield* prepare("deadlock");
 				yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
 				expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
 					progress: 100,
@@ -383,100 +495,10 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
 					"open",
 					"restore",
+					"restore",
 					"completion-written",
-					"commit-unacknowledged",
 				]);
 			}),
-		);
-	}
-
-	test.effect("replays completed data after interruption between commit and acknowledgement", () =>
-		Effect.gen(function* () {
-			const payload = yield* prepare("commit-interrupt");
-			const operations = yield* RestoreBackupWorkflowOperations;
-			const fiber = yield* operations.restore(payload, archiveLocator).pipe(Effect.forkChild);
-			yield* (yield* RestoreDatabaseHarness).committed;
-			yield* Fiber.interrupt(fiber);
-			expect(Exit.hasInterrupts(yield* Fiber.await(fiber))).toBe(true);
-			expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
-				progress: 100,
-				status: "completed",
-			});
-			expect(yield* operations.begin(payload)).toBe(false);
-			yield* operations.restore(payload, archiveLocator);
-			const database = yield* DatabaseSession;
-			const restoredReminders = yield* database.run((db) =>
-				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
-			);
-			expect(restoredReminders).toHaveLength(1);
-			expect(restoredReminders[0]).toMatchObject({
-				dueAt: null,
-				entityId: null,
-				timezone: null,
-				dispatch: null,
-				triggerId: null,
-				reconcileAt: null,
-				processingAt: null,
-				parentEntityId: null,
-				formatterRunId: null,
-				userId: payload.userId,
-				state: "needs-scheduling",
-				message: "Restored reminder",
-				entityTitle: "Retained target",
-				createdAt: restoredReminderDate,
-				updatedAt: restoredReminderDate,
-				id: `${payload.userId}-restored-reminder`,
-				accountGeneration: "test-account-generation",
-				originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
-			});
-			expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
-				"open",
-				"restore",
-				"completion-written",
-				"commit-unacknowledged",
-			]);
-		}),
-	);
-
-	test.effect("retries a rolled-back deadlock and commits data with real completion once", () =>
-		Effect.gen(function* () {
-			const payload = yield* prepare("deadlock");
-			yield* (yield* RestoreBackupWorkflowOperations).restore(payload, archiveLocator);
-			expect(yield* (yield* BackupsRepository).getRunById(payload)).toMatchObject({
-				progress: 100,
-				status: "completed",
-			});
-			const database = yield* DatabaseSession;
-			const restoredReminders = yield* database.run((db) =>
-				db.select().from(reminder).where(eq(reminder.userId, payload.userId)),
-			);
-			expect(restoredReminders).toHaveLength(1);
-			expect(restoredReminders[0]).toMatchObject({
-				dueAt: null,
-				entityId: null,
-				timezone: null,
-				dispatch: null,
-				triggerId: null,
-				reconcileAt: null,
-				processingAt: null,
-				parentEntityId: null,
-				formatterRunId: null,
-				userId: payload.userId,
-				state: "needs-scheduling",
-				message: "Restored reminder",
-				entityTitle: "Retained target",
-				createdAt: restoredReminderDate,
-				updatedAt: restoredReminderDate,
-				id: `${payload.userId}-restored-reminder`,
-				accountGeneration: "test-account-generation",
-				originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
-			});
-			expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
-				"open",
-				"restore",
-				"restore",
-				"completion-written",
-			]);
-		}),
+		testTimeout,
 	);
 });

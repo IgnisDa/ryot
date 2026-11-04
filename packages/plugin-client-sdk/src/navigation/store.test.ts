@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	PluginEntityLocation,
@@ -5,7 +7,6 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
 
 import { createPluginNavigationStore } from "./store";
 

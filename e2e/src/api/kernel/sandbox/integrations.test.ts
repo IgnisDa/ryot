@@ -89,7 +89,7 @@ describe("sandbox integration reads", () => {
 				}),
 			);
 
-			expect(result).toEqual({
+			expect(result).toEqual<unknown>({
 				current: objectContaining({ id: current.id }),
 				enabled: [objectContaining({ id: current.id })],
 			});

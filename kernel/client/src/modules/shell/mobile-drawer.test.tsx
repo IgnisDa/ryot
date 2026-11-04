@@ -1,15 +1,18 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { type MotionValue, motionValue, useMotionValue } from "motion/react";
 import { useRef, useState } from "react";
-import { axe } from "vitest-axe";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
@@ -133,48 +136,57 @@ const openDrawer = () => {
 };
 
 describe("mobile drawer", () => {
-	it.live("closes on Escape, restores focus, and releases body scrolling", () =>
-		Effect.gen(function* () {
-			render(<Harness />);
-			const { dialog, trigger } = yield* Effect.promise(() => openDrawer());
+	it.live(
+		"closes on Escape, restores focus, and releases body scrolling",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness />);
+				const { dialog, trigger } = yield* Effect.promise(() => openDrawer());
 
-			expect(document.body.style.overflow).toBe("hidden");
-			fireEvent.keyDown(dialog, { key: "Escape" });
+				expect(document.body.style.overflow).toBe("hidden");
+				fireEvent.keyDown(dialog, { key: "Escape" });
 
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
-			expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
-			expect(document.body.style.overflow).toBe("");
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+				expect(document.body.style.overflow).toBe("");
+			}),
+		testTimeout,
 	);
 
-	it.live("passes an axe pass while open", () =>
-		Effect.gen(function* () {
-			render(<Harness />);
-			yield* Effect.promise(() => openDrawer());
+	it.live(
+		"passes an axe pass while open",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness />);
+				yield* Effect.promise(() => openDrawer());
 
-			const results = yield* Effect.promise(() =>
-				axe(document.body, { rules: { "color-contrast": { enabled: false } } }),
-			);
+				const results = yield* Effect.promise(() =>
+					axe.run(document.body, { rules: { "color-contrast": { enabled: false } } }),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("contains forward and reverse Tab focus", () =>
-		Effect.gen(function* () {
-			render(<Harness />);
-			const { dialog } = yield* Effect.promise(() => openDrawer());
-			const first = screen.getByRole("button", { name: /^Fixture workspace,/ });
-			const last = screen.getByRole("link", { name: "Open settings" });
+	it.live(
+		"contains forward and reverse Tab focus",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness />);
+				const { dialog } = yield* Effect.promise(() => openDrawer());
+				const first = screen.getByRole("button", { name: /^Fixture workspace,/ });
+				const last = screen.getByRole("link", { name: "Open settings" });
 
-			first.focus();
-			fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-			expect(document.activeElement).toBe(last);
+				first.focus();
+				fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+				expect(document.activeElement).toBe(last);
 
-			last.focus();
-			fireEvent.keyDown(dialog, { key: "Tab" });
-			expect(document.activeElement).toBe(first);
-		}),
+				last.focus();
+				fireEvent.keyDown(dialog, { key: "Tab" });
+				expect(document.activeElement).toBe(first);
+			}),
+		testTimeout,
 	);
 
 	it("stays mounted off its route until the closing panel settles off screen", () => {
@@ -190,87 +202,99 @@ describe("mobile drawer", () => {
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 	});
 
-	it.live("closes on scrim click", () =>
-		Effect.gen(function* () {
-			render(<Harness />);
-			const { trigger } = yield* Effect.promise(() => openDrawer());
+	it.live(
+		"closes on scrim click",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness />);
+				const { trigger } = yield* Effect.promise(() => openDrawer());
 
-			fireEvent.click(screen.getByTestId("drawer-scrim"));
+				fireEvent.click(screen.getByTestId("drawer-scrim"));
 
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
-			expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+				expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("resets its workspace menu when the drawer closes", () =>
-		Effect.gen(function* () {
-			render(<Harness />);
-			yield* Effect.promise(() => openDrawer());
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
-			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
+	it.live(
+		"resets its workspace menu when the drawer closes",
+		() =>
+			Effect.gen(function* () {
+				render(<Harness />);
+				yield* Effect.promise(() => openDrawer());
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 
-			fireEvent.click(screen.getByTestId("drawer-scrim"));
-			yield* Effect.promise(() => openDrawer());
+				fireEvent.click(screen.getByTestId("drawer-scrim"));
+				yield* Effect.promise(() => openDrawer());
 
-			expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
-		}),
+				expect(screen.queryByRole("menu", { name: "Workspaces" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("releases body scrolling before it reports the close", () =>
-		Effect.gen(function* () {
-			const overflow: Array<string> = [];
-			render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
-			yield* Effect.promise(() => openDrawer());
+	it.live(
+		"releases body scrolling before it reports the close",
+		() =>
+			Effect.gen(function* () {
+				const overflow: Array<string> = [];
+				render(<Harness onClose={() => overflow.push(document.body.style.overflow)} />);
+				yield* Effect.promise(() => openDrawer());
 
-			expect(document.body.style.overflow).toBe("hidden");
-			fireEvent.click(screen.getByRole("link", { name: "Home" }));
+				expect(document.body.style.overflow).toBe("hidden");
+				fireEvent.click(screen.getByRole("link", { name: "Home" }));
 
-			expect(overflow).toEqual([""]);
-		}),
+				expect(overflow).toEqual([""]);
+			}),
+		testTimeout,
 	);
 
-	it.live("closes before Home and workspace navigation", () =>
-		Effect.gen(function* () {
-			let homeOpen: null | boolean = null;
-			let selected: null | { readonly slug: string; readonly open: boolean } = null;
-			const journal = workspace({
-				sortOrder: 1,
-				name: "Journal",
-				contentHash: "source-journal",
-				installationId: "installation-journal",
-				pluginId: PluginId.make("plugin-journal"),
-				packageId: PluginPackageId.make("test/journal"),
-			});
-			render(
-				<Harness
-					catalog={[workspace(), journal]}
-					onNavigateHome={() => {
-						homeOpen =
-							screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
-							document.body.style.overflow === "hidden";
-					}}
-					onSelectWorkspace={({ pluginId }) => {
-						selected = {
-							slug: pluginId,
-							open:
+	it.live(
+		"closes before Home and workspace navigation",
+		() =>
+			Effect.gen(function* () {
+				let homeOpen: null | boolean = null;
+				let selected: null | { readonly slug: string; readonly open: boolean } = null;
+				const journal = workspace({
+					sortOrder: 1,
+					name: "Journal",
+					contentHash: "source-journal",
+					installationId: "installation-journal",
+					pluginId: PluginId.make("plugin-journal"),
+					packageId: PluginPackageId.make("test/journal"),
+				});
+				render(
+					<Harness
+						catalog={[workspace(), journal]}
+						onNavigateHome={() => {
+							homeOpen =
 								screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
-								document.body.style.overflow === "hidden",
-						};
-					}}
-				/>,
-			);
-			yield* Effect.promise(() => openDrawer());
+								document.body.style.overflow === "hidden";
+						}}
+						onSelectWorkspace={({ pluginId }) => {
+							selected = {
+								slug: pluginId,
+								open:
+									screen.queryByRole("dialog", { name: "Navigation" }) !== null ||
+									document.body.style.overflow === "hidden",
+							};
+						}}
+					/>,
+				);
+				yield* Effect.promise(() => openDrawer());
 
-			fireEvent.click(screen.getByRole("link", { name: "Home" }));
-			yield* Effect.promise(() => waitFor(() => expect(homeOpen).toBe(false)));
+				fireEvent.click(screen.getByRole("link", { name: "Home" }));
+				yield* Effect.promise(() => waitFor(() => expect(homeOpen).toBe(false)));
 
-			yield* Effect.promise(() => openDrawer());
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
-			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
+				yield* Effect.promise(() => openDrawer());
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(selected).toEqual({ open: false, slug: "plugin-journal" })),
-			);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(selected).toEqual({ open: false, slug: "plugin-journal" })),
+				);
+			}),
+		testTimeout,
 	);
 });

@@ -1,9 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { expect, test } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Schema } from "effect";
 
 import { DbError, unknownToDbError, unknownToMessage } from "./errors";
 
-it.each([
+test.each([
 	{ label: "Error message", expected: "Request failed", cause: new Error("Request failed") },
 	{ cause: "Request failed", expected: "Request failed", label: "plain string failure" },
 	{ expected: "TimeoutError", label: "unnamed Effect timeout", cause: new Cause.TimeoutError() },
@@ -33,4 +36,5 @@ it.effect(
 			).toEqual(databaseError);
 			expect(databaseError.columnName).toBe("properties");
 		}),
+	testTimeout,
 );

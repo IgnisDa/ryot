@@ -1,5 +1,8 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Path } from "effect";
 import type { PlatformError } from "effect/PlatformError";
 
@@ -28,61 +31,67 @@ const limitedPreparation = (
 	});
 
 it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
-	test.effect("covers deterministic sandbox runtime preparation inputs", () =>
-		Effect.gen(function* () {
-			const path = yield* Path.Path;
-			const compilerDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
-			const packageDirectory = path.resolve(compilerDirectory, "../../../../kernel/sandbox");
-			const inputs = yield* sandboxRuntimeInputs(packageDirectory, [
-				"guest/invocation.ts",
-				"protocol/messages.ts",
-			]);
-			for (const expected of [
-				"bun.lock",
-				"package.json",
-				"kernel/sandbox/package.json",
-				"kernel/sandbox/tooling/runtime.ts",
-				"packages/plugin-backend-compiler/package.json",
-				"packages/plugin-backend-compiler/src/runtime-build/payload.ts",
-				"packages/plugin-backend-compiler/src/runtime-build/inputs.ts",
-				"packages/plugin-backend-compiler/src/runtime-build/registry.ts",
-				"packages/plugin-backend-compiler/src/runtime-build/source-tree.ts",
-				"kernel/sandbox/src/guest/invocation.ts",
-				"kernel/sandbox/src/protocol/messages.ts",
-				"packages/contract/src/modules/ryotql/language.ts",
-				"packages/ryotql/src/index.ts",
-				"packages/ryotql-recipes/src/codecs.ts",
-				"packages/plugin-backend-sdk/src/runtime-registry.ts",
-				"packages/ts-utils/src/crypto.ts",
-				"packages/typescript-compiler/src/index.ts",
-				"packages/vite-compiler/src/sandbox.ts",
-				"packages/vite-compiler/package.json",
-			]) {
-				expect(inputs, expected).toHaveProperty(expected);
-			}
-			const paths = Object.keys(inputs);
-			expect(paths).toEqual([...paths].sort());
-			expect(paths.some((entry) => entry.includes("node_modules"))).toBe(false);
-			expect(paths.some((entry) => entry.endsWith(".generated.ts"))).toBe(false);
-			expect(paths.some((entry) => entry.endsWith(".test.ts"))).toBe(false);
-		}),
+	test.effect(
+		"covers deterministic sandbox runtime preparation inputs",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const compilerDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
+				const packageDirectory = path.resolve(compilerDirectory, "../../../../kernel/sandbox");
+				const inputs = yield* sandboxRuntimeInputs(packageDirectory, [
+					"guest/invocation.ts",
+					"protocol/messages.ts",
+				]);
+				for (const expected of [
+					"bun.lock",
+					"package.json",
+					"kernel/sandbox/package.json",
+					"kernel/sandbox/tooling/runtime.ts",
+					"packages/plugin-backend-compiler/package.json",
+					"packages/plugin-backend-compiler/src/runtime-build/payload.ts",
+					"packages/plugin-backend-compiler/src/runtime-build/inputs.ts",
+					"packages/plugin-backend-compiler/src/runtime-build/registry.ts",
+					"packages/plugin-backend-compiler/src/runtime-build/source-tree.ts",
+					"kernel/sandbox/src/guest/invocation.ts",
+					"kernel/sandbox/src/protocol/messages.ts",
+					"packages/contract/src/modules/ryotql/language.ts",
+					"packages/ryotql/src/index.ts",
+					"packages/ryotql-recipes/src/codecs.ts",
+					"packages/plugin-backend-sdk/src/runtime-registry.ts",
+					"packages/ts-utils/src/crypto.ts",
+					"packages/typescript-compiler/src/index.ts",
+					"packages/vite-compiler/src/sandbox.ts",
+					"packages/vite-compiler/package.json",
+				]) {
+					expect(Object.hasOwn(inputs, expected), expected).toBe(true);
+				}
+				const paths = Object.keys(inputs);
+				expect(paths).toEqual([...paths].sort());
+				expect(paths.some((entry) => entry.includes("node_modules"))).toBe(false);
+				expect(paths.some((entry) => entry.endsWith(".generated.ts"))).toBe(false);
+				expect(paths.some((entry) => entry.endsWith(".test.ts"))).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects symbolic links before reading preparation inputs", () =>
-		Effect.gen(function* () {
-			const failure = yield* limitedPreparation(
-				(root, runtimeDirectory) =>
-					Effect.gen(function* () {
-						const fs = yield* FileSystem.FileSystem;
-						const target = `${root}/outside.ts`;
-						yield* fs.writeFileString(target, "export {};");
-						yield* fs.symlink(target, `${runtimeDirectory}/invocation.ts`);
-					}),
-				{},
-			);
-			expect(failure).toMatchObject({ reason: "symbolic-link", _tag: "SourceWalkError" });
-			expect(String(failure)).toContain("invocation.ts");
-		}).pipe(Effect.scoped),
+	test.effect(
+		"rejects symbolic links before reading preparation inputs",
+		() =>
+			Effect.gen(function* () {
+				const failure = yield* limitedPreparation(
+					(root, runtimeDirectory) =>
+						Effect.gen(function* () {
+							const fs = yield* FileSystem.FileSystem;
+							const target = `${root}/outside.ts`;
+							yield* fs.writeFileString(target, "export {};");
+							yield* fs.symlink(target, `${runtimeDirectory}/invocation.ts`);
+						}),
+					{},
+				);
+				expect(failure).toMatchObject({ reason: "symbolic-link", _tag: "SourceWalkError" });
+				expect(String(failure)).toContain("invocation.ts");
+			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -114,10 +123,13 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 					yield* fs.writeFileString(`${runtimeDirectory}/invocation.ts`, "ab");
 				}),
 		},
-	] as const)("rejects preparation inputs at the $reason", ({ limits, reason, fixture }) =>
-		Effect.gen(function* () {
-			const failure = yield* limitedPreparation(fixture, limits);
-			expect(failure).toMatchObject({ reason, _tag: "SourceWalkError" });
-		}).pipe(Effect.scoped),
+	] as const)(
+		"rejects preparation inputs at the $reason",
+		({ limits, reason, fixture }) =>
+			Effect.gen(function* () {
+				const failure = yield* limitedPreparation(fixture, limits);
+				expect(failure).toMatchObject({ reason, _tag: "SourceWalkError" });
+			}).pipe(Effect.scoped),
+		testTimeout,
 	);
 });

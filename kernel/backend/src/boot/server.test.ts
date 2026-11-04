@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
@@ -76,4 +79,5 @@ it.effect(
 				}),
 			({ dispose }) => Effect.promise(dispose),
 		),
+	testTimeout,
 );

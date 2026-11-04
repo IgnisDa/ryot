@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { expect, it } from "vitest";
 
 import { redactIntegrationForClient } from "./client-redaction";
 

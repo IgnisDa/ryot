@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { HotkeysProvider } from "@tanstack/react-hotkeys";
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { ShortcutHint } from "./shortcut-hint";
 

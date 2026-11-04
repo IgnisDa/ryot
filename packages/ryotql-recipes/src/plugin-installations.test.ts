@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { Result } from "effect";
-import { expect, it } from "vitest";
 
 import { pluginInstallationsRecipe } from "./plugin-installations";
 import { requireRowsQuery, rowsResponse } from "./test-utils";
@@ -58,5 +59,5 @@ it("keeps quarantined ownership, workspace association, and initialization separ
 				rowsResponse("installations", [privateInstallation, systemInstallation], pageInfo),
 			),
 		),
-	).toEqual({ pageInfo, items: [privateInstallation, systemInstallation] });
+	).toEqual<unknown>({ pageInfo, items: [privateInstallation, systemInstallation] });
 });

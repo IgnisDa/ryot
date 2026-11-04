@@ -1,6 +1,10 @@
-import { assert, describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
@@ -114,6 +118,7 @@ describe("automation database constraints", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -176,6 +181,7 @@ describe("automation database constraints", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -261,6 +267,7 @@ describe("automation database constraints", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 });

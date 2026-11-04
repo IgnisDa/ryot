@@ -1,6 +1,10 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	type WorkoutEditorDraft,
@@ -208,26 +212,30 @@ describe("workout timer reconciliation", () => {
 					expect(repeated).toEqual({ changed: false, feedback: false, draft: result.draft });
 				}
 			}),
+		testTimeout,
 	);
 
-	it.effect("invalidates a replaced execution target before attempting completion", () =>
-		Effect.gen(function* () {
-			const running = yield* executionDraft();
-			const replaced = {
-				...running,
-				occurrences: running.occurrences.map((occurrence) =>
-					occurrence.clientId === "first"
-						? Object.assign({}, occurrence, { exerciseId: EntityId.make("replacement-exercise") })
-						: occurrence,
-				),
-			};
-			const result = reconcileWorkoutTimers(replaced, startTime + 20_000, {
-				prompt: true,
-				settings: preferences(),
-			});
-			expect(result.draft).toEqual({ ...replaced, executionCountdown: undefined });
-			expect(result.feedback).toBe(false);
-		}),
+	it.effect(
+		"invalidates a replaced execution target before attempting completion",
+		() =>
+			Effect.gen(function* () {
+				const running = yield* executionDraft();
+				const replaced = {
+					...running,
+					occurrences: running.occurrences.map((occurrence) =>
+						occurrence.clientId === "first"
+							? Object.assign({}, occurrence, { exerciseId: EntityId.make("replacement-exercise") })
+							: occurrence,
+					),
+				};
+				const result = reconcileWorkoutTimers(replaced, startTime + 20_000, {
+					prompt: true,
+					settings: preferences(),
+				});
+				expect(result.draft).toEqual({ ...replaced, executionCountdown: undefined });
+				expect(result.feedback).toBe(false);
+			}),
+		testTimeout,
 	);
 
 	it.effect.each(["running", "expired", "paused", "stale"])(
@@ -273,22 +281,26 @@ describe("workout timer reconciliation", () => {
 				});
 				expect(result.feedback).toBe(state === "expired");
 			}),
+		testTimeout,
 	);
 
-	it.effect("does not complete a paused execution even after its old deadline", () =>
-		Effect.gen(function* () {
-			const paused = pauseCountdown(
-				yield* executionDraft(),
-				"executionCountdown",
-				startTime + 5_000,
-			).draft;
-			expect(
-				reconcileWorkoutTimers(paused, startTime + 60_000, {
-					prompt: true,
-					settings: preferences(),
-				}),
-			).toEqual({ draft: paused, changed: false, feedback: false });
-		}),
+	it.effect(
+		"does not complete a paused execution even after its old deadline",
+		() =>
+			Effect.gen(function* () {
+				const paused = pauseCountdown(
+					yield* executionDraft(),
+					"executionCountdown",
+					startTime + 5_000,
+				).draft;
+				expect(
+					reconcileWorkoutTimers(paused, startTime + 60_000, {
+						prompt: true,
+						settings: preferences(),
+					}),
+				).toEqual({ draft: paused, changed: false, feedback: false });
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -327,6 +339,7 @@ describe("workout timer reconciliation", () => {
 				});
 				expect(stale).toEqual({ changed: false, feedback: false, draft: completed.draft });
 			}),
+		testTimeout,
 	);
 });
 
@@ -351,6 +364,7 @@ describe("workout editor actions", () => {
 				expect(cycleWorkoutSuperset(grouped, "first")).toBe("second");
 				expect(cycleWorkoutSuperset(grouped, "second")).toBe("first");
 			}),
+		testTimeout,
 	);
 	it.effect(
 		"converts measurements between display units and back without changing quantities",
@@ -389,76 +403,85 @@ describe("workout editor actions", () => {
 				expect(Number(restored.distance)).toBeCloseTo(10);
 				expect(Number(restored.duration)).toBe(120);
 			}),
+		testTimeout,
 	);
 
-	it.effect("keeps blank and invalid measurement strings unchanged during unit conversion", () =>
-		Effect.gen(function* () {
-			const original = findOccurrence(
-				yield* workoutDraft({
-					occurrences: [
-						workoutOccurrence("occurrence-1", {
-							display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
-							sets: [workoutSet("set-1", { weight: "", distance: "  ", duration: "not-a-number" })],
-						}),
-					],
-				}),
-				"occurrence-1",
-			);
-			const converted = changeOccurrenceDisplay(original, {
-				weightUnit: "lb",
-				distanceUnit: "mi",
-				durationUnit: "minutes",
-			});
-			expect(converted.sets[0]).toMatchObject({
-				weight: "",
-				distance: "  ",
-				duration: "not-a-number",
-			});
-		}),
+	it.effect(
+		"keeps blank and invalid measurement strings unchanged during unit conversion",
+		() =>
+			Effect.gen(function* () {
+				const original = findOccurrence(
+					yield* workoutDraft({
+						occurrences: [
+							workoutOccurrence("occurrence-1", {
+								display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
+								sets: [
+									workoutSet("set-1", { weight: "", distance: "  ", duration: "not-a-number" }),
+								],
+							}),
+						],
+					}),
+					"occurrence-1",
+				);
+				const converted = changeOccurrenceDisplay(original, {
+					weightUnit: "lb",
+					distanceUnit: "mi",
+					durationUnit: "minutes",
+				});
+				expect(converted.sets[0]).toMatchObject({
+					weight: "",
+					distance: "  ",
+					duration: "not-a-number",
+				});
+			}),
+		testTimeout,
 	);
 
-	it.effect("copies measurements into a new set and clears saved and completed set data", () =>
-		Effect.gen(function* () {
-			const previous = findSet(
-				yield* workoutDraft({
-					occurrences: [
-						workoutOccurrence("occurrence-1", {
-							sets: [
-								workoutSet("saved-set", {
-									rpe: "9",
-									reps: "8",
-									weight: "80",
-									distance: "4",
-									duration: "30",
-									included: true,
-									setLot: "drop",
-									eventId: "event-1",
-									occurredAt: startedAt,
-									confirmedAt: startedAt,
-									note: "Keep form steady",
-									restTimerStartedAt: startedAt,
-									restChoice: { seconds: "45", kind: "explicit" },
-								}),
-							],
-						}),
-					],
-				}),
-				"occurrence-1",
-				"saved-set",
-			);
+	it.effect(
+		"copies measurements into a new set and clears saved and completed set data",
+		() =>
+			Effect.gen(function* () {
+				const previous = findSet(
+					yield* workoutDraft({
+						occurrences: [
+							workoutOccurrence("occurrence-1", {
+								sets: [
+									workoutSet("saved-set", {
+										rpe: "9",
+										reps: "8",
+										weight: "80",
+										distance: "4",
+										duration: "30",
+										included: true,
+										setLot: "drop",
+										eventId: "event-1",
+										occurredAt: startedAt,
+										confirmedAt: startedAt,
+										note: "Keep form steady",
+										restTimerStartedAt: startedAt,
+										restChoice: { seconds: "45", kind: "explicit" },
+									}),
+								],
+							}),
+						],
+					}),
+					"occurrence-1",
+					"saved-set",
+				);
 
-			expect(newWorkoutSet("new-set", "reps_and_weight", previous)).toEqual({
-				reps: "8",
-				weight: "80",
-				distance: "4",
-				duration: "30",
-				included: false,
-				setLot: "normal",
-				clientId: "new-set",
-				exerciseKind: "reps_and_weight",
-				restChoice: { kind: "inherited" },
-			});
-		}),
+				expect(newWorkoutSet("new-set", "reps_and_weight", previous)).toEqual({
+					reps: "8",
+					weight: "80",
+					distance: "4",
+					duration: "30",
+					included: false,
+					setLot: "normal",
+					clientId: "new-set",
+					exerciseKind: "reps_and_weight",
+					restChoice: { kind: "inherited" },
+				});
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -502,8 +525,8 @@ describe("workout editor actions", () => {
 				expect(
 					findOccurrence(result, "keep-occurrence").sets.map(({ clientId }) => clientId),
 				).toEqual(["keep-set"]);
-				expect(findSet(result, "keep-occurrence", "keep-set").eventId).toBe("event-keep");
-				expect(findSet(result, "last-occurrence", "last-set").eventId).toBe("event-last");
+				expect(findSet(result, "keep-occurrence", "keep-set").eventId).toBe<unknown>("event-keep");
+				expect(findSet(result, "last-occurrence", "last-set").eventId).toBe<unknown>("event-last");
 				expect(result.supersets).toEqual([
 					{
 						color: "blue",
@@ -512,6 +535,7 @@ describe("workout editor actions", () => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -540,183 +564,202 @@ describe("workout editor actions", () => {
 				expect(nextWorkoutOccurrence(value, "occurrence-1")).toBe("occurrence-3");
 				expect(nextWorkoutOccurrence(value, "occurrence-3")).toBe("occurrence-1");
 			}),
+		testTimeout,
 	);
 
-	it.effect("confirms zero measurements and starts inherited rest at the completion time", () =>
-		Effect.gen(function* () {
-			const value = yield* workoutDraft({
-				occurrences: [
-					workoutOccurrence("occurrence-1", {
-						sets: [workoutSet("set-1", { reps: "0", weight: "0" })],
-					}),
-				],
-			});
-			const result = completeWorkoutSet(value, {
-				prompt: false,
-				overrides: {},
-				setId: "set-1",
-				now: startTime,
-				timerId: "rest-1",
-				occurrenceId: "occurrence-1",
-				settings: preferences({ normalRestTime: 30 }),
-			});
+	it.effect(
+		"confirms zero measurements and starts inherited rest at the completion time",
+		() =>
+			Effect.gen(function* () {
+				const value = yield* workoutDraft({
+					occurrences: [
+						workoutOccurrence("occurrence-1", {
+							sets: [workoutSet("set-1", { reps: "0", weight: "0" })],
+						}),
+					],
+				});
+				const result = completeWorkoutSet(value, {
+					prompt: false,
+					overrides: {},
+					setId: "set-1",
+					now: startTime,
+					timerId: "rest-1",
+					occurrenceId: "occurrence-1",
+					settings: preferences({ normalRestTime: 30 }),
+				});
 
-			expect(findSet(result, "occurrence-1", "set-1")).toMatchObject({
-				reps: "0",
-				weight: "0",
-				included: true,
-				occurredAt: startedAt,
-				confirmedAt: startedAt,
-				restTimerStartedAt: startedAt,
-				restChoice: { seconds: "30", kind: "explicit" },
-			});
-			expect(result.restCountdown).toMatchObject({
-				clientId: "rest-1",
-				durationSeconds: 30,
-				deadline: isoAt(startTime + 30_000),
-			});
-		}),
+				expect(findSet(result, "occurrence-1", "set-1")).toMatchObject({
+					reps: "0",
+					weight: "0",
+					included: true,
+					occurredAt: startedAt,
+					confirmedAt: startedAt,
+					restTimerStartedAt: startedAt,
+					restChoice: { seconds: "30", kind: "explicit" },
+				});
+				expect(result.restCountdown).toMatchObject({
+					clientId: "rest-1",
+					durationSeconds: 30,
+					deadline: isoAt(startTime + 30_000),
+				});
+			}),
+		testTimeout,
 	);
 
-	it.effect("uses an explicit rest choice instead of changed normal rest preferences", () =>
-		Effect.gen(function* () {
-			const value = yield* workoutDraft({
-				occurrences: [
-					workoutOccurrence("occurrence-1", {
-						sets: [workoutSet("set-1", { restChoice: { seconds: "7", kind: "explicit" } })],
-					}),
-				],
-			});
-			const result = completeWorkoutSet(value, {
-				prompt: false,
-				setId: "set-1",
-				now: startTime,
-				timerId: "rest-1",
-				occurrenceId: "occurrence-1",
-				overrides: { normalRestTime: 45 },
-				settings: preferences({ normalRestTime: 90 }),
-			});
+	it.effect(
+		"uses an explicit rest choice instead of changed normal rest preferences",
+		() =>
+			Effect.gen(function* () {
+				const value = yield* workoutDraft({
+					occurrences: [
+						workoutOccurrence("occurrence-1", {
+							sets: [workoutSet("set-1", { restChoice: { seconds: "7", kind: "explicit" } })],
+						}),
+					],
+				});
+				const result = completeWorkoutSet(value, {
+					prompt: false,
+					setId: "set-1",
+					now: startTime,
+					timerId: "rest-1",
+					occurrenceId: "occurrence-1",
+					overrides: { normalRestTime: 45 },
+					settings: preferences({ normalRestTime: 90 }),
+				});
 
-			expect(findSet(result, "occurrence-1", "set-1")).toMatchObject({
-				restTimerStartedAt: startedAt,
-				restChoice: { seconds: "7", kind: "explicit" },
-			});
-			expect(result.restCountdown).toMatchObject({ durationSeconds: 7 });
-		}),
+				expect(findSet(result, "occurrence-1", "set-1")).toMatchObject({
+					restTimerStartedAt: startedAt,
+					restChoice: { seconds: "7", kind: "explicit" },
+				});
+				expect(result.restCountdown).toMatchObject({ durationSeconds: 7 });
+			}),
+		testTimeout,
 	);
 
-	it.effect("advances immediately when the resolved rest is zero", () =>
-		Effect.gen(function* () {
-			const value = yield* workoutDraft({
-				occurrences: [workoutOccurrence("occurrence-1"), workoutOccurrence("occurrence-2")],
-			});
-			const result = completeWorkoutSet(value, {
-				prompt: true,
-				overrides: {},
-				now: startTime,
-				timerId: "rest-1",
-				setId: "occurrence-1-set",
-				occurrenceId: "occurrence-1",
-				settings: preferences({ normalRestTime: 0 }),
-			});
+	it.effect(
+		"advances immediately when the resolved rest is zero",
+		() =>
+			Effect.gen(function* () {
+				const value = yield* workoutDraft({
+					occurrences: [workoutOccurrence("occurrence-1"), workoutOccurrence("occurrence-2")],
+				});
+				const result = completeWorkoutSet(value, {
+					prompt: true,
+					overrides: {},
+					now: startTime,
+					timerId: "rest-1",
+					setId: "occurrence-1-set",
+					occurrenceId: "occurrence-1",
+					settings: preferences({ normalRestTime: 0 }),
+				});
 
-			expect(result.pendingRest).toBeUndefined();
-			expect(result.restCountdown).toBeUndefined();
-			expect(result.activeOccurrenceId).toBe("occurrence-2");
-			expect(findSet(result, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBe(
-				startedAt,
-			);
-		}),
+				expect(result.pendingRest).toBeUndefined();
+				expect(result.restCountdown).toBeUndefined();
+				expect(result.activeOccurrenceId).toBe("occurrence-2");
+				expect(findSet(result, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBe(
+					startedAt,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("keeps prompted rest pending until it starts or is skipped", () =>
-		Effect.gen(function* () {
-			const value = yield* workoutDraft({
-				occurrences: [workoutOccurrence("occurrence-1"), workoutOccurrence("occurrence-2")],
-			});
-			const prompted = completeWorkoutSet(value, {
-				prompt: true,
-				overrides: {},
-				now: startTime,
-				timerId: "rest-1",
-				setId: "occurrence-1-set",
-				occurrenceId: "occurrence-1",
-				settings: preferences({ normalRestTime: 20 }),
-			});
-			expect(prompted.pendingRest).toEqual({
-				seconds: 20,
-				setId: "occurrence-1-set",
-				occurrenceId: "occurrence-1",
-				exerciseId: "occurrence-1-exercise",
-			});
-			expect(prompted.restCountdown).toBeUndefined();
-			expect(prompted.activeOccurrenceId).toBe("occurrence-2");
-			expect(findOccurrence(prompted, "occurrence-1").isCollapsed).toBe(true);
-			expect(findOccurrence(prompted, "occurrence-2").isCollapsed).toBe(false);
-			expect(
-				findSet(prompted, "occurrence-1", "occurrence-1-set").restTimerStartedAt,
-			).toBeUndefined();
+	it.effect(
+		"keeps prompted rest pending until it starts or is skipped",
+		() =>
+			Effect.gen(function* () {
+				const value = yield* workoutDraft({
+					occurrences: [workoutOccurrence("occurrence-1"), workoutOccurrence("occurrence-2")],
+				});
+				const prompted = completeWorkoutSet(value, {
+					prompt: true,
+					overrides: {},
+					now: startTime,
+					timerId: "rest-1",
+					setId: "occurrence-1-set",
+					occurrenceId: "occurrence-1",
+					settings: preferences({ normalRestTime: 20 }),
+				});
+				expect(prompted.pendingRest).toEqual<unknown>({
+					seconds: 20,
+					setId: "occurrence-1-set",
+					occurrenceId: "occurrence-1",
+					exerciseId: "occurrence-1-exercise",
+				});
+				expect(prompted.restCountdown).toBeUndefined();
+				expect(prompted.activeOccurrenceId).toBe("occurrence-2");
+				expect(findOccurrence(prompted, "occurrence-1").isCollapsed).toBe(true);
+				expect(findOccurrence(prompted, "occurrence-2").isCollapsed).toBe(false);
+				expect(
+					findSet(prompted, "occurrence-1", "occurrence-1-set").restTimerStartedAt,
+				).toBeUndefined();
 
-			const started = resolvePendingRest(prompted, startTime + 1_000, "prompted-rest", false);
-			expect(started.pendingRest).toBeUndefined();
-			expect(started.activeOccurrenceId).toBe("occurrence-2");
-			expect(started.activeSetId).toBe(prompted.activeSetId);
-			expect(started.restCountdown?.deadline).toBe(isoAt(startTime + 21_000));
-			expect(findSet(started, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBe(
-				isoAt(startTime + 1_000),
-			);
+				const started = resolvePendingRest(prompted, startTime + 1_000, "prompted-rest", false);
+				expect(started.pendingRest).toBeUndefined();
+				expect(started.activeOccurrenceId).toBe("occurrence-2");
+				expect(started.activeSetId).toBe(prompted.activeSetId);
+				expect(started.restCountdown?.deadline).toBe(isoAt(startTime + 21_000));
+				expect(findSet(started, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBe(
+					isoAt(startTime + 1_000),
+				);
 
-			const skipped = resolvePendingRest(prompted, startTime + 1_000, "unused-rest", true);
-			expect(skipped.pendingRest).toBeUndefined();
-			expect(skipped.restCountdown).toBeUndefined();
-			expect(skipped.activeOccurrenceId).toBe("occurrence-2");
-			expect(
-				findSet(skipped, "occurrence-1", "occurrence-1-set").restTimerStartedAt,
-			).toBeUndefined();
-		}),
+				const skipped = resolvePendingRest(prompted, startTime + 1_000, "unused-rest", true);
+				expect(skipped.pendingRest).toBeUndefined();
+				expect(skipped.restCountdown).toBeUndefined();
+				expect(skipped.activeOccurrenceId).toBe("occurrence-2");
+				expect(
+					findSet(skipped, "occurrence-1", "occurrence-1-set").restTimerStartedAt,
+				).toBeUndefined();
+			}),
+		testTimeout,
 	);
 
-	it.effect("collapses the final exercise without reopening it or selecting a completed set", () =>
-		Effect.gen(function* () {
-			const result = completeWorkoutSet(yield* workoutDraft(), {
-				prompt: false,
-				overrides: {},
-				now: startTime,
-				timerId: "rest-final",
-				setId: "occurrence-1-set",
-				occurrenceId: "occurrence-1",
-				settings: preferences({ normalRestTime: 0 }),
-			});
-			expect(findOccurrence(result, "occurrence-1").isCollapsed).toBe(true);
-			expect(result.activeOccurrenceId).toBeUndefined();
-			expect(result.activeSetId).toBeUndefined();
-			expect(workoutProgressTarget(result)).toBeUndefined();
-		}),
+	it.effect(
+		"collapses the final exercise without reopening it or selecting a completed set",
+		() =>
+			Effect.gen(function* () {
+				const result = completeWorkoutSet(yield* workoutDraft(), {
+					prompt: false,
+					overrides: {},
+					now: startTime,
+					timerId: "rest-final",
+					setId: "occurrence-1-set",
+					occurrenceId: "occurrence-1",
+					settings: preferences({ normalRestTime: 0 }),
+				});
+				expect(findOccurrence(result, "occurrence-1").isCollapsed).toBe(true);
+				expect(result.activeOccurrenceId).toBeUndefined();
+				expect(result.activeSetId).toBeUndefined();
+				expect(workoutProgressTarget(result)).toBeUndefined();
+			}),
+		testTimeout,
 	);
 
-	it.effect("uses the cyclic superset destination for the highlighted and upcoming set", () =>
-		Effect.gen(function* () {
-			const draft = yield* workoutDraft({
-				supersets: [{ color: "blue", clientId: "superset", occurrenceIds: ["first", "second"] }],
-				occurrences: [
-					workoutOccurrence("first", { sets: [workoutSet("first-1"), workoutSet("first-2")] }),
-					workoutOccurrence("second", { isCollapsed: true }),
-				],
-			});
-			const result = completeWorkoutSet(draft, {
-				prompt: true,
-				overrides: {},
-				now: startTime,
-				timerId: "rest",
-				setId: "first-1",
-				occurrenceId: "first",
-				settings: preferences({ normalRestTime: 20 }),
-			});
-			expect(workoutProgressTarget(result)?.occurrence.clientId).toBe("second");
-			expect(workoutProgressTarget(result)?.set.clientId).toBe("second-set");
-			expect(findOccurrence(result, "first").isCollapsed).toBe(false);
-			expect(findOccurrence(result, "second").isCollapsed).toBe(false);
-		}),
+	it.effect(
+		"uses the cyclic superset destination for the highlighted and upcoming set",
+		() =>
+			Effect.gen(function* () {
+				const draft = yield* workoutDraft({
+					supersets: [{ color: "blue", clientId: "superset", occurrenceIds: ["first", "second"] }],
+					occurrences: [
+						workoutOccurrence("first", { sets: [workoutSet("first-1"), workoutSet("first-2")] }),
+						workoutOccurrence("second", { isCollapsed: true }),
+					],
+				});
+				const result = completeWorkoutSet(draft, {
+					prompt: true,
+					overrides: {},
+					now: startTime,
+					timerId: "rest",
+					setId: "first-1",
+					occurrenceId: "first",
+					settings: preferences({ normalRestTime: 20 }),
+				});
+				expect(workoutProgressTarget(result)?.occurrence.clientId).toBe("second");
+				expect(workoutProgressTarget(result)?.set.clientId).toBe("second-set");
+				expect(findOccurrence(result, "first").isCollapsed).toBe(false);
+				expect(findOccurrence(result, "second").isCollapsed).toBe(false);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -753,6 +796,7 @@ describe("workout editor actions", () => {
 				expect(findSet(result, "occurrence-1", "occurrence-1-set").confirmedAt).toBeUndefined();
 				expect(result.pendingRest).toBeUndefined();
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -775,75 +819,85 @@ describe("workout editor actions", () => {
 					startedAt,
 				);
 			}),
+		testTimeout,
 	);
 
-	it.effect("finishes a live workout with elapsed active time and clears its workout timers", () =>
-		Effect.gen(function* () {
-			const value = yield* workoutDraft({
-				activeDuration: 300,
-				activeDurationStartedAt: isoAt(startTime + 900_000),
-				pendingRest: {
-					seconds: 30,
-					setId: "occurrence-1-set",
-					occurrenceId: "occurrence-1",
-					exerciseId: "occurrence-1-exercise",
-				},
-				restCountdown: {
-					clientId: "rest-1",
-					durationSeconds: 30,
-					setId: "occurrence-1-set",
-					occurrenceId: "occurrence-1",
-					exerciseId: "occurrence-1-exercise",
-					deadline: isoAt(startTime + 1_230_000),
-				},
-				executionCountdown: {
-					durationSeconds: 30,
-					clientId: "execution-1",
-					setId: "occurrence-1-set",
-					occurrenceId: "occurrence-1",
-					exerciseId: "occurrence-1-exercise",
-					deadline: isoAt(startTime + 1_230_000),
-				},
-			});
-			const result = finishWorkoutDraft(value, startTime + 1_200_000);
+	it.effect(
+		"finishes a live workout with elapsed active time and clears its workout timers",
+		() =>
+			Effect.gen(function* () {
+				const value = yield* workoutDraft({
+					activeDuration: 300,
+					activeDurationStartedAt: isoAt(startTime + 900_000),
+					pendingRest: {
+						seconds: 30,
+						setId: "occurrence-1-set",
+						occurrenceId: "occurrence-1",
+						exerciseId: "occurrence-1-exercise",
+					},
+					restCountdown: {
+						clientId: "rest-1",
+						durationSeconds: 30,
+						setId: "occurrence-1-set",
+						occurrenceId: "occurrence-1",
+						exerciseId: "occurrence-1-exercise",
+						deadline: isoAt(startTime + 1_230_000),
+					},
+					executionCountdown: {
+						durationSeconds: 30,
+						clientId: "execution-1",
+						setId: "occurrence-1-set",
+						occurrenceId: "occurrence-1",
+						exerciseId: "occurrence-1-exercise",
+						deadline: isoAt(startTime + 1_230_000),
+					},
+				});
+				const result = finishWorkoutDraft(value, startTime + 1_200_000);
 
-			expect(result.endedAt).toBe(isoAt(startTime + 1_200_000));
-			expect(result.activeDuration).toBe(600);
-			expect(result.activeDurationStartedAt).toBeUndefined();
-			expect(result.pendingRest).toBeUndefined();
-			expect(result.restCountdown).toBeUndefined();
-			expect(result.executionCountdown).toBeUndefined();
-		}),
+				expect(result.endedAt).toBe(isoAt(startTime + 1_200_000));
+				expect(result.activeDuration).toBe(600);
+				expect(result.activeDurationStartedAt).toBeUndefined();
+				expect(result.pendingRest).toBeUndefined();
+				expect(result.restCountdown).toBeUndefined();
+				expect(result.executionCountdown).toBeUndefined();
+			}),
+		testTimeout,
 	);
 
-	it.effect("leaves template and historical drafts unchanged when finish is requested", () =>
-		Effect.gen(function* () {
-			const template = yield* workoutDraft({ mode: { kind: "template-create" } });
-			const historical = yield* workoutDraft({
-				mode: { kind: "historical", entityId: "workout-1", conflictToken: "conflict-1" },
-			});
+	it.effect(
+		"leaves template and historical drafts unchanged when finish is requested",
+		() =>
+			Effect.gen(function* () {
+				const template = yield* workoutDraft({ mode: { kind: "template-create" } });
+				const historical = yield* workoutDraft({
+					mode: { kind: "historical", entityId: "workout-1", conflictToken: "conflict-1" },
+				});
 
-			expect(finishWorkoutDraft(template, startTime + 60_000)).toBe(template);
-			expect(finishWorkoutDraft(historical, startTime + 60_000)).toBe(historical);
-		}),
+				expect(finishWorkoutDraft(template, startTime + 60_000)).toBe(template);
+				expect(finishWorkoutDraft(historical, startTime + 60_000)).toBe(historical);
+			}),
+		testTimeout,
 	);
 
-	it.effect("resolves a new occurrence display from unit and exercise preferences", () =>
-		Effect.gen(function* () {
-			const value = newWorkoutOccurrence({
-				setId: "new-set",
-				id: "new-occurrence",
-				kind: "reps_and_weight",
-				overrides: { defaultDurationUnit: "seconds" },
-				settings: preferences({ unitSystem: "imperial" }),
-				exerciseId: findOccurrence(yield* workoutDraft(), "occurrence-1").exerciseId,
-			});
+	it.effect(
+		"resolves a new occurrence display from unit and exercise preferences",
+		() =>
+			Effect.gen(function* () {
+				const value = newWorkoutOccurrence({
+					setId: "new-set",
+					id: "new-occurrence",
+					kind: "reps_and_weight",
+					overrides: { defaultDurationUnit: "seconds" },
+					settings: preferences({ unitSystem: "imperial" }),
+					exerciseId: findOccurrence(yield* workoutDraft(), "occurrence-1").exerciseId,
+				});
 
-			expect(value.display).toMatchObject({
-				weightUnit: "lb",
-				distanceUnit: "mi",
-				durationUnit: "seconds",
-			});
-		}),
+				expect(value.display).toMatchObject({
+					weightUnit: "lb",
+					distanceUnit: "mi",
+					durationUnit: "seconds",
+				});
+			}),
+		testTimeout,
 	);
 });

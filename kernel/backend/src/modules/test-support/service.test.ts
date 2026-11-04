@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { PgClient } from "@effect/sql-pg";
-import { assert, expect, layer } from "@effect/vitest";
 import type { ContractPayload } from "@ryot-app/contract/client";
 import {
 	EntityId,
@@ -12,7 +13,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
+import { assert } from "@ryot-app/testing/assert";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -197,76 +201,88 @@ const systemPluginIngestion = recordingServiceLayer<SystemPluginObservation>(
 );
 
 layer(systemPluginIngestion.layer)((test) => {
-	test.effect("returns persisted system plugin identity after real ingestion completes", () => {
-		const compiledClient = fixtureClientArtifact(
-			systemPluginManifest.metadata.name,
-			systemPluginManifest.metadata.packageId,
-			systemPluginClient,
-		);
-		const compiledScripts = [
-			{ format: 1, javascript: "compiled", entry: "backend/automations/fixture.sandbox.ts" },
-		];
-		return Effect.gen(function* () {
-			const result = yield* (yield* TestSupportService).installSystemPlugin({
-				compiledScripts,
-				manifest: systemPluginManifest,
-				compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
-					compiledClient,
-				),
-			});
-			expect(yield* systemPluginIngestion.recorded).toEqual([
-				{
-					kind: "install",
-					input: { compiledClient, compiledScripts, manifest: systemPluginManifest },
-				},
-				{ kind: "result", identity: { pluginId: "plugin-id" } },
-			]);
-			expect(result).toEqual({
-				installationId: null,
-				pluginId: "plugin-id",
-				configRevisionId: null,
-				activationId: "activation-id",
-				activePluginRevisionId: "revision-v1",
-				scripts: [{ id: "script-v1", slug: "fixture.script" }],
-			});
-		});
-	});
-	test.effect("updates an exact system plugin with its source hash", () => {
-		const compiledClient = fixtureClientArtifact(
-			systemPluginManifest.metadata.name,
-			systemPluginManifest.metadata.packageId,
-			systemPluginClient,
-		);
-		const compiledScripts = [
-			{ format: 1, javascript: "compiled update", entry: "backend/automations/fixture.sandbox.ts" },
-		];
-		const pluginId = PluginId.make("plugin-id");
-		const contentHash = "current-source-hash";
-		return Effect.gen(function* () {
-			const result = yield* (yield* TestSupportService).updateSystemPlugin(pluginId, {
-				contentHash,
-				compiledScripts,
-				manifest: systemPluginManifest,
-				compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
-					compiledClient,
-				),
-			});
-			expect((yield* systemPluginIngestion.recorded).slice(-2)).toEqual([
-				{
-					kind: "update",
-					input: {
-						pluginId,
-						contentHash,
+	test.effect(
+		"returns persisted system plugin identity after real ingestion completes",
+		() => {
+			const compiledClient = fixtureClientArtifact(
+				systemPluginManifest.metadata.name,
+				systemPluginManifest.metadata.packageId,
+				systemPluginClient,
+			);
+			const compiledScripts = [
+				{ format: 1, javascript: "compiled", entry: "backend/automations/fixture.sandbox.ts" },
+			];
+			return Effect.gen(function* () {
+				const result = yield* (yield* TestSupportService).installSystemPlugin({
+					compiledScripts,
+					manifest: systemPluginManifest,
+					compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
 						compiledClient,
-						compiledScripts,
-						manifest: systemPluginManifest,
+					),
+				});
+				expect(yield* systemPluginIngestion.recorded).toEqual([
+					{
+						kind: "install",
+						input: { compiledClient, compiledScripts, manifest: systemPluginManifest },
 					},
+					{ kind: "result", identity: { pluginId: "plugin-id" } },
+				]);
+				expect(result).toEqual<unknown>({
+					installationId: null,
+					pluginId: "plugin-id",
+					configRevisionId: null,
+					activationId: "activation-id",
+					activePluginRevisionId: "revision-v1",
+					scripts: [{ id: "script-v1", slug: "fixture.script" }],
+				});
+			});
+		},
+		testTimeout,
+	);
+	test.effect(
+		"updates an exact system plugin with its source hash",
+		() => {
+			const compiledClient = fixtureClientArtifact(
+				systemPluginManifest.metadata.name,
+				systemPluginManifest.metadata.packageId,
+				systemPluginClient,
+			);
+			const compiledScripts = [
+				{
+					format: 1,
+					javascript: "compiled update",
+					entry: "backend/automations/fixture.sandbox.ts",
 				},
-				{ kind: "result", identity: { pluginId } },
-			]);
-			expect(result.activePluginRevisionId).toBe("revision-v2");
-		});
-	});
+			];
+			const pluginId = PluginId.make("plugin-id");
+			const contentHash = "current-source-hash";
+			return Effect.gen(function* () {
+				const result = yield* (yield* TestSupportService).updateSystemPlugin(pluginId, {
+					contentHash,
+					compiledScripts,
+					manifest: systemPluginManifest,
+					compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+						compiledClient,
+					),
+				});
+				expect((yield* systemPluginIngestion.recorded).slice(-2)).toEqual([
+					{
+						kind: "update",
+						input: {
+							pluginId,
+							contentHash,
+							compiledClient,
+							compiledScripts,
+							manifest: systemPluginManifest,
+						},
+					},
+					{ kind: "result", identity: { pluginId } },
+				]);
+				expect(result.activePluginRevisionId).toBe<unknown>("revision-v2");
+			});
+		},
+		testTimeout,
+	);
 });
 
 const translationUpserts = recordingServiceLayer<unknown>((record) => ({
@@ -297,19 +313,22 @@ const translationUpserts = recordingServiceLayer<unknown>((record) => ({
 }));
 
 layer(translationUpserts.layer)((test) => {
-	test.effect("returns the translation identity from an upsert", () =>
-		Effect.gen(function* () {
-			const result = yield* (yield* TestSupportService).upsertEntityTranslation({
-				entityId,
-				language: "es",
-				name: "Nombre",
-				properties: null,
-			});
-			expect(result).toEqual({ entityId, language: "es" });
-			expect((yield* translationUpserts.recorded).at(-1)).toMatchObject({
-				input: { entityId, language: "es", name: "Nombre", sourceContentGeneration: 7 },
-			});
-		}),
+	test.effect(
+		"returns the translation identity from an upsert",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* (yield* TestSupportService).upsertEntityTranslation({
+					entityId,
+					language: "es",
+					name: "Nombre",
+					properties: null,
+				});
+				expect(result).toEqual({ entityId, language: "es" });
+				expect((yield* translationUpserts.recorded).at(-1)).toMatchObject({
+					input: { entityId, language: "es", name: "Nombre", sourceContentGeneration: 7 },
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -343,35 +362,41 @@ const entityUpdates = recordingServiceLayer<unknown>((record) => ({
 }));
 
 layer(entityUpdates.layer)((test) => {
-	test.effect("updates populatedAt without changing entity fields", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			yield* service.setEntityPopulatedAt(entityId, populatedAt, "base");
-			expect((yield* entityUpdates.recorded).at(-1)).toMatchObject({
-				entityId,
-				scope: "global",
-				name: unpopulatedEntity.name,
-				populatedAt: populatedAtDate,
-				properties: unpopulatedEntity.properties,
-				lifecycle: {
-					writeContext: null,
-					itemIdentity: '["test-support:set-entity-populated-at","entity-id"]',
-					causation: { source: "api", initiator: { id: null, kind: "system" } },
-				},
-			});
-			expect(yield* entityUpdates.recorded).toHaveLength(1);
-		}),
+	test.effect(
+		"updates populatedAt without changing entity fields",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				yield* service.setEntityPopulatedAt(entityId, populatedAt, "base");
+				expect((yield* entityUpdates.recorded).at(-1)).toMatchObject({
+					entityId,
+					scope: "global",
+					name: unpopulatedEntity.name,
+					populatedAt: populatedAtDate,
+					properties: unpopulatedEntity.properties,
+					lifecycle: {
+						writeContext: null,
+						itemIdentity: '["test-support:set-entity-populated-at","entity-id"]',
+						causation: { source: "api", initiator: { id: null, kind: "system" } },
+					},
+				});
+				expect(yield* entityUpdates.recorded).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
-	test.effect("stamps the related level with populatedAt for a full seed", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			yield* service.setEntityPopulatedAt(entityId, populatedAt, "full");
-			expect((yield* entityUpdates.recorded).at(-1)).toEqual({
-				stampedEntityId: entityId,
-				relatedPopulatedAt: populatedAtDate,
-			});
-		}),
+	test.effect(
+		"stamps the related level with populatedAt for a full seed",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				yield* service.setEntityPopulatedAt(entityId, populatedAt, "full");
+				expect((yield* entityUpdates.recorded).at(-1)).toEqual({
+					stampedEntityId: entityId,
+					relatedPopulatedAt: populatedAtDate,
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -380,18 +405,21 @@ const interestMemberships = recordingServiceLayer<unknown>((record) => ({
 }));
 
 layer(interestMemberships.layer)((test) => {
-	test.effect("delegates session membership without reconciliation", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			yield* service.setEntityWatchMembership({
-				sessionId: "session-1",
-				entityIds: [EntityId.make("entity-1")],
-			});
-			expect((yield* interestMemberships.recorded).at(-1)).toEqual({
-				sessionId: "session-1",
-				entityIds: ["entity-1"],
-			});
-		}),
+	test.effect(
+		"delegates session membership without reconciliation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				yield* service.setEntityWatchMembership({
+					sessionId: "session-1",
+					entityIds: [EntityId.make("entity-1")],
+				});
+				expect((yield* interestMemberships.recorded).at(-1)).toEqual({
+					sessionId: "session-1",
+					entityIds: ["entity-1"],
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -417,32 +445,35 @@ const globalEntityCreates = recordingServiceLayer<unknown>((record) => ({
 }));
 
 layer(globalEntityCreates.layer)((test) => {
-	test.effect("creates global entities with provider provenance", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			expect(
-				yield* service.createGlobalEntity({
+	test.effect(
+		"creates global entities with provider provenance",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				expect(
+					yield* service.createGlobalEntity({
+						providerId,
+						entitySchema,
+						name: providerEntity.name,
+						externalId: providerEntity.externalId,
+						properties: providerEntity.properties,
+					}),
+				).toEqual(providerEntity);
+				expect((yield* globalEntityCreates.recorded).at(-1)).toMatchObject({
 					providerId,
 					entitySchema,
+					populatedAt: null,
 					name: providerEntity.name,
 					externalId: providerEntity.externalId,
 					properties: providerEntity.properties,
-				}),
-			).toEqual(providerEntity);
-			expect((yield* globalEntityCreates.recorded).at(-1)).toMatchObject({
-				providerId,
-				entitySchema,
-				populatedAt: null,
-				name: providerEntity.name,
-				externalId: providerEntity.externalId,
-				properties: providerEntity.properties,
-				lifecycle: {
-					writeContext: null,
-					itemIdentity: '["test-support:create-global-entity","create"]',
-					causation: { source: "api", initiator: { id: null, kind: "system" } },
-				},
-			});
-		}),
+					lifecycle: {
+						writeContext: null,
+						itemIdentity: '["test-support:create-global-entity","create"]',
+						causation: { source: "api", initiator: { id: null, kind: "system" } },
+					},
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -475,22 +506,25 @@ const rootFactCommands = recordingServiceLayer<DomainLifecycleCommand>((record) 
 }));
 
 layer(rootFactCommands.layer)((test) => {
-	test.effect("uses one root fact for create and populatedAt update", () =>
-		Effect.gen(function* () {
-			yield* (yield* TestSupportService).createGlobalEntity({
-				entitySchema,
-				name: "Entity",
-				properties: {},
-				populatedAt: "2026-07-21T00:00:00.000Z",
-			});
-			const commands = yield* rootFactCommands.recorded;
-			expect(commands.map(({ itemIdentity }) => itemIdentity)).toEqual([
-				'["test-support:create-global-entity","create"]',
-				'["test-support:create-global-entity","set-populated-at"]',
-			]);
-			expect(commands[1]?.occurredAt).toBe(commands[0]?.occurredAt);
-			expect(commands[1]?.causation).toEqual(commands[0]?.causation);
-		}),
+	test.effect(
+		"uses one root fact for create and populatedAt update",
+		() =>
+			Effect.gen(function* () {
+				yield* (yield* TestSupportService).createGlobalEntity({
+					entitySchema,
+					name: "Entity",
+					properties: {},
+					populatedAt: "2026-07-21T00:00:00.000Z",
+				});
+				const commands = yield* rootFactCommands.recorded;
+				expect(commands.map(({ itemIdentity }) => itemIdentity)).toEqual([
+					'["test-support:create-global-entity","create"]',
+					'["test-support:create-global-entity","set-populated-at"]',
+				]);
+				expect(commands[1]?.occurredAt).toBe(commands[0]?.occurredAt);
+				expect(commands[1]?.causation).toEqual(commands[0]?.causation);
+			}),
+		testTimeout,
 	);
 });
 
@@ -547,43 +581,46 @@ const mutationCommands = recordingServiceLayer<{
 }));
 
 layer(mutationCommands.layer)((test) => {
-	test.effect("unwraps test relationship and delete mutation results", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			expect(
-				yield* service.upsertGlobalRelationship({
+	test.effect(
+		"unwraps test relationship and delete mutation results",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				expect(
+					yield* service.upsertGlobalRelationship({
+						relationshipSchema,
+						sourceEntityId: entityId,
+						targetEntityId: relationship.targetEntityId,
+					}),
+				).toEqual(relationship);
+				expect(yield* service.deleteGlobalEntities([entityId])).toBe(1);
+				const commands = yield* mutationCommands.recorded;
+				expect(commands.find((entry) => entry.kind === "relationship-schema")).toEqual({
+					userId: null,
+					kind: "relationship-schema",
+					reference: relationshipSchema,
+				});
+				expect(commands.find((entry) => entry.kind === "relationship")?.input).toMatchObject({
+					scope: "global",
 					relationshipSchema,
-					sourceEntityId: entityId,
-					targetEntityId: relationship.targetEntityId,
-				}),
-			).toEqual(relationship);
-			expect(yield* service.deleteGlobalEntities([entityId])).toBe(1);
-			const commands = yield* mutationCommands.recorded;
-			expect(commands.find((entry) => entry.kind === "relationship-schema")).toEqual({
-				userId: null,
-				kind: "relationship-schema",
-				reference: relationshipSchema,
-			});
-			expect(commands.find((entry) => entry.kind === "relationship")?.input).toMatchObject({
-				scope: "global",
-				relationshipSchema,
-			});
-			const commandFor = (kind: "delete" | "relationship") =>
-				commands.findLast((entry) => entry.kind === kind)?.command;
-			expect(commandFor("relationship")?.causation).toMatchObject({
-				source: "api",
-				initiator: { id: null, kind: "system" },
-			});
-			expect(commandFor("relationship")?.writeContext).toBeNull();
-			expect(commandFor("relationship")?.itemIdentity).toBe(
-				'["test-support:upsert-global-relationship",{"owner":{"kind":"plugin","pluginId":"relationship-schema-plugin-id"},"slug":"related"},"entity-id","target-id"]',
-			);
-			expect(commandFor("delete")?.causation).toMatchObject({
-				source: "api",
-				initiator: { id: null, kind: "system" },
-			});
-			expect(commandFor("delete")?.writeContext).toBeNull();
-		}),
+				});
+				const commandFor = (kind: "delete" | "relationship") =>
+					commands.findLast((entry) => entry.kind === kind)?.command;
+				expect(commandFor("relationship")?.causation).toMatchObject({
+					source: "api",
+					initiator: { id: null, kind: "system" },
+				});
+				expect(commandFor("relationship")?.writeContext).toBeNull();
+				expect(commandFor("relationship")?.itemIdentity).toBe(
+					'["test-support:upsert-global-relationship",{"owner":{"kind":"plugin","pluginId":"relationship-schema-plugin-id"},"slug":"related"},"entity-id","target-id"]',
+				);
+				expect(commandFor("delete")?.causation).toMatchObject({
+					source: "api",
+					initiator: { id: null, kind: "system" },
+				});
+				expect(commandFor("delete")?.writeContext).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
@@ -597,20 +634,24 @@ const sandboxEnqueues = recordingServiceLayer<unknown>((record) => ({
 }));
 
 layer(sandboxEnqueues.layer)((test) => {
-	test.effect("delegates sandbox execution with the explicit executing user", () => {
-		const executingUserId = UserId.make("user-id");
-		return Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			expect(
-				yield* service.enqueueSandbox({ scriptId, executingUserId, lane: "interactive" }),
-			).toEqual({ jobId: "job-id", executionId: "execution-id" });
-			expect((yield* sandboxEnqueues.recorded).at(-1)).toEqual({
-				lane: "interactive",
-				payload: { scriptId },
-				userId: executingUserId,
+	test.effect(
+		"delegates sandbox execution with the explicit executing user",
+		() => {
+			const executingUserId = UserId.make("user-id");
+			return Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				expect(
+					yield* service.enqueueSandbox({ scriptId, executingUserId, lane: "interactive" }),
+				).toEqual({ jobId: "job-id", executionId: "execution-id" });
+				expect((yield* sandboxEnqueues.recorded).at(-1)).toEqual({
+					lane: "interactive",
+					payload: { scriptId },
+					userId: executingUserId,
+				});
 			});
-		});
-	});
+		},
+		testTimeout,
+	);
 });
 
 const cronTriggers = recordingServiceLayer<ReadonlyArray<string>>((record) => ({
@@ -629,15 +670,18 @@ const cronTriggers = recordingServiceLayer<ReadonlyArray<string>>((record) => ({
 }));
 
 layer(cronTriggers.layer)((test) => {
-	test.effect("triggers exactly one requested plugin cron with a manual execution id", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			const pluginId = PluginId.make("example-plugin-id");
-			const result = yield* service.triggerPluginCron({ pluginId, cronSlug: "monitor" });
-			const triggerInput = (yield* cronTriggers.recorded).at(-1);
-			expect(result.status).toBe("executed");
-			expect(triggerInput?.slice(0, 2)).toEqual([pluginId, "monitor"]);
-			expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);
-		}),
+	test.effect(
+		"triggers exactly one requested plugin cron with a manual execution id",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* TestSupportService;
+				const pluginId = PluginId.make("example-plugin-id");
+				const result = yield* service.triggerPluginCron({ pluginId, cronSlug: "monitor" });
+				const triggerInput = (yield* cronTriggers.recorded).at(-1);
+				expect(result.status).toBe("executed");
+				expect(triggerInput?.slice(0, 2)).toEqual([pluginId, "monitor"]);
+				expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);
+			}),
+		testTimeout,
 	);
 });

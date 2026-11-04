@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -129,12 +130,16 @@ describe("Events bulk POST", () => {
 			const progressEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "progress",
 			});
-			expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual(["progress"]);
+			expect(progressEvents.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("progress"),
+			]);
 
 			const completeEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "complete",
 			});
-			expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual(["complete"]);
+			expect(completeEvents.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("complete"),
+			]);
 
 			const missingEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "nonexistent",

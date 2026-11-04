@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AdminMiddleware,
 	AuthMiddleware,
@@ -12,6 +13,8 @@ import {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -141,25 +144,28 @@ const routesLayer = Layer.unwrap(
 );
 
 layer(routesLayer)((test) => {
-	test.effect("serves the document of a current identity to its authenticated user", () =>
-		Effect.gen(function* () {
-			const api = yield* client;
-			const credentials = yield* RouteCredentials;
-			expect(yield* api.pages.document({ payload: { identity: identity("current") } })).toEqual(
-				document,
-			);
+	test.effect(
+		"serves the document of a current identity to its authenticated user",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				const credentials = yield* RouteCredentials;
+				expect(yield* api.pages.document({ payload: { identity: identity("current") } })).toEqual(
+					document,
+				);
 
-			const stale = yield* Effect.flip(
-				api.pages.document({ payload: { identity: identity("superseded") } }),
-			);
-			expect(stale).toBeInstanceOf(ClientPageDocumentStale);
+				const stale = yield* Effect.flip(
+					api.pages.document({ payload: { identity: identity("superseded") } }),
+				);
+				expect(stale).toBeInstanceOf(ClientPageDocumentStale);
 
-			yield* credentials.sendToken("");
-			const unauthenticated = yield* Effect.flip(
-				api.pages.document({ payload: { identity: identity("current") } }),
-			);
-			expect(unauthenticated).toBeInstanceOf(AuthUnauthorized);
-			expect(yield* credentials.requests).toEqual(["user-1:current", "user-1:superseded"]);
-		}),
+				yield* credentials.sendToken("");
+				const unauthenticated = yield* Effect.flip(
+					api.pages.document({ payload: { identity: identity("current") } }),
+				);
+				expect(unauthenticated).toBeInstanceOf(AuthUnauthorized);
+				expect(yield* credentials.requests).toEqual(["user-1:current", "user-1:superseded"]);
+			}),
+		testTimeout,
 	);
 });

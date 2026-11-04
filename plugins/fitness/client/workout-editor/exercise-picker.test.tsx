@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
@@ -10,7 +11,9 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -188,296 +191,324 @@ afterEach(() => {
 });
 
 describe("ExercisePicker", () => {
-	it.live("keeps selection order across pages and searches, then applies once", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const page = createPage({ onApply: (items) => applied.push(items) });
-			const answerRequests = createRequestAnswerer();
-			const exerciseCheckbox = Effect.fnUntraced(function* (name: string) {
-				for (;;) {
-					answerRequests(page, { exercisePage: orderedExercisePage });
-					const checkbox = screen.queryByRole("checkbox", { name });
-					if (checkbox !== null) {
-						return checkbox;
+	it.live(
+		"keeps selection order across pages and searches, then applies once",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const page = createPage({ onApply: (items) => applied.push(items) });
+				const answerRequests = createRequestAnswerer();
+				const exerciseCheckbox = Effect.fnUntraced(function* (name: string) {
+					for (;;) {
+						answerRequests(page, { exercisePage: orderedExercisePage });
+						const checkbox = screen.queryByRole("checkbox", { name });
+						if (checkbox !== null) {
+							return checkbox;
+						}
+						yield* waitForMessagePortMacrotask;
 					}
-					yield* waitForMessagePortMacrotask;
-				}
-			});
+				});
 
-			click(yield* exerciseCheckbox("Bench press"));
-			click(screen.getByRole("button", { name: "Show more" }));
-			click(yield* exerciseCheckbox("Deadlift"));
-			change(screen.getByRole("searchbox", { name: "Search exercises" }), "Cable");
-			yield* exerciseCheckbox("Cable row");
-			click(screen.getByRole("button", { name: "Add 2 exercises" }));
+				click(yield* exerciseCheckbox("Bench press"));
+				click(screen.getByRole("button", { name: "Show more" }));
+				click(yield* exerciseCheckbox("Deadlift"));
+				change(screen.getByRole("searchbox", { name: "Search exercises" }), "Cable");
+				yield* exerciseCheckbox("Cable row");
+				click(screen.getByRole("button", { name: "Add 2 exercises" }));
 
-			expect(applied).toHaveLength(1);
-			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-1", "exercise-2"]);
-			expect(screen.getByText("Picker closed")).toBeTruthy();
-		}),
+				expect(applied).toHaveLength(1);
+				expect(applied[0]?.map(({ id }) => id)).toEqual<unknown>(["exercise-1", "exercise-2"]);
+				expect(screen.getByText("Picker closed")).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("cancel closes without applying the local selection", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const page = createPage({ onApply: (items) => applied.push(items) });
-			const answerRequests = createRequestAnswerer();
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
-					});
-					expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
-				}),
-			);
-			click(screen.getByRole("checkbox", { name: "Bench press" }));
-			click(
-				within(screen.getByRole("dialog", { name: "Add exercises" })).getByRole("button", {
-					name: "Cancel exercise selection",
-				}),
-			);
+	it.live(
+		"cancel closes without applying the local selection",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const page = createPage({ onApply: (items) => applied.push(items) });
+				const answerRequests = createRequestAnswerer();
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
+						});
+						expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
+					}),
+				);
+				click(screen.getByRole("checkbox", { name: "Bench press" }));
+				click(
+					within(screen.getByRole("dialog", { name: "Add exercises" })).getByRole("button", {
+						name: "Cancel exercise selection",
+					}),
+				);
 
-			expect(applied).toHaveLength(0);
-			expect(screen.getByText("Picker closed")).toBeTruthy();
-		}),
+				expect(applied).toHaveLength(0);
+				expect(screen.getByText("Picker closed")).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("retains a library selection when provider search is cancelled", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const page = createPage({ onApply: (items) => applied.push(items) });
-			const answerRequests = createRequestAnswerer();
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
-					});
-					expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
-				}),
-			);
+	it.live(
+		"retains a library selection when provider search is cancelled",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const page = createPage({ onApply: (items) => applied.push(items) });
+				const answerRequests = createRequestAnswerer();
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
+						});
+						expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
+					}),
+				);
 
-			click(screen.getByRole("checkbox", { name: "Bench press" }));
-			click(screen.getByRole("button", { name: "Add from provider" }));
-			const request = yield* Effect.promise(() =>
-				waitFor(() => {
-					const current = requireProviderRequest(page);
-					expect(current.type).toBe("pick-entity-screen");
-					return current;
-				}),
-			);
-			replyProviderSearch(page, request.requestId, { kind: "cancelled" });
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy(),
-				),
-			);
+				click(screen.getByRole("checkbox", { name: "Bench press" }));
+				click(screen.getByRole("button", { name: "Add from provider" }));
+				const request = yield* Effect.promise(() =>
+					waitFor(() => {
+						const current = requireProviderRequest(page);
+						expect(current.type).toBe("pick-entity-screen");
+						return current;
+					}),
+				);
+				replyProviderSearch(page, request.requestId, { kind: "cancelled" });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy(),
+					),
+				);
 
-			expect(screen.getByRole("button", { name: "Remove Bench press" })).toBeTruthy();
-			expect(applied).toHaveLength(0);
-			click(screen.getByRole("button", { name: "Add 1 exercise" }));
-			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-1"]);
-		}),
+				expect(screen.getByRole("button", { name: "Remove Bench press" })).toBeTruthy();
+				expect(applied).toHaveLength(0);
+				click(screen.getByRole("button", { name: "Add 1 exercise" }));
+				expect(applied[0]?.map(({ id }) => id)).toEqual<unknown>(["exercise-1"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("closes the picker when provider search requests a custom exercise", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const page = createPage({ onApply: (items) => applied.push(items) });
-			const answerRequests = createRequestAnswerer();
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
-					});
-					expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
-				}),
-			);
+	it.live(
+		"closes the picker when provider search requests a custom exercise",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const page = createPage({ onApply: (items) => applied.push(items) });
+				const answerRequests = createRequestAnswerer();
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
+						});
+						expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
+					}),
+				);
 
-			click(screen.getByRole("checkbox", { name: "Bench press" }));
-			click(screen.getByRole("button", { name: "Add from provider" }));
-			const request = yield* Effect.promise(() =>
-				waitFor(() => {
-					const current = requireProviderRequest(page);
-					expect(current.type).toBe("pick-entity-screen");
-					return current;
-				}),
-			);
-			replyProviderSearch(page, request.requestId, { kind: "create-requested" });
+				click(screen.getByRole("checkbox", { name: "Bench press" }));
+				click(screen.getByRole("button", { name: "Add from provider" }));
+				const request = yield* Effect.promise(() =>
+					waitFor(() => {
+						const current = requireProviderRequest(page);
+						expect(current.type).toBe("pick-entity-screen");
+						return current;
+					}),
+				);
+				replyProviderSearch(page, request.requestId, { kind: "create-requested" });
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByText("Picker closed")).toBeTruthy()),
-			);
-			expect(applied).toHaveLength(0);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByText("Picker closed")).toBeTruthy()),
+				);
+				expect(applied).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 
-	it.live("reloads and checks a provider addition hidden by the active search", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const page = createPage({ onApply: (items) => applied.push(items) });
-			const answerRequests = createRequestAnswerer();
-			const added = exercise("exercise-added", "Newly added exercise", "reps");
-			const pickerPage = (index: number) => rows(index === 2 ? [added] : []);
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
-					expect(screen.getByText("No exercises match these filters")).toBeTruthy();
-				}),
-			);
+	it.live(
+		"reloads and checks a provider addition hidden by the active search",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const page = createPage({ onApply: (items) => applied.push(items) });
+				const answerRequests = createRequestAnswerer();
+				const added = exercise("exercise-added", "Newly added exercise", "reps");
+				const pickerPage = (index: number) => rows(index === 2 ? [added] : []);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, { exercisePage: (index) => pickerPage(index) });
+						expect(screen.getByText("No exercises match these filters")).toBeTruthy();
+					}),
+				);
 
-			change(screen.getByRole("searchbox", { name: "Search exercises" }), "hidden by search");
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
-					expect(page.queryRequests("exercises").length).toBe(2);
-					expect(screen.getByText("No exercises match “hidden by search”")).toBeTruthy();
-				}),
-			);
-			click(screen.getByRole("button", { name: "Add from provider" }));
-			const request = yield* Effect.promise(() =>
-				waitFor(() => {
-					const current = requireProviderRequest(page);
-					expect(current.type).toBe("pick-entity-screen");
-					return current;
-				}),
-			);
-			expect(request.schema).toEqual({
-				slug: "exercise",
-				owner: { kind: "plugin", pluginId: "fitness-owner" },
-			});
-			expect(request.initialQuery).toBe("hidden by search");
-			replyProviderSearch(page, request.requestId, {
-				kind: "selected",
-				entityIds: [EntityId.make("exercise-added")],
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
-					expect(page.queryRequests("exercises").length).toBe(4);
-					expect(screen.getByRole("button", { name: "Remove Newly added exercise" })).toBeTruthy();
-					expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy();
-				}),
-			);
+				change(screen.getByRole("searchbox", { name: "Search exercises" }), "hidden by search");
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, { exercisePage: (index) => pickerPage(index) });
+						expect(page.queryRequests("exercises").length).toBe(2);
+						expect(screen.getByText("No exercises match “hidden by search”")).toBeTruthy();
+					}),
+				);
+				click(screen.getByRole("button", { name: "Add from provider" }));
+				const request = yield* Effect.promise(() =>
+					waitFor(() => {
+						const current = requireProviderRequest(page);
+						expect(current.type).toBe("pick-entity-screen");
+						return current;
+					}),
+				);
+				expect(request.schema).toEqual<unknown>({
+					slug: "exercise",
+					owner: { kind: "plugin", pluginId: "fitness-owner" },
+				});
+				expect(request.initialQuery).toBe("hidden by search");
+				replyProviderSearch(page, request.requestId, {
+					kind: "selected",
+					entityIds: [EntityId.make("exercise-added")],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, { exercisePage: (index) => pickerPage(index) });
+						expect(page.queryRequests("exercises").length).toBe(4);
+						expect(
+							screen.getByRole("button", { name: "Remove Newly added exercise" }),
+						).toBeTruthy();
+						expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy();
+					}),
+				);
 
-			expect(page.queryRequests("exercises")).toHaveLength(4);
-			expect(screen.queryByRole("checkbox", { name: "Newly added exercise" })).toBeNull();
-			expect(applied).toHaveLength(0);
-			click(screen.getByRole("button", { name: "Add 1 exercise" }));
-			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-added"]);
-		}),
+				expect(page.queryRequests("exercises")).toHaveLength(4);
+				expect(screen.queryByRole("checkbox", { name: "Newly added exercise" })).toBeNull();
+				expect(applied).toHaveLength(0);
+				click(screen.getByRole("button", { name: "Add 1 exercise" }));
+				expect(applied[0]?.map(({ id }) => id)).toEqual<unknown>(["exercise-added"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("does not select an incompatible provider addition during replacement", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const page = createPage({
-				onApply: (items) => applied.push(items),
-				replacement: { kind: "duration", name: "Current exercise" },
-			});
-			const answerRequests = createRequestAnswerer();
-			const duration = exercise("exercise-duration", "Timed exercise", "duration");
-			const providerReps = exercise("exercise-reps", "Rep exercise", "reps");
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: (index) => rows(index === 1 ? [providerReps] : [duration]),
-					});
-					expect(screen.getByRole("radio", { name: "Timed exercise" })).toBeTruthy();
-				}),
-			);
+	it.live(
+		"does not select an incompatible provider addition during replacement",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const page = createPage({
+					onApply: (items) => applied.push(items),
+					replacement: { kind: "duration", name: "Current exercise" },
+				});
+				const answerRequests = createRequestAnswerer();
+				const duration = exercise("exercise-duration", "Timed exercise", "duration");
+				const providerReps = exercise("exercise-reps", "Rep exercise", "reps");
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: (index) => rows(index === 1 ? [providerReps] : [duration]),
+						});
+						expect(screen.getByRole("radio", { name: "Timed exercise" })).toBeTruthy();
+					}),
+				);
 
-			click(screen.getByRole("radio", { name: "Timed exercise" }));
-			click(screen.getByRole("button", { name: "Add from provider" }));
-			const request = yield* Effect.promise(() =>
-				waitFor(() => {
-					const current = requireProviderRequest(page);
-					expect(current.type).toBe("pick-entity-screen");
-					return current;
-				}),
-			);
-			replyProviderSearch(page, request.requestId, {
-				kind: "selected",
-				entityIds: [EntityId.make("exercise-reps")],
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: (index) => rows(index === 1 ? [providerReps] : [duration]),
-					});
-					expect(
-						screen.getByText(
-							"The exercise was added to your library, but its kind is not eligible for this selection.",
-						),
-					).toBeTruthy();
-					expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy();
-				}),
-			);
+				click(screen.getByRole("radio", { name: "Timed exercise" }));
+				click(screen.getByRole("button", { name: "Add from provider" }));
+				const request = yield* Effect.promise(() =>
+					waitFor(() => {
+						const current = requireProviderRequest(page);
+						expect(current.type).toBe("pick-entity-screen");
+						return current;
+					}),
+				);
+				replyProviderSearch(page, request.requestId, {
+					kind: "selected",
+					entityIds: [EntityId.make("exercise-reps")],
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: (index) => rows(index === 1 ? [providerReps] : [duration]),
+						});
+						expect(
+							screen.getByText(
+								"The exercise was added to your library, but its kind is not eligible for this selection.",
+							),
+						).toBeTruthy();
+						expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy();
+					}),
+				);
 
-			expect(screen.getByRole("button", { name: "Remove Timed exercise" })).toBeTruthy();
-			expect(screen.queryByRole("button", { name: "Remove Rep exercise" })).toBeNull();
-			expect(applied).toHaveLength(0);
-			click(screen.getByRole("button", { name: "Replace exercise" }));
-			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-duration"]);
-		}),
+				expect(screen.getByRole("button", { name: "Remove Timed exercise" })).toBeTruthy();
+				expect(screen.queryByRole("button", { name: "Remove Rep exercise" })).toBeNull();
+				expect(applied).toHaveLength(0);
+				click(screen.getByRole("button", { name: "Replace exercise" }));
+				expect(applied[0]?.map(({ id }) => id)).toEqual<unknown>(["exercise-duration"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("replacement mode fixes the kind and only applies one matching exercise", () =>
-		Effect.gen(function* () {
-			const applied: Array<readonly PickerExercise[]> = [];
-			const answerRequests = createRequestAnswerer();
-			const page = createPage({
-				onApply: (items) => applied.push(items),
-				replacement: { kind: "duration", name: "Current exercise" },
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: () =>
-							rows([
-								exercise("exercise-reps", "Rep exercise", "reps"),
-								exercise("exercise-duration", "Timed exercise", "duration"),
-							]),
-					});
-					expect(screen.getByRole("radio", { name: "Timed exercise" })).toBeTruthy();
-				}),
-			);
+	it.live(
+		"replacement mode fixes the kind and only applies one matching exercise",
+		() =>
+			Effect.gen(function* () {
+				const applied: Array<readonly PickerExercise[]> = [];
+				const answerRequests = createRequestAnswerer();
+				const page = createPage({
+					onApply: (items) => applied.push(items),
+					replacement: { kind: "duration", name: "Current exercise" },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: () =>
+								rows([
+									exercise("exercise-reps", "Rep exercise", "reps"),
+									exercise("exercise-duration", "Timed exercise", "duration"),
+								]),
+						});
+						expect(screen.getByRole("radio", { name: "Timed exercise" })).toBeTruthy();
+					}),
+				);
 
-			expect(screen.getByRole("heading", { name: "Replace Current exercise" })).toBeTruthy();
-			expect(screen.getByRole("radio", { name: "Rep exercise" }).hasAttribute("disabled")).toBe(
-				true,
-			);
-			click(screen.getByRole("radio", { name: "Timed exercise" }));
-			click(screen.getByRole("button", { name: "Replace exercise" }));
+				expect(screen.getByRole("heading", { name: "Replace Current exercise" })).toBeTruthy();
+				expect(screen.getByRole("radio", { name: "Rep exercise" }).hasAttribute("disabled")).toBe(
+					true,
+				);
+				click(screen.getByRole("radio", { name: "Timed exercise" }));
+				click(screen.getByRole("button", { name: "Replace exercise" }));
 
-			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-duration"]);
-		}),
+				expect(applied[0]?.map(({ id }) => id)).toEqual<unknown>(["exercise-duration"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("does not overwrite malformed saved presets and offers a read retry", () =>
-		Effect.gen(function* () {
-			const page = createPage({ onApply: () => undefined });
-			const answerRequests = createRequestAnswerer();
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: () => rows([]),
-						storedPresets: { malformed: true },
-					});
-					expect(
-						screen.getByText("Saved presets could not be read or decoded. They were not changed."),
-					).toBeTruthy();
-				}),
-			);
+	it.live(
+		"does not overwrite malformed saved presets and offers a read retry",
+		() =>
+			Effect.gen(function* () {
+				const page = createPage({ onApply: () => undefined });
+				const answerRequests = createRequestAnswerer();
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerRequests(page, {
+							exercisePage: () => rows([]),
+							storedPresets: { malformed: true },
+						});
+						expect(
+							screen.getByText(
+								"Saved presets could not be read or decoded. They were not changed.",
+							),
+						).toBeTruthy();
+					}),
+				);
 
-			click(screen.getByRole("button", { name: "Presets" }));
-			expect(
-				screen.getByRole("menuitem", { name: "Save current filters…" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				page
-					.clientMessages()
-					.filter((message) => message.type === "storage-request" && message.action === "set"),
-			).toHaveLength(0);
-		}),
+				click(screen.getByRole("button", { name: "Presets" }));
+				expect(
+					screen.getByRole("menuitem", { name: "Save current filters…" }).hasAttribute("disabled"),
+				).toBe(true);
+				expect(
+					page
+						.clientMessages()
+						.filter((message) => message.type === "storage-request" && message.action === "set"),
+				).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });

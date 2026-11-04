@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
 
 import {
@@ -120,179 +123,202 @@ const playTimes = (result: MediaIntegrationAdapterResult) =>
 	);
 
 describe("Spotify yank", () => {
-	it.effect("records each new play as a complete event grouped by track in play order", () =>
-		Effect.gen(function* () {
-			const { run, claims } = setup();
-			const result = yield* run({
-				status: 200,
-				items: [
-					play("track-a", "2026-01-01T12:10:00.000Z", "Song A", 185_123),
-					play("track-b", "2026-01-01T12:05:00.000Z", "Song B", 60_000),
-					play("track-a", "2026-01-01T12:00:00.000Z", "Song A", 185_123),
-				],
-			});
-			expect(result).toEqual({
-				failures: [],
-				entityGroups: [
-					{
-						itemIndex: 0,
-						collectionMemberships: [],
-						entityRef: {
-							kind: "resolved",
-							externalId: "track-a",
-							sourceLabel: "Song A",
-							entitySchemaSlug: "music",
-							providerSlug: "music.spotify",
-						},
-						events: ["2026-01-01T12:00:00.000Z", "2026-01-01T12:10:00.000Z"].map((occurredAt) => ({
-							occurredAt,
-							eventSchemaSlug: "complete",
-							properties: {
-								consumedOn: "Spotify",
-								consumptionBasis: {
-									unit: "minutes",
-									property: "duration",
-									total: 185_123 / 60_000,
-								},
+	it.effect(
+		"records each new play as a complete event grouped by track in play order",
+		() =>
+			Effect.gen(function* () {
+				const { run, claims } = setup();
+				const result = yield* run({
+					status: 200,
+					items: [
+						play("track-a", "2026-01-01T12:10:00.000Z", "Song A", 185_123),
+						play("track-b", "2026-01-01T12:05:00.000Z", "Song B", 60_000),
+						play("track-a", "2026-01-01T12:00:00.000Z", "Song A", 185_123),
+					],
+				});
+				expect(result).toEqual({
+					failures: [],
+					entityGroups: [
+						{
+							itemIndex: 0,
+							collectionMemberships: [],
+							entityRef: {
+								kind: "resolved",
+								externalId: "track-a",
+								sourceLabel: "Song A",
+								entitySchemaSlug: "music",
+								providerSlug: "music.spotify",
 							},
-						})),
-					},
-					{
-						itemIndex: 1,
-						collectionMemberships: [],
-						entityRef: {
-							kind: "resolved",
-							externalId: "track-b",
-							sourceLabel: "Song B",
-							entitySchemaSlug: "music",
-							providerSlug: "music.spotify",
+							events: ["2026-01-01T12:00:00.000Z", "2026-01-01T12:10:00.000Z"].map(
+								(occurredAt) => ({
+									occurredAt,
+									eventSchemaSlug: "complete",
+									properties: {
+										consumedOn: "Spotify",
+										consumptionBasis: {
+											unit: "minutes",
+											property: "duration",
+											total: 185_123 / 60_000,
+										},
+									},
+								}),
+							),
 						},
-						events: [
-							{
-								eventSchemaSlug: "complete",
-								occurredAt: "2026-01-01T12:05:00.000Z",
-								properties: {
-									consumedOn: "Spotify",
-									consumptionBasis: { total: 1, unit: "minutes", property: "duration" },
-								},
+						{
+							itemIndex: 1,
+							collectionMemberships: [],
+							entityRef: {
+								kind: "resolved",
+								externalId: "track-b",
+								sourceLabel: "Song B",
+								entitySchemaSlug: "music",
+								providerSlug: "music.spotify",
 							},
-						],
+							events: [
+								{
+									eventSchemaSlug: "complete",
+									occurredAt: "2026-01-01T12:05:00.000Z",
+									properties: {
+										consumedOn: "Spotify",
+										consumptionBasis: { total: 1, unit: "minutes", property: "duration" },
+									},
+								},
+							],
+						},
+					],
+				});
+				expect([...claims]).toContain(
+					yield* encodeClaimKey([
+						"media.spotify-play",
+						"integration-1",
+						"track-a",
+						"2026-01-01T12:00:00.000Z",
+					]),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"records nothing when a later sync returns the same plays",
+		() =>
+			Effect.gen(function* () {
+				const { run } = setup();
+				const response = { status: 200, items: [play("track-a", "2026-01-01T12:00:00.000Z")] };
+				expect(playTimes(yield* run(response))).toEqual(["track-a@2026-01-01T12:00:00.000Z"]);
+				expect(playTimes(yield* run(response))).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"records only the new plays when a sync mixes new and already recorded plays",
+		() =>
+			Effect.gen(function* () {
+				const { run } = setup();
+				yield* run({ status: 200, items: [play("track-a", "2026-01-01T12:00:00.000Z")] });
+				const result = yield* run({
+					status: 200,
+					items: [
+						play("track-a", "2026-01-01T12:20:00.000Z"),
+						play("track-b", "2026-01-01T12:10:00.000Z"),
+						play("track-a", "2026-01-01T12:00:00.000Z"),
+					],
+				});
+				expect(playTimes(result)).toEqual([
+					"track-b@2026-01-01T12:10:00.000Z",
+					"track-a@2026-01-01T12:20:00.000Z",
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"skips plays without a track id and logs them",
+		() =>
+			Effect.gen(function* () {
+				const { run, logs } = setup();
+				const result = yield* run({
+					status: 200,
+					items: [
+						play(null, "2026-01-01T12:00:00.000Z"),
+						{ track: null, played_at: "2026-01-01T12:05:00.000Z" },
+						play("track-a", "2026-01-01T12:10:00.000Z"),
+					],
+				});
+				expect(playTimes(result)).toEqual(["track-a@2026-01-01T12:10:00.000Z"]);
+				expect(logs).toEqual(["Skipped Spotify plays without a track id or valid play time"]);
+			}),
+		testTimeout,
+	);
+
+	it.effect.each([401, 500])(
+		"fails with only the status when Spotify returns %i",
+		(status) =>
+			Effect.gen(function* () {
+				const { run } = setup();
+				const error = yield* Effect.flip(run({ status, items: [] }));
+				expect(error).toStrictEqual(
+					new MediaSandboxError({
+						message: `Spotify recently played request returned status ${status}`,
+					}),
+				);
+				expect(error.message).not.toContain(accessToken);
+				expect(error.message).not.toContain(errorBody);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"sends the account token only as a bearer header and backfills the first sync",
+		() =>
+			Effect.gen(function* () {
+				const { run, requests, tokenRequests } = setup();
+				const result = yield* run({
+					status: 200,
+					items: [
+						play("track-a", "2020-01-01T12:00:00.000Z"),
+						play("track-b", "2025-12-31T23:30:00.000Z"),
+					],
+				});
+				expect(playTimes(result)).toEqual([
+					"track-a@2020-01-01T12:00:00.000Z",
+					"track-b@2025-12-31T23:30:00.000Z",
+				]);
+				expect(tokenRequests).toEqual([{ field: "account" }]);
+				expect(requests).toEqual([
+					{
+						url: "https://api.spotify.com/v1/me/player/recently-played?limit=50",
+						headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
 					},
-				],
-			});
-			expect([...claims]).toContain(
-				yield* encodeClaimKey([
-					"media.spotify-play",
-					"integration-1",
-					"track-a",
-					"2026-01-01T12:00:00.000Z",
-				]),
-			);
-		}),
+				]);
+				expect(requests[0]?.url).not.toContain(accessToken);
+			}),
+		testTimeout,
 	);
 
-	it.effect("records nothing when a later sync returns the same plays", () =>
-		Effect.gen(function* () {
-			const { run } = setup();
-			const response = { status: 200, items: [play("track-a", "2026-01-01T12:00:00.000Z")] };
-			expect(playTimes(yield* run(response))).toEqual(["track-a@2026-01-01T12:00:00.000Z"]);
-			expect(playTimes(yield* run(response))).toEqual([]);
-		}),
-	);
-
-	it.effect("records only the new plays when a sync mixes new and already recorded plays", () =>
-		Effect.gen(function* () {
-			const { run } = setup();
-			yield* run({ status: 200, items: [play("track-a", "2026-01-01T12:00:00.000Z")] });
-			const result = yield* run({
-				status: 200,
-				items: [
-					play("track-a", "2026-01-01T12:20:00.000Z"),
-					play("track-b", "2026-01-01T12:10:00.000Z"),
-					play("track-a", "2026-01-01T12:00:00.000Z"),
-				],
-			});
-			expect(playTimes(result)).toEqual([
-				"track-b@2026-01-01T12:10:00.000Z",
-				"track-a@2026-01-01T12:20:00.000Z",
-			]);
-		}),
-	);
-
-	it.effect("skips plays without a track id and logs them", () =>
-		Effect.gen(function* () {
-			const { run, logs } = setup();
-			const result = yield* run({
-				status: 200,
-				items: [
-					play(null, "2026-01-01T12:00:00.000Z"),
-					{ track: null, played_at: "2026-01-01T12:05:00.000Z" },
-					play("track-a", "2026-01-01T12:10:00.000Z"),
-				],
-			});
-			expect(playTimes(result)).toEqual(["track-a@2026-01-01T12:10:00.000Z"]);
-			expect(logs).toEqual(["Skipped Spotify plays without a track id or valid play time"]);
-		}),
-	);
-
-	it.effect.each([401, 500])("fails with only the status when Spotify returns %i", (status) =>
-		Effect.gen(function* () {
-			const { run } = setup();
-			const error = yield* Effect.flip(run({ status, items: [] }));
-			expect(error).toStrictEqual(
-				new MediaSandboxError({
-					message: `Spotify recently played request returned status ${status}`,
-				}),
-			);
-			expect(error.message).not.toContain(accessToken);
-			expect(error.message).not.toContain(errorBody);
-		}),
-	);
-
-	it.effect("sends the account token only as a bearer header and backfills the first sync", () =>
-		Effect.gen(function* () {
-			const { run, requests, tokenRequests } = setup();
-			const result = yield* run({
-				status: 200,
-				items: [
-					play("track-a", "2020-01-01T12:00:00.000Z"),
-					play("track-b", "2025-12-31T23:30:00.000Z"),
-				],
-			});
-			expect(playTimes(result)).toEqual([
-				"track-a@2020-01-01T12:00:00.000Z",
-				"track-b@2025-12-31T23:30:00.000Z",
-			]);
-			expect(tokenRequests).toEqual([{ field: "account" }]);
-			expect(requests).toEqual([
-				{
-					url: "https://api.spotify.com/v1/me/player/recently-played?limit=50",
-					headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` },
-				},
-			]);
-			expect(requests[0]?.url).not.toContain(accessToken);
-		}),
-	);
-
-	it.effect("records only plays after the last finished sync minus one hour", () =>
-		Effect.gen(function* () {
-			const { run, requests } = setup("2026-01-01T12:00:00.000Z");
-			const result = yield* run({
-				status: 200,
-				items: [
-					play("track-a", "2026-01-01T12:30:00.000Z"),
-					play("track-b", "2026-01-01T11:00:00.001Z"),
-					play("track-c", "2026-01-01T11:00:00.000Z"),
-					play("track-d", "2026-01-01T10:00:00.000Z"),
-				],
-			});
-			expect(playTimes(result)).toEqual([
-				"track-b@2026-01-01T11:00:00.001Z",
-				"track-a@2026-01-01T12:30:00.000Z",
-			]);
-			expect(new URL(requests[0]?.url ?? "").searchParams.get("after")).toBe(
-				String(Date.parse("2026-01-01T11:00:00.000Z")),
-			);
-		}),
+	it.effect(
+		"records only plays after the last finished sync minus one hour",
+		() =>
+			Effect.gen(function* () {
+				const { run, requests } = setup("2026-01-01T12:00:00.000Z");
+				const result = yield* run({
+					status: 200,
+					items: [
+						play("track-a", "2026-01-01T12:30:00.000Z"),
+						play("track-b", "2026-01-01T11:00:00.001Z"),
+						play("track-c", "2026-01-01T11:00:00.000Z"),
+						play("track-d", "2026-01-01T10:00:00.000Z"),
+					],
+				});
+				expect(playTimes(result)).toEqual([
+					"track-b@2026-01-01T11:00:00.001Z",
+					"track-a@2026-01-01T12:30:00.000Z",
+				]);
+				expect(new URL(requests[0]?.url ?? "").searchParams.get("after")).toBe(
+					String(Date.parse("2026-01-01T11:00:00.000Z")),
+				);
+			}),
+		testTimeout,
 	);
 });

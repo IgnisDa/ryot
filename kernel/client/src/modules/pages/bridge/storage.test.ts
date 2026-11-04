@@ -1,7 +1,10 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { PLUGIN_STORAGE_VALUE_MAX_BYTES } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
@@ -42,35 +45,39 @@ const setOrder = (value: string) =>
 
 describe("plugin storage outcome", () => {
 	layer(pluginStorageLayer())((test) => {
-		test.effect("stores, reads, and removes a value for a plugin contributing to the frame", () => {
-			return Effect.gen(function* () {
-				const storage = yield* FakeBrowserStorage;
-				expect(
+		test.effect(
+			"stores, reads, and removes a value for a plugin contributing to the frame",
+			() => {
+				return Effect.gen(function* () {
+					const storage = yield* FakeBrowserStorage;
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							key: "order",
+							action: "set",
+							pluginId: fixture,
+							value: { order: "aired" },
+						}),
+					).toEqual({ value: null, outcome: "success" });
+					expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
+						'{"order":"aired"}',
+					);
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							key: "order",
+							action: "get",
+							pluginId: fixture,
+						}),
+					).toEqual({ outcome: "success", value: { order: "aired" } });
 					yield* pluginStorageOutcome(scope, contributors, {
 						key: "order",
-						action: "set",
+						action: "remove",
 						pluginId: fixture,
-						value: { order: "aired" },
-					}),
-				).toEqual({ value: null, outcome: "success" });
-				expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
-					'{"order":"aired"}',
-				);
-				expect(
-					yield* pluginStorageOutcome(scope, contributors, {
-						key: "order",
-						action: "get",
-						pluginId: fixture,
-					}),
-				).toEqual({ outcome: "success", value: { order: "aired" } });
-				yield* pluginStorageOutcome(scope, contributors, {
-					key: "order",
-					action: "remove",
-					pluginId: fixture,
+					});
+					expect((yield* storage.values).size).toBe(0);
 				});
-				expect((yield* storage.values).size).toBe(0);
-			});
-		});
+			},
+			testTimeout,
+		);
 		test.effect(
 			"isolates equal authored keys by local owner and preserves them across revisions",
 			() =>
@@ -118,43 +125,51 @@ describe("plugin storage outcome", () => {
 						}),
 					).toEqual({ value: "right", outcome: "success" });
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(pluginStorageLayer())((test) => {
-		test.effect("rejects a local owner absent from the frame's contributors", () => {
-			return Effect.gen(function* () {
-				const storage = yield* FakeBrowserStorage;
-				expect(
-					yield* pluginStorageOutcome(scope, contributors, {
-						value: 1,
-						key: "order",
-						action: "set",
-						pluginId: other,
-					}),
-				).toEqual({ outcome: "failure", reason: "invalid-request" });
-				expect((yield* storage.values).size).toBe(0);
-			});
-		});
+		test.effect(
+			"rejects a local owner absent from the frame's contributors",
+			() => {
+				return Effect.gen(function* () {
+					const storage = yield* FakeBrowserStorage;
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							value: 1,
+							key: "order",
+							action: "set",
+							pluginId: other,
+						}),
+					).toEqual({ outcome: "failure", reason: "invalid-request" });
+					expect((yield* storage.values).size).toBe(0);
+				});
+			},
+			testTimeout,
+		);
 	});
 
 	layer(pluginStorageLayer())((test) => {
-		test.effect("rejects a value whose serialized JSON exceeds the byte limit", () => {
-			return Effect.gen(function* () {
-				const storage = yield* FakeBrowserStorage;
-				expect(PLUGIN_STORAGE_VALUE_MAX_BYTES).toBe(65536);
-				// Two quote bytes plus two bytes per "é".
-				expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2))).toEqual({
-					value: null,
-					outcome: "success",
+		test.effect(
+			"rejects a value whose serialized JSON exceeds the byte limit",
+			() => {
+				return Effect.gen(function* () {
+					const storage = yield* FakeBrowserStorage;
+					expect(PLUGIN_STORAGE_VALUE_MAX_BYTES).toBe(65536);
+					// Two quote bytes plus two bytes per "é".
+					expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2))).toEqual({
+						value: null,
+						outcome: "success",
+					});
+					expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2 + 1))).toEqual(
+						{ outcome: "failure", reason: "invalid-request" },
+					);
+					expect((yield* storage.values).size).toBe(1);
 				});
-				expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2 + 1))).toEqual({
-					outcome: "failure",
-					reason: "invalid-request",
-				});
-				expect((yield* storage.values).size).toBe(1);
-			});
-		});
+			},
+			testTimeout,
+		);
 	});
 
 	layer(
@@ -165,22 +180,26 @@ describe("plugin storage outcome", () => {
 			},
 		}),
 	)((test) => {
-		test.effect("reports a rejected browser write as quota", () => {
-			return Effect.gen(function* () {
-				const storage = yield* FakeBrowserStorage;
-				expect(
-					yield* pluginStorageOutcome(scope, contributors, {
-						value: 1,
-						key: "order",
-						action: "set",
-						pluginId: fixture,
-					}),
-				).toEqual({ reason: "quota", outcome: "failure" });
-				expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
-					'"existing"',
-				);
-			});
-		});
+		test.effect(
+			"reports a rejected browser write as quota",
+			() => {
+				return Effect.gen(function* () {
+					const storage = yield* FakeBrowserStorage;
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							value: 1,
+							key: "order",
+							action: "set",
+							pluginId: fixture,
+						}),
+					).toEqual({ reason: "quota", outcome: "failure" });
+					expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
+						'"existing"',
+					);
+				});
+			},
+			testTimeout,
+		);
 	});
 
 	layer(
@@ -193,18 +212,21 @@ describe("plugin storage outcome", () => {
 			},
 		}),
 	)((test) => {
-		test.effect("reports failed reads and removes as transport errors", () =>
-			Effect.gen(function* () {
-				for (const action of ["get", "remove"] as const) {
-					expect(
-						yield* pluginStorageOutcome(scope, contributors, {
-							action,
-							key: "order",
-							pluginId: fixture,
-						}),
-					).toEqual({ outcome: "failure", reason: "transport" });
-				}
-			}),
+		test.effect(
+			"reports failed reads and removes as transport errors",
+			() =>
+				Effect.gen(function* () {
+					for (const action of ["get", "remove"] as const) {
+						expect(
+							yield* pluginStorageOutcome(scope, contributors, {
+								action,
+								key: "order",
+								pluginId: fixture,
+							}),
+						).toEqual({ outcome: "failure", reason: "transport" });
+					}
+				}),
+			testTimeout,
 		);
 	});
 
@@ -215,52 +237,61 @@ describe("plugin storage outcome", () => {
 			},
 		}),
 	)((test) => {
-		test.effect("reports non-quota write failures as transport errors", () =>
-			Effect.gen(function* () {
-				expect(
-					yield* pluginStorageOutcome(scope, contributors, {
-						value: 1,
-						key: "order",
-						action: "set",
-						pluginId: fixture,
-					}),
-				).toEqual({ outcome: "failure", reason: "transport" });
-			}),
+		test.effect(
+			"reports non-quota write failures as transport errors",
+			() =>
+				Effect.gen(function* () {
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							value: 1,
+							key: "order",
+							action: "set",
+							pluginId: fixture,
+						}),
+					).toEqual({ outcome: "failure", reason: "transport" });
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(
 		pluginStorageLayer({ entries: [[pluginStorageKey(scope, fixture, "order"), "{not json"]] }),
 	)((test) => {
-		test.effect("reports malformed stored values as transport without deleting them", () =>
-			Effect.gen(function* () {
-				const storage = yield* FakeBrowserStorage;
-				expect(
-					yield* pluginStorageOutcome(scope, contributors, {
-						key: "order",
-						action: "get",
-						pluginId: fixture,
-					}),
-				).toEqual({ outcome: "failure", reason: "transport" });
-				expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
-					"{not json",
-				);
-			}),
+		test.effect(
+			"reports malformed stored values as transport without deleting them",
+			() =>
+				Effect.gen(function* () {
+					const storage = yield* FakeBrowserStorage;
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							key: "order",
+							action: "get",
+							pluginId: fixture,
+						}),
+					).toEqual({ outcome: "failure", reason: "transport" });
+					expect((yield* storage.values).get(pluginStorageKey(scope, fixture, "order"))).toBe(
+						"{not json",
+					);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(PluginStorage.layer.pipe(Layer.provideMerge(clientStorageLayer(undefined))))((test) => {
-		test.effect("reports unavailable browser storage instead of successful persistence", () =>
-			Effect.gen(function* () {
-				expect(
-					yield* pluginStorageOutcome(scope, contributors, {
-						value: 1,
-						key: "order",
-						action: "set",
-						pluginId: fixture,
-					}),
-				).toEqual({ outcome: "failure", reason: "transport" });
-			}),
+		test.effect(
+			"reports unavailable browser storage instead of successful persistence",
+			() =>
+				Effect.gen(function* () {
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							value: 1,
+							key: "order",
+							action: "set",
+							pluginId: fixture,
+						}),
+					).toEqual({ outcome: "failure", reason: "transport" });
+				}),
+			testTimeout,
 		);
 	});
 });

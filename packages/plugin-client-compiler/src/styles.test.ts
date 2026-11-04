@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { resolveClientPluginCompilerDependencies } from "./dependencies";
@@ -28,46 +31,52 @@ const diagnose = Effect.fnUntraced(function* (sourceFiles: Readonly<Record<strin
 	}).map(({ code, file }) => [code, file]);
 });
 
-it.effect("keeps relative script imports inside their client or shared source root", () =>
-	Effect.gen(function* () {
-		for (const [importer, specifier] of [
-			["shared/a.ts", "../client/b"],
-			["shared/a.ts", "./../client/b"],
-			["client/a.ts", "../../x"],
-			["client/a.ts", "..//../x"],
-			["client/nested/a.ts", "..//..//../x"],
-			["shared/a.ts", "..//x"],
-		] as const) {
-			expect([specifier, yield* diagnose({ [importer]: `import "${specifier}";` })]).toEqual([
-				specifier,
-				[["RYOT_CLIENT_IMPORT", importer]],
-			]);
-		}
-		expect(
-			yield* diagnose({
-				"shared/y.ts": 'import "./x";',
-				"client/nested/c.ts": 'import "..//b";',
-				"client/a.ts": 'import "../shared/x"; import "./b";',
-			}),
-		).toEqual([]);
-	}),
+it.effect(
+	"keeps relative script imports inside their client or shared source root",
+	() =>
+		Effect.gen(function* () {
+			for (const [importer, specifier] of [
+				["shared/a.ts", "../client/b"],
+				["shared/a.ts", "./../client/b"],
+				["client/a.ts", "../../x"],
+				["client/a.ts", "..//../x"],
+				["client/nested/a.ts", "..//..//../x"],
+				["shared/a.ts", "..//x"],
+			] as const) {
+				expect([specifier, yield* diagnose({ [importer]: `import "${specifier}";` })]).toEqual([
+					specifier,
+					[["RYOT_CLIENT_IMPORT", importer]],
+				]);
+			}
+			expect(
+				yield* diagnose({
+					"shared/y.ts": 'import "./x";',
+					"client/nested/c.ts": 'import "..//b";',
+					"client/a.ts": 'import "../shared/x"; import "./b";',
+				}),
+			).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.effect("keeps stylesheet imports inside the client source root", () =>
-	Effect.gen(function* () {
-		for (const [importer, specifier] of [
-			["client/styles.css", "../../x.css"],
-			["client/styles.css", "../x.css"],
-			["client/nested/styles.css", "..//..//x.css"],
-			["client/styles.css", "./..//x.css"],
-		] as const) {
-			expect([specifier, yield* diagnose({ [importer]: `@import "${specifier}";` })]).toEqual([
-				specifier,
-				[["RYOT_CLIENT_STYLES", importer]],
-			]);
-		}
-		expect(yield* diagnose({ "client/nested/styles.css": '@import "..//x.css";' })).toEqual([]);
-	}),
+it.effect(
+	"keeps stylesheet imports inside the client source root",
+	() =>
+		Effect.gen(function* () {
+			for (const [importer, specifier] of [
+				["client/styles.css", "../../x.css"],
+				["client/styles.css", "../x.css"],
+				["client/nested/styles.css", "..//..//x.css"],
+				["client/styles.css", "./..//x.css"],
+			] as const) {
+				expect([specifier, yield* diagnose({ [importer]: `@import "${specifier}";` })]).toEqual([
+					specifier,
+					[["RYOT_CLIENT_STYLES", importer]],
+				]);
+			}
+			expect(yield* diagnose({ "client/nested/styles.css": '@import "..//x.css";' })).toEqual([]);
+		}),
+	testTimeout,
 );
 
 it.effect.each(["client/shared", "client/client", "shared/client", "shared/shared"])(
@@ -112,4 +121,5 @@ it.effect.each(["client/shared", "client/client", "shared/client", "shared/share
 				).toEqual([[path === script ? "RYOT_CLIENT_IMPORT" : "RYOT_CLIENT_STYLES", path]]);
 			}
 		}),
+	testTimeout,
 );

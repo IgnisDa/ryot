@@ -224,14 +224,14 @@ describe("Workout editor with a valid Pro key", () => {
 				client,
 				workoutEditorLinksRecipe({ reference, workoutId: repeated.entityId }),
 			);
-			expect(repeatedLinks.items).toContainEqual(
+			expect(repeatedLinks.items).toContainEqual<unknown>(
 				objectContaining({ slug: "workout-repeated-from", targetEntityId: sourceWorkout.entityId }),
 			);
 			const templateLinks = yield* executeRyotQLRecipe(
 				client,
 				workoutEditorLinksRecipe({ reference, workoutId: fromTemplate.entityId }),
 			);
-			expect(templateLinks.items).toContainEqual(
+			expect(templateLinks.items).toContainEqual<unknown>(
 				objectContaining({
 					slug: "workout-to-workout-template",
 					targetEntityId: sourceTemplate.entityId,

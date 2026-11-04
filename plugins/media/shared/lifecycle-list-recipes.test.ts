@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { describe, expect, it } from "vitest";
 
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "./lifecycle-expressions";
 import {
@@ -117,7 +118,7 @@ describe("episodic lifecycle list recipe", () => {
 		);
 
 		expect(decoded.pageInfo).toMatchObject({ hasMore: true, nextCursor: "next" });
-		expect(decoded.items.map((item) => [item.id, item.nextUp?.id ?? null])).toEqual([
+		expect(decoded.items.map((item) => [item.id, item.nextUp?.id ?? null])).toEqual<unknown>([
 			["show-1", "episode-5"],
 			["show-2", null],
 		]);

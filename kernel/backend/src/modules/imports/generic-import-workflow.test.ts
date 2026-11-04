@@ -1,4 +1,5 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type {
 	IngestionBatch,
 	IngestionIssue,
@@ -7,6 +8,8 @@ import type {
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -200,203 +203,218 @@ const applyCase = (
 		return { first, replay, issues, starts, batches, outcomes, registrations, definitionReads };
 	});
 
-it.effect("projects source failures once and reuses the applied projection on replay", () =>
-	Effect.gen(function* () {
-		const result = yield* applyCase({
-			items: [],
-			failures: [
+it.effect(
+	"projects source failures once and reuses the applied projection on replay",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* applyCase({
+				items: [],
+				failures: [
+					{
+						itemIndex: 4,
+						unit: "plays",
+						recordKind: "play",
+						sourceLabel: "Export",
+						operationId: "play-4",
+						message: "invalid input",
+						sourceIdentifier: "record-4",
+					},
+					{
+						itemIndex: 4,
+						unit: "plays",
+						recordKind: "play",
+						sourceLabel: "Export",
+						message: "invalid input",
+						operationId: "play-4-again",
+						sourceIdentifier: "record-4",
+					},
+				],
+			});
+			expect(result.first.summary).toEqual([
 				{
-					itemIndex: 4,
 					unit: "plays",
 					recordKind: "play",
-					sourceLabel: "Export",
-					operationId: "play-4",
-					message: "invalid input",
-					sourceIdentifier: "record-4",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
 				},
-				{
-					itemIndex: 4,
-					unit: "plays",
-					recordKind: "play",
-					sourceLabel: "Export",
-					message: "invalid input",
-					operationId: "play-4-again",
-					sourceIdentifier: "record-4",
-				},
-			],
-		});
-		expect(result.first.summary).toEqual([
-			{
-				unit: "plays",
-				recordKind: "play",
-				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
-			},
-		]);
-		expect(result.replay).toEqual(result.first);
-		expect(result.registrations).toEqual([["play-4", "play-4-again"]]);
-		expect(result.starts).toEqual([[ingestionTestScope, "batch"]]);
-		expect([...result.outcomes.keys()]).toEqual(["play-4", "play-4-again"]);
-		expect([...result.issues.keys()]).toEqual(["play-4", "play-4-again"]);
-		expect(result.definitionReads).toBe(1);
-		expect(result.first.issues[0]?.attribution).toEqual({
-			recordId: "4",
-			sourceLabel: "Export",
-			sourceIdentifier: "record-4",
-		});
-	}),
+			]);
+			expect(result.replay).toEqual(result.first);
+			expect(result.registrations).toEqual([["play-4", "play-4-again"]]);
+			expect(result.starts).toEqual([[ingestionTestScope, "batch"]]);
+			expect([...result.outcomes.keys()]).toEqual(["play-4", "play-4-again"]);
+			expect([...result.issues.keys()]).toEqual(["play-4", "play-4-again"]);
+			expect(result.definitionReads).toBe(1);
+			expect(result.first.issues[0]?.attribution).toEqual({
+				recordId: "4",
+				sourceLabel: "Export",
+				sourceIdentifier: "record-4",
+			});
+		}),
+	testTimeout,
 );
-it.effect("returns an empty applied batch without settling or sealing its root", () =>
-	Effect.gen(function* () {
-		const result = yield* applyCase({ items: [], failures: [] });
-		expect(result.first).toEqual({ issues: [], summary: [], confirmed: [] });
-		expect(result.batches.get("batch")?.state).toBe("applied");
-	}),
+it.effect(
+	"returns an empty applied batch without settling or sealing its root",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* applyCase({ items: [], failures: [] });
+			expect(result.first).toEqual({ issues: [], summary: [], confirmed: [] });
+			expect(result.batches.get("batch")?.state).toBe("applied");
+		}),
+	testTimeout,
 );
 
-it.effect("cannot use a kernel same-name schema through a plugin generic-import child", () =>
-	Effect.gen(function* () {
-		const result = yield* applyCase(
-			{
+it.effect(
+	"cannot use a kernel same-name schema through a plugin generic-import child",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* applyCase(
+				{
+					failures: [],
+					items: [
+						{
+							events: [],
+							itemIndex: 0,
+							relationships: [],
+							recordId: "foreign",
+							sourceLabel: "Import",
+							sourceIdentifier: "foreign",
+							subjectEntityAlias: "entity",
+							entities: [
+								{
+									properties: {},
+									alias: "entity",
+									name: "Collection",
+									operationId: "foreign-entity",
+									entitySchemaSlug: "collection",
+									outcome: { unit: "entities", recordKind: "entity" },
+								},
+							],
+						},
+					],
+				},
+				false,
+				{
+					...ingestionTestSource.pluginRevision,
+					schemaScope: {
+						...ingestionTestSource.pluginRevision.schemaScope,
+						entitySchemaSlugs: ["collection"],
+					},
+				},
+			);
+			expect(result.first.confirmed).toEqual([]);
+			expect(result.first.summary).toEqual([
+				{
+					unit: "entities",
+					recordKind: "entity",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects private global entity intents through the generic-import helper",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* applyCase(
+				{
+					failures: [],
+					items: [
+						{
+							events: [],
+							itemIndex: 0,
+							relationships: [],
+							recordId: "global",
+							sourceLabel: "Import",
+							sourceIdentifier: "global",
+							subjectEntityAlias: "entity",
+							entities: [
+								{
+									properties: {},
+									alias: "entity",
+									scope: "global",
+									name: "Collection",
+									operationId: "global-entity",
+									entitySchemaSlug: "collection",
+									outcome: { unit: "entities", recordKind: "entity" },
+								},
+							],
+						},
+					],
+				},
+				false,
+				{
+					...ingestionTestSource.pluginRevision,
+					scope: "user",
+					ownerId: ingestionTestScope.userId,
+					schemaScope: {
+						...ingestionTestSource.pluginRevision.schemaScope,
+						entitySchemaSlugs: ["collection"],
+					},
+				},
+			);
+			expect(result.first.confirmed).toEqual([]);
+			expect(result.first.summary).toEqual([
+				{
+					unit: "entities",
+					recordKind: "entity",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
+		}),
+	testTimeout,
+);
+it.effect(
+	"keeps original event attribution when preparation fails a grouped item",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* applyCase({
 				failures: [],
 				items: [
 					{
-						events: [],
 						itemIndex: 0,
+						recordId: "group",
 						relationships: [],
-						recordId: "foreign",
-						sourceLabel: "Import",
-						sourceIdentifier: "foreign",
-						subjectEntityAlias: "entity",
+						sourceLabel: "Group",
+						sourceIdentifier: "group",
+						subjectEntityAlias: "subject",
 						entities: [
 							{
 								properties: {},
-								alias: "entity",
-								name: "Collection",
-								operationId: "foreign-entity",
-								entitySchemaSlug: "collection",
-								outcome: { unit: "entities", recordKind: "entity" },
+								name: "Subject",
+								alias: "subject",
+								operationId: "support",
+								entitySchemaSlug: "missing-schema",
+							},
+						],
+						events: [
+							{
+								properties: {},
+								operationId: "play-1",
+								entityAlias: "subject",
+								eventSchemaSlug: "review",
+								occurredAt: ingestionTestNow,
+								outcome: { unit: "plays", recordKind: "play" },
+								attribution: {
+									sourceLabel: "History",
+									recordId: "original-play",
+									sourceIdentifier: "track/time",
+								},
 							},
 						],
 					},
 				],
-			},
-			false,
-			{
-				...ingestionTestSource.pluginRevision,
-				schemaScope: {
-					...ingestionTestSource.pluginRevision.schemaScope,
-					entitySchemaSlugs: ["collection"],
-				},
-			},
-		);
-		expect(result.first.confirmed).toEqual([]);
-		expect(result.first.summary).toEqual([
-			{
-				unit: "entities",
-				recordKind: "entity",
-				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
-			},
-		]);
-	}),
-);
-
-it.effect("rejects private global entity intents through the generic-import helper", () =>
-	Effect.gen(function* () {
-		const result = yield* applyCase(
-			{
-				failures: [],
-				items: [
-					{
-						events: [],
-						itemIndex: 0,
-						relationships: [],
-						recordId: "global",
-						sourceLabel: "Import",
-						sourceIdentifier: "global",
-						subjectEntityAlias: "entity",
-						entities: [
-							{
-								properties: {},
-								alias: "entity",
-								scope: "global",
-								name: "Collection",
-								operationId: "global-entity",
-								entitySchemaSlug: "collection",
-								outcome: { unit: "entities", recordKind: "entity" },
-							},
-						],
-					},
-				],
-			},
-			false,
-			{
-				...ingestionTestSource.pluginRevision,
-				scope: "user",
-				ownerId: ingestionTestScope.userId,
-				schemaScope: {
-					...ingestionTestSource.pluginRevision.schemaScope,
-					entitySchemaSlugs: ["collection"],
-				},
-			},
-		);
-		expect(result.first.confirmed).toEqual([]);
-		expect(result.first.summary).toEqual([
-			{
-				unit: "entities",
-				recordKind: "entity",
-				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
-			},
-		]);
-	}),
-);
-it.effect("keeps original event attribution when preparation fails a grouped item", () =>
-	Effect.gen(function* () {
-		const result = yield* applyCase({
-			failures: [],
-			items: [
+			});
+			expect(result.first.summary).toEqual([
 				{
-					itemIndex: 0,
-					recordId: "group",
-					relationships: [],
-					sourceLabel: "Group",
-					sourceIdentifier: "group",
-					subjectEntityAlias: "subject",
-					entities: [
-						{
-							properties: {},
-							name: "Subject",
-							alias: "subject",
-							operationId: "support",
-							entitySchemaSlug: "missing-schema",
-						},
-					],
-					events: [
-						{
-							properties: {},
-							operationId: "play-1",
-							entityAlias: "subject",
-							eventSchemaSlug: "review",
-							occurredAt: ingestionTestNow,
-							outcome: { unit: "plays", recordKind: "play" },
-							attribution: {
-								sourceLabel: "History",
-								recordId: "original-play",
-								sourceIdentifier: "track/time",
-							},
-						},
-					],
+					unit: "plays",
+					recordKind: "play",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
 				},
-			],
-		});
-		expect(result.first.summary).toEqual([
-			{
-				unit: "plays",
-				recordKind: "play",
-				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
-			},
-		]);
-		expect(result.registrations).toEqual([["support", "play-1"]]);
-		expect(result.first.issues[0]?.attribution?.recordId).toBe("original-play");
-		expect(result.first.confirmed).toEqual([]);
-	}),
+			]);
+			expect(result.registrations).toEqual([["support", "play-1"]]);
+			expect(result.first.issues[0]?.attribution?.recordId).toBe("original-play");
+			expect(result.first.confirmed).toEqual([]);
+		}),
+	testTimeout,
 );

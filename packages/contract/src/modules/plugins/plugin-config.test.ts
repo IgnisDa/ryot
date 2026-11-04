@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { PluginPackageId } from "../../schema/brands";
 import { pluginConfigEnvironmentKey } from "./plugin-config";

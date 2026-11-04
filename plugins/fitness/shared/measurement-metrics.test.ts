@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
 
 import { buildMetricRows } from "./measurement-metrics";
 import type { MeasurementSummary } from "./measurement-recipes";
@@ -31,7 +32,7 @@ describe("measurement calendar smoothing", () => {
 			bucket: "day",
 			timeZone: TimeZone.make("UTC"),
 		});
-		expect(rows[0]?.trend).toEqual([
+		expect(rows[0]?.trend).toEqual<unknown>([
 			averages[0],
 			{ value: null, at: "2026-01-03T00:00:00.000Z" },
 			averages[1],

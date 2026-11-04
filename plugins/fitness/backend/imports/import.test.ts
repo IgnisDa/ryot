@@ -1,3 +1,5 @@
+import { afterEach, expect, it } from "bun:test";
+
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	IngestionIssue,
@@ -17,9 +19,9 @@ import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
-import { afterEach, assert, expect, it } from "vitest";
 
 import applicationWorkflow from "../workflows/fitness-import-application.sandbox";
 import mergeWorkflow from "../workflows/fitness-import-merge.sandbox";
@@ -180,7 +182,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 						{ metadata: {}, sandboxScriptId: "fitness-import-application" },
 					);
 					if (envelope.state === "failed") {
-						assert.fail(envelope.error);
+						expect.unreachable(envelope.error);
 					}
 					if (envelope.state === "completed") {
 						value = envelope.output;
@@ -200,7 +202,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 						{ metadata: {}, sandboxScriptId: "fitness-import-merge" },
 					);
 					if (envelope.state === "failed") {
-						assert.fail(envelope.error);
+						expect.unreachable(envelope.error);
 					}
 					if (envelope.state === "completed") {
 						value = envelope.output;
@@ -314,7 +316,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 						break;
 					case "captures":
 					case "materialize":
-						assert.fail("Unexpected core operation");
+						expect.unreachable("Unexpected core operation");
 				}
 			}
 			return yield* Schema.decodeUnknownEffect(jsonValueSchema)(structuredClone(value));
@@ -325,7 +327,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			sandboxScriptId: "fitness-import",
 		});
 		if (envelope.state === "failed") {
-			assert.fail(envelope.error);
+			expect.unreachable(envelope.error);
 		}
 		if (envelope.state === "completed") {
 			expect(uploadBytesRead).toBe(upload.length);
@@ -642,7 +644,7 @@ it("pins the admitted OpenScale timezone through normalization and application",
 	Effect.runPromise(
 		runImport("open_scale", "dateTime,Weight\n2026-04-01 08:00:00,75").pipe(
 			Effect.map((result) => {
-				expect(result.requests).toContainEqual(
+				expect(result.requests).toContainEqual<unknown>(
 					objectContaining({
 						kind: "activity",
 						args: objectContaining({
@@ -809,11 +811,13 @@ it("rejects an admitted parser pin that does not match the source before collect
 			)
 			.pipe(
 				Effect.map((envelope) => {
-					expect(envelope).toMatchObject({
-						requests: [],
-						state: "failed",
-						error: stringContaining("plan does not match"),
-					});
+					expect(envelope).toEqual<unknown>(
+						objectContaining({
+							requests: [],
+							state: "failed",
+							error: stringContaining("plan does not match"),
+						}),
+					);
 				}),
 			),
 	));

@@ -1,6 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { providerEntityLinksRecipe } from "./provider-entity-links";
 import { rowsResponse } from "./test-utils";

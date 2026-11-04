@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { useRef, useState } from "react";
-import { axe } from "vitest-axe";
 
 import { Menu } from "./menu";
 import { Modal, shouldDismissSheet } from "./modal";
@@ -110,62 +113,68 @@ describe("Modal", () => {
 		expect(screen.queryByRole("dialog")).toBeNull();
 	});
 
-	it.live("restores trigger focus after document Back dismisses it", () =>
-		Effect.gen(function* () {
-			let dismiss: undefined | (() => boolean);
-			const adapter: OverlayBackAdapter = {
-				register: (handler) => {
-					dismiss = handler;
-					return () => {
-						dismiss = undefined;
-					};
-				},
-			};
-			function Page() {
-				const trigger = useRef<HTMLButtonElement>(null);
-				const [open, setOpen] = useState(false);
-				return (
-					<OverlayBackProvider adapter={adapter}>
-						<button ref={trigger} type="button" onClick={() => setOpen(true)}>
-							Open overlay
-						</button>
-						{open ? (
-							<Modal
-								label="Overlay"
-								triggerRef={trigger}
-								closeLabel="Close overlay"
-								onClose={() => setOpen(false)}
-							>
-								<button type="button">Inside overlay</button>
-							</Modal>
-						) : null}
-					</OverlayBackProvider>
-				);
-			}
-			render(<Page />);
-			const trigger = screen.getByRole("button", { name: "Open overlay" });
-			fireEvent.click(trigger);
+	it.live(
+		"restores trigger focus after document Back dismisses it",
+		() =>
+			Effect.gen(function* () {
+				let dismiss: undefined | (() => boolean);
+				const adapter: OverlayBackAdapter = {
+					register: (handler) => {
+						dismiss = handler;
+						return () => {
+							dismiss = undefined;
+						};
+					},
+				};
+				function Page() {
+					const trigger = useRef<HTMLButtonElement>(null);
+					const [open, setOpen] = useState(false);
+					return (
+						<OverlayBackProvider adapter={adapter}>
+							<button ref={trigger} type="button" onClick={() => setOpen(true)}>
+								Open overlay
+							</button>
+							{open ? (
+								<Modal
+									label="Overlay"
+									triggerRef={trigger}
+									closeLabel="Close overlay"
+									onClose={() => setOpen(false)}
+								>
+									<button type="button">Inside overlay</button>
+								</Modal>
+							) : null}
+						</OverlayBackProvider>
+					);
+				}
+				render(<Page />);
+				const trigger = screen.getByRole("button", { name: "Open overlay" });
+				fireEvent.click(trigger);
 
-			act(() => expect(dismiss?.()).toBe(true));
-			yield* Effect.promise(() => act(() => Promise.resolve()));
+				act(() => expect(dismiss?.()).toBe(true));
+				yield* Effect.promise(() => act(() => Promise.resolve()));
 
-			expect(screen.queryByRole("dialog")).toBeNull();
-			expect(document.activeElement).toBe(trigger);
-		}),
+				expect(screen.queryByRole("dialog")).toBeNull();
+				expect(document.activeElement).toBe(trigger);
+			}),
+		testTimeout,
 	);
 
-	it.live("focuses its first control and restores focus to the trigger when it closes", () =>
-		Effect.gen(function* () {
-			const view = render(<TriggeredModal onClose={() => {}} />);
+	it.live(
+		"focuses its first control and restores focus to the trigger when it closes",
+		() =>
+			Effect.gen(function* () {
+				const view = render(<TriggeredModal onClose={() => {}} />);
 
-			expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
+				expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cancel" }));
 
-			const trigger = screen.getByRole("button", { name: "Open" });
-			view.rerender(<TriggeredModal open={false} onClose={() => {}} />);
-			yield* Effect.promise(() => act(() => Promise.resolve()));
+				const trigger = screen.getByRole("button", { name: "Open" });
+				view.rerender(<TriggeredModal open={false} onClose={() => {}} />);
+				yield* Effect.promise(() => act(() => Promise.resolve()));
 
-			expect(document.activeElement).toBe(trigger);
-		}),
+				expect(document.activeElement).toBe(trigger);
+			}),
+		testTimeout,
 	);
 
 	it("focuses the dialog panel and closes on Escape when it has no interactive children", () => {
@@ -307,18 +316,21 @@ describe("Modal", () => {
 		expect(screen.getByRole("menuitem", { name: "Rename" }).closest("[inert]")).toBeNull();
 	});
 
-	it.live("passes an axe pass on the open dialog", () =>
-		Effect.gen(function* () {
-			render(<TriggeredModal onClose={() => {}} />);
+	it.live(
+		"passes an axe pass on the open dialog",
+		() =>
+			Effect.gen(function* () {
+				render(<TriggeredModal onClose={() => {}} />);
 
-			const results = yield* Effect.promise(() =>
-				axe(document.body, {
-					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-				}),
-			);
+				const results = yield* Effect.promise(() =>
+					axe.run(document.body, {
+						rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+					}),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it("ignores dismissal while it is not dismissible", () => {

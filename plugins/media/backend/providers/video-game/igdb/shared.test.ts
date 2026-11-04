@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import relatedScript, { manifest as relatedManifest } from "./related.sandbox";
@@ -196,41 +199,47 @@ describe("video-game.igdb sandbox script", () => {
 		);
 	});
 
-	it.live("fails when an IGDB search-options response is malformed", () =>
-		Effect.gen(function* () {
-			const host = makeHost({
-				httpCall: (_method, url) => {
-					const requestUrl = new URL(url);
-					if (requestUrl.host === "id.twitch.tv") {
-						return tokenResponse();
-					}
-					return httpSuccess(requestUrl.pathname === "/v4/themes" ? { invalid: true } : []);
-				},
-			});
+	it.live(
+		"fails when an IGDB search-options response is malformed",
+		() =>
+			Effect.gen(function* () {
+				const host = makeHost({
+					httpCall: (_method, url) => {
+						const requestUrl = new URL(url);
+						if (requestUrl.host === "id.twitch.tv") {
+							return tokenResponse();
+						}
+						return httpSuccess(requestUrl.pathname === "/v4/themes" ? { invalid: true } : []);
+					},
+				});
 
-			expect(
-				yield* Effect.flip(runSandboxTestScript(searchOptions, {}, host, execution)),
-			).toBeDefined();
-		}),
+				expect(
+					yield* Effect.flip(runSandboxTestScript(searchOptions, {}, host, execution)),
+				).toBeDefined();
+			}),
+		testTimeout,
 	);
 
-	it.live("propagates IGDB search-options request failures", () =>
-		Effect.gen(function* () {
-			const host = makeHost({
-				httpCall: (_method, url) => {
-					const requestUrl = new URL(url);
-					if (requestUrl.host === "id.twitch.tv") {
-						return tokenResponse();
-					}
-					return requestUrl.pathname === "/v4/themes"
-						? Effect.fail({ message: "IGDB unavailable" })
-						: httpSuccess([]);
-				},
-			});
+	it.live(
+		"propagates IGDB search-options request failures",
+		() =>
+			Effect.gen(function* () {
+				const host = makeHost({
+					httpCall: (_method, url) => {
+						const requestUrl = new URL(url);
+						if (requestUrl.host === "id.twitch.tv") {
+							return tokenResponse();
+						}
+						return requestUrl.pathname === "/v4/themes"
+							? Effect.fail({ message: "IGDB unavailable" })
+							: httpSuccess([]);
+					},
+				});
 
-			const error = yield* Effect.flip(runSandboxTestScript(searchOptions, {}, host, execution));
-			expect(error).toMatchObject({ message: "IGDB unavailable" });
-		}),
+				const error = yield* Effect.flip(runSandboxTestScript(searchOptions, {}, host, execution));
+				expect(error).toMatchObject({ message: "IGDB unavailable" });
+			}),
+		testTimeout,
 	);
 
 	it("maps search hits and paginates using the x-count header", () => {
@@ -351,30 +360,33 @@ describe("video-game.igdb sandbox script", () => {
 		);
 	});
 
-	it.live("rejects invalid search options", () =>
-		Effect.gen(function* () {
-			const host = makeHost({ httpCall: () => Effect.fail({ message: "unexpected request" }) });
-			const invalidOptions: ReadonlyArray<Readonly<Record<string, JsonValue>>> = [
-				{ genreIds: [1] },
-				{ allowGamesWithParent: "yes" },
-				{ unsupported: [] },
-			];
+	it.live(
+		"rejects invalid search options",
+		() =>
+			Effect.gen(function* () {
+				const host = makeHost({ httpCall: () => Effect.fail({ message: "unexpected request" }) });
+				const invalidOptions: ReadonlyArray<Readonly<Record<string, JsonValue>>> = [
+					{ genreIds: [1] },
+					{ allowGamesWithParent: "yes" },
+					{ unsupported: [] },
+				];
 
-			const errors = yield* Effect.forEach(
-				invalidOptions,
-				(options) =>
-					Effect.flip(
-						runSandboxTestScript(
-							search,
-							{ page: 1, options, pageSize: 20, query: "game" },
-							host,
-							execution,
+				const errors = yield* Effect.forEach(
+					invalidOptions,
+					(options) =>
+						Effect.flip(
+							runSandboxTestScript(
+								search,
+								{ page: 1, options, pageSize: 20, query: "game" },
+								host,
+								execution,
+							),
 						),
-					),
-				{ concurrency: "unbounded" },
-			);
-			expect(errors).toHaveLength(invalidOptions.length);
-		}),
+					{ concurrency: "unbounded" },
+				);
+				expect(errors).toHaveLength(invalidOptions.length);
+			}),
+		testTimeout,
 	);
 
 	it("requests a fresh token on a cache miss and caches it with the computed ttl", () => {

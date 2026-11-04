@@ -69,12 +69,14 @@ describe("plugin revision scopes", () => {
 					yield* pollSandboxResult(userId, admitted.jobId),
 					"admitted namespace writer",
 				);
-				expect(completed).toMatchObject({
-					label: "A1",
-					scriptId: script.id,
-					config: { writerMarker: "before" },
-					definitions: [objectContaining({ slug: "bottle" })],
-				});
+				expect(completed).toEqual<unknown>(
+					objectContaining({
+						label: "A1",
+						scriptId: script.id,
+						definitions: [objectContaining({ slug: "bottle" })],
+						config: objectContaining({ writerMarker: "before" }),
+					}),
+				);
 				const result = yield* Schema.decodeUnknownEffect(
 					Schema.Struct({
 						definitions: Schema.Array(entitySchemaRecordSchema),

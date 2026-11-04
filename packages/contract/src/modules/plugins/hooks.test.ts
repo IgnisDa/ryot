@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "../automations/lifecycle";
@@ -102,223 +105,254 @@ const authored = {
 const manifest = { ...authored, scripts: [script] };
 
 describe("lifecycle hook declarations", () => {
-	it.effect("keeps authored identity independent of target, script, metadata, and ordering", () =>
-		Effect.gen(function* () {
-			const decoded = yield* Schema.decodeEffect(PluginManifest)({
-				...manifest,
-				hooks: [
-					{
-						...hook,
-						position: 25,
-						metadata: { inheritedProperties: ["part"] },
-						targets: [
-							target,
-							{ resource: "entity", operation: "update", entitySchemaSlug: "item" },
-							{ operation: "delete", resource: "relationship", relationshipSchemaSlug: "contains" },
-						],
-					},
-				],
-			});
-			expect(decoded.hooks[0]).toMatchObject({ position: 25, slug: "item.policy" });
-			yield* Effect.flip(
-				Schema.decodeEffect(PluginManifest)({
+	it.effect(
+		"keeps authored identity independent of target, script, metadata, and ordering",
+		() =>
+			Effect.gen(function* () {
+				const decoded = yield* Schema.decodeEffect(PluginManifest)({
 					...manifest,
-					hooks: [hook, { ...hook, position: 99, targets: [{ ...target, operation: "delete" }] }],
-				}),
-			);
-		}),
-	);
-
-	it.effect("validates declared targets in both authored and archive manifests", () =>
-		Effect.gen(function* () {
-			expect((yield* Schema.decodeEffect(AuthoredPluginManifest)(authored)).hooks).toHaveLength(1);
-			for (const targets of [
-				[],
-				[{ ...target, eventSchemaSlug: "absent" }],
-				[{ ...target, entitySchemaSlug: "absent" }],
-				[{ ...target, operation: "emit" }],
-				[{ resource: "entity", operation: "create", entitySchemaSlug: "absent" }],
-				[{ operation: "update", resource: "relationship", relationshipSchemaSlug: "absent" }],
-			]) {
+					hooks: [
+						{
+							...hook,
+							position: 25,
+							metadata: { inheritedProperties: ["part"] },
+							targets: [
+								target,
+								{ resource: "entity", operation: "update", entitySchemaSlug: "item" },
+								{
+									operation: "delete",
+									resource: "relationship",
+									relationshipSchemaSlug: "contains",
+								},
+							],
+						},
+					],
+				});
+				expect(decoded.hooks[0]).toMatchObject({ position: 25, slug: "item.policy" });
 				yield* Effect.flip(
-					Schema.decodeUnknownEffect(AuthoredPluginManifest)({
-						...authored,
-						hooks: [{ ...hook, targets }],
-					}),
-				);
-				yield* Effect.flip(
-					Schema.decodeUnknownEffect(PluginManifest)({
+					Schema.decodeEffect(PluginManifest)({
 						...manifest,
-						hooks: [{ ...hook, targets }],
+						hooks: [hook, { ...hook, position: 99, targets: [{ ...target, operation: "delete" }] }],
 					}),
 				);
-			}
-		}),
+			}),
+		testTimeout,
 	);
 
-	it.effect("allows only policy-safe capabilities before a write", () =>
-		Effect.gen(function* () {
-			for (const capability of SANDBOX_HOST_CAPABILITIES) {
-				const candidate = { ...manifest, scripts: [{ ...script, capabilities: [capability] }] };
-				if (POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)) {
-					expect(
-						(yield* Schema.decodeUnknownEffect(PluginManifest)(candidate)).scripts[0]?.capabilities,
-					).toEqual([capability]);
-				} else {
-					yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)(candidate));
-				}
-			}
-		}),
-	);
-
-	it.effect("resolves plugin-owned collection targets", () =>
-		Effect.gen(function* () {
-			const targets = [
-				{ resource: "entity", operation: "update", entitySchemaSlug: "collection" },
-				{ ...target, eventSchemaSlug: "review", entitySchemaSlug: "collection" },
-				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "member-of" },
-			];
-			const collection = {
-				icon: "box",
-				slug: "collection",
-				name: "Collection",
-				propertiesSchema: { fields: {} },
-				eventSchemas: [{ slug: "review", name: "Review", propertiesSchema: { fields: {} } }],
-			};
-			const membership = {
-				slug: "member-of",
-				name: "Member of",
-				propertiesSchema: { fields: {} },
-				sourceEntitySchemaSlug: "collection",
-				targetEntitySchemaSlug: "collection",
-			};
-			for (const [schema, base] of [
-				[AuthoredPluginManifest, authored],
-				[PluginManifest, manifest],
-			] as const) {
-				const entitySchemas = [...base.entitySchemas, collection];
-				const candidate = {
-					...base,
-					entitySchemas,
-					hooks: [{ ...hook, targets }],
-					relationshipSchemas: [...base.relationshipSchemas, membership],
-				};
-				expect((yield* Schema.decodeUnknownEffect(schema)(candidate)).entitySchemas).toEqual(
-					entitySchemas,
+	it.effect(
+		"validates declared targets in both authored and archive manifests",
+		() =>
+			Effect.gen(function* () {
+				expect((yield* Schema.decodeEffect(AuthoredPluginManifest)(authored)).hooks).toHaveLength(
+					1,
 				);
-				for (const invalidTarget of [
-					{ ...target, entitySchemaSlug: "absent" },
-					{ ...target, eventSchemaSlug: "absent" },
-					{ ...target, entitySchemaSlug: "item", eventSchemaSlug: "review" },
-					{ operation: "create", resource: "relationship", relationshipSchemaSlug: "absent" },
+				for (const targets of [
+					[],
+					[{ ...target, eventSchemaSlug: "absent" }],
+					[{ ...target, entitySchemaSlug: "absent" }],
+					[{ ...target, operation: "emit" }],
+					[{ resource: "entity", operation: "create", entitySchemaSlug: "absent" }],
+					[{ operation: "update", resource: "relationship", relationshipSchemaSlug: "absent" }],
 				]) {
 					yield* Effect.flip(
-						Schema.decodeUnknownEffect(schema)({
-							...candidate,
-							hooks: [{ ...hook, targets: [invalidTarget] }],
+						Schema.decodeUnknownEffect(AuthoredPluginManifest)({
+							...authored,
+							hooks: [{ ...hook, targets }],
+						}),
+					);
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({
+							...manifest,
+							hooks: [{ ...hook, targets }],
 						}),
 					);
 				}
-			}
-		}),
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects missing, wrong-kind, and wrong-stage script definitions", () =>
-		Effect.gen(function* () {
-			for (const scripts of [
-				[],
-				[{ ...script, automationType: "automation", inputProjection: afterInputProjection }],
-				[{ ...script, automationType: undefined }],
-				[{ ...script, kind: "script", automationType: undefined }],
-			]) {
-				yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)({ ...manifest, scripts }));
-			}
-			yield* Effect.flip(
-				Schema.decodeEffect(PluginManifest)({
-					...manifest,
-					hooks: [{ ...hook, stage: "after", delivery: "required" }],
-				}),
-			);
-		}),
+	it.effect(
+		"allows only policy-safe capabilities before a write",
+		() =>
+			Effect.gen(function* () {
+				for (const capability of SANDBOX_HOST_CAPABILITIES) {
+					const candidate = { ...manifest, scripts: [{ ...script, capabilities: [capability] }] };
+					if (POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)) {
+						expect(
+							(yield* Schema.decodeUnknownEffect(PluginManifest)(candidate)).scripts[0]
+								?.capabilities,
+						).toEqual([capability]);
+					} else {
+						yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)(candidate));
+					}
+				}
+			}),
+		testTimeout,
 	);
 
-	it.effect("requires hook resources to be covered by the matching script projection", () =>
-		Effect.gen(function* () {
-			for (const inputProjection of [undefined, {}, { entity: undefined }]) {
+	it.effect(
+		"resolves plugin-owned collection targets",
+		() =>
+			Effect.gen(function* () {
+				const targets = [
+					{ resource: "entity", operation: "update", entitySchemaSlug: "collection" },
+					{ ...target, eventSchemaSlug: "review", entitySchemaSlug: "collection" },
+					{ operation: "create", resource: "relationship", relationshipSchemaSlug: "member-of" },
+				];
+				const collection = {
+					icon: "box",
+					slug: "collection",
+					name: "Collection",
+					propertiesSchema: { fields: {} },
+					eventSchemas: [{ slug: "review", name: "Review", propertiesSchema: { fields: {} } }],
+				};
+				const membership = {
+					slug: "member-of",
+					name: "Member of",
+					propertiesSchema: { fields: {} },
+					sourceEntitySchemaSlug: "collection",
+					targetEntitySchemaSlug: "collection",
+				};
+				for (const [schema, base] of [
+					[AuthoredPluginManifest, authored],
+					[PluginManifest, manifest],
+				] as const) {
+					const entitySchemas = [...base.entitySchemas, collection];
+					const candidate = {
+						...base,
+						entitySchemas,
+						hooks: [{ ...hook, targets }],
+						relationshipSchemas: [...base.relationshipSchemas, membership],
+					};
+					expect((yield* Schema.decodeUnknownEffect(schema)(candidate)).entitySchemas).toEqual(
+						entitySchemas,
+					);
+					for (const invalidTarget of [
+						{ ...target, entitySchemaSlug: "absent" },
+						{ ...target, eventSchemaSlug: "absent" },
+						{ ...target, entitySchemaSlug: "item", eventSchemaSlug: "review" },
+						{ operation: "create", resource: "relationship", relationshipSchemaSlug: "absent" },
+					]) {
+						yield* Effect.flip(
+							Schema.decodeUnknownEffect(schema)({
+								...candidate,
+								hooks: [{ ...hook, targets: [invalidTarget] }],
+							}),
+						);
+					}
+				}
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"rejects missing, wrong-kind, and wrong-stage script definitions",
+		() =>
+			Effect.gen(function* () {
+				for (const scripts of [
+					[],
+					[{ ...script, automationType: "automation", inputProjection: afterInputProjection }],
+					[{ ...script, automationType: undefined }],
+					[{ ...script, kind: "script", automationType: undefined }],
+				]) {
+					yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)({ ...manifest, scripts }));
+				}
 				yield* Effect.flip(
-					Schema.decodeUnknownEffect(PluginManifest)({
+					Schema.decodeEffect(PluginManifest)({
 						...manifest,
-						scripts: [{ ...script, inputProjection }],
+						hooks: [{ ...hook, stage: "after", delivery: "required" }],
 					}),
 				);
-			}
-		}),
+			}),
+		testTimeout,
 	);
 
-	it.effect("restricts before-only fields and disallows deferred policy retries", () =>
-		Effect.gen(function* () {
-			for (const addition of [
-				{ delivery: "async" },
-				{ retry: DEFAULT_AUTOMATION_RETRY_POLICY },
-				{ position: 1.5 },
-				{ batchMaxItems: 50 },
-			]) {
-				yield* Effect.flip(
-					Schema.decodeEffect(PluginManifest)({ ...manifest, hooks: [{ ...hook, ...addition }] }),
-				);
-			}
-			const after = {
-				...manifest,
-				hooks: [{ ...hook, stage: "after", delivery: "async" }],
-				scripts: [
-					{ ...script, automationType: "automation", inputProjection: afterInputProjection },
-				],
-			};
-			expect((yield* Schema.decodeUnknownEffect(PluginManifest)(after)).hooks).toHaveLength(1);
-			for (const addition of [
-				{ position: 1 },
-				{ batchFrequency: "item" },
-				{ batchFrequency: "once-per-subject" },
-				{ batchMaxItems: 50 },
-			]) {
-				yield* Effect.flip(
-					Schema.decodeUnknownEffect(PluginManifest)({
+	it.effect(
+		"requires hook resources to be covered by the matching script projection",
+		() =>
+			Effect.gen(function* () {
+				for (const inputProjection of [undefined, {}, { entity: undefined }]) {
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({
+							...manifest,
+							scripts: [{ ...script, inputProjection }],
+						}),
+					);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"restricts before-only fields and disallows deferred policy retries",
+		() =>
+			Effect.gen(function* () {
+				for (const addition of [
+					{ delivery: "async" },
+					{ retry: DEFAULT_AUTOMATION_RETRY_POLICY },
+					{ position: 1.5 },
+					{ batchMaxItems: 50 },
+				]) {
+					yield* Effect.flip(
+						Schema.decodeEffect(PluginManifest)({ ...manifest, hooks: [{ ...hook, ...addition }] }),
+					);
+				}
+				const after = {
+					...manifest,
+					hooks: [{ ...hook, stage: "after", delivery: "async" }],
+					scripts: [
+						{ ...script, automationType: "automation", inputProjection: afterInputProjection },
+					],
+				};
+				expect((yield* Schema.decodeUnknownEffect(PluginManifest)(after)).hooks).toHaveLength(1);
+				for (const addition of [
+					{ position: 1 },
+					{ batchFrequency: "item" },
+					{ batchFrequency: "once-per-subject" },
+					{ batchMaxItems: 50 },
+				]) {
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({
+							...after,
+							hooks: [{ ...after.hooks[0], ...addition }],
+						}),
+					);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"allows a safe per-hook item cap only on after batch hooks",
+		() =>
+			Effect.gen(function* () {
+				const after = {
+					...manifest,
+					hooks: [{ ...hook, stage: "after", delivery: "async", frequency: "batch" }],
+					scripts: [
+						{ ...script, automationType: "automation", inputProjection: afterInputProjection },
+					],
+				};
+				for (const batchMaxItems of [1, 50, 1_000]) {
+					const decoded = yield* Schema.decodeUnknownEffect(PluginManifest)({
 						...after,
-						hooks: [{ ...after.hooks[0], ...addition }],
-					}),
-				);
-			}
-		}),
-	);
-
-	it.effect("allows a safe per-hook item cap only on after batch hooks", () =>
-		Effect.gen(function* () {
-			const after = {
-				...manifest,
-				hooks: [{ ...hook, stage: "after", delivery: "async", frequency: "batch" }],
-				scripts: [
-					{ ...script, automationType: "automation", inputProjection: afterInputProjection },
-				],
-			};
-			for (const batchMaxItems of [1, 50, 1_000]) {
-				const decoded = yield* Schema.decodeUnknownEffect(PluginManifest)({
-					...after,
-					hooks: [{ ...after.hooks[0], batchMaxItems }],
-				});
-				expect(decoded.hooks[0]).toMatchObject({ batchMaxItems, frequency: "batch" });
-			}
-			for (const invalidHook of [
-				{ ...after.hooks[0], frequency: "item", batchMaxItems: 50 },
-				{ ...after.hooks[0], batchMaxItems: 0 },
-				{ ...after.hooks[0], batchMaxItems: 1.5 },
-				{ ...after.hooks[0], batchMaxItems: 1_001 },
-				{ ...after.hooks[0], batchMaxItems: Number.MAX_SAFE_INTEGER + 1 },
-			]) {
-				yield* Effect.flip(
-					Schema.decodeUnknownEffect(PluginManifest)({ ...after, hooks: [invalidHook] }),
-				);
-			}
-		}),
+						hooks: [{ ...after.hooks[0], batchMaxItems }],
+					});
+					expect(decoded.hooks[0]).toMatchObject({ batchMaxItems, frequency: "batch" });
+				}
+				for (const invalidHook of [
+					{ ...after.hooks[0], frequency: "item", batchMaxItems: 50 },
+					{ ...after.hooks[0], batchMaxItems: 0 },
+					{ ...after.hooks[0], batchMaxItems: 1.5 },
+					{ ...after.hooks[0], batchMaxItems: 1_001 },
+					{ ...after.hooks[0], batchMaxItems: Number.MAX_SAFE_INTEGER + 1 },
+				]) {
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({ ...after, hooks: [invalidHook] }),
+					);
+				}
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -350,6 +384,7 @@ describe("lifecycle hook declarations", () => {
 					);
 				}
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -445,6 +480,7 @@ describe("lifecycle hook declarations", () => {
 					);
 				}
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -493,166 +529,181 @@ describe("lifecycle hook declarations", () => {
 					).toHaveLength(1);
 				}
 			}),
+		testTimeout,
 	);
 
-	it.effect("requires idempotency for external effects in any registered child alternative", () =>
-		Effect.gen(function* () {
-			for (const capability of ["httpCall", "sendNotification"] as const) {
-				const retry = { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 };
-				const candidate = {
-					...manifest,
-					workflows: [{ slug: "nested", scriptSlug: "nested-workflow" }],
-					hooks: [{ ...hook, retry, stage: "after", delivery: "required" }],
-					scripts: [
-						{
-							...script,
-							capabilities: [],
-							automationType: "automation",
-							inputProjection: afterInputProjection,
-							executableDependencies: [
-								{
-									kind: "script",
-									slug: "delegate",
-									selection: { id: "path", key: "delegated", stage: "settings" },
-								},
-								{
-									slug: "safe",
-									kind: "script",
-									selection: { id: "path", key: "local", stage: "settings" },
-								},
-							],
-						},
-						registeredScript("delegate", [], [{ slug: "nested", kind: "workflow" }]),
-						registeredScript("safe"),
-						{
-							...registeredScript("nested-workflow", [], [{ kind: "script", slug: "effect" }]),
-							kind: "workflow" as const,
-						},
-						registeredScript("effect", [capability]),
-					],
-				};
-				yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)(candidate));
-				const decoded = yield* Schema.decodeUnknownEffect(PluginManifest)({
-					...candidate,
-					hooks: [{ ...candidate.hooks[0], retry: { ...retry, externalIdempotency: "run-id" } }],
-				});
-				expect(decoded.scripts.find(({ slug }) => slug === "policy")?.capabilities).toEqual([]);
-			}
-		}),
-	);
-
-	it.effect("rejects unresolved delegated script and workflow targets", () =>
-		Effect.gen(function* () {
-			for (const dependency of [
-				{ kind: "script", slug: "missing-script" },
-				{ kind: "workflow", slug: "missing-workflow" },
-			]) {
-				yield* Effect.flip(
-					Schema.decodeUnknownEffect(PluginManifest)({
+	it.effect(
+		"requires idempotency for external effects in any registered child alternative",
+		() =>
+			Effect.gen(function* () {
+				for (const capability of ["httpCall", "sendNotification"] as const) {
+					const retry = { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 };
+					const candidate = {
 						...manifest,
+						workflows: [{ slug: "nested", scriptSlug: "nested-workflow" }],
+						hooks: [{ ...hook, retry, stage: "after", delivery: "required" }],
 						scripts: [
 							{
 								...script,
+								capabilities: [],
 								automationType: "automation",
-								executableDependencies: [dependency],
 								inputProjection: afterInputProjection,
+								executableDependencies: [
+									{
+										kind: "script",
+										slug: "delegate",
+										selection: { id: "path", key: "delegated", stage: "settings" },
+									},
+									{
+										slug: "safe",
+										kind: "script",
+										selection: { id: "path", key: "local", stage: "settings" },
+									},
+								],
 							},
-						],
-						hooks: [
+							registeredScript("delegate", [], [{ slug: "nested", kind: "workflow" }]),
+							registeredScript("safe"),
 							{
-								...hook,
-								stage: "after",
-								delivery: "required",
-								retry: {
-									...DEFAULT_AUTOMATION_RETRY_POLICY,
-									maxAttempts: 3,
-									externalIdempotency: "run-id",
-								},
+								...registeredScript("nested-workflow", [], [{ kind: "script", slug: "effect" }]),
+								kind: "workflow" as const,
 							},
+							registeredScript("effect", [capability]),
 						],
+					};
+					yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)(candidate));
+					const decoded = yield* Schema.decodeUnknownEffect(PluginManifest)({
+						...candidate,
+						hooks: [{ ...candidate.hooks[0], retry: { ...retry, externalIdempotency: "run-id" } }],
+					});
+					expect(decoded.scripts.find(({ slug }) => slug === "policy")?.capabilities).toEqual([]);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"rejects unresolved delegated script and workflow targets",
+		() =>
+			Effect.gen(function* () {
+				for (const dependency of [
+					{ kind: "script", slug: "missing-script" },
+					{ kind: "workflow", slug: "missing-workflow" },
+				]) {
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({
+							...manifest,
+							scripts: [
+								{
+									...script,
+									automationType: "automation",
+									executableDependencies: [dependency],
+									inputProjection: afterInputProjection,
+								},
+							],
+							hooks: [
+								{
+									...hook,
+									stage: "after",
+									delivery: "required",
+									retry: {
+										...DEFAULT_AUTOMATION_RETRY_POLICY,
+										maxAttempts: 3,
+										externalIdempotency: "run-id",
+									},
+								},
+							],
+						}),
+					);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"binds signal notifications to an after hook targeting that signal",
+		() =>
+			Effect.gen(function* () {
+				const signal = {
+					slug: "changed",
+					name: "Changed",
+					catalogState: "active",
+					propertiesSchema: { fields: {} },
+					audiencePolicy: { kind: "actor" },
+					notificationHookSlug: "item.notify",
+				};
+				const notification = {
+					...hook,
+					stage: "after",
+					delivery: "async",
+					slug: "item.notify",
+					targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "changed" }],
+				};
+				const candidate = {
+					...manifest,
+					hooks: [notification],
+					signalSchemas: [signal],
+					scripts: [
+						{
+							...script,
+							automationType: "automation",
+							capabilities: ["sendNotification"],
+							inputProjection: { signal: { properties: [] } },
+						},
+					],
+				};
+				expect(
+					(yield* Schema.decodeUnknownEffect(PluginManifest)(candidate)).signalSchemas[0]
+						?.notificationHookSlug,
+				).toBe("item.notify");
+				for (const change of [
+					{ hooks: [{ ...notification, targets: [target] }] },
+					{ hooks: [{ ...notification, stage: "before", delivery: undefined }] },
+					{ signalSchemas: [{ ...signal, notificationHookSlug: "policy" }] },
+				]) {
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({ ...candidate, ...change }),
+					);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"accepts provider completion only as an after fact for a declared entity schema",
+		() =>
+			Effect.gen(function* () {
+				const after = {
+					...manifest,
+					scripts: [
+						{
+							...script,
+							automationType: "automation",
+							inputProjection: { providerEntityImport: true },
+						},
+					],
+					hooks: [
+						{
+							...hook,
+							stage: "after",
+							delivery: "required",
+							targets: [
+								{
+									operation: "complete",
+									entitySchemaSlug: "item",
+									resource: "provider-entity-import",
+								},
+							],
+						},
+					],
+				};
+				expect((yield* Schema.decodeUnknownEffect(PluginManifest)(after)).hooks).toHaveLength(1);
+				yield* Effect.flip(
+					Schema.decodeUnknownEffect(PluginManifest)({
+						...after,
+						hooks: [{ ...hook, targets: after.hooks[0]?.targets }],
 					}),
 				);
-			}
-		}),
-	);
-
-	it.effect("binds signal notifications to an after hook targeting that signal", () =>
-		Effect.gen(function* () {
-			const signal = {
-				slug: "changed",
-				name: "Changed",
-				catalogState: "active",
-				propertiesSchema: { fields: {} },
-				audiencePolicy: { kind: "actor" },
-				notificationHookSlug: "item.notify",
-			};
-			const notification = {
-				...hook,
-				stage: "after",
-				delivery: "async",
-				slug: "item.notify",
-				targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "changed" }],
-			};
-			const candidate = {
-				...manifest,
-				hooks: [notification],
-				signalSchemas: [signal],
-				scripts: [
-					{
-						...script,
-						automationType: "automation",
-						capabilities: ["sendNotification"],
-						inputProjection: { signal: { properties: [] } },
-					},
-				],
-			};
-			expect(
-				(yield* Schema.decodeUnknownEffect(PluginManifest)(candidate)).signalSchemas[0]
-					?.notificationHookSlug,
-			).toBe("item.notify");
-			for (const change of [
-				{ hooks: [{ ...notification, targets: [target] }] },
-				{ hooks: [{ ...notification, stage: "before", delivery: undefined }] },
-				{ signalSchemas: [{ ...signal, notificationHookSlug: "policy" }] },
-			]) {
-				yield* Effect.flip(Schema.decodeUnknownEffect(PluginManifest)({ ...candidate, ...change }));
-			}
-		}),
-	);
-
-	it.effect("accepts provider completion only as an after fact for a declared entity schema", () =>
-		Effect.gen(function* () {
-			const after = {
-				...manifest,
-				scripts: [
-					{
-						...script,
-						automationType: "automation",
-						inputProjection: { providerEntityImport: true },
-					},
-				],
-				hooks: [
-					{
-						...hook,
-						stage: "after",
-						delivery: "required",
-						targets: [
-							{
-								operation: "complete",
-								entitySchemaSlug: "item",
-								resource: "provider-entity-import",
-							},
-						],
-					},
-				],
-			};
-			expect((yield* Schema.decodeUnknownEffect(PluginManifest)(after)).hooks).toHaveLength(1);
-			yield* Effect.flip(
-				Schema.decodeUnknownEffect(PluginManifest)({
-					...after,
-					hooks: [{ ...hook, targets: after.hooks[0]?.targets }],
-				}),
-			);
-		}),
+			}),
+		testTimeout,
 	);
 });

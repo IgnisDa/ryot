@@ -1,8 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { IntegrationId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
-import { describe } from "vitest";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -75,86 +77,91 @@ layer(
 		Layer.provideMerge(makeConfigProviderLayer()),
 	),
 )((test) => {
-	test.effect("lists enabled yank integrations only for active users", () =>
-		Effect.gen(function* () {
-			const database = yield* DatabaseSession;
-			const repository = yield* IntegrationsRepository;
-			const activeUserId = UserId.make("active-yank-user");
-			const disabledUserId = UserId.make("disabled-yank-user");
-			const pluginId = "yank-listing-fixture-plugin";
-			const activeInstallationId = "active-yank-installation";
-			const disabledInstallationId = "disabled-yank-installation";
-			const activeYankId = IntegrationId.make("active-yank-integration");
-			const disabledUserYankId = IntegrationId.make("disabled-user-yank-integration");
-			const disabledIntegrationId = IntegrationId.make("disabled-integration");
-			const nonYankId = IntegrationId.make("non-yank-integration");
+	test.effect(
+		"lists enabled yank integrations only for active users",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const repository = yield* IntegrationsRepository;
+				const activeUserId = UserId.make("active-yank-user");
+				const disabledUserId = UserId.make("disabled-yank-user");
+				const pluginId = "yank-listing-fixture-plugin";
+				const activeInstallationId = "active-yank-installation";
+				const disabledInstallationId = "disabled-yank-installation";
+				const activeYankId = IntegrationId.make("active-yank-integration");
+				const disabledUserYankId = IntegrationId.make("disabled-user-yank-integration");
+				const disabledIntegrationId = IntegrationId.make("disabled-integration");
+				const nonYankId = IntegrationId.make("non-yank-integration");
 
-			yield* database.run((db) =>
-				db.insert(tables.user).values([
-					{ name: "Active", id: activeUserId, email: "active-yank@example.test" },
-					{
-						name: "Disabled",
-						id: disabledUserId,
-						disabledAt: timestamp,
-						email: "disabled-yank@example.test",
-					},
-				]),
-			);
-			yield* database.run((db) =>
-				db
-					.insert(tables.plugin)
-					.values({
-						id: pluginId,
-						status: "inactive",
-						packageId: PluginPackageId.make("fixture/yank"),
-					}),
-			);
-			yield* database.run((db) =>
-				db.insert(tables.pluginInstallation).values([
-					{ pluginId, userId: activeUserId, id: activeInstallationId },
-					{ pluginId, userId: disabledUserId, id: disabledInstallationId },
-				]),
-			);
+				yield* database.run((db) =>
+					db.insert(tables.user).values([
+						{ name: "Active", id: activeUserId, email: "active-yank@example.test" },
+						{
+							name: "Disabled",
+							id: disabledUserId,
+							disabledAt: timestamp,
+							email: "disabled-yank@example.test",
+						},
+					]),
+				);
+				yield* database.run((db) =>
+					db
+						.insert(tables.plugin)
+						.values({
+							id: pluginId,
+							status: "inactive",
+							packageId: PluginPackageId.make("fixture/yank"),
+						}),
+				);
+				yield* database.run((db) =>
+					db.insert(tables.pluginInstallation).values([
+						{ pluginId, userId: activeUserId, id: activeInstallationId },
+						{ pluginId, userId: disabledUserId, id: disabledInstallationId },
+					]),
+				);
 
-			const yankIntegration = {
-				lot: "yank",
-				isDisabled: false,
-				userId: activeUserId,
-				providerSpecifics: {},
-				provider: "fixture-yank",
-				clientProviderSpecifics: {},
-				pluginInstallationId: activeInstallationId,
-				extraSettings: { disableOnContinuousErrors: false },
-			} satisfies typeof tables.integration.$inferInsert;
-			yield* database.run((db) =>
-				db.insert(tables.integration).values([
-					{ ...yankIntegration, id: activeYankId },
-					{
-						...yankIntegration,
-						id: disabledUserYankId,
-						userId: disabledUserId,
-						pluginInstallationId: disabledInstallationId,
-					},
-					{ ...yankIntegration, isDisabled: true, id: disabledIntegrationId },
-					{ ...yankIntegration, lot: "push", id: nonYankId },
-				]),
-			);
+				const yankIntegration = {
+					lot: "yank",
+					isDisabled: false,
+					userId: activeUserId,
+					providerSpecifics: {},
+					provider: "fixture-yank",
+					clientProviderSpecifics: {},
+					pluginInstallationId: activeInstallationId,
+					extraSettings: { disableOnContinuousErrors: false },
+				} satisfies typeof tables.integration.$inferInsert;
+				yield* database.run((db) =>
+					db.insert(tables.integration).values([
+						{ ...yankIntegration, id: activeYankId },
+						{
+							...yankIntegration,
+							id: disabledUserYankId,
+							userId: disabledUserId,
+							pluginInstallationId: disabledInstallationId,
+						},
+						{ ...yankIntegration, isDisabled: true, id: disabledIntegrationId },
+						{ ...yankIntegration, lot: "push", id: nonYankId },
+					]),
+				);
 
-			expect(
-				(yield* repository.listEnabledYankIntegrations({ userId: null })).map(({ id }) => id),
-			).toEqual([activeYankId]);
-			expect(
-				(yield* repository.listEnabledYankIntegrations({ userId: activeUserId })).map(
-					({ id }) => id,
-				),
-			).toEqual([activeYankId]);
-			expect(yield* repository.listEnabledYankIntegrations({ userId: disabledUserId })).toEqual([]);
-			expect(yield* repository.isUserDisabled({ userId: disabledUserId })).toBe(true);
-			expect(yield* repository.isUserDisabled({ userId: activeUserId })).toBe(false);
-			expect(yield* repository.isUserDisabled({ userId: UserId.make("missing-yank-user") })).toBe(
-				true,
-			);
-		}),
+				expect(
+					(yield* repository.listEnabledYankIntegrations({ userId: null })).map(({ id }) => id),
+				).toEqual([activeYankId]);
+				expect(
+					(yield* repository.listEnabledYankIntegrations({ userId: activeUserId })).map(
+						({ id }) => id,
+					),
+				).toEqual([activeYankId]);
+				expect(yield* repository.listEnabledYankIntegrations({ userId: disabledUserId })).toEqual(
+					[],
+				);
+				expect(yield* repository.isUserDisabled({ userId: disabledUserId })).toBe(true);
+				expect(yield* repository.isUserDisabled({ userId: activeUserId })).toBe(false);
+				expect(yield* repository.isUserDisabled({ userId: UserId.make("missing-yank-user") })).toBe(
+					true,
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -261,6 +268,7 @@ describe("integration client settings projection", () => {
 					);
 					expect(yield* client).toEqual({ kind: "notes" });
 				}),
+			testTimeout,
 		);
 	});
 
@@ -302,6 +310,7 @@ describe("integration client settings projection", () => {
 					});
 					expect(yield* client("undeclared")).toEqual({ kind: "notes" });
 				}),
+			testTimeout,
 		);
 	});
 
@@ -371,6 +380,7 @@ describe("integration client settings projection", () => {
 							?.providerSpecifics,
 					).toMatchObject({ endpoint: "https://other.test" });
 				}),
+			testTimeout,
 		);
 	});
 });

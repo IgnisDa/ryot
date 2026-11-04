@@ -1,7 +1,8 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { waitFor } from "@testing-library/dom";
 import { createRef } from "react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import type { MediaImage } from "../../shared/media-image";
 import type { MediaOverviewRows } from "../../shared/media-recipes";

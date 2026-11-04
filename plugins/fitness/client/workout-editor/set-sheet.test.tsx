@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { disposePluginBridges } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, useEffect, useState } from "react";
 
 import type {
@@ -94,40 +97,46 @@ const mountSheet = (initial: SheetProps) => {
 };
 
 describe("SetSheet", () => {
-	it.live("deletes incomplete sets directly", () =>
-		Effect.gen(function* () {
-			const deleted: string[] = [];
-			yield* mountSheet(propsFor(makeSet(false), { onDelete: () => deleted.push("set") }));
+	it.live(
+		"deletes incomplete sets directly",
+		() =>
+			Effect.gen(function* () {
+				const deleted: string[] = [];
+				yield* mountSheet(propsFor(makeSet(false), { onDelete: () => deleted.push("set") }));
 
-			click(screen.getByRole("button", { name: "Delete set" }));
+				click(screen.getByRole("button", { name: "Delete set" }));
 
-			expect(deleted).toEqual(["set"]);
-			expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull();
-		}),
+				expect(deleted).toEqual(["set"]);
+				expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("asks before deleting a completed set and cancel changes nothing", () =>
-		Effect.gen(function* () {
-			const deleted: string[] = [];
-			yield* mountSheet(propsFor(makeSet(true), { onDelete: () => deleted.push("set") }));
+	it.live(
+		"asks before deleting a completed set and cancel changes nothing",
+		() =>
+			Effect.gen(function* () {
+				const deleted: string[] = [];
+				yield* mountSheet(propsFor(makeSet(true), { onDelete: () => deleted.push("set") }));
 
-			click(screen.getByRole("button", { name: "Delete set" }));
+				click(screen.getByRole("button", { name: "Delete set" }));
 
-			const confirmation = screen.getByRole("dialog", { name: "Delete completed set?" });
-			expect(
-				within(confirmation).getByText(
-					"This completed set will be removed. This action cannot be undone.",
-				),
-			).toBeTruthy();
-			click(within(confirmation).getByRole("button", { name: "Cancel" }));
+				const confirmation = screen.getByRole("dialog", { name: "Delete completed set?" });
+				expect(
+					within(confirmation).getByText(
+						"This completed set will be removed. This action cannot be undone.",
+					),
+				).toBeTruthy();
+				click(within(confirmation).getByRole("button", { name: "Cancel" }));
 
-			expect(deleted).toEqual([]);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull(),
-				),
-			);
-		}),
+				expect(deleted).toEqual([]);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull(),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -168,5 +177,6 @@ describe("SetSheet", () => {
 
 				expect(deleted).toEqual(["current"]);
 			}),
+		testTimeout,
 	);
 });

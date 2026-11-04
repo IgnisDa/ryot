@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Duration } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { parseFrequentSchedule } from "./cron";
 

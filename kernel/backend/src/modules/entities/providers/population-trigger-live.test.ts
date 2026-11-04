@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -7,6 +8,9 @@ import {
 	EntitySchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -224,144 +228,162 @@ const triggerLayer = (
 	).pipe(Layer.provideMerge(revisionDatabaseLayer), Layer.provide(makeAppConfigLayer()));
 
 layer(triggerLayer("system", { enqueueFails: true, systemSubject: true }))((test) => {
-	test.effect("keeps a deterministic system ID and exposes enqueue failure", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
-			expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
-				entityPopulationExecutionId(fixture.request.entityId, null, fixture.request.execution),
-			]);
-			expect(Exit.isFailure(exit)).toBe(true);
-		}),
+	test.effect(
+		"keeps a deterministic system ID and exposes enqueue failure",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
+				expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
+					entityPopulationExecutionId(fixture.request.entityId, null, fixture.request.execution),
+				]);
+				expect(Exit.isFailure(exit)).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 layer(triggerLayer("system", { unavailable: true }))((test) => {
-	test.effect("does not enqueue population for an unavailable installation", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			expect(yield* (yield* EntityPopulationTrigger).request(fixture.request)).toBe(false);
-			expect(yield* fixture.executions).toEqual([]);
-		}),
+	test.effect(
+		"does not enqueue population for an unavailable installation",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				expect(yield* (yield* EntityPopulationTrigger).request(fixture.request)).toBe(false);
+				expect(yield* fixture.executions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 for (const scope of ["system", "user"] as const) {
 	layer(triggerLayer(scope, { admissionFails: true, systemSubject: scope === "system" }))(
 		(test) => {
-			test.effect(`rolls back ${scope} population admission and registration together`, () =>
-				Effect.gen(function* () {
-					const fixture = yield* PopulationFixture;
-					const exit = yield* Effect.exit(
-						(yield* EntityPopulationTrigger).request(fixture.request),
-					);
-					expect(Exit.isFailure(exit)).toBe(true);
-					const executionId = entityPopulationExecutionId(
-						fixture.request.entityId,
-						fixture.request.command.accountGeneration,
-						fixture.request.execution,
-					);
-					expect(yield* (yield* EnrichmentRequests).get(executionId)).toBeNull();
-					expect(yield* (yield* SandboxWorkflowReferenceRepository).listReferences()).toEqual([]);
-					expect(yield* fixture.admissionTransactions).toEqual([true]);
-					expect(yield* fixture.executions).toEqual([]);
-				}),
+			test.effect(
+				`rolls back ${scope} population admission and registration together`,
+				() =>
+					Effect.gen(function* () {
+						const fixture = yield* PopulationFixture;
+						const exit = yield* Effect.exit(
+							(yield* EntityPopulationTrigger).request(fixture.request),
+						);
+						expect(Exit.isFailure(exit)).toBe(true);
+						const executionId = entityPopulationExecutionId(
+							fixture.request.entityId,
+							fixture.request.command.accountGeneration,
+							fixture.request.execution,
+						);
+						expect(yield* (yield* EnrichmentRequests).get(executionId)).toBeNull();
+						expect(yield* (yield* SandboxWorkflowReferenceRepository).listReferences()).toEqual([]);
+						expect(yield* fixture.admissionTransactions).toEqual([true]);
+						expect(yield* fixture.executions).toEqual([]);
+					}),
+				testTimeout,
 			);
 		},
 	);
 }
 
 layer(triggerLayer("user", { enqueueFails: true }))((test) => {
-	test.effect("retains committed population admission and registration when dispatch fails", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
-			expect(Exit.isFailure(exit)).toBe(true);
-			const [execution] = yield* fixture.executions;
-			assert(execution);
-			const request = yield* (yield* EnrichmentRequests).get(execution.executionId);
-			expect(request?.state).toBe("queued");
-			expect(
-				yield* Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(request?.payload),
-			).toEqual(execution.payload);
-			const references = yield* (yield* SandboxWorkflowReferenceRepository).listReferences();
-			expect(references.map(({ executionId }) => executionId)).toEqual([execution.executionId]);
-			expect(yield* fixture.admissionTransactions).toEqual([true]);
-			expect(yield* fixture.dispatchTransactions).toEqual([false]);
-		}),
+	test.effect(
+		"retains committed population admission and registration when dispatch fails",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
+				expect(Exit.isFailure(exit)).toBe(true);
+				const [execution] = yield* fixture.executions;
+				assert(execution);
+				const request = yield* (yield* EnrichmentRequests).get(execution.executionId);
+				expect(request?.state).toBe("queued");
+				expect(
+					yield* Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(request?.payload),
+				).toEqual<unknown>(execution.payload);
+				const references = yield* (yield* SandboxWorkflowReferenceRepository).listReferences();
+				expect(references.map(({ executionId }) => executionId)).toEqual([execution.executionId]);
+				expect(yield* fixture.admissionTransactions).toEqual([true]);
+				expect(yield* fixture.dispatchTransactions).toEqual([false]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(triggerLayer("user"))((test) => {
-	test.effect("rolls back population admission when its registration conflicts", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			const references = yield* SandboxWorkflowReferenceRepository;
-			const session = yield* DatabaseSession;
-			const executionId = entityPopulationExecutionId(
-				fixture.request.entityId,
-				fixture.request.command.accountGeneration,
-				fixture.request.execution,
-			);
-			const search = yield* (yield* PluginRuntimeResolver).resolveUserSearchScript(
-				userId,
-				fixture.request.providerId,
-			);
-			assert(fixture.request.entitySchemaPluginId);
-			yield* session.transaction(
-				references.registerInTransaction({
+	test.effect(
+		"rolls back population admission when its registration conflicts",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				const references = yield* SandboxWorkflowReferenceRepository;
+				const session = yield* DatabaseSession;
+				const executionId = entityPopulationExecutionId(
+					fixture.request.entityId,
+					fixture.request.command.accountGeneration,
+					fixture.request.execution,
+				);
+				const search = yield* (yield* PluginRuntimeResolver).resolveUserSearchScript(
 					userId,
-					executionId,
-					scriptId: search.id,
-					contentHash: search.contentHash,
-					pluginId: fixture.request.entitySchemaPluginId,
-				}),
-			);
-			const registrations = yield* references.listReferences();
-			const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(yield* (yield* EnrichmentRequests).get(executionId)).toBeNull();
-			expect(yield* references.listReferences()).toEqual(registrations);
-			expect(yield* fixture.admissionTransactions).toEqual([true]);
-			expect(yield* fixture.executions).toEqual([]);
-		}),
+					fixture.request.providerId,
+				);
+				assert(fixture.request.entitySchemaPluginId);
+				yield* session.transaction(
+					references.registerInTransaction({
+						userId,
+						executionId,
+						scriptId: search.id,
+						contentHash: search.contentHash,
+						pluginId: fixture.request.entitySchemaPluginId,
+					}),
+				);
+				const registrations = yield* references.listReferences();
+				const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
+				expect(Exit.isFailure(exit)).toBe(true);
+				expect(yield* (yield* EnrichmentRequests).get(executionId)).toBeNull();
+				expect(yield* references.listReferences()).toEqual(registrations);
+				expect(yield* fixture.admissionTransactions).toEqual([true]);
+				expect(yield* fixture.executions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(triggerLayer("user", { staleRequestLookup: true }))((test) => {
-	test.effect("preserves the running same-ID admission and registration after a stale lookup", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			const trigger = yield* EntityPopulationTrigger;
-			const requests = yield* EnrichmentRequests;
-			const references = yield* SandboxWorkflowReferenceRepository;
-			expect(yield* trigger.request(fixture.request)).toBe(true);
-			const [original] = yield* fixture.executions;
-			assert(original);
-			yield* requests.update(original.executionId, { state: "running" });
-			const registrations = yield* references.listReferences();
-			expect(registrations.map(({ executionId }) => executionId)).toEqual([original.executionId]);
-			const payload = yield* Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(
-				original.payload,
-			);
-			const pin = payload.command.writeContext?.pluginRevision;
-			assert(pin);
-			const updated = yield* installRevisionPackage(
-				revisionPackage("population-trigger", "two", "record", pin.packageId),
-				userId,
-			);
-			expect(updated.revisionId).not.toBe(pin.revisionId);
-			expect(
-				yield* trigger.request({
-					...fixture.request,
-					command: { ...fixture.request.command, occurredAt: "2026-09-17T00:00:00.000Z" },
-				}),
-			).toBe(true);
-			expect(yield* fixture.executions).toEqual([original, original]);
-			expect(yield* references.listReferences()).toEqual(registrations);
-			expect(yield* fixture.admissionTransactions).toEqual([true, true]);
-			expect(yield* fixture.dispatchTransactions).toEqual([false, false]);
-		}),
+	test.effect(
+		"preserves the running same-ID admission and registration after a stale lookup",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				const trigger = yield* EntityPopulationTrigger;
+				const requests = yield* EnrichmentRequests;
+				const references = yield* SandboxWorkflowReferenceRepository;
+				expect(yield* trigger.request(fixture.request)).toBe(true);
+				const [original] = yield* fixture.executions;
+				assert(original);
+				yield* requests.update(original.executionId, { state: "running" });
+				const registrations = yield* references.listReferences();
+				expect(registrations.map(({ executionId }) => executionId)).toEqual([original.executionId]);
+				const payload = yield* Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(
+					original.payload,
+				);
+				const pin = payload.command.writeContext?.pluginRevision;
+				assert(pin);
+				const updated = yield* installRevisionPackage(
+					revisionPackage("population-trigger", "two", "record", pin.packageId),
+					userId,
+				);
+				expect(updated.revisionId).not.toBe(pin.revisionId);
+				expect(
+					yield* trigger.request({
+						...fixture.request,
+						command: { ...fixture.request.command, occurredAt: "2026-09-17T00:00:00.000Z" },
+					}),
+				).toBe(true);
+				expect(yield* fixture.executions).toEqual([original, original]);
+				expect(yield* references.listReferences()).toEqual(registrations);
+				expect(yield* fixture.admissionTransactions).toEqual([true, true]);
+				expect(yield* fixture.dispatchTransactions).toEqual([false, false]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -384,78 +406,88 @@ for (const state of ["succeeded", "failed", "cancelled"] as const) {
 					expect(yield* fixture.executions).toEqual([original]);
 					expect(yield* fixture.admissionTransactions).toEqual([true, true]);
 				}),
+			testTimeout,
 		);
 	});
 }
 
 layer(triggerLayer("system"))((test) => {
-	test.effect("keeps a user-triggered system provider graph shared", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			yield* (yield* EntityPopulationTrigger).request(fixture.request);
-			const [execution] = yield* fixture.executions;
-			expect(execution?.payload).toMatchObject({
-				level: "full",
-				mode: "ensure",
-				entityScope: { userId, type: "global" },
-				pluginId: fixture.request.entitySchemaPluginId,
-				command: {
-					writeContext: {
-						pluginRevision: { scope: "system", id: fixture.request.entitySchemaPluginId },
+	test.effect(
+		"keeps a user-triggered system provider graph shared",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				yield* (yield* EntityPopulationTrigger).request(fixture.request);
+				const [execution] = yield* fixture.executions;
+				expect(execution?.payload).toMatchObject({
+					level: "full",
+					mode: "ensure",
+					entityScope: { userId, type: "global" },
+					pluginId: fixture.request.entitySchemaPluginId,
+					command: {
+						writeContext: {
+							pluginRevision: { scope: "system", id: fixture.request.entitySchemaPluginId },
+						},
 					},
-				},
-			});
-		}),
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(triggerLayer("system", { globalEntity: true }))((test) => {
-	test.effect("populates a global entity as the interested user", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			yield* (yield* EntityPopulationTrigger).request(fixture.request);
-			const [execution] = yield* fixture.executions;
-			expect(execution?.payload).toMatchObject({
-				entityScope: { userId: null, type: "global" },
-				command: {
-					writeContext: {
-						pluginRevision: { scope: "system", id: fixture.request.entitySchemaPluginId },
+	test.effect(
+		"populates a global entity as the interested user",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				yield* (yield* EntityPopulationTrigger).request(fixture.request);
+				const [execution] = yield* fixture.executions;
+				expect(execution?.payload).toMatchObject({
+					entityScope: { userId: null, type: "global" },
+					command: {
+						writeContext: {
+							pluginRevision: { scope: "system", id: fixture.request.entitySchemaPluginId },
+						},
 					},
-				},
-			});
-		}),
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(triggerLayer("user"))((test) => {
-	test.effect("retains the execution user and exact owner for a private provider graph", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			yield* (yield* EntityPopulationTrigger).request(fixture.request);
-			const [execution] = yield* fixture.executions;
-			expect(execution?.payload).toMatchObject({
-				entityScope: { userId, type: "user" },
-				pluginId: fixture.request.entitySchemaPluginId,
-				command: {
-					writeContext: {
-						pluginRevision: {
-							scope: "user",
-							ownerId: userId,
-							id: fixture.request.entitySchemaPluginId,
+	test.effect(
+		"retains the execution user and exact owner for a private provider graph",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* PopulationFixture;
+				yield* (yield* EntityPopulationTrigger).request(fixture.request);
+				const [execution] = yield* fixture.executions;
+				expect(execution?.payload).toMatchObject({
+					entityScope: { userId, type: "user" },
+					pluginId: fixture.request.entitySchemaPluginId,
+					command: {
+						writeContext: {
+							pluginRevision: {
+								scope: "user",
+								ownerId: userId,
+								id: fixture.request.entitySchemaPluginId,
+							},
 						},
 					},
-				},
-			});
-			assert(execution);
-			const session = yield* DatabaseSession;
-			const [row] = yield* session.run((db) =>
-				db
-					.select()
-					.from(tables.sandboxWorkflowReference)
-					.where(eq(tables.sandboxWorkflowReference.executionId, execution.executionId)),
-			);
-			expect(row?.scriptId).toBeDefined();
-		}),
+				});
+				assert(execution);
+				const session = yield* DatabaseSession;
+				const [row] = yield* session.run((db) =>
+					db
+						.select()
+						.from(tables.sandboxWorkflowReference)
+						.where(eq(tables.sandboxWorkflowReference.executionId, execution.executionId)),
+				);
+				expect(row?.scriptId).toBeDefined();
+			}),
+		testTimeout,
 	);
 });
 
@@ -483,7 +515,7 @@ layer(triggerLayer("user"))((test) => {
 					revisionPackage("population-trigger", "two", "record", pin.packageId),
 					userId,
 				);
-				expect(updated.pluginId).toBe(fixture.request.entitySchemaPluginId);
+				expect(updated.pluginId).toBe<unknown>(fixture.request.entitySchemaPluginId);
 				expect(updated.revisionId).not.toBe(pin.revisionId);
 				const session = yield* DatabaseSession;
 				const installations = yield* PluginInstallationRepository;
@@ -508,75 +540,90 @@ layer(triggerLayer("user"))((test) => {
 				const persisted = yield* requests.get(original.executionId);
 				expect(persisted?.payload).toEqual(originalRequest.payload);
 			}),
+		testTimeout,
 	);
 });
 
 for (const state of ["succeeded", "failed", "cancelled"] as const) {
 	layer(triggerLayer("user"))((test) => {
-		test.effect(`does not redispatch a ${state} request or allocate another registration`, () =>
+		test.effect(
+			`does not redispatch a ${state} request or allocate another registration`,
+			() =>
+				Effect.gen(function* () {
+					const fixture = yield* PopulationFixture;
+					const trigger = yield* EntityPopulationTrigger;
+					const requests = yield* EnrichmentRequests;
+					const references = yield* SandboxWorkflowReferenceRepository;
+					expect(yield* trigger.request(fixture.request)).toBe(true);
+					const [original] = yield* fixture.executions;
+					assert(original);
+					yield* requests.update(original.executionId, { state });
+					yield* references.release(original.executionId);
+					expect(yield* trigger.request(fixture.request)).toBe(false);
+					expect(yield* fixture.executions).toEqual([original]);
+					expect(yield* references.listReferences()).toEqual([]);
+				}),
+			testTimeout,
+		);
+	});
+}
+
+layer(triggerLayer("user"))((test) => {
+	test.effect(
+		"releases duplicate manual retry registrations and preserves the winning retry",
+		() =>
 			Effect.gen(function* () {
 				const fixture = yield* PopulationFixture;
 				const trigger = yield* EntityPopulationTrigger;
 				const requests = yield* EnrichmentRequests;
 				const references = yield* SandboxWorkflowReferenceRepository;
 				expect(yield* trigger.request(fixture.request)).toBe(true);
-				const [original] = yield* fixture.executions;
-				assert(original);
-				yield* requests.update(original.executionId, { state });
-				yield* references.release(original.executionId);
-				expect(yield* trigger.request(fixture.request)).toBe(false);
-				expect(yield* fixture.executions).toEqual([original]);
-				expect(yield* references.listReferences()).toEqual([]);
+				const [predecessor] = yield* fixture.executions;
+				assert(predecessor);
+				yield* requests.update(predecessor.executionId, { state: "failed" });
+				const winner = yield* userPopulationRequest({
+					...fixture.request,
+					initiator: userId,
+					accountGeneration: { userId, token: "test-account-generation" },
+					execution: { level: "full", attempt: "winner", retryOf: predecessor.executionId },
+				});
+				expect(yield* trigger.request(winner)).toBe(true);
+				const [, winningExecution] = yield* fixture.executions;
+				assert(winningExecution);
+				const winningReferences = yield* references.listReferences();
+				expect(
+					winningReferences.some(({ executionId }) => executionId === winningExecution.executionId),
+				).toBe(true);
+				const loser = yield* userPopulationRequest({
+					...winner,
+					initiator: userId,
+					execution: { ...winner.execution, attempt: "loser" },
+					accountGeneration: { userId, token: "test-account-generation" },
+				});
+				expect(yield* trigger.request(loser)).toBe(false);
+				expect(yield* fixture.executions).toEqual([
+					predecessor,
+					winningExecution,
+					winningExecution,
+				]);
+				expect(yield* references.listReferences()).toEqual(winningReferences);
+				const losingId = entityPopulationExecutionId(
+					loser.entityId,
+					loser.command.accountGeneration,
+					loser.execution,
+				);
+				expect(yield* requests.get(losingId)).toBeNull();
+				yield* requests.update(winningExecution.executionId, { state: "succeeded" });
+				expect(yield* trigger.request(loser)).toBe(false);
+				expect(yield* fixture.executions).toEqual([
+					predecessor,
+					winningExecution,
+					winningExecution,
+				]);
+				expect(yield* references.listReferences()).toEqual(winningReferences);
+				expect(yield* requests.get(losingId)).toBeNull();
 			}),
-		);
-	});
-}
-
-layer(triggerLayer("user"))((test) => {
-	test.effect("releases duplicate manual retry registrations and preserves the winning retry", () =>
-		Effect.gen(function* () {
-			const fixture = yield* PopulationFixture;
-			const trigger = yield* EntityPopulationTrigger;
-			const requests = yield* EnrichmentRequests;
-			const references = yield* SandboxWorkflowReferenceRepository;
-			expect(yield* trigger.request(fixture.request)).toBe(true);
-			const [predecessor] = yield* fixture.executions;
-			assert(predecessor);
-			yield* requests.update(predecessor.executionId, { state: "failed" });
-			const winner = yield* userPopulationRequest({
-				...fixture.request,
-				initiator: userId,
-				accountGeneration: { userId, token: "test-account-generation" },
-				execution: { level: "full", attempt: "winner", retryOf: predecessor.executionId },
-			});
-			expect(yield* trigger.request(winner)).toBe(true);
-			const [, winningExecution] = yield* fixture.executions;
-			assert(winningExecution);
-			const winningReferences = yield* references.listReferences();
-			expect(
-				winningReferences.some(({ executionId }) => executionId === winningExecution.executionId),
-			).toBe(true);
-			const loser = yield* userPopulationRequest({
-				...winner,
-				initiator: userId,
-				execution: { ...winner.execution, attempt: "loser" },
-				accountGeneration: { userId, token: "test-account-generation" },
-			});
-			expect(yield* trigger.request(loser)).toBe(false);
-			expect(yield* fixture.executions).toEqual([predecessor, winningExecution, winningExecution]);
-			expect(yield* references.listReferences()).toEqual(winningReferences);
-			const losingId = entityPopulationExecutionId(
-				loser.entityId,
-				loser.command.accountGeneration,
-				loser.execution,
-			);
-			expect(yield* requests.get(losingId)).toBeNull();
-			yield* requests.update(winningExecution.executionId, { state: "succeeded" });
-			expect(yield* trigger.request(loser)).toBe(false);
-			expect(yield* fixture.executions).toEqual([predecessor, winningExecution, winningExecution]);
-			expect(yield* references.listReferences()).toEqual(winningReferences);
-			expect(yield* requests.get(losingId)).toBeNull();
-		}),
+		testTimeout,
 	);
 });
 
@@ -620,5 +667,6 @@ layer(triggerLayer("system"))((test) => {
 					});
 				}
 			}),
+		testTimeout,
 	);
 });

@@ -1,7 +1,11 @@
-import { afterEach, assert, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	execution,
@@ -226,6 +230,7 @@ for (const count of [127, 128, 129, 300]) {
 						"/library/sections/movies/all?includeGuids=1",
 					]);
 				}),
+			testTimeout,
 		);
 	}
 }
@@ -297,48 +302,52 @@ it.live(
 			expect(yield* run(second.carry)).toEqual(final);
 			expect(requests).toHaveLength(3);
 		}),
+	testTimeout,
 );
 
-it.live("finishes an all-skipped episode window once before the next listing item", () =>
-	Effect.gen(function* () {
-		const { run, requests } = setup({
-			"/library/metadata/43/allLeaves": metadata([]),
-			"/library/sections/shows/all?includeGuids=1": metadata([show("42"), show("43")]),
-			"/library/sections": { MediaContainer: { Directory: [{ key: "shows", type: "show" }] } },
-			"/library/metadata/42/allLeaves": metadata([
-				...Array.from({ length: 128 }, (_, index) => episode(index)),
-				{ index: 129, parentIndex: 1, title: "Unwatched" },
-			]),
-		});
-		const first = yield* run();
-		assert(first.carry);
-		const finalLeaves = yield* run(first.carry);
-		expect(finalLeaves.records).toMatchObject([
-			{
-				itemIndex: 0,
-				eventIndex: 0,
-				operationId: '["media-association",0]',
-				group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "42" } },
-			},
-		]);
-		expect(yield* run(first.carry)).toEqual(finalLeaves);
-		assert(finalLeaves.carry);
-		const next = yield* run(finalLeaves.carry);
-		expect(next.carry).toBeUndefined();
-		expect(next.records).toMatchObject([
-			{
-				itemIndex: 1,
-				operationId: '["media-association",1]',
-				group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "43" } },
-			},
-		]);
-		expect(requests).toEqual([
-			"/library/sections",
-			"/library/sections/shows/all?includeGuids=1",
-			"/library/metadata/42/allLeaves",
-			"/library/metadata/43/allLeaves",
-		]);
-	}),
+it.live(
+	"finishes an all-skipped episode window once before the next listing item",
+	() =>
+		Effect.gen(function* () {
+			const { run, requests } = setup({
+				"/library/metadata/43/allLeaves": metadata([]),
+				"/library/sections/shows/all?includeGuids=1": metadata([show("42"), show("43")]),
+				"/library/sections": { MediaContainer: { Directory: [{ key: "shows", type: "show" }] } },
+				"/library/metadata/42/allLeaves": metadata([
+					...Array.from({ length: 128 }, (_, index) => episode(index)),
+					{ index: 129, parentIndex: 1, title: "Unwatched" },
+				]),
+			});
+			const first = yield* run();
+			assert(first.carry);
+			const finalLeaves = yield* run(first.carry);
+			expect(finalLeaves.records).toMatchObject([
+				{
+					itemIndex: 0,
+					eventIndex: 0,
+					operationId: '["media-association",0]',
+					group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "42" } },
+				},
+			]);
+			expect(yield* run(first.carry)).toEqual(finalLeaves);
+			assert(finalLeaves.carry);
+			const next = yield* run(finalLeaves.carry);
+			expect(next.carry).toBeUndefined();
+			expect(next.records).toMatchObject([
+				{
+					itemIndex: 1,
+					operationId: '["media-association",1]',
+					group: { events: [], ownershipProvider: "plex_yank", entityRef: { externalId: "43" } },
+				},
+			]);
+			expect(requests).toEqual([
+				"/library/sections",
+				"/library/sections/shows/all?includeGuids=1",
+				"/library/metadata/42/allLeaves",
+				"/library/metadata/43/allLeaves",
+			]);
+		}),
+	testTimeout,
 );
 
 it.live(
@@ -441,4 +450,5 @@ it.live(
 				"/library/metadata/45/allLeaves",
 			]);
 		}),
+	testTimeout,
 );

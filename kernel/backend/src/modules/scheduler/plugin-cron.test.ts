@@ -1,4 +1,5 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginCron, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -8,10 +9,12 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-import { assert } from "vitest";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -271,24 +274,27 @@ const gatedSelectionLayer = (plugins: ReadonlyArray<PluginRegistryEntry>) =>
 	);
 
 layer(makeLayer({ plugins: [normalizedPlugin("fixture")] }))((test) => {
-	test.effect("dispatches due plugin crons as deterministic system sandbox runs", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			expect(yield* yield* DispatchedRuns).toEqual([
-				{
-					executionId: "plugin-cron-10-fixture-id-12-fixture-cron-60000",
-					payload: {
-						input: {},
-						lane: "background",
-						resolutionMode: "exact",
-						subject: { type: "system" },
-						scriptId: SandboxScriptId.make("fixture-script-id"),
+	test.effect(
+		"dispatches due plugin crons as deterministic system sandbox runs",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				expect(yield* yield* DispatchedRuns).toEqual([
+					{
 						executionId: "plugin-cron-10-fixture-id-12-fixture-cron-60000",
+						payload: {
+							input: {},
+							lane: "background",
+							resolutionMode: "exact",
+							subject: { type: "system" },
+							scriptId: SandboxScriptId.make("fixture-script-id"),
+							executionId: "plugin-cron-10-fixture-id-12-fixture-cron-60000",
+						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -300,16 +306,19 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("gives same-name system schedules independent local-owner execution ids", () =>
-		Effect.gen(function* () {
-			yield* (yield* PluginCronService).dispatchDue(60_000);
-			expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId).sort()).toEqual(
-				[
-					pluginCronExecutionId("first-id", "whiskey-cron", 60_000),
-					pluginCronExecutionId("second-id", "whiskey-cron", 60_000),
-				].sort(),
-			);
-		}),
+	test.effect(
+		"gives same-name system schedules independent local-owner execution ids",
+		() =>
+			Effect.gen(function* () {
+				yield* (yield* PluginCronService).dispatchDue(60_000);
+				expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId).sort()).toEqual(
+					[
+						pluginCronExecutionId("first-id", "whiskey-cron", 60_000),
+						pluginCronExecutionId("second-id", "whiskey-cron", 60_000),
+					].sort(),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -319,12 +328,15 @@ layer(
 		plugins: [normalizedPlugin("fixture", { tier: "infrequent" })],
 	}),
 )((test) => {
-	test.effect("resolves infrequent plugin cron schedules from application config", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			expect(yield* yield* DispatchedRuns).toHaveLength(1);
-		}),
+	test.effect(
+		"resolves infrequent plugin cron schedules from application config",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				expect(yield* yield* DispatchedRuns).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -334,12 +346,15 @@ layer(
 		plugins: [normalizedPlugin("fixture", { tier: "infrequent" })],
 	}),
 )((test) => {
-	test.effect("skips infrequent plugin crons when the configured schedule is invalid", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			expect(yield* yield* DispatchedRuns).toEqual([]);
-		}),
+	test.effect(
+		"skips infrequent plugin crons when the configured schedule is invalid",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				expect(yield* yield* DispatchedRuns).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -351,77 +366,87 @@ layer(
 		listPrivateCronSchedules: () => Effect.fail(privateDiscoveryError),
 	}),
 )((test) => {
-	test.effect("fails the tick when private cron discovery fails", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			const exit = yield* Effect.exit(service.dispatchDue(60_000));
-			assertExitFails(exit, privateDiscoveryError);
-			expect(yield* yield* DispatchedRuns).toEqual([]);
-		}),
+	test.effect(
+		"fails the tick when private cron discovery fails",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				const exit = yield* Effect.exit(service.dispatchDue(60_000));
+				assertExitFails(exit, privateDiscoveryError);
+				expect(yield* yield* DispatchedRuns).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ plugins: [normalizedPlugin("first"), normalizedPlugin("second")] }))((test) => {
-	test.effect("targets exactly one script cron", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			expect(
-				yield* service.trigger(PluginId.make("second-id"), "second-cron", "parent-id"),
-			).toEqual({
-				status: "executed",
-				pluginId: "second-id",
-				cronSlug: "second-cron",
-				result: "plugin-cron-9-second-id-11-second-cron-parent-id",
-				executionId: "plugin-cron-9-second-id-11-second-cron-parent-id",
-			});
-			const captured = yield* yield* DispatchedRuns;
-			expect(captured).toHaveLength(1);
-			expect(captured[0]?.payload).toMatchObject({
-				subject: { type: "system" },
-				scriptId: SandboxScriptId.make("second-script-id"),
-			});
-		}),
+	test.effect(
+		"targets exactly one script cron",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				expect(
+					yield* service.trigger(PluginId.make("second-id"), "second-cron", "parent-id"),
+				).toEqual<unknown>({
+					status: "executed",
+					pluginId: "second-id",
+					cronSlug: "second-cron",
+					result: "plugin-cron-9-second-id-11-second-cron-parent-id",
+					executionId: "plugin-cron-9-second-id-11-second-cron-parent-id",
+				});
+				const captured = yield* yield* DispatchedRuns;
+				expect(captured).toHaveLength(1);
+				expect(captured[0]?.payload).toMatchObject({
+					subject: { type: "system" },
+					scriptId: SandboxScriptId.make("second-script-id"),
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ plugins: [normalizedWorkflowPlugin("fixture")] }))((test) => {
-	test.effect("targets one workflow cron through the durable workflow shell", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			const result = yield* service.trigger(
-				PluginId.make("fixture-id"),
-				"fixture-cron",
-				"parent-id",
-			);
-			expect(result).toMatchObject({
-				status: "executed",
-				pluginId: "fixture-id",
-				cronSlug: "fixture-cron",
-				executionId: "plugin-cron-10-fixture-id-12-fixture-cron-parent-id",
-			});
-			const captured = yield* yield* DispatchedRuns;
-			expect(captured).toHaveLength(1);
-			expect(captured[0]?.payload).toMatchObject({
-				input: {},
-				resolutionMode: "exact",
-				subject: { type: "system" },
-				scriptId: SandboxScriptId.make("fixture-script-id"),
-			});
-		}),
+	test.effect(
+		"targets one workflow cron through the durable workflow shell",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				const result = yield* service.trigger(
+					PluginId.make("fixture-id"),
+					"fixture-cron",
+					"parent-id",
+				);
+				expect(result).toMatchObject({
+					status: "executed",
+					pluginId: "fixture-id",
+					cronSlug: "fixture-cron",
+					executionId: "plugin-cron-10-fixture-id-12-fixture-cron-parent-id",
+				});
+				const captured = yield* yield* DispatchedRuns;
+				expect(captured).toHaveLength(1);
+				expect(captured[0]?.payload).toMatchObject({
+					input: {},
+					resolutionMode: "exact",
+					subject: { type: "system" },
+					scriptId: SandboxScriptId.make("fixture-script-id"),
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ plugins: [normalizedPlugin("fixture")] }))((test) => {
-	test.effect("returns notFound without dispatching an unknown cron", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			expect(yield* service.trigger(PluginId.make("fixture-id"), "unknown", "parent-id")).toEqual({
-				status: "notFound",
-				cronSlug: "unknown",
-				pluginId: "fixture-id",
-			});
-			expect(yield* yield* DispatchedRuns).toEqual([]);
-		}),
+	test.effect(
+		"returns notFound without dispatching an unknown cron",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				expect(
+					yield* service.trigger(PluginId.make("fixture-id"), "unknown", "parent-id"),
+				).toEqual<unknown>({ status: "notFound", cronSlug: "unknown", pluginId: "fixture-id" });
+				expect(yield* yield* DispatchedRuns).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -431,36 +456,42 @@ layer(
 		failingExecutionId: "plugin-cron-10-fixture-id-12-fixture-cron-parent-id",
 	}),
 )((test) => {
-	test.effect("reports workflow failures from manual cron triggers", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			const result = yield* service.trigger(
-				PluginId.make("fixture-id"),
-				"fixture-cron",
-				"parent-id",
-			);
-			expect(result).toMatchObject({
-				status: "failed",
-				pluginId: "fixture-id",
-				cronSlug: "fixture-cron",
-				result: { error: { phase: "execute", message: "dispatch failed" } },
-			});
-			expect(yield* yield* DispatchedRuns).toEqual([]);
-		}),
+	test.effect(
+		"reports workflow failures from manual cron triggers",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				const result = yield* service.trigger(
+					PluginId.make("fixture-id"),
+					"fixture-cron",
+					"parent-id",
+				);
+				expect(result).toMatchObject({
+					status: "failed",
+					pluginId: "fixture-id",
+					cronSlug: "fixture-cron",
+					result: { error: { phase: "execute", message: "dispatch failed" } },
+				});
+				expect(yield* yield* DispatchedRuns).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("observes hot-loaded snapshots without scheduler registration", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			yield* (yield* PluginCatalog).load(normalizedPlugin("hot"));
-			yield* service.dispatchDue(120_000);
-			expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId)).toEqual([
-				"plugin-cron-6-hot-id-8-hot-cron-120000",
-			]);
-		}),
+	test.effect(
+		"observes hot-loaded snapshots without scheduler registration",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				yield* (yield* PluginCatalog).load(normalizedPlugin("hot"));
+				yield* service.dispatchDue(120_000);
+				expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId)).toEqual([
+					"plugin-cron-6-hot-id-8-hot-cron-120000",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -486,6 +517,7 @@ layer(gatedSelectionLayer([normalizedPlugin("fixture")]))((test) => {
 					scriptId: SandboxScriptId.make("fixture-compiled-id"),
 				});
 			}),
+		testTimeout,
 	);
 });
 
@@ -495,14 +527,17 @@ layer(
 		failingExecutionId: "plugin-cron-10-missing-id-12-missing-cron-60000",
 	}),
 )((test) => {
-	test.effect("isolates unavailable and failed cron dispatches", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId)).toEqual([
-				"plugin-cron-10-working-id-12-working-cron-60000",
-			]);
-		}),
+	test.effect(
+		"isolates unavailable and failed cron dispatches",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId)).toEqual([
+					"plugin-cron-10-working-id-12-working-cron-60000",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -588,59 +623,65 @@ layer(
 		privateCronSchedule("installation-2", "user-2"),
 	]),
 )((test) => {
-	test.effect("dispatches one private cron per installation with its owner subject", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			expect(yield* yield* DispatchedRuns).toEqual([
-				{
-					executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
-					payload: {
-						input: {},
-						lane: "background",
-						resolutionMode: "exact",
-						scriptId: SandboxScriptId.make("installation-1-script-id"),
+	test.effect(
+		"dispatches one private cron per installation with its owner subject",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				expect(yield* yield* DispatchedRuns).toEqual([
+					{
 						executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
-						subject: {
-							type: "user",
-							userId: "user-1",
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
+						payload: {
+							input: {},
+							lane: "background",
+							resolutionMode: "exact",
+							scriptId: SandboxScriptId.make("installation-1-script-id"),
+							executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
+							subject: {
+								type: "user",
+								userId: "user-1",
+								accountGeneration: {
+									userId: UserId.make("user-1"),
+									token: "test-account-generation",
+								},
 							},
 						},
 					},
-				},
-				{
-					executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
-					payload: {
-						input: {},
-						lane: "background",
-						resolutionMode: "exact",
-						scriptId: SandboxScriptId.make("installation-2-script-id"),
+					{
 						executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
-						subject: {
-							type: "user",
-							userId: "user-2",
-							accountGeneration: {
-								userId: UserId.make("user-2"),
-								token: "test-account-generation",
+						payload: {
+							input: {},
+							lane: "background",
+							resolutionMode: "exact",
+							scriptId: SandboxScriptId.make("installation-2-script-id"),
+							executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
+							subject: {
+								type: "user",
+								userId: "user-2",
+								accountGeneration: {
+									userId: UserId.make("user-2"),
+									token: "test-account-generation",
+								},
 							},
 						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makePrivateCronLayer([privateCronSchedule("installation-1", "user-1")], []))((test) => {
-	test.effect("does not dispatch a private cron whose installation stopped being available", () =>
-		Effect.gen(function* () {
-			const service = yield* PluginCronService;
-			yield* service.dispatchDue(60_000);
-			expect(yield* yield* DispatchedRuns).toEqual([]);
-		}),
+	test.effect(
+		"does not dispatch a private cron whose installation stopped being available",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginCronService;
+				yield* service.dispatchDue(60_000);
+				expect(yield* yield* DispatchedRuns).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 

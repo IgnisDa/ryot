@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
@@ -15,6 +16,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ProviderDetailsRelatedEntityGroup } from "@ryot-app/plugin-backend-sdk/provider";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Ref, Result, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -462,62 +466,69 @@ layer(
 						relatedPopulationGeneration: "newer-root",
 					});
 				}),
+			testTimeout,
 		);
 	}
 
-	test.effect("propagates related-workflow dispatch failures without stamping completion", () =>
-		Effect.gen(function* () {
-			const dispatchError = new SandboxRunError({
-				kind: "infrastructure",
-				message: "Related workflow dispatch unavailable",
-			});
-			const h = yield* harness("dispatch-failure", { dispatchError });
-			const error = yield* h
-				.populate(
-					"dispatch-full",
-					"ensure",
-					rootDetails([
-						group([related("first")], { coverage: { status: "more", continuation: "next" } }),
-					]),
-				)
-				.pipe(Effect.flip);
-			expect(error).toEqual(dispatchError);
-			const root = yield* h.root;
-			assert(root);
-			expect(root.populatedAt).not.toBeNull();
-			expect(root.relatedPopulatedAt).toBeNull();
-			expect(yield* h.relatedRuns).toEqual([]);
-		}),
+	test.effect(
+		"propagates related-workflow dispatch failures without stamping completion",
+		() =>
+			Effect.gen(function* () {
+				const dispatchError = new SandboxRunError({
+					kind: "infrastructure",
+					message: "Related workflow dispatch unavailable",
+				});
+				const h = yield* harness("dispatch-failure", { dispatchError });
+				const error = yield* h
+					.populate(
+						"dispatch-full",
+						"ensure",
+						rootDetails([
+							group([related("first")], { coverage: { status: "more", continuation: "next" } }),
+						]),
+					)
+					.pipe(Effect.flip);
+				expect(error).toEqual(dispatchError);
+				const root = yield* h.root;
+				assert(root);
+				expect(root.populatedAt).not.toBeNull();
+				expect(root.relatedPopulatedAt).toBeNull();
+				expect(yield* h.relatedRuns).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("preserves sandbox boundary reasons from a failed related page", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("boundary-failure");
-			const error = yield* h
-				.populate(
-					"boundary-full",
-					"ensure",
-					rootDetails([
-						group([related("first")], { coverage: { status: "more", continuation: "next" } }),
-					]),
-					() => ({
-						...completed(null),
-						error: {
-							phase: "execute",
-							message: "Budget exceeded",
-							kind: "resource-unavailable",
-							data: { operation: "httpCall", code: "execution-limit" },
-						},
-					}),
-				)
-				.pipe(Effect.flip);
-			expect(error.kind).toBe("resource-unavailable");
-			expect(error.data).toEqual({ operation: "httpCall", code: "execution-limit" });
-			const root = yield* h.root;
-			assert(root);
-			expect(root.populatedAt).not.toBeNull();
-			expect(root.relatedPopulatedAt).toBeNull();
-		}),
+	test.effect(
+		"preserves sandbox boundary reasons from a failed related page",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("boundary-failure");
+				const error = yield* h
+					.populate(
+						"boundary-full",
+						"ensure",
+						rootDetails([
+							group([related("first")], { coverage: { status: "more", continuation: "next" } }),
+						]),
+						() => ({
+							...completed(null),
+							error: {
+								phase: "execute",
+								message: "Budget exceeded",
+								kind: "resource-unavailable",
+								data: { operation: "httpCall", code: "execution-limit" },
+							},
+						}),
+					)
+					.pipe(Effect.flip);
+				expect(error.kind).toBe("resource-unavailable");
+				expect(error.data).toEqual({ operation: "httpCall", code: "execution-limit" });
+				const root = yield* h.root;
+				assert(root);
+				expect(root.populatedAt).not.toBeNull();
+				expect(root.relatedPopulatedAt).toBeNull();
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -560,39 +571,45 @@ layer(
 					encodeEntityUpdatedMessage(root.id, "enrichment-updated"),
 				);
 			}),
+		testTimeout,
 	);
 
-	test.effect("rechecks completed group generations before stamping the related level", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("superseded-final");
-			const session = yield* DatabaseSession;
-			const details = rootDetails([
-				group([related("first")], { coverage: { status: "more", continuation: "credits" } }),
-				group([related("other")], {
-					relationshipSchemaSlug: "references",
-					coverage: { status: "more", continuation: "references" },
-				}),
-			]);
-			const error = yield* h
-				.populate("superseded-full", "ensure", details, (continuation) =>
-					continuation === "credits"
-						? page([related("last")], { status: "complete" })
-						: session
-								.run((db) =>
-									db
-										.update(tables.relationshipSyncGeneration)
-										.set({ generation: "newer-owner" })
-										.where(eq(tables.relationshipSyncGeneration.relationshipSchemaSlug, "credits")),
-								)
-								.pipe(Effect.orDie, Effect.as(page([], { status: "complete" }))),
-				)
-				.pipe(Effect.flip);
-			expect(error.message).toBe("Provider population was superseded");
-			const root = yield* h.root;
-			assert(root);
-			expect(root.populatedAt).not.toBeNull();
-			expect(root.relatedPopulatedAt).toBeNull();
-		}),
+	test.effect(
+		"rechecks completed group generations before stamping the related level",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("superseded-final");
+				const session = yield* DatabaseSession;
+				const details = rootDetails([
+					group([related("first")], { coverage: { status: "more", continuation: "credits" } }),
+					group([related("other")], {
+						relationshipSchemaSlug: "references",
+						coverage: { status: "more", continuation: "references" },
+					}),
+				]);
+				const error = yield* h
+					.populate("superseded-full", "ensure", details, (continuation) =>
+						continuation === "credits"
+							? page([related("last")], { status: "complete" })
+							: session
+									.run((db) =>
+										db
+											.update(tables.relationshipSyncGeneration)
+											.set({ generation: "newer-owner" })
+											.where(
+												eq(tables.relationshipSyncGeneration.relationshipSchemaSlug, "credits"),
+											),
+									)
+									.pipe(Effect.orDie, Effect.as(page([], { status: "complete" }))),
+					)
+					.pipe(Effect.flip);
+				expect(error.message).toBe("Provider population was superseded");
+				const root = yield* h.root;
+				assert(root);
+				expect(root.populatedAt).not.toBeNull();
+				expect(root.relatedPopulatedAt).toBeNull();
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -630,282 +647,320 @@ layer(
 				expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
 				expect((yield* h.relatedRuns).map(({ continuation }) => continuation)).toEqual(["sibling"]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("publishes the base before related work and awaits every page and the sweep", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("pages");
-			const anchor = yield* seedRoot(h);
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
-				"keep",
-				"stale",
-			]);
-			const details = rootDetails([
-				group([related("keep", "old"), related("first"), related("keep", "new")], {
-					coverage: { status: "more", continuation: { page: 2 } },
-				}),
-			]);
+	test.effect(
+		"publishes the base before related work and awaits every page and the sweep",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("pages");
+				const anchor = yield* seedRoot(h);
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
+					"keep",
+					"stale",
+				]);
+				const details = rootDetails([
+					group([related("keep", "old"), related("first"), related("keep", "new")], {
+						coverage: { status: "more", continuation: { page: 2 } },
+					}),
+				]);
 
-			const observed: Array<
-				undefined | { populatedAt: Date | null; relatedPopulatedAt: Date | null }
-			> = [];
-			const refreshed = yield* h.populate("refresh", "refresh", details, (continuation) =>
-				h.status(anchor.id).pipe(
-					Effect.orDie,
-					Effect.tap((status) => Effect.sync(() => observed.push(status))),
-					Effect.as(
+				const observed: Array<
+					undefined | { populatedAt: Date | null; relatedPopulatedAt: Date | null }
+				> = [];
+				const refreshed = yield* h.populate("refresh", "refresh", details, (continuation) =>
+					h.status(anchor.id).pipe(
+						Effect.orDie,
+						Effect.tap((status) => Effect.sync(() => observed.push(status))),
+						Effect.as(
+							JSON.stringify(continuation) === JSON.stringify({ page: 2 })
+								? page([related("second")], { status: "more", continuation: { page: 3 } })
+								: page([related("third")], { status: "complete" }),
+						),
+					),
+				);
+
+				expect(refreshed.populatedAt).not.toBeNull();
+				const [dispatch] = h.dispatched;
+				expect(dispatch).toMatchObject({
+					discard: undefined,
+					tag: "ProviderRelatedPagesWorkflow",
+					payload: { executionId: `related-${anchor.id}-0-refresh` },
+				});
+				expect(observed).toEqual(
+					[0, 1].map(() => ({
+						relatedPopulatedAt: null,
+						populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-14T00:00:00.000Z")),
+					})),
+				);
+
+				expect((yield* h.relatedRuns).map(({ continuation }) => continuation)).toEqual([
+					{ page: 2 },
+					{ page: 3 },
+				]);
+				expect(new Set((yield* h.relatedRuns).map(({ executionId }) => executionId)).size).toBe(2);
+				expect(yield* h.credits(anchor)).toEqual([
+					{ externalId: "first", generation: "refresh", role: { role: "maker" } },
+					{ externalId: "keep", role: { role: "new" }, generation: "refresh" },
+					{ externalId: "second", generation: "refresh", role: { role: "maker" } },
+					{ externalId: "third", generation: "refresh", role: { role: "maker" } },
+				]);
+				expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toEqual(
+					DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-14T00:00:00.000Z")),
+				);
+				expect(yield* h.published).toHaveLength(10);
+				expect(yield* h.published).toContain(
+					encodeEntityUpdatedMessage(anchor.id, "enrichment-updated"),
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"never sweeps additive groups",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("additive");
+				const anchor = yield* seedRoot(h);
+				const details = rootDetails([
+					group([related("keep", "new")], {
+						synchronization: "additive",
+						coverage: { status: "more", continuation: { page: 2 } },
+					}),
+				]);
+				yield* h.populate("refresh", "refresh", details, () =>
+					page([related("more")], { status: "complete" }),
+				);
+
+				expect(yield* h.credits(anchor)).toEqual([
+					{ externalId: "keep", role: { role: "old" }, generation: "refresh" },
+					{ externalId: "more", generation: "refresh", role: { role: "maker" } },
+					{ generation: "seed", externalId: "stale", role: { role: "maker" } },
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"keeps earlier pages and skips the sweep when a later page fails",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("failure");
+				const anchor = yield* seedRoot(h);
+				const details = rootDetails([
+					group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
+				]);
+				const error = yield* h
+					.populate("refresh", "refresh", details, (continuation) =>
 						JSON.stringify(continuation) === JSON.stringify({ page: 2 })
 							? page([related("second")], { status: "more", continuation: { page: 3 } })
-							: page([related("third")], { status: "complete" }),
+							: "fail",
+					)
+					.pipe(Effect.flip);
+				expect(error.message).toBe("page failed");
+
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
+					"first",
+					"keep",
+					"second",
+					"stale",
+				]);
+				expect(yield* h.published).toHaveLength(7);
+				expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"keeps prior rows and earlier pages when a later page is source-limited",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("source-limited-page");
+				const anchor = yield* seedRoot(h);
+				const details = rootDetails([
+					group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
+				]);
+				const reason = "the provider stopped before the final page";
+				const error = yield* h
+					.populate("refresh", "refresh", details, () =>
+						page([related("limited-page")], { reason, status: "source-limited" }),
+					)
+					.pipe(Effect.flip);
+
+				expect(error.kind).toBe("invalid-output");
+				expect(error.message).toBe(`Provider inventory credits is source-limited: ${reason}`);
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
+					"first",
+					"keep",
+					"stale",
+				]);
+				expect(yield* h.credits(anchor)).toContainEqual({
+					externalId: "keep",
+					generation: "seed",
+					role: { role: "old" },
+				});
+				expect(
+					(yield* h.credits(anchor)).some(({ externalId }) => externalId === "limited-page"),
+				).toBe(false);
+				expect(yield* h.relatedRuns).toHaveLength(1);
+				expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a repeated related-page cursor before fetching it again",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("repeated-cursor");
+				const anchor = yield* seedRoot(h);
+				const details = rootDetails([
+					group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
+				]);
+				const error = yield* h
+					.populate("refresh", "refresh", details, () =>
+						page([related("second")], { status: "more", continuation: { page: 2 } }),
+					)
+					.pipe(Effect.flip);
+
+				expect(error.kind).toBe("invalid-output");
+				expect(error.message).toBe(
+					"Related entity pages repeated a continuation without completing",
+				);
+				expect(yield* h.relatedRuns).toHaveLength(1);
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toContain("stale");
+				expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"stops at the page limit without sweeping",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("limit");
+				const anchor = yield* seedRoot(h);
+				const details = rootDetails([
+					group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
+				]);
+				let nextPage = 3;
+				const error = yield* h
+					.populate("refresh", "refresh", details, () =>
+						page([], { status: "more", continuation: { page: nextPage++ } }),
+					)
+					.pipe(Effect.flip);
+				expect(error.kind).toBe("invalid-output");
+				expect(error.message).toBe("Related entity pages reached the page limit");
+
+				expect(yield* h.relatedRuns).toHaveLength(RELATED_PAGES_MAX_PAGES - 1);
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
+					"first",
+					"keep",
+					"stale",
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"lets only the newest execution write or sweep when two interleave",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("interleave");
+				const anchor = yield* seedRoot(h);
+				const older = rootDetails([
+					group([related("older-a")], {
+						coverage: { status: "more", continuation: { run: "old" } },
+					}),
+				]);
+				const newer = rootDetails([
+					group([related("newer-a"), related("keep")], {
+						coverage: { status: "more", continuation: { run: "new" } },
+					}),
+				]);
+				yield* h.populate("older", "refresh", older).pipe(Effect.flip);
+				yield* h.populate("newer", "refresh", newer, () =>
+					page([related("newer-b")], { status: "complete" }),
+				);
+
+				expect(
+					yield* h.continuePages(0, older, () =>
+						page([related("older-b")], { status: "complete" }),
 					),
-				),
-			);
+				).toBe("superseded");
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
+					"keep",
+					"newer-a",
+					"newer-b",
+				]);
 
-			expect(refreshed.populatedAt).not.toBeNull();
-			const [dispatch] = h.dispatched;
-			expect(dispatch).toMatchObject({
-				discard: undefined,
-				tag: "ProviderRelatedPagesWorkflow",
-				payload: { executionId: `related-${anchor.id}-0-refresh` },
-			});
-			expect(observed).toEqual(
-				[0, 1].map(() => ({
-					relatedPopulatedAt: null,
-					populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-14T00:00:00.000Z")),
-				})),
-			);
-
-			expect((yield* h.relatedRuns).map(({ continuation }) => continuation)).toEqual([
-				{ page: 2 },
-				{ page: 3 },
-			]);
-			expect(new Set((yield* h.relatedRuns).map(({ executionId }) => executionId)).size).toBe(2);
-			expect(yield* h.credits(anchor)).toEqual([
-				{ externalId: "first", generation: "refresh", role: { role: "maker" } },
-				{ externalId: "keep", role: { role: "new" }, generation: "refresh" },
-				{ externalId: "second", generation: "refresh", role: { role: "maker" } },
-				{ externalId: "third", generation: "refresh", role: { role: "maker" } },
-			]);
-			expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toEqual(
-				DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-14T00:00:00.000Z")),
-			);
-			expect(yield* h.published).toHaveLength(10);
-			expect(yield* h.published).toContain(
-				encodeEntityUpdatedMessage(anchor.id, "enrichment-updated"),
-			);
-		}),
+				expect(
+					yield* h.continuePages(1, newer, () =>
+						page([related("newer-b")], { status: "complete" }),
+					),
+				).toBe("complete");
+				expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
+					"keep",
+					"newer-a",
+					"newer-b",
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("never sweeps additive groups", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("additive");
-			const anchor = yield* seedRoot(h);
-			const details = rootDetails([
-				group([related("keep", "new")], {
-					synchronization: "additive",
-					coverage: { status: "more", continuation: { page: 2 } },
-				}),
-			]);
-			yield* h.populate("refresh", "refresh", details, () =>
-				page([related("more")], { status: "complete" }),
-			);
-
-			expect(yield* h.credits(anchor)).toEqual([
-				{ externalId: "keep", role: { role: "old" }, generation: "refresh" },
-				{ externalId: "more", generation: "refresh", role: { role: "maker" } },
-				{ generation: "seed", externalId: "stale", role: { role: "maker" } },
-			]);
-		}),
-	);
-
-	test.effect("keeps earlier pages and skips the sweep when a later page fails", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("failure");
-			const anchor = yield* seedRoot(h);
-			const details = rootDetails([
-				group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
-			]);
-			const error = yield* h
-				.populate("refresh", "refresh", details, (continuation) =>
+	test.effect(
+		"replays the root and the page workflow without receipt conflicts",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("replay");
+				const anchor = yield* seedRoot(h);
+				const details = rootDetails([
+					group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
+				]);
+				const pages: RelatedPageHandler = (continuation) =>
 					JSON.stringify(continuation) === JSON.stringify({ page: 2 })
 						? page([related("second")], { status: "more", continuation: { page: 3 } })
-						: "fail",
-				)
-				.pipe(Effect.flip);
-			expect(error.message).toBe("page failed");
+						: page([related("third")], { status: "complete" });
 
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
-				"first",
-				"keep",
-				"second",
-				"stale",
-			]);
-			expect(yield* h.published).toHaveLength(7);
-			expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
-		}),
+				yield* h.populate("refresh", "refresh", details, pages);
+				yield* h.populate("refresh", "refresh", details, pages);
+				yield* h.continuePages(0, details, pages);
+				yield* h.continuePages(0, details, pages);
+
+				expect(yield* h.credits(anchor)).toEqual(
+					["first", "second", "third"].map((externalId) => ({
+						externalId,
+						generation: "refresh",
+						role: { role: "maker" },
+					})),
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps prior rows and earlier pages when a later page is source-limited", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("source-limited-page");
-			const anchor = yield* seedRoot(h);
-			const details = rootDetails([
-				group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
-			]);
-			const reason = "the provider stopped before the final page";
-			const error = yield* h
-				.populate("refresh", "refresh", details, () =>
-					page([related("limited-page")], { reason, status: "source-limited" }),
-				)
-				.pipe(Effect.flip);
+	test.effect(
+		"fails the population before writing when a continuation has no related script",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("missing-script", { relatedScript: false });
+				const session = yield* DatabaseSession;
+				const details = rootDetails([
+					group([related("unwritten")], {
+						coverage: { status: "more", continuation: { page: 2 } },
+					}),
+				]);
 
-			expect(error.kind).toBe("invalid-output");
-			expect(error.message).toBe(`Provider inventory credits is source-limited: ${reason}`);
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
-				"first",
-				"keep",
-				"stale",
-			]);
-			expect(yield* h.credits(anchor)).toContainEqual({
-				externalId: "keep",
-				generation: "seed",
-				role: { role: "old" },
-			});
-			expect(
-				(yield* h.credits(anchor)).some(({ externalId }) => externalId === "limited-page"),
-			).toBe(false);
-			expect(yield* h.relatedRuns).toHaveLength(1);
-			expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
-		}),
-	);
+				const error = yield* h.populate("refresh", "ensure", details).pipe(Effect.flip);
 
-	test.effect("rejects a repeated related-page cursor before fetching it again", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("repeated-cursor");
-			const anchor = yield* seedRoot(h);
-			const details = rootDetails([
-				group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
-			]);
-			const error = yield* h
-				.populate("refresh", "refresh", details, () =>
-					page([related("second")], { status: "more", continuation: { page: 2 } }),
-				)
-				.pipe(Effect.flip);
-
-			expect(error.kind).toBe("invalid-output");
-			expect(error.message).toBe("Related entity pages repeated a continuation without completing");
-			expect(yield* h.relatedRuns).toHaveLength(1);
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toContain("stale");
-			expect((yield* h.status(anchor.id))?.relatedPopulatedAt).toBeNull();
-		}),
-	);
-
-	test.effect("stops at the page limit without sweeping", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("limit");
-			const anchor = yield* seedRoot(h);
-			const details = rootDetails([
-				group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
-			]);
-			let nextPage = 3;
-			const error = yield* h
-				.populate("refresh", "refresh", details, () =>
-					page([], { status: "more", continuation: { page: nextPage++ } }),
-				)
-				.pipe(Effect.flip);
-			expect(error.kind).toBe("invalid-output");
-			expect(error.message).toBe("Related entity pages reached the page limit");
-
-			expect(yield* h.relatedRuns).toHaveLength(RELATED_PAGES_MAX_PAGES - 1);
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
-				"first",
-				"keep",
-				"stale",
-			]);
-		}),
-	);
-
-	test.effect("lets only the newest execution write or sweep when two interleave", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("interleave");
-			const anchor = yield* seedRoot(h);
-			const older = rootDetails([
-				group([related("older-a")], { coverage: { status: "more", continuation: { run: "old" } } }),
-			]);
-			const newer = rootDetails([
-				group([related("newer-a"), related("keep")], {
-					coverage: { status: "more", continuation: { run: "new" } },
-				}),
-			]);
-			yield* h.populate("older", "refresh", older).pipe(Effect.flip);
-			yield* h.populate("newer", "refresh", newer, () =>
-				page([related("newer-b")], { status: "complete" }),
-			);
-
-			expect(
-				yield* h.continuePages(0, older, () => page([related("older-b")], { status: "complete" })),
-			).toBe("superseded");
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
-				"keep",
-				"newer-a",
-				"newer-b",
-			]);
-
-			expect(
-				yield* h.continuePages(1, newer, () => page([related("newer-b")], { status: "complete" })),
-			).toBe("complete");
-			expect((yield* h.credits(anchor)).map(({ externalId }) => externalId)).toEqual([
-				"keep",
-				"newer-a",
-				"newer-b",
-			]);
-		}),
-	);
-
-	test.effect("replays the root and the page workflow without receipt conflicts", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("replay");
-			const anchor = yield* seedRoot(h);
-			const details = rootDetails([
-				group([related("first")], { coverage: { status: "more", continuation: { page: 2 } } }),
-			]);
-			const pages: RelatedPageHandler = (continuation) =>
-				JSON.stringify(continuation) === JSON.stringify({ page: 2 })
-					? page([related("second")], { status: "more", continuation: { page: 3 } })
-					: page([related("third")], { status: "complete" });
-
-			yield* h.populate("refresh", "refresh", details, pages);
-			yield* h.populate("refresh", "refresh", details, pages);
-			yield* h.continuePages(0, details, pages);
-			yield* h.continuePages(0, details, pages);
-
-			expect(yield* h.credits(anchor)).toEqual(
-				["first", "second", "third"].map((externalId) => ({
-					externalId,
-					generation: "refresh",
-					role: { role: "maker" },
-				})),
-			);
-		}),
-	);
-
-	test.effect("fails the population before writing when a continuation has no related script", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("missing-script", { relatedScript: false });
-			const session = yield* DatabaseSession;
-			const details = rootDetails([
-				group([related("unwritten")], { coverage: { status: "more", continuation: { page: 2 } } }),
-			]);
-
-			const error = yield* h.populate("refresh", "ensure", details).pipe(Effect.flip);
-
-			expect(error.message).toBe("Pinned provider related script is unavailable");
-			expect(h.dispatched).toEqual([]);
-			expect(
-				yield* session.run((db) =>
-					db.select().from(tables.entity).where(eq(tables.entity.externalId, "unwritten")),
-				),
-			).toEqual([]);
-		}),
+				expect(error.message).toBe("Pinned provider related script is unavailable");
+				expect(h.dispatched).toEqual([]);
+				expect(
+					yield* session.run((db) =>
+						db.select().from(tables.entity).where(eq(tables.entity.externalId, "unwritten")),
+					),
+				).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

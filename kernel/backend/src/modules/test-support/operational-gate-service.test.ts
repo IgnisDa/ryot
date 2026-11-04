@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { NotFound } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
@@ -11,6 +12,8 @@ import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -189,50 +192,56 @@ const workflowLoadLayer = (
 	);
 
 layer(workflowLoadLayer())((test) => {
-	test.effect("returns a typed error for an invalid plugin workflow target", () =>
-		Effect.gen(function* () {
-			const service = yield* OperationalGateService;
-			const exit = yield* Effect.exit(service.startWorkflowLoad(gateInput));
+	test.effect(
+		"returns a typed error for an invalid plugin workflow target",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* OperationalGateService;
+				const exit = yield* Effect.exit(service.startWorkflowLoad(gateInput));
 
-			assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
-			expect(yield* (yield* FakeWorkflowLoad).enqueued).toEqual([
-				{
-					executingUserId,
-					lane: "background",
-					pluginId: availablePlugin.id,
-					workflowSlug: gateInput.workflowSlug,
-					executionId: `${runId}-workflow-load-0`,
-					pluginInstallationId: availablePlugin.installationId,
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					input: {
-						items: [
-							{
-								index: 0,
-								providerId: gateInput.providerId,
-								entitySchemaSlug: gateInput.entitySchemaSlug,
-								externalId: `${gateInput.identifierPrefix}-0`,
-								command: {
-									occurredAt: anyOf(String),
-									itemIdentity: '["workflow-load",0]',
-									accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-									causation: {
-										depth: 0,
-										source: "import",
-										parentRunId: null,
-										lane: "background",
-										importRunId: runId,
-										parentTriggerId: null,
-										executionId: `${runId}-workflow-load`,
-										rootExecutionId: `${runId}-workflow-load`,
-										initiator: { kind: "user", id: executingUserId },
+				assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
+				expect(yield* (yield* FakeWorkflowLoad).enqueued).toEqual([
+					{
+						executingUserId,
+						lane: "background",
+						pluginId: availablePlugin.id,
+						workflowSlug: gateInput.workflowSlug,
+						executionId: `${runId}-workflow-load-0`,
+						pluginInstallationId: availablePlugin.installationId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+						input: {
+							items: [
+								{
+									index: 0,
+									providerId: gateInput.providerId,
+									entitySchemaSlug: gateInput.entitySchemaSlug,
+									externalId: `${gateInput.identifierPrefix}-0`,
+									command: {
+										occurredAt: anyOf(String),
+										itemIdentity: '["workflow-load",0]',
+										accountGeneration: {
+											userId: executingUserId,
+											token: "test-account-generation",
+										},
+										causation: {
+											depth: 0,
+											source: "import",
+											parentRunId: null,
+											lane: "background",
+											importRunId: runId,
+											parentTriggerId: null,
+											executionId: `${runId}-workflow-load`,
+											rootExecutionId: `${runId}-workflow-load`,
+											initiator: { kind: "user", id: executingUserId },
+										},
 									},
 								},
-							},
-						],
+							],
+						},
 					},
-				},
-			]);
-		}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -290,43 +299,47 @@ layer(
 					"ryot:sandbox:workflow:absent:journal",
 				]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(workflowLoadLayer())((test) => {
-	test.effect("polls every execution and updates bookkeeping only after all finish", () =>
-		Effect.gen(function* () {
-			const service = yield* OperationalGateService;
-			const fake = yield* FakeWorkflowLoad;
-			const input = { runId, itemCount: 2, executionIds: ["execution-0", "execution-1"] };
+	test.effect(
+		"polls every execution and updates bookkeeping only after all finish",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* OperationalGateService;
+				const fake = yield* FakeWorkflowLoad;
+				const input = { runId, itemCount: 2, executionIds: ["execution-0", "execution-1"] };
 
-			expect(yield* service.getWorkflowLoadResult(input)).toEqual({
-				runId,
-				executions: [
-					{ status: "pending", executionId: "execution-0" },
-					{ status: "pending", executionId: "execution-1" },
-				],
-			});
-			expect(yield* fake.polledExecutionIds).toEqual(["execution-0", "execution-1"]);
-			expect(yield* fake.updates).toEqual([]);
+				expect(yield* service.getWorkflowLoadResult(input)).toEqual({
+					runId,
+					executions: [
+						{ status: "pending", executionId: "execution-0" },
+						{ status: "pending", executionId: "execution-1" },
+					],
+				});
+				expect(yield* fake.polledExecutionIds).toEqual(["execution-0", "execution-1"]);
+				expect(yield* fake.updates).toEqual([]);
 
-			yield* fake.completeExecutions;
-			yield* service.getWorkflowLoadResult(input);
-			expect(yield* fake.polledExecutionIds).toEqual([
-				"execution-0",
-				"execution-1",
-				"execution-0",
-				"execution-1",
-			]);
-			expect(yield* fake.updates).toEqual([
-				objectContaining({
-					completed: 2,
-					exactTotal: 2,
-					state: "completed",
-					unit: "workflow executions",
-				}),
-				objectContaining({ status: "completed", scope: objectContaining({ runId }) }),
-			]);
-		}),
+				yield* fake.completeExecutions;
+				yield* service.getWorkflowLoadResult(input);
+				expect(yield* fake.polledExecutionIds).toEqual([
+					"execution-0",
+					"execution-1",
+					"execution-0",
+					"execution-1",
+				]);
+				expect(yield* fake.updates).toEqual([
+					objectContaining({
+						completed: 2,
+						exactTotal: 2,
+						state: "completed",
+						unit: "workflow executions",
+					}),
+					objectContaining({ status: "completed", scope: objectContaining({ runId }) }),
+				]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,4 +1,5 @@
-import { expect, it, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRun,
@@ -11,16 +12,18 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { AutomationHookSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import {
 	makeRecordingTracer,
 	maxBindParameter,
 	recordedStatements,
 } from "@ryot-app/testing/recording-tracer";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Duration, Effect, Layer, Schema, type Tracer } from "effect";
 import { TestClock } from "effect/testing";
-import { assert, describe } from "vitest";
 
 import { lifecycleRunId, lifecycleTriggerId } from "#modules/automations/lifecycle/planning";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -123,19 +126,19 @@ it.effect(
 					signalManifest,
 					payload.signalSchemaPluginId,
 				),
-			).toEqual({
+			).toEqual<unknown>({
 				...payload,
 				properties: { public: "visible", items: [{ label: "ok" }], nested: { visible: "ok" } },
 			});
 			expect(
 				yield* redactAutomationHistoryPayload(payload, null, payload.signalSchemaPluginId),
-			).toEqual({ ...payload, properties: {} });
-			expect(yield* redactAutomationHistoryPayload(payload, signalManifest, null)).toEqual({
-				...payload,
-				properties: {},
-			});
+			).toEqual<unknown>({ ...payload, properties: {} });
+			expect(yield* redactAutomationHistoryPayload(payload, signalManifest, null)).toEqual<unknown>(
+				{ ...payload, properties: {} },
+			);
 			expect(payload.properties).toMatchObject({ password: "hidden" });
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -222,6 +225,7 @@ it.effect(
 				yield* encodeJson(yield* redactAutomationHistoryPayload(batch, pinned, null)),
 			).not.toContain("hidden");
 		}),
+	testTimeout,
 );
 
 describe("AutomationRunRepository", () => {
@@ -392,6 +396,7 @@ describe("AutomationRunRepository", () => {
 						),
 					).toEqual([{ name: "Owner" }]);
 				}),
+			testTimeout,
 		);
 	});
 	layer(
@@ -576,6 +581,7 @@ describe("AutomationRunRepository", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 	layer(
@@ -854,6 +860,7 @@ describe("AutomationRunRepository", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 });

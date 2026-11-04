@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { countMuscleSets } from "../../shared/fitness-metrics";
 import { workoutDetails, workoutExercise, workoutSet } from "../../tests/client/workout-fixtures";

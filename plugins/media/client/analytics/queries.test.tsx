@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { periodCaption, PluginId } from "@ryot-app/plugin-client-sdk/plugin";
@@ -12,7 +13,9 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -292,6 +295,7 @@ describe("Media analytics query adapters", () => {
 						yield* Effect.promise(() => clock.dispose());
 					}
 				}),
+			testTimeout,
 		);
 	}
 	it.live(
@@ -333,33 +337,37 @@ describe("Media analytics query adapters", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
-	it.live("clips the daily heatmap to the most recent bucket-limit days of all time", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
-			const page = mount(clock, ConsistencyProbe);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-				for (const request of page.queryRequests()) {
-					const text = yield* documentText(request.document);
-					expect(text).toContain("2026-10-27T04:00:00.000Z");
-					expect(text).toContain('"bucket":"day"');
-					expect(Object.keys(request.document.queries)).toEqual(["current"]);
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: { data: { current: aggregate([]) } },
-					});
+	it.live(
+		"clips the daily heatmap to the most recent bucket-limit days of all time",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-11-02T18:00:00Z")));
+				const page = mount(clock, ConsistencyProbe);
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
+					for (const request of page.queryRequests()) {
+						const text = yield* documentText(request.document);
+						expect(text).toContain("2026-10-27T04:00:00.000Z");
+						expect(text).toContain('"bucket":"day"');
+						expect(Object.keys(request.document.queries)).toEqual(["current"]);
+						page.replyQuery(request.requestId, {
+							outcome: "success",
+							response: { data: { current: aggregate([]) } },
+						});
+					}
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("Oct 27 – Nov 2, 2026")).toBeDefined()),
+					);
+					expect(screen.getByLabelText("Clipped").textContent).toBe("false");
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
 				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("Oct 27 – Nov 2, 2026")).toBeDefined()),
-				);
-				expect(screen.getByLabelText("Clipped").textContent).toBe("false");
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+			}),
+		testTimeout,
 	);
 	for (const { key, Probe } of [
 		{ key: "ranking", Probe: RankingProbe },
@@ -448,6 +456,7 @@ describe("Media analytics query adapters", () => {
 						yield* Effect.promise(() => clock.dispose());
 					}
 				}),
+			testTimeout,
 		);
 	}
 	it.live(
@@ -550,77 +559,84 @@ describe("Media analytics query adapters", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
-	it.live("keeps append cursor errors visible and owner changes separate", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mount(clock, RecordsProbe);
-			try {
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("records")).toHaveLength(1)),
-				);
-				for (const request of page.queryRequests("records")) {
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: cursorResponse("records", "first"),
+	it.live(
+		"keeps append cursor errors visible and owner changes separate",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mount(clock, RecordsProbe);
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("records")).toHaveLength(1)),
+					);
+					for (const request of page.queryRequests("records")) {
+						page.replyQuery(request.requestId, {
+							outcome: "success",
+							response: cursorResponse("records", "first"),
+						});
+					}
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("1 pages")).toBeDefined()),
+					);
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "More" }));
 					});
-				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("1 pages")).toBeDefined()),
-				);
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "More" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("records")).toHaveLength(2)),
-				);
-				for (const request of page.queryRequests("records").slice(1)) {
-					page.replyQuery(request.requestId, {
-						outcome: "success",
-						response: cursorResponse("records", "first"),
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("records")).toHaveLength(2)),
+					);
+					for (const request of page.queryRequests("records").slice(1)) {
+						page.replyQuery(request.requestId, {
+							outcome: "success",
+							response: cursorResponse("records", "first"),
+						});
+					}
+					yield* Effect.promise(() =>
+						waitFor(() => expect(screen.getByText("append")).toBeDefined()),
+					);
+					expect(screen.getByText("1 pages")).toBeDefined();
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Other owner" }));
 					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests("records")).toHaveLength(3)),
+					);
+					expect(screen.getByText("0 pages")).toBeDefined();
+					for (const request of page.queryRequests("records").slice(2)) {
+						expect(yield* documentText(request.document)).toContain("media-other");
+						expect(yield* documentText(request.document)).not.toContain("media-owner");
+					}
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
 				}
-				yield* Effect.promise(() =>
-					waitFor(() => expect(screen.getByText("append")).toBeDefined()),
-				);
-				expect(screen.getByText("1 pages")).toBeDefined();
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Other owner" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("records")).toHaveLength(3)),
-				);
-				expect(screen.getByText("0 pages")).toBeDefined();
-				for (const request of page.queryRequests("records").slice(2)) {
-					expect(yield* documentText(request.document)).toContain("media-other");
-					expect(yield* documentText(request.document)).not.toContain("media-owner");
-				}
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+			}),
+		testTimeout,
 	);
-	it.live("cancels the summary request when the section unmounts", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const page = mount(clock, UnmountProbe);
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
-				act(() => {
-					fireEvent.click(screen.getByRole("button", { name: "Hide" }));
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(
-							page.clientMessages().filter((message) => message.type === "ryotql-cancel"),
-						).toHaveLength(1),
-					),
-				);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"cancels the summary request when the section unmounts",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const page = mount(clock, UnmountProbe);
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
+					act(() => {
+						fireEvent.click(screen.getByRole("button", { name: "Hide" }));
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								page.clientMessages().filter((message) => message.type === "ryotql-cancel"),
+							).toHaveLength(1),
+						),
+					);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 });

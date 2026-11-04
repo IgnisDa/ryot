@@ -1,4 +1,5 @@
-import { describe, expect, it, test } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
 import { sandboxManifestSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import {
@@ -12,6 +13,8 @@ import type {
 	WorkflowReplayHost,
 	WorkflowReplayJournalEntry,
 } from "@ryot-app/plugin-backend-sdk/workflow";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect as RuntimeEffect } from "effect";
 
 class TestWorkflowFailure extends Schema.TaggedError<
@@ -34,6 +37,7 @@ describe("workflow definitions", () => {
 								"first",
 								{
 									output: Schema.String,
+									referenceKind: "script",
 									scriptSlug: "activity.first",
 									input: Schema.Struct({ value: Schema.Finite }),
 								},
@@ -43,6 +47,7 @@ describe("workflow definitions", () => {
 								"second",
 								{
 									output: Schema.String,
+									referenceKind: "workflow",
 									workflowSlug: "workflow.second",
 									input: Schema.Struct({ value: Schema.Finite }),
 								},
@@ -295,12 +300,22 @@ describe("workflow definitions", () => {
 								replay.sleep("pause", 10),
 								replay.activity(
 									"activity",
-									{ input: Schema.Null, output: Schema.String, scriptSlug: "activity.work" },
+									{
+										input: Schema.Null,
+										output: Schema.String,
+										referenceKind: "script",
+										scriptSlug: "activity.work",
+									},
 									null,
 								),
 								replay.child(
 									"child",
-									{ input: Schema.Null, output: Schema.String, workflowSlug: "workflow.work" },
+									{
+										input: Schema.Null,
+										output: Schema.String,
+										referenceKind: "workflow",
+										workflowSlug: "workflow.work",
+									},
 									null,
 								),
 							],
@@ -365,14 +380,18 @@ describe("workflow definitions", () => {
 					{ ...replayBase, settleInline: () => RuntimeEffect.succeed(null) },
 					metadata,
 				);
-				expect(pending).toEqual({ state: "pending", journalLength: 0, requests: [request] });
+				expect(pending).toEqual<unknown>({
+					state: "pending",
+					journalLength: 0,
+					requests: [request],
+				});
 
 				const wrongCount = yield* workflow.run(
 					null,
 					{ ...replayBase, settleInline: () => RuntimeEffect.succeed([]) },
 					metadata,
 				);
-				expect(wrongCount).toEqual({
+				expect(wrongCount).toEqual<unknown>({
 					state: "failed",
 					journalLength: 0,
 					requests: [request],
@@ -412,12 +431,22 @@ describe("workflow definitions", () => {
 								[
 									replay.activity(
 										"first",
-										{ input: Schema.Null, output: Schema.String, scriptSlug: "activity.first" },
+										{
+											input: Schema.Null,
+											output: Schema.String,
+											referenceKind: "script",
+											scriptSlug: "activity.first",
+										},
 										null,
 									),
 									replay.activity(
 										"second",
-										{ input: Schema.Null, output: Schema.String, scriptSlug: "activity.second" },
+										{
+											input: Schema.Null,
+											output: Schema.String,
+											referenceKind: "script",
+											scriptSlug: "activity.second",
+										},
 										null,
 									),
 								],
@@ -577,7 +606,12 @@ describe("workflow definitions", () => {
 						kind === "activity"
 							? replay.activity(
 									"invalid",
-									{ input: Schema.Unknown, output: Schema.String, scriptSlug: "activity.invalid" },
+									{
+										input: Schema.Unknown,
+										output: Schema.String,
+										referenceKind: "script",
+										scriptSlug: "activity.invalid",
+									},
 									input,
 								)
 							: replay.child(
@@ -585,6 +619,7 @@ describe("workflow definitions", () => {
 									{
 										input: Schema.Unknown,
 										output: Schema.String,
+										referenceKind: "workflow",
 										workflowSlug: "workflow.invalid",
 									},
 									input,
@@ -601,43 +636,49 @@ describe("workflow definitions", () => {
 		),
 	);
 
-	it.effect("validates direct durable call request shapes", () =>
-		Effect.gen(function* () {
-			const decode = Schema.decodeUnknownEffect(workflowDurableCallRequestSchema);
-			expect(
-				yield* decode({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } }),
-			).toEqual({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } });
-			yield* RuntimeEffect.flip(
-				decode({
-					index: 0,
-					name: "activity",
-					kind: "activity",
-					args: { input: {}, operation: "resolve", scriptSlug: "activity.resolve" },
-				}),
-			);
-		}),
+	it.effect(
+		"validates direct durable call request shapes",
+		() =>
+			Effect.gen(function* () {
+				const decode = Schema.decodeUnknownEffect(workflowDurableCallRequestSchema);
+				expect(
+					yield* decode({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } }),
+				).toEqual({ index: 0, name: "wait", kind: "sleep", args: { durationMs: 1000 } });
+				yield* RuntimeEffect.flip(
+					decode({
+						index: 0,
+						name: "activity",
+						kind: "activity",
+						args: { input: {}, operation: "resolve", scriptSlug: "activity.resolve" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("rejects authored capabilities in workflow manifests", () =>
-		Effect.gen(function* () {
-			const decode = Schema.decodeUnknownEffect(sandboxManifestSchema);
-			expect(yield* decode({ kind: "workflow", name: "Workflow", slug: "workflow" })).toEqual({
-				kind: "workflow",
-				name: "Workflow",
-				slug: "workflow",
-			});
-			yield* RuntimeEffect.flip(
-				decode({ kind: "workflow", capabilities: [], name: "Workflow", slug: "workflow" }),
-			);
-			yield* RuntimeEffect.flip(
-				decode({
+	it.effect(
+		"rejects authored capabilities in workflow manifests",
+		() =>
+			Effect.gen(function* () {
+				const decode = Schema.decodeUnknownEffect(sandboxManifestSchema);
+				expect(yield* decode({ kind: "workflow", name: "Workflow", slug: "workflow" })).toEqual({
 					kind: "workflow",
 					name: "Workflow",
 					slug: "workflow",
-					capabilities: ["httpCall"],
-				}),
-			);
-		}),
+				});
+				yield* RuntimeEffect.flip(
+					decode({ kind: "workflow", capabilities: [], name: "Workflow", slug: "workflow" }),
+				);
+				yield* RuntimeEffect.flip(
+					decode({
+						kind: "workflow",
+						name: "Workflow",
+						slug: "workflow",
+						capabilities: ["httpCall"],
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
 	test("exports only deterministic workflow Effect combinators", () => {
@@ -669,7 +710,12 @@ describe("workflow definitions", () => {
 							Effect.gen(function* () {
 								yield* replay.activity(
 									"step",
-									{ output: Schema.String, input: Schema.Struct({}), scriptSlug: "activity.step" },
+									{
+										output: Schema.String,
+										referenceKind: "script",
+										input: Schema.Struct({}),
+										scriptSlug: "activity.step",
+									},
 									{},
 								);
 								return yield* Effect.fail(failure);

@@ -1,7 +1,10 @@
+import { describe, expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { it, layer } from "@effect/vitest";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, FileSystem, Option, Path, type Scope } from "effect";
-import { assert, describe, expect } from "vitest";
 
 import {
 	decodeSandboxScratchManifest,
@@ -34,72 +37,81 @@ describe("sandbox filesystem grant gating", () => {
 
 describe("sandbox grant path validation", () => {
 	layer(BunServices.layer)((test) => {
-		test.effect("rejects relative, traversing, and out-of-root paths", () =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				const reject = (candidate: string) =>
-					sandboxGrantPathError(path, "Sandbox artifact grant path", candidate, "/tmp/ryot-root");
+		test.effect(
+			"rejects relative, traversing, and out-of-root paths",
+			() =>
+				Effect.gen(function* () {
+					const path = yield* Path.Path;
+					const reject = (candidate: string) =>
+						sandboxGrantPathError(path, "Sandbox artifact grant path", candidate, "/tmp/ryot-root");
 
-				expect(reject("relative/export.zip")).toBe(
-					"Sandbox artifact grant path must be an absolute path",
-				);
-				expect(reject("/tmp/ryot-root/../../etc/passwd")).toBe(
-					"Sandbox artifact grant path must be a normalized path without traversal segments",
-				);
-				expect(reject("/etc/passwd")).toBe(
-					"Sandbox artifact grant path must be inside /tmp/ryot-root",
-				);
-				expect(reject("/tmp/ryot-root-sibling/export.zip")).toBe(
-					"Sandbox artifact grant path must be inside /tmp/ryot-root",
-				);
-				expect(reject("/tmp/ryot-root/nested/export.zip")).toBeNull();
-			}),
+					expect(reject("relative/export.zip")).toBe(
+						"Sandbox artifact grant path must be an absolute path",
+					);
+					expect(reject("/tmp/ryot-root/../../etc/passwd")).toBe(
+						"Sandbox artifact grant path must be a normalized path without traversal segments",
+					);
+					expect(reject("/etc/passwd")).toBe(
+						"Sandbox artifact grant path must be inside /tmp/ryot-root",
+					);
+					expect(reject("/tmp/ryot-root-sibling/export.zip")).toBe(
+						"Sandbox artifact grant path must be inside /tmp/ryot-root",
+					);
+					expect(reject("/tmp/ryot-root/nested/export.zip")).toBeNull();
+				}),
+			testTimeout,
 		);
 	});
 });
 
 describe("sandbox scratch measurement", () => {
 	layer(BunServices.layer)((test) => {
-		test.effect("sums regular files in the flat scratch directory", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const path = yield* Path.Path;
-					const fs = yield* FileSystem.FileSystem;
-					yield* fs.writeFile(path.join(root, "chunk-0.json"), new Uint8Array(1024));
-					yield* fs.writeFile(path.join(root, "chunk-1.json"), new Uint8Array(2048));
+		test.effect(
+			"sums regular files in the flat scratch directory",
+			() =>
+				withTempRoot((root) =>
+					Effect.gen(function* () {
+						const path = yield* Path.Path;
+						const fs = yield* FileSystem.FileSystem;
+						yield* fs.writeFile(path.join(root, "chunk-0.json"), new Uint8Array(1024));
+						yield* fs.writeFile(path.join(root, "chunk-1.json"), new Uint8Array(2048));
 
-					expect(yield* measureSandboxScratchBytes(root)).toBe(3072);
-				}),
-			),
+						expect(yield* measureSandboxScratchBytes(root)).toBe(3072);
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("rejects directories and symbolic links", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const path = yield* Path.Path;
-					const fs = yield* FileSystem.FileSystem;
-					const nested = path.join(root, "nested");
-					yield* fs.makeDirectory(nested);
-					const directory = yield* Effect.exit(measureSandboxScratchBytes(root));
-					assert(directory._tag === "Failure");
-					expect(Cause.findErrorOption(directory.cause)).toEqual(
-						Option.some(
-							`Sandbox scratch entry "${nested}" must be a regular file (found Directory)`,
-						),
-					);
-					yield* fs.remove(nested, { recursive: true });
+		test.effect(
+			"rejects directories and symbolic links",
+			() =>
+				withTempRoot((root) =>
+					Effect.gen(function* () {
+						const path = yield* Path.Path;
+						const fs = yield* FileSystem.FileSystem;
+						const nested = path.join(root, "nested");
+						yield* fs.makeDirectory(nested);
+						const directory = yield* Effect.exit(measureSandboxScratchBytes(root));
+						assert(directory._tag === "Failure");
+						expect(Cause.findErrorOption(directory.cause)).toEqual(
+							Option.some(
+								`Sandbox scratch entry "${nested}" must be a regular file (found Directory)`,
+							),
+						);
+						yield* fs.remove(nested, { recursive: true });
 
-					const link = path.join(root, "link");
-					yield* fs.symlink(root, link);
-					const symlinked = yield* Effect.exit(measureSandboxScratchBytes(root));
-					assert(symlinked._tag === "Failure");
-					expect(Cause.findErrorOption(symlinked.cause)).toEqual(
-						Option.some(
-							`Sandbox scratch entry "${link}" must be a regular file (found SymbolicLink)`,
-						),
-					);
-				}),
-			),
+						const link = path.join(root, "link");
+						yield* fs.symlink(root, link);
+						const symlinked = yield* Effect.exit(measureSandboxScratchBytes(root));
+						assert(symlinked._tag === "Failure");
+						expect(Cause.findErrorOption(symlinked.cause)).toEqual(
+							Option.some(
+								`Sandbox scratch entry "${link}" must be a regular file (found SymbolicLink)`,
+							),
+						);
+					}),
+				),
+			testTimeout,
 		);
 	});
 });

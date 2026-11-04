@@ -1,4 +1,7 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { SecureRandom } from "effect/crypto";
 
@@ -10,108 +13,123 @@ const scheduleLayer = Layer.provide(RyotScheduleService.layer, SecureRandom.laye
 
 describe("createSettleTracker", () => {
 	layer(scheduleLayer)((test) => {
-		test.effect("does not mark failure or progress updates as population settling", () =>
-			Effect.gen(function* () {
-				const schedule = yield* RyotScheduleService;
-				const tracker = createSettleTracker(schedule, 900);
-				tracker.stage({ entityId: "a", reason: "populated" });
-				tracker.commit();
-				yield* advanceRyotSchedule(600);
-				tracker.stage({ entityId: "b", reason: "population-failed" });
-				tracker.stage({ entityId: "a", reason: "enrichment-updated" });
-				tracker.stage({ entityId: "c", reason: "enrichment-updated" });
-				tracker.commit();
-				expect([...tracker.snapshot()]).toEqual([["a", "populating"]]);
-				yield* advanceRyotSchedule(300);
-				expect([...tracker.snapshot()]).toEqual([]);
-			}),
+		test.effect(
+			"does not mark failure or progress updates as population settling",
+			() =>
+				Effect.gen(function* () {
+					const schedule = yield* RyotScheduleService;
+					const tracker = createSettleTracker(schedule, 900);
+					tracker.stage({ entityId: "a", reason: "populated" });
+					tracker.commit();
+					yield* advanceRyotSchedule(600);
+					tracker.stage({ entityId: "b", reason: "population-failed" });
+					tracker.stage({ entityId: "a", reason: "enrichment-updated" });
+					tracker.stage({ entityId: "c", reason: "enrichment-updated" });
+					tracker.commit();
+					expect([...tracker.snapshot()]).toEqual([["a", "populating"]]);
+					yield* advanceRyotSchedule(300);
+					expect([...tracker.snapshot()]).toEqual([]);
+				}),
+			testTimeout,
 		);
 
-		test.effect("never highlights a failed population", () =>
-			Effect.gen(function* () {
-				const schedule = yield* RyotScheduleService;
-				const tracker = createSettleTracker(schedule, 900);
-				let notifications = 0;
-				tracker.subscribe(() => {
-					notifications++;
-				});
-				tracker.stage({ entityId: "a", reason: "population-failed" });
-				tracker.commit();
-				expect([...tracker.snapshot()]).toEqual([]);
-				expect(notifications).toBe(0);
-			}),
+		test.effect(
+			"never highlights a failed population",
+			() =>
+				Effect.gen(function* () {
+					const schedule = yield* RyotScheduleService;
+					const tracker = createSettleTracker(schedule, 900);
+					let notifications = 0;
+					tracker.subscribe(() => {
+						notifications++;
+					});
+					tracker.stage({ entityId: "a", reason: "population-failed" });
+					tracker.commit();
+					expect([...tracker.snapshot()]).toEqual([]);
+					expect(notifications).toBe(0);
+				}),
+			testTimeout,
 		);
 
-		test.effect("keeps staged updates invisible until commit and expires them after the ring", () =>
-			Effect.gen(function* () {
-				const schedule = yield* RyotScheduleService;
-				const tracker = createSettleTracker(schedule, 900);
-				let notifications = 0;
-				tracker.subscribe(() => {
-					notifications++;
-				});
+		test.effect(
+			"keeps staged updates invisible until commit and expires them after the ring",
+			() =>
+				Effect.gen(function* () {
+					const schedule = yield* RyotScheduleService;
+					const tracker = createSettleTracker(schedule, 900);
+					let notifications = 0;
+					tracker.subscribe(() => {
+						notifications++;
+					});
 
-				tracker.stage({ entityId: "a", reason: "populated" });
-				tracker.stage({ entityId: "b", reason: "translated" });
-				expect([...tracker.snapshot()]).toEqual([]);
-				expect(notifications).toBe(0);
+					tracker.stage({ entityId: "a", reason: "populated" });
+					tracker.stage({ entityId: "b", reason: "translated" });
+					expect([...tracker.snapshot()]).toEqual([]);
+					expect(notifications).toBe(0);
 
-				tracker.commit();
-				expect([...tracker.snapshot()]).toEqual([
-					["a", "populating"],
-					["b", "translating"],
-				]);
-				expect(notifications).toBe(1);
+					tracker.commit();
+					expect([...tracker.snapshot()]).toEqual([
+						["a", "populating"],
+						["b", "translating"],
+					]);
+					expect(notifications).toBe(1);
 
-				yield* advanceRyotSchedule(899);
-				expect(tracker.snapshot().size).toBe(2);
-				yield* advanceRyotSchedule(1);
-				expect([...tracker.snapshot()]).toEqual([]);
-			}),
-		);
-	});
-
-	layer(scheduleLayer)((test) => {
-		test.effect("restarts an entity's ring when it settles again", () =>
-			Effect.gen(function* () {
-				const schedule = yield* RyotScheduleService;
-				const tracker = createSettleTracker(schedule, 900);
-
-				tracker.stage({ entityId: "a", reason: "populated" });
-				tracker.commit();
-				yield* advanceRyotSchedule(600);
-				tracker.stage({ entityId: "a", reason: "translated" });
-				tracker.commit();
-
-				yield* advanceRyotSchedule(600);
-				expect([...tracker.snapshot()]).toEqual([["a", "translating"]]);
-				yield* advanceRyotSchedule(300);
-				expect([...tracker.snapshot()]).toEqual([]);
-			}),
+					yield* advanceRyotSchedule(899);
+					expect(tracker.snapshot().size).toBe(2);
+					yield* advanceRyotSchedule(1);
+					expect([...tracker.snapshot()]).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(scheduleLayer)((test) => {
-		test.effect("ignores a commit with nothing staged and stops working once disposed", () =>
-			Effect.gen(function* () {
-				const schedule = yield* RyotScheduleService;
-				const tracker = createSettleTracker(schedule, 900);
-				let notifications = 0;
-				tracker.subscribe(() => {
-					notifications++;
-				});
+		test.effect(
+			"restarts an entity's ring when it settles again",
+			() =>
+				Effect.gen(function* () {
+					const schedule = yield* RyotScheduleService;
+					const tracker = createSettleTracker(schedule, 900);
 
-				tracker.commit();
-				expect(notifications).toBe(0);
+					tracker.stage({ entityId: "a", reason: "populated" });
+					tracker.commit();
+					yield* advanceRyotSchedule(600);
+					tracker.stage({ entityId: "a", reason: "translated" });
+					tracker.commit();
 
-				tracker.stage({ entityId: "a", reason: "populated" });
-				tracker.dispose();
-				tracker.stage({ entityId: "b", reason: "populated" });
-				tracker.commit();
+					yield* advanceRyotSchedule(600);
+					expect([...tracker.snapshot()]).toEqual([["a", "translating"]]);
+					yield* advanceRyotSchedule(300);
+					expect([...tracker.snapshot()]).toEqual([]);
+				}),
+			testTimeout,
+		);
+	});
 
-				expect([...tracker.snapshot()]).toEqual([]);
-				expect(notifications).toBe(0);
-			}),
+	layer(scheduleLayer)((test) => {
+		test.effect(
+			"ignores a commit with nothing staged and stops working once disposed",
+			() =>
+				Effect.gen(function* () {
+					const schedule = yield* RyotScheduleService;
+					const tracker = createSettleTracker(schedule, 900);
+					let notifications = 0;
+					tracker.subscribe(() => {
+						notifications++;
+					});
+
+					tracker.commit();
+					expect(notifications).toBe(0);
+
+					tracker.stage({ entityId: "a", reason: "populated" });
+					tracker.dispose();
+					tracker.stage({ entityId: "b", reason: "populated" });
+					tracker.commit();
+
+					expect([...tracker.snapshot()]).toEqual([]);
+					expect(notifications).toBe(0);
+				}),
+			testTimeout,
 		);
 	});
 });

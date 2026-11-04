@@ -51,14 +51,14 @@ describe("backup lifecycle", () => {
 			expect(Option.getOrUndefined(fetched)).toEqual(completed);
 			expect(listed.find(({ id }) => id === runId)).toEqual(completed);
 			expect(completed).toMatchObject({ id: runId, failure: null, progress: 100, kind: "export" });
-			expect(["local", "s3"]).toContain(completed.artifactProvider);
+			expect(["local", "s3"]).toContain<unknown>(completed.artifactProvider);
 			for (const timestamp of [
 				completed.createdAt,
 				completed.expiresAt,
 				completed.startedAt,
 				completed.finishedAt,
 			]) {
-				expect(timestamp).toEqual(anyOf(String));
+				expect(timestamp).toEqual<unknown>(anyOf(String));
 				expect(Number.isNaN(Date.parse(timestamp ?? ""))).toBe(false);
 			}
 
@@ -234,7 +234,7 @@ describe("backup lifecycle", () => {
 			);
 			expect(resolved).toHaveLength(1);
 			expect(resolved[0]?.asset).toEqual(targetLocator);
-			expect(resolved[0]?.expiresAt).toEqual(anyOf(String));
+			expect(resolved[0]?.expiresAt).toEqual<unknown>(anyOf(String));
 			expect(Number.isNaN(Date.parse(resolved[0]?.expiresAt ?? ""))).toBe(false);
 			const targetDownload = yield* webRequest(
 				new URL(resolved[0]?.downloadUrl ?? "", `${getApiUrl()}/`),

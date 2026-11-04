@@ -1,10 +1,14 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer, Queue, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
@@ -334,85 +338,94 @@ const unavailableCrashStoreFailsClosed = Effect.scoped(
 layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 	excludeTestServices: true,
 })((test) => {
-	test.effect("blocks owner plugin rotation after a crash quarantine", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const track = yield* trackNativeKeys;
-				const supervisor = yield* SandboxSidecarSupervisor.make;
-				const owner = UserId.make(testExecutionId("owner"));
-				const other = UserId.make(testExecutionId("other-owner"));
-				const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
-				const crash = asPlugin(
-					nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
-					owner,
-				);
-				const rotatedCompiled = yield* compileTestScript(
-					definition(testExecutionId("rotated"), `() => Effect.succeed("healthy")`),
-				);
-				const rotated = asPlugin(
-					nativeInput(rotatedCompiled, testExecutionId("rotated"), { mode: "healthy" }),
-					owner,
-				);
-				const healthy = asPlugin(
-					nativeInput(rotatedCompiled, testExecutionId("healthy"), { mode: "healthy" }),
-					other,
-				);
-				for (const input of [rotated, healthy]) {
-					yield* track(input);
-				}
-				yield* quarantineThroughCrashes(supervisor, crash, track);
-				yield* assertQuarantinedWithoutDispatch(supervisor, [rotated]);
-				expect(yield* runSupervisedNative(supervisor, healthy)).toMatchObject({
-					success: true,
-					value: "healthy",
-				});
-			}),
-		),
+	test.effect(
+		"blocks owner plugin rotation after a crash quarantine",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const track = yield* trackNativeKeys;
+					const supervisor = yield* SandboxSidecarSupervisor.make;
+					const owner = UserId.make(testExecutionId("owner"));
+					const other = UserId.make(testExecutionId("other-owner"));
+					const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
+					const crash = asPlugin(
+						nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
+						owner,
+					);
+					const rotatedCompiled = yield* compileTestScript(
+						definition(testExecutionId("rotated"), `() => Effect.succeed("healthy")`),
+					);
+					const rotated = asPlugin(
+						nativeInput(rotatedCompiled, testExecutionId("rotated"), { mode: "healthy" }),
+						owner,
+					);
+					const healthy = asPlugin(
+						nativeInput(rotatedCompiled, testExecutionId("healthy"), { mode: "healthy" }),
+						other,
+					);
+					for (const input of [rotated, healthy]) {
+						yield* track(input);
+					}
+					yield* quarantineThroughCrashes(supervisor, crash, track);
+					yield* assertQuarantinedWithoutDispatch(supervisor, [rotated]);
+					expect(yield* runSupervisedNative(supervisor, healthy)).toMatchObject({
+						success: true,
+						value: "healthy",
+					});
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("blocks identical plugins across accounts after a crash quarantine", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const track = yield* trackNativeKeys;
-				const supervisor = yield* SandboxSidecarSupervisor.make;
-				const owner = UserId.make(testExecutionId("owner"));
-				const other = UserId.make(testExecutionId("other-owner"));
-				const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
-				const crash = asPlugin(
-					nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
-					owner,
-				);
-				const repacked = asPlugin(
-					nativeInput(compiled, testExecutionId("repacked"), { mode: "healthy" }),
-					other,
-					true,
-				);
-				const healthyCompiled = yield* compileTestScript(
-					definition(testExecutionId("healthy"), `() => Effect.succeed("healthy")`),
-				);
-				const healthy = asPlugin(
-					nativeInput(healthyCompiled, testExecutionId("healthy"), { mode: "healthy" }),
-					other,
-				);
-				for (const input of [repacked, healthy]) {
-					yield* track(input);
-				}
-				yield* quarantineThroughCrashes(supervisor, crash, track);
-				yield* assertQuarantinedWithoutDispatch(supervisor, [repacked]);
-				expect(yield* runSupervisedNative(supervisor, healthy)).toMatchObject({
-					success: true,
-					value: "healthy",
-				});
-			}),
-		),
+	test.effect(
+		"blocks identical plugins across accounts after a crash quarantine",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const track = yield* trackNativeKeys;
+					const supervisor = yield* SandboxSidecarSupervisor.make;
+					const owner = UserId.make(testExecutionId("owner"));
+					const other = UserId.make(testExecutionId("other-owner"));
+					const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
+					const crash = asPlugin(
+						nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
+						owner,
+					);
+					const repacked = asPlugin(
+						nativeInput(compiled, testExecutionId("repacked"), { mode: "healthy" }),
+						other,
+						true,
+					);
+					const healthyCompiled = yield* compileTestScript(
+						definition(testExecutionId("healthy"), `() => Effect.succeed("healthy")`),
+					);
+					const healthy = asPlugin(
+						nativeInput(healthyCompiled, testExecutionId("healthy"), { mode: "healthy" }),
+						other,
+					);
+					for (const input of [repacked, healthy]) {
+						yield* track(input);
+					}
+					yield* quarantineThroughCrashes(supervisor, crash, track);
+					yield* assertQuarantinedWithoutDispatch(supervisor, [repacked]);
+					expect(yield* runSupervisedNative(supervisor, healthy)).toMatchObject({
+						success: true,
+						value: "healthy",
+					});
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("preserves healthy work through quarantine, probation, and system jobs", () =>
-		Effect.gen(function* () {
-			yield* probationRenewsOnFatalAndClearsOnSuccess;
-			yield* systemJobQuarantineSparesOtherWork;
-			yield* unavailableCrashStoreFailsClosed;
-		}),
+	test.effect(
+		"preserves healthy work through quarantine, probation, and system jobs",
+		() =>
+			Effect.gen(function* () {
+				yield* probationRenewsOnFatalAndClearsOnSuccess;
+				yield* systemJobQuarantineSparesOtherWork;
+				yield* unavailableCrashStoreFailsClosed;
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -596,6 +609,7 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 					expect((yield* SandboxSidecarAdmission).snapshot().runs).toBe(0);
 				}),
 			),
+		testTimeout,
 	);
 
 	test.effect(
@@ -658,7 +672,7 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 					);
 					expect(doneBeforeKill).toEqual([]);
 					expect(
-						String((yield* Effect.flip(killNativeConnection(connection.connection))).reason.cause),
+						(yield* Effect.flip(killNativeConnection(connection.connection))).message,
 					).toContain("SIGKILL");
 					const freshFiber = yield* runSupervisedNative(supervisor, fresh).pipe(Effect.forkScoped);
 					const completed = yield* Effect.forEach(fibers, Fiber.join, { concurrency: "unbounded" });
@@ -710,5 +724,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 					}
 				}),
 			),
+		testTimeout,
 	);
 });

@@ -269,7 +269,7 @@ describe("Fitness taxonomy E2E", () => {
 				"Expected the exercise with its equipment links",
 			);
 			expect(listedExercise.equipment).toHaveLength(2);
-			expect(listedExercise.equipment.map(({ id }) => id)).toEqual(
+			expect(listedExercise.equipment.map(({ id }) => id)).toEqual<unknown>(
 				arrayContaining([anchoredBands.id, workoutMat.id]),
 			);
 			const omittedRoleTarget = requirePresent(
@@ -495,7 +495,7 @@ describe("Fitness taxonomy E2E", () => {
 					reference: { pluginId, kind: "local" },
 				}),
 			);
-			expect(otherUserTargets.items.map(({ name }) => name)).toEqual(
+			expect(otherUserTargets.items.map(({ name }) => name)).toEqual<unknown>(
 				arrayContaining(["Chest", "Triceps"]),
 			);
 			expect(otherUserTargets.items.map(({ name }) => name)).not.toContain(privateTargetName);

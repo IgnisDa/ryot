@@ -1,8 +1,9 @@
+import { expect, test } from "bun:test";
+
 import {
 	configureApprovedDependencyRuntime,
 	withApprovedDependencyRuntime,
 } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
-import { expect, test } from "vitest";
 
 test("requires trusted initialization and rejects replacement of the configured binding", () => {
 	let operations = 0;

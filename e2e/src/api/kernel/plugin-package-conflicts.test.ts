@@ -83,7 +83,7 @@ describe("plugin package conflicts", () => {
 				);
 				expect(evidence.scriptId).toBe(checkpoint.id);
 				expect(evidence.request.runId).toBe(hung.id);
-				expect(evidence.request.command.causation.importRunId).toBe(hung.id);
+				expect(evidence.request.command.causation.importRunId).toBe<unknown>(hung.id);
 				expect(evidence.config.writerMarker).toBe("admitted");
 				const system = yield* installTestSupportSystemPlugin(packages.claim);
 				yield* Effect.addFinalizer(() =>

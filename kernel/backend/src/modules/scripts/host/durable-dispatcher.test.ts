@@ -1,11 +1,15 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {
 	SANDBOX_HOST_EXECUTION_POLICY,
 	sandboxDurableHostDispatchStrategy,
 } from "@ryot-app/sandbox/host/host-execution-policy";
-import { anyOf } from "@ryot-app/testing/matchers";
+import { assert } from "@ryot-app/testing/assert";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -52,115 +56,130 @@ it("classifies every bridge host capability exactly once", () => {
 	expect(Object.keys(SANDBOX_HOST_EXECUTION_POLICY).sort()).toEqual(
 		Object.keys(sandboxHostContracts).sort(),
 	);
-	expect(SANDBOX_HOST_EXECUTION_POLICY).toMatchObject({
-		log: { dispatch: "diagnostic" },
-		span: { dispatch: "diagnostic" },
-		getUserSettings: { dispatch: "activity" },
-		createEvents: { dispatch: "event-workflow" },
-		emitSignal: { dispatch: "service-workflow" },
-		deleteEvents: { dispatch: "lifecycle-workflow" },
-		updateEvents: { dispatch: "lifecycle-workflow" },
-		requestUserWork: { dispatch: "service-workflow" },
-		createUserEntity: { dispatch: "service-workflow" },
-		invalidateOAuthAccessToken: { dispatch: "activity" },
-		ensureUserEntities: { dispatch: "service-workflow" },
-		sendNotification: { dispatch: "notification-workflow" },
-		requestEventStreamWork: { dispatch: "service-workflow" },
-		updateUserSettings: { dispatch: "activity", resultBytes: anyOf(Number) },
-	});
-	expect(SANDBOX_HOST_EXECUTION_POLICY.getProAvailability).toMatchObject({
-		dispatch: "activity",
-		resultBytes: anyOf(Number),
-	});
-	expect(SANDBOX_HOST_EXECUTION_POLICY.verifyManagedAssets).toMatchObject({
-		dispatch: "activity",
-		wireBytes: anyOf(Number),
-		resultBytes: anyOf(Number),
-	});
+	expect(SANDBOX_HOST_EXECUTION_POLICY).toEqual<unknown>(
+		objectContaining({
+			log: objectContaining({ dispatch: "diagnostic" }),
+			span: objectContaining({ dispatch: "diagnostic" }),
+			getUserSettings: objectContaining({ dispatch: "activity" }),
+			createEvents: objectContaining({ dispatch: "event-workflow" }),
+			emitSignal: objectContaining({ dispatch: "service-workflow" }),
+			deleteEvents: objectContaining({ dispatch: "lifecycle-workflow" }),
+			updateEvents: objectContaining({ dispatch: "lifecycle-workflow" }),
+			requestUserWork: objectContaining({ dispatch: "service-workflow" }),
+			createUserEntity: objectContaining({ dispatch: "service-workflow" }),
+			invalidateOAuthAccessToken: objectContaining({ dispatch: "activity" }),
+			ensureUserEntities: objectContaining({ dispatch: "service-workflow" }),
+			sendNotification: objectContaining({ dispatch: "notification-workflow" }),
+			requestEventStreamWork: objectContaining({ dispatch: "service-workflow" }),
+			updateUserSettings: objectContaining({ dispatch: "activity", resultBytes: anyOf(Number) }),
+		}),
+	);
+	expect(SANDBOX_HOST_EXECUTION_POLICY.getProAvailability).toEqual<unknown>(
+		objectContaining({ dispatch: "activity", resultBytes: anyOf(Number) }),
+	);
+	expect(SANDBOX_HOST_EXECUTION_POLICY.verifyManagedAssets).toEqual<unknown>(
+		objectContaining({
+			dispatch: "activity",
+			wireBytes: anyOf(Number),
+			resultBytes: anyOf(Number),
+		}),
+	);
 	expect(sandboxDurableHostDispatchStrategy("scratch")).toBeNull();
 });
 
-it.effect("applies centralized capability authorization before durable host dispatch", () =>
-	Effect.gen(function* () {
-		const error = yield* prepareSandboxSendNotification(
-			{
-				index: 0,
-				kind: "host",
-				name: "sendNotification",
-				args: { args: ["Ready"], capability: "sendNotification" },
-			},
-			{
-				context: {},
-				lane: "interactive",
-				executionId: "sandbox-parent",
-				startedAt: "2026-08-06T00:00:00.000Z",
-				principal: {
-					providerId: null,
-					contentHash: "hash",
-					pluginRevision: null,
-					scriptSlug: "script",
-					scriptId: SandboxScriptId.make("script-1"),
-					metadata: { runtimeImports: [], capabilities: ["sendNotification"] },
-					subject: {
-						type: "user",
-						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+it.effect(
+	"applies centralized capability authorization before durable host dispatch",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* prepareSandboxSendNotification(
+				{
+					index: 0,
+					kind: "host",
+					name: "sendNotification",
+					args: { args: ["Ready"], capability: "sendNotification" },
+				},
+				{
+					context: {},
+					lane: "interactive",
+					executionId: "sandbox-parent",
+					startedAt: "2026-08-06T00:00:00.000Z",
+					principal: {
+						providerId: null,
+						contentHash: "hash",
+						pluginRevision: null,
+						scriptSlug: "script",
+						scriptId: SandboxScriptId.make("script-1"),
+						metadata: { runtimeImports: [], capabilities: ["sendNotification"] },
+						subject: {
+							type: "user",
+							userId: UserId.make("user-1"),
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 					},
 				},
-			},
-		).pipe(Effect.flip);
-		expect(error.message).toBe(
-			"Sandbox durable host denied: sendNotification is available only to user automation runs",
-		);
-	}),
+			).pipe(Effect.flip);
+			expect(error.message).toBe(
+				"Sandbox durable host denied: sendNotification is available only to user automation runs",
+			);
+		}),
+	testTimeout,
 );
 
-it.effect("derives event root identity from the trusted workflow and host index", () =>
-	Effect.gen(function* () {
-		const prepared = yield* prepareSandboxCreateEvents(
-			{
-				index: 3,
-				kind: "host",
-				name: "createEvents",
-				args: { args: [[]], capability: "createEvents" },
-			},
-			{
-				context: {},
-				lane: "interactive",
-				executionId: "sandbox-parent",
-				startedAt: "2026-08-06T00:00:00.000Z",
-				principal: {
-					providerId: null,
-					contentHash: "hash",
-					pluginRevision: null,
-					scriptSlug: "script",
-					scriptId: SandboxScriptId.make("script-1"),
-					metadata: { runtimeImports: [], capabilities: ["createEvents"] },
-					subject: {
-						type: "user",
-						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+it.effect(
+	"derives event root identity from the trusted workflow and host index",
+	() =>
+		Effect.gen(function* () {
+			const prepared = yield* prepareSandboxCreateEvents(
+				{
+					index: 3,
+					kind: "host",
+					name: "createEvents",
+					args: { args: [[]], capability: "createEvents" },
+				},
+				{
+					context: {},
+					lane: "interactive",
+					executionId: "sandbox-parent",
+					startedAt: "2026-08-06T00:00:00.000Z",
+					principal: {
+						providerId: null,
+						contentHash: "hash",
+						pluginRevision: null,
+						scriptSlug: "script",
+						scriptId: SandboxScriptId.make("script-1"),
+						metadata: { runtimeImports: [], capabilities: ["createEvents"] },
+						subject: {
+							type: "user",
+							userId: UserId.make("user-1"),
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 					},
 				},
-			},
-			yield* submissionCommands(),
-		);
-		expect(prepared).toMatchObject({
-			payload: [],
-			userId: "user-1",
-			command: {
-				itemIdentity: "createEvents",
-				occurredAt: "2026-08-06T00:00:00.000Z",
-				causation: {
-					depth: 0,
-					source: "api",
-					executionId: "sandbox-parent-host-3",
-					rootExecutionId: "sandbox-parent-host-3",
-					initiator: { kind: "user", id: "user-1" },
+				yield* submissionCommands(),
+			);
+			expect(prepared).toMatchObject({
+				payload: [],
+				userId: "user-1",
+				command: {
+					itemIdentity: "createEvents",
+					occurredAt: "2026-08-06T00:00:00.000Z",
+					causation: {
+						depth: 0,
+						source: "api",
+						executionId: "sandbox-parent-host-3",
+						rootExecutionId: "sandbox-parent-host-3",
+						initiator: { kind: "user", id: "user-1" },
+					},
 				},
-			},
-		});
-	}),
+			});
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -260,35 +279,39 @@ it.effect(
 				);
 			}
 		}),
+	testTimeout,
 );
 
-it.effect("prepares one normalized durable HTTP hop when options are null", () =>
-	Effect.gen(function* () {
-		const prepared = yield* prepareSandboxDurableHttpHop(
-			{
-				index: 0,
-				kind: "host",
-				name: "httpCall",
-				args: { capability: "httpCall", args: [" get ", "https://PROVIDER.test:443/path", null] },
-			},
-			{
-				context: {},
-				lane: "interactive",
-				executionId: "sandbox-parent",
-				startedAt: "2026-08-06T00:00:00.000Z",
-				principal: makeUserPrincipal({
-					metadata: { runtimeImports: [], capabilities: ["httpCall"] },
-				}),
-			},
-		);
-		assert(prepared._tag === "prepared");
-		expect(prepared.current).toEqual({
-			hop: 0,
-			method: "GET",
-			url: "https://provider.test/path",
-			headers: { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" },
-		});
-	}),
+it.effect(
+	"prepares one normalized durable HTTP hop when options are null",
+	() =>
+		Effect.gen(function* () {
+			const prepared = yield* prepareSandboxDurableHttpHop(
+				{
+					index: 0,
+					kind: "host",
+					name: "httpCall",
+					args: { capability: "httpCall", args: [" get ", "https://PROVIDER.test:443/path", null] },
+				},
+				{
+					context: {},
+					lane: "interactive",
+					executionId: "sandbox-parent",
+					startedAt: "2026-08-06T00:00:00.000Z",
+					principal: makeUserPrincipal({
+						metadata: { runtimeImports: [], capabilities: ["httpCall"] },
+					}),
+				},
+			);
+			assert(prepared._tag === "prepared");
+			expect(prepared.current).toEqual({
+				hop: 0,
+				method: "GET",
+				url: "https://provider.test/path",
+				headers: { "User-Agent": "Ryot ( https://github.com/ignisda/ryot )" },
+			});
+		}),
+	testTimeout,
 );
 
 it("derives service workflow identity from the parent and call index", () => {

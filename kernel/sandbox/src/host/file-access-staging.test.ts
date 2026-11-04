@@ -1,10 +1,12 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path } from "effect";
 import { Base64 } from "effect/encoding";
-import { expect } from "vitest";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { ExecutionFileStaging } from "./execution-file-staging";
@@ -105,71 +107,77 @@ const writeOutput = Effect.fnUntraced(function* (
 });
 
 layer(BunServices.layer)((test) => {
-	test.effect("hands the full bounded batch to staging in manifest order without temp copies", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const first = new Uint8Array(4 * MiB).fill(1);
-				const second = new Uint8Array(MiB).fill(2);
-				let batches = 0;
-				const fixture = yield* makeHarvestFixture((outputs) =>
-					Effect.sync(() => {
-						batches++;
-						expect(outputs.map((bytes) => bytes.byteLength)).toEqual([MiB, 0, 4 * MiB]);
-						expect(outputs.map(sha256Hex)).toEqual([
-							sha256Hex(second),
-							sha256Hex(new Uint8Array()),
-							sha256Hex(first),
-						]);
-						return ["second-handle", "empty-handle", "first-handle"];
-					}),
-				);
-				yield* writeOutput(fixture.files, "first.bin", first);
-				yield* writeOutput(fixture.files, "second.bin", second);
-				yield* writeOutput(fixture.files, "empty.bin", new Uint8Array());
-				const writesBeforeHarvest = [...fixture.writes];
-				expect(
-					yield* fixture.files.harvest({ chunkFiles: ["second.bin", "empty.bin", "first.bin"] }),
-				).toEqual({ chunkHandles: ["second-handle", "empty-handle", "first-handle"] });
-				expect(fixture.prepared).toEqual([fixture.input]);
-				expect(fixture.writes).toEqual(writesBeforeHarvest);
-				expect(fixture.directories).toHaveLength(1);
-				expect(fixture.opened.map((target) => target.split("/").at(-1))).toEqual([
-					"second.bin",
-					"empty.bin",
-					"first.bin",
-				]);
-				expect(yield* fs.readDirectory(fixture.root)).toEqual(["ryot-sandbox-artifacts"]);
-				expect(yield* fixture.files.harvest({ chunkFiles: [] })).toBeNull();
-				expect(batches).toBe(1);
-			}),
-		),
-	);
-
-	test.effect("publishes nothing when a later pinned read fails or is interrupted", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				for (const mode of ["fail-second", "block-second"] as const) {
-					const fixture = yield* makeHarvestFixture(() => Effect.die("Unexpected staging"));
-					yield* writeOutput(fixture.files, "first.bin", new Uint8Array([1]));
-					yield* writeOutput(fixture.files, "second.bin", new Uint8Array([2]));
-					fixture.control.read = mode;
-					const harvest = fixture.files.harvest({ chunkFiles: ["first.bin", "second.bin"] });
-					if (mode === "fail-second") {
-						expect(Exit.isFailure(yield* Effect.exit(harvest))).toBe(true);
-					} else {
-						const fiber = yield* Effect.forkChild(harvest);
-						yield* Deferred.await(fixture.readStarted);
-						yield* Fiber.interrupt(fiber);
-						expect(Exit.isFailure(yield* Fiber.await(fiber))).toBe(true);
-					}
-					expect(fixture.prepared).toEqual([]);
+	test.effect(
+		"hands the full bounded batch to staging in manifest order without temp copies",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const first = new Uint8Array(4 * MiB).fill(1);
+					const second = new Uint8Array(MiB).fill(2);
+					let batches = 0;
+					const fixture = yield* makeHarvestFixture((outputs) =>
+						Effect.sync(() => {
+							batches++;
+							expect(outputs.map((bytes) => bytes.byteLength)).toEqual([MiB, 0, 4 * MiB]);
+							expect(outputs.map(sha256Hex)).toEqual([
+								sha256Hex(second),
+								sha256Hex(new Uint8Array()),
+								sha256Hex(first),
+							]);
+							return ["second-handle", "empty-handle", "first-handle"];
+						}),
+					);
+					yield* writeOutput(fixture.files, "first.bin", first);
+					yield* writeOutput(fixture.files, "second.bin", second);
+					yield* writeOutput(fixture.files, "empty.bin", new Uint8Array());
+					const writesBeforeHarvest = [...fixture.writes];
+					expect(
+						yield* fixture.files.harvest({ chunkFiles: ["second.bin", "empty.bin", "first.bin"] }),
+					).toEqual({ chunkHandles: ["second-handle", "empty-handle", "first-handle"] });
+					expect(fixture.prepared).toEqual([fixture.input]);
+					expect(fixture.writes).toEqual(writesBeforeHarvest);
+					expect(fixture.directories).toHaveLength(1);
+					expect(fixture.opened.map((target) => target.split("/").at(-1))).toEqual([
+						"second.bin",
+						"empty.bin",
+						"first.bin",
+					]);
 					expect(yield* fs.readDirectory(fixture.root)).toEqual(["ryot-sandbox-artifacts"]);
 					expect(yield* fixture.files.harvest({ chunkFiles: [] })).toBeNull();
-				}
-			}),
-		),
+					expect(batches).toBe(1);
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"publishes nothing when a later pinned read fails or is interrupted",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					for (const mode of ["fail-second", "block-second"] as const) {
+						const fixture = yield* makeHarvestFixture(() => Effect.die("Unexpected staging"));
+						yield* writeOutput(fixture.files, "first.bin", new Uint8Array([1]));
+						yield* writeOutput(fixture.files, "second.bin", new Uint8Array([2]));
+						fixture.control.read = mode;
+						const harvest = fixture.files.harvest({ chunkFiles: ["first.bin", "second.bin"] });
+						if (mode === "fail-second") {
+							expect(Exit.isFailure(yield* Effect.exit(harvest))).toBe(true);
+						} else {
+							const fiber = yield* Effect.forkChild(harvest);
+							yield* Deferred.await(fixture.readStarted);
+							yield* Fiber.interrupt(fiber);
+							expect(Exit.isFailure(yield* Fiber.await(fiber))).toBe(true);
+						}
+						expect(fixture.prepared).toEqual([]);
+						expect(yield* fs.readDirectory(fixture.root)).toEqual(["ryot-sandbox-artifacts"]);
+						expect(yield* fixture.files.harvest({ chunkFiles: [] })).toBeNull();
+					}
+				}),
+			),
+		testTimeout,
 	);
 
 	test.effect(
@@ -207,5 +215,6 @@ layer(BunServices.layer)((test) => {
 					}
 				}),
 			),
+		testTimeout,
 	);
 });

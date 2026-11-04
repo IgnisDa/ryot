@@ -1,5 +1,6 @@
 import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Option } from "effect";
 
 import {
@@ -110,7 +111,7 @@ describe("Webhook routes", () => {
 				const episodeEvents = yield* waitForEventSlugs(client, episodeId, "progress");
 				const showEvents = yield* listEventSlugs(client, showId);
 				expect(showEvents).not.toContain("progress");
-				expect(episodeEvents).toContain("progress");
+				expect(episodeEvents).toContain(EventSchemaSlug.make("progress"));
 			}),
 	);
 
@@ -183,7 +184,7 @@ describe("Webhook routes", () => {
 			});
 			expect(progress).toHaveLength(1);
 			expect(progress[0]?.properties).toMatchObject({ consumedOn: "Plex", progressPercent: 100 });
-			expect(completion.occurredAt).toBe(progress[0]?.occurredAt);
+			expect(completion.occurredAt).toBe<unknown>(progress[0]?.occurredAt);
 		}),
 	);
 
@@ -219,7 +220,7 @@ describe("Webhook routes", () => {
 				progressPercent: 100,
 				consumedOn: "Jellyfin",
 			});
-			expect(completion.occurredAt).toBe(progress[0]?.occurredAt);
+			expect(completion.occurredAt).toBe<unknown>(progress[0]?.occurredAt);
 		}),
 	);
 });

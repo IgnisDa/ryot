@@ -1,12 +1,16 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	ReminderConflict,
 	ReminderInvalid,
 	ReminderNotFound,
 } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -63,16 +67,21 @@ layer(services)((test) => {
 					timezone: "Asia/Kolkata",
 				});
 			}),
+		testTimeout,
 	);
-	test.effect("serializes concurrent identical creates without producing another occurrence", () =>
-		Effect.gen(function* () {
-			const { user, body } = yield* reminderTestInput();
-			const service = yield* RemindersService;
-			const results = yield* Effect.all([service.create(user, body), service.create(user, body)], {
-				concurrency: 2,
-			});
-			expect(results[0]).toEqual(results[1]);
-		}),
+	test.effect(
+		"serializes concurrent identical creates without producing another occurrence",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* reminderTestInput();
+				const service = yield* RemindersService;
+				const results = yield* Effect.all(
+					[service.create(user, body), service.create(user, body)],
+					{ concurrency: 2 },
+				);
+				expect(results[0]).toEqual(results[1]);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"rejects past schedules, invalid timezones and invisible or forged child scopes",
@@ -103,45 +112,49 @@ layer(services)((test) => {
 					new ReminderInvalid({ reason: "invalid-message" }),
 				);
 			}),
+		testTimeout,
 	);
-	test.effect("checks receipt replay before revisions and rejects stale editors", () =>
-		Effect.gen(function* () {
-			const { user, body } = yield* reminderTestInput();
-			const service = yield* RemindersService;
-			const created = yield* service.create(user, body);
-			const edit = {
-				message: "Edited",
-				dueAt: body.dueAt,
-				idempotencyKey: "edit",
-				timezone: body.timezone,
-				revision: created.revision,
-				submittedAt: body.submittedAt,
-			};
-			const edited = yield* service.edit(user, created.id, edit);
-			expect(edited.revision).toBe(2);
-			expect(yield* service.edit(user, created.id, edit)).toEqual(edited);
-			assertExitFails(
-				yield* service
-					.edit(user, created.id, { ...edit, idempotencyKey: "stale" })
-					.pipe(Effect.exit),
-				new ReminderConflict({ reason: "stale-revision" }),
-			);
-			const other = {
-				...user,
-				id: UserId.make("recipient"),
-				accountGeneration: { userId: UserId.make("recipient"), token: "test-account-generation" },
-			};
-			assertExitFails(
-				yield* service
-					.cancel(other, created.id, {
-						idempotencyKey: "foreign",
-						revision: edited.revision,
-						submittedAt: body.submittedAt,
-					})
-					.pipe(Effect.exit),
-				new ReminderNotFound({ id: created.id }),
-			);
-		}),
+	test.effect(
+		"checks receipt replay before revisions and rejects stale editors",
+		() =>
+			Effect.gen(function* () {
+				const { user, body } = yield* reminderTestInput();
+				const service = yield* RemindersService;
+				const created = yield* service.create(user, body);
+				const edit = {
+					message: "Edited",
+					dueAt: body.dueAt,
+					idempotencyKey: "edit",
+					timezone: body.timezone,
+					revision: created.revision,
+					submittedAt: body.submittedAt,
+				};
+				const edited = yield* service.edit(user, created.id, edit);
+				expect(edited.revision).toBe(2);
+				expect(yield* service.edit(user, created.id, edit)).toEqual(edited);
+				assertExitFails(
+					yield* service
+						.edit(user, created.id, { ...edit, idempotencyKey: "stale" })
+						.pipe(Effect.exit),
+					new ReminderConflict({ reason: "stale-revision" }),
+				);
+				const other = {
+					...user,
+					id: UserId.make("recipient"),
+					accountGeneration: { userId: UserId.make("recipient"), token: "test-account-generation" },
+				};
+				assertExitFails(
+					yield* service
+						.cancel(other, created.id, {
+							idempotencyKey: "foreign",
+							revision: edited.revision,
+							submittedAt: body.submittedAt,
+						})
+						.pipe(Effect.exit),
+					new ReminderNotFound({ id: created.id }),
+				);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"cancels pending work and removes its authored content while retaining immutable replay",
@@ -174,5 +187,6 @@ layer(services)((test) => {
 				});
 				expect(stored.removedAt).not.toBeNull();
 			}),
+		testTimeout,
 	);
 });

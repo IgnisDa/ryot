@@ -90,7 +90,7 @@ describe("Definitions E2E", () => {
 					},
 				}),
 			);
-			expect(providers.items).toContainEqual(
+			expect(providers.items).toContainEqual<unknown>(
 				objectContaining({ providerName, providerId: provider.providerId }),
 			);
 
@@ -126,7 +126,7 @@ describe("Definitions E2E", () => {
 
 			expect(collectionSchema).toBeDefined();
 			expect(collectionSchema?.pluginId).toBeNull();
-			expect(schemas).toContainEqual(
+			expect(schemas).toContainEqual<unknown>(
 				objectContaining({ slug: "movie", pluginId: mediaPlugin?.pluginId }),
 			);
 			expect(collectionSchema).toMatchObject({
@@ -154,7 +154,10 @@ describe("Definitions E2E", () => {
 				["member-of", "in-media-library"].includes(schema.slug),
 			);
 
-			expect(selected.map((schema) => schema.slug)).toEqual(["in-media-library", "member-of"]);
+			expect(selected.map((schema) => schema.slug)).toEqual<unknown>([
+				"in-media-library",
+				"member-of",
+			]);
 			expect(selected[0]?.targetEntitySchemaSlug).not.toBeNull();
 		}),
 	);
@@ -167,7 +170,7 @@ describe("Definitions E2E", () => {
 				["ryot/media", "ryot/fitness"].includes(plugin.packageId),
 			);
 
-			expect(selected.map((plugin) => plugin.packageId)).toEqual(
+			expect(selected.map((plugin) => plugin.packageId)).toEqual<unknown>(
 				arrayContaining(["ryot/fitness", "ryot/media"]),
 			);
 			expect(selected).toHaveLength(2);

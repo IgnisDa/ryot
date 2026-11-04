@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	browseConsistencyIssue,
 	browseIssue,
 } from "@ryot-app/kernel-backend/modules/definitions/browse-validation";
 import { revisionDefinitions } from "@ryot-app/kernel-backend/modules/definitions/source";
-import { arrayContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import { fitnessPlugin } from "./plugin";
 
@@ -35,11 +36,13 @@ describe("fitness browse declarations", () => {
 			"lastPerformed",
 			"timesPerformed",
 		]);
-		expect(browse("exercise")[1]).toMatchObject({
-			type: "enum",
-			label: "Level",
-			choices: arrayContaining([{ value: "beginner", label: "beginner" }]),
-		});
+		expect(browse("exercise")[1]).toEqual<unknown>(
+			objectContaining({
+				type: "enum",
+				label: "Level",
+				choices: arrayContaining([{ value: "beginner", label: "beginner" }]),
+			}),
+		);
 		expect(browse("exercise")[4]).toMatchObject({
 			kind: "relationship",
 			relationship: { slug: "exercise-targets" },

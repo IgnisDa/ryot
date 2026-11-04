@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import {
@@ -261,15 +264,18 @@ describe("canonical consumption allocation", () => {
 		expect(result[0]?.attribution).toEqual({ kind: "unknown" });
 		expect(result.map((row) => row.titleCompletions)).toEqual([1, 1]);
 	});
-	it.effect("keeps frozen values through serialization and ignores current provider data", () =>
-		Effect.gen(function* () {
-			const history = [movie("first", { progressPercent: 50 }), movie("done", {}, true)];
-			const restored = yield* Schema.decodeEffect(
-				Schema.fromJsonString(Schema.Array(ConsumptionObservation)),
-			)(yield* encodeJson(history));
-			expect(allocate(restored)).toEqual(allocate(history));
-			expect(amounts(allocate(restored), "minutes")).toEqual([100, 100]);
-		}),
+	it.effect(
+		"keeps frozen values through serialization and ignores current provider data",
+		() =>
+			Effect.gen(function* () {
+				const history = [movie("first", { progressPercent: 50 }), movie("done", {}, true)];
+				const restored = yield* Schema.decodeEffect(
+					Schema.fromJsonString(Schema.Array(ConsumptionObservation)),
+				)(yield* encodeJson(history));
+				expect(allocate(restored)).toEqual(allocate(history));
+				expect(amounts(allocate(restored), "minutes")).toEqual([100, 100]);
+			}),
+		testTimeout,
 	);
 	it("counts full progress plus automatic completion once, then an independent repeat", () => {
 		const result = allocate([

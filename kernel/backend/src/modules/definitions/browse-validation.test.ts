@@ -1,7 +1,8 @@
+import { expect, it } from "bun:test";
+
 import type { BrowseField, EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import { castNumber, castText, column, jsonPath, literal, table } from "@ryot-app/ryotql";
-import { expect, it } from "vitest";
 
 import { browseConsistencyIssue, browseIssue } from "./browse-validation";
 

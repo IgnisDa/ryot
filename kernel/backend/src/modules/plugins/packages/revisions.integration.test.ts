@@ -1,5 +1,6 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import {
@@ -10,11 +11,13 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { ConfigProvider, Context, Effect, Layer, Redacted, Ref, Result } from "effect";
-import { assert, describe } from "vitest";
 
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -506,7 +509,9 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									.from(tables.pluginConfigRevision)
 									.where(eq(tables.pluginConfigRevision.id, configRevisionId));
 								const [systemPlugin] = yield* transaction.select().from(tables.plugin);
-								expect(configRevision?.pluginRevisionId).toBe(systemPlugin?.activeRevisionId);
+								expect(configRevision?.pluginRevisionId).toBe<unknown>(
+									systemPlugin?.activeRevisionId,
+								);
 								yield* environment.use({ [environmentKey]: "environment-secret" });
 								yield* session.transaction(plugins.resolveEnvironmentConfigs());
 								expect(yield* environmentPointer).toBe(configRevisionId);
@@ -534,7 +539,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									(yield* transaction.select().from(tables.pluginConfigRevision)).map(
 										({ id, encryptedPayload }) => [id, encryptedPayload === null],
 									),
-								).toEqual(
+								).toEqual<unknown>(
 									arrayContaining([
 										[configRevisionId, false],
 										[replacedConfigRevisionId, false],
@@ -555,6 +560,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 });

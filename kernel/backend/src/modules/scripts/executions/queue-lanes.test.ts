@@ -1,16 +1,18 @@
+import { expect, it } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Layer, Schedule, Schema } from "effect";
 import { PersistedQueue } from "effect/persistence";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-import { expect, it } from "vitest";
 
 import { RedisService } from "#platform/redis";
 import { fairQueueKeys, fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
@@ -157,50 +159,53 @@ const eventually = <E, R>(check: Effect.Effect<boolean, E, R>) =>
 	);
 
 layer(queueLayer, { excludeTestServices: true })((test) => {
-	test.effect("durable_execution_backlog_does_not_capture_interactive_workers", () =>
-		Effect.gen(function* () {
-			const { client } = yield* RedisService;
-			yield* Effect.addFinalizer(() =>
-				Effect.tryPromise(() => client.keys(`${prefix}*`)).pipe(
-					Effect.flatMap((keys) =>
-						keys.length === 0 ? Effect.void : Effect.tryPromise(() => client.del(...keys)),
+	test.effect(
+		"durable_execution_backlog_does_not_capture_interactive_workers",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* RedisService;
+				yield* Effect.addFinalizer(() =>
+					Effect.tryPromise(() => client.keys(`${prefix}*`)).pipe(
+						Effect.flatMap((keys) =>
+							keys.length === 0 ? Effect.void : Effect.tryPromise(() => client.del(...keys)),
+						),
+						Effect.orDie,
 					),
-					Effect.orDie,
-				),
-			);
-			const engine = yield* WorkflowEngine;
-			const control = yield* LaneControl;
+				);
+				const engine = yield* WorkflowEngine;
+				const control = yield* LaneControl;
 
-			yield* Effect.forEach(
-				Array.from({ length: BACKGROUND_BACKLOG }, (_, index) => `background-${index}`),
-				(executionId) =>
-					engine.execute(LaneWorkflow, {
-						executionId,
-						discard: true,
-						payload: { executionId, lane: "background" },
-					}),
-				{ discard: true, concurrency: "unbounded" },
-			);
-			yield* eventually(
-				Effect.map(
-					Effect.tryPromise(() => client.hlen(queueKeys.items)),
-					(queued) => queued === BACKGROUND_BACKLOG,
-				),
-			);
+				yield* Effect.forEach(
+					Array.from({ length: BACKGROUND_BACKLOG }, (_, index) => `background-${index}`),
+					(executionId) =>
+						engine.execute(LaneWorkflow, {
+							executionId,
+							discard: true,
+							payload: { executionId, lane: "background" },
+						}),
+					{ discard: true, concurrency: "unbounded" },
+				);
+				yield* eventually(
+					Effect.map(
+						Effect.tryPromise(() => client.hlen(queueKeys.items)),
+						(queued) => queued === BACKGROUND_BACKLOG,
+					),
+				);
 
-			yield* Layer.build(SandboxExecutionQueueWorkerLive);
-			yield* eventually(Effect.sync(() => control.starts.length === 1));
-			yield* Effect.sleep(300);
-			expect(control.starts.map((start) => start.lane)).toEqual(["background"]);
-			expect(yield* Effect.tryPromise(() => client.scard(queueKeys.pending))).toBe(1);
+				yield* Layer.build(SandboxExecutionQueueWorkerLive);
+				yield* eventually(Effect.sync(() => control.starts.length === 1));
+				yield* Effect.sleep(300);
+				expect(control.starts.map((start) => start.lane)).toEqual(["background"]);
+				expect(yield* Effect.tryPromise(() => client.scard(queueKeys.pending))).toBe(1);
 
-			yield* engine.execute(LaneWorkflow, {
-				executionId: "interactive-0",
-				payload: { lane: "interactive", executionId: "interactive-0" },
-			});
-			expect(control.starts.map((start) => start.lane)).toEqual(["background", "interactive"]);
-			expect(yield* Deferred.isDone(control.gate)).toBe(false);
-		}),
+				yield* engine.execute(LaneWorkflow, {
+					executionId: "interactive-0",
+					payload: { lane: "interactive", executionId: "interactive-0" },
+				});
+				expect(control.starts.map((start) => start.lane)).toEqual(["background", "interactive"]);
+				expect(yield* Deferred.isDone(control.gate)).toBe(false);
+			}),
+		testTimeout,
 	);
 });
 

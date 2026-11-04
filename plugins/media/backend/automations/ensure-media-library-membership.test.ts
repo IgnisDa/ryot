@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	automationContext,
@@ -74,6 +77,7 @@ it.effect.each(["book", "show", "anime", "manga", "video-game", "music", "person
 				}),
 			);
 		}),
+	testTimeout,
 );
 
 it("is idempotent when the same import hook runs repeatedly", () => {
@@ -95,47 +99,50 @@ it("is idempotent when the same import hook runs repeatedly", () => {
 	);
 });
 
-it.effect("ignores irrelevant entity and event inputs", () =>
-	Effect.gen(function* () {
-		let calls = 0;
-		const host = defineSandboxTestHost(manifest, {
-			changeUserRelationships: () => {
-				calls += 1;
-				return hostSuccess([]);
-			},
-			executeRyotql: () => {
-				calls += 1;
-				return hostSuccess(mediaLibraryRows);
-			},
-		});
-		const eventInput = yield* eventBatchContext({ entitySchemaSlug: "workout" });
-		const mediaLibraryInput = yield* eventBatchContext({ entitySchemaSlug: "media-library" });
-		const membershipEventInput = yield* eventBatchContext({
-			entitySchemaSlug: "book",
-			eventSchemaSlug: "add-to-media-library",
-		});
-		const automaticCompletionInput = yield* eventBatchContext({
-			entitySchemaSlug: "movie",
-			eventSchemaSlug: "complete",
-			properties: { completionSilent: true },
-		});
-		const untargetedCollectionInput = yield* eventBatchContext({
-			eventSchemaPluginId: null,
-			entitySchemaPluginId: null,
-			entitySchemaSlug: "collection",
-			eventSchemaSlug: "add-entity-to-collection",
-			properties: { entityId: "entity-9", entitySchemaSlug: "workout" },
-		});
-		const irrelevantInput = yield* context("workout");
+it.effect(
+	"ignores irrelevant entity and event inputs",
+	() =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const host = defineSandboxTestHost(manifest, {
+				changeUserRelationships: () => {
+					calls += 1;
+					return hostSuccess([]);
+				},
+				executeRyotql: () => {
+					calls += 1;
+					return hostSuccess(mediaLibraryRows);
+				},
+			});
+			const eventInput = yield* eventBatchContext({ entitySchemaSlug: "workout" });
+			const mediaLibraryInput = yield* eventBatchContext({ entitySchemaSlug: "media-library" });
+			const membershipEventInput = yield* eventBatchContext({
+				entitySchemaSlug: "book",
+				eventSchemaSlug: "add-to-media-library",
+			});
+			const automaticCompletionInput = yield* eventBatchContext({
+				entitySchemaSlug: "movie",
+				eventSchemaSlug: "complete",
+				properties: { completionSilent: true },
+			});
+			const untargetedCollectionInput = yield* eventBatchContext({
+				eventSchemaPluginId: null,
+				entitySchemaPluginId: null,
+				entitySchemaSlug: "collection",
+				eventSchemaSlug: "add-entity-to-collection",
+				properties: { entityId: "entity-9", entitySchemaSlug: "workout" },
+			});
+			const irrelevantInput = yield* context("workout");
 
-		expect(yield* definition.run(eventInput, host)).toBeNull();
-		expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
-		expect(yield* definition.run(membershipEventInput, host)).toBeNull();
-		expect(yield* definition.run(automaticCompletionInput, host)).toBeNull();
-		expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
-		expect(yield* definition.run(irrelevantInput, host)).toBeNull();
-		expect(calls).toBe(0);
-	}),
+			expect(yield* definition.run(eventInput, host)).toBeNull();
+			expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
+			expect(yield* definition.run(membershipEventInput, host)).toBeNull();
+			expect(yield* definition.run(automaticCompletionInput, host)).toBeNull();
+			expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
+			expect(yield* definition.run(irrelevantInput, host)).toBeNull();
+			expect(calls).toBe(0);
+		}),
+	testTimeout,
 );
 
 it("upserts each distinct event or collection target once per written batch", () => {
@@ -213,60 +220,68 @@ it("upserts each distinct event or collection target once per written batch", ()
 	);
 });
 
-it.effect("splits a batch of distinct membership targets within the host write limit", () =>
-	Effect.gen(function* () {
-		const sizes: number[] = [];
-		let calls = 0;
-		const host = defineSandboxTestHost(manifest, {
-			executeRyotql: () => hostSuccess(mediaLibraryRows),
-			changeUserRelationships: (batches) => {
-				calls += 1;
-				sizes.push(...batches.map((batch) => batch.creates.length));
-				return hostSuccess(batches.map((batch) => ({ deleted: 0, created: batch.creates.length })));
-			},
-		});
-		return yield* definition
-			.run(
-				yield* eventBatchContext(
-					...Array.from({ length: 101 }, (_, index) => ({
-						entitySchemaSlug: "book",
-						entityId: `entity-${index}`,
-					})),
-				),
-				host,
-			)
-			.pipe(
-				Effect.map(() => {
-					expect(calls).toBe(1);
-					expect(sizes).toEqual([100, 1]);
-				}),
-			);
-	}),
+it.effect(
+	"splits a batch of distinct membership targets within the host write limit",
+	() =>
+		Effect.gen(function* () {
+			const sizes: number[] = [];
+			let calls = 0;
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: () => hostSuccess(mediaLibraryRows),
+				changeUserRelationships: (batches) => {
+					calls += 1;
+					sizes.push(...batches.map((batch) => batch.creates.length));
+					return hostSuccess(
+						batches.map((batch) => ({ deleted: 0, created: batch.creates.length })),
+					);
+				},
+			});
+			return yield* definition
+				.run(
+					yield* eventBatchContext(
+						...Array.from({ length: 101 }, (_, index) => ({
+							entitySchemaSlug: "book",
+							entityId: `entity-${index}`,
+						})),
+					),
+					host,
+				)
+				.pipe(
+					Effect.map(() => {
+						expect(calls).toBe(1);
+						expect(sizes).toEqual([100, 1]);
+					}),
+				);
+		}),
+	testTimeout,
 );
 
-it.live("does not treat a plugin-owned collection name as kernel membership evidence", () =>
-	Effect.gen(function* () {
-		let calls = 0;
-		const host = defineSandboxTestHost(manifest, {
-			changeUserRelationships: () => {
-				calls += 1;
-				return hostSuccess([]);
-			},
-			executeRyotql: () => {
-				calls += 1;
-				return hostSuccess(mediaLibraryRows);
-			},
-		});
-		yield* definition.run(
-			yield* eventBatchContext({
-				entitySchemaSlug: "collection",
-				eventSchemaSlug: "add-entity-to-collection",
-				properties: { entityId: "entity-2", entitySchemaSlug: "movie" },
-			}),
-			host,
-		);
-		expect(calls).toBe(0);
-	}),
+it.live(
+	"does not treat a plugin-owned collection name as kernel membership evidence",
+	() =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const host = defineSandboxTestHost(manifest, {
+				changeUserRelationships: () => {
+					calls += 1;
+					return hostSuccess([]);
+				},
+				executeRyotql: () => {
+					calls += 1;
+					return hostSuccess(mediaLibraryRows);
+				},
+			});
+			yield* definition.run(
+				yield* eventBatchContext({
+					entitySchemaSlug: "collection",
+					eventSchemaSlug: "add-entity-to-collection",
+					properties: { entityId: "entity-2", entitySchemaSlug: "movie" },
+				}),
+				host,
+			);
+			expect(calls).toBe(0);
+		}),
+	testTimeout,
 );
 
 it.live(
@@ -323,67 +338,76 @@ it.live(
 			]);
 			expect(changes).toEqual([]);
 		}),
+	testTimeout,
 );
 
-it.live("uses trusted user scope for direct creation", () =>
-	Effect.gen(function* () {
-		const changes: unknown[] = [];
-		let reads = 0;
-		const host = defineSandboxTestHost(manifest, {
-			executeRyotql: () => {
-				reads += 1;
-				return hostSuccess(mediaLibraryRows);
-			},
-			changeUserRelationships: (batches) => {
-				changes.push(batches);
-				return hostSuccess([{ created: 1, deleted: 0 }]);
-			},
-		});
-		const payload = {
-			category: "change",
-			resource: "entity",
-			operation: "create",
-			after: entityRecord({ entitySchemaSlug: "movie" }),
-		};
-		yield* definition.run(yield* automationContext(payload), host);
-		expect(reads).toBe(1);
-		expect(changes).toEqual([
-			[
-				{
-					deletes: [],
-					creates: [
-						{
-							properties: {},
-							propertiesMode: "merge",
-							sourceEntityId: "entity-1",
-							targetEntityId: "library-1",
-							relationshipSchemaSlug: "in-media-library",
-						},
-					],
+it.live(
+	"uses trusted user scope for direct creation",
+	() =>
+		Effect.gen(function* () {
+			const changes: unknown[] = [];
+			let reads = 0;
+			const host = defineSandboxTestHost(manifest, {
+				executeRyotql: () => {
+					reads += 1;
+					return hostSuccess(mediaLibraryRows);
 				},
-			],
-		]);
-	}),
+				changeUserRelationships: (batches) => {
+					changes.push(batches);
+					return hostSuccess([{ created: 1, deleted: 0 }]);
+				},
+			});
+			const payload = {
+				category: "change",
+				resource: "entity",
+				operation: "create",
+				after: entityRecord({ entitySchemaSlug: "movie" }),
+			};
+			yield* definition.run(yield* automationContext(payload), host);
+			expect(reads).toBe(1);
+			expect(changes).toEqual([
+				[
+					{
+						deletes: [],
+						creates: [
+							{
+								properties: {},
+								propertiesMode: "merge",
+								sourceEntityId: "entity-1",
+								targetEntityId: "library-1",
+								relationshipSchemaSlug: "in-media-library",
+							},
+						],
+					},
+				],
+			]);
+		}),
+	testTimeout,
 );
 
-it.live("rejects provider completion for a different execution user before host calls", () =>
-	Effect.gen(function* () {
-		let calls = 0;
-		const host = defineSandboxTestHost(manifest, {
-			changeUserRelationships: () => {
-				calls += 1;
-				return hostSuccess([]);
-			},
-			executeRyotql: () => {
-				calls += 1;
-				return hostSuccess(mediaLibraryRows);
-			},
-		});
-		const input = yield* automationContext((yield* context("movie")).automation.payload, {
-			executionUserId: "other-user",
-		});
-		const error = yield* Effect.flip(definition.run(input, host));
-		expect(error).toMatchObject({ message: "Provider import user does not match execution user" });
-		expect(calls).toBe(0);
-	}),
+it.live(
+	"rejects provider completion for a different execution user before host calls",
+	() =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const host = defineSandboxTestHost(manifest, {
+				changeUserRelationships: () => {
+					calls += 1;
+					return hostSuccess([]);
+				},
+				executeRyotql: () => {
+					calls += 1;
+					return hostSuccess(mediaLibraryRows);
+				},
+			});
+			const input = yield* automationContext((yield* context("movie")).automation.payload, {
+				executionUserId: "other-user",
+			});
+			const error = yield* Effect.flip(definition.run(input, host));
+			expect(error).toMatchObject({
+				message: "Provider import user does not match execution user",
+			});
+			expect(calls).toBe(0);
+		}),
+	testTimeout,
 );

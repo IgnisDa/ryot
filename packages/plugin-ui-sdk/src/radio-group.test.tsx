@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { useState } from "react";
-import { axe } from "vitest-axe";
 
 import { RadioGroup } from "./radio-group";
 
@@ -139,15 +142,18 @@ describe("RadioGroup", () => {
 		expect(tabStops().map((radio) => radio.getAttribute("aria-label"))).toEqual(["Dark"]);
 	});
 
-	it.live("passes an axe pass on the rendered group", () =>
-		Effect.gen(function* () {
-			const view = render(<ThemeChoice initial="dark" />);
+	it.live(
+		"passes an axe pass on the rendered group",
+		() =>
+			Effect.gen(function* () {
+				const view = render(<ThemeChoice initial="dark" />);
 
-			const results = yield* Effect.promise(() =>
-				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
-			);
+				const results = yield* Effect.promise(() =>
+					axe.run(view.container, { rules: { "color-contrast": { enabled: false } } }),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

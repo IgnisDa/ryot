@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -8,7 +9,9 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import type { ReactNode } from "react";
 
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
@@ -227,92 +230,109 @@ const Workout = (props: {
 
 describe("calculated display readiness", () => {
 	for (const status of ["pending", "failed"] as const) {
-		it.live(`keeps summary volume, awards and heatmap when processing becomes ${status}`, () =>
-			Effect.gen(function* () {
-				const { page, settle } = mountProcessing(<Summary />);
-				const body = within(document.body);
-				yield* settle("ready", () => {
-					expect(body.getByRole("region", { name: "Summary" }).textContent).toContain(
-						"1K kg × reps",
-					);
-				});
-				page.send({ type: "page-refresh" });
-				yield* settle(status, () => {
-					const text = body.getByRole("region", { name: "Summary" }).textContent;
-					expect(text).toContain("Workouts2");
-					expect(text).toContain("1K kg × reps");
-					expect(text).toContain("Recorded bench");
-					expect(body.getByRole("img", { name: /Training days/ })).toBeTruthy();
-				});
-			}),
+		it.live(
+			`keeps summary volume, awards and heatmap when processing becomes ${status}`,
+			() =>
+				Effect.gen(function* () {
+					const { page, settle } = mountProcessing(<Summary />);
+					const body = within(document.body);
+					yield* settle("ready", () => {
+						expect(body.getByRole("region", { name: "Summary" }).textContent).toContain(
+							"1K kg × reps",
+						);
+					});
+					page.send({ type: "page-refresh" });
+					yield* settle(status, () => {
+						const text = body.getByRole("region", { name: "Summary" }).textContent;
+						expect(text).toContain("Workouts2");
+						expect(text).toContain("1K kg × reps");
+						expect(text).toContain("Recorded bench");
+						expect(body.getByRole("img", { name: /Training days/ })).toBeTruthy();
+					});
+				}),
+			testTimeout,
 		);
 
-		it.live(`keeps exercise projections when processing becomes ${status}`, () =>
-			Effect.gen(function* () {
-				const { page, settle } = mountProcessing(<History />);
-				const body = within(document.body);
-				yield* settle("ready", () => {
-					expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
-				});
-				page.send({ type: "page-refresh" });
-				yield* settle(status, () => {
-					expect(document.body.textContent).toContain("Total reps15");
-					expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
-					expect(body.getByRole("heading", { name: "Personal bests" })).toBeTruthy();
-					expect(body.getByRole("img", { name: /Est. one-rep max.*120 kg/ })).toBeTruthy();
-				});
-			}),
+		it.live(
+			`keeps exercise projections when processing becomes ${status}`,
+			() =>
+				Effect.gen(function* () {
+					const { page, settle } = mountProcessing(<History />);
+					const body = within(document.body);
+					yield* settle("ready", () => {
+						expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
+					});
+					page.send({ type: "page-refresh" });
+					yield* settle(status, () => {
+						expect(document.body.textContent).toContain("Total reps15");
+						expect(body.getAllByText("1,000 kg × reps")).toHaveLength(2);
+						expect(body.getByRole("heading", { name: "Personal bests" })).toBeTruthy();
+						expect(body.getByRole("img", { name: /Est. one-rep max.*120 kg/ })).toBeTruthy();
+					});
+				}),
+			testTimeout,
 		);
 
-		it.live(`keeps workout projections and taxonomy when processing becomes ${status}`, () =>
-			Effect.gen(function* () {
-				const { page, settle } = mountProcessing(<Workout />);
-				const body = within(document.body);
-				yield* settle("ready", () => {
-					expect(document.body.textContent).toContain("1,000 kg × reps");
-				});
-				page.send({ type: "page-refresh" });
-				yield* settle(status, () => {
-					expect(document.body.textContent).toContain("1,000 kg × reps");
-					expect(document.body.textContent).toContain("+500 kg × reps");
-					expect(body.getByRole("heading", { name: "Muscles worked" })).toBeTruthy();
-					expect(body.getByRole("columnheader", { name: "Est. 1RM" })).toBeTruthy();
-				});
-			}),
+		it.live(
+			`keeps workout projections and taxonomy when processing becomes ${status}`,
+			() =>
+				Effect.gen(function* () {
+					const { page, settle } = mountProcessing(<Workout />);
+					const body = within(document.body);
+					yield* settle("ready", () => {
+						expect(document.body.textContent).toContain("1,000 kg × reps");
+					});
+					page.send({ type: "page-refresh" });
+					yield* settle(status, () => {
+						expect(document.body.textContent).toContain("1,000 kg × reps");
+						expect(document.body.textContent).toContain("+500 kg × reps");
+						expect(body.getByRole("heading", { name: "Muscles worked" })).toBeTruthy();
+						expect(body.getByRole("columnheader", { name: "Est. 1RM" })).toBeTruthy();
+					});
+				}),
+			testTimeout,
 		);
 	}
 
-	it.live("shows a dash for exercise volume that has no projected value", () =>
-		Effect.gen(function* () {
-			const { settle } = mountProcessing(
-				<History
-					value={{
-						...history,
-						totals: { ...history.totals, volume: null },
-						months: history.months.map((month) => Object.assign({}, month, { volume: null })),
-					}}
-				/>,
-			);
-			yield* settle("ready", () => {
-				expect(document.body.textContent).toContain("Total reps15");
-				expect(document.body.textContent).toContain("Total volume—");
-			});
-		}),
+	it.live(
+		"shows a dash for exercise volume that has no projected value",
+		() =>
+			Effect.gen(function* () {
+				const { settle } = mountProcessing(
+					<History
+						value={{
+							...history,
+							totals: { ...history.totals, volume: null },
+							months: history.months.map((month) => Object.assign({}, month, { volume: null })),
+						}}
+					/>,
+				);
+				yield* settle("ready", () => {
+					expect(document.body.textContent).toContain("Total reps15");
+					expect(document.body.textContent).toContain("Total volume—");
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps pending workout rows masked while the processing poll is ready", () =>
-		Effect.gen(function* () {
-			const { settle } = mountProcessing(<Workout recordStatus="pending" />);
-			yield* settle("ready", () => {
-				const text = document.body.textContent;
-				expect(text).toContain("Sets1");
-				expect(text).toContain("100 kg × 10");
-				expect(text).toContain("Updating records…");
-				expect(text).not.toContain("Retained biceps");
-				expect(text).not.toContain("Retained dumbbell");
-				expect(within(document.body).queryByRole("columnheader", { name: "Est. 1RM" })).toBeNull();
-			});
-		}),
+	it.live(
+		"keeps pending workout rows masked while the processing poll is ready",
+		() =>
+			Effect.gen(function* () {
+				const { settle } = mountProcessing(<Workout recordStatus="pending" />);
+				yield* settle("ready", () => {
+					const text = document.body.textContent;
+					expect(text).toContain("Sets1");
+					expect(text).toContain("100 kg × 10");
+					expect(text).toContain("Updating records…");
+					expect(text).not.toContain("Retained biceps");
+					expect(text).not.toContain("Retained dumbbell");
+					expect(
+						within(document.body).queryByRole("columnheader", { name: "Est. 1RM" }),
+					).toBeNull();
+				});
+			}),
+		testTimeout,
 	);
 
 	for (const [volume, imperial, label] of [
@@ -321,13 +341,16 @@ describe("calculated display readiness", () => {
 		[100.000001, false, "100.000001 kg × reps"],
 		[100.000001, true, "220.46226438950018 lb × reps"],
 	] as const) {
-		it.live(`renders occurrence volume as ${label}`, () =>
-			Effect.gen(function* () {
-				const { settle } = mountProcessing(<Workout volume={volume} imperial={imperial} />);
-				yield* settle("ready", () => {
-					expect(within(document.body).getByText(label)).toBeTruthy();
-				});
-			}),
+		it.live(
+			`renders occurrence volume as ${label}`,
+			() =>
+				Effect.gen(function* () {
+					const { settle } = mountProcessing(<Workout volume={volume} imperial={imperial} />);
+					yield* settle("ready", () => {
+						expect(within(document.body).getByText(label)).toBeTruthy();
+					});
+				}),
+			testTimeout,
 		);
 	}
 });

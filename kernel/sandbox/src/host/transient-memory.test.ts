@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
-import { describe, expect, it } from "vitest";
 
 import { SANDBOX_TRANSIENT_MEMORY, sandboxTransientPermitBytes } from "./transient-memory";
 

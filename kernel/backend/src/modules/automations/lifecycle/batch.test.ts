@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	AutomationPopulationContext,
 	AutomationRelationshipChangePayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { lifecycleBatchTriggers } from "./batch";
@@ -54,31 +57,34 @@ const creditChange = Effect.fnUntraced(function* (index: number, withPopulation 
 });
 
 describe("lifecycle batch triggers", () => {
-	it.effect("splits a write into replay-stable chunks that fit the sandbox input budget", () =>
-		Effect.gen(function* () {
-			const changes = yield* Effect.forEach(
-				Array.from({ length: 200 }, (_, index) => index),
-				(index) => creditChange(index),
-			);
-			const input = { command, identity: ["credits"], resource: "relationship" } as const;
-			const triggers = yield* lifecycleBatchTriggers(input, 200, changes);
-			const items = triggers.flatMap(({ payload }): ReadonlyArray<unknown> =>
-				payload?.operation === "batch" ? payload.items : [],
-			);
-			expect(triggers.length).toBeGreaterThan(1);
-			expect(items).toEqual(changes.map(({ payload }) => payload));
-			for (const { payload } of triggers) {
-				expect((yield* encodeJson(payload)).length).toBeLessThanOrEqual(
-					SANDBOX_LIMITS.execution.contextBytes / 2,
+	it.effect(
+		"splits a write into replay-stable chunks that fit the sandbox input budget",
+		() =>
+			Effect.gen(function* () {
+				const changes = yield* Effect.forEach(
+					Array.from({ length: 200 }, (_, index) => index),
+					(index) => creditChange(index),
 				);
-			}
-			expect((yield* lifecycleBatchTriggers(input, 200, changes)).map(({ id }) => id)).toEqual(
-				triggers.map(({ id }) => id),
-			);
-			expect((yield* lifecycleBatchTriggers(input, 3, changes)).length).toBeGreaterThan(
-				triggers.length,
-			);
-		}),
+				const input = { command, identity: ["credits"], resource: "relationship" } as const;
+				const triggers = yield* lifecycleBatchTriggers(input, 200, changes);
+				const items = triggers.flatMap(({ payload }): ReadonlyArray<unknown> =>
+					payload?.operation === "batch" ? payload.items : [],
+				);
+				expect(triggers.length).toBeGreaterThan(1);
+				expect(items).toEqual(changes.map(({ payload }) => payload));
+				for (const { payload } of triggers) {
+					expect((yield* encodeJson(payload)).length).toBeLessThanOrEqual(
+						SANDBOX_LIMITS.execution.contextBytes / 2,
+					);
+				}
+				expect((yield* lifecycleBatchTriggers(input, 200, changes)).map(({ id }) => id)).toEqual(
+					triggers.map(({ id }) => id),
+				);
+				expect((yield* lifecycleBatchTriggers(input, 3, changes)).length).toBeGreaterThan(
+					triggers.length,
+				);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -99,5 +105,6 @@ describe("lifecycle batch triggers", () => {
 					(yield* encodeJson(trigger?.payload)).length - (yield* encodeJson(change.payload)).length,
 				).toBeLessThan(100);
 			}),
+		testTimeout,
 	);
 });

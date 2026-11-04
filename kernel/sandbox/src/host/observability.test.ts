@@ -1,6 +1,9 @@
-import { describe, expect, it, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import {
 	Context,
 	Effect,
@@ -245,6 +248,7 @@ describe("sandbox observability host functions", () => {
 						scriptId: input.principal.scriptId,
 					});
 				}),
+			testTimeout,
 		);
 	});
 });

@@ -1,5 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { MediaUserDataInput } from "./media-user-data-operations";
 

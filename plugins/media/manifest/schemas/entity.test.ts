@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { describe, expect, it } from "vitest";
 
 import {
 	mediaActivityDeclaredProperties,
@@ -89,7 +90,7 @@ describe("media activity edit field matrix", () => {
 
 	it("matches the manifest's declared review properties", () => {
 		for (const entity of mediaLibraryMemberEntitySchemaSlugs) {
-			expect(sortBy(mediaReviewDeclaredProperties(entity)), entity).toEqual(
+			expect(sortBy(mediaReviewDeclaredProperties(entity)), entity).toEqual<unknown>(
 				declaredFields(entity, "review"),
 			);
 		}

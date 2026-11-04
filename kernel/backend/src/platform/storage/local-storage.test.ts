@@ -1,10 +1,12 @@
+import { expect } from "bun:test";
+
 import { BunCrypto, BunServices } from "@effect/platform-bun";
-import { layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer, Redacted, Stream } from "effect";
-import { expect } from "vitest";
 
 import { makeAppConfigLayer } from "#testing/effect";
 
@@ -30,103 +32,118 @@ const localStorageLayer = Layer.provideMerge(
 );
 
 layer(localStorageLayer)((test) => {
-	test.effect("signs and validates local upload targets", () =>
-		Effect.gen(function* () {
-			const localStorage = yield* LocalStorageService;
-			const target = yield* localStorage.createUploadTarget("intent-id", 1_700_000_000);
+	test.effect(
+		"signs and validates local upload targets",
+		() =>
+			Effect.gen(function* () {
+				const localStorage = yield* LocalStorageService;
+				const target = yield* localStorage.createUploadTarget("intent-id", 1_700_000_000);
 
-			yield* localStorage.verifyUploadTarget("PUT", target.uploadUrl, 1_700_000_899);
-			const tampered = yield* Effect.exit(
-				localStorage.verifyUploadTarget(
-					"PUT",
-					target.uploadUrl.replace("expires=1700000900", "expires=1700000901"),
-					1_700_000_000,
-				),
-			);
-			assertExitFails(
-				tampered,
-				new BadRequest({ message: "Local upload target is invalid or expired" }),
-			);
+				yield* localStorage.verifyUploadTarget("PUT", target.uploadUrl, 1_700_000_899);
+				const tampered = yield* Effect.exit(
+					localStorage.verifyUploadTarget(
+						"PUT",
+						target.uploadUrl.replace("expires=1700000900", "expires=1700000901"),
+						1_700_000_000,
+					),
+				);
+				assertExitFails(
+					tampered,
+					new BadRequest({ message: "Local upload target is invalid or expired" }),
+				);
 
-			const wrongMethod = yield* Effect.exit(
-				localStorage.verifyUploadTarget("POST", target.uploadUrl, 1_700_000_000),
-			);
-			assertExitFails(
-				wrongMethod,
-				new BadRequest({ message: "Local upload target is invalid or expired" }),
-			);
-		}),
+				const wrongMethod = yield* Effect.exit(
+					localStorage.verifyUploadTarget("POST", target.uploadUrl, 1_700_000_000),
+				);
+				assertExitFails(
+					wrongMethod,
+					new BadRequest({ message: "Local upload target is invalid or expired" }),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(localStorageLayer)((test) => {
-	test.effect("creates both configured local roots", () =>
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			yield* LocalStorageService;
-			expect(yield* fs.exists(ROOT)).toBe(true);
-			expect(yield* fs.exists(TEMP_ROOT)).toBe(true);
-		}),
+	test.effect(
+		"creates both configured local roots",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				yield* LocalStorageService;
+				expect(yield* fs.exists(ROOT)).toBe(true);
+				expect(yield* fs.exists(TEMP_ROOT)).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 layer(localStorageLayer)((test) => {
-	test.effect("binds local download signatures to the key and content type", () =>
-		Effect.gen(function* () {
-			const localStorage = yield* LocalStorageService;
-			const target = yield* localStorage.createDownloadTarget(key, "text/plain", 1_700_000_000);
-			const verified = yield* localStorage.verifyDownloadTarget("GET", target, 1_700_000_899);
-			expect(verified).toEqual({ key, contentType: "text/plain" });
-			const tampered = new URL(target, "http://local.invalid");
-			tampered.searchParams.set("key", "permanent/other.txt");
-			const exit = yield* Effect.exit(
-				localStorage.verifyDownloadTarget("GET", tampered.toString(), 1_700_000_000),
-			);
-			assertExitFails(
-				exit,
-				new BadRequest({ message: "Local download target is invalid or expired" }),
-			);
-		}),
+	test.effect(
+		"binds local download signatures to the key and content type",
+		() =>
+			Effect.gen(function* () {
+				const localStorage = yield* LocalStorageService;
+				const target = yield* localStorage.createDownloadTarget(key, "text/plain", 1_700_000_000);
+				const verified = yield* localStorage.verifyDownloadTarget("GET", target, 1_700_000_899);
+				expect(verified).toEqual({ key, contentType: "text/plain" });
+				const tampered = new URL(target, "http://local.invalid");
+				tampered.searchParams.set("key", "permanent/other.txt");
+				const exit = yield* Effect.exit(
+					localStorage.verifyDownloadTarget("GET", tampered.toString(), 1_700_000_000),
+				);
+				assertExitFails(
+					exit,
+					new BadRequest({ message: "Local download target is invalid or expired" }),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(localStorageLayer)((test) => {
-	test.effect("streams local objects through a staged file and deletes them idempotently", () =>
-		Effect.gen(function* () {
-			const localStorage = yield* LocalStorageService;
-			const body = new TextEncoder().encode("hello local storage");
-			yield* localStorage.writeObject(key, Stream.make(body), String(body.byteLength));
-			const chunks = yield* localStorage.openObject(key).pipe(Effect.flatMap(Stream.runCollect));
-			const read = new Uint8Array(body.byteLength);
-			let offset = 0;
-			for (const chunk of chunks) {
-				read.set(chunk, offset);
-				offset += chunk.byteLength;
-			}
-			expect(read).toEqual(body);
-			const info = yield* localStorage.statObject(key);
-			expect(Number(info.size)).toBe(body.byteLength);
-			yield* localStorage.deleteObject(key);
-			yield* localStorage.deleteObject(key);
-		}),
+	test.effect(
+		"streams local objects through a staged file and deletes them idempotently",
+		() =>
+			Effect.gen(function* () {
+				const localStorage = yield* LocalStorageService;
+				const body = new TextEncoder().encode("hello local storage");
+				yield* localStorage.writeObject(key, Stream.make(body), String(body.byteLength));
+				const chunks = yield* localStorage.openObject(key).pipe(Effect.flatMap(Stream.runCollect));
+				const read = new Uint8Array(body.byteLength);
+				let offset = 0;
+				for (const chunk of chunks) {
+					read.set(chunk, offset);
+					offset += chunk.byteLength;
+				}
+				expect(read).toEqual(body);
+				const info = yield* localStorage.statObject(key);
+				expect(Number(info.size)).toBe(body.byteLength);
+				yield* localStorage.deleteObject(key);
+				yield* localStorage.deleteObject(key);
+			}),
+		testTimeout,
 	);
 });
 
 layer(localStorageLayer)((test) => {
-	test.effect("keeps temporary objects beneath the local working directory", () =>
-		Effect.gen(function* () {
-			const temporaryKey = "temporary/object.csv";
-			const localStorage = yield* LocalStorageService;
-			const body = new TextEncoder().encode("temporary data");
-			yield* localStorage.writeObject(temporaryKey, Stream.make(body), String(body.byteLength));
-			expect(yield* localStorage.resolveObjectPath(temporaryKey)).toMatch(
-				/\/temporary\/object\.csv$/,
-			);
-			yield* localStorage.deleteObject(temporaryKey);
-			expect(yield* Effect.exit(localStorage.statObject(temporaryKey))).toMatchObject({
-				_tag: "Failure",
-			});
-		}),
+	test.effect(
+		"keeps temporary objects beneath the local working directory",
+		() =>
+			Effect.gen(function* () {
+				const temporaryKey = "temporary/object.csv";
+				const localStorage = yield* LocalStorageService;
+				const body = new TextEncoder().encode("temporary data");
+				yield* localStorage.writeObject(temporaryKey, Stream.make(body), String(body.byteLength));
+				expect(yield* localStorage.resolveObjectPath(temporaryKey)).toMatch(
+					/\/temporary\/object\.csv$/,
+				);
+				yield* localStorage.deleteObject(temporaryKey);
+				expect(yield* Effect.exit(localStorage.statObject(temporaryKey))).toMatchObject({
+					_tag: "Failure",
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -177,5 +194,6 @@ layer(localStorageLayer)((test) => {
 				yield* fs.remove(`${ROOT}/permanent`, { force: true });
 				yield* fs.remove(outside, { force: true, recursive: true });
 			}),
+		testTimeout,
 	);
 });

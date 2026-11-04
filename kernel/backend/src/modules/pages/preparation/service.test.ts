@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	ClientPageDocumentStale,
 	ClientPagePreparationError,
@@ -8,6 +9,8 @@ import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/refe
 import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -256,151 +259,172 @@ const pagesLayer = PagesService.layer.pipe(
 );
 
 layer(pagesLayer)((test) => {
-	test.effect("prepares a composition without generating its document", () =>
-		Effect.gen(function* () {
-			const expected = yield* resolveClientPageGraph({
-				plugin,
-				plugins: [plugin],
-				exportName: "main",
-				application: "plugin-route",
-				runtimeArtifactHash: runtimeHash,
-			});
-			const service = yield* PagesService;
-			const page = yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
-			expect(page.identity.compositionKey).toBe(expected.compositionKey);
-			expect(page.composition.hash).toBe("composition-hash");
-			expect(yield* (yield* RecordedPrepareCalls).calls).toEqual([
-				`find:${expected.compositionKey}`,
-			]);
-		}),
+	test.effect(
+		"prepares a composition without generating its document",
+		() =>
+			Effect.gen(function* () {
+				const expected = yield* resolveClientPageGraph({
+					plugin,
+					plugins: [plugin],
+					exportName: "main",
+					application: "plugin-route",
+					runtimeArtifactHash: runtimeHash,
+				});
+				const service = yield* PagesService;
+				const page = yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
+				expect(page.identity.compositionKey).toBe(expected.compositionKey);
+				expect(page.composition.hash).toBe("composition-hash");
+				expect(yield* (yield* RecordedPrepareCalls).calls).toEqual([
+					`find:${expected.compositionKey}`,
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("generates the document only for an identity that is still current", () =>
-		Effect.gen(function* () {
-			const service = yield* PagesService;
-			const user = { id: UserId.make("user-1") };
-			const page = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
-				yield* service.prepare(user, routeTarget),
-			);
-			const document = yield* service.document(user, page.identity);
-			expect(document.metadata.hash).toBe("composition-hash");
-			expect(document.bootstrap).toBe(`/api/page-bundles/${runtimeHash}/public/bootstrap.js`);
-			const stale = new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } });
-			assertExitFails(
-				yield* Effect.exit(
-					service.document(user, { ...page.identity, compositionHash: "other-composition" }),
-				),
-				stale,
-			);
-			const foreignEntity: PreparedClientPage["identity"] = {
-				...page.identity,
-				exportName: "main",
-				kind: "plugin-page",
-				pluginId: plugin.id,
-				contentHash: plugin.contentHash,
-				installationId: plugin.installationId,
-				target: { kind: "entity", entityId: EntityId.make("foreign-entity") },
-			};
-			assertExitFails(
-				yield* Effect.exit(service.document({ id: UserId.make("user-2") }, foreignEntity)),
-				stale,
-			);
-		}),
+	test.effect(
+		"generates the document only for an identity that is still current",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const user = { id: UserId.make("user-1") };
+				const page = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				const document = yield* service.document(user, page.identity);
+				expect(document.metadata.hash).toBe("composition-hash");
+				expect(document.bootstrap).toBe(`/api/page-bundles/${runtimeHash}/public/bootstrap.js`);
+				const stale = new ClientPageDocumentStale({
+					reason: { code: "client-page-document-stale" },
+				});
+				assertExitFails(
+					yield* Effect.exit(
+						service.document(user, { ...page.identity, compositionHash: "other-composition" }),
+					),
+					stale,
+				);
+				const foreignEntity: PreparedClientPage["identity"] = {
+					...page.identity,
+					exportName: "main",
+					kind: "plugin-page",
+					pluginId: plugin.id,
+					contentHash: plugin.contentHash,
+					installationId: plugin.installationId,
+					target: { kind: "entity", entityId: EntityId.make("foreign-entity") },
+				};
+				assertExitFails(
+					yield* Effect.exit(service.document({ id: UserId.make("user-2") }, foreignEntity)),
+					stale,
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("uses the same changing home selection for preparation and freshness", () =>
-		Effect.gen(function* () {
-			const user = { id: UserId.make("user-1") };
-			const firstReference = { kind: "custom" as const, savedViewId: SavedViewId.make("view-a") };
-			const secondReference = { kind: "custom" as const, savedViewId: SavedViewId.make("view-b") };
-			const service = yield* PagesService;
-			const selections = yield* PageSelections;
-			const recorded = yield* RecordedPrepareCalls;
-			const stale = new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } });
-			const assertStaleWithoutMaterialization = Effect.fn(function* (
-				identity: PreparedClientPage["identity"],
-			) {
+	test.effect(
+		"uses the same changing home selection for preparation and freshness",
+		() =>
+			Effect.gen(function* () {
+				const user = { id: UserId.make("user-1") };
+				const firstReference = { kind: "custom" as const, savedViewId: SavedViewId.make("view-a") };
+				const secondReference = {
+					kind: "custom" as const,
+					savedViewId: SavedViewId.make("view-b"),
+				};
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const recorded = yield* RecordedPrepareCalls;
+				const stale = new ClientPageDocumentStale({
+					reason: { code: "client-page-document-stale" },
+				});
+				const assertStaleWithoutMaterialization = Effect.fn(function* (
+					identity: PreparedClientPage["identity"],
+				) {
+					const before = yield* recorded.calls;
+					expect(yield* service.isIdentityCurrent(user.id, identity)).toBe(false);
+					assertExitFails(yield* Effect.exit(service.document(user, identity)), stale);
+					expect(yield* recorded.calls).toEqual(before);
+				});
+
+				const route = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(route.identity.kind).toBe("plugin-page");
+				expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
+
+				yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 1));
+				yield* selections.setHome(firstReference);
+				yield* assertStaleWithoutMaterialization(route.identity);
+				const firstHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(firstHome.identity).toMatchObject({
+					viewRevision: 1,
+					exportName: "main",
+					target: routeTarget,
+					kind: "plugin-saved-view",
+					savedViewId: firstReference.savedViewId,
+				});
+				expect(firstHome.context.target).toEqual({ kind: "saved-view", reference: firstReference });
+
+				yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 2));
+				yield* assertStaleWithoutMaterialization(firstHome.identity);
+				const revisedHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(revisedHome.identity).toMatchObject({ viewRevision: 2, exportName: "main" });
+
+				yield* selections.setView(
+					firstReference,
+					savedView(firstReference.savedViewId, 2, "alternate"),
+				);
+				yield* assertStaleWithoutMaterialization(revisedHome.identity);
+				const alternateHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(alternateHome.identity).toMatchObject({
+					viewRevision: 2,
+					exportName: "alternate",
+					kind: "plugin-saved-view",
+				});
+
+				yield* selections.setView(secondReference, savedView(secondReference.savedViewId, 1));
+				yield* selections.setHome(secondReference);
+				yield* assertStaleWithoutMaterialization(alternateHome.identity);
+				const secondHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, routeTarget),
+				);
+				expect(secondHome.identity).toMatchObject({
+					viewRevision: 1,
+					kind: "plugin-saved-view",
+					savedViewId: secondReference.savedViewId,
+				});
+
+				yield* selections.setHome(null);
+				yield* assertStaleWithoutMaterialization(secondHome.identity);
+				expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a formerly prepared plugin after catalog revocation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
+				const recorded = yield* RecordedPrepareCalls;
 				const before = yield* recorded.calls;
-				expect(yield* service.isIdentityCurrent(user.id, identity)).toBe(false);
-				assertExitFails(yield* Effect.exit(service.document(user, identity)), stale);
+				yield* (yield* AvailablePlugins).revoke;
+				const exit = yield* Effect.exit(
+					service.prepare({ id: UserId.make("user-1") }, routeTarget),
+				);
+				assertExitFails(
+					exit,
+					new ClientPagePreparationError({
+						reason: { packageId: plugin.packageId, code: "plugin-package-unavailable" },
+					}),
+				);
 				expect(yield* recorded.calls).toEqual(before);
-			});
-
-			const route = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
-				yield* service.prepare(user, routeTarget),
-			);
-			expect(route.identity.kind).toBe("plugin-page");
-			expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
-
-			yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 1));
-			yield* selections.setHome(firstReference);
-			yield* assertStaleWithoutMaterialization(route.identity);
-			const firstHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
-				yield* service.prepare(user, routeTarget),
-			);
-			expect(firstHome.identity).toMatchObject({
-				viewRevision: 1,
-				exportName: "main",
-				target: routeTarget,
-				kind: "plugin-saved-view",
-				savedViewId: firstReference.savedViewId,
-			});
-			expect(firstHome.context.target).toEqual({ kind: "saved-view", reference: firstReference });
-
-			yield* selections.setView(firstReference, savedView(firstReference.savedViewId, 2));
-			yield* assertStaleWithoutMaterialization(firstHome.identity);
-			const revisedHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
-				yield* service.prepare(user, routeTarget),
-			);
-			expect(revisedHome.identity).toMatchObject({ viewRevision: 2, exportName: "main" });
-
-			yield* selections.setView(
-				firstReference,
-				savedView(firstReference.savedViewId, 2, "alternate"),
-			);
-			yield* assertStaleWithoutMaterialization(revisedHome.identity);
-			const alternateHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
-				yield* service.prepare(user, routeTarget),
-			);
-			expect(alternateHome.identity).toMatchObject({
-				viewRevision: 2,
-				exportName: "alternate",
-				kind: "plugin-saved-view",
-			});
-
-			yield* selections.setView(secondReference, savedView(secondReference.savedViewId, 1));
-			yield* selections.setHome(secondReference);
-			yield* assertStaleWithoutMaterialization(alternateHome.identity);
-			const secondHome = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
-				yield* service.prepare(user, routeTarget),
-			);
-			expect(secondHome.identity).toMatchObject({
-				viewRevision: 1,
-				kind: "plugin-saved-view",
-				savedViewId: secondReference.savedViewId,
-			});
-
-			yield* selections.setHome(null);
-			yield* assertStaleWithoutMaterialization(secondHome.identity);
-			expect(yield* service.isIdentityCurrent(user.id, route.identity)).toBe(true);
-		}),
-	);
-
-	test.effect("rejects a formerly prepared plugin after catalog revocation", () =>
-		Effect.gen(function* () {
-			const service = yield* PagesService;
-			yield* service.prepare({ id: UserId.make("user-1") }, routeTarget);
-			const recorded = yield* RecordedPrepareCalls;
-			const before = yield* recorded.calls;
-			yield* (yield* AvailablePlugins).revoke;
-			const exit = yield* Effect.exit(service.prepare({ id: UserId.make("user-1") }, routeTarget));
-			assertExitFails(
-				exit,
-				new ClientPagePreparationError({
-					reason: { packageId: plugin.packageId, code: "plugin-package-unavailable" },
-				}),
-			);
-			expect(yield* recorded.calls).toEqual(before);
-		}),
+			}),
+		testTimeout,
 	);
 });

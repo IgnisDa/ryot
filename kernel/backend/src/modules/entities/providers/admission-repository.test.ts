@@ -1,8 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
-import { describe } from "vitest";
 
 import { DatabaseSession } from "#platform/db/session";
 
@@ -51,38 +53,47 @@ const enqueueInOrder = (requests: ReadonlyArray<readonly [string, UserId]>) =>
 
 describe("provider import admission ledger", () => {
 	layer(admissionDatabaseLayer)((test) => {
-		test.effect("gives a free slot to the user with the fewest running imports", () =>
-			Effect.gen(function* () {
-				const repository = yield* ProviderImportAdmissionRepository;
-				yield* enqueueInOrder([
-					["a1", alice],
-					["a2", alice],
-					["a3", alice],
-					["b1", bob],
-				]);
+		test.effect(
+			"gives a free slot to the user with the fewest running imports",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* ProviderImportAdmissionRepository;
+					yield* enqueueInOrder([
+						["a1", alice],
+						["a2", alice],
+						["a3", alice],
+						["b1", bob],
+					]);
 
-				expect(yield* admittedIds(2)).toEqual(["a1", "b1"]);
-				expect(yield* admittedIds(2)).toEqual([]);
+					expect(yield* admittedIds(2)).toEqual(["a1", "b1"]);
+					expect(yield* admittedIds(2)).toEqual([]);
 
-				expect(yield* admittedIds(2, ["b1"])).toEqual(["a2"]);
-				expect((yield* repository.listRunning()).map(({ id }) => id).sort()).toEqual(["a1", "a2"]);
-			}),
+					expect(yield* admittedIds(2, ["b1"])).toEqual(["a2"]);
+					expect((yield* repository.listRunning()).map(({ id }) => id).sort()).toEqual([
+						"a1",
+						"a2",
+					]);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(admissionDatabaseLayer)((test) => {
-		test.effect("gives the only slot a finishing import frees to another waiting user", () =>
-			Effect.gen(function* () {
-				yield* enqueueInOrder([
-					["a1", alice],
-					["a2", alice],
-					["b1", bob],
-				]);
-				expect(yield* admittedIds(1)).toEqual(["a1"]);
+		test.effect(
+			"gives the only slot a finishing import frees to another waiting user",
+			() =>
+				Effect.gen(function* () {
+					yield* enqueueInOrder([
+						["a1", alice],
+						["a2", alice],
+						["b1", bob],
+					]);
+					expect(yield* admittedIds(1)).toEqual(["a1"]);
 
-				expect(yield* admittedIds(1, ["a1"])).toEqual(["b1"]);
-				expect(yield* admittedIds(1, ["b1"])).toEqual(["a2"]);
-			}),
+					expect(yield* admittedIds(1, ["a1"])).toEqual(["b1"]);
+					expect(yield* admittedIds(1, ["b1"])).toEqual(["a2"]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -109,28 +120,32 @@ describe("provider import admission ledger", () => {
 						status: "queued",
 					});
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(admissionDatabaseLayer)((test) => {
-		test.effect("cancels only a request that has not been admitted", () =>
-			Effect.gen(function* () {
-				const repository = yield* ProviderImportAdmissionRepository;
-				yield* enqueueInOrder([
-					["running", alice],
-					["queued", alice],
-				]);
-				expect(yield* admittedIds(1)).toEqual(["running"]);
+		test.effect(
+			"cancels only a request that has not been admitted",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* ProviderImportAdmissionRepository;
+					yield* enqueueInOrder([
+						["running", alice],
+						["queued", alice],
+					]);
+					expect(yield* admittedIds(1)).toEqual(["running"]);
 
-				expect(yield* repository.cancelQueued({ id: "running", userId: alice })).toBe(false);
-				expect(yield* repository.cancelQueued({ userId: bob, id: "queued" })).toBe(false);
-				expect(yield* repository.cancelQueued({ id: "queued", userId: alice })).toBe(true);
-				expect(yield* repository.find({ id: "queued", userId: alice })).toBeNull();
-				expect(yield* repository.find({ id: "running", userId: alice })).toEqual({
-					status: "running",
-					payload: { id: "running" },
-				});
-			}),
+					expect(yield* repository.cancelQueued({ id: "running", userId: alice })).toBe(false);
+					expect(yield* repository.cancelQueued({ userId: bob, id: "queued" })).toBe(false);
+					expect(yield* repository.cancelQueued({ id: "queued", userId: alice })).toBe(true);
+					expect(yield* repository.find({ id: "queued", userId: alice })).toBeNull();
+					expect(yield* repository.find({ id: "running", userId: alice })).toEqual({
+						status: "running",
+						payload: { id: "running" },
+					});
+				}),
+			testTimeout,
 		);
 	});
 });

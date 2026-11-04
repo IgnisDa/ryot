@@ -1,9 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AutomationAfterPayload,
 	AutomationRequestPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";
@@ -70,143 +73,163 @@ it.effect(
 			});
 			expect(payload).toEqual(original);
 		}),
+	testTimeout,
 );
 
-it.effect("recurses through batches in order and projects signals and provider imports", () =>
-	Effect.gen(function* () {
-		const item = {
-			resource: "event",
-			category: "change",
-			operation: "create",
-			after: {
-				id: "event-1",
-				createdAt: timestamp,
-				updatedAt: timestamp,
-				entityId: "entity-1",
-				occurredAt: timestamp,
-				sessionEntityId: null,
-				eventSchemaSlug: "view",
-				eventSchemaPluginId: null,
-				entitySchemaSlug: "record",
-				entitySchemaPluginId: null,
-				properties: { order: 1, hidden: true },
-			},
-		} as const;
-		const batch = yield* Schema.decodeEffect(AutomationAfterPayload)({
-			resource: "event",
-			operation: "batch",
-			category: "change",
-			items: [item, { ...item, after: { ...item.after, id: "event-2", properties: { order: 2 } } }],
-		});
-		const projected = projectAutomationAfterInput(batch, {
-			event: { properties: ["order"], compareProperties: [] },
-		});
-		expect(projected).toMatchObject({
-			items: [
-				{ after: { id: "event-1", properties: { order: 1 } } },
-				{ after: { id: "event-2", properties: { order: 2 } } },
-			],
-		});
-		const signal = yield* Schema.decodeEffect(AutomationAfterPayload)({
-			operation: "emit",
-			actorUserId: null,
-			category: "signal",
-			resource: "signal",
-			signalSchemaPluginId: null,
-			signalSchemaSlug: "notice",
-			properties: { visible: 1, hidden: true },
-		});
-		expect(
-			projectAutomationAfterInput(signal, { signal: { properties: ["visible"] } }),
-		).toMatchObject({ properties: { visible: 1 } });
-		expect(
-			projectAutomationAfterInput(signal, {
-				entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-			}),
-		).toBeNull();
-	}),
-);
-
-it.effect("projects policy updates and computes sorted JSON changes", () =>
-	Effect.gen(function* () {
-		const request = yield* Schema.decodeEffect(AutomationRequestPayload)({
-			resource: "entity",
-			category: "request",
-			operation: "update",
-			before: snapshot({ a: 1, b: 1, hidden: true }),
-			draft: entityDraft({ a: 2, b: 2, hidden: false }),
-		});
-		const projected = projectAutomationPolicyInput(request, { entity: { properties: ["b", "a"] } });
-		expect(projected).toMatchObject({
-			changedProperties: ["a", "b"],
-			draft: { properties: { a: 2, b: 2 } },
-			before: { properties: { a: 1, b: 1 } },
-		});
-	}),
-);
-
-it.effect("distinguishes missing properties and implements both comparison modes", () =>
-	Effect.gen(function* () {
-		const payload = yield* Schema.decodeEffect(AutomationAfterPayload)({
-			category: "change",
-			resource: "entity",
-			operation: "update",
-			after: snapshot({
-				scalar: "same",
-				addedNull: null,
-				ordered: [2, 1],
-				nullValue: null,
-				object: { b: 2, a: 1 },
-				set: [{ b: 2, a: 1 }, 1],
-			}),
-			before: snapshot({
-				scalar: "same",
-				ordered: [1, 2],
-				nullValue: null,
-				removedNull: null,
-				object: { a: 1, b: 2 },
-				set: [1, 1, { a: 1, b: 2 }],
-			}),
-		});
-		const projected = projectAutomationAfterInput(payload, {
-			entity: {
-				properties: [],
-				parentEntityProperties: [],
-				compareProperties: [
-					{ equality: "json", property: "missing" },
-					{ equality: "json", property: "addedNull" },
-					{ equality: "json", property: "removedNull" },
-					{ equality: "json", property: "object" },
-					{ equality: "json", property: "ordered" },
-					{ property: "set", equality: "unordered-array" },
-					{ property: "nullValue", equality: "unordered-array" },
-					{ property: "scalar", equality: "unordered-array" },
+it.effect(
+	"recurses through batches in order and projects signals and provider imports",
+	() =>
+		Effect.gen(function* () {
+			const item = {
+				resource: "event",
+				category: "change",
+				operation: "create",
+				after: {
+					id: "event-1",
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					entityId: "entity-1",
+					occurredAt: timestamp,
+					sessionEntityId: null,
+					eventSchemaSlug: "view",
+					eventSchemaPluginId: null,
+					entitySchemaSlug: "record",
+					entitySchemaPluginId: null,
+					properties: { order: 1, hidden: true },
+				},
+			} as const;
+			const batch = yield* Schema.decodeEffect(AutomationAfterPayload)({
+				resource: "event",
+				operation: "batch",
+				category: "change",
+				items: [
+					item,
+					{ ...item, after: { ...item.after, id: "event-2", properties: { order: 2 } } },
 				],
-			},
-		});
-		expect(projected).toMatchObject({ changedProperties: ["addedNull", "ordered", "removedNull"] });
-	}),
+			});
+			const projected = projectAutomationAfterInput(batch, {
+				event: { properties: ["order"], compareProperties: [] },
+			});
+			expect(projected).toMatchObject({
+				items: [
+					{ after: { id: "event-1", properties: { order: 1 } } },
+					{ after: { id: "event-2", properties: { order: 2 } } },
+				],
+			});
+			const signal = yield* Schema.decodeEffect(AutomationAfterPayload)({
+				operation: "emit",
+				actorUserId: null,
+				category: "signal",
+				resource: "signal",
+				signalSchemaPluginId: null,
+				signalSchemaSlug: "notice",
+				properties: { visible: 1, hidden: true },
+			});
+			expect(
+				projectAutomationAfterInput(signal, { signal: { properties: ["visible"] } }),
+			).toMatchObject({ properties: { visible: 1 } });
+			expect(
+				projectAutomationAfterInput(signal, {
+					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+				}),
+			).toBeNull();
+		}),
+	testTimeout,
 );
 
-it.effect("sorts changed property names by deterministic UTF-16 code units", () =>
-	Effect.gen(function* () {
-		const payload = yield* Schema.decodeEffect(AutomationAfterPayload)({
-			category: "change",
-			resource: "entity",
-			operation: "update",
-			after: snapshot({ A: 1, _: 1, é: 1, "~": 1 }),
-			before: snapshot({ A: 0, _: 0, é: 0, "~": 0 }),
-		});
-		const projected = projectAutomationAfterInput(payload, {
-			entity: {
-				properties: [],
-				parentEntityProperties: [],
-				compareProperties: ["é", "~", "_", "A"].map((property) => ({
-					property,
-					equality: "json" as const,
-				})),
-			},
-		});
-		expect(projected).toMatchObject({ changedProperties: ["A", "_", "~", "é"] });
-	}),
+it.effect(
+	"projects policy updates and computes sorted JSON changes",
+	() =>
+		Effect.gen(function* () {
+			const request = yield* Schema.decodeEffect(AutomationRequestPayload)({
+				resource: "entity",
+				category: "request",
+				operation: "update",
+				before: snapshot({ a: 1, b: 1, hidden: true }),
+				draft: entityDraft({ a: 2, b: 2, hidden: false }),
+			});
+			const projected = projectAutomationPolicyInput(request, {
+				entity: { properties: ["b", "a"] },
+			});
+			expect(projected).toMatchObject({
+				changedProperties: ["a", "b"],
+				draft: { properties: { a: 2, b: 2 } },
+				before: { properties: { a: 1, b: 1 } },
+			});
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"distinguishes missing properties and implements both comparison modes",
+	() =>
+		Effect.gen(function* () {
+			const payload = yield* Schema.decodeEffect(AutomationAfterPayload)({
+				category: "change",
+				resource: "entity",
+				operation: "update",
+				after: snapshot({
+					scalar: "same",
+					addedNull: null,
+					ordered: [2, 1],
+					nullValue: null,
+					object: { b: 2, a: 1 },
+					set: [{ b: 2, a: 1 }, 1],
+				}),
+				before: snapshot({
+					scalar: "same",
+					ordered: [1, 2],
+					nullValue: null,
+					removedNull: null,
+					object: { a: 1, b: 2 },
+					set: [1, 1, { a: 1, b: 2 }],
+				}),
+			});
+			const projected = projectAutomationAfterInput(payload, {
+				entity: {
+					properties: [],
+					parentEntityProperties: [],
+					compareProperties: [
+						{ equality: "json", property: "missing" },
+						{ equality: "json", property: "addedNull" },
+						{ equality: "json", property: "removedNull" },
+						{ equality: "json", property: "object" },
+						{ equality: "json", property: "ordered" },
+						{ property: "set", equality: "unordered-array" },
+						{ property: "nullValue", equality: "unordered-array" },
+						{ property: "scalar", equality: "unordered-array" },
+					],
+				},
+			});
+			expect(projected).toMatchObject({
+				changedProperties: ["addedNull", "ordered", "removedNull"],
+			});
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"sorts changed property names by deterministic UTF-16 code units",
+	() =>
+		Effect.gen(function* () {
+			const payload = yield* Schema.decodeEffect(AutomationAfterPayload)({
+				category: "change",
+				resource: "entity",
+				operation: "update",
+				after: snapshot({ A: 1, _: 1, é: 1, "~": 1 }),
+				before: snapshot({ A: 0, _: 0, é: 0, "~": 0 }),
+			});
+			const projected = projectAutomationAfterInput(payload, {
+				entity: {
+					properties: [],
+					parentEntityProperties: [],
+					compareProperties: ["é", "~", "_", "A"].map((property) => ({
+						property,
+						equality: "json" as const,
+					})),
+				},
+			});
+			expect(projected).toMatchObject({ changedProperties: ["A", "_", "~", "é"] });
+		}),
+	testTimeout,
 );

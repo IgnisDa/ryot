@@ -1,5 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { entityWatchRecipe } from "./entities";
 import { rowsResponse } from "./test-utils";
@@ -44,7 +46,7 @@ describe("entity recipes", () => {
 			"entitySchemaPluginId",
 		]);
 		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
-		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual([item]);
+		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual<unknown>([item]);
 	});
 
 	it("decodes nullable fields", () => {
@@ -64,7 +66,7 @@ describe("entity recipes", () => {
 					]),
 				),
 			),
-		).toEqual([
+		).toEqual<unknown>([
 			{
 				...item,
 				userId: null,

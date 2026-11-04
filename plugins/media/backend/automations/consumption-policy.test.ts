@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	type AutomationPolicyInput,
 	automationPolicyInputSchema,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	policyAutomationContext,
@@ -32,151 +35,166 @@ const harness = (properties: Readonly<Record<string, Schema.Json>> = {}) => {
 };
 
 describe("consumption policy", () => {
-	it.effect("retains independent numbered items without reading current metadata", () =>
-		Effect.gen(function* () {
-			const test = harness({ episodes: 999, chapters: 999 });
-			const inputs: Parameters<typeof policyAutomationContext>[0][] = [
-				{
-					entitySchemaSlug: "anime",
-					properties: {
-						sourceRun: "seen:a",
-						consumedItem: { position: 12, unit: "episodes" },
-						consumptionBasis: { unit: "episodes", property: "episodes" },
+	it.effect(
+		"retains independent numbered items without reading current metadata",
+		() =>
+			Effect.gen(function* () {
+				const test = harness({ episodes: 999, chapters: 999 });
+				const inputs: Parameters<typeof policyAutomationContext>[0][] = [
+					{
+						entitySchemaSlug: "anime",
+						properties: {
+							sourceRun: "seen:a",
+							consumedItem: { position: 12, unit: "episodes" },
+							consumptionBasis: { unit: "episodes", property: "episodes" },
+						},
 					},
-				},
-				{
-					entitySchemaSlug: "anime",
-					properties: {
-						sourceRun: "seen:b",
-						consumedItem: { position: 12, unit: "episodes" },
-						consumptionBasis: { unit: "episodes", property: "episodes" },
+					{
+						entitySchemaSlug: "anime",
+						properties: {
+							sourceRun: "seen:b",
+							consumedItem: { position: 12, unit: "episodes" },
+							consumptionBasis: { unit: "episodes", property: "episodes" },
+						},
 					},
-				},
-				{
-					entitySchemaSlug: "manga",
-					properties: {
-						consumptionBasis: { unit: "chapters", property: "chapters" },
-						consumedItem: { volume: 7, position: 42.5, unit: "chapters" },
+					{
+						entitySchemaSlug: "manga",
+						properties: {
+							consumptionBasis: { unit: "chapters", property: "chapters" },
+							consumedItem: { volume: 7, position: 42.5, unit: "chapters" },
+						},
 					},
-				},
-				{
-					entitySchemaSlug: "manga",
-					properties: {
-						consumedItem: { position: 8, unit: "volumes" },
-						consumptionBasis: { unit: "chapters", property: "chapters" },
+					{
+						entitySchemaSlug: "manga",
+						properties: {
+							consumedItem: { position: 8, unit: "volumes" },
+							consumptionBasis: { unit: "chapters", property: "chapters" },
+						},
 					},
-				},
-			];
-			for (const input of inputs) {
+				];
+				for (const input of inputs) {
+					expect(
+						yield* test.run(
+							yield* policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" }),
+						),
+					).toEqual({ action: "allow" });
+				}
+				expect(test.reads()).toBe(0);
+			}),
+		testTimeout,
+	);
+	it.effect(
+		"rejects volume context on volumes and items with cumulative progress",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const inputs: Parameters<typeof policyAutomationContext>[0][] = [
+					{
+						entitySchemaSlug: "manga",
+						properties: { consumedItem: { volume: 1, position: 1, unit: "volumes" } },
+					},
+					{
+						entitySchemaSlug: "anime",
+						properties: { animeEpisode: 1, consumedItem: { position: 1, unit: "episodes" } },
+					},
+				];
+				for (const input of inputs) {
+					expect(
+						yield* test.run(
+							yield* policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" }),
+						),
+					).toMatchObject({ action: "reject" });
+				}
+				expect(test.reads()).toBe(0);
+			}),
+		testTimeout,
+	);
+	it.effect(
+		"captures exact page evidence and a frozen metadata basis",
+		() =>
+			Effect.gen(function* () {
+				const test = harness({ pages: 123 });
 				expect(
 					yield* test.run(
-						yield* policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" }),
+						yield* policyAutomationContext({
+							entitySchemaSlug: "book",
+							eventSchemaSlug: "progress",
+							properties: { progressPages: 40, calendarDate: "2025-12-31" },
+						}),
+					),
+				).toEqual({
+					action: "transform",
+					patch: {
+						resource: "event",
+						draft: {
+							properties: {
+								remove: [],
+								set: { consumptionBasis: { total: 123, unit: "pages", property: "pages" } },
+							},
+						},
+					},
+				});
+				expect(test.reads()).toBe(1);
+			}),
+		testTimeout,
+	);
+	it.effect(
+		"does not fill missing historical metadata or reread retained estimates",
+		() =>
+			Effect.gen(function* () {
+				const test = harness({ runtime: 999 });
+				expect(
+					yield* test.run(
+						yield* policyAutomationContext({
+							eventSchemaSlug: "complete",
+							properties: {
+								dateUnknown: true,
+								consumptionBasis: { unit: "minutes", property: "runtime" },
+							},
+						}),
 					),
 				).toEqual({ action: "allow" });
-			}
-			expect(test.reads()).toBe(0);
-		}),
+				expect(test.reads()).toBe(0);
+			}),
+		testTimeout,
 	);
-	it.effect("rejects volume context on volumes and items with cumulative progress", () =>
-		Effect.gen(function* () {
-			const test = harness();
-			const inputs: Parameters<typeof policyAutomationContext>[0][] = [
-				{
-					entitySchemaSlug: "manga",
-					properties: { consumedItem: { volume: 1, position: 1, unit: "volumes" } },
-				},
-				{
-					entitySchemaSlug: "anime",
-					properties: { animeEpisode: 1, consumedItem: { position: 1, unit: "episodes" } },
-				},
-			];
-			for (const input of inputs) {
-				expect(
-					yield* test.run(
-						yield* policyAutomationContext({ ...input, eventSchemaSlug: "item-complete" }),
-					),
-				).toMatchObject({ action: "reject" });
-			}
-			expect(test.reads()).toBe(0);
-		}),
-	);
-	it.effect("captures exact page evidence and a frozen metadata basis", () =>
-		Effect.gen(function* () {
-			const test = harness({ pages: 123 });
-			expect(
-				yield* test.run(
-					yield* policyAutomationContext({
-						entitySchemaSlug: "book",
-						eventSchemaSlug: "progress",
-						properties: { progressPages: 40, calendarDate: "2025-12-31" },
-					}),
-				),
-			).toEqual({
-				action: "transform",
-				patch: {
-					resource: "event",
-					draft: {
-						properties: {
-							remove: [],
-							set: { consumptionBasis: { total: 123, unit: "pages", property: "pages" } },
+	it.effect(
+		"preserves snapshots through unrelated edits and attempts to recapture",
+		() =>
+			Effect.gen(function* () {
+				const test = harness({ runtime: 999 });
+				const context = yield* policyAutomationContext({
+					eventSchemaSlug: "complete",
+					properties: { consumptionBasis: { total: 90, unit: "minutes", property: "runtime" } },
+				});
+				const payload = context.automation.payload;
+				if (payload.resource !== "event" || payload.operation !== "create") {
+					throw new Error("Expected event create");
+				}
+				const update = yield* Schema.decodeEffect(automationPolicyInputSchema)({
+					automation: {
+						...context.automation,
+						payload: {
+							...payload,
+							operation: "update",
+							changedProperties: ["consumedOn", "consumptionBasis"],
+							draft: { ...payload.draft, properties: { consumedOn: "Changed" } },
+							before: {
+								...payload.draft,
+								id: "source",
+								createdAt: payload.draft.occurredAt,
+								updatedAt: payload.draft.occurredAt,
+							},
 						},
 					},
-				},
-			});
-			expect(test.reads()).toBe(1);
-		}),
-	);
-	it.effect("does not fill missing historical metadata or reread retained estimates", () =>
-		Effect.gen(function* () {
-			const test = harness({ runtime: 999 });
-			expect(
-				yield* test.run(
-					yield* policyAutomationContext({
-						eventSchemaSlug: "complete",
-						properties: {
-							dateUnknown: true,
-							consumptionBasis: { unit: "minutes", property: "runtime" },
-						},
-					}),
-				),
-			).toEqual({ action: "allow" });
-			expect(test.reads()).toBe(0);
-		}),
-	);
-	it.effect("preserves snapshots through unrelated edits and attempts to recapture", () =>
-		Effect.gen(function* () {
-			const test = harness({ runtime: 999 });
-			const context = yield* policyAutomationContext({
-				eventSchemaSlug: "complete",
-				properties: { consumptionBasis: { total: 90, unit: "minutes", property: "runtime" } },
-			});
-			const payload = context.automation.payload;
-			if (payload.resource !== "event" || payload.operation !== "create") {
-				throw new Error("Expected event create");
-			}
-			const update = yield* Schema.decodeEffect(automationPolicyInputSchema)({
-				automation: {
-					...context.automation,
-					payload: {
-						...payload,
-						operation: "update",
-						changedProperties: ["consumedOn", "consumptionBasis"],
-						draft: { ...payload.draft, properties: { consumedOn: "Changed" } },
-						before: {
-							...payload.draft,
-							id: "source",
-							createdAt: payload.draft.occurredAt,
-							updatedAt: payload.draft.occurredAt,
-						},
-					},
-				},
-			});
-			expect(yield* test.run(update)).toMatchObject({
-				action: "transform",
-				patch: { draft: { properties: { set: { consumptionBasis: { total: 90 } } } } },
-			});
-			expect(test.reads()).toBe(0);
-		}),
+				});
+				expect(yield* test.run(update)).toMatchObject({
+					action: "transform",
+					patch: { draft: { properties: { set: { consumptionBasis: { total: 90 } } } } },
+				});
+				expect(test.reads()).toBe(0);
+			}),
+		testTimeout,
 	);
 	it.effect(
 		"rejects duplicate amount forms, contradictory or distant date evidence and game estimates",
@@ -201,5 +219,6 @@ describe("consumption policy", () => {
 				}
 				expect(test.reads()).toBe(0);
 			}),
+		testTimeout,
 	);
 });

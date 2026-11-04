@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, renderHook, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import {
@@ -168,16 +171,19 @@ describe("useDismissOnOutside", () => {
 });
 
 describe("useRestoreFocus", () => {
-	it.live("returns focus to the trigger on unmount", () =>
-		Effect.gen(function* () {
-			const { last, first, container } = mountContainer();
-			const view = renderHook(() => useRestoreFocus({ current: first }));
-			last.focus();
+	it.live(
+		"returns focus to the trigger on unmount",
+		() =>
+			Effect.gen(function* () {
+				const { last, first, container } = mountContainer();
+				const view = renderHook(() => useRestoreFocus({ current: first }));
+				last.focus();
 
-			view.unmount();
-			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(first))).pipe(
-				Effect.ensuring(Effect.sync(() => container.remove())),
-			);
-		}),
+				view.unmount();
+				yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(first))).pipe(
+					Effect.ensuring(Effect.sync(() => container.remove())),
+				);
+			}),
+		testTimeout,
 	);
 });

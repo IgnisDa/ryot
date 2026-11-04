@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
-import { describe, expect, it } from "vitest";
 
 import {
 	SIDEBAR_SECTION_VISIBLE_LIMIT,

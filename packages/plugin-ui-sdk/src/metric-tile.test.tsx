@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { countUnit, durationUnit, metricDelta } from "./metric-format";
 import { ChartCard, MetricGrid } from "./metric-tile";

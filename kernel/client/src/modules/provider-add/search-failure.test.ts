@@ -1,5 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { ProviderEntityBadRequest } from "@ryot-app/contract/modules/entity-providers/schemas";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { describeSearchFailure, TRANSPORT_FAILURE } from "#/modules/provider-add/search-failure";
 import { ProviderAddLoadError } from "#/modules/provider-add/service";

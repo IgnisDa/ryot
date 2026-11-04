@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
@@ -104,31 +107,34 @@ describe("book.google-books sandbox script", () => {
 			),
 		);
 	});
-	it.live("rejects invalid search options", () =>
-		Effect.gen(function* () {
-			const host = makeHost(() => httpSuccess({ items: [], totalItems: 0 }));
+	it.live(
+		"rejects invalid search options",
+		() =>
+			Effect.gen(function* () {
+				const host = makeHost(() => httpSuccess({ items: [], totalItems: 0 }));
 
-			expect(
-				yield* Effect.flip(
-					runSandboxTestScript(
-						search,
-						{ page: 1, pageSize: 20, query: "book", options: { passRawQuery: "yes" } },
-						host,
-						execution,
+				expect(
+					yield* Effect.flip(
+						runSandboxTestScript(
+							search,
+							{ page: 1, pageSize: 20, query: "book", options: { passRawQuery: "yes" } },
+							host,
+							execution,
+						),
 					),
-				),
-			).toBeDefined();
-			expect(
-				yield* Effect.flip(
-					runSandboxTestScript(
-						search,
-						{ page: 1, pageSize: 20, query: "book", options: { unsupported: true } },
-						host,
-						execution,
+				).toBeDefined();
+				expect(
+					yield* Effect.flip(
+						runSandboxTestScript(
+							search,
+							{ page: 1, pageSize: 20, query: "book", options: { unsupported: true } },
+							host,
+							execution,
+						),
 					),
-				),
-			).toBeDefined();
-		}),
+				).toBeDefined();
+			}),
+		testTimeout,
 	);
 
 	it("maps categories, unlinked creators, images and pages on details", () => {

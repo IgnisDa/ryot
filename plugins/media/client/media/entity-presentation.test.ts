@@ -1,7 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import type { EntityPresentationSource, EntityReference } from "@ryot-app/plugin-client-sdk/plugin";
-import { describe, expect, it } from "vitest";
 
 import { loadMediaPresentations, prepareMediaPresentations } from "./presentation";
 
@@ -41,7 +42,7 @@ describe("media entity presentation preparation", () => {
 			]),
 		});
 
-		expect(Result.getOrThrow(result)).toEqual({
+		expect(Result.getOrThrow(result)).toEqual<unknown>({
 			one: {
 				id: "one",
 				rating: null,

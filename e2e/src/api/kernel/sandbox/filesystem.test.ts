@@ -1,4 +1,4 @@
-import { anyOf, stringContaining } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -34,10 +34,12 @@ describe("sandbox filesystem grants", () => {
 
 			assertCompleted(result, "scratch entry limit");
 			expect(result.value).toBeNull();
-			expect(result.error).toMatchObject({
-				phase: "execute",
-				message: stringContaining("Sandbox execution exceeds 1000 host calls"),
-			});
+			expect(result.error).toEqual<unknown>(
+				objectContaining({
+					phase: "execute",
+					message: stringContaining("Sandbox execution exceeds 1000 host calls"),
+				}),
+			);
 		}),
 	);
 

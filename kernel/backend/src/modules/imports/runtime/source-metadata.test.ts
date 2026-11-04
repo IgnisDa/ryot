@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import type { RegisteredImportSource } from "#modules/plugins/catalog/import-sources";
@@ -84,48 +87,51 @@ const registeredSource = (
 	...overrides,
 });
 
-it.effect("returns only the visible required upload after schema parsing", () =>
-	Effect.gen(function* () {
-		const source = registeredSource({
-			inputSchema: {
-				unknownKeys: "strict",
-				fields: {
-					historyUploadToken: uploadProperty(["csv"]),
-					ratingsUploadToken: uploadProperty(["json"]),
-					mode: {
-						type: "enum",
-						label: "Import mode",
-						description: "Import mode",
-						validation: { required: true },
-						choices: { kind: "static", values: [{ value: "history" }, { value: "ratings" }] },
+it.effect(
+	"returns only the visible required upload after schema parsing",
+	() =>
+		Effect.gen(function* () {
+			const source = registeredSource({
+				inputSchema: {
+					unknownKeys: "strict",
+					fields: {
+						historyUploadToken: uploadProperty(["csv"]),
+						ratingsUploadToken: uploadProperty(["json"]),
+						mode: {
+							type: "enum",
+							label: "Import mode",
+							description: "Import mode",
+							validation: { required: true },
+							choices: { kind: "static", values: [{ value: "history" }, { value: "ratings" }] },
+						},
 					},
+					rules: [
+						{
+							kind: "visibility",
+							path: ["ratingsUploadToken"],
+							visibility: { hidden: true },
+							when: { operator: "eq", path: ["mode"], value: "history" },
+						},
+						{
+							kind: "visibility",
+							path: ["historyUploadToken"],
+							visibility: { hidden: true },
+							when: { operator: "eq", path: ["mode"], value: "ratings" },
+						},
+					],
 				},
-				rules: [
-					{
-						kind: "visibility",
-						path: ["ratingsUploadToken"],
-						visibility: { hidden: true },
-						when: { operator: "eq", path: ["mode"], value: "history" },
-					},
-					{
-						kind: "visibility",
-						path: ["historyUploadToken"],
-						visibility: { hidden: true },
-						when: { operator: "eq", path: ["mode"], value: "ratings" },
-					},
-				],
-			},
-		});
-		const properties = yield* parseRegistryImportSourceInput(source, {
-			mode: "history",
-			source: source.reference,
-			historyUploadToken: "history",
-		});
+			});
+			const properties = yield* parseRegistryImportSourceInput(source, {
+				mode: "history",
+				source: source.reference,
+				historyUploadToken: "history",
+			});
 
-		expect(registryImportSourceFileInputs(source, properties)).toEqual([
-			{ uploadToken: "history", key: "historyUploadToken", allowedExtensions: ["csv"] },
-		]);
-	}),
+			expect(registryImportSourceFileInputs(source, properties)).toEqual([
+				{ uploadToken: "history", key: "historyUploadToken", allowedExtensions: ["csv"] },
+			]);
+		}),
+	testTimeout,
 );
 
 it("orders upload inputs by position with unpositioned fields last", () => {
@@ -148,38 +154,49 @@ it("orders upload inputs by position with unpositioned fields last", () => {
 	).toEqual(["firstUploadToken", "secondUploadToken", "lastUploadToken"]);
 });
 
-it.effect("rejects undeclared upload token fields before schema parsing", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), {
-				source: registeredSource().reference,
-				historyUploadToken: "not-even-a-token",
-			}),
-		);
-		expect(error).toBe("Import source does not declare upload token field: historyUploadToken");
-	}),
+it.effect(
+	"rejects undeclared upload token fields before schema parsing",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				parseRegistryImportSourceInput(registeredSource(), {
+					source: registeredSource().reference,
+					historyUploadToken: "not-even-a-token",
+				}),
+			);
+			expect(error).toBe("Import source does not declare upload token field: historyUploadToken");
+		}),
+	testTimeout,
 );
 
-it.effect("rejects reserved internal fields before schema parsing", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), {
-				source: registeredSource().reference,
-				integrationScriptSlug: "integration.spoofed",
-			}),
-		);
-		expect(error).toBe("Import source payload field is reserved: integrationScriptSlug");
-	}),
+it.effect(
+	"rejects reserved internal fields before schema parsing",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				parseRegistryImportSourceInput(registeredSource(), {
+					source: registeredSource().reference,
+					integrationScriptSlug: "integration.spoofed",
+				}),
+			);
+			expect(error).toBe("Import source payload field is reserved: integrationScriptSlug");
+		}),
+	testTimeout,
 );
 
-it.effect("formats schema validation failures", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), { source: registeredSource().reference }),
-		);
-		expect(error).toContain("Import source input is invalid:");
-		expect(error).toContain("uploadToken");
-	}),
+it.effect(
+	"formats schema validation failures",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				parseRegistryImportSourceInput(registeredSource(), {
+					source: registeredSource().reference,
+				}),
+			);
+			expect(error).toContain("Import source input is invalid:");
+			expect(error).toContain("uploadToken");
+		}),
+	testTimeout,
 );
 
 const epsilonSource = () =>
@@ -208,74 +225,89 @@ const epsilonSource = () =>
 		},
 	});
 
-it.effect("rejects explicit nulls that would leave every conditional upload absent", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(epsilonSource(), {
-				primaryUploadToken: null,
+it.effect(
+	"rejects explicit nulls that would leave every conditional upload absent",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				parseRegistryImportSourceInput(epsilonSource(), {
+					primaryUploadToken: null,
+					secondaryUploadToken: null,
+					source: epsilonSource().reference,
+				}),
+			);
+			expect(error).toContain("primaryUploadToken is required");
+			expect(error).toContain("secondaryUploadToken is required");
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"accepts a single conditional upload token and leaves the sibling null",
+	() =>
+		Effect.gen(function* () {
+			const source = epsilonSource();
+			const properties = yield* parseRegistryImportSourceInput(source, {
+				source: source.reference,
 				secondaryUploadToken: null,
-				source: epsilonSource().reference,
-			}),
-		);
-		expect(error).toContain("primaryUploadToken is required");
-		expect(error).toContain("secondaryUploadToken is required");
-	}),
+				primaryUploadToken: "primary",
+			});
+
+			expect(registryImportSourceFileInputs(source, properties)).toEqual([
+				{ uploadToken: "primary", key: "primaryUploadToken", allowedExtensions: ["xml"] },
+			]);
+		}),
+	testTimeout,
 );
 
-it.effect("accepts a single conditional upload token and leaves the sibling null", () =>
-	Effect.gen(function* () {
-		const source = epsilonSource();
-		const properties = yield* parseRegistryImportSourceInput(source, {
-			source: source.reference,
-			secondaryUploadToken: null,
-			primaryUploadToken: "primary",
-		});
-
-		expect(registryImportSourceFileInputs(source, properties)).toEqual([
-			{ uploadToken: "primary", key: "primaryUploadToken", allowedExtensions: ["xml"] },
-		]);
-	}),
+it.effect(
+	"rejects an upload token carried as an object",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				parseRegistryImportSourceInput(registeredSource(), {
+					source: registeredSource().reference,
+					uploadToken: { token: "nu", expiresAt: "2026-08-23T00:00:00.000Z" },
+				}),
+			);
+			expect(error).toContain("Import source input is invalid:");
+			expect(error).toContain("uploadToken");
+		}),
+	testTimeout,
 );
 
-it.effect("rejects an upload token carried as an object", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), {
-				source: registeredSource().reference,
-				uploadToken: { token: "nu", expiresAt: "2026-08-23T00:00:00.000Z" },
-			}),
-		);
-		expect(error).toContain("Import source input is invalid:");
-		expect(error).toContain("uploadToken");
-	}),
+it.effect(
+	"rejects an empty required upload token",
+	() =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				parseRegistryImportSourceInput(registeredSource(), {
+					uploadToken: "",
+					source: registeredSource().reference,
+				}),
+			);
+			expect(error).toContain("uploadToken");
+		}),
+	testTimeout,
 );
 
-it.effect("rejects an empty required upload token", () =>
-	Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), {
-				uploadToken: "",
-				source: registeredSource().reference,
-			}),
-		);
-		expect(error).toContain("uploadToken");
-	}),
-);
+it.effect(
+	"builds payload from decoded properties and replaces upload tokens with markers",
+	() =>
+		Effect.gen(function* () {
+			const source = registeredSource();
+			const properties = yield* parseRegistryImportSourceInput(source, {
+				uploadToken: "nu",
+				profileName: "Kids",
+				source: source.reference,
+			});
 
-it.effect("builds payload from decoded properties and replaces upload tokens with markers", () =>
-	Effect.gen(function* () {
-		const source = registeredSource();
-		const properties = yield* parseRegistryImportSourceInput(source, {
-			uploadToken: "nu",
-			profileName: "Kids",
-			source: source.reference,
-		});
-
-		expect(buildImportSourcePayload(properties, source)).toEqual({
-			profileName: "Kids",
-			uploadToken: "uploadToken",
-		});
-	}),
+			expect(buildImportSourcePayload(properties, source)).toEqual({
+				profileName: "Kids",
+				uploadToken: "uploadToken",
+			});
+		}),
+	testTimeout,
 );
 
 it("summarizes only source and claimed original file names", () => {

@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect, SecureRandom } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId, type PluginIosLiveActivityRequest } from "@ryot-app/plugin-client-sdk/plugin";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred } from "effect";
 
 import { controllerHarness } from "../../tests/client/controller-harness";
@@ -201,33 +204,37 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				state.controller.dispose();
 				expect(native.activities.get(workoutIosActivityKey(liveDraft()))?.state).toBe("active");
 			}),
+		testTimeout,
 	);
 
-	it.effect("reattaches after recovery and never recreates dismissed or over-age sessions", () =>
-		Effect.gen(function* () {
-			const key = workoutIosActivityKey(liveDraft());
-			for (const activityState of ["active", "stale", "dismissed", "ended"] as const) {
-				const native = iosLiveActivityHarness({ activities: [{ key, state: activityState }] });
-				const sync = createWorkoutIosActivitySynchronizer({
-					now: Effect.succeed(now),
+	it.effect(
+		"reattaches after recovery and never recreates dismissed or over-age sessions",
+		() =>
+			Effect.gen(function* () {
+				const key = workoutIosActivityKey(liveDraft());
+				for (const activityState of ["active", "stale", "dismissed", "ended"] as const) {
+					const native = iosLiveActivityHarness({ activities: [{ key, state: activityState }] });
+					const sync = createWorkoutIosActivitySynchronizer({
+						now: Effect.succeed(now),
+						iosLiveActivities: native.api,
+						pluginId: PluginId.make("fitness"),
+					});
+					yield* sync.synchronize(liveDraft(), names);
+					expect(native.requests.filter(({ action }) => action === "start")).toEqual([]);
+					expect(native.requests.filter(({ action }) => action === "update")).toHaveLength(
+						activityState === "active" || activityState === "stale" ? 1 : 0,
+					);
+				}
+				const native = iosLiveActivityHarness();
+				const old = createWorkoutIosActivitySynchronizer({
 					iosLiveActivities: native.api,
 					pluginId: PluginId.make("fitness"),
+					now: Effect.succeed(now + 8 * 60 * 60 * 1000),
 				});
-				yield* sync.synchronize(liveDraft(), names);
+				yield* old.synchronize(liveDraft(), names);
 				expect(native.requests.filter(({ action }) => action === "start")).toEqual([]);
-				expect(native.requests.filter(({ action }) => action === "update")).toHaveLength(
-					activityState === "active" || activityState === "stale" ? 1 : 0,
-				);
-			}
-			const native = iosLiveActivityHarness();
-			const old = createWorkoutIosActivitySynchronizer({
-				iosLiveActivities: native.api,
-				pluginId: PluginId.make("fitness"),
-				now: Effect.succeed(now + 8 * 60 * 60 * 1000),
-			});
-			yield* old.synchronize(liveDraft(), names);
-			expect(native.requests.filter(({ action }) => action === "start")).toEqual([]);
-		}),
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -283,6 +290,7 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 					]);
 				}
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -310,6 +318,7 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				yield* unavailable.finish(liveDraft(), names, false);
 				expect(unsupported.requests.map(({ action }) => action)).toEqual(["list"]);
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -361,20 +370,24 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 					kind: "duration",
 				});
 			}),
+		testTimeout,
 	);
 
-	it.effect("never blocks persistence or discard when the iOS capability fails", () =>
-		Effect.gen(function* () {
-			const native = iosLiveActivityHarness({ fails: true });
-			const state = controllerHarness({
-				iosLiveActivities: native.api,
-				schedule: yield* publicationSchedule,
-			});
-			yield* state.controller.load();
-			expect(yield* state.controller.start(liveDraft())).toBe(true);
-			expect(state.writes).toHaveLength(1);
-			expect(yield* state.controller.discard()).toBe(true);
-		}),
+	it.effect(
+		"never blocks persistence or discard when the iOS capability fails",
+		() =>
+			Effect.gen(function* () {
+				const native = iosLiveActivityHarness({ fails: true });
+				const state = controllerHarness({
+					iosLiveActivities: native.api,
+					schedule: yield* publicationSchedule,
+				});
+				yield* state.controller.load();
+				expect(yield* state.controller.start(liveDraft())).toBe(true);
+				expect(state.writes).toHaveLength(1);
+				expect(yield* state.controller.discard()).toBe(true);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -410,5 +423,6 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				yield* Deferred.await(ended);
 				expect(native.requests.at(-1)?.action).toBe("end");
 			}),
+		testTimeout,
 	);
 });

@@ -1,7 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import {
 	describeSchemaFormFields,
@@ -387,7 +388,7 @@ describe("schema form state", () => {
 		} satisfies AppSchema;
 		const values = { text: "", selections: [], note: undefined };
 
-		expect(describeSchemaFormFields(defaultedSchema, values).fields).toContainEqual(
+		expect(describeSchemaFormFields(defaultedSchema, values).fields).toContainEqual<unknown>(
 			objectContaining({ key: "note", required: true }),
 		);
 		expect(validateSchemaFormValues(defaultedSchema, values).get("note")).toBe(
@@ -584,7 +585,9 @@ describe("schema form state", () => {
 			},
 		} satisfies AppSchema;
 
-		expect(describeSchemaFormFields(fixed).fields).toEqual([objectContaining({ key: "baseUrl" })]);
+		expect(describeSchemaFormFields(fixed).fields).toEqual<unknown>([
+			objectContaining({ key: "baseUrl" }),
+		]);
 		expect(initialSchemaFormValues(fixed)).toEqual({ kind: "radarr", baseUrl: undefined });
 		expect(toSchemaFormPayload(fixed, { baseUrl: "https://radarr.test" })).toEqual({
 			kind: "radarr",
@@ -754,7 +757,7 @@ describe("timezone format", () => {
 	} satisfies AppSchema;
 
 	it("renders a timezone control", () => {
-		expect(describeSchemaFormFields(timezoneSchema).fields).toEqual([
+		expect(describeSchemaFormFields(timezoneSchema).fields).toEqual<unknown>([
 			objectContaining({ key: "timezone", control: "timezone" }),
 		]);
 	});
@@ -790,7 +793,7 @@ describe("asset lists", () => {
 	it("renders an asset array as an assets control", () => {
 		const { fields } = describeSchemaFormFields(assetSchema);
 
-		expect(fields).toEqual([
+		expect(fields).toEqual<unknown>([
 			objectContaining({ key: "images", type: "assets", control: "assets" }),
 			objectContaining({ key: "note" }),
 		]);

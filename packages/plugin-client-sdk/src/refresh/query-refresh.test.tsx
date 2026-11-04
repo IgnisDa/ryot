@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { EntityWatch } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -12,8 +15,6 @@ import { createRyotQuery, type RyotQueryOptions } from "../queries/definitions";
 import { type RyotQueryResult, useRyotQuery } from "../queries/hooks";
 import { RyotProvider } from "../queries/provider";
 import { createTestRyotClock } from "../testing";
-
-Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const roots: Root[] = [];
 const clocks: ReturnType<typeof createTestRyotClock>[] = [];
@@ -116,81 +117,90 @@ afterEach(() => {
 });
 
 describe("automatic query refresh", () => {
-	it.live("coalesces entity and page demand during initial and follow-up requests", () =>
-		Effect.gen(function* () {
-			const { clock, render, watches, results, requests, hintEntity } = mountQueries();
-			render([{ id: "view" }]);
-			expect(requests).toHaveLength(1);
-			expect(results.get("view")).toMatchObject({ isPending: true, isFetching: true });
-			hintEntity();
-			hintEntity();
-			clock.client.mutationCompleted.hint();
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(500));
-			expect(requests).toHaveLength(1);
-			expect(requests[0]?.signal.aborted).toBe(false);
+	it.live(
+		"coalesces entity and page demand during initial and follow-up requests",
+		() =>
+			Effect.gen(function* () {
+				const { clock, render, watches, results, requests, hintEntity } = mountQueries();
+				render([{ id: "view" }]);
+				expect(requests).toHaveLength(1);
+				expect(results.get("view")).toMatchObject({ isPending: true, isFetching: true });
+				hintEntity();
+				hintEntity();
+				clock.client.mutationCompleted.hint();
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(500));
+				expect(requests).toHaveLength(1);
+				expect(requests[0]?.signal.aborted).toBe(false);
 
-			act(() => requests[0]?.resume(Effect.succeed("first")));
-			yield* Effect.promise(() => clock.advance(0));
-			expect(requests).toHaveLength(2);
-			expect(results.get("view")).toMatchObject({
-				data: "first",
-				isPending: false,
-				isFetching: true,
-			});
-			yield* Effect.promise(() => clock.advance(500));
-			expect(requests).toHaveLength(2);
+				act(() => requests[0]?.resume(Effect.succeed("first")));
+				yield* Effect.promise(() => clock.advance(0));
+				expect(requests).toHaveLength(2);
+				expect(results.get("view")).toMatchObject({
+					data: "first",
+					isPending: false,
+					isFetching: true,
+				});
+				yield* Effect.promise(() => clock.advance(500));
+				expect(requests).toHaveLength(2);
 
-			hintEntity();
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(250));
-			expect(requests).toHaveLength(2);
-			expect(requests[1]?.signal.aborted).toBe(false);
-			act(() => requests[1]?.resume(Effect.fail(new RyotClientError({ reason: "transport" }))));
-			yield* Effect.promise(() => waitFor(() => expect(results.get("view")?.isError).toBe(true)));
-			expect(results.get("view")?.data).toBe("first");
-			expect(watches[0]?.interests.at(-1)).toEqual({ visible: ["first"], foreground: ["root"] });
-			yield* Effect.promise(() => clock.advance(0));
-			expect(requests).toHaveLength(3);
-			act(() => requests[2]?.resume(Effect.succeed("current")));
-			yield* Effect.promise(() => clock.advance(1000));
-			expect(requests).toHaveLength(3);
-			expect(results.get("view")).toMatchObject({ data: "current", isFetching: false });
-			expect(watches).toHaveLength(1);
-			expect(watches[0]?.interests.at(-1)).toEqual({ foreground: ["root"], visible: ["current"] });
-		}),
+				hintEntity();
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(250));
+				expect(requests).toHaveLength(2);
+				expect(requests[1]?.signal.aborted).toBe(false);
+				act(() => requests[1]?.resume(Effect.fail(new RyotClientError({ reason: "transport" }))));
+				yield* Effect.promise(() => waitFor(() => expect(results.get("view")?.isError).toBe(true)));
+				expect(results.get("view")?.data).toBe("first");
+				expect(watches[0]?.interests.at(-1)).toEqual({ visible: ["first"], foreground: ["root"] });
+				yield* Effect.promise(() => clock.advance(0));
+				expect(requests).toHaveLength(3);
+				act(() => requests[2]?.resume(Effect.succeed("current")));
+				yield* Effect.promise(() => clock.advance(1000));
+				expect(requests).toHaveLength(3);
+				expect(results.get("view")).toMatchObject({ data: "current", isFetching: false });
+				expect(watches).toHaveLength(1);
+				expect(watches[0]?.interests.at(-1)).toEqual({
+					foreground: ["root"],
+					visible: ["current"],
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("lets manual refetch supersede work without consuming in-flight automatic demand", () =>
-		Effect.gen(function* () {
-			const { clock, render, results, requests, hintEntity } = mountQueries({
-				initialData: "seed",
-			});
-			render([{ id: "view" }]);
-			hintEntity();
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(250));
-			expect(requests).toHaveLength(1);
-			hintEntity();
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(250));
-			act(() => results.get("view")?.refetch());
-			expect(requests).toHaveLength(2);
-			expect(requests[0]?.signal.aborted).toBe(true);
-			act(() => requests[0]?.resume(Effect.succeed("stale")));
-			yield* Effect.promise(() => clock.advance(1000));
-			expect(requests).toHaveLength(2);
-			expect(results.get("view")?.data).toBe("seed");
-			expect(requests[1]?.signal.aborted).toBe(false);
-			act(() => requests[1]?.resume(Effect.succeed("manual")));
-			yield* Effect.promise(() => clock.advance(0));
-			expect(requests).toHaveLength(3);
-			expect(results.get("view")?.data).toBe("manual");
-			act(() => requests[2]?.resume(Effect.succeed("automatic")));
-			yield* Effect.promise(() => clock.advance(1000));
-			expect(requests).toHaveLength(3);
-			expect(results.get("view")?.data).toBe("automatic");
-		}),
+	it.live(
+		"lets manual refetch supersede work without consuming in-flight automatic demand",
+		() =>
+			Effect.gen(function* () {
+				const { clock, render, results, requests, hintEntity } = mountQueries({
+					initialData: "seed",
+				});
+				render([{ id: "view" }]);
+				hintEntity();
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(250));
+				expect(requests).toHaveLength(1);
+				hintEntity();
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(250));
+				act(() => results.get("view")?.refetch());
+				expect(requests).toHaveLength(2);
+				expect(requests[0]?.signal.aborted).toBe(true);
+				act(() => requests[0]?.resume(Effect.succeed("stale")));
+				yield* Effect.promise(() => clock.advance(1000));
+				expect(requests).toHaveLength(2);
+				expect(results.get("view")?.data).toBe("seed");
+				expect(requests[1]?.signal.aborted).toBe(false);
+				act(() => requests[1]?.resume(Effect.succeed("manual")));
+				yield* Effect.promise(() => clock.advance(0));
+				expect(requests).toHaveLength(3);
+				expect(results.get("view")?.data).toBe("manual");
+				act(() => requests[2]?.resume(Effect.succeed("automatic")));
+				yield* Effect.promise(() => clock.advance(1000));
+				expect(requests).toHaveLength(3);
+				expect(results.get("view")?.data).toBe("automatic");
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -232,6 +242,7 @@ describe("automatic query refresh", () => {
 				yield* Effect.promise(() => clock.advance(250));
 				expect(requests).toHaveLength(3);
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -268,43 +279,50 @@ describe("automatic query refresh", () => {
 				yield* Effect.promise(() => clock.advance(1000));
 				expect(requests).toHaveLength(2);
 			}),
+		testTimeout,
 	);
 
-	it.live("consumes page generations once across shared hidden consumers and remounts", () =>
-		Effect.gen(function* () {
-			const { clock, render, requests } = mountQueries({ interested: false, initialData: "seed" });
-			render([{ id: "first" }, { id: "second", active: false }]);
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(250));
-			expect(requests).toHaveLength(1);
-			act(() => requests[0]?.resume(Effect.succeed("first")));
-			yield* Effect.promise(() => clock.advance(0));
-			render([
-				{ id: "first", active: false },
-				{ id: "second", active: false },
-			]);
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(500));
-			expect(requests).toHaveLength(1);
-			render([{ id: "first" }, { id: "second" }]);
-			yield* Effect.promise(() => clock.advance(249));
-			expect(requests).toHaveLength(1);
-			yield* Effect.promise(() => clock.advance(1));
-			expect(requests).toHaveLength(2);
-			act(() => requests[1]?.resume(Effect.succeed("caught-up")));
-			yield* Effect.promise(() => clock.advance(1000));
-			expect(requests).toHaveLength(2);
-			render([]);
-			render([{ id: "new" }]);
-			yield* Effect.promise(() => clock.advance(500));
-			expect(requests).toHaveLength(2);
-			render([]);
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(250));
-			render([{ id: "last" }]);
-			yield* Effect.promise(() => clock.advance(250));
-			expect(requests).toHaveLength(3);
-		}),
+	it.live(
+		"consumes page generations once across shared hidden consumers and remounts",
+		() =>
+			Effect.gen(function* () {
+				const { clock, render, requests } = mountQueries({
+					interested: false,
+					initialData: "seed",
+				});
+				render([{ id: "first" }, { id: "second", active: false }]);
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(250));
+				expect(requests).toHaveLength(1);
+				act(() => requests[0]?.resume(Effect.succeed("first")));
+				yield* Effect.promise(() => clock.advance(0));
+				render([
+					{ id: "first", active: false },
+					{ id: "second", active: false },
+				]);
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(500));
+				expect(requests).toHaveLength(1);
+				render([{ id: "first" }, { id: "second" }]);
+				yield* Effect.promise(() => clock.advance(249));
+				expect(requests).toHaveLength(1);
+				yield* Effect.promise(() => clock.advance(1));
+				expect(requests).toHaveLength(2);
+				act(() => requests[1]?.resume(Effect.succeed("caught-up")));
+				yield* Effect.promise(() => clock.advance(1000));
+				expect(requests).toHaveLength(2);
+				render([]);
+				render([{ id: "new" }]);
+				yield* Effect.promise(() => clock.advance(500));
+				expect(requests).toHaveLength(2);
+				render([]);
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(250));
+				render([{ id: "last" }]);
+				yield* Effect.promise(() => clock.advance(250));
+				expect(requests).toHaveLength(3);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -333,6 +351,7 @@ describe("automatic query refresh", () => {
 				yield* Effect.promise(() => clock.advance(1000));
 				expect(requests).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -363,5 +382,6 @@ describe("automatic query refresh", () => {
 				yield* Effect.promise(() => clock.advance(1000));
 				expect(requests).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 });

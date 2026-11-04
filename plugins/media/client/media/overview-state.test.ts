@@ -1,4 +1,6 @@
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
 
 import {
 	malformedQueryResult,

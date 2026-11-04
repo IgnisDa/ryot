@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import definition from "./workout-set-policy.sandbox";
 
@@ -90,119 +93,140 @@ const run = (properties: Record<string, unknown>, options?: Parameters<typeof in
 		Effect.map(({ items }) => items[0]?.decision),
 	);
 
-it.effect("records the exercise kind without writing computed fields", () =>
-	Effect.gen(function* () {
-		expect(yield* run({ reps: 10, weight: 20 })).toEqual({
-			action: "transform",
-			patch: {
-				resource: "event",
-				draft: { properties: { remove: [], set: { exerciseKind: "reps_and_weight" } } },
-			},
-		});
-	}),
-);
-
-it.effect("keeps each set's recorded kind instead of replacing it from the exercise", () =>
-	Effect.gen(function* () {
-		expect(yield* run({ reps: 0, exerciseKind: "reps" })).toEqual({ action: "allow" });
-		expect(
-			yield* run(
-				{ reps: 12, weight: 20, exerciseKind: "reps_and_weight" },
-				{ operation: "update" },
-			),
-		).toEqual({ action: "allow" });
-	}),
-);
-
-it.effect("uses confirmation time for event ordering without requiring it", () =>
-	Effect.gen(function* () {
-		const confirmedAt = "2026-06-02T10:05:00.000Z";
-		expect(yield* run({ reps: 10, confirmedAt, exerciseKind: "reps" })).toEqual({
-			action: "transform",
-			patch: { resource: "event", draft: { occurredAt: confirmedAt } },
-		});
-		expect(yield* run({ reps: 10, confirmedAt: now, exerciseKind: "reps" })).toEqual({
-			action: "allow",
-		});
-		expect(yield* run({ reps: 10, exerciseKind: "reps" })).toEqual({ action: "allow" });
-		expect(yield* run({ reps: 10, confirmedAt: "invalid" })).toEqual({
-			action: "reject",
-			reason: "workout_set_confirmed_at_invalid",
-		});
-	}),
-);
-
-it.effect("rejects missing, malformed, or foreign workout context", () =>
-	Effect.gen(function* () {
-		for (const options of [
-			{ sessionEntityId: null },
-			{ references: {} },
-			{
-				references: {
-					...references,
-					workout: { ...references.workout, entitySchemaPluginId: "foreign" },
+it.effect(
+	"records the exercise kind without writing computed fields",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* run({ reps: 10, weight: 20 })).toEqual({
+				action: "transform",
+				patch: {
+					resource: "event",
+					draft: { properties: { remove: [], set: { exerciseKind: "reps_and_weight" } } },
 				},
-			},
-			{
-				references: {
-					...references,
-					exercise: { ...references.exercise, entitySchemaPluginId: "foreign" },
-				},
-			},
-			{
-				references: {
-					...references,
-					workout: { ...references.workout, properties: { startedAt: "invalid" } },
-				},
-			},
-		]) {
-			expect(yield* run({ reps: 10 }, options)).toEqual({
-				action: "reject",
-				reason: "workout_set_context_missing",
 			});
-		}
-	}),
+		}),
+	testTimeout,
 );
 
-it.effect("rejects unsupported recorded kinds and invalid measurements", () =>
-	Effect.gen(function* () {
-		expect(yield* run({ reps: 10, exerciseKind: "invalid" })).toEqual({
-			action: "reject",
-			reason: "workout_set_exercise_kind_invalid",
-		});
-		expect(yield* run({ reps: "invalid" })).toEqual({
-			action: "reject",
-			reason: "workout_set_measurements_invalid",
-		});
-	}),
+it.effect(
+	"keeps each set's recorded kind instead of replacing it from the exercise",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* run({ reps: 0, exerciseKind: "reps" })).toEqual({ action: "allow" });
+			expect(
+				yield* run(
+					{ reps: 12, weight: 20, exerciseKind: "reps_and_weight" },
+					{ operation: "update" },
+				),
+			).toEqual({ action: "allow" });
+		}),
+	testTimeout,
 );
 
-it.effect("does not apply create/update rules to deletions or other entity schemas", () =>
-	Effect.gen(function* () {
-		expect(yield* run({}, { references: {}, operation: "delete" })).toEqual({ action: "allow" });
-		expect(yield* run({}, { references: {}, entitySchemaSlug: "other" })).toEqual({
-			action: "allow",
-		});
-	}),
+it.effect(
+	"uses confirmation time for event ordering without requiring it",
+	() =>
+		Effect.gen(function* () {
+			const confirmedAt = "2026-06-02T10:05:00.000Z";
+			expect(yield* run({ reps: 10, confirmedAt, exerciseKind: "reps" })).toEqual({
+				action: "transform",
+				patch: { resource: "event", draft: { occurredAt: confirmedAt } },
+			});
+			expect(yield* run({ reps: 10, confirmedAt: now, exerciseKind: "reps" })).toEqual({
+				action: "allow",
+			});
+			expect(yield* run({ reps: 10, exerciseKind: "reps" })).toEqual({ action: "allow" });
+			expect(yield* run({ reps: 10, confirmedAt: "invalid" })).toEqual({
+				action: "reject",
+				reason: "workout_set_confirmed_at_invalid",
+			});
+		}),
+	testTimeout,
 );
 
-it.effect("retains independent decisions and identities throughout a batch", () =>
-	Effect.gen(function* () {
-		const result = yield* definition.run(
-			batch(
+it.effect(
+	"rejects missing, malformed, or foreign workout context",
+	() =>
+		Effect.gen(function* () {
+			for (const options of [
+				{ sessionEntityId: null },
+				{ references: {} },
+				{
+					references: {
+						...references,
+						workout: { ...references.workout, entitySchemaPluginId: "foreign" },
+					},
+				},
+				{
+					references: {
+						...references,
+						exercise: { ...references.exercise, entitySchemaPluginId: "foreign" },
+					},
+				},
+				{
+					references: {
+						...references,
+						workout: { ...references.workout, properties: { startedAt: "invalid" } },
+					},
+				},
+			]) {
+				expect(yield* run({ reps: 10 }, options)).toEqual({
+					action: "reject",
+					reason: "workout_set_context_missing",
+				});
+			}
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects unsupported recorded kinds and invalid measurements",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* run({ reps: 10, exerciseKind: "invalid" })).toEqual({
+				action: "reject",
+				reason: "workout_set_exercise_kind_invalid",
+			});
+			expect(yield* run({ reps: "invalid" })).toEqual({
+				action: "reject",
+				reason: "workout_set_measurements_invalid",
+			});
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"does not apply create/update rules to deletions or other entity schemas",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* run({}, { references: {}, operation: "delete" })).toEqual({ action: "allow" });
+			expect(yield* run({}, { references: {}, entitySchemaSlug: "other" })).toEqual({
+				action: "allow",
+			});
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"retains independent decisions and identities throughout a batch",
+	() =>
+		Effect.gen(function* () {
+			const result = yield* definition.run(
+				batch(
+					{
+						itemIdentity: "missing",
+						policyInput: yield* input({ reps: 10 }, { sessionEntityId: null }),
+					},
+					{ itemIdentity: "valid", policyInput: yield* input({ reps: 0, exerciseKind: "reps" }) },
+				),
+			);
+			expect(result.items).toEqual([
 				{
 					itemIdentity: "missing",
-					policyInput: yield* input({ reps: 10 }, { sessionEntityId: null }),
+					decision: { action: "reject", reason: "workout_set_context_missing" },
 				},
-				{ itemIdentity: "valid", policyInput: yield* input({ reps: 0, exerciseKind: "reps" }) },
-			),
-		);
-		expect(result.items).toEqual([
-			{
-				itemIdentity: "missing",
-				decision: { action: "reject", reason: "workout_set_context_missing" },
-			},
-			{ itemIdentity: "valid", decision: { action: "allow" } },
-		]);
-	}),
+				{ itemIdentity: "valid", decision: { action: "allow" } },
+			]);
+		}),
+	testTimeout,
 );

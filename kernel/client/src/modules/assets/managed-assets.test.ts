@@ -1,4 +1,7 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { resolveApiUrl, ServerOrigin } from "#/api/origin";
@@ -23,76 +26,84 @@ describe("managed assets", () => {
 		);
 	});
 
-	it.live("reads absolute local and S3 URLs with their expiry", () => {
-		const runtime = ManagedRuntime.make(
-			ManagedAssetsService.layer.pipe(
-				Layer.provide(
-					makeUploadsApi({
-						resolveDownloads: (_scope, request) =>
-							Effect.succeed(
-								request.payload.assets.map((asset, index) => ({
-									asset,
-									expiresAt,
-									downloadUrl:
-										index === 0
-											? "/uploads/local/download?key=permanent/local.png"
-											: "https://s3.example/permanent/remote.png",
-								})),
-							),
-					}),
-				),
-			),
-		);
-		return Effect.gen(function* () {
-			expect(
-				yield* Effect.promise(() =>
-					runtime.runPromise(
-						Effect.flatMap(ManagedAssetsService, (service) => service.read(scope, assets)),
+	it.live(
+		"reads absolute local and S3 URLs with their expiry",
+		() => {
+			const runtime = ManagedRuntime.make(
+				ManagedAssetsService.layer.pipe(
+					Layer.provide(
+						makeUploadsApi({
+							resolveDownloads: (_scope, request) =>
+								Effect.succeed(
+									request.payload.assets.map((asset, index) => ({
+										asset,
+										expiresAt,
+										downloadUrl:
+											index === 0
+												? "/uploads/local/download?key=permanent/local.png"
+												: "https://s3.example/permanent/remote.png",
+									})),
+								),
+						}),
 					),
 				),
-			).toEqual([
-				{
-					expiresAt,
-					asset: assets[0],
-					url: "https://ryot.example/api/uploads/local/download?key=permanent/local.png",
-				},
-				{ expiresAt, asset: assets[1], url: "https://s3.example/permanent/remote.png" },
-			]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+			);
+			return Effect.gen(function* () {
+				expect(
+					yield* Effect.promise(() =>
+						runtime.runPromise(
+							Effect.flatMap(ManagedAssetsService, (service) => service.read(scope, assets)),
+						),
+					),
+				).toEqual([
+					{
+						expiresAt,
+						asset: assets[0],
+						url: "https://ryot.example/api/uploads/local/download?key=permanent/local.png",
+					},
+					{ expiresAt, asset: assets[1], url: "https://s3.example/permanent/remote.png" },
+				]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 
-	it.live("returns the plugin asset outcome without server identity", () => {
-		const runtime = ManagedRuntime.make(
-			ManagedAssetsService.layer.pipe(
-				Layer.provide(
-					makeUploadsApi({
-						resolveDownloads: (_scope, request) =>
-							Effect.succeed(
-								request.payload.assets.map((asset) => ({
-									asset,
-									expiresAt,
-									downloadUrl: "https://s3.example/permanent/remote.png",
-								})),
-							),
-					}),
-				),
-			),
-		);
-		return Effect.gen(function* () {
-			expect(
-				yield* Effect.promise(() =>
-					runtime.runPromise(
-						Effect.flatMap(ManagedAssetsService, (service) => service.outcome(scope, assets)),
+	it.live(
+		"returns the plugin asset outcome without server identity",
+		() => {
+			const runtime = ManagedRuntime.make(
+				ManagedAssetsService.layer.pipe(
+					Layer.provide(
+						makeUploadsApi({
+							resolveDownloads: (_scope, request) =>
+								Effect.succeed(
+									request.payload.assets.map((asset) => ({
+										asset,
+										expiresAt,
+										downloadUrl: "https://s3.example/permanent/remote.png",
+									})),
+								),
+						}),
 					),
 				),
-			).toEqual({
-				outcome: "success",
-				resolutions: assets.map((asset) => ({
-					asset,
-					expiresAt,
-					url: "https://s3.example/permanent/remote.png",
-				})),
-			});
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+			);
+			return Effect.gen(function* () {
+				expect(
+					yield* Effect.promise(() =>
+						runtime.runPromise(
+							Effect.flatMap(ManagedAssetsService, (service) => service.outcome(scope, assets)),
+						),
+					),
+				).toEqual({
+					outcome: "success",
+					resolutions: assets.map((asset) => ({
+						asset,
+						expiresAt,
+						url: "https://s3.example/permanent/remote.png",
+					})),
+				});
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 });

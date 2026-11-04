@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { derivedFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import Redis from "ioredis";
 
@@ -98,76 +101,85 @@ const subscriberLayer = (options: {
 	);
 
 layer(subscriberLayer({ watching: ["session-1", "remote-session"] }))((test) => {
-	test.effect("routes valid messages and ignores malformed data", () =>
-		Effect.gen(function* () {
-			const sessions = yield* LocalInterestSessions;
-			const interestSubscriber = yield* EntityWatchSubscriber;
-			const frames: unknown[] = [];
-			yield* sessions.add("session-1", UserId.make("user-1"), (frame) => frames.push(frame));
+	test.effect(
+		"routes valid messages and ignores malformed data",
+		() =>
+			Effect.gen(function* () {
+				const sessions = yield* LocalInterestSessions;
+				const interestSubscriber = yield* EntityWatchSubscriber;
+				const frames: unknown[] = [];
+				yield* sessions.add("session-1", UserId.make("user-1"), (frame) => frames.push(frame));
 
-			yield* interestSubscriber.dispatch("not-json");
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(EntityId.make("entity-1"), "translated"),
-			);
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(EntityId.make("entity-2"), "populated"),
-			);
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(EntityId.make("entity-3"), "population-failed"),
-			);
+				yield* interestSubscriber.dispatch("not-json");
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(EntityId.make("entity-1"), "translated"),
+				);
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(EntityId.make("entity-2"), "populated"),
+				);
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(EntityId.make("entity-3"), "population-failed"),
+				);
 
-			const fake = yield* FakeSubscriberDependencies;
-			expect(yield* fake.lookedUp).toEqual(["entity-1", "entity-2", "entity-3"]);
-			expect(yield* fake.progressed).toEqual(["entity-2"]);
-			expect(frames).toEqual([
-				{ entityId: "entity-1", reason: "translated", type: "entity-updated" },
-				{ reason: "populated", entityId: "entity-2", type: "entity-updated" },
-				{ entityId: "entity-3", type: "entity-updated", reason: "population-failed" },
-			]);
-		}),
+				const fake = yield* FakeSubscriberDependencies;
+				expect(yield* fake.lookedUp).toEqual(["entity-1", "entity-2", "entity-3"]);
+				expect(yield* fake.progressed).toEqual(["entity-2"]);
+				expect(frames).toEqual([
+					{ entityId: "entity-1", reason: "translated", type: "entity-updated" },
+					{ reason: "populated", entityId: "entity-2", type: "entity-updated" },
+					{ entityId: "entity-3", type: "entity-updated", reason: "population-failed" },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(subscriberLayer({ failProgression: true, watching: ["session-1", "stale-session"] }))(
 	(test) => {
-		test.effect("bounds progression retries and absorbs the final failure", () =>
-			Effect.gen(function* () {
-				const interestSubscriber = yield* EntityWatchSubscriber;
-				yield* interestSubscriber.dispatch(
-					encodeEntityUpdatedMessage(EntityId.make("entity-1"), "populated"),
-				);
+		test.effect(
+			"bounds progression retries and absorbs the final failure",
+			() =>
+				Effect.gen(function* () {
+					const interestSubscriber = yield* EntityWatchSubscriber;
+					yield* interestSubscriber.dispatch(
+						encodeEntityUpdatedMessage(EntityId.make("entity-1"), "populated"),
+					);
 
-				const fake = yield* FakeSubscriberDependencies;
-				expect((yield* fake.progressed).length).toBe(3);
-				expect(yield* fake.markedPending).toEqual([
-					{ entityId: "entity-1", sessionIds: ["session-1", "stale-session"] },
-				]);
-			}),
+					const fake = yield* FakeSubscriberDependencies;
+					expect((yield* fake.progressed).length).toBe(3);
+					expect(yield* fake.markedPending).toEqual([
+						{ entityId: "entity-1", sessionIds: ["session-1", "stale-session"] },
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
 
 layer(subscriberLayer({ watching: [] }))((test) => {
-	test.effect("delivers a private publication only after watching membership is confirmed", () =>
-		Effect.gen(function* () {
-			const sessions = yield* LocalInterestSessions;
-			const interestSubscriber = yield* EntityWatchSubscriber;
-			const frames: unknown[] = [];
-			yield* sessions.add("session-1", UserId.make("user-1"), (frame) => frames.push(frame));
+	test.effect(
+		"delivers a private publication only after watching membership is confirmed",
+		() =>
+			Effect.gen(function* () {
+				const sessions = yield* LocalInterestSessions;
+				const interestSubscriber = yield* EntityWatchSubscriber;
+				const frames: unknown[] = [];
+				yield* sessions.add("session-1", UserId.make("user-1"), (frame) => frames.push(frame));
 
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
-			);
-			expect(frames).toEqual([]);
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
+				);
+				expect(frames).toEqual([]);
 
-			yield* (yield* FakeSubscriberDependencies).watch(["session-1"]);
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
-			);
-			expect(frames).toEqual([
-				{ reason: "translated", type: "entity-updated", entityId: "private-entity" },
-			]);
-		}),
+				yield* (yield* FakeSubscriberDependencies).watch(["session-1"]);
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(EntityId.make("private-entity"), "translated"),
+				);
+				expect(frames).toEqual([
+					{ reason: "translated", type: "entity-updated", entityId: "private-entity" },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -177,36 +189,39 @@ layer(
 		sessionUsers: { "owner-session": "owner", "other-session": "other" },
 	}),
 )((test) => {
-	test.effect("routes scoped enrichment and derived-data updates only to the owning user", () =>
-		Effect.gen(function* () {
-			const sessions = yield* LocalInterestSessions;
-			const interestSubscriber = yield* EntityWatchSubscriber;
-			const ownerFrames: unknown[] = [];
-			const otherFrames: unknown[] = [];
-			yield* sessions.add("owner-session", UserId.make("owner"), (frame) =>
-				ownerFrames.push(frame),
-			);
-			yield* sessions.add("other-session", UserId.make("other"), (frame) =>
-				otherFrames.push(frame),
-			);
+	test.effect(
+		"routes scoped enrichment and derived-data updates only to the owning user",
+		() =>
+			Effect.gen(function* () {
+				const sessions = yield* LocalInterestSessions;
+				const interestSubscriber = yield* EntityWatchSubscriber;
+				const ownerFrames: unknown[] = [];
+				const otherFrames: unknown[] = [];
+				yield* sessions.add("owner-session", UserId.make("owner"), (frame) =>
+					ownerFrames.push(frame),
+				);
+				yield* sessions.add("other-session", UserId.make("other"), (frame) =>
+					otherFrames.push(frame),
+				);
 
-			yield* interestSubscriber.dispatch(
-				encodeEntityUpdatedMessage(
-					EntityId.make("global-entity"),
-					"enrichment-updated",
-					UserId.make("owner"),
-				),
-			);
-			yield* interestSubscriber.dispatchDerivedDataUpdated(
-				yield* Schema.encodeEffect(DerivedDataUpdatedMessage)({ userId: UserId.make("owner") }),
-			);
+				yield* interestSubscriber.dispatch(
+					encodeEntityUpdatedMessage(
+						EntityId.make("global-entity"),
+						"enrichment-updated",
+						UserId.make("owner"),
+					),
+				);
+				yield* interestSubscriber.dispatchDerivedDataUpdated(
+					yield* Schema.encodeEffect(DerivedDataUpdatedMessage)({ userId: UserId.make("owner") }),
+				);
 
-			expect(ownerFrames).toEqual([
-				{ type: "entity-updated", entityId: "global-entity", reason: "enrichment-updated" },
-				{ type: "derived-data-updated" },
-			]);
-			expect(otherFrames).toEqual([]);
-			expect(yield* (yield* FakeSubscriberDependencies).progressed).toEqual([]);
-		}),
+				expect(ownerFrames).toEqual([
+					{ type: "entity-updated", entityId: "global-entity", reason: "enrichment-updated" },
+					{ type: "derived-data-updated" },
+				]);
+				expect(otherFrames).toEqual([]);
+				expect(yield* (yield* FakeSubscriberDependencies).progressed).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

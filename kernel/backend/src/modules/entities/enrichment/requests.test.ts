@@ -1,9 +1,13 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
@@ -161,33 +165,37 @@ layer(requestLayer)((test) => {
 					yield* requests.update(row.id, { state: "cancelled" });
 				}
 			}),
+		testTimeout,
 	);
-	test.effect("fences timed-out attempts during backoff and after the next attempt starts", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const session = yield* DatabaseSession;
-			const fixture = yield* RequestFixture;
-			const row = yield* requests.ensure(
-				fixture.input("attempt-fence", {
-					populationMode: "refresh",
-					populationPin: "attempt-pin",
-					externalId: "attempt-record",
-				}),
-			);
-			yield* requests.claimPopulation(row.id);
-			yield* requests.update(row.id, { attempt: 1, state: "running" });
-			yield* session.transaction(requests.guardPopulation(row.id, 1));
-			yield* requests.update(row.id, { state: "retrying" });
-			expect(
-				(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
-			).toBe("Failure");
-			yield* requests.update(row.id, { attempt: 2, state: "running" });
-			expect(
-				(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
-			).toBe("Failure");
-			yield* session.transaction(requests.guardPopulation(row.id, 2));
-			yield* requests.update(row.id, { state: "succeeded" });
-		}),
+	test.effect(
+		"fences timed-out attempts during backoff and after the next attempt starts",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const session = yield* DatabaseSession;
+				const fixture = yield* RequestFixture;
+				const row = yield* requests.ensure(
+					fixture.input("attempt-fence", {
+						populationMode: "refresh",
+						populationPin: "attempt-pin",
+						externalId: "attempt-record",
+					}),
+				);
+				yield* requests.claimPopulation(row.id);
+				yield* requests.update(row.id, { attempt: 1, state: "running" });
+				yield* session.transaction(requests.guardPopulation(row.id, 1));
+				yield* requests.update(row.id, { state: "retrying" });
+				expect(
+					(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
+				).toBe("Failure");
+				yield* requests.update(row.id, { attempt: 2, state: "running" });
+				expect(
+					(yield* Effect.exit(session.transaction(requests.guardPopulation(row.id, 1))))._tag,
+				).toBe("Failure");
+				yield* session.transaction(requests.guardPopulation(row.id, 2));
+				yield* requests.update(row.id, { state: "succeeded" });
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"only the latest translation request can commit within one canonical generation and language",
@@ -208,6 +216,7 @@ layer(requestLayer)((test) => {
 				yield* requests.ensure({ ...input, language: "fr", id: "translation-other-language" });
 				expect(yield* requests.latestTranslation("translation-new")).toBe(true);
 			}),
+		testTimeout,
 	);
 	test.effect(
 		"shares compatible full refreshes across requesters but keeps their request identities",
@@ -243,82 +252,92 @@ layer(requestLayer)((test) => {
 					}),
 				).toMatchObject({ id: second.id, state: "succeeded" });
 			}),
+		testTimeout,
 	);
 
-	test.effect("queues full refresh behind base work, and fences writes after settlement", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const session = yield* DatabaseSession;
-			const input = fixture.input("serial-base", {
-				level: "base",
-				populationMode: "ensure",
-				populationPin: "serial-pin",
-				externalId: "serial-record",
-			});
-			const base = yield* requests.ensure(input);
-			const full = yield* requests.ensure({
-				...input,
-				level: "full",
-				id: "serial-refresh",
-				populationMode: "refresh",
-			});
-			expect(full.joinedTo).toBeNull();
-			expect(yield* requests.claimPopulation(full.id)).toBe(false);
-			expect(yield* requests.claimPopulation(base.id)).toBe(true);
-			yield* session.transaction(requests.guardPopulation(base.id));
-			yield* requests.update(base.id, { state: "succeeded" });
-			expect(yield* requests.claimPopulation(full.id)).toBe(true);
-			assertExitFails(
-				yield* Effect.exit(session.transaction(requests.guardPopulation(base.id))),
-				new SandboxRunError({
-					kind: "invalid-input",
-					message: "Provider population no longer owns its writes",
-				}),
-			);
-			yield* requests.update(full.id, { state: "succeeded" });
-		}),
+	test.effect(
+		"queues full refresh behind base work, and fences writes after settlement",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const session = yield* DatabaseSession;
+				const input = fixture.input("serial-base", {
+					level: "base",
+					populationMode: "ensure",
+					populationPin: "serial-pin",
+					externalId: "serial-record",
+				});
+				const base = yield* requests.ensure(input);
+				const full = yield* requests.ensure({
+					...input,
+					level: "full",
+					id: "serial-refresh",
+					populationMode: "refresh",
+				});
+				expect(full.joinedTo).toBeNull();
+				expect(yield* requests.claimPopulation(full.id)).toBe(false);
+				expect(yield* requests.claimPopulation(base.id)).toBe(true);
+				yield* session.transaction(requests.guardPopulation(base.id));
+				yield* requests.update(base.id, { state: "succeeded" });
+				expect(yield* requests.claimPopulation(full.id)).toBe(true);
+				assertExitFails(
+					yield* Effect.exit(session.transaction(requests.guardPopulation(base.id))),
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Provider population no longer owns its writes",
+					}),
+				);
+				yield* requests.update(full.id, { state: "succeeded" });
+			}),
+		testTimeout,
 	);
 
-	test.effect("reuses a recent completed refresh only during the manual cooldown", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const input = fixture.input("cooldown-first", {
-				populationMode: "refresh",
-				populationPin: "cooldown-pin",
-				externalId: "cooldown-record",
-			});
-			const first = yield* requests.ensure(input);
-			yield* requests.update(first.id, { state: "succeeded" });
-			const recent = yield* requests.ensure({ ...input, cooldown: true, id: "cooldown-second" });
-			expect(recent.joinedTo).toBe(first.id);
-			yield* TestClock.adjust("61 seconds");
-			const fresh = yield* requests.ensure({ ...input, cooldown: true, id: "cooldown-third" });
-			expect(fresh.joinedTo).toBeNull();
-			yield* requests.update(fresh.id, { state: "cancelled" });
-		}),
+	test.effect(
+		"reuses a recent completed refresh only during the manual cooldown",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const input = fixture.input("cooldown-first", {
+					populationMode: "refresh",
+					populationPin: "cooldown-pin",
+					externalId: "cooldown-record",
+				});
+				const first = yield* requests.ensure(input);
+				yield* requests.update(first.id, { state: "succeeded" });
+				const recent = yield* requests.ensure({ ...input, cooldown: true, id: "cooldown-second" });
+				expect(recent.joinedTo).toBe(first.id);
+				yield* TestClock.adjust("61 seconds");
+				const fresh = yield* requests.ensure({ ...input, cooldown: true, id: "cooldown-third" });
+				expect(fresh.joinedTo).toBeNull();
+				yield* requests.update(fresh.id, { state: "cancelled" });
+			}),
+		testTimeout,
 	);
 
-	test.effect("does not share work across pinned revisions or private scopes", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const input = fixture.input("pin-first", {
-				populationPin: "pin-one",
-				externalId: "pin-record",
-				populationMode: "refresh",
-			});
-			for (const request of [
-				input,
-				{ ...input, id: "pin-second", populationPin: "pin-two" },
-				{ ...input, id: "pin-private", scopeUserId: owner.userId },
-			]) {
-				const row = yield* requests.ensure(request);
-				expect(row.joinedTo).toBeNull();
-				yield* requests.update(row.id, { state: "cancelled" });
-			}
-		}),
+	test.effect(
+		"does not share work across pinned revisions or private scopes",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const input = fixture.input("pin-first", {
+					populationPin: "pin-one",
+					externalId: "pin-record",
+					populationMode: "refresh",
+				});
+				for (const request of [
+					input,
+					{ ...input, id: "pin-second", populationPin: "pin-two" },
+					{ ...input, id: "pin-private", scopeUserId: owner.userId },
+				]) {
+					const row = yield* requests.ensure(request);
+					expect(row.joinedTo).toBeNull();
+					yield* requests.update(row.id, { state: "cancelled" });
+				}
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -349,92 +368,105 @@ layer(requestLayer)((test) => {
 				expect(yield* requests.account(id)).toBeNull();
 				expect(yield* requests.account(UserId.make("missing-account"))).toBeNull();
 			}),
+		testTimeout,
 	);
 
-	test.effect("replays an admitted ID without replacing its captured payload or state", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const input = fixture.input("idempotent");
-			const first = yield* requests.ensure(input);
-			yield* requests.update(first.id, { attempt: 1, state: "running" });
-			const replay = yield* requests.ensure({ ...input, payload: { pin: "changed-authority" } });
-			expect(replay).toMatchObject({
-				attempt: 1,
-				id: first.id,
-				state: "running",
-				payload: input.payload,
-				sequence: first.sequence,
-			});
-			assertExitFails(
-				yield* Effect.exit(requests.ensure({ ...input, externalId: "other-record" })),
-				new SandboxRunError({
+	test.effect(
+		"replays an admitted ID without replacing its captured payload or state",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const input = fixture.input("idempotent");
+				const first = yield* requests.ensure(input);
+				yield* requests.update(first.id, { attempt: 1, state: "running" });
+				const replay = yield* requests.ensure({ ...input, payload: { pin: "changed-authority" } });
+				expect(replay).toMatchObject({
+					attempt: 1,
+					id: first.id,
+					state: "running",
+					payload: input.payload,
+					sequence: first.sequence,
+				});
+				assertExitFails(
+					yield* Effect.exit(requests.ensure({ ...input, externalId: "other-record" })),
+					new SandboxRunError({
+						kind: "invalid-input",
+						message: "Enrichment request identity was reused for another target",
+					}),
+				);
+				expect(yield* requests.get(first.id)).toEqual(replay);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rolls back request admission with its caller's pin transaction",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const session = yield* DatabaseSession;
+				const failure = new SandboxRunError({
 					kind: "invalid-input",
-					message: "Enrichment request identity was reused for another target",
-				}),
-			);
-			expect(yield* requests.get(first.id)).toEqual(replay);
-		}),
-	);
-
-	test.effect("rolls back request admission with its caller's pin transaction", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const session = yield* DatabaseSession;
-			const failure = new SandboxRunError({ kind: "invalid-input", message: "Admission rejected" });
-			assertExitFails(
-				yield* Effect.exit(
-					session.transaction(
-						Effect.gen(function* () {
-							yield* requests.ensure(fixture.input("rolled-back-admission"));
-							return yield* failure;
-						}),
+					message: "Admission rejected",
+				});
+				assertExitFails(
+					yield* Effect.exit(
+						session.transaction(
+							Effect.gen(function* () {
+								yield* requests.ensure(fixture.input("rolled-back-admission"));
+								return yield* failure;
+							}),
+						),
 					),
-				),
-				failure,
-			);
-			expect(yield* requests.get("rolled-back-admission")).toBeNull();
-		}),
+					failure,
+				);
+				expect(yield* requests.get("rolled-back-admission")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps failures and progress independent for users of one shared entity", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const first = yield* requests.ensure(fixture.input("owner-failure"));
-			const second = yield* requests.ensure(
-				fixture.input("recipient-progress", { requester: recipient }),
-			);
-			yield* requests.update(first.id, {
-				attempt: 1,
-				state: "failed",
-				failureKind: "missing-artifact",
-			});
-			yield* requests.update(second.id, { attempt: 1, state: "running" });
-			expect(
-				yield* requests.latest({
-					requester: owner,
-					operation: "population",
-					entityId: fixture.entityId,
-				}),
-			).toMatchObject({ id: first.id, state: "failed" });
-			expect(
-				yield* requests.latest({
-					requester: recipient,
-					operation: "population",
-					entityId: fixture.entityId,
-				}),
-			).toMatchObject({ id: second.id, state: "running", failureKind: null });
-			expect(yield* fixture.publications).toContainEqual([
-				redisKeys.entityUpdatedChannel,
-				encodeEntityUpdatedMessage(fixture.entityId, "enrichment-updated", owner.userId),
-			]);
-			expect(yield* fixture.publications).toContainEqual([
-				redisKeys.entityUpdatedChannel,
-				encodeEntityUpdatedMessage(fixture.entityId, "enrichment-updated", recipient.userId),
-			]);
-		}),
+	test.effect(
+		"keeps failures and progress independent for users of one shared entity",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const first = yield* requests.ensure(fixture.input("owner-failure"));
+				const second = yield* requests.ensure(
+					fixture.input("recipient-progress", { requester: recipient }),
+				);
+				yield* requests.update(first.id, {
+					attempt: 1,
+					state: "failed",
+					failureKind: "missing-artifact",
+				});
+				yield* requests.update(second.id, { attempt: 1, state: "running" });
+				expect(
+					yield* requests.latest({
+						requester: owner,
+						operation: "population",
+						entityId: fixture.entityId,
+					}),
+				).toMatchObject({ id: first.id, state: "failed" });
+				expect(
+					yield* requests.latest({
+						requester: recipient,
+						operation: "population",
+						entityId: fixture.entityId,
+					}),
+				).toMatchObject({ id: second.id, state: "running", failureKind: null });
+				expect(yield* fixture.publications).toContainEqual([
+					redisKeys.entityUpdatedChannel,
+					encodeEntityUpdatedMessage(fixture.entityId, "enrichment-updated", owner.userId),
+				]);
+				expect(yield* fixture.publications).toContainEqual([
+					redisKeys.entityUpdatedChannel,
+					encodeEntityUpdatedMessage(fixture.entityId, "enrichment-updated", recipient.userId),
+				]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -517,49 +549,58 @@ layer(requestLayer)((test) => {
 					}),
 				).toMatchObject({ id: "latest-current-content" });
 			}),
+		testTimeout,
 	);
 
-	test.effect("admits exactly one replacement for concurrent manual retries", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const original = yield* requests.ensure(fixture.input("retry-original", { requester: null }));
-			yield* requests.update(original.id, { state: "failed", failureKind: "script-failure" });
-			const retries = yield* Effect.all(
-				Array.from({ length: 8 }, (_, index) =>
-					requests.ensure(
-						fixture.input(`concurrent-retry-${index}`, { requester: null, retryOf: original.id }),
-					),
-				),
-				{ concurrency: 8 },
-			);
-			expect(new Set(retries.map(({ id }) => id)).size).toBe(1);
-			const [admitted] = retries;
-			assert(admitted);
-			expect(admitted).toMatchObject({ state: "queued", retryOf: original.id });
-			for (let index = 0; index < 8; index++) {
-				expect((yield* requests.get(`concurrent-retry-${index}`))?.id ?? null).toBe(
-					admitted.id === `concurrent-retry-${index}` ? admitted.id : null,
+	test.effect(
+		"admits exactly one replacement for concurrent manual retries",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const original = yield* requests.ensure(
+					fixture.input("retry-original", { requester: null }),
 				);
-			}
-			expect(yield* requests.get(original.id)).toMatchObject({ state: "failed" });
-		}),
+				yield* requests.update(original.id, { state: "failed", failureKind: "script-failure" });
+				const retries = yield* Effect.all(
+					Array.from({ length: 8 }, (_, index) =>
+						requests.ensure(
+							fixture.input(`concurrent-retry-${index}`, { requester: null, retryOf: original.id }),
+						),
+					),
+					{ concurrency: 8 },
+				);
+				expect(new Set(retries.map(({ id }) => id)).size).toBe(1);
+				const [admitted] = retries;
+				assert(admitted);
+				expect(admitted).toMatchObject({ state: "queued", retryOf: original.id });
+				for (let index = 0; index < 8; index++) {
+					expect((yield* requests.get(`concurrent-retry-${index}`))?.id ?? null).toBe(
+						admitted.id === `concurrent-retry-${index}` ? admitted.id : null,
+					);
+				}
+				expect(yield* requests.get(original.id)).toMatchObject({ state: "failed" });
+			}),
+		testTimeout,
 	);
 
-	test.effect("attaches a rootless request once without changing its target on replay", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const request = yield* requests.ensure(fixture.input("rootless", { entityId: null }));
-			expect(request.entityId).toBeNull();
-			expect(request.dispatchRoot).toBe(false);
-			yield* requests.attachEntity(request.id, fixture.entityId);
-			yield* requests.attachEntity(request.id, EntityId.make("unrelated-entity"));
-			expect(yield* requests.get(request.id)).toMatchObject({
-				dispatchRoot: false,
-				entityId: fixture.entityId,
-			});
-		}),
+	test.effect(
+		"attaches a rootless request once without changing its target on replay",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const request = yield* requests.ensure(fixture.input("rootless", { entityId: null }));
+				expect(request.entityId).toBeNull();
+				expect(request.dispatchRoot).toBe(false);
+				yield* requests.attachEntity(request.id, fixture.entityId);
+				yield* requests.attachEntity(request.id, EntityId.make("unrelated-entity"));
+				expect(yield* requests.get(request.id)).toMatchObject({
+					dispatchRoot: false,
+					entityId: fixture.entityId,
+				});
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -588,6 +629,7 @@ layer(requestLayer)((test) => {
 					expect(yield* requests.get(request.id)).toEqual(terminal);
 				}
 			}),
+		testTimeout,
 	);
 });
 
@@ -626,42 +668,46 @@ layer(requestLayer)((test) => {
 					expect(yield* requests.get(id)).not.toBeNull();
 				}
 			}),
+		testTimeout,
 	);
 });
 
 layer(requestLayer)((test) => {
-	test.effect("bounds recovery scans and rotates observed rows so later work is not starved", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const fixture = yield* RequestFixture;
-			const ids = Array.from({ length: 105 }, (_, index) => `pending-${index}`);
-			let lastObservedAt = DateTime.toEpochMillis(yield* DateTime.now);
-			for (const id of ids) {
-				const row = yield* requests.ensure(fixture.input(id, { requester: null }));
-				lastObservedAt = Math.max(lastObservedAt, row.observedAt.getTime());
-			}
-			yield* requests.update("pending-1", { attempt: 1, state: "running" });
-			yield* requests.update("pending-2", {
-				attempt: 1,
-				state: "retrying",
-				nextAttemptAt: scheduledRetry,
-			});
-			const first = yield* requests.pending();
-			expect(first.map(({ id }) => id)).toEqual(ids.slice(0, 100));
-			yield* TestClock.setTime(lastObservedAt);
-			yield* TestClock.adjust("1 second");
-			for (const row of first) {
-				yield* requests.observed(row.id);
-			}
-			const next = yield* requests.pending();
-			expect(next).toHaveLength(100);
-			expect(next.slice(0, 5).map(({ id }) => id)).toEqual(ids.slice(100));
-			yield* requests.update("pending-100", { state: "succeeded" });
-			expect((yield* requests.pending()).some(({ id }) => id === "pending-100")).toBe(true);
-			yield* requests.released("pending-100");
-			expect((yield* requests.pending()).some(({ id }) => id === "pending-100")).toBe(false);
-			yield* requests.released("pending-101");
-			expect((yield* requests.pending()).some(({ id }) => id === "pending-101")).toBe(true);
-		}),
+	test.effect(
+		"bounds recovery scans and rotates observed rows so later work is not starved",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const ids = Array.from({ length: 105 }, (_, index) => `pending-${index}`);
+				let lastObservedAt = DateTime.toEpochMillis(yield* DateTime.now);
+				for (const id of ids) {
+					const row = yield* requests.ensure(fixture.input(id, { requester: null }));
+					lastObservedAt = Math.max(lastObservedAt, row.observedAt.getTime());
+				}
+				yield* requests.update("pending-1", { attempt: 1, state: "running" });
+				yield* requests.update("pending-2", {
+					attempt: 1,
+					state: "retrying",
+					nextAttemptAt: scheduledRetry,
+				});
+				const first = yield* requests.pending();
+				expect(first.map(({ id }) => id)).toEqual(ids.slice(0, 100));
+				yield* TestClock.setTime(lastObservedAt);
+				yield* TestClock.adjust("1 second");
+				for (const row of first) {
+					yield* requests.observed(row.id);
+				}
+				const next = yield* requests.pending();
+				expect(next).toHaveLength(100);
+				expect(next.slice(0, 5).map(({ id }) => id)).toEqual(ids.slice(100));
+				yield* requests.update("pending-100", { state: "succeeded" });
+				expect((yield* requests.pending()).some(({ id }) => id === "pending-100")).toBe(true);
+				yield* requests.released("pending-100");
+				expect((yield* requests.pending()).some(({ id }) => id === "pending-100")).toBe(false);
+				yield* requests.released("pending-101");
+				expect((yield* requests.pending()).some(({ id }) => id === "pending-101")).toBe(true);
+			}),
+		testTimeout,
 	);
 });

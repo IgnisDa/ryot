@@ -1,3 +1,5 @@
+import { afterEach, expect, test } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	configureSandboxFilesystem,
@@ -7,7 +9,6 @@ import {
 	type SandboxFilesystemBinding,
 	writeScratchChunks,
 } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { afterEach, expect, test } from "vitest";
 
 let activeBinding: undefined | SandboxFilesystemBinding;
 configureSandboxFilesystem(() => activeBinding);
@@ -93,7 +94,7 @@ test("rejects invalid byte ranges before calling the binding", () =>
 				[0, 0],
 				[0, 1048577],
 				[0.5, 1],
-			]) {
+			] as const) {
 				expect((yield* Effect.flip(readArtifactRange(offset, length))).message).toContain(
 					"Artifact range requires",
 				);

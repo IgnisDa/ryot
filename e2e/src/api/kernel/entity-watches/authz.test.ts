@@ -108,7 +108,7 @@ describe("interest authorization", () => {
 			const socket = yield* openInterestWebSocketScoped({
 				client: makeSession(undefined, { "X-Api-Key": apiKey }),
 			});
-			expect(socket.ready.sessionId).toEqual(anyOf(String));
+			expect(socket.ready.sessionId).toEqual<unknown>(anyOf(String));
 		}),
 	);
 

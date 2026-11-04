@@ -1,5 +1,8 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { compareMediaRecords, normalizeMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
@@ -172,6 +175,7 @@ it.live(
 			expect(yield* fs.records()).toEqual(records);
 			expect(fs.reads.every((read) => read.length <= 256 * 1024)).toBe(true);
 		}),
+	testTimeout,
 );
 
 it("preserves decoded history, provider priority, missing identifiers, and failure precedence", () => {
@@ -240,17 +244,20 @@ it("keeps filename classification at the ZIP boundary and ignores aggregate watc
 	expect(classifyTraktExportName("ratings-movies-02.json")).toBeUndefined();
 });
 
-it.live("rejects malformed captured list metadata before committing a normalization window", () =>
-	Effect.gen(function* () {
-		yield* captureFiles([["lists-lists.json", [{ name: "Broken", ids: { trakt: "bad" } }]]]);
-		const result = yield* trakt
-			.run(
-				mediaStageInput({
-					action: "normalize",
-					ingestionArtifacts: { runId: "run", captures: { records: "records" } },
-				}),
-			)
-			.pipe(Effect.exit);
-		expect(result._tag).toBe("Failure");
-	}),
+it.live(
+	"rejects malformed captured list metadata before committing a normalization window",
+	() =>
+		Effect.gen(function* () {
+			yield* captureFiles([["lists-lists.json", [{ name: "Broken", ids: { trakt: "bad" } }]]]);
+			const result = yield* trakt
+				.run(
+					mediaStageInput({
+						action: "normalize",
+						ingestionArtifacts: { runId: "run", captures: { records: "records" } },
+					}),
+				)
+				.pipe(Effect.exit);
+			expect(result._tag).toBe("Failure");
+		}),
+	testTimeout,
 );

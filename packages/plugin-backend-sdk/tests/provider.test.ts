@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	defineProvider,
@@ -13,90 +14,104 @@ import {
 	providerTranslateResultSchema,
 } from "@ryot-app/plugin-backend-sdk/provider";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { defineManifest, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 
 const manifest = defineManifest({ kind: "provider", name: "Test provider", slug: "test.provider" });
 
 describe("provider definitions", () => {
-	it.effect("requires and preserves the canonical name in translation input", () =>
-		Effect.gen(function* () {
-			const definition = defineProvider({
-				manifest,
-				operation: "translate",
-				run: (input) => Effect.succeed({ name: input.name }),
-			});
-			const input = {
-				properties: {},
-				language: "es",
-				externalId: "record-1",
-				name: " Canonical record ",
-				entitySchemaSlug: "record",
-			};
-			expect(yield* Schema.decodeEffect(definition.input)(input)).toEqual(input);
-			yield* Effect.flip(
-				Schema.decodeUnknownEffect(definition.input)({
+	it.effect(
+		"requires and preserves the canonical name in translation input",
+		() =>
+			Effect.gen(function* () {
+				const definition = defineProvider({
+					manifest,
+					operation: "translate",
+					run: (input) => Effect.succeed({ name: input.name }),
+				});
+				const input = {
 					properties: {},
 					language: "es",
 					externalId: "record-1",
+					name: " Canonical record ",
 					entitySchemaSlug: "record",
-				}),
-			);
-		}),
+				};
+				expect(yield* Schema.decodeEffect(definition.input)(input)).toEqual(input);
+				yield* Effect.flip(
+					Schema.decodeUnknownEffect(definition.input)({
+						properties: {},
+						language: "es",
+						externalId: "record-1",
+						entitySchemaSlug: "record",
+					}),
+				);
+			}),
+		testTimeout,
 	);
-	it.effect("selects standard schemas for a provider operation", () =>
-		Effect.gen(function* () {
-			const definition = defineProvider({
-				manifest,
-				operation: "resolve",
-				run: (input) =>
-					Effect.succeed({ externalId: input.value === "known" ? "provider-1" : null }),
-			});
+	it.effect(
+		"selects standard schemas for a provider operation",
+		() =>
+			Effect.gen(function* () {
+				const definition = defineProvider({
+					manifest,
+					operation: "resolve",
+					run: (input) =>
+						Effect.succeed({ externalId: input.value === "known" ? "provider-1" : null }),
+				});
 
-			expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
-			expect(definition.operation).toBe("resolve");
-			expect(definition.output).toBe(providerResolveResultSchema);
-			expect(
-				yield* Schema.decodeEffect(definition.input)({ value: "known", identifierType: "isbn" }),
-			).toEqual({ value: "known", identifierType: "isbn" });
-		}),
+				expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
+				expect(definition.operation).toBe("resolve");
+				expect(definition.output).toBe(providerResolveResultSchema);
+				expect(
+					yield* Schema.decodeEffect(definition.input)({ value: "known", identifierType: "isbn" }),
+				).toEqual({ value: "known", identifierType: "isbn" });
+			}),
+		testTimeout,
 	);
 
-	it.effect("accepts optional JSON-object search options", () =>
-		Effect.gen(function* () {
-			expect(yield* Schema.decodeEffect(providerSearchInputSchema)({ query: "query" })).toEqual({
-				page: 1,
-				pageSize: 20,
-				query: "query",
-			});
-			expect(
-				yield* Schema.decodeEffect(providerSearchInputSchema)({
+	it.effect(
+		"accepts optional JSON-object search options",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* Schema.decodeEffect(providerSearchInputSchema)({ query: "query" })).toEqual({
+					page: 1,
+					pageSize: 20,
+					query: "query",
+				});
+				expect(
+					yield* Schema.decodeEffect(providerSearchInputSchema)({
+						query: "query",
+						options: { passRawQuery: true, filters: { genreIds: ["5"] } },
+					}),
+				).toEqual({
+					page: 1,
+					pageSize: 20,
 					query: "query",
 					options: { passRawQuery: true, filters: { genreIds: ["5"] } },
-				}),
-			).toEqual({
-				page: 1,
-				pageSize: 20,
-				query: "query",
-				options: { passRawQuery: true, filters: { genreIds: ["5"] } },
-			});
-			yield* Effect.flip(Schema.decodeUnknownEffect(providerSearchInputSchema)({ options: [] }));
-		}),
+				});
+				yield* Effect.flip(Schema.decodeUnknownEffect(providerSearchInputSchema)({ options: [] }));
+			}),
+		testTimeout,
 	);
 
-	it.effect("supports the search-options provider operation", () =>
-		Effect.gen(function* () {
-			const definition = defineProvider({
-				manifest,
-				operation: "search-options",
-				run: () =>
-					Effect.succeed({ sources: { statuses: [{ value: "active", label: "Active" }] } }),
-			});
+	it.effect(
+		"supports the search-options provider operation",
+		() =>
+			Effect.gen(function* () {
+				const definition = defineProvider({
+					manifest,
+					operation: "search-options",
+					run: () =>
+						Effect.succeed({ sources: { statuses: [{ value: "active", label: "Active" }] } }),
+				});
 
-			expect(definition.input).toBe(providerSearchOptionsInputSchema);
-			expect(definition.output).toBe(providerSearchOptionsResultSchema);
-			expect(yield* Schema.decodeEffect(definition.input)({})).toEqual({});
-		}),
+				expect(definition.input).toBe(providerSearchOptionsInputSchema);
+				expect(definition.output).toBe(providerSearchOptionsResultSchema);
+				expect(yield* Schema.decodeEffect(definition.input)({})).toEqual({});
+			}),
+		testTimeout,
 	);
 });
 
@@ -114,186 +129,197 @@ describe("provider related pages", () => {
 		relatedEntityGroups: [{ ...group, coverage: { continuation, status: "more" as const } }],
 	});
 
-	it.effect("selects the related operation contract", () =>
-		Effect.gen(function* () {
-			const definition = defineProvider({
-				manifest,
-				operation: "related",
-				run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }),
-			});
+	it.effect(
+		"selects the related operation contract",
+		() =>
+			Effect.gen(function* () {
+				const definition = defineProvider({
+					manifest,
+					operation: "related",
+					run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }),
+				});
 
-			expect(definition.input).toBe(providerRelatedInputSchema);
-			expect(definition.output).toBe(providerRelatedResultSchema);
-			expect(
-				yield* Schema.decodeEffect(definition.input)({
-					direction: "outgoing",
-					externalId: " company-1 ",
-					continuation: { page: 2 },
-					relationshipSchemaSlug: "company-to-record",
-				}),
-			).toEqual({
-				direction: "outgoing",
-				externalId: "company-1",
-				continuation: { page: 2 },
-				relationshipSchemaSlug: "company-to-record",
-			});
-			const host = defineSandboxTestHost(manifest, {});
-			expect(
-				yield* runSandboxTestScript(
-					definition,
-					{
+				expect(definition.input).toBe(providerRelatedInputSchema);
+				expect(definition.output).toBe(providerRelatedResultSchema);
+				expect(
+					yield* Schema.decodeEffect(definition.input)({
 						direction: "outgoing",
-						externalId: "company-1",
+						externalId: " company-1 ",
 						continuation: { page: 2 },
 						relationshipSchemaSlug: "company-to-record",
-					},
-					host,
-					{ metadata: {}, sandboxScriptId: "provider-related" },
-				),
-			).toEqual({ entities: [], coverage: { status: "complete" } });
-		}),
+					}),
+				).toEqual({
+					direction: "outgoing",
+					externalId: "company-1",
+					continuation: { page: 2 },
+					relationshipSchemaSlug: "company-to-record",
+				});
+				const host = defineSandboxTestHost(manifest, {});
+				expect(
+					yield* runSandboxTestScript(
+						definition,
+						{
+							direction: "outgoing",
+							externalId: "company-1",
+							continuation: { page: 2 },
+							relationshipSchemaSlug: "company-to-record",
+						},
+						host,
+						{ metadata: {}, sandboxScriptId: "provider-related" },
+					),
+				).toEqual({ entities: [], coverage: { status: "complete" } });
+			}),
+		testTimeout,
 	);
 
-	it.effect("accepts a group continuation up to 4 KiB encoded and rejects larger ones", () =>
-		Effect.gen(function* () {
-			const fits = { cursor: "a".repeat(4 * 1024 - '{"cursor":""}'.length) };
-			expect(
-				yield* Schema.decodeUnknownEffect(providerDetailsResultSchema)(details(fits)),
-			).toMatchObject({
-				relatedEntityGroups: [{ coverage: { status: "more", continuation: fits } }],
-			});
-			expect(
-				(yield* Effect.flip(
-					Schema.decodeUnknownEffect(providerDetailsResultSchema)(
-						details({ cursor: "a".repeat(4 * 1024) }),
-					),
-				)).message,
-			).toContain("at most 4096 bytes");
-			expect(
-				(yield* Effect.flip(
-					Schema.decodeEffect(providerRelatedResultSchema)({
-						entities: [],
-						coverage: { status: "more", continuation: { cursor: "a".repeat(4 * 1024) } },
-					}),
-				)).message,
-			).toContain("at most 4096 bytes");
-			expect(
-				(yield* Effect.flip(
-					Schema.decodeEffect(providerRelatedInputSchema)({
-						direction: "outgoing",
-						externalId: "company-1",
-						relationshipSchemaSlug: "company-to-record",
-						continuation: { cursor: "a".repeat(4 * 1024) },
-					}),
-				)).message,
-			).toContain("at most 4096 bytes");
-		}),
+	it.effect(
+		"accepts a group continuation up to 4 KiB encoded and rejects larger ones",
+		() =>
+			Effect.gen(function* () {
+				const fits = { cursor: "a".repeat(4 * 1024 - '{"cursor":""}'.length) };
+				expect(
+					yield* Schema.decodeUnknownEffect(providerDetailsResultSchema)(details(fits)),
+				).toMatchObject({
+					relatedEntityGroups: [{ coverage: { status: "more", continuation: fits } }],
+				});
+				expect(
+					(yield* Effect.flip(
+						Schema.decodeUnknownEffect(providerDetailsResultSchema)(
+							details({ cursor: "a".repeat(4 * 1024) }),
+						),
+					)).message,
+				).toContain("at most 4096 bytes");
+				expect(
+					(yield* Effect.flip(
+						Schema.decodeEffect(providerRelatedResultSchema)({
+							entities: [],
+							coverage: { status: "more", continuation: { cursor: "a".repeat(4 * 1024) } },
+						}),
+					)).message,
+				).toContain("at most 4096 bytes");
+				expect(
+					(yield* Effect.flip(
+						Schema.decodeEffect(providerRelatedInputSchema)({
+							direction: "outgoing",
+							externalId: "company-1",
+							relationshipSchemaSlug: "company-to-record",
+							continuation: { cursor: "a".repeat(4 * 1024) },
+						}),
+					)).message,
+				).toContain("at most 4096 bytes");
+			}),
+		testTimeout,
 	);
 });
 
 describe("provider result contracts", () => {
-	it.effect("validates search, recursive details, resolve, and translation values", () =>
-		Effect.gen(function* () {
-			expect(
-				yield* Schema.decodeEffect(providerSearchResultSchema)({
+	it.effect(
+		"validates search, recursive details, resolve, and translation values",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					yield* Schema.decodeEffect(providerSearchResultSchema)({
+						items: [
+							{
+								title: " Show ",
+								externalId: " show-1 ",
+								metadata: [" 2024 ", 2024],
+								imageUrl: " https://images.test/show.jpg ",
+							},
+						],
+					}),
+				).toEqual({
 					items: [
 						{
-							title: " Show ",
-							externalId: " show-1 ",
-							metadata: [" 2024 ", 2024],
-							imageUrl: " https://images.test/show.jpg ",
+							title: "Show",
+							externalId: "show-1",
+							metadata: ["2024", 2024],
+							imageUrl: "https://images.test/show.jpg",
 						},
 					],
-				}),
-			).toEqual({
-				items: [
-					{
-						title: "Show",
-						externalId: "show-1",
-						metadata: ["2024", 2024],
-						imageUrl: "https://images.test/show.jpg",
-					},
-				],
-			});
-			yield* Effect.flip(
-				Schema.decodeUnknownEffect(providerSearchResultSchema)({
-					items: [{ metadata: [], title: "Show", externalId: "show-1" }],
-				}),
-			);
-			yield* Effect.flip(
-				Schema.decodeEffect(providerSearchResultSchema)({
-					items: [{ title: "Show", metadata: ["   "], externalId: "show-1" }],
-				}),
-			);
-			yield* Effect.flip(
-				Schema.decodeEffect(providerSearchResultSchema)({
-					items: [{ title: "Show", externalId: "show-1", metadata: [Number.NaN] }],
-				}),
-			);
-			expect(
-				yield* Schema.decodeEffect(providerSearchResultSchema)({
-					items: [],
-					details: { totalItems: 1, nextPage: null },
-				}),
-			).toEqual({ items: [], details: { totalItems: 1, nextPage: null } });
-			yield* Effect.flip(
-				Schema.decodeEffect(providerSearchResultSchema)({
-					items: [],
-					details: { nextPage: null, totalItems: Number.NaN },
-				}),
-			);
-			yield* Effect.flip(
-				Schema.decodeEffect(providerSearchResultSchema)({
-					items: [],
-					details: { totalItems: 1, nextPage: Number.POSITIVE_INFINITY },
-				}),
-			);
-			expect(
-				yield* Schema.decodeEffect(providerDetailsResultSchema)({
+				});
+				yield* Effect.flip(
+					Schema.decodeUnknownEffect(providerSearchResultSchema)({
+						items: [{ metadata: [], title: "Show", externalId: "show-1" }],
+					}),
+				);
+				yield* Effect.flip(
+					Schema.decodeEffect(providerSearchResultSchema)({
+						items: [{ title: "Show", metadata: ["   "], externalId: "show-1" }],
+					}),
+				);
+				yield* Effect.flip(
+					Schema.decodeEffect(providerSearchResultSchema)({
+						items: [{ title: "Show", externalId: "show-1", metadata: [Number.NaN] }],
+					}),
+				);
+				expect(
+					yield* Schema.decodeEffect(providerSearchResultSchema)({
+						items: [],
+						details: { totalItems: 1, nextPage: null },
+					}),
+				).toEqual({ items: [], details: { totalItems: 1, nextPage: null } });
+				yield* Effect.flip(
+					Schema.decodeEffect(providerSearchResultSchema)({
+						items: [],
+						details: { nextPage: null, totalItems: Number.NaN },
+					}),
+				);
+				yield* Effect.flip(
+					Schema.decodeEffect(providerSearchResultSchema)({
+						items: [],
+						details: { totalItems: 1, nextPage: Number.POSITIVE_INFINITY },
+					}),
+				);
+				expect(
+					yield* Schema.decodeEffect(providerDetailsResultSchema)({
+						name: "Show",
+						properties: { year: 2024 },
+						expectedChildEntitySchemaSlug: "item-part",
+						relatedEntityGroups: [
+							{
+								direction: "incoming",
+								synchronization: "additive",
+								coverage: { status: "complete" },
+								relationshipSchemaSlug: "person-to-show",
+								entities: [
+									{ name: "Creator", externalId: "person-1", providerSlug: "person.test" },
+								],
+							},
+						],
+						childEntities: [
+							{
+								name: "Part 1",
+								externalId: "part-1",
+								properties: { number: 1 },
+								entitySchemaSlug: "item-part",
+								expectedChildEntitySchemaSlug: "item-subpart",
+								childEntities: [
+									{
+										name: "Subpart 1",
+										externalId: "subpart-1",
+										properties: { number: 1 },
+										entitySchemaSlug: "item-subpart",
+									},
+								],
+							},
+						],
+					}),
+				).toMatchObject({
 					name: "Show",
-					properties: { year: 2024 },
 					expectedChildEntitySchemaSlug: "item-part",
-					relatedEntityGroups: [
-						{
-							direction: "incoming",
-							synchronization: "additive",
-							coverage: { status: "complete" },
-							relationshipSchemaSlug: "person-to-show",
-							entities: [{ name: "Creator", externalId: "person-1", providerSlug: "person.test" }],
-						},
-					],
-					childEntities: [
-						{
-							name: "Part 1",
-							externalId: "part-1",
-							properties: { number: 1 },
-							entitySchemaSlug: "item-part",
-							expectedChildEntitySchemaSlug: "item-subpart",
-							childEntities: [
-								{
-									name: "Subpart 1",
-									externalId: "subpart-1",
-									properties: { number: 1 },
-									entitySchemaSlug: "item-subpart",
-								},
-							],
-						},
-					],
-				}),
-			).toMatchObject({
-				name: "Show",
-				expectedChildEntitySchemaSlug: "item-part",
-				childEntities: [{ expectedChildEntitySchemaSlug: "item-subpart" }],
-			});
-			expect(yield* Schema.decodeEffect(providerResolveResultSchema)({ externalId: null })).toEqual(
-				{ externalId: null },
-			);
-			expect(
-				yield* Schema.decodeEffect(providerTranslateResultSchema)({
-					name: "Localized",
-					properties: { description: "Translated" },
-				}),
-			).toEqual({ name: "Localized", properties: { description: "Translated" } });
-		}),
+					childEntities: [{ expectedChildEntitySchemaSlug: "item-subpart" }],
+				});
+				expect(
+					yield* Schema.decodeEffect(providerResolveResultSchema)({ externalId: null }),
+				).toEqual({ externalId: null });
+				expect(
+					yield* Schema.decodeEffect(providerTranslateResultSchema)({
+						name: "Localized",
+						properties: { description: "Translated" },
+					}),
+				).toEqual({ name: "Localized", properties: { description: "Translated" } });
+			}),
+		testTimeout,
 	);
 });

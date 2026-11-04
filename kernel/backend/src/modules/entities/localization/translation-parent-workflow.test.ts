@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Duration, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -172,6 +175,7 @@ it.effect(
 				{ operation: "translation", sourceContentGeneration: 1, scopeUserId: payload.userId },
 			]);
 		}),
+	testTimeout,
 );
 
 for (const failure of [
@@ -183,27 +187,33 @@ for (const failure of [
 		data: { code: "asset-forbidden" },
 	}),
 ]) {
-	it.effect(`does not retry ${failure.kind} failure ${failure.message}`, () =>
-		Effect.gen(function* () {
-			const h = yield* harness([failure]);
-			assertExitFails(yield* Effect.exit(h.run), failure);
-			expect(h.attempts).toHaveLength(1);
-			expect(h.clocks).toEqual([]);
-			expect(h.updates.map(({ state }) => state)).toEqual(["running", "failed"]);
-			expect(h.released).toEqual([payload.executionId]);
-		}),
+	it.effect(
+		`does not retry ${failure.kind} failure ${failure.message}`,
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness([failure]);
+				assertExitFails(yield* Effect.exit(h.run), failure);
+				expect(h.attempts).toHaveLength(1);
+				expect(h.clocks).toEqual([]);
+				expect(h.updates.map(({ state }) => state)).toEqual(["running", "failed"]);
+				expect(h.released).toEqual([payload.executionId]);
+			}),
+		testTimeout,
 	);
 }
 
-it.effect("stops after three transient failures without reporting success", () =>
-	Effect.gen(function* () {
-		const failure = new SandboxRunError({ kind: "timeout", message: "Timed out" });
-		const h = yield* harness([failure, failure, failure]);
-		assertExitFails(yield* Effect.exit(h.run), failure);
-		expect(h.attempts).toHaveLength(3);
-		expect(h.clocks.map(({ duration }) => duration)).toEqual([5_000, 30_000]);
-		expect(h.updates.at(-1)).toMatchObject({ state: "failed", failureKind: "timeout" });
-	}),
+it.effect(
+	"stops after three transient failures without reporting success",
+	() =>
+		Effect.gen(function* () {
+			const failure = new SandboxRunError({ kind: "timeout", message: "Timed out" });
+			const h = yield* harness([failure, failure, failure]);
+			assertExitFails(yield* Effect.exit(h.run), failure);
+			expect(h.attempts).toHaveLength(3);
+			expect(h.clocks.map(({ duration }) => duration)).toEqual([5_000, 30_000]);
+			expect(h.updates.at(-1)).toMatchObject({ state: "failed", failureKind: "timeout" });
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -228,4 +238,5 @@ it.effect(
 				"succeeded",
 			]);
 		}),
+	testTimeout,
 );

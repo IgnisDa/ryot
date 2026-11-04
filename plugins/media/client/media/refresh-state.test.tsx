@@ -1,7 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { assert } from "@ryot-app/testing/assert";
 import { fireEvent, getAllByRole } from "@testing-library/dom";
-import { assert, describe, expect, it } from "vitest";
 
 import {
 	errorQueryResult,

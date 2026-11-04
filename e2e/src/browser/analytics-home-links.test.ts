@@ -1,4 +1,5 @@
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -107,7 +108,9 @@ for (const testCase of cases) {
 			yield* contributor.waitForFunction((radio) => radio.getAttribute("aria-checked") === "true");
 			yield* analytics.getByRole("region", { exact: true, name: testCase.contributor }).waitFor();
 			yield* controls.getByText("· times in UTC", { exact: true }).waitFor();
-			expect((yield* getUserSettings(account.client)).preferences.reportingTimeZone).toBe("UTC");
+			expect((yield* getUserSettings(account.client)).preferences.reportingTimeZone).toBe(
+				TimeZone.make("UTC"),
+			);
 		}).pipe(PlaywrightSpawner.withBrowser),
 	);
 }

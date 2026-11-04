@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { FitnessCreateImportRunBody } from "./import-sources";
@@ -26,41 +29,46 @@ it.effect.each(sources)(
 
 			expect(yield* Schema.decodeEffect(FitnessCreateImportRunBody)(input)).toEqual(input);
 			expect(yield* Schema.decodeEffect(CreateImportRunBody)(body)).toEqual(body);
-			expect(body.source).toEqual({
+			expect(body.source).toEqual<unknown>({
 				slug: source,
 				owner: { kind: "plugin", pluginId: "fitness-owner" },
 			});
 		}),
+	testTimeout,
 );
 
 it.effect.each(["open_scale", "hevy", "strong_app"] as const)(
 	"requires a timezone for %s",
 	(source) =>
 		Effect.flip(Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({ source, uploadToken })),
+	testTimeout,
 );
 
-it.effect("keeps fitness-specific request validation strict and contract-owned", () =>
-	Effect.gen(function* () {
-		yield* Effect.flip(
-			Schema.decodeEffect(FitnessCreateImportRunBody)({
-				timezone,
-				source: "hevy",
-				uploadToken: "",
-			}),
-		);
-		yield* Effect.flip(
-			Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({
-				source: "hevy",
-				uploadToken: { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" },
-			}),
-		);
-		yield* Effect.flip(
-			Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({
-				timezone,
-				uploadToken,
-				source: "hevy",
-				unexpected: true,
-			}),
-		);
-	}),
+it.effect(
+	"keeps fitness-specific request validation strict and contract-owned",
+	() =>
+		Effect.gen(function* () {
+			yield* Effect.flip(
+				Schema.decodeEffect(FitnessCreateImportRunBody)({
+					timezone,
+					source: "hevy",
+					uploadToken: "",
+				}),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({
+					source: "hevy",
+					uploadToken: { token: "upload-1", expiresAt: "2026-08-23T00:00:00.000Z" },
+				}),
+			);
+			yield* Effect.flip(
+				Schema.decodeUnknownEffect(FitnessCreateImportRunBody)({
+					timezone,
+					uploadToken,
+					source: "hevy",
+					unexpected: true,
+				}),
+			);
+		}),
+	testTimeout,
 );

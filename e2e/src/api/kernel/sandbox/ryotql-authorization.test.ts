@@ -729,7 +729,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 
 			const pluginEntities = rowsFromProbe("Plugin entities", "entities");
 			expect(pluginEntities).toHaveLength(2);
-			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).toEqual(
+			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).toEqual<unknown>(
 				arrayContaining([globalRoot.id, globalTarget.id]),
 			);
 			expect(pluginEntities.map((row) => requirePlainValue(row, "id"))).not.toContain(userARoot.id);

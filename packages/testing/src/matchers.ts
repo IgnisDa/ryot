@@ -1,6 +1,7 @@
-import { expect } from "vitest";
+import { expect } from "bun:test";
 
-export const anyOf = (constructor: unknown): unknown => expect.any(constructor);
+export const anyOf = (constructor: Parameters<typeof expect.any>[0]): unknown =>
+	expect.any(constructor);
 
 export const anything = (): unknown => expect.anything();
 

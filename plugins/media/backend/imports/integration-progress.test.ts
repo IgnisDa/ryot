@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { LogEntry } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	eventRecord,
@@ -85,16 +88,19 @@ const createHost = (
 	return { host, logs, calls, queries };
 };
 
-it.live("leaves ordinary imports and non-progress events untouched without admission calls", () =>
-	Effect.gen(function* () {
-		const { host, logs, calls } = createHost();
-		const ordinary = { ...input(), integration: undefined };
-		expect(yield* admitIntegrationProgress(ordinary, host)).toEqual(ordinary);
-		const nonProgress = input({}, { eventSchemaSlug: "review" });
-		expect(yield* admitIntegrationProgress(nonProgress, host)).toEqual(nonProgress);
-		expect(calls).toEqual([]);
-		expect(logs).toEqual([]);
-	}),
+it.live(
+	"leaves ordinary imports and non-progress events untouched without admission calls",
+	() =>
+		Effect.gen(function* () {
+			const { host, logs, calls } = createHost();
+			const ordinary = { ...input(), integration: undefined };
+			expect(yield* admitIntegrationProgress(ordinary, host)).toEqual(ordinary);
+			const nonProgress = input({}, { eventSchemaSlug: "review" });
+			expect(yield* admitIntegrationProgress(nonProgress, host)).toEqual(nonProgress);
+			expect(calls).toEqual([]);
+			expect(logs).toEqual([]);
+		}),
+	testTimeout,
 );
 
 it.live.each(["not-a-number", "", 3])(
@@ -114,6 +120,7 @@ it.live.each(["not-a-number", "", 3])(
 				reason: progressPercent === 3 ? "below_minimum_progress" : "invalid_progress",
 			});
 		}),
+	testTimeout,
 );
 
 it.live(
@@ -142,6 +149,7 @@ it.live(
 				{ concurrency: "unbounded" },
 			);
 		}),
+	testTimeout,
 );
 
 it.live(
@@ -187,6 +195,7 @@ it.live(
 				{ concurrency: "unbounded" },
 			);
 		}),
+	testTimeout,
 );
 
 it.live(
@@ -223,23 +232,30 @@ it.live(
 			expect(duplicate.entityGroups[0]?.events).toEqual([]);
 			expect(unchanged.logs[0]?.attributes).toMatchObject({ reason: "duplicate_progress" });
 		}),
+	testTimeout,
 );
 
-it.live("rejects progress carrying neither a percent nor a position for its schema", () =>
-	Effect.gen(function* () {
-		const { host, logs } = createHost();
-		const empty = yield* admitIntegrationProgress(input({ consumedOn: "Komga" }, {}, manga), host);
-		const wrongSchema = yield* admitIntegrationProgress(
-			input({ mangaChapter: 3, consumedOn: "Komga" }),
-			host,
-		);
-		expect(empty.entityGroups[0]?.events).toEqual([]);
-		expect(wrongSchema.entityGroups[0]?.events).toEqual([]);
-		expect(logs.map((log) => log.attributes?.["reason"])).toEqual([
-			"invalid_progress",
-			"invalid_progress",
-		]);
-	}),
+it.live(
+	"rejects progress carrying neither a percent nor a position for its schema",
+	() =>
+		Effect.gen(function* () {
+			const { host, logs } = createHost();
+			const empty = yield* admitIntegrationProgress(
+				input({ consumedOn: "Komga" }, {}, manga),
+				host,
+			);
+			const wrongSchema = yield* admitIntegrationProgress(
+				input({ mangaChapter: 3, consumedOn: "Komga" }),
+				host,
+			);
+			expect(empty.entityGroups[0]?.events).toEqual([]);
+			expect(wrongSchema.entityGroups[0]?.events).toEqual([]);
+			expect(logs.map((log) => log.attributes?.["reason"])).toEqual([
+				"invalid_progress",
+				"invalid_progress",
+			]);
+		}),
+	testTimeout,
 );
 
 it.live.each([
@@ -272,6 +288,7 @@ it.live.each([
 			);
 			expect(result.entityGroups[0]?.events).toHaveLength(suppressed ? 0 : 1);
 		}),
+	testTimeout,
 );
 
 it.live(
@@ -310,17 +327,21 @@ it.live(
 				"run-3",
 			]);
 		}),
+	testTimeout,
 );
 
-it.live("keeps unresolved population failures out of admission", () =>
-	Effect.gen(function* () {
-		const { host, calls } = createHost();
-		const unresolved = { ...input(), populationResults: [] };
-		const admitted = yield* admitIntegrationProgress(unresolved, host);
-		expect(createMediaImportChunk(admitted, "2026-01-01T00:00:00.000Z")).toMatchObject({
-			items: [],
-			failures: [{ stage: "provider_resolution" }],
-		});
-		expect(calls).toEqual([]);
-	}),
+it.live(
+	"keeps unresolved population failures out of admission",
+	() =>
+		Effect.gen(function* () {
+			const { host, calls } = createHost();
+			const unresolved = { ...input(), populationResults: [] };
+			const admitted = yield* admitIntegrationProgress(unresolved, host);
+			expect(createMediaImportChunk(admitted, "2026-01-01T00:00:00.000Z")).toMatchObject({
+				items: [],
+				failures: [{ stage: "provider_resolution" }],
+			});
+			expect(calls).toEqual([]);
+		}),
+	testTimeout,
 );

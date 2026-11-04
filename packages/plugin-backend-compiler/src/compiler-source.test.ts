@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { compileSandboxSource } from "./compiler-core";
@@ -108,17 +111,18 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 			Effect.gen(function* () {
 				const source = `${directive}\n${script}`;
 				const { packaged, standalone } = yield* bothPathDiagnostics(source);
-				expect(standalone).toEqual([
+				expect(standalone).toEqual<unknown>([
 					diagnostic("RYOT_IMPORT", STANDALONE, message, {
 						line: 2,
 						column: 1,
 						length: script.length,
 					}),
 				]);
-				expect(packaged).toEqual([
+				expect(packaged).toEqual<unknown>([
 					diagnostic("RYOT_IMPORT", ENTRY, message, { line: 2, column: 1, length: script.length }),
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -194,217 +198,250 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 			Effect.gen(function* () {
 				const source = `${prefix}\n${script}`;
 				const { packaged, standalone } = yield* bothPathDiagnostics(source);
-				expect(standalone).toEqual([
+				expect(standalone).toEqual<unknown>([
 					diagnostic("RYOT_IMPORT", STANDALONE, message, at(source, token)),
 				]);
-				expect(packaged).toEqual([diagnostic("RYOT_IMPORT", ENTRY, message, at(source, token))]);
+				expect(packaged).toEqual<unknown>([
+					diagnostic("RYOT_IMPORT", ENTRY, message, at(source, token)),
+				]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("reports several violations in one file in policy order", () =>
-		Effect.gen(function* () {
-			const rest = [
-				'import type { ZodType } from "zod";',
-				'type Loaded = import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>;',
-				'import fs = require("node:fs");',
-				'void import("@ryot-app/plugin-backend-sdk/effect");',
-				'export * from "zod";',
-				script,
-			].join("\n");
-			const source = `/// <reference lib="es2015" />\n${rest}`;
-			const expected = (file: string) => [
-				diagnostic("RYOT_IMPORT", file, "Reference directives are not allowed (es2015)", {
-					line: 2,
-					column: 1,
-					length: rest.length,
-				}),
-				diagnostic("RYOT_IMPORT", file, disallowedSandboxImport("zod"), at(source, '"zod"')),
-				diagnostic(
-					"RYOT_IMPORT",
-					file,
-					"Import assignments are not allowed",
-					at(source, 'import fs = require("node:fs");'),
-				),
-				diagnostic(
-					"RYOT_IMPORT",
-					file,
-					disallowedSandboxImport("zod"),
-					at(source, '"zod"', source.indexOf("export * from")),
-				),
-				diagnostic(
-					"RYOT_IMPORT",
-					file,
-					"Import type expressions are not allowed",
-					at(source, 'import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>'),
-				),
-				diagnostic(
-					"RYOT_IMPORT",
-					file,
-					"Dynamic imports are not allowed",
-					at(
-						source,
-						'import("@ryot-app/plugin-backend-sdk/effect")',
-						source.indexOf("void import"),
+	test.effect(
+		"reports several violations in one file in policy order",
+		() =>
+			Effect.gen(function* () {
+				const rest = [
+					'import type { ZodType } from "zod";',
+					'type Loaded = import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>;',
+					'import fs = require("node:fs");',
+					'void import("@ryot-app/plugin-backend-sdk/effect");',
+					'export * from "zod";',
+					script,
+				].join("\n");
+				const source = `/// <reference lib="es2015" />\n${rest}`;
+				const expected = (file: string) => [
+					diagnostic("RYOT_IMPORT", file, "Reference directives are not allowed (es2015)", {
+						line: 2,
+						column: 1,
+						length: rest.length,
+					}),
+					diagnostic("RYOT_IMPORT", file, disallowedSandboxImport("zod"), at(source, '"zod"')),
+					diagnostic(
+						"RYOT_IMPORT",
+						file,
+						"Import assignments are not allowed",
+						at(source, 'import fs = require("node:fs");'),
 					),
-				),
-			];
-			const { packaged, standalone } = yield* bothPathDiagnostics(source);
-			expect(standalone).toEqual(expected(STANDALONE));
-			expect(packaged).toEqual(expected(ENTRY));
-		}),
+					diagnostic(
+						"RYOT_IMPORT",
+						file,
+						disallowedSandboxImport("zod"),
+						at(source, '"zod"', source.indexOf("export * from")),
+					),
+					diagnostic(
+						"RYOT_IMPORT",
+						file,
+						"Import type expressions are not allowed",
+						at(source, 'import("@ryot-app/plugin-backend-sdk/effect").Effect.Effect<void>'),
+					),
+					diagnostic(
+						"RYOT_IMPORT",
+						file,
+						"Dynamic imports are not allowed",
+						at(
+							source,
+							'import("@ryot-app/plugin-backend-sdk/effect")',
+							source.indexOf("void import"),
+						),
+					),
+				];
+				const { packaged, standalone } = yield* bothPathDiagnostics(source);
+				expect(standalone).toEqual<unknown>(expected(STANDALONE));
+				expect(packaged).toEqual<unknown>(expected(ENTRY));
+			}),
+		testTimeout,
 	);
 
-	test.effect("reports only the inspection violation when the source also has a type error", () =>
-		Effect.gen(function* () {
-			const source = `import zod = require("zod");\nconst broken: string = 1;\n${script}`;
-			const { packaged, standalone } = yield* bothPathDiagnostics(source);
-			const location = at(source, 'import zod = require("zod");');
-			expect(standalone).toEqual([
-				diagnostic("RYOT_IMPORT", STANDALONE, "Import assignments are not allowed", location),
-			]);
-			expect(packaged).toEqual([
-				diagnostic("RYOT_IMPORT", ENTRY, "Import assignments are not allowed", location),
-			]);
-		}),
+	test.effect(
+		"reports only the inspection violation when the source also has a type error",
+		() =>
+			Effect.gen(function* () {
+				const source = `import zod = require("zod");\nconst broken: string = 1;\n${script}`;
+				const { packaged, standalone } = yield* bothPathDiagnostics(source);
+				const location = at(source, 'import zod = require("zod");');
+				expect(standalone).toEqual<unknown>([
+					diagnostic("RYOT_IMPORT", STANDALONE, "Import assignments are not allowed", location),
+				]);
+				expect(packaged).toEqual<unknown>([
+					diagnostic("RYOT_IMPORT", ENTRY, "Import assignments are not allowed", location),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("reports type errors before execution analysis errors on both paths", () =>
-		Effect.gen(function* () {
-			const runSync = 'Effect.runSync(Effect.succeed("ready"))';
-			const executable = `${script}\nconst initialized = ${runSync};`;
-			const executionOnly = yield* bothPathDiagnostics(executable);
-			const executionError = (file: string) =>
-				diagnostic(
-					"RYOT_DEPENDENCY",
-					file,
-					"Effect execution during module initialization is unsupported",
-					at(executable, runSync),
-				);
-			expect(executionOnly.standalone).toEqual([executionError(STANDALONE)]);
-			expect(executionOnly.packaged).toEqual([executionError(ENTRY)]);
+	test.effect(
+		"reports type errors before execution analysis errors on both paths",
+		() =>
+			Effect.gen(function* () {
+				const runSync = 'Effect.runSync(Effect.succeed("ready"))';
+				const executable = `${script}\nconst initialized = ${runSync};`;
+				const executionOnly = yield* bothPathDiagnostics(executable);
+				const executionError = (file: string) =>
+					diagnostic(
+						"RYOT_DEPENDENCY",
+						file,
+						"Effect execution during module initialization is unsupported",
+						at(executable, runSync),
+					);
+				expect(executionOnly.standalone).toEqual<unknown>([executionError(STANDALONE)]);
+				expect(executionOnly.packaged).toEqual<unknown>([executionError(ENTRY)]);
 
-			const source = `${executable}\nconst broken: string = 1;`;
-			const { packaged, standalone } = yield* bothPathDiagnostics(source);
-			const typeError = (file: string) =>
-				diagnostic(
-					"TS2322",
-					file,
-					"Type 'number' is not assignable to type 'string'.",
-					at(source, "broken"),
-				);
-			expect(standalone).toEqual([typeError(STANDALONE)]);
-			expect(packaged).toEqual([typeError(ENTRY)]);
-		}),
+				const source = `${executable}\nconst broken: string = 1;`;
+				const { packaged, standalone } = yield* bothPathDiagnostics(source);
+				const typeError = (file: string) =>
+					diagnostic(
+						"TS2322",
+						file,
+						"Type 'number' is not assignable to type 'string'.",
+						at(source, "broken"),
+					);
+				expect(standalone).toEqual<unknown>([typeError(STANDALONE)]);
+				expect(packaged).toEqual<unknown>([typeError(ENTRY)]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a provider operation given as a constant identifier", () =>
-		Effect.gen(function* () {
-			const definition =
-				'{ manifest, operation: OP, run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }) }';
-			const source = [
-				'import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";',
-				'import { Effect } from "@ryot-app/plugin-backend-sdk/effect";',
-				'import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";',
-				'const OP = "related";',
-				'export const manifest = defineManifest({ kind: "provider", name: "Provider", slug: "provider.related" });',
-				`export default defineProvider(${definition});`,
-			].join("\n");
-			const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
-			expect(failure.diagnostics).toEqual([
-				diagnostic(
-					"RYOT_DEFINITION",
-					STANDALONE,
-					'The provider definition must contain the exported "manifest", a static standard operation, and a run function',
-					at(source, definition),
-				),
-			]);
-		}),
+	test.effect(
+		"rejects a provider operation given as a constant identifier",
+		() =>
+			Effect.gen(function* () {
+				const definition =
+					'{ manifest, operation: OP, run: () => Effect.succeed({ entities: [], coverage: { status: "complete" as const } }) }';
+				const source = [
+					'import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";',
+					'import { Effect } from "@ryot-app/plugin-backend-sdk/effect";',
+					'import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";',
+					'const OP = "related";',
+					'export const manifest = defineManifest({ kind: "provider", name: "Provider", slug: "provider.related" });',
+					`export default defineProvider(${definition});`,
+				].join("\n");
+				const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual<unknown>([
+					diagnostic(
+						"RYOT_DEFINITION",
+						STANDALONE,
+						'The provider definition must contain the exported "manifest", a static standard operation, and a run function',
+						at(source, definition),
+					),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a definition whose manifest is another identifier", () =>
-		Effect.gen(function* () {
-			const definition =
-				"{ manifest: other, input: Schema.Struct({}), output: Schema.Unknown, run: () => Effect.succeed(null) }";
-			const source = [
-				scriptLines[0],
-				scriptLines[1],
-				scriptLines[2],
-				"const other = manifest;",
-				`export default defineScript(${definition});`,
-			].join("\n");
-			const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
-			expect(failure.diagnostics).toEqual([
-				diagnostic(
-					"RYOT_DEFINITION",
-					STANDALONE,
-					'The script definition must contain the exported "manifest", input and output schemas, and a run function',
-					at(source, definition),
-				),
-			]);
-		}),
+	test.effect(
+		"rejects a definition whose manifest is another identifier",
+		() =>
+			Effect.gen(function* () {
+				const definition =
+					"{ manifest: other, input: Schema.Struct({}), output: Schema.Unknown, run: () => Effect.succeed(null) }";
+				const source = [
+					scriptLines[0],
+					scriptLines[1],
+					scriptLines[2],
+					"const other = manifest;",
+					`export default defineScript(${definition});`,
+				].join("\n");
+				const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual<unknown>([
+					diagnostic(
+						"RYOT_DEFINITION",
+						STANDALONE,
+						'The script definition must contain the exported "manifest", input and output schemas, and a run function',
+						at(source, definition),
+					),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a source without a default export", () =>
-		Effect.gen(function* () {
-			const source = scriptLines.slice(0, 3).join("\n");
-			const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
-			expect(failure.diagnostics).toEqual([
-				diagnostic(
-					"RYOT_DEFINITION",
-					STANDALONE,
-					"Source must have exactly one default definition export",
-					at(source, source),
-				),
-			]);
-		}),
+	test.effect(
+		"rejects a source without a default export",
+		() =>
+			Effect.gen(function* () {
+				const source = scriptLines.slice(0, 3).join("\n");
+				const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual<unknown>([
+					diagnostic(
+						"RYOT_DEFINITION",
+						STANDALONE,
+						"Source must have exactly one default definition export",
+						at(source, source),
+					),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a default export that is not a definition helper call", () =>
-		Effect.gen(function* () {
-			const assignment = "export default { manifest, run: () => Effect.succeed(null) };";
-			const source = [...scriptLines.slice(0, 3), assignment].join("\n");
-			const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
-			expect(failure.diagnostics).toEqual([
-				diagnostic("RYOT_DEFINITION", STANDALONE, definitionCallMessage, at(source, assignment)),
-			]);
-		}),
+	test.effect(
+		"rejects a default export that is not a definition helper call",
+		() =>
+			Effect.gen(function* () {
+				const assignment = "export default { manifest, run: () => Effect.succeed(null) };";
+				const source = [...scriptLines.slice(0, 3), assignment].join("\n");
+				const failure = yield* compileSandboxSource(source).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual<unknown>([
+					diagnostic("RYOT_DEFINITION", STANDALONE, definitionCallMessage, at(source, assignment)),
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("accepts import and require text inside comments and strings", () =>
-		Effect.gen(function* () {
-			const source = `// import("zod") require("x")\nconst inert = 'import("zod") require("x")';\n${script}`;
-			const standalone = yield* compileSandboxSource(source);
-			const packaged = yield* compilePluginSandboxSourceEntries({ [ENTRY]: source }, [
-				{ entry: ENTRY, kind: "script" },
-			]);
-			expect(standalone.manifest.kind).toBe("script");
-			expect(packaged[0]?.compiled.manifest.kind).toBe("script");
-		}),
+	test.effect(
+		"accepts import and require text inside comments and strings",
+		() =>
+			Effect.gen(function* () {
+				const source = `// import("zod") require("x")\nconst inert = 'import("zod") require("x")';\n${script}`;
+				const standalone = yield* compileSandboxSource(source);
+				const packaged = yield* compilePluginSandboxSourceEntries({ [ENTRY]: source }, [
+					{ entry: ENTRY, kind: "script" },
+				]);
+				expect(standalone.manifest.kind).toBe("script");
+				expect(packaged[0]?.compiled.manifest.kind).toBe("script");
+			}),
+		testTimeout,
 	);
 
-	test.effect("checks only top-level declarations for module specifiers", () =>
-		Effect.gen(function* () {
-			const source = `declare module "x" { export * from "zod"; }\n${script}`;
-			const { packaged, standalone } = yield* bothPathDiagnostics(source);
-			for (const diagnostics of [standalone, packaged]) {
-				expect(diagnostics.length).toBeGreaterThan(0);
-				expect(diagnostics.every(({ code }) => code.startsWith("TS"))).toBe(true);
-			}
-		}),
+	test.effect(
+		"checks only top-level declarations for module specifiers",
+		() =>
+			Effect.gen(function* () {
+				const source = `declare module "x" { export * from "zod"; }\n${script}`;
+				const { packaged, standalone } = yield* bothPathDiagnostics(source);
+				for (const diagnostics of [standalone, packaged]) {
+					expect(diagnostics.length).toBeGreaterThan(0);
+					expect(diagnostics.every(({ code }) => code.startsWith("TS"))).toBe(true);
+				}
+			}),
+		testTimeout,
 	);
 
-	test.effect("recognizes an aliased named definition helper import", () =>
-		Effect.gen(function* () {
-			const source = script
-				.replace("defineScript }", "defineScript as ds }")
-				.replace("export default defineScript(", "export default ds(");
-			const standalone = yield* compileSandboxSource(source);
-			const packaged = yield* compilePluginSandboxSourceEntries({ [ENTRY]: source }, [
-				{ entry: ENTRY, kind: "script" },
-			]);
-			expect(standalone.manifest.kind).toBe("script");
-			expect(packaged[0]?.compiled.manifest.kind).toBe("script");
-		}),
+	test.effect(
+		"recognizes an aliased named definition helper import",
+		() =>
+			Effect.gen(function* () {
+				const source = script
+					.replace("defineScript }", "defineScript as ds }")
+					.replace("export default defineScript(", "export default ds(");
+				const standalone = yield* compileSandboxSource(source);
+				const packaged = yield* compilePluginSandboxSourceEntries({ [ENTRY]: source }, [
+					{ entry: ENTRY, kind: "script" },
+				]);
+				expect(standalone.manifest.kind).toBe("script");
+				expect(packaged[0]?.compiled.manifest.kind).toBe("script");
+			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -430,13 +467,16 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 				(scriptLines[3] ?? "").replace("defineScript(", "sdk.defineScript("),
 			].join("\n"),
 		},
-	])("does not recognize a $label definition helper", ({ token, source }) =>
-		Effect.gen(function* () {
-			const diagnostics = yield* packageDiagnostics({ [ENTRY]: source });
-			expect(diagnostics).toEqual([
-				diagnostic("RYOT_DEFINITION", ENTRY, definitionCallMessage, at(source, token)),
-			]);
-		}),
+	])(
+		"does not recognize a $label definition helper",
+		({ token, source }) =>
+			Effect.gen(function* () {
+				const diagnostics = yield* packageDiagnostics({ [ENTRY]: source });
+				expect(diagnostics).toEqual<unknown>([
+					diagnostic("RYOT_DEFINITION", ENTRY, definitionCallMessage, at(source, token)),
+				]);
+			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -457,6 +497,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 				);
 				expect(compiled[0]?.compiled.javascript).toContain("shared-target");
 			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -475,7 +516,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					[importerPath]: source,
 					[ENTRY]: sharedEntry(entryImport),
 				});
-				expect(diagnostics).toEqual([
+				expect(diagnostics).toEqual<unknown>([
 					diagnostic(
 						"RYOT_IMPORT",
 						importerPath,
@@ -484,6 +525,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					),
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -499,7 +541,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					[importerPath]: source,
 					[ENTRY]: sharedEntry(entryImport),
 				});
-				expect(diagnostics).toEqual([
+				expect(diagnostics).toEqual<unknown>([
 					diagnostic(
 						"TS2307",
 						importerPath,
@@ -508,6 +550,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					),
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -540,7 +583,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					{ ...modules, [ENTRY]: workflowEntry(specifier) },
 					"workflow",
 				);
-				expect(diagnostics).toEqual([
+				expect(diagnostics).toEqual<unknown>([
 					diagnostic(
 						"RYOT_WORKFLOW_DETERMINISM",
 						reached,
@@ -549,6 +592,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					),
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -570,7 +614,7 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					{ ...modules, [ENTRY]: workflowEntry(specifier) },
 					"workflow",
 				);
-				expect(diagnostics).toEqual([
+				expect(diagnostics).toEqual<unknown>([
 					diagnostic(
 						"RYOT_WORKFLOW_DETERMINISM",
 						"shared/x.ts",
@@ -579,5 +623,6 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 					),
 				]);
 			}),
+		testTimeout,
 	);
 });

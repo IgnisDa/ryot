@@ -1,6 +1,10 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { SANDBOX_LIMITS, sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { encodeWorkoutEditorDraft, WorkoutEditorDraftSchema } from "./workout-editor-draft";
@@ -304,18 +308,22 @@ it.effect(
 				SANDBOX_LIMITS.execution.contextBytes,
 			);
 		}),
+	testTimeout,
 );
 
-it.effect("rejects an oversized save payload without truncating its Unicode content", () =>
-	Effect.gen(function* () {
-		const save = saveInputFor(yield* workoutDraft([occurrence("occurrence-1", 0, 1)]));
-		assert(save.data.kind === "workout");
-		const longComment = "筋力💪".repeat(20_000);
-		const oversized = { ...save, data: { ...save.data, comment: longComment } };
+it.effect(
+	"rejects an oversized save payload without truncating its Unicode content",
+	() =>
+		Effect.gen(function* () {
+			const save = saveInputFor(yield* workoutDraft([occurrence("occurrence-1", 0, 1)]));
+			assert(save.data.kind === "workout");
+			const longComment = "筋力💪".repeat(20_000);
+			const oversized = { ...save, data: { ...save.data, comment: longComment } };
 
-		expect(sandboxContextError(oversized)).toContain(
-			`exceeds ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`,
-		);
-		expect(oversized.data.comment).toBe(longComment);
-	}),
+			expect(sandboxContextError(oversized)).toContain(
+				`exceeds ${SANDBOX_LIMITS.execution.contextBytes} UTF-8 bytes`,
+			);
+			expect(oversized.data.comment).toBe(longComment);
+		}),
+	testTimeout,
 );

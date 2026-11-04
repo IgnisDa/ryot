@@ -1,9 +1,11 @@
+import { expect, it } from "bun:test";
+
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { assert, expect, it } from "vitest";
 
 import { kernelDefinitionSource } from "./kernel-source";
 import {
@@ -217,7 +219,7 @@ it("builds the kernel source with its calendar view", () => {
 	const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
 	expect(
 		snapshot.savedViews[definitionKey("saved-view", definitionOwner(null), "calendar")],
-	).toEqual(
+	).toEqual<unknown>(
 		objectContaining({
 			settings: {},
 			dataSources: null,

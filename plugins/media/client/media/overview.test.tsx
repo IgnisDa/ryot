@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import type { ReactNode } from "react";
 
 import {
@@ -146,53 +149,62 @@ describe("MediaOverview", () => {
 		unmount();
 	});
 
-	it.effect("filters the providers, link and attribution by the saved viewing country", () =>
-		Effect.gen(function* () {
-			const { unmount, container } = mountRyotClient(
-				{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "GB" }) },
-				overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
-			);
+	it.effect(
+		"filters the providers, link and attribution by the saved viewing country",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = mountRyotClient(
+					{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "GB" }) },
+					overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+				);
 
-			yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() => flushRyotClient());
 
-			expect(container.textContent).toContain("Where to watch");
-			expect(container.textContent).toContain("Netflix");
-			expect(container.textContent).not.toContain("Apple TV");
-			expect(container.textContent).toContain("Availability in United Kingdom, from JustWatch.");
-			expect(container.textContent).not.toContain("View all options");
-			unmount();
-		}),
+				expect(container.textContent).toContain("Where to watch");
+				expect(container.textContent).toContain("Netflix");
+				expect(container.textContent).not.toContain("Apple TV");
+				expect(container.textContent).toContain("Availability in United Kingdom, from JustWatch.");
+				expect(container.textContent).not.toContain("View all options");
+				unmount();
+			}),
+		testTimeout,
 	);
 
-	it.effect("uses the watch link for the saved country", () =>
-		Effect.gen(function* () {
-			const { unmount, container } = mountRyotClient(
-				{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "US" }) },
-				overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
-			);
-			yield* Effect.promise(() => flushRyotClient());
+	it.effect(
+		"uses the watch link for the saved country",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = mountRyotClient(
+					{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "US" }) },
+					overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+				);
+				yield* Effect.promise(() => flushRyotClient());
 
-			expect(container.textContent).toContain("Apple TV");
-			expect(container.textContent).toContain("Availability in United States, from JustWatch.");
-			expect(
-				container.querySelector('a[href="https://www.themoviedb.org/tv/1/watch?locale=US"]'),
-			).not.toBeNull();
-			unmount();
-		}),
+				expect(container.textContent).toContain("Apple TV");
+				expect(container.textContent).toContain("Availability in United States, from JustWatch.");
+				expect(
+					container.querySelector('a[href="https://www.themoviedb.org/tv/1/watch?locale=US"]'),
+				).not.toBeNull();
+				unmount();
+			}),
+		testTimeout,
 	);
 
-	it.effect("hides unavailable countries rather than showing another country's providers", () =>
-		Effect.gen(function* () {
-			const { unmount, container } = mountRyotClient(
-				{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "FR" }) },
-				overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
-			);
-			yield* Effect.promise(() => flushRyotClient());
+	it.effect(
+		"hides unavailable countries rather than showing another country's providers",
+		() =>
+			Effect.gen(function* () {
+				const { unmount, container } = mountRyotClient(
+					{ ...noopAdapter, readUserSettings: () => Effect.succeed({ viewingRegion: "FR" }) },
+					overviewScreen({ overview: { status: "ready", overview: readyOverview } }),
+				);
+				yield* Effect.promise(() => flushRyotClient());
 
-			expect(container.textContent).not.toContain("Where to watch");
-			expect(container.textContent).not.toContain("JustWatch");
-			unmount();
-		}),
+				expect(container.textContent).not.toContain("Where to watch");
+				expect(container.textContent).not.toContain("JustWatch");
+				unmount();
+			}),
+		testTimeout,
 	);
 
 	it("omits the watch providers section when the region carries none", () => {
@@ -233,29 +245,32 @@ describe("MediaOverview", () => {
 		unmount();
 	});
 
-	it.live("retries a failed overview load through the refresh callback", () =>
-		Effect.gen(function* () {
-			let refreshCount = 0;
-			const { unmount, container } = mountRyotClient(
-				noopAdapter,
-				overviewScreen({
-					overview: { status: "transport-error" },
-					refreshOverview: () => {
-						refreshCount += 1;
-					},
-				}),
-			);
+	it.live(
+		"retries a failed overview load through the refresh callback",
+		() =>
+			Effect.gen(function* () {
+				let refreshCount = 0;
+				const { unmount, container } = mountRyotClient(
+					noopAdapter,
+					overviewScreen({
+						overview: { status: "transport-error" },
+						refreshOverview: () => {
+							refreshCount += 1;
+						},
+					}),
+				);
 
-			expect(container.textContent).toContain("Unable to load these details");
-			const retry = Array.from(container.querySelectorAll("button")).find(
-				(button) => button.textContent === "Try again",
-			);
-			if (retry === undefined) {
-				throw new Error("Expected the overview retry button");
-			}
-			fireEvent.click(retry);
-			yield* Effect.promise(() => waitFor(() => expect(refreshCount).toBe(1)));
-			unmount();
-		}),
+				expect(container.textContent).toContain("Unable to load these details");
+				const retry = Array.from(container.querySelectorAll("button")).find(
+					(button) => button.textContent === "Try again",
+				);
+				if (retry === undefined) {
+					throw new Error("Expected the overview retry button");
+				}
+				fireEvent.click(retry);
+				yield* Effect.promise(() => waitFor(() => expect(refreshCount).toBe(1)));
+				unmount();
+			}),
+		testTimeout,
 	);
 });

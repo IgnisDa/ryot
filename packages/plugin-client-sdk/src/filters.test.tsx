@@ -1,13 +1,11 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { screen } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import { activeFiltersPhrase, filtersLabel, ViewFiltersSheet } from "./filters";
-
-(
-	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
 
 const roots: Root[] = [];
 

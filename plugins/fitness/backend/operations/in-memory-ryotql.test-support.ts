@@ -1,10 +1,10 @@
-import { assert } from "@effect/vitest";
 import type {
 	Predicate,
 	RyotQLDocument,
 	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { assert } from "@ryot-app/testing/assert";
 
 export type StoredTables = Readonly<Record<string, readonly StoredRow[]>>;
 type Expression = Predicate | ScalarExpression;

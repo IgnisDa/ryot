@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Option, Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { integrationRecipe, integrationsRecipe } from "./integrations";
 import { requireRowsQuery, rowsResult } from "./test-utils";
@@ -64,13 +65,13 @@ describe("integration recipes", () => {
 			recipe.decode({ data: { integrations: rows([item, kernelItem]) } }),
 		);
 
-		expect(decoded.items[0]).toEqual({
+		expect(decoded.items[0]).toEqual<unknown>({
 			...item,
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",
 			lastFinishedAt: "2026-01-02T23:00:00.000Z",
 		});
-		expect(decoded.items[1]).toEqual({
+		expect(decoded.items[1]).toEqual<unknown>({
 			...kernelItem,
 			createdAt: "2025-12-31T23:00:00.000Z",
 			updatedAt: "2026-01-01T23:00:00.000Z",
@@ -93,7 +94,9 @@ describe("integration recipes", () => {
 		expect(
 			Option.isNone(Result.getOrThrow(recipe.decode({ data: { integration: rows([], 2) } }))),
 		).toBe(true);
-		expect(Result.getOrThrow(recipe.decode({ data: { integration: rows([detail], 2) } }))).toEqual(
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { integration: rows([detail], 2) } })),
+		).toEqual<unknown>(
 			Option.some({
 				...detail,
 				createdAt: "2025-12-31T23:00:00.000Z",

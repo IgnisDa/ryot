@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Schema } from "effect";
 import { act, type ReactNode, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -27,9 +30,6 @@ import { usePluginStorage } from "./storage";
 import type { RyotSubmission } from "./submission";
 import { useRyotSubmission } from "./submission-hook";
 
-(
-	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
 type TestClock = ReturnType<typeof createTestRyotClock>;
 const roots: Root[] = [];
 const clocks: TestClock[] = [];
@@ -119,93 +119,103 @@ describe("Effect-native React definitions", () => {
 				act(() => requests[1]?.resume({ items: ["current"], pageInfo: { nextCursor: null } }));
 				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("current")));
 			}),
+		testTimeout,
 	);
-	it.live("keeps pagination idle through an atomic background refresh of all loaded pages", () =>
-		Effect.gen(function* () {
-			type Page = {
-				readonly items: readonly string[];
-				readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-			};
-			const requests: Array<{
-				readonly after: null | string;
-				readonly resume: (page: Page) => void;
-			}> = [];
-			const query = createRyotQuery<null | string, Page>(
-				({ input: after }) =>
-					Effect.callback<Page>((resume) => {
-						requests.push({ after, resume: (page) => resume(Effect.succeed(page)) });
-					}),
-				{ cancelOnUnmount: true },
-			);
-			const View = () => {
-				const result = useRyotInfiniteQuery(query, undefined, {
-					initialPageParam: null,
-					getNextPageParam: nextPageCursor,
-					getPageInput: (_, after: null | string) => after,
-				});
-				return (
-					<>
-						<p>
-							{paginationItems(
-								result.pages,
-								(page) => page.items,
-								(item) => item,
-							).join(",")}
-						</p>
-						<button disabled={result.isFetching} onClick={result.fetchNextPage}>
-							{result.isFetchingNextPage ? "Loading more" : "Load more"}
-						</button>
-						<output>{result.isRefreshing ? "refreshing" : "idle"}</output>
-					</>
+	it.live(
+		"keeps pagination idle through an atomic background refresh of all loaded pages",
+		() =>
+			Effect.gen(function* () {
+				type Page = {
+					readonly items: readonly string[];
+					readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
+				};
+				const requests: Array<{
+					readonly after: null | string;
+					readonly resume: (page: Page) => void;
+				}> = [];
+				const query = createRyotQuery<null | string, Page>(
+					({ input: after }) =>
+						Effect.callback<Page>((resume) => {
+							requests.push({ after, resume: (page) => resume(Effect.succeed(page)) });
+						}),
+					{ cancelOnUnmount: true },
 				);
-			};
-			const clock = makeClock();
-			const { container } = render(<View />, clock);
-			act(() =>
-				requests[0]?.resume({ items: ["first"], pageInfo: { hasMore: true, nextCursor: "older" } }),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelector("p")?.textContent).toBe("first")),
-			);
-			act(() => {
-				fireEvent.click(getByRole(container, "button", { name: "Load more" }));
-			});
-			expect(getByRole(container, "button", { name: "Loading more" })).toBeTruthy();
-			expect(requests[1]?.after).toBe("older");
-			act(() =>
-				requests[1]?.resume({ items: ["second"], pageInfo: { hasMore: true, nextCursor: "last" } }),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelector("p")?.textContent).toBe("first,second")),
-			);
-			clock.client.mutationCompleted.hint();
-			yield* Effect.promise(() => clock.advance(250));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(3)));
-			expect(getByRole(container, "button", { name: "Load more" })).toBeTruthy();
-			expect(container.querySelector("output")?.textContent).toBe("refreshing");
-			act(() =>
-				requests[2]?.resume({
-					items: ["first updated"],
-					pageInfo: { hasMore: true, nextCursor: "fresh" },
-				}),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(4)));
-			expect(requests[3]?.after).toBe("fresh");
-			expect(container.querySelector("p")?.textContent).toBe("first,second");
-			expect(getByRole(container, "button", { name: "Load more" })).toBeTruthy();
-			act(() =>
-				requests[3]?.resume({
-					items: ["second updated"],
-					pageInfo: { hasMore: false, nextCursor: null },
-				}),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(container.querySelector("p")?.textContent).toBe("first updated,second updated"),
-				),
-			);
-			expect(container.querySelector("output")?.textContent).toBe("idle");
-		}),
+				const View = () => {
+					const result = useRyotInfiniteQuery(query, undefined, {
+						initialPageParam: null,
+						getNextPageParam: nextPageCursor,
+						getPageInput: (_, after: null | string) => after,
+					});
+					return (
+						<>
+							<p>
+								{paginationItems(
+									result.pages,
+									(page) => page.items,
+									(item) => item,
+								).join(",")}
+							</p>
+							<button disabled={result.isFetching} onClick={result.fetchNextPage}>
+								{result.isFetchingNextPage ? "Loading more" : "Load more"}
+							</button>
+							<output>{result.isRefreshing ? "refreshing" : "idle"}</output>
+						</>
+					);
+				};
+				const clock = makeClock();
+				const { container } = render(<View />, clock);
+				act(() =>
+					requests[0]?.resume({
+						items: ["first"],
+						pageInfo: { hasMore: true, nextCursor: "older" },
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("first")),
+				);
+				act(() => {
+					fireEvent.click(getByRole(container, "button", { name: "Load more" }));
+				});
+				expect(getByRole(container, "button", { name: "Loading more" })).toBeTruthy();
+				expect(requests[1]?.after).toBe("older");
+				act(() =>
+					requests[1]?.resume({
+						items: ["second"],
+						pageInfo: { hasMore: true, nextCursor: "last" },
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("first,second")),
+				);
+				clock.client.mutationCompleted.hint();
+				yield* Effect.promise(() => clock.advance(250));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(3)));
+				expect(getByRole(container, "button", { name: "Load more" })).toBeTruthy();
+				expect(container.querySelector("output")?.textContent).toBe("refreshing");
+				act(() =>
+					requests[2]?.resume({
+						items: ["first updated"],
+						pageInfo: { hasMore: true, nextCursor: "fresh" },
+					}),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(4)));
+				expect(requests[3]?.after).toBe("fresh");
+				expect(container.querySelector("p")?.textContent).toBe("first,second");
+				expect(getByRole(container, "button", { name: "Load more" })).toBeTruthy();
+				act(() =>
+					requests[3]?.resume({
+						items: ["second updated"],
+						pageInfo: { hasMore: false, nextCursor: null },
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(container.querySelector("p")?.textContent).toBe("first updated,second updated"),
+					),
+				);
+				expect(container.querySelector("output")?.textContent).toBe("idle");
+			}),
+		testTimeout,
 	);
 	it.live(
 		"retains a submission through transport and incomplete results before accepting a new one",
@@ -260,7 +270,7 @@ describe("Effect-native React definitions", () => {
 					waitFor(() => expect(container.querySelector("p")?.textContent).toBe("idle")),
 				);
 				const submittedAt = attempts[0]?.submittedAt;
-				expect(attempts).toEqual(
+				expect(attempts).toEqual<unknown>(
 					Array.from({ length: 3 }, () => ({
 						submittedAt,
 						input: { value: 0 },
@@ -271,31 +281,35 @@ describe("Effect-native React definitions", () => {
 				yield* Effect.promise(() => waitFor(() => expect(attempts).toHaveLength(4)));
 				expect(attempts[3]?.submissionId).toBe("submission-2");
 			}),
+		testTimeout,
 	);
 
-	it.live("shares a query atom and refetches it on demand", () =>
-		Effect.gen(function* () {
-			let calls = 0;
-			let latest: undefined | RyotQueryResult<number>;
-			const query = createRyotQuery(() => Effect.sync(() => ++calls));
-			const View = () => {
-				const result = useRyotQuery(query);
-				useEffect(() => {
-					latest = result;
-				});
-				return <p>{result.data ?? "pending"}</p>;
-			};
-			const { container } = render(
-				<>
-					<View />
-					<View />
-				</>,
-			);
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("11")));
-			expect(calls).toBe(1);
-			act(() => latest?.refetch());
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("22")));
-		}),
+	it.live(
+		"shares a query atom and refetches it on demand",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				let latest: undefined | RyotQueryResult<number>;
+				const query = createRyotQuery(() => Effect.sync(() => ++calls));
+				const View = () => {
+					const result = useRyotQuery(query);
+					useEffect(() => {
+						latest = result;
+					});
+					return <p>{result.data ?? "pending"}</p>;
+				};
+				const { container } = render(
+					<>
+						<View />
+						<View />
+					</>,
+				);
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("11")));
+				expect(calls).toBe(1);
+				act(() => latest?.refetch());
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("22")));
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -342,6 +356,7 @@ describe("Effect-native React definitions", () => {
 				act(() => latest?.refetch());
 				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("second:1")));
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -392,228 +407,254 @@ describe("Effect-native React definitions", () => {
 				expect(container.textContent).toBe("loading");
 				expect(latest).toMatchObject({ isPending: true, data: undefined, isFetching: true });
 			}),
+		testTimeout,
 	);
 
-	it.live("reads the provider clock on each execution without changing query identity", () =>
-		Effect.gen(function* () {
-			const clock = makeClock();
-			let latest: undefined | RyotQueryResult<number>;
-			let calls = 0;
-			const query = createRyotQuery(({ schedule }) =>
-				Effect.sync(() => {
-					calls++;
-					return schedule.now();
-				}),
-			);
-			const View = () => {
-				const result = useRyotQuery(query);
-				useEffect(() => {
-					latest = result;
-				});
-				return <p>{result.data}</p>;
-			};
-			const { container } = render(<View />, clock);
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("0")));
-			yield* Effect.promise(() => clock.advance(1_000));
-			expect(container.textContent).toBe("0");
-			expect(calls).toBe(1);
-			act(() => latest?.refetch());
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("1000")));
-			expect(calls).toBe(2);
-		}),
-	);
-
-	it.live("interrupts superseded requests and ignores their late completion", () =>
-		Effect.gen(function* () {
-			const requests: Array<{
-				readonly signal: AbortSignal;
-				readonly resume: (value: string) => void;
-			}> = [];
-			let latest: undefined | RyotQueryResult<string>;
-			const query = createRyotQuery(
-				() =>
-					Effect.callback<string>((resume, signal) => {
-						requests.push({ signal, resume: (value) => resume(Effect.succeed(value)) });
+	it.live(
+		"reads the provider clock on each execution without changing query identity",
+		() =>
+			Effect.gen(function* () {
+				const clock = makeClock();
+				let latest: undefined | RyotQueryResult<number>;
+				let calls = 0;
+				const query = createRyotQuery(({ schedule }) =>
+					Effect.sync(() => {
+						calls++;
+						return schedule.now();
 					}),
-				{ initialData: () => "hydrated" },
-			);
-			const View = () => {
-				const result = useRyotQuery(query);
-				useEffect(() => {
-					latest = result;
-				});
-				return <p>{result.data}</p>;
-			};
-			const { container } = render(<View />);
-			expect(container.textContent).toBe("hydrated");
-			act(() => latest?.refetch());
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			act(() => latest?.refetch());
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-			expect(requests[0]?.signal.aborted).toBe(true);
-			yield* Effect.promise(() =>
-				act(() => {
-					requests[1]?.resume("current");
-					return Promise.resolve();
-				}),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("current")));
-			yield* Effect.promise(() =>
-				act(() => {
-					requests[0]?.resume("stale");
-					return Promise.resolve();
-				}),
-			);
-			expect(container.textContent).toBe("current");
-		}),
-	);
-
-	it.live("keeps the initial hydration through a query refresh", () =>
-		Effect.gen(function* () {
-			let calls = 0;
-			let latest: undefined | RyotQueryResult<number>;
-			const query = createRyotQuery(() => Effect.sync(() => ++calls), { initialData: () => 0 });
-			const View = () => {
-				const result = useRyotQuery(query);
-				useEffect(() => {
-					latest = result;
-				});
-				return <p>{result.data}</p>;
-			};
-			const { container } = render(<View />);
-			expect(container.textContent).toBe("0");
-			expect(calls).toBe(0);
-			act(() => latest?.refetch());
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("1")));
-		}),
-	);
-
-	it.live("uses the TestClock-backed refresh schedule after capability mutation", () =>
-		Effect.gen(function* () {
-			let calls = 0;
-			const clock = makeClock({ invokeOperation: () => Effect.succeed("saved") });
-			const query = createRyotQuery(() => Effect.sync(() => ++calls));
-			const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
-			const { container } = render(<View />, clock);
-			yield* Effect.promise(() => clock.advance(0));
-			yield* clock.client.operations.invoke({
-				input: {},
-				slug: "save",
-				output: Schema.String,
-				packageId: "test/fixture",
-				inputSchema: Schema.Struct({}),
-			});
-			yield* Effect.promise(() => clock.advance(249));
-			expect(calls).toBe(1);
-			yield* Effect.promise(() => clock.advance(1));
-			expect(calls).toBe(2);
-			expect(container.textContent).toBe("2");
-		}),
-	);
-
-	it.live("runs a sequential mutation with typed failures and one capability completion hint", () =>
-		Effect.gen(function* () {
-			let hints = 0;
-			let latest: undefined | RyotMutationResult<string, string>;
-			const clock = makeClock({ invokeOperation: ({ input }) => Effect.succeed(input) });
-			clock.client.mutationCompleted.subscribe(() => hints++);
-			const mutation = createRyotMutation<string, string>(({ input, client }) =>
-				Effect.gen(function* () {
-					const first = yield* client.operations.invoke({
-						input,
-						slug: "first",
-						output: Schema.String,
-						packageId: "test/fixture",
-						inputSchema: Schema.String,
-					});
-					return yield* client.operations.invoke({
-						input: first,
-						slug: "second",
-						output: Schema.String,
-						packageId: "test/fixture",
-						inputSchema: Schema.String,
-					});
-				}),
-			);
-			const View = () => {
-				const result = useRyotMutation(mutation);
-				useEffect(() => {
-					latest = result;
-				});
-				return <p>{result.status}</p>;
-			};
-			const { container } = render(<View />, clock);
-			const context = yield* Effect.context();
-			const effect =
-				latest?.mutateEffect("saved") ?? Effect.die(new Error("Mutation hook did not mount"));
-			const result = yield* Effect.promise(() => act(() => Effect.runPromiseWith(context)(effect)));
-			expect(result).toBe("saved");
-			expect(container.textContent).toBe("success");
-			expect(hints).toBe(2);
-		}),
-	);
-
-	it.live("surfaces a tagged mutation failure and reset", () =>
-		Effect.gen(function* () {
-			let latest: undefined | RyotMutationResult<string, string>;
-			const mutation = createRyotMutation<string, string>(() =>
-				Effect.fail(new RyotClientError({ reason: "quota" })),
-			);
-			const View = () => {
-				const result = useRyotMutation(mutation);
-				useEffect(() => {
-					latest = result;
-				});
-				return (
-					<p>{`${result.status}:${result.error instanceof RyotClientError ? result.error.reason : "none"}`}</p>
 				);
-			};
-			const { container } = render(<View />);
-			const context = yield* Effect.context();
-			const effect =
-				latest?.mutateEffect("failed") ?? Effect.die(new Error("Mutation hook did not mount"));
-			const failure = yield* Effect.promise(() =>
-				act(() =>
-					Effect.runPromiseWith(context)(
-						effect.pipe(Effect.match({ onFailure: (error) => error, onSuccess: (value) => value })),
+				const View = () => {
+					const result = useRyotQuery(query);
+					useEffect(() => {
+						latest = result;
+					});
+					return <p>{result.data}</p>;
+				};
+				const { container } = render(<View />, clock);
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("0")));
+				yield* Effect.promise(() => clock.advance(1_000));
+				expect(container.textContent).toBe("0");
+				expect(calls).toBe(1);
+				act(() => latest?.refetch());
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("1000")));
+				expect(calls).toBe(2);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"interrupts superseded requests and ignores their late completion",
+		() =>
+			Effect.gen(function* () {
+				const requests: Array<{
+					readonly signal: AbortSignal;
+					readonly resume: (value: string) => void;
+				}> = [];
+				let latest: undefined | RyotQueryResult<string>;
+				const query = createRyotQuery(
+					() =>
+						Effect.callback<string>((resume, signal) => {
+							requests.push({ signal, resume: (value) => resume(Effect.succeed(value)) });
+						}),
+					{ initialData: () => "hydrated" },
+				);
+				const View = () => {
+					const result = useRyotQuery(query);
+					useEffect(() => {
+						latest = result;
+					});
+					return <p>{result.data}</p>;
+				};
+				const { container } = render(<View />);
+				expect(container.textContent).toBe("hydrated");
+				act(() => latest?.refetch());
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				act(() => latest?.refetch());
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+				expect(requests[0]?.signal.aborted).toBe(true);
+				yield* Effect.promise(() =>
+					act(() => {
+						requests[1]?.resume("current");
+						return Promise.resolve();
+					}),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("current")));
+				yield* Effect.promise(() =>
+					act(() => {
+						requests[0]?.resume("stale");
+						return Promise.resolve();
+					}),
+				);
+				expect(container.textContent).toBe("current");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps the initial hydration through a query refresh",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				let latest: undefined | RyotQueryResult<number>;
+				const query = createRyotQuery(() => Effect.sync(() => ++calls), { initialData: () => 0 });
+				const View = () => {
+					const result = useRyotQuery(query);
+					useEffect(() => {
+						latest = result;
+					});
+					return <p>{result.data}</p>;
+				};
+				const { container } = render(<View />);
+				expect(container.textContent).toBe("0");
+				expect(calls).toBe(0);
+				act(() => latest?.refetch());
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("1")));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"uses the TestClock-backed refresh schedule after capability mutation",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				const clock = makeClock({ invokeOperation: () => Effect.succeed("saved") });
+				const query = createRyotQuery(() => Effect.sync(() => ++calls));
+				const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+				const { container } = render(<View />, clock);
+				yield* Effect.promise(() => clock.advance(0));
+				yield* clock.client.operations.invoke({
+					input: {},
+					slug: "save",
+					output: Schema.String,
+					packageId: "test/fixture",
+					inputSchema: Schema.Struct({}),
+				});
+				yield* Effect.promise(() => clock.advance(249));
+				expect(calls).toBe(1);
+				yield* Effect.promise(() => clock.advance(1));
+				expect(calls).toBe(2);
+				expect(container.textContent).toBe("2");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"runs a sequential mutation with typed failures and one capability completion hint",
+		() =>
+			Effect.gen(function* () {
+				let hints = 0;
+				let latest: undefined | RyotMutationResult<string, string>;
+				const clock = makeClock({ invokeOperation: ({ input }) => Effect.succeed(input) });
+				clock.client.mutationCompleted.subscribe(() => hints++);
+				const mutation = createRyotMutation<string, string>(({ input, client }) =>
+					Effect.gen(function* () {
+						const first = yield* client.operations.invoke({
+							input,
+							slug: "first",
+							output: Schema.String,
+							packageId: "test/fixture",
+							inputSchema: Schema.String,
+						});
+						return yield* client.operations.invoke({
+							input: first,
+							slug: "second",
+							output: Schema.String,
+							packageId: "test/fixture",
+							inputSchema: Schema.String,
+						});
+					}),
+				);
+				const View = () => {
+					const result = useRyotMutation(mutation);
+					useEffect(() => {
+						latest = result;
+					});
+					return <p>{result.status}</p>;
+				};
+				const { container } = render(<View />, clock);
+				const context = yield* Effect.context();
+				const effect =
+					latest?.mutateEffect("saved") ?? Effect.die(new Error("Mutation hook did not mount"));
+				const result = yield* Effect.promise(() =>
+					act(() => Effect.runPromiseWith(context)(effect)),
+				);
+				expect(result).toBe("saved");
+				expect(container.textContent).toBe("success");
+				expect(hints).toBe(2);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"surfaces a tagged mutation failure and reset",
+		() =>
+			Effect.gen(function* () {
+				let latest: undefined | RyotMutationResult<string, string>;
+				const mutation = createRyotMutation<string, string>(() =>
+					Effect.fail(new RyotClientError({ reason: "quota" })),
+				);
+				const View = () => {
+					const result = useRyotMutation(mutation);
+					useEffect(() => {
+						latest = result;
+					});
+					return (
+						<p>{`${result.status}:${result.error instanceof RyotClientError ? result.error.reason : "none"}`}</p>
+					);
+				};
+				const { container } = render(<View />);
+				const context = yield* Effect.context();
+				const effect =
+					latest?.mutateEffect("failed") ?? Effect.die(new Error("Mutation hook did not mount"));
+				const failure = yield* Effect.promise(() =>
+					act(() =>
+						Effect.runPromiseWith(context)(
+							effect.pipe(
+								Effect.match({ onFailure: (error) => error, onSuccess: (value) => value }),
+							),
+						),
 					),
-				),
-			);
-			expect(failure).toMatchObject({ reason: "quota" });
-			expect(container.textContent).toBe("error:quota");
-			act(() => latest?.reset());
-			expect(container.textContent).toBe("idle:none");
-		}),
+				);
+				expect(failure).toMatchObject({ reason: "quota" });
+				expect(container.textContent).toBe("error:quota");
+				act(() => latest?.reset());
+				expect(container.textContent).toBe("idle:none");
+			}),
+		testTimeout,
 	);
 
-	it.live("reads and writes storage at the React boundary", () =>
-		Effect.gen(function* () {
-			const storage = createTestPluginStorage([['["fixture","order"]', { order: "dvd" }]]);
-			const clock = makeClock({ accessStorage: storage.accessStorage });
-			const schema = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
-			const View = () => {
-				const value = usePluginStorage({
-					schema,
-					key: "order",
-					pluginId: PluginId.make("fixture"),
-				});
-				return value.status === "ready" ? (
-					<button type="button" onClick={() => void value.set({ order: "aired" })}>
-						{value.value?.order ?? "unset"}
-					</button>
-				) : (
-					<p>loading</p>
+	it.live(
+		"reads and writes storage at the React boundary",
+		() =>
+			Effect.gen(function* () {
+				const storage = createTestPluginStorage([['["fixture","order"]', { order: "dvd" }]]);
+				const clock = makeClock({ accessStorage: storage.accessStorage });
+				const schema = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
+				const View = () => {
+					const value = usePluginStorage({
+						schema,
+						key: "order",
+						pluginId: PluginId.make("fixture"),
+					});
+					return value.status === "ready" ? (
+						<button type="button" onClick={() => void value.set({ order: "aired" })}>
+							{value.value?.order ?? "unset"}
+						</button>
+					) : (
+						<p>loading</p>
+					);
+				};
+				const { container } = render(<View />, clock);
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("dvd")));
+				yield* Effect.promise(() =>
+					act(() => {
+						fireEvent.click(getByRole(container, "button"));
+						return Promise.resolve();
+					}),
 				);
-			};
-			const { container } = render(<View />, clock);
-			yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("dvd")));
-			yield* Effect.promise(() =>
-				act(() => {
-					fireEvent.click(getByRole(container, "button"));
-					return Promise.resolve();
-				}),
-			);
-			expect(storage.entries.get('["fixture","order"]')).toEqual({ order: "aired" });
-		}),
+				expect(storage.entries.get('["fixture","order"]')).toEqual({ order: "aired" });
+			}),
+		testTimeout,
 	);
 });

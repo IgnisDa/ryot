@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { animeRecipes } from "@ryot-app/media-plugin/shared/anime-recipes";
 import { flatByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import type { ListStateProperties } from "@ryot-app/media-plugin/shared/list-state";
@@ -319,7 +320,7 @@ describe("AniList list-state media queries", () => {
 						? [event.listState]
 						: [],
 				);
-				expect(animeListStates).toEqual(
+				expect(animeListStates).toEqual<unknown>(
 					arrayContaining([
 						objectContaining({ animeEpisode: 1, state: "complete", sourceEntryId: "entry" }),
 						objectContaining({
@@ -330,7 +331,7 @@ describe("AniList list-state media queries", () => {
 						}),
 					]),
 				);
-				expect(mangaListStates).toEqual([
+				expect(mangaListStates).toEqual<unknown>([
 					objectContaining({
 						mangaVolume: 0,
 						mangaChapter: 0,
@@ -357,12 +358,18 @@ describe("AniList list-state media queries", () => {
 					animeHistory
 						.filter((event) => event.eventSchemaSlug !== "add-to-media-library")
 						.map((event) => event.eventSchemaSlug),
-				).toEqual(["list-state", "progress", "on_hold", "list-state", "progress"]);
+				).toEqual([
+					EventSchemaSlug.make("list-state"),
+					EventSchemaSlug.make("progress"),
+					EventSchemaSlug.make("on_hold"),
+					EventSchemaSlug.make("list-state"),
+					EventSchemaSlug.make("progress"),
+				]);
 				expect(
 					mangaHistory
 						.filter((event) => event.eventSchemaSlug !== "add-to-media-library")
 						.map((event) => event.eventSchemaSlug),
-				).toEqual(["list-state"]);
+				).toEqual([EventSchemaSlug.make("list-state")]);
 				for (const history of [animeHistory, mangaHistory]) {
 					expect(history.some((event) => event.eventSchemaSlug === "complete")).toBe(false);
 					expect(history.some((event) => event.eventSchemaSlug === "review")).toBe(false);

@@ -7,7 +7,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ../../packages/testing/src/run-tests.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -15,9 +15,8 @@
 		"effect": "4.1.0"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
-		"bun-types": "1.4.4",
-		"vitest": "4.1.9"
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
 	}
 }

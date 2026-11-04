@@ -1,6 +1,10 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { deflateSync } from "@ryot-app/plugin-kit/compression";
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
@@ -51,6 +55,7 @@ it.effect(
 			assert(recovered._tag === "Success");
 			expect(recovered.success).toEqual(draft);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -72,4 +77,5 @@ it.effect(
 			);
 			expect(decodeWorkoutEditorJson(compressed)._tag).toBe("Failure");
 		}),
+	testTimeout,
 );

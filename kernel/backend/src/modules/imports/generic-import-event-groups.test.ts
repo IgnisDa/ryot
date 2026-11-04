@@ -1,12 +1,16 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import type {
 	IngestionIssue,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { AutomationExecutionId, ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
+import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -250,6 +254,7 @@ layer(
 					),
 				).toHaveLength(1);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -286,5 +291,6 @@ layer(
 					)).filter((row) => row.entitySchemaSlug === "session"),
 				).toHaveLength(0);
 			}),
+		testTimeout,
 	);
 });

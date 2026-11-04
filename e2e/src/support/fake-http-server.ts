@@ -45,7 +45,7 @@ export const startFakeHttpServerScoped = (
 		return { requests: recorded, url: `http://${host}:${address.port}` };
 	}).pipe(acquireInChildScope);
 
-// Vitest hooks cannot receive the per-test Scope provided by it.live.
+// Lifecycle hooks cannot receive the per-test Scope provided by it.live.
 export const startFakeHttpServer = (respond?: Respond) =>
 	Effect.gen(function* () {
 		const resources = makeTestResourceScope();

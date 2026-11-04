@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import {
 	CLOUD_ORIGIN,
@@ -21,7 +21,7 @@ describe("server origins", () => {
 
 	it("normalizes a self-hosted origin and constructs its API URL", () => {
 		const result = resolveServerOrigin("self-hosted", " https://example.com:8443/ ");
-		expect(result).toEqual({ ok: true, origin: "https://example.com:8443" });
+		expect(result).toEqual<unknown>({ ok: true, origin: "https://example.com:8443" });
 		if (result.ok) {
 			expect(serverApiUrl(result.origin)).toBe("https://example.com:8443/api");
 		}

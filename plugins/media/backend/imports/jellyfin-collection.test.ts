@@ -1,5 +1,8 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import type { MediaSourceRecord } from "./collection-schemas";
 import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
@@ -111,22 +114,26 @@ it.live.each([undefined, null, "", "   "])(
 					.map((url) => url.searchParams.get("IsPlayed")),
 			).toEqual(["true", "true"]);
 		}),
+	testTimeout,
 );
 
-it.live("keeps played items whose UserData is absent", () =>
-	Effect.gen(function* () {
-		const { records } = yield* collect((url) =>
-			url.searchParams.get("IncludeItemTypes") === "Movie"
-				? [{ Id: "movie", Name: "Movie", ProviderIds: { Tmdb: "42" } }]
-				: [],
-		);
-		expect(records).toHaveLength(1);
-		expect(records[0]?.group?.events[0]).toMatchObject({
-			occurredAt: importedAt,
-			eventSchemaSlug: "complete",
-			properties: { dateUnknown: true },
-		});
-	}),
+it.live(
+	"keeps played items whose UserData is absent",
+	() =>
+		Effect.gen(function* () {
+			const { records } = yield* collect((url) =>
+				url.searchParams.get("IncludeItemTypes") === "Movie"
+					? [{ Id: "movie", Name: "Movie", ProviderIds: { Tmdb: "42" } }]
+					: [],
+			);
+			expect(records).toHaveLength(1);
+			expect(records[0]?.group?.events[0]).toMatchObject({
+				occurredAt: importedAt,
+				eventSchemaSlug: "complete",
+				properties: { dateUnknown: true },
+			});
+		}),
+	testTimeout,
 );
 
 it.live.each([
@@ -149,118 +156,131 @@ it.live.each([
 						]
 					: [],
 			);
-			expect(records[0]?.group?.events[0]?.properties).toEqual({ ...expected, sourceRun: "[0,0]" });
+			expect(records[0]?.group?.events[0]?.properties).toEqual<unknown>({
+				...expected,
+				sourceRun: "[0,0]",
+			});
 		}),
+	testTimeout,
 );
 
-it.live("preserves dated movie completion and episode progress timestamps", () =>
-	Effect.gen(function* () {
-		const { records } = yield* collect((url) => {
-			if (url.searchParams.get("IncludeItemTypes") === "Series") {
-				return [show];
-			}
-			const UserData = { LastPlayedDate: "2025-02-03T04:05:06+02:00" };
-			return url.pathname.endsWith("/Episodes")
-				? [{ UserData, Id: "episode", IndexNumber: 1, Name: "Episode", ParentIndexNumber: 0 }]
-				: [{ UserData, Id: "movie", Name: "Movie", ProviderIds: { Tmdb: "42" } }];
-		});
-		const events = records.flatMap((record) => record.group?.events ?? []);
-		expect(events).toMatchObject([
-			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2025-02-03T02:05:06.000Z" },
-			{
-				eventSchemaSlug: "progress",
-				properties: { progressPercent: 100 },
-				occurredAt: "2025-02-03T02:05:06.000Z",
-				unresolvedEpisode: { type: "show", seasonNumber: 0, episodeNumber: 1 },
-			},
-		]);
-	}),
+it.live(
+	"preserves dated movie completion and episode progress timestamps",
+	() =>
+		Effect.gen(function* () {
+			const { records } = yield* collect((url) => {
+				if (url.searchParams.get("IncludeItemTypes") === "Series") {
+					return [show];
+				}
+				const UserData = { LastPlayedDate: "2025-02-03T04:05:06+02:00" };
+				return url.pathname.endsWith("/Episodes")
+					? [{ UserData, Id: "episode", IndexNumber: 1, Name: "Episode", ParentIndexNumber: 0 }]
+					: [{ UserData, Id: "movie", Name: "Movie", ProviderIds: { Tmdb: "42" } }];
+			});
+			const events = records.flatMap((record) => record.group?.events ?? []);
+			expect(events).toMatchObject([
+				{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2025-02-03T02:05:06.000Z" },
+				{
+					eventSchemaSlug: "progress",
+					properties: { progressPercent: 100 },
+					occurredAt: "2025-02-03T02:05:06.000Z",
+					unresolvedEpisode: { type: "show", seasonNumber: 0, episodeNumber: 1 },
+				},
+			]);
+		}),
+	testTimeout,
 );
 
-it.live("fails malformed nonempty timestamps per item without dropping valid undated items", () =>
-	Effect.gen(function* () {
-		const { records } = yield* collect((url) => {
-			if (url.searchParams.get("IncludeItemTypes") === "Series") {
-				return [show];
-			}
-			const UserData = { LastPlayedDate: "not-a-date" };
-			return url.pathname.endsWith("/Episodes")
-				? [
-						{
-							UserData,
-							IndexNumber: 1,
-							Id: "bad-episode",
-							Name: "Bad episode",
-							ParentIndexNumber: 1,
-						},
-					]
-				: [
-						{ UserData, Id: "bad-movie", Name: "Bad movie", ProviderIds: { Tmdb: "42" } },
-						{ Id: "good-movie", Name: "Good movie", ProviderIds: { Tmdb: "43" } },
-					];
-		});
-		expect(records.flatMap((record) => record.failure ?? [])).toMatchObject([
-			{
-				itemIndex: 0,
-				sourceIdentifier: "bad-movie",
-				message: "Jellyfin item has an invalid played timestamp",
-			},
-			{
-				itemIndex: 3,
-				sourceIdentifier: "bad-episode",
-				message: "Jellyfin item has an invalid played timestamp",
-			},
-		]);
-		expect(records.flatMap((record) => record.group?.events ?? [])).toHaveLength(1);
-	}),
+it.live(
+	"fails malformed nonempty timestamps per item without dropping valid undated items",
+	() =>
+		Effect.gen(function* () {
+			const { records } = yield* collect((url) => {
+				if (url.searchParams.get("IncludeItemTypes") === "Series") {
+					return [show];
+				}
+				const UserData = { LastPlayedDate: "not-a-date" };
+				return url.pathname.endsWith("/Episodes")
+					? [
+							{
+								UserData,
+								IndexNumber: 1,
+								Id: "bad-episode",
+								Name: "Bad episode",
+								ParentIndexNumber: 1,
+							},
+						]
+					: [
+							{ UserData, Id: "bad-movie", Name: "Bad movie", ProviderIds: { Tmdb: "42" } },
+							{ Id: "good-movie", Name: "Good movie", ProviderIds: { Tmdb: "43" } },
+						];
+			});
+			expect(records.flatMap((record) => record.failure ?? [])).toMatchObject([
+				{
+					itemIndex: 0,
+					sourceIdentifier: "bad-movie",
+					message: "Jellyfin item has an invalid played timestamp",
+				},
+				{
+					itemIndex: 3,
+					sourceIdentifier: "bad-episode",
+					message: "Jellyfin item has an invalid played timestamp",
+				},
+			]);
+			expect(records.flatMap((record) => record.group?.events ?? [])).toHaveLength(1);
+		}),
+	testTimeout,
 );
 
-it.live("carries undated history across bounded movie and episode pages without refetching", () =>
-	Effect.gen(function* () {
-		const { calls, records, itemIndex } = yield* collect((url) => {
-			if (url.searchParams.get("IncludeItemTypes") === "Series") {
-				return [show];
-			}
-			const start = Number(url.searchParams.get("StartIndex"));
-			return Array.from({ length: start === 0 ? 20 : 1 }, (_, index) =>
-				url.pathname.endsWith("/Episodes")
-					? {
-							Name: "Episode",
-							ParentIndexNumber: 1,
-							Id: `episode-${start + index}`,
-							IndexNumber: start + index + 1,
-						}
-					: {
-							Name: "Movie",
-							Id: `movie-${start + index}`,
-							ProviderIds: { Tmdb: String(start + index + 1) },
-						},
+it.live(
+	"carries undated history across bounded movie and episode pages without refetching",
+	() =>
+		Effect.gen(function* () {
+			const { calls, records, itemIndex } = yield* collect((url) => {
+				if (url.searchParams.get("IncludeItemTypes") === "Series") {
+					return [show];
+				}
+				const start = Number(url.searchParams.get("StartIndex"));
+				return Array.from({ length: start === 0 ? 20 : 1 }, (_, index) =>
+					url.pathname.endsWith("/Episodes")
+						? {
+								Name: "Episode",
+								ParentIndexNumber: 1,
+								Id: `episode-${start + index}`,
+								IndexNumber: start + index + 1,
+							}
+						: {
+								Name: "Movie",
+								Id: `movie-${start + index}`,
+								ProviderIds: { Tmdb: String(start + index + 1) },
+							},
+				);
+			});
+			expect(calls).toHaveLength(6);
+			expect(new Set(calls.map(String)).size).toBe(6);
+			expect(
+				calls
+					.filter((url) => url.searchParams.has("IsPlayed"))
+					.map((url) => url.searchParams.get("StartIndex")),
+			).toEqual(["0", "20", "0", "20"]);
+			expect(itemIndex).toBe(43);
+			expect(records).toHaveLength(42);
+			expect(records.every((record) => record.group?.events[0]?.occurredAt === importedAt)).toBe(
+				true,
 			);
-		});
-		expect(calls).toHaveLength(6);
-		expect(new Set(calls.map(String)).size).toBe(6);
-		expect(
-			calls
-				.filter((url) => url.searchParams.has("IsPlayed"))
-				.map((url) => url.searchParams.get("StartIndex")),
-		).toEqual(["0", "20", "0", "20"]);
-		expect(itemIndex).toBe(43);
-		expect(records).toHaveLength(42);
-		expect(records.every((record) => record.group?.events[0]?.occurredAt === importedAt)).toBe(
-			true,
-		);
-		expect(
-			records.every((record) => record.group?.events[0]?.properties["dateUnknown"] === true),
-		).toBe(true);
-		expect(
-			new Set(
-				records.flatMap((record) => record.group?.events.map((event) => event.operationId) ?? []),
-			).size,
-		).toBe(42);
-		expect(records.at(-1)?.group?.events[0]?.unresolvedEpisode).toEqual({
-			type: "show",
-			seasonNumber: 1,
-			episodeNumber: 21,
-		});
-	}),
+			expect(
+				records.every((record) => record.group?.events[0]?.properties["dateUnknown"] === true),
+			).toBe(true);
+			expect(
+				new Set(
+					records.flatMap((record) => record.group?.events.map((event) => event.operationId) ?? []),
+				).size,
+			).toBe(42);
+			expect(records.at(-1)?.group?.events[0]?.unresolvedEpisode).toEqual({
+				type: "show",
+				seasonNumber: 1,
+				episodeNumber: 21,
+			});
+		}),
+	testTimeout,
 );

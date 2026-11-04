@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AdminMiddleware,
 	AuthMiddleware,
@@ -10,8 +11,10 @@ import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/li
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { AutomationExecutionId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -122,61 +125,66 @@ const routesLayer = Layer.unwrap(
 );
 
 layer(routesLayer)((test) => {
-	test.effect("preserves complete command identity for retries", () =>
-		Effect.gen(function* () {
-			const api = yield* client;
-			const caller = yield* RouteCaller;
-			const submittedAt = "2026-10-27T12:00:00.000Z";
-			yield* TestClock.setTime(Date.parse(submittedAt));
-			const clearRequest = {
-				params: { entityId: EntityId.make("entity") },
-				payload: { submittedAt, idempotencyKey: "clear-key" },
-			};
-			const changedSubmittedAtRequest = {
-				...clearRequest,
-				payload: { idempotencyKey: "clear-key", submittedAt: "2026-10-27T12:00:01.000Z" },
-			};
-			const mergeRequest = {
-				payload: {
-					submittedAt,
-					idempotencyKey: "merge-key",
-					mergeFrom: EntityId.make("source"),
-					mergeInto: EntityId.make("target"),
-				},
-			};
+	test.effect(
+		"preserves complete command identity for retries",
+		() =>
+			Effect.gen(function* () {
+				const api = yield* client;
+				const caller = yield* RouteCaller;
+				const submittedAt = "2026-10-27T12:00:00.000Z";
+				yield* TestClock.setTime(Date.parse(submittedAt));
+				const clearRequest = {
+					params: { entityId: EntityId.make("entity") },
+					payload: { submittedAt, idempotencyKey: "clear-key" },
+				};
+				const changedSubmittedAtRequest = {
+					...clearRequest,
+					payload: { idempotencyKey: "clear-key", submittedAt: "2026-10-27T12:00:01.000Z" },
+				};
+				const mergeRequest = {
+					payload: {
+						submittedAt,
+						idempotencyKey: "merge-key",
+						mergeFrom: EntityId.make("source"),
+						mergeInto: EntityId.make("target"),
+					},
+				};
 
-			yield* api.entityUserData.clearEntityUserData(clearRequest);
-			yield* api.entityUserData.clearEntityUserData(clearRequest);
-			yield* api.entityUserData.mergeEntityUserData(mergeRequest);
-			yield* api.entityUserData.mergeEntityUserData(mergeRequest);
-			yield* api.entityUserData.clearEntityUserData(changedSubmittedAtRequest);
-			yield* caller.sendAs(recipient, "standard");
-			yield* api.entityUserData.clearEntityUserData(clearRequest);
+				yield* api.entityUserData.clearEntityUserData(clearRequest);
+				yield* api.entityUserData.clearEntityUserData(clearRequest);
+				yield* api.entityUserData.mergeEntityUserData(mergeRequest);
+				yield* api.entityUserData.mergeEntityUserData(mergeRequest);
+				yield* api.entityUserData.clearEntityUserData(changedSubmittedAtRequest);
+				yield* caller.sendAs(recipient, "standard");
+				yield* api.entityUserData.clearEntityUserData(clearRequest);
 
-			const failure = yield* Effect.flip(
-				caller
-					.sendAs(recipient, "demo")
-					.pipe(Effect.andThen(api.entityUserData.clearEntityUserData(clearRequest))),
-			);
-			expect(failure).toBeInstanceOf(DemoOperationProtected);
+				const failure = yield* Effect.flip(
+					caller
+						.sendAs(recipient, "demo")
+						.pipe(Effect.andThen(api.entityUserData.clearEntityUserData(clearRequest))),
+				);
+				expect(failure).toBeInstanceOf(DemoOperationProtected);
 
-			const commands = yield* caller.recordedCommands;
-			expect(commands).toHaveLength(6);
-			expect(commands[0]?.command).toEqual(commands[1]?.command);
-			expect(commands[2]?.command).toEqual(commands[3]?.command);
-			expect(commands[4]?.command).not.toEqual(commands[0]?.command);
-			expect(commands[4]?.command.causation.executionId).toBe(
-				AutomationExecutionId.make(executionId(owner, "clear", "clear-key")),
-			);
-			expect(commands[4]?.command.occurredAt).toBe("2026-10-27T12:00:01.000Z");
-			expect(commands[5]?.command).toMatchObject({
-				occurredAt: submittedAt,
-				itemIdentity: "entity-user-data:clear",
-				causation: {
-					executionId: AutomationExecutionId.make(executionId(recipient, "clear", "clear-key")),
-					rootExecutionId: AutomationExecutionId.make(executionId(recipient, "clear", "clear-key")),
-				},
-			});
-		}),
+				const commands = yield* caller.recordedCommands;
+				expect(commands).toHaveLength(6);
+				expect(commands[0]?.command).toEqual(commands[1]?.command);
+				expect(commands[2]?.command).toEqual(commands[3]?.command);
+				expect(commands[4]?.command).not.toEqual(commands[0]?.command);
+				expect(commands[4]?.command.causation.executionId).toBe(
+					AutomationExecutionId.make(executionId(owner, "clear", "clear-key")),
+				);
+				expect(commands[4]?.command.occurredAt).toBe("2026-10-27T12:00:01.000Z");
+				expect(commands[5]?.command).toMatchObject({
+					occurredAt: submittedAt,
+					itemIdentity: "entity-user-data:clear",
+					causation: {
+						executionId: AutomationExecutionId.make(executionId(recipient, "clear", "clear-key")),
+						rootExecutionId: AutomationExecutionId.make(
+							executionId(recipient, "clear", "clear-key"),
+						),
+					},
+				});
+			}),
+		testTimeout,
 	);
 });

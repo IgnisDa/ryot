@@ -1,11 +1,15 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, PluginPackageId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { asc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 
@@ -237,6 +241,7 @@ layer(testLayer)((test) => {
 				expect(after.changes).toHaveLength(1);
 				expect((yield* events.events).slice(beforeEvents.length)).toEqual(["invalidate"]);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -287,6 +292,7 @@ layer(testLayer)((test) => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -358,6 +364,7 @@ layer(testLayer)((test) => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -428,6 +435,7 @@ layer(testLayer)((test) => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 
 	for (const [issue, installationId, references] of [
@@ -477,71 +485,78 @@ layer(testLayer)((test) => {
 					expect(yield* stored).toEqual(before);
 					expect(yield* (yield* ReorderEvents).events).toEqual(events);
 				}),
+			testTimeout,
 		);
 	}
 
-	test.effect("preserves installation validation before reorder errors", () =>
-		Effect.gen(function* () {
-			yield* seed;
-			const before = yield* stored;
-			assertExitFails(
-				yield* Effect.exit(
-					(yield* SavedViewsService).reorder(user, {
-						references: [],
-						installationId: "unknown-installation",
-					}),
-				),
-				new SavedViewBadRequest({
-					reason: { code: "plugin-not-found", installationId: "unknown-installation" },
-				}),
-			);
-			expect(yield* stored).toEqual(before);
-		}),
-	);
-
-	test.effect("rolls back earlier custom writes when builtin persistence fails", () =>
-		Effect.scoped(
+	test.effect(
+		"preserves installation validation before reorder errors",
+		() =>
 			Effect.gen(function* () {
 				yield* seed;
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					Effect.gen(function* () {
-						yield* db.insert(tables.savedView).values(customView("custom", 4));
-						yield* db.insert(tables.definitionSavedView).values(definition("builtin", 0));
-					}),
-				);
-				yield* Effect.acquireRelease(
-					session.run((db) =>
-						db.execute(
-							sql`alter table saved_view_override add constraint reject_reorder check (sort_order <> 1)`,
-						),
-					),
-					() =>
-						session
-							.run((db) =>
-								db.execute(sql`alter table saved_view_override drop constraint reject_reorder`),
-							)
-							.pipe(Effect.orDie),
-				);
 				const before = yield* stored;
-				const events = yield* (yield* ReorderEvents).events;
-				const exit = yield* Effect.exit(
-					(yield* SavedViewsService).reorder(user, { references: [custom("custom")] }),
-				);
 				assertExitFails(
-					exit,
-					new DbError({
-						code: "23514",
-						table: "saved_view_override",
-						constraint: "reject_reorder",
-						message:
-							'new row for relation "saved_view_override" violates check constraint "reject_reorder"',
+					yield* Effect.exit(
+						(yield* SavedViewsService).reorder(user, {
+							references: [],
+							installationId: "unknown-installation",
+						}),
+					),
+					new SavedViewBadRequest({
+						reason: { code: "plugin-not-found", installationId: "unknown-installation" },
 					}),
 				);
 				expect(yield* stored).toEqual(before);
-				expect(yield* (yield* ReorderEvents).events).toEqual(events);
 			}),
-		),
+		testTimeout,
+	);
+
+	test.effect(
+		"rolls back earlier custom writes when builtin persistence fails",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					yield* seed;
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						Effect.gen(function* () {
+							yield* db.insert(tables.savedView).values(customView("custom", 4));
+							yield* db.insert(tables.definitionSavedView).values(definition("builtin", 0));
+						}),
+					);
+					yield* Effect.acquireRelease(
+						session.run((db) =>
+							db.execute(
+								sql`alter table saved_view_override add constraint reject_reorder check (sort_order <> 1)`,
+							),
+						),
+						() =>
+							session
+								.run((db) =>
+									db.execute(sql`alter table saved_view_override drop constraint reject_reorder`),
+								)
+								.pipe(Effect.orDie),
+					);
+					const before = yield* stored;
+					const events = yield* (yield* ReorderEvents).events;
+					const exit = yield* Effect.exit(
+						(yield* SavedViewsService).reorder(user, { references: [custom("custom")] }),
+					);
+					assertExitFails(
+						exit,
+						new DbError({
+							code: "23514",
+							table: "saved_view_override",
+							constraint: "reject_reorder",
+							message:
+								'new row for relation "saved_view_override" violates check constraint "reject_reorder"',
+						}),
+					);
+					expect(yield* stored).toEqual(before);
+					expect(yield* (yield* ReorderEvents).events).toEqual(events);
+				}),
+			),
+		testTimeout,
 	);
 
 	test.effect(
@@ -631,5 +646,6 @@ layer(testLayer)((test) => {
 					assert(result.references.length === size * 2);
 				}
 			}),
+		testTimeout,
 	);
 });

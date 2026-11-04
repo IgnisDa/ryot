@@ -1,4 +1,5 @@
-import { expect, it } from "@effect/vitest";
+import { expect, test } from "bun:test";
+
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
 import {
 	activeSignalSchemasRecipe,
@@ -53,6 +54,9 @@ const recipes = [
 	],
 ] as const;
 
-it.each(recipes)("validates %s against the real catalog in its scope", (_name, document, scope) => {
-	expect(validateRyotQLDocument(document, scope).error).toBeNull();
-});
+test.each(recipes)(
+	"validates %s against the real catalog in its scope",
+	(_name, document, scope) => {
+		expect(validateRyotQLDocument(document, scope).error).toBeNull();
+	},
+);

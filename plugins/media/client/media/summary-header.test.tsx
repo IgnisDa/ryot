@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	decodeFlatSummary,
@@ -75,6 +78,7 @@ it.live(
 				mounted.unmount();
 			}
 		}),
+	testTimeout,
 );
 
 it.live(
@@ -112,4 +116,5 @@ it.live(
 				mounted.unmount();
 			}
 		}),
+	testTimeout,
 );

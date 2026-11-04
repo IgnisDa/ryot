@@ -1,4 +1,4 @@
-import { stringContaining } from "@ryot-app/testing/matchers";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -33,10 +33,12 @@ const expectRejected = (operation: ReturnType<typeof createExerciseNote>, messag
 	Effect.gen(function* () {
 		const failure = yield* Effect.flip(operation);
 		assertTaggedError(failure, "PluginInvocationError");
-		expect(failure.reason).toMatchObject({
-			code: "runtime-failed",
-			diagnostics: [{ severity: "error", message: stringContaining(message) }],
-		});
+		expect(failure.reason).toEqual<unknown>(
+			objectContaining({
+				code: "runtime-failed",
+				diagnostics: [objectContaining({ severity: "error", message: stringContaining(message) })],
+			}),
+		);
 	});
 
 const seedMovieWithReview = (client: Client) =>

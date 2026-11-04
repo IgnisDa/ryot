@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import {
 	ProviderEntityBadRequest,
 	type SearchProviderEntitiesBody,
@@ -8,10 +9,12 @@ import {
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { createRyotQuery, RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { type ComponentProps, useState } from "react";
-import { axe } from "vitest-axe";
 
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
 import { ProviderSearchPanel, SEARCH_DEBOUNCE_MS } from "#/modules/provider-add/panel";
@@ -181,85 +184,92 @@ describe("provider search panel", () => {
 					})),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("waits for required options and searches after the missing value is entered", () =>
-		Effect.gen(function* () {
-			const options = pendingOptions();
-			const requests: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				initialQuery: "Sample",
-				providers: [withOptions(1)],
-				loadSearchOptions: options.load,
-				search: (payload) => {
-					requests.push(payload);
-					return Effect.succeed(searchResponse(payload.page));
-				},
-			});
-			enterSearch();
-			act(() =>
-				options.requests[0].succeed({
-					schema: {
-						fields: {
-							region: {
-								type: "string",
-								label: "Region",
-								description: "",
-								validation: { required: true },
+	it.live(
+		"waits for required options and searches after the missing value is entered",
+		() =>
+			Effect.gen(function* () {
+				const options = pendingOptions();
+				const requests: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					initialQuery: "Sample",
+					providers: [withOptions(1)],
+					loadSearchOptions: options.load,
+					search: (payload) => {
+						requests.push(payload);
+						return Effect.succeed(searchResponse(payload.page));
+					},
+				});
+				enterSearch();
+				act(() =>
+					options.requests[0].succeed({
+						schema: {
+							fields: {
+								region: {
+									type: "string",
+									label: "Region",
+									description: "",
+									validation: { required: true },
+								},
 							},
 						},
-					},
-				}),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("textbox", { name: /Region/ })).toBeTruthy()),
-			);
-			expect(requests).toEqual([]);
-			fireEvent.change(screen.getByRole("textbox", { name: /Region/ }), {
-				target: { value: "south" },
-			});
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			expect(requests[0]).toMatchObject({
-				query: "Sample",
-				options: { region: "south" },
-				providerId: providers[0].providerId,
-			});
-		}),
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByRole("textbox", { name: /Region/ })).toBeTruthy()),
+				);
+				expect(requests).toEqual([]);
+				fireEvent.change(screen.getByRole("textbox", { name: /Region/ }), {
+					target: { value: "south" },
+				});
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				expect(requests[0]).toMatchObject({
+					query: "Sample",
+					options: { region: "south" },
+					providerId: providers[0].providerId,
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("isolates provider B from a late options response for A and keeps the query", () =>
-		Effect.gen(function* () {
-			const options = pendingOptions();
-			const requests: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				initialQuery: "Sample",
-				loadSearchOptions: options.load,
-				providers: [withOptions(1), withOptions(2)],
-				search: (payload) => {
-					requests.push(payload);
-					return Effect.succeed(searchResponse(payload.page));
-				},
-			});
-			fireEvent.click(screen.getByRole("radio", { name: "Provider 2" }));
-			yield* Effect.promise(() => waitFor(() => expect(options.requests).toHaveLength(2)));
-			act(() => options.requests[1].succeed(optionsResponse("B")));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			act(() => options.requests[0].succeed(optionsResponse("A")));
-			yield* pastDebounce();
-			expect(options.requests.map((request) => request.providerId)).toEqual(
-				providers.map((item) => item.providerId),
-			);
-			expect(options.interrupted).toEqual([providers[0].providerId]);
-			expect(requests).toEqual([
-				{
-					page: 1,
-					pageSize: 20,
-					query: "Sample",
-					options: { region: "B" },
-					providerId: providers[1].providerId,
-				},
-			]);
-		}),
+	it.live(
+		"isolates provider B from a late options response for A and keeps the query",
+		() =>
+			Effect.gen(function* () {
+				const options = pendingOptions();
+				const requests: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					initialQuery: "Sample",
+					loadSearchOptions: options.load,
+					providers: [withOptions(1), withOptions(2)],
+					search: (payload) => {
+						requests.push(payload);
+						return Effect.succeed(searchResponse(payload.page));
+					},
+				});
+				fireEvent.click(screen.getByRole("radio", { name: "Provider 2" }));
+				yield* Effect.promise(() => waitFor(() => expect(options.requests).toHaveLength(2)));
+				act(() => options.requests[1].succeed(optionsResponse("B")));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				act(() => options.requests[0].succeed(optionsResponse("A")));
+				yield* pastDebounce();
+				expect(options.requests.map((request) => request.providerId)).toEqual(
+					providers.map((item) => item.providerId),
+				);
+				expect(options.interrupted).toEqual([providers[0].providerId]);
+				expect(requests).toEqual([
+					{
+						page: 1,
+						pageSize: 20,
+						query: "Sample",
+						options: { region: "B" },
+						providerId: providers[1].providerId,
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -301,268 +311,302 @@ describe("provider search panel", () => {
 					providerId: providers[1].providerId,
 				});
 			}),
+		testTimeout,
 	);
 
-	it.live("submits Enter during debounce once and refreshes an identical normalized snapshot", () =>
-		Effect.gen(function* () {
-			const requests: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				search: (payload) => {
-					requests.push(payload);
-					return Effect.succeed(searchResponse(payload.page));
-				},
-			});
-			fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
-				target: { value: " Sample " },
-			});
-			enterSearch();
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			yield* pastDebounce();
-			expect(requests).toHaveLength(1);
-			enterSearch();
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-			expect(requests[0]).toEqual(requests[1]);
-			expect(requests[0]).toMatchObject({
-				page: 1,
-				query: "Sample",
-				providerId: providers[0].providerId,
-			});
-		}),
+	it.live(
+		"submits Enter during debounce once and refreshes an identical normalized snapshot",
+		() =>
+			Effect.gen(function* () {
+				const requests: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					search: (payload) => {
+						requests.push(payload);
+						return Effect.succeed(searchResponse(payload.page));
+					},
+				});
+				fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
+					target: { value: " Sample " },
+				});
+				enterSearch();
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				yield* pastDebounce();
+				expect(requests).toHaveLength(1);
+				enterSearch();
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+				expect(requests[0]).toEqual(requests[1]);
+				expect(requests[0]).toMatchObject({
+					page: 1,
+					query: "Sample",
+					providerId: providers[0].providerId,
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("cancels options loading on dismissal and never searches from the late response", () =>
-		Effect.gen(function* () {
-			const options = pendingOptions();
-			const requests: SearchProviderEntitiesBody[] = [];
-			const view = renderPanel({
-				initialQuery: "Sample",
-				providers: [withOptions(1)],
-				loadSearchOptions: options.load,
-				search: (payload) => {
-					requests.push(payload);
-					return Effect.succeed(searchResponse(payload.page));
-				},
-			});
-			view.unmount();
-			yield* Effect.promise(() =>
-				waitFor(() => expect(options.interrupted).toEqual([providers[0].providerId])),
-			);
-			act(() => options.requests[0].succeed(optionsResponse("late")));
-			yield* pastDebounce();
-			expect(requests).toEqual([]);
-		}),
+	it.live(
+		"cancels options loading on dismissal and never searches from the late response",
+		() =>
+			Effect.gen(function* () {
+				const options = pendingOptions();
+				const requests: SearchProviderEntitiesBody[] = [];
+				const view = renderPanel({
+					initialQuery: "Sample",
+					providers: [withOptions(1)],
+					loadSearchOptions: options.load,
+					search: (payload) => {
+						requests.push(payload);
+						return Effect.succeed(searchResponse(payload.page));
+					},
+				});
+				view.unmount();
+				yield* Effect.promise(() =>
+					waitFor(() => expect(options.interrupted).toEqual([providers[0].providerId])),
+				);
+				act(() => options.requests[0].succeed(optionsResponse("late")));
+				yield* pastDebounce();
+				expect(requests).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("searches after a declared options query successfully returns no schema", () =>
-		Effect.gen(function* () {
-			const requests: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				initialQuery: "Sample",
-				providers: [withOptions(1)],
-				loadSearchOptions: () => Effect.succeed({ schema: null }),
-				search: (payload) => {
-					requests.push(payload);
-					return Effect.succeed(searchResponse(payload.page));
-				},
-			});
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			expect(requests[0]).toEqual({
-				page: 1,
-				pageSize: 20,
-				query: "Sample",
-				providerId: providers[0].providerId,
-			});
-			expect(screen.queryByRole("button", { name: "Advanced options" })).toBeNull();
-		}),
-	);
-
-	it.live("retries initial and appended searches using the submitted options snapshot", () =>
-		Effect.gen(function* () {
-			const requests: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				initialQuery: "Sample",
-				providers: [withOptions(1)],
-				loadSearchOptions: () => Effect.succeed(optionsResponse("north")),
-				search: (payload) => {
-					requests.push(payload);
-					return requests.length === 1 || requests.length === 3
-						? Effect.fail(new ProviderAddLoadError({ stage: "search", cause: "Unavailable" }))
-						: Effect.succeed(searchResponse(payload.page));
-				},
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Try searching again" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Try searching again" }));
-			yield* Effect.promise(() => waitFor(() => expect(screen.getByText("Result 1")).toBeTruthy()));
-			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Retry provider search" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Retry provider search" }));
-			yield* Effect.promise(() => waitFor(() => expect(screen.getByText("Result 2")).toBeTruthy()));
-			expect(requests).toEqual(
-				[1, 1, 2, 2].map((page) => ({
-					page,
+	it.live(
+		"searches after a declared options query successfully returns no schema",
+		() =>
+			Effect.gen(function* () {
+				const requests: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					initialQuery: "Sample",
+					providers: [withOptions(1)],
+					loadSearchOptions: () => Effect.succeed({ schema: null }),
+					search: (payload) => {
+						requests.push(payload);
+						return Effect.succeed(searchResponse(payload.page));
+					},
+				});
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				expect(requests[0]).toEqual({
+					page: 1,
 					pageSize: 20,
 					query: "Sample",
-					options: { region: "north" },
 					providerId: providers[0].providerId,
-				})),
-			);
-		}),
+				});
+				expect(screen.queryByRole("button", { name: "Advanced options" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("explains a missing provider configuration without offering a pointless retry", () =>
-		Effect.gen(function* () {
-			renderPanel({
-				initialQuery: "Sample",
-				search: () =>
-					Effect.fail(
-						new ProviderAddLoadError({
-							stage: "search",
-							cause: new ProviderEntityBadRequest({
-								reason: {
-									code: "search-failed",
-									cause: { code: "missing-config", configNames: ["Provider API key"] },
-								},
-							}),
-						}),
+	it.live(
+		"retries initial and appended searches using the submitted options snapshot",
+		() =>
+			Effect.gen(function* () {
+				const requests: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					initialQuery: "Sample",
+					providers: [withOptions(1)],
+					loadSearchOptions: () => Effect.succeed(optionsResponse("north")),
+					search: (payload) => {
+						requests.push(payload);
+						return requests.length === 1 || requests.length === 3
+							? Effect.fail(new ProviderAddLoadError({ stage: "search", cause: "Unavailable" }))
+							: Effect.succeed(searchResponse(payload.page));
+					},
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Try searching again" })).toBeTruthy(),
 					),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByText("Provider 1 isn't configured on this server")).toBeTruthy(),
-				),
-			);
-			expect(screen.queryByText("Unable to reach the server")).toBeNull();
-			expect(screen.queryByRole("button", { name: "Try searching again" })).toBeNull();
-		}),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Try searching again" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByText("Result 1")).toBeTruthy()),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Retry provider search" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Retry provider search" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByText("Result 2")).toBeTruthy()),
+				);
+				expect(requests).toEqual(
+					[1, 1, 2, 2].map((page) => ({
+						page,
+						pageSize: 20,
+						query: "Sample",
+						options: { region: "north" },
+						providerId: providers[0].providerId,
+					})),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("cancels an active search on dismissal and drops its late response", () =>
-		Effect.gen(function* () {
-			const completions: ((response: SearchProviderEntitiesResponse) => void)[] = [];
-			const interrupted: SearchProviderEntitiesBody[] = [];
-			const view = renderPanel({
-				initialQuery: "Sample",
-				search: (payload) =>
-					Effect.callback<SearchProviderEntitiesResponse>((resume) => {
-						completions.push((response) => resume(Effect.succeed(response)));
-					}).pipe(
-						Effect.onInterrupt(() =>
-							Effect.sync(() => {
-								interrupted.push(payload);
+	it.live(
+		"explains a missing provider configuration without offering a pointless retry",
+		() =>
+			Effect.gen(function* () {
+				renderPanel({
+					initialQuery: "Sample",
+					search: () =>
+						Effect.fail(
+							new ProviderAddLoadError({
+								stage: "search",
+								cause: new ProviderEntityBadRequest({
+									reason: {
+										code: "search-failed",
+										cause: { code: "missing-config", configNames: ["Provider API key"] },
+									},
+								}),
 							}),
 						),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByText("Provider 1 isn't configured on this server")).toBeTruthy(),
 					),
-			});
-			enterSearch();
-			yield* Effect.promise(() => waitFor(() => expect(completions).toHaveLength(1)));
-			view.unmount();
-			yield* Effect.promise(() => waitFor(() => expect(interrupted).toHaveLength(1)));
-			act(() => completions[0](searchResponse(1)));
-			yield* pastDebounce();
-			expect(completions).toHaveLength(1);
-			expect(screen.queryByText("Result 1")).toBeNull();
-		}),
+				);
+				expect(screen.queryByText("Unable to reach the server")).toBeNull();
+				expect(screen.queryByRole("button", { name: "Try searching again" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps an active import owned outside provider-keyed search sessions", () =>
-		Effect.gen(function* () {
-			const completions: ((entry: ProviderEntityImportEntry) => void)[] = [];
-			const imports: { readonly externalId: string; readonly providerId: SandboxProviderId }[] = [];
-			const imported: EntityId[] = [];
-			renderPanel({
-				initialQuery: "Sample",
-				onImported: (id) => imported.push(id),
-				importEntity: ({ externalId, providerId }) =>
-					Effect.callback((resume) => {
-						imports.push({ externalId, providerId });
-						completions.push((entry) => resume(Effect.succeed(entry)));
-					}),
-				search: (payload) =>
-					Effect.succeed({
-						...searchResponse(payload.page),
-						providerId: payload.providerId,
-						items: [{ externalId: payload.providerId, title: `Result ${payload.providerId}` }],
-					}),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("button", { name: "Add Result provider-1" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Add Result provider-1" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Provider 2" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByText("Result provider-2")).toBeTruthy()),
-			);
-			const entityId = EntityId.make("imported-unit");
-			act(() => completions[0]({ entityId, status: "imported" }));
-			yield* Effect.promise(() => waitFor(() => expect(imported).toEqual([entityId])));
-			expect(imports).toEqual([{ externalId: "provider-1", providerId: providers[0].providerId }]);
-			expect(screen.getByText("Result provider-2")).toBeTruthy();
-		}),
+	it.live(
+		"cancels an active search on dismissal and drops its late response",
+		() =>
+			Effect.gen(function* () {
+				const completions: ((response: SearchProviderEntitiesResponse) => void)[] = [];
+				const interrupted: SearchProviderEntitiesBody[] = [];
+				const view = renderPanel({
+					initialQuery: "Sample",
+					search: (payload) =>
+						Effect.callback<SearchProviderEntitiesResponse>((resume) => {
+							completions.push((response) => resume(Effect.succeed(response)));
+						}).pipe(
+							Effect.onInterrupt(() =>
+								Effect.sync(() => {
+									interrupted.push(payload);
+								}),
+							),
+						),
+				});
+				enterSearch();
+				yield* Effect.promise(() => waitFor(() => expect(completions).toHaveLength(1)));
+				view.unmount();
+				yield* Effect.promise(() => waitFor(() => expect(interrupted).toHaveLength(1)));
+				act(() => completions[0](searchResponse(1)));
+				yield* pastDebounce();
+				expect(completions).toHaveLength(1);
+				expect(screen.queryByText("Result 1")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("offers the declared entry event once library links load and imports with it", () =>
-		Effect.gen(function* () {
-			const imports: Parameters<PanelProps["importEntity"]>[0][] = [];
-			const linksLoaded: Array<() => void> = [];
-			renderPanel({
-				initialQuery: "Sample",
-				entryEvent: { label: "Plan it", eventSchemaSlug: "planned" },
-				search: (payload) => Effect.succeed(searchResponse(payload.page)),
-				importEntity: (input) =>
-					Effect.sync(() => {
-						imports.push(input);
-						return { status: "queued" } as const;
-					}),
-				loadEntityLinks: () =>
-					Effect.callback((resume) => {
-						linksLoaded.push(() => resume(Effect.succeed(new Map())));
-					}),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getByRole("button", { name: "Add Result 1" })).toBeTruthy()),
-			);
-			expect(screen.queryByRole("button", { name: "Plan it: Result 1" })).toBeNull();
-			act(() => linksLoaded[0]?.());
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Plan it: Result 1" })),
-			);
-			expect(imports).toMatchObject([
-				{
-					externalId: "item-1",
-					entryEventSchemaSlug: "planned",
-					providerId: providers[0].providerId,
-				},
-			]);
-		}),
+	it.live(
+		"keeps an active import owned outside provider-keyed search sessions",
+		() =>
+			Effect.gen(function* () {
+				const completions: ((entry: ProviderEntityImportEntry) => void)[] = [];
+				const imports: { readonly externalId: string; readonly providerId: SandboxProviderId }[] =
+					[];
+				const imported: EntityId[] = [];
+				renderPanel({
+					initialQuery: "Sample",
+					onImported: (id) => imported.push(id),
+					importEntity: ({ externalId, providerId }) =>
+						Effect.callback((resume) => {
+							imports.push({ externalId, providerId });
+							completions.push((entry) => resume(Effect.succeed(entry)));
+						}),
+					search: (payload) =>
+						Effect.succeed({
+							...searchResponse(payload.page),
+							providerId: payload.providerId,
+							items: [{ externalId: payload.providerId, title: `Result ${payload.providerId}` }],
+						}),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("button", { name: "Add Result provider-1" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Add Result provider-1" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Provider 2" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByText("Result provider-2")).toBeTruthy()),
+				);
+				const entityId = EntityId.make("imported-unit");
+				act(() => completions[0]({ entityId, status: "imported" }));
+				yield* Effect.promise(() => waitFor(() => expect(imported).toEqual([entityId])));
+				expect(imports).toEqual([
+					{ externalId: "provider-1", providerId: providers[0].providerId },
+				]);
+				expect(screen.getByText("Result provider-2")).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("exposes the providers as a single-tab-stop radiogroup", () =>
-		Effect.gen(function* () {
-			renderPanel();
+	it.live(
+		"offers the declared entry event once library links load and imports with it",
+		() =>
+			Effect.gen(function* () {
+				const imports: Parameters<PanelProps["importEntity"]>[0][] = [];
+				const linksLoaded: Array<() => void> = [];
+				renderPanel({
+					initialQuery: "Sample",
+					entryEvent: { label: "Plan it", eventSchemaSlug: "planned" },
+					search: (payload) => Effect.succeed(searchResponse(payload.page)),
+					importEntity: (input) =>
+						Effect.sync(() => {
+							imports.push(input);
+							return { status: "queued" } as const;
+						}),
+					loadEntityLinks: () =>
+						Effect.callback((resume) => {
+							linksLoaded.push(() => resume(Effect.succeed(new Map())));
+						}),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getByRole("button", { name: "Add Result 1" })).toBeTruthy()),
+				);
+				expect(screen.queryByRole("button", { name: "Plan it: Result 1" })).toBeNull();
+				act(() => linksLoaded[0]?.());
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Plan it: Result 1" })),
+				);
+				expect(imports).toMatchObject([
+					{
+						externalId: "item-1",
+						entryEventSchemaSlug: "planned",
+						providerId: providers[0].providerId,
+					},
+				]);
+			}),
+		testTimeout,
+	);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
-				),
-			);
-			expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("tabindex"))).toEqual([
-				"0",
-				"-1",
-			]);
-			expect(screen.getByRole("radio", { name: "Provider 1" }).getAttribute("aria-checked")).toBe(
-				"true",
-			);
-		}),
+	it.live(
+		"exposes the providers as a single-tab-stop radiogroup",
+		() =>
+			Effect.gen(function* () {
+				renderPanel();
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
+					),
+				);
+				expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("tabindex"))).toEqual(
+					["0", "-1"],
+				);
+				expect(screen.getByRole("radio", { name: "Provider 1" }).getAttribute("aria-checked")).toBe(
+					"true",
+				);
+			}),
+		testTimeout,
 	);
 
 	it("offers Create custom only when a handler is supplied and passes the trimmed query", () => {
@@ -580,46 +624,52 @@ describe("provider search panel", () => {
 		expect(queries).toEqual(["Sample"]);
 	});
 
-	it.live("loads numbered provider-search pages through shared pagination", () =>
-		Effect.gen(function* () {
-			const requests: SearchProviderEntitiesBody[] = [];
-			renderPanel({
-				search: (payload) => {
-					requests.push(payload);
-					return Effect.succeed(searchResponse(payload.page));
-				},
-			});
+	it.live(
+		"loads numbered provider-search pages through shared pagination",
+		() =>
+			Effect.gen(function* () {
+				const requests: SearchProviderEntitiesBody[] = [];
+				renderPanel({
+					search: (payload) => {
+						requests.push(payload);
+						return Effect.succeed(searchResponse(payload.page));
+					},
+				});
 
-			fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
-				target: { value: "Sample" },
-			});
-			expect(requests).toEqual([]);
+				fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
+					target: { value: "Sample" },
+				});
+				expect(requests).toEqual([]);
 
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			expect(requests[0]).toMatchObject({ page: 1, query: "Sample" });
-			expect(screen.getByText("Result 1")).toBeTruthy();
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				expect(requests[0]).toMatchObject({ page: 1, query: "Sample" });
+				expect(screen.getByText("Result 1")).toBeTruthy();
 
-			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-			expect(requests.map((request) => request.page)).toEqual([1, 2]);
-			expect(screen.getByText("Result 2")).toBeTruthy();
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+				expect(requests.map((request) => request.page)).toEqual([1, 2]);
+				expect(screen.getByText("Result 2")).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
-	it.live("passes an axe pass on the rendered panel", () =>
-		Effect.gen(function* () {
-			const view = renderPanel();
+	it.live(
+		"passes an axe pass on the rendered panel",
+		() =>
+			Effect.gen(function* () {
+				const view = renderPanel();
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
-				),
-			);
-			const results = yield* Effect.promise(() =>
-				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
-			);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
+					),
+				);
+				const results = yield* Effect.promise(() =>
+					axe.run(view.container, { rules: { "color-contrast": { enabled: false } } }),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { MediaEventSnapshot } from "@ryot-app/media-plugin/shared/media-activity-operations";
 import {
@@ -136,7 +137,9 @@ describe("Media rating-only reviews", () => {
 				).toEqual({ count: 1 });
 			}
 			const remaining = yield* listEventsForEntity(client, entityId, undefined, 100);
-			expect(remaining.map((event) => event.eventSchemaSlug)).toEqual(["add-to-media-library"]);
+			expect(remaining.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("add-to-media-library"),
+			]);
 		}),
 	);
 

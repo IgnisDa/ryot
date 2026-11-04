@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { fixturePlugin } from "./plugin";
 import { fixtureSavedViews } from "./saved-views";
@@ -31,7 +32,7 @@ describe("fixture saved-view presentations", () => {
 				.flatMap((selection) => ("key" in selection ? [selection.key] : []))
 				.filter((field) => field.startsWith("presentation"))
 				.sort();
-			expect(fields).toEqual(expected[index]);
+			expect(fields).toEqual<unknown>(expected[index]);
 		});
 	});
 
@@ -39,9 +40,9 @@ describe("fixture saved-view presentations", () => {
 		const artwork = fixtureSavedViews[0].dataSources.queries.savedView.output.fields.find(
 			(selection) => "key" in selection && selection.key === "presentationArtwork",
 		);
-		expect(artwork).toMatchObject({
-			expr: objectContaining({ type: "jsonPath", path: ["images", 0] }),
-		});
+		expect(artwork).toEqual<unknown>(
+			objectContaining({ expr: objectContaining({ type: "jsonPath", path: ["images", 0] }) }),
+		);
 	});
 
 	it("declares the Pokemon height filter on its entity schema instead of the view", () => {
@@ -54,8 +55,10 @@ describe("fixture saved-view presentations", () => {
 		const view = fixtureSavedViews[2];
 		const schema = fixturePlugin.entitySchemas[2];
 		expect(view.slug).toBe("all-field-controls");
-		expect(view.settings.subject.schemas).toEqual([{ slug: schema.slug, owner: { kind: "self" } }]);
-		expect(view.settings.addAction).toEqual({
+		expect(view.settings.subject.schemas).toEqual<unknown>([
+			{ slug: schema.slug, owner: { kind: "self" } },
+		]);
+		expect(view.settings.addAction).toEqual<unknown>({
 			type: "provider-search",
 			schema: { slug: schema.slug, owner: { kind: "self" } },
 			library: {

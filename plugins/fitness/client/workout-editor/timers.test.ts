@@ -1,5 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntityId } from "@ryot-app/plugin-kit/schema";
-import { assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";

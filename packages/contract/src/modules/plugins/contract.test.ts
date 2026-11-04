@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Result } from "effect";
 
 import { DemoOperationProtected } from "../../auth-middleware";
@@ -25,19 +28,22 @@ describe("PluginsGroup", () => {
 		expect(PluginCatalogEventStream.contentType).toBe("text/event-stream");
 	});
 
-	it.effect("exports payload-free event names separately from the Redis message", () =>
-		Effect.gen(function* () {
-			expect(PLUGIN_CATALOG_CONNECTED_EVENT).toBe("connected");
-			expect(PLUGIN_CATALOG_INVALIDATED_EVENT).toBe("catalog-invalidated");
+	it.effect(
+		"exports payload-free event names separately from the Redis message",
+		() =>
+			Effect.gen(function* () {
+				expect(PLUGIN_CATALOG_CONNECTED_EVENT).toBe("connected");
+				expect(PLUGIN_CATALOG_INVALIDATED_EVENT).toBe("catalog-invalidated");
 
-			const encoded = yield* Effect.fromResult(
-				encodePluginCatalogInvalidatedMessage({ userId: UserId.make("user-1") }),
-			);
-			expect(encoded).toBe('{"userId":"user-1"}');
-			expect(decodePluginCatalogInvalidatedMessage(encoded)).toEqual(
-				objectContaining({ success: { userId: "user-1" } }),
-			);
-		}),
+				const encoded = yield* Effect.fromResult(
+					encodePluginCatalogInvalidatedMessage({ userId: UserId.make("user-1") }),
+				);
+				expect(encoded).toBe('{"userId":"user-1"}');
+				expect(decodePluginCatalogInvalidatedMessage(encoded)).toEqual<unknown>(
+					objectContaining({ success: { userId: "user-1" } }),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("rejects invalid Redis messages and excess fields", () => {

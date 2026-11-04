@@ -1,4 +1,7 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
+import { it } from "@voila.dev/effect-bun-test";
 import { Result } from "effect";
 
 import { finalizeCompiledManifest } from "./compiler-metadata";

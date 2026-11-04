@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
@@ -11,7 +12,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Duration, Effect, Exit, Fiber, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -203,16 +207,19 @@ const harness = Effect.fnUntraced(function* (
 });
 
 layer(requestLayer)((test) => {
-	test.effect("does not infer cancellation when an awaited child suspends the workflow", () =>
-		Effect.gen(function* () {
-			const h = yield* harness("suspended-child", ["suspend"]);
-			const running = yield* Effect.forkChild(h.run());
-			const exit = yield* Fiber.await(running);
-			expect(Exit.isFailure(exit)).toBe(true);
-			expect(yield* h.read).toMatchObject({ attempt: 1, state: "running" });
-			expect(h.clocks).toEqual([]);
-			yield* (yield* EnrichmentRequests).update("suspended-child", { state: "cancelled" });
-		}),
+	test.effect(
+		"does not infer cancellation when an awaited child suspends the workflow",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("suspended-child", ["suspend"]);
+				const running = yield* Effect.forkChild(h.run());
+				const exit = yield* Fiber.await(running);
+				expect(Exit.isFailure(exit)).toBe(true);
+				expect(yield* h.read).toMatchObject({ attempt: 1, state: "running" });
+				expect(h.clocks).toEqual([]);
+				yield* (yield* EnrichmentRequests).update("suspended-child", { state: "cancelled" });
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"retries infrastructure and timeout failures in new admitted attempts with durable delays",
@@ -227,9 +234,9 @@ layer(requestLayer)((test) => {
 				expect(h.attempts.map(({ id }) => id)).toEqual(
 					[1, 2, 3].map((attempt) => `retry-success-attempt-${attempt}`),
 				);
-				expect(h.attempts.map(({ payload }) => payload.command.causation.executionId)).toEqual(
-					h.attempts.map(({ id }) => id),
-				);
+				expect(
+					h.attempts.map(({ payload }) => payload.command.causation.executionId),
+				).toEqual<unknown>(h.attempts.map(({ id }) => id));
 				expect(h.attempts.every(({ requestId }) => requestId === "retry-success")).toBe(true);
 				expect(h.clocks).toEqual([
 					{ duration: 5_000, name: "population-retry:1" },
@@ -257,22 +264,29 @@ layer(requestLayer)((test) => {
 					entityId: h.entity.id,
 				});
 			}),
+		testTimeout,
 	);
 
-	test.effect("fails after three attempts without reporting success", () =>
-		Effect.gen(function* () {
-			const failure = new SandboxRunError({ kind: "infrastructure", message: "Still unavailable" });
-			const h = yield* harness("retry-exhausted", [failure, failure, failure]);
-			assertExitFails(yield* Effect.exit(h.run()), failure);
-			expect(h.attempts).toHaveLength(3);
-			expect(h.clocks).toHaveLength(2);
-			expect(yield* h.read).toMatchObject({
-				attempt: 3,
-				state: "failed",
-				nextAttemptAt: null,
-				failureKind: "infrastructure",
-			});
-		}),
+	test.effect(
+		"fails after three attempts without reporting success",
+		() =>
+			Effect.gen(function* () {
+				const failure = new SandboxRunError({
+					kind: "infrastructure",
+					message: "Still unavailable",
+				});
+				const h = yield* harness("retry-exhausted", [failure, failure, failure]);
+				assertExitFails(yield* Effect.exit(h.run()), failure);
+				expect(h.attempts).toHaveLength(3);
+				expect(h.clocks).toHaveLength(2);
+				expect(yield* h.read).toMatchObject({
+					attempt: 3,
+					state: "failed",
+					nextAttemptAt: null,
+					failureKind: "infrastructure",
+				});
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -311,30 +325,34 @@ layer(requestLayer)((test) => {
 					});
 				}
 			}),
+		testTimeout,
 	);
 
-	test.effect("uses the persisted request payload rather than a changed replay input", () =>
-		Effect.gen(function* () {
-			const requests = yield* EnrichmentRequests;
-			const h = yield* harness("persisted-request", [entity]);
-			const original = h.payload;
-			yield* requests.ensure({
-				level: "full",
-				entityId: null,
-				language: null,
-				requester: null,
-				payload: original,
-				scopeUserId: null,
-				operation: "population",
-				id: original.executionId,
-				pluginId: original.pluginId,
-				providerId: original.providerId,
-				externalId: original.externalId,
-				entitySchemaSlug: original.entitySchemaSlug,
-				workflowName: ProviderEntityPopulationWorkflow._tag,
-			});
-			yield* h.run({ ...original, mode: "ensure" });
-			expect(h.attempts[0]?.payload.mode).toBe("refresh");
-		}),
+	test.effect(
+		"uses the persisted request payload rather than a changed replay input",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const h = yield* harness("persisted-request", [entity]);
+				const original = h.payload;
+				yield* requests.ensure({
+					level: "full",
+					entityId: null,
+					language: null,
+					requester: null,
+					payload: original,
+					scopeUserId: null,
+					operation: "population",
+					id: original.executionId,
+					pluginId: original.pluginId,
+					providerId: original.providerId,
+					externalId: original.externalId,
+					entitySchemaSlug: original.entitySchemaSlug,
+					workflowName: ProviderEntityPopulationWorkflow._tag,
+				});
+				yield* h.run({ ...original, mode: "ensure" });
+				expect(h.attempts[0]?.payload.mode).toBe("refresh");
+			}),
+		testTimeout,
 	);
 });

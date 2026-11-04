@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -71,7 +74,28 @@ const makeLayer = (executionKind: ImportRunExecutionKind, cancellable = true) =>
 
 for (const executionKind of ["source", "integration"] as const) {
 	layer(makeLayer(executionKind))((test) => {
-		test.effect(`persists cancellation before interrupting the ${executionKind} execution`, () =>
+		test.effect(
+			`persists cancellation before interrupting the ${executionKind} execution`,
+			() =>
+				Effect.gen(function* () {
+					yield* runCancelImportRunWorkflow({
+						runId,
+						userId,
+						accountGeneration: { userId, token: "generation" },
+					});
+					const fake = yield* FakeCancelWorkflow;
+					expect(yield* fake.events).toEqual(["request", "interrupt"]);
+					expect(yield* fake.interrupts).toEqual([{ runId, executionKind }]);
+				}),
+			testTimeout,
+		);
+	});
+}
+
+layer(makeLayer("source", false))((test) => {
+	test.effect(
+		"does not interrupt when the cancellation request is not cancellable",
+		() =>
 			Effect.gen(function* () {
 				yield* runCancelImportRunWorkflow({
 					runId,
@@ -79,24 +103,9 @@ for (const executionKind of ["source", "integration"] as const) {
 					accountGeneration: { userId, token: "generation" },
 				});
 				const fake = yield* FakeCancelWorkflow;
-				expect(yield* fake.events).toEqual(["request", "interrupt"]);
-				expect(yield* fake.interrupts).toEqual([{ runId, executionKind }]);
+				expect(yield* fake.events).toEqual(["request"]);
+				expect(yield* fake.interrupts).toEqual([]);
 			}),
-		);
-	});
-}
-
-layer(makeLayer("source", false))((test) => {
-	test.effect("does not interrupt when the cancellation request is not cancellable", () =>
-		Effect.gen(function* () {
-			yield* runCancelImportRunWorkflow({
-				runId,
-				userId,
-				accountGeneration: { userId, token: "generation" },
-			});
-			const fake = yield* FakeCancelWorkflow;
-			expect(yield* fake.events).toEqual(["request"]);
-			expect(yield* fake.interrupts).toEqual([]);
-		}),
+		testTimeout,
 	);
 });

@@ -1,10 +1,14 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { selectExecutable } from "@ryot-app/plugin-backend-sdk/workflow";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
 
 import type { ListStateProperties } from "../../../shared/list-state";
@@ -335,30 +339,34 @@ describe("AniList yank", () => {
 					),
 				).toBe(true);
 			}),
+		testTimeout,
 	);
 
-	it.effect("deduplicates entries repeated across list groups", () =>
-		Effect.gen(function* () {
-			const duplicate = entry(8, 108, "CURRENT", { mediaTitle: null });
-			const state = setup({
-				settings: { syncManga: false },
-				responses: [
-					viewerResponse(),
-					{
-						data: {
-							MediaListCollection: {
-								hasNextChunk: false,
-								lists: [{ entries: [duplicate] }, { entries: [duplicate] }],
+	it.effect(
+		"deduplicates entries repeated across list groups",
+		() =>
+			Effect.gen(function* () {
+				const duplicate = entry(8, 108, "CURRENT", { mediaTitle: null });
+				const state = setup({
+					settings: { syncManga: false },
+					responses: [
+						viewerResponse(),
+						{
+							data: {
+								MediaListCollection: {
+									hasNextChunk: false,
+									lists: [{ entries: [duplicate] }, { entries: [duplicate] }],
+								},
 							},
 						},
-					},
-				],
-			});
-			const result = yield* runWindows(state);
-			expect(groups(result.records)).toHaveLength(1);
-			expect(groups(result.records)[0]?.entityRef).toMatchObject({ sourceLabel: "8" });
-			expect(events(result.records)).toHaveLength(1);
-		}),
+					],
+				});
+				const result = yield* runWindows(state);
+				expect(groups(result.records)).toHaveLength(1);
+				expect(groups(result.records)[0]?.entityRef).toMatchObject({ sourceLabel: "8" });
+				expect(events(result.records)).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -423,117 +431,133 @@ describe("AniList yank", () => {
 				expect(state.requests.filter(({ body }) => body.includes("Viewer"))).toHaveLength(1);
 				expect(state.tokenRequests).toHaveLength(3);
 			}),
+		testTimeout,
 	);
 
-	it.effect("rejects a continuation when its OAuth account connection changed", () =>
-		Effect.gen(function* () {
-			const state = setup({
-				responses: [viewerResponse(), collectionResponse([entry(12, 112, "CURRENT")], true)],
-			});
-			const fs = mediaFilesystem({});
-			yield* TestClock.setTime(Date.parse(execution.startedAt));
-			const first = yield* runSandboxTestScript(definition, {}, state.host, execution);
-			assert(first.carryFile);
-			const carry = fs.scratch.get(first.carryFile);
-			assert(carry);
-			fs.files.set("carry", carry.slice());
-			state.setConnectionId("connection-2");
-			const error = yield* Effect.flip(
-				runSandboxTestScript(
-					definition,
-					{ ingestionArtifacts: { runId: "run", captures: { carry: "durable-carry" } } },
-					state.host,
-					execution,
-				),
-			);
-			expect(error).toMatchObject({
-				message: "OAuth connection is not available to this integration run",
-			});
-			expect(state.requests).toHaveLength(2);
-			expect(state.tokenRequests).toHaveLength(2);
-		}),
-	);
-
-	it.effect("does not emit a snapshot when only AniList updatedAt changed", () =>
-		Effect.gen(function* () {
-			const state = setup({
-				settings: { syncManga: false },
-				snapshotPages: [snapshotPage([snapshot("20", { animeEpisode: 5 })])],
-				responses: [
-					viewerResponse(),
-					collectionResponse([entry(20, 120, "CURRENT", { progress: 5 })]),
-				],
-			});
-			const result = yield* runWindows(state);
-			expect(events(result.records)).toEqual([]);
-		}),
-	);
-
-	it.effect("emits a new list-state snapshot when progress moves backwards", () =>
-		Effect.gen(function* () {
-			const state = setup({
-				settings: { syncManga: false },
-				snapshotPages: [snapshotPage([snapshot("21", { animeEpisode: 10 })])],
-				responses: [
-					viewerResponse(),
-					collectionResponse([entry(21, 121, "CURRENT", { progress: 5 })]),
-				],
-			});
-			const result = yield* runWindows(state);
-			expect(events(result.records)).toHaveLength(1);
-			expect(events(result.records)[0]?.properties).toMatchObject({
-				animeEpisode: 5,
-				sourceEntryId: "21",
-				state: "in_progress",
-			});
-		}),
-	);
-
-	it.effect("drains snapshot pages until it finds a latest state for every entry", () =>
-		Effect.gen(function* () {
-			const state = setup({
-				settings: { syncManga: false },
-				responses: [
-					viewerResponse(),
-					collectionResponse([entry(30, 130, "CURRENT"), entry(31, 131, "CURRENT")]),
-				],
-				snapshotPages: [
-					snapshotPage(
-						[
-							snapshot("30", { animeEpisode: 0 }),
-							snapshot("30", { animeEpisode: 1, sourceUpdatedAt: "2025-12-30T12:00:00.000Z" }),
-						],
-						{ limit: 100, hasMore: true, nextCursor: "snapshot-page-2" },
+	it.effect(
+		"rejects a continuation when its OAuth account connection changed",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({
+					responses: [viewerResponse(), collectionResponse([entry(12, 112, "CURRENT")], true)],
+				});
+				const fs = mediaFilesystem({});
+				yield* TestClock.setTime(Date.parse(execution.startedAt));
+				const first = yield* runSandboxTestScript(definition, {}, state.host, execution);
+				assert(first.carryFile);
+				const carry = fs.scratch.get(first.carryFile);
+				assert(carry);
+				fs.files.set("carry", carry.slice());
+				state.setConnectionId("connection-2");
+				const error = yield* Effect.flip(
+					runSandboxTestScript(
+						definition,
+						{ ingestionArtifacts: { runId: "run", captures: { carry: "durable-carry" } } },
+						state.host,
+						execution,
 					),
-					snapshotPage([snapshot("31", { animeEpisode: 0 })]),
-				],
-			});
-			const result = yield* runWindows(state);
-			expect(events(result.records)).toEqual([]);
-			expect(state.documents).toHaveLength(2);
-			expect(state.documents[1]).toMatchObject({
-				queries: { snapshots: { output: { pagination: { after: "snapshot-page-2" } } } },
-			});
-		}),
+				);
+				expect(error).toMatchObject({
+					message: "OAuth connection is not available to this integration run",
+				});
+				expect(state.requests).toHaveLength(2);
+				expect(state.tokenRequests).toHaveLength(2);
+			}),
+		testTimeout,
 	);
 
-	it.effect("keeps malformed entries attributed to their source entry", () =>
-		Effect.gen(function* () {
-			const state = setup({
-				settings: { syncManga: false },
-				responses: [viewerResponse(), collectionResponse([{ id: 40, mediaId: 140 }])],
-			});
-			const result = yield* runWindows(state);
-			const failure = result.records.find(({ failure: sourceFailure }) => sourceFailure)?.failure;
-			expect(failure).toMatchObject({
-				sourceLabel: "40",
-				sourceIdentifier: "40",
-				entitySchemaSlug: "anime",
-				stage: "input_transformation",
-				message: "AniList list entry is malformed",
-			});
-			expect(failure?.operationId).toBeTruthy();
-		}),
+	it.effect(
+		"does not emit a snapshot when only AniList updatedAt changed",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({
+					settings: { syncManga: false },
+					snapshotPages: [snapshotPage([snapshot("20", { animeEpisode: 5 })])],
+					responses: [
+						viewerResponse(),
+						collectionResponse([entry(20, 120, "CURRENT", { progress: 5 })]),
+					],
+				});
+				const result = yield* runWindows(state);
+				expect(events(result.records)).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"emits a new list-state snapshot when progress moves backwards",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({
+					settings: { syncManga: false },
+					snapshotPages: [snapshotPage([snapshot("21", { animeEpisode: 10 })])],
+					responses: [
+						viewerResponse(),
+						collectionResponse([entry(21, 121, "CURRENT", { progress: 5 })]),
+					],
+				});
+				const result = yield* runWindows(state);
+				expect(events(result.records)).toHaveLength(1);
+				expect(events(result.records)[0]?.properties).toMatchObject({
+					animeEpisode: 5,
+					sourceEntryId: "21",
+					state: "in_progress",
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"drains snapshot pages until it finds a latest state for every entry",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({
+					settings: { syncManga: false },
+					responses: [
+						viewerResponse(),
+						collectionResponse([entry(30, 130, "CURRENT"), entry(31, 131, "CURRENT")]),
+					],
+					snapshotPages: [
+						snapshotPage(
+							[
+								snapshot("30", { animeEpisode: 0 }),
+								snapshot("30", { animeEpisode: 1, sourceUpdatedAt: "2025-12-30T12:00:00.000Z" }),
+							],
+							{ limit: 100, hasMore: true, nextCursor: "snapshot-page-2" },
+						),
+						snapshotPage([snapshot("31", { animeEpisode: 0 })]),
+					],
+				});
+				const result = yield* runWindows(state);
+				expect(events(result.records)).toEqual([]);
+				expect(state.documents).toHaveLength(2);
+				expect(state.documents[1]).toMatchObject({
+					queries: { snapshots: { output: { pagination: { after: "snapshot-page-2" } } } },
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"keeps malformed entries attributed to their source entry",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({
+					settings: { syncManga: false },
+					responses: [viewerResponse(), collectionResponse([{ id: 40, mediaId: 140 }])],
+				});
+				const result = yield* runWindows(state);
+				const failure = result.records.find(({ failure: sourceFailure }) => sourceFailure)?.failure;
+				expect(failure).toMatchObject({
+					sourceLabel: "40",
+					sourceIdentifier: "40",
+					entitySchemaSlug: "anime",
+					stage: "input_transformation",
+					message: "AniList list entry is malformed",
+				});
+				expect(failure?.operationId).toBeTruthy();
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -550,83 +574,101 @@ describe("AniList yank", () => {
 				expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
 				expect(state.documents).toEqual([]);
 			}),
+		testTimeout,
 	);
 
-	it.effect("fails GraphQL partial data and invalidates the account token for GraphQL 401", () =>
-		Effect.gen(function* () {
-			const state = setup({
-				responses: [{ errors: [{ status: 401 }], data: { Viewer: { id: 42 } } }],
-			});
-			const error = yield* Effect.flip(runWindows(state));
-			expect(error).toStrictEqual(
-				new MediaSandboxError({ message: "AniList GraphQL request returned status 401" }),
-			);
-			expect(state.invalidations).toEqual([{ field: "account", accessToken: ACCESS_TOKEN }]);
-			expect(state.requests).toHaveLength(1);
-			expect(error.message).not.toContain(ACCESS_TOKEN);
-			expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
-		}),
+	it.effect(
+		"fails GraphQL partial data and invalidates the account token for GraphQL 401",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({
+					responses: [{ errors: [{ status: 401 }], data: { Viewer: { id: 42 } } }],
+				});
+				const error = yield* Effect.flip(runWindows(state));
+				expect(error).toStrictEqual(
+					new MediaSandboxError({ message: "AniList GraphQL request returned status 401" }),
+				);
+				expect(state.invalidations).toEqual([{ field: "account", accessToken: ACCESS_TOKEN }]);
+				expect(state.requests).toHaveLength(1);
+				expect(error.message).not.toContain(ACCESS_TOKEN);
+				expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
+			}),
+		testTimeout,
 	);
 
-	it.effect("invalidates the OAuth access token for an HTTP 401 only", () =>
-		Effect.gen(function* () {
-			const state = setup({ httpFailures: [401] });
-			const error = yield* Effect.flip(runWindows(state));
-			expect(error).toStrictEqual(
-				new MediaSandboxError({ message: "AniList GraphQL request returned status 401" }),
-			);
-			expect(state.invalidations).toEqual([{ field: "account", accessToken: ACCESS_TOKEN }]);
-			expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
-		}),
+	it.effect(
+		"invalidates the OAuth access token for an HTTP 401 only",
+		() =>
+			Effect.gen(function* () {
+				const state = setup({ httpFailures: [401] });
+				const error = yield* Effect.flip(runWindows(state));
+				expect(error).toStrictEqual(
+					new MediaSandboxError({ message: "AniList GraphQL request returned status 401" }),
+				);
+				expect(state.invalidations).toEqual([{ field: "account", accessToken: ACCESS_TOKEN }]);
+				expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
+			}),
+		testTimeout,
 	);
 
-	it.effect.each([403, 429, 503])("does not invalidate tokens for GraphQL status %i", (status) =>
-		Effect.gen(function* () {
-			const state = setup({ responses: [{ errors: [{ status }], data: { Viewer: { id: 42 } } }] });
-			const error = yield* Effect.flip(runWindows(state));
-			expect(error).toStrictEqual(
-				new MediaSandboxError({ message: `AniList GraphQL request returned status ${status}` }),
-			);
-			expect(state.invalidations).toEqual([]);
-		}),
+	it.effect.each([403, 429, 503])(
+		"does not invalidate tokens for GraphQL status %i",
+		(status) =>
+			Effect.gen(function* () {
+				const state = setup({
+					responses: [{ errors: [{ status }], data: { Viewer: { id: 42 } } }],
+				});
+				const error = yield* Effect.flip(runWindows(state));
+				expect(error).toStrictEqual(
+					new MediaSandboxError({ message: `AniList GraphQL request returned status ${status}` }),
+				);
+				expect(state.invalidations).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect.each([403, 429, 503])("does not invalidate tokens for HTTP status %i", (status) =>
-		Effect.gen(function* () {
-			const state = setup({ httpFailures: [status] });
-			const error = yield* Effect.flip(runWindows(state));
-			expect(error).toStrictEqual(
-				new MediaSandboxError({ message: `AniList GraphQL request returned status ${status}` }),
-			);
-			expect(state.invalidations).toEqual([]);
-			expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
-		}),
+	it.effect.each([403, 429, 503])(
+		"does not invalidate tokens for HTTP status %i",
+		(status) =>
+			Effect.gen(function* () {
+				const state = setup({ httpFailures: [status] });
+				const error = yield* Effect.flip(runWindows(state));
+				expect(error).toStrictEqual(
+					new MediaSandboxError({ message: `AniList GraphQL request returned status ${status}` }),
+				);
+				expect(state.invalidations).toEqual([]);
+				expect(error.message).not.toContain(PRIVATE_RESPONSE_BODY);
+			}),
+		testTimeout,
 	);
 
-	it.effect("returns no network or state work for confirmation replay", () =>
-		Effect.gen(function* () {
-			const state = setup();
-			const output = yield* runSandboxTestScript(
-				definition,
-				{
-					ingestionConfirmation: {
-						part: 0,
-						final: true,
-						runId: "run",
-						confirmed: [],
-						batchId: "batch",
-						inputFingerprint: "fingerprint",
+	it.effect(
+		"returns no network or state work for confirmation replay",
+		() =>
+			Effect.gen(function* () {
+				const state = setup();
+				const output = yield* runSandboxTestScript(
+					definition,
+					{
+						ingestionConfirmation: {
+							part: 0,
+							final: true,
+							runId: "run",
+							confirmed: [],
+							batchId: "batch",
+							inputFingerprint: "fingerprint",
+						},
 					},
-				},
-				state.host,
-				execution,
-			);
-			expect(output).toEqual({ chunkFiles: [], carryFile: null });
-			expect(state.integrationReads()).toBe(0);
-			expect(state.tokenRequests).toEqual([]);
-			expect(state.requests).toEqual([]);
-			expect(state.documents).toEqual([]);
-		}),
+					state.host,
+					execution,
+				);
+				expect(output).toEqual({ chunkFiles: [], carryFile: null });
+				expect(state.integrationReads()).toBe(0);
+				expect(state.tokenRequests).toEqual([]);
+				expect(state.requests).toEqual([]);
+				expect(state.documents).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -653,5 +695,6 @@ describe("AniList yank", () => {
 				expect(disabled.tokenRequests).toEqual([]);
 				expect(disabled.documents).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

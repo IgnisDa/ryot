@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { describe, expect, it } from "vitest";
 
 import { artistSongsResponse } from "../../../../tests/backend/youtube-music-fixtures";
 import { createYoutubeMusicClient } from "../../../lib/vendors/youtube-music";

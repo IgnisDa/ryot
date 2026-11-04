@@ -1,6 +1,9 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Fiber, Layer, Option, Redacted, Ref, Schema, Scope } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -51,24 +54,27 @@ const namedPubsubClientId = (client: RedisService["Service"]["client"], connecti
 	});
 
 layer(WorkflowExecutionNotifications.layer.pipe(Layer.provideMerge(TestClock.layer())))((test) => {
-	test.effect("wakes every matching listener without crossing identity boundaries", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const notifications = yield* WorkflowExecutionNotifications;
-				const firstWaiter = yield* notifications.listen(firstIdentity);
-				const secondWaiter = yield* notifications.listen(firstIdentity);
-				const collisionWaiter = yield* notifications.listen(collidingIdentity);
-				const collisionFiber = yield* Effect.forkChild(
-					Effect.timeoutOption(collisionWaiter, "1 second"),
-				);
+	test.effect(
+		"wakes every matching listener without crossing identity boundaries",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const notifications = yield* WorkflowExecutionNotifications;
+					const firstWaiter = yield* notifications.listen(firstIdentity);
+					const secondWaiter = yield* notifications.listen(firstIdentity);
+					const collisionWaiter = yield* notifications.listen(collidingIdentity);
+					const collisionFiber = yield* Effect.forkChild(
+						Effect.timeoutOption(collisionWaiter, "1 second"),
+					);
 
-				yield* notifications.publish(firstIdentity);
-				yield* firstWaiter;
-				yield* secondWaiter;
-				yield* TestClock.adjust("1 second");
-				expect(yield* Fiber.join(collisionFiber)).toEqual(Option.none());
-			}),
-		),
+					yield* notifications.publish(firstIdentity);
+					yield* firstWaiter;
+					yield* secondWaiter;
+					yield* TestClock.adjust("1 second");
+					expect(yield* Fiber.join(collisionFiber)).toEqual(Option.none());
+				}),
+			),
+		testTimeout,
 	);
 
 	test.effect(
@@ -107,118 +113,142 @@ layer(WorkflowExecutionNotifications.layer.pipe(Layer.provideMerge(TestClock.lay
 					),
 				).toBe(5);
 			}),
+		testTimeout,
 	);
 
-	test.effect("releases listeners and does not retain published results", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const notifications = yield* WorkflowExecutionNotifications;
-				yield* Effect.scoped(
-					Effect.gen(function* () {
-						const waiter = yield* notifications.listen(firstIdentity);
-						yield* notifications.publish(firstIdentity);
-						yield* waiter;
-					}),
-				);
-				yield* notifications.publish(firstIdentity);
-				const waiter = yield* notifications.listen(firstIdentity);
-				const fiber = yield* Effect.forkChild(Effect.timeoutOption(waiter, "1 second"));
-				yield* TestClock.adjust("1 second");
-				expect(yield* Fiber.join(fiber)).toEqual(Option.none());
-			}),
-		),
+	test.effect(
+		"releases listeners and does not retain published results",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const notifications = yield* WorkflowExecutionNotifications;
+					yield* Effect.scoped(
+						Effect.gen(function* () {
+							const waiter = yield* notifications.listen(firstIdentity);
+							yield* notifications.publish(firstIdentity);
+							yield* waiter;
+						}),
+					);
+					yield* notifications.publish(firstIdentity);
+					const waiter = yield* notifications.listen(firstIdentity);
+					const fiber = yield* Effect.forkChild(Effect.timeoutOption(waiter, "1 second"));
+					yield* TestClock.adjust("1 second");
+					expect(yield* Fiber.join(fiber)).toEqual(Option.none());
+				}),
+			),
+		testTimeout,
 	);
 });
 
 layer(BunCrypto.layerSecureRandom)((test) => {
-	test.effect("delivers notifications between live instances through Redis", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const first = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
-				const second = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
-				const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
-				const identity = { executionId: yield* randomUuid, workflowName: "CrossInstanceWorkflow" };
-				const waiter = yield* second.listen(identity);
+	test.effect(
+		"delivers notifications between live instances through Redis",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const first = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
+					const second = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
+					const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
+					const identity = {
+						executionId: yield* randomUuid,
+						workflowName: "CrossInstanceWorkflow",
+					};
+					const waiter = yield* second.listen(identity);
 
-				yield* Effect.tryPromise(() =>
-					publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, "malformed"),
-				);
-				expect(
-					Option.isNone(yield* Effect.timeoutOption(waiter, "100 millis").pipe(TestClock.withLive)),
-				).toBe(true);
-				yield* first.publish(identity);
-				expect(
-					Option.isSome(yield* Effect.timeoutOption(waiter, "5 seconds").pipe(TestClock.withLive)),
-				).toBe(true);
-			}),
-		),
+					yield* Effect.tryPromise(() =>
+						publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, "malformed"),
+					);
+					expect(
+						Option.isNone(
+							yield* Effect.timeoutOption(waiter, "100 millis").pipe(TestClock.withLive),
+						),
+					).toBe(true);
+					yield* first.publish(identity);
+					expect(
+						Option.isSome(
+							yield* Effect.timeoutOption(waiter, "5 seconds").pipe(TestClock.withLive),
+						),
+					).toBe(true);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("resubscribes after the Redis subscriber reconnects", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
-				const connectionName = `workflow-notifications-${yield* randomUuid}`;
-				const namedRedis = yield* makeNamedRedisService(publisher, connectionName);
-				const context = yield* Layer.build(
-					WorkflowExecutionNotifications.liveLayer.pipe(
-						Layer.provide(Layer.succeed(RedisService, namedRedis)),
-					),
-				);
-				const notifications = Context.get(context, WorkflowExecutionNotifications);
-				const identity = { executionId: yield* randomUuid, workflowName: "ReconnectWorkflow" };
-				const recoveryWaiter = yield* notifications.listen(identity);
-				const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
+	test.effect(
+		"resubscribes after the Redis subscriber reconnects",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
+					const connectionName = `workflow-notifications-${yield* randomUuid}`;
+					const namedRedis = yield* makeNamedRedisService(publisher, connectionName);
+					const context = yield* Layer.build(
+						WorkflowExecutionNotifications.liveLayer.pipe(
+							Layer.provide(Layer.succeed(RedisService, namedRedis)),
+						),
+					);
+					const notifications = Context.get(context, WorkflowExecutionNotifications);
+					const identity = { executionId: yield* randomUuid, workflowName: "ReconnectWorkflow" };
+					const recoveryWaiter = yield* notifications.listen(identity);
+					const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
 
-				yield* Effect.tryPromise(() => publisher.client.call("CLIENT", "KILL", "ID", subscriberId));
-				expect(
-					Option.isSome(
-						yield* Effect.timeoutOption(recoveryWaiter, "5 seconds").pipe(TestClock.withLive),
-					),
-				).toBe(true);
+					yield* Effect.tryPromise(() =>
+						publisher.client.call("CLIENT", "KILL", "ID", subscriberId),
+					);
+					expect(
+						Option.isSome(
+							yield* Effect.timeoutOption(recoveryWaiter, "5 seconds").pipe(TestClock.withLive),
+						),
+					).toBe(true);
 
-				const freshIdentity = {
-					executionId: yield* randomUuid,
-					workflowName: "ReconnectedWorkflow",
-				};
-				const freshWaiter = yield* notifications.listen(freshIdentity);
-				const message = yield* encodeWorkflowExecutionNotificationMessage(freshIdentity);
-				yield* Effect.tryPromise(() =>
-					publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, message),
-				);
-				expect(
-					Option.isSome(
-						yield* Effect.timeoutOption(freshWaiter, "5 seconds").pipe(TestClock.withLive),
-					),
-				).toBe(true);
-			}),
-		),
+					const freshIdentity = {
+						executionId: yield* randomUuid,
+						workflowName: "ReconnectedWorkflow",
+					};
+					const freshWaiter = yield* notifications.listen(freshIdentity);
+					const message = yield* encodeWorkflowExecutionNotificationMessage(freshIdentity);
+					yield* Effect.tryPromise(() =>
+						publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, message),
+					);
+					expect(
+						Option.isSome(
+							yield* Effect.timeoutOption(freshWaiter, "5 seconds").pipe(TestClock.withLive),
+						),
+					).toBe(true);
+				}),
+			),
+		testTimeout,
 	);
 
-	test.effect("does not reconnect a subscriber after its layer scope closes", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
-				const connectionName = `workflow-notifications-${yield* randomUuid}`;
-				const subscriberScope = yield* Scope.make();
-				yield* Effect.addFinalizer(() => Scope.close(subscriberScope, Exit.void));
-				const namedRedis = yield* makeNamedRedisService(publisher, connectionName).pipe(
-					Effect.provideService(Scope.Scope, subscriberScope),
-				);
-				yield* Layer.build(
-					WorkflowExecutionNotifications.liveLayer.pipe(
-						Layer.provide(Layer.succeed(RedisService, namedRedis)),
-					),
-				).pipe(Effect.provideService(Scope.Scope, subscriberScope));
-				const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
+	test.effect(
+		"does not reconnect a subscriber after its layer scope closes",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
+					const connectionName = `workflow-notifications-${yield* randomUuid}`;
+					const subscriberScope = yield* Scope.make();
+					yield* Effect.addFinalizer(() => Scope.close(subscriberScope, Exit.void));
+					const namedRedis = yield* makeNamedRedisService(publisher, connectionName).pipe(
+						Effect.provideService(Scope.Scope, subscriberScope),
+					);
+					yield* Layer.build(
+						WorkflowExecutionNotifications.liveLayer.pipe(
+							Layer.provide(Layer.succeed(RedisService, namedRedis)),
+						),
+					).pipe(Effect.provideService(Scope.Scope, subscriberScope));
+					const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
 
-				yield* Effect.tryPromise(() => publisher.client.call("CLIENT", "KILL", "ID", subscriberId));
-				yield* Effect.sleep("20 millis").pipe(TestClock.withLive);
-				yield* Scope.close(subscriberScope, Exit.void);
-				expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);
-				yield* Effect.sleep("300 millis").pipe(TestClock.withLive);
-				expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);
-			}),
-		),
+					yield* Effect.tryPromise(() =>
+						publisher.client.call("CLIENT", "KILL", "ID", subscriberId),
+					);
+					yield* Effect.sleep("20 millis").pipe(TestClock.withLive);
+					yield* Scope.close(subscriberScope, Exit.void);
+					expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);
+					yield* Effect.sleep("300 millis").pipe(TestClock.withLive);
+					expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);
+				}),
+			),
+		testTimeout,
 	);
 });

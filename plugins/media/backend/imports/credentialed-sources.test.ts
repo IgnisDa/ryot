@@ -1,6 +1,9 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { collectTraktApi } from "./api-collection";
@@ -51,50 +54,53 @@ const runSource = Effect.fn(function* <Host extends HttpHost>(
 	}
 });
 
-it.live("uses the public Trakt list's encoded path and GET pagination metadata", () =>
-	Effect.gen(function* () {
-		const calls: URL[] = [];
-		const host = stubHttpHost(({ url, method }) => {
-			expect(method).toBe("GET");
-			calls.push(url);
-			return {
-				headers: { "x-pagination-page-count": "2" },
-				body:
-					url.searchParams.get("page") === "1"
-						? [{ type: "movie", movie: { ids: { tmdb: 603 }, title: "The Matrix" } }]
-						: [{ type: "show", show: { title: "Game of Thrones", ids: { imdb: "tt0944947" } } }],
-			};
-		});
-		const records = yield* runSource(
-			(input, requestHost) => collectTraktApi(input, "client", requestHost),
-			{
-				mode: "list",
-				collection: "Favorites",
-				url: "https://www.trakt.tv/users/alice%20smith/lists/my%20list/?source=test#items",
-			},
-			host,
-		);
-		expect(records.map((record) => record.group?.entityRef)).toMatchObject([
-			{ externalId: "603", providerSlug: "movie.tmdb" },
-			{ kind: "unresolved", identifierValue: "tt0944947" },
-		]);
-		expect(
-			records.every(
-				(record) => record.group?.collectionMemberships[0]?.collectionName === "Favorites",
-			),
-		).toBe(true);
-		expect(calls.map((url) => url.pathname)).toEqual([
-			"/users/alice%20smith/lists/my%20list/items",
-			"/users/alice%20smith/lists/my%20list/items",
-		]);
-		expect(calls.map((url) => url.searchParams.get("page"))).toEqual(["1", "2"]);
-		expect(
-			calls.every(
-				(url) =>
-					url.searchParams.get("limit") === "25" && !url.searchParams.has("source") && !url.hash,
-			),
-		).toBe(true);
-	}),
+it.live(
+	"uses the public Trakt list's encoded path and GET pagination metadata",
+	() =>
+		Effect.gen(function* () {
+			const calls: URL[] = [];
+			const host = stubHttpHost(({ url, method }) => {
+				expect(method).toBe("GET");
+				calls.push(url);
+				return {
+					headers: { "x-pagination-page-count": "2" },
+					body:
+						url.searchParams.get("page") === "1"
+							? [{ type: "movie", movie: { ids: { tmdb: 603 }, title: "The Matrix" } }]
+							: [{ type: "show", show: { title: "Game of Thrones", ids: { imdb: "tt0944947" } } }],
+				};
+			});
+			const records = yield* runSource(
+				(input, requestHost) => collectTraktApi(input, "client", requestHost),
+				{
+					mode: "list",
+					collection: "Favorites",
+					url: "https://www.trakt.tv/users/alice%20smith/lists/my%20list/?source=test#items",
+				},
+				host,
+			);
+			expect(records.map((record) => record.group?.entityRef)).toMatchObject([
+				{ externalId: "603", providerSlug: "movie.tmdb" },
+				{ kind: "unresolved", identifierValue: "tt0944947" },
+			]);
+			expect(
+				records.every(
+					(record) => record.group?.collectionMemberships[0]?.collectionName === "Favorites",
+				),
+			).toBe(true);
+			expect(calls.map((url) => url.pathname)).toEqual([
+				"/users/alice%20smith/lists/my%20list/items",
+				"/users/alice%20smith/lists/my%20list/items",
+			]);
+			expect(calls.map((url) => url.searchParams.get("page"))).toEqual(["1", "2"]);
+			expect(
+				calls.every(
+					(url) =>
+						url.searchParams.get("limit") === "25" && !url.searchParams.has("source") && !url.hash,
+				),
+			).toBe(true);
+		}),
+	testTimeout,
 );
 it.live.each([
 	"ftp://trakt.tv/users/alice/lists/favorites",
@@ -102,166 +108,179 @@ it.live.each([
 	"https://trakt.tv/users/alice/lists",
 	"https://trakt.tv/users//lists/favorites",
 	"https://trakt.tv/users/alice/lists/favorites/extra",
-])("rejects an invalid Trakt list URL before a source request: %s", (url) =>
-	Effect.gen(function* () {
-		let calls = 0;
-		const host = stubHttpHost(() => {
-			calls++;
-			return { body: [] };
-		});
-		const result = yield* collectTraktApi(
-			mediaStageInput({ settings: { url, mode: "list", collection: "Favorites" } }),
-			"client",
-			host,
-		).pipe(Effect.exit);
-		expect(result._tag).toBe("Failure");
-		expect(calls).toBe(0);
-	}),
+])(
+	"rejects an invalid Trakt list URL before a source request: %s",
+	(url) =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const host = stubHttpHost(() => {
+				calls++;
+				return { body: [] };
+			});
+			const result = yield* collectTraktApi(
+				mediaStageInput({ settings: { url, mode: "list", collection: "Favorites" } }),
+				"client",
+				host,
+			).pipe(Effect.exit);
+			expect(result._tag).toBe("Failure");
+			expect(calls).toBe(0);
+		}),
+	testTimeout,
 );
-it.live("collects Plex movies and bounded show leaves without refetching a section", () =>
-	Effect.gen(function* () {
-		const calls: string[] = [];
-		const httpHost = stubHttpHost(({ path }) => {
-			calls.push(path);
-			if (path === "/library/sections") {
+it.live(
+	"collects Plex movies and bounded show leaves without refetching a section",
+	() =>
+		Effect.gen(function* () {
+			const calls: string[] = [];
+			const httpHost = stubHttpHost(({ path }) => {
+				calls.push(path);
+				if (path === "/library/sections") {
+					return {
+						body: {
+							MediaContainer: {
+								Directory: [
+									{ key: "1", type: "movie", title: "Movies" },
+									{ key: "2", type: "show", title: "Shows" },
+								],
+							},
+						},
+					};
+				}
+				if (path === "/library/sections/1/all") {
+					return {
+						body: {
+							MediaContainer: {
+								Metadata: [
+									{
+										key: "movie",
+										type: "movie",
+										title: "Movie",
+										lastViewedAt: 1700000000,
+										Guid: [{ id: "tmdb://42" }],
+									},
+								],
+							},
+						},
+					};
+				}
+				if (path === "/library/sections/2/all") {
+					return {
+						body: {
+							MediaContainer: {
+								Metadata: [
+									{
+										key: "show",
+										type: "show",
+										title: "Show",
+										ratingKey: "9",
+										lastViewedAt: 1700000000,
+										Guid: [{ id: "tmdb://99" }],
+									},
+								],
+							},
+						},
+					};
+				}
 				return {
 					body: {
 						MediaContainer: {
-							Directory: [
-								{ key: "1", type: "movie", title: "Movies" },
-								{ key: "2", type: "show", title: "Shows" },
-							],
+							Metadata: [1, 2].map((index) => ({
+								index,
+								parentIndex: 1,
+								type: "episode",
+								title: "Episode",
+								key: `episode-${index}`,
+								lastViewedAt: 1700000000 + index,
+							})),
 						},
 					},
 				};
-			}
-			if (path === "/library/sections/1/all") {
-				return {
-					body: {
-						MediaContainer: {
-							Metadata: [
+			});
+			const host = defineSandboxTestHost(plexManifest, { httpCall: httpHost.httpCall });
+			const records = yield* runSource(
+				plex.run,
+				{ apiKey: "key", apiUrl: "https://plex.example" },
+				host,
+			);
+			expect(new Set(calls).size).toBe(calls.length);
+			expect(
+				records
+					.flatMap((record) => record.group?.events ?? [])
+					.map((event) => event.eventSchemaSlug),
+			).toEqual(["complete", "progress", "progress"]);
+			expect(records[2]?.group?.events[0]?.unresolvedEpisode).toEqual({
+				type: "show",
+				seasonNumber: 1,
+				episodeNumber: 2,
+			});
+		}),
+	testTimeout,
+);
+it.live(
+	"collects Jellyfin movies and series episodes using the admitted connection options",
+	() =>
+		Effect.gen(function* () {
+			const calls: string[] = [];
+			const httpHost = stubHttpHost(({ url, path, options }) => {
+				expect(options?.allowInsecureConnections).toBe(true);
+				calls.push(path + url.search);
+				if (path.endsWith("AuthenticateByName")) {
+					return { body: { AccessToken: "token", User: { Id: "user" } } };
+				}
+				if (url.searchParams.get("IncludeItemTypes") === "Movie") {
+					return {
+						body: {
+							Items: [
 								{
-									key: "movie",
-									type: "movie",
-									title: "Movie",
-									lastViewedAt: 1700000000,
-									Guid: [{ id: "tmdb://42" }],
+									Id: "movie",
+									Name: "Movie",
+									ProviderIds: { Tmdb: "42" },
+									UserData: { LastPlayedDate: "2026-01-01T00:00:00Z" },
 								},
 							],
 						},
-					},
-				};
-			}
-			if (path === "/library/sections/2/all") {
-				return {
-					body: {
-						MediaContainer: {
-							Metadata: [
-								{
-									key: "show",
-									type: "show",
-									title: "Show",
-									ratingKey: "9",
-									lastViewedAt: 1700000000,
-									Guid: [{ id: "tmdb://99" }],
-								},
-							],
-						},
-					},
-				};
-			}
-			return {
-				body: {
-					MediaContainer: {
-						Metadata: [1, 2].map((index) => ({
-							index,
-							parentIndex: 1,
-							type: "episode",
-							title: "Episode",
-							key: `episode-${index}`,
-							lastViewedAt: 1700000000 + index,
-						})),
-					},
-				},
-			};
-		});
-		const host = defineSandboxTestHost(plexManifest, { httpCall: httpHost.httpCall });
-		const records = yield* runSource(
-			plex.run,
-			{ apiKey: "key", apiUrl: "https://plex.example" },
-			host,
-		);
-		expect(new Set(calls).size).toBe(calls.length);
-		expect(
-			records.flatMap((record) => record.group?.events ?? []).map((event) => event.eventSchemaSlug),
-		).toEqual(["complete", "progress", "progress"]);
-		expect(records[2]?.group?.events[0]?.unresolvedEpisode).toEqual({
-			type: "show",
-			seasonNumber: 1,
-			episodeNumber: 2,
-		});
-	}),
-);
-it.live("collects Jellyfin movies and series episodes using the admitted connection options", () =>
-	Effect.gen(function* () {
-		const calls: string[] = [];
-		const httpHost = stubHttpHost(({ url, path, options }) => {
-			expect(options?.allowInsecureConnections).toBe(true);
-			calls.push(path + url.search);
-			if (path.endsWith("AuthenticateByName")) {
-				return { body: { AccessToken: "token", User: { Id: "user" } } };
-			}
-			if (url.searchParams.get("IncludeItemTypes") === "Movie") {
+					};
+				}
+				if (url.searchParams.get("IncludeItemTypes") === "Series") {
+					return { body: { Items: [{ Id: "series", Name: "Show", ProviderIds: { Tmdb: "99" } }] } };
+				}
 				return {
 					body: {
 						Items: [
 							{
-								Id: "movie",
-								Name: "Movie",
-								ProviderIds: { Tmdb: "42" },
-								UserData: { LastPlayedDate: "2026-01-01T00:00:00Z" },
+								Id: "episode",
+								IndexNumber: 3,
+								Name: "Episode",
+								ParentIndexNumber: 2,
+								UserData: { IsFavorite: true, LastPlayedDate: "2026-01-02T00:00:00Z" },
 							},
 						],
 					},
 				};
-			}
-			if (url.searchParams.get("IncludeItemTypes") === "Series") {
-				return { body: { Items: [{ Id: "series", Name: "Show", ProviderIds: { Tmdb: "99" } }] } };
-			}
-			return {
-				body: {
-					Items: [
-						{
-							Id: "episode",
-							IndexNumber: 3,
-							Name: "Episode",
-							ParentIndexNumber: 2,
-							UserData: { IsFavorite: true, LastPlayedDate: "2026-01-02T00:00:00Z" },
-						},
-					],
-				},
-			};
-		});
-		const host = defineSandboxTestHost(jellyfinManifest, { httpCall: httpHost.httpCall });
-		const records = yield* runSource(
-			jellyfin.run,
-			{ username: "user", allowInsecureConnections: true, apiUrl: "https://jellyfin.example" },
-			host,
-		);
-		expect(new Set(calls).size).toBe(4);
-		expect(
-			records.flatMap((record) => record.group?.events ?? []).map((event) => event.eventSchemaSlug),
-		).toEqual(["complete", "progress"]);
-		expect(
-			records.find((record) => record.group?.events[0]?.eventSchemaSlug === "progress")?.group
-				?.events[0]?.unresolvedEpisode,
-		).toEqual({ type: "show", seasonNumber: 2, episodeNumber: 3 });
-		expect(
-			records.some(
-				(record) => record.group?.collectionMemberships[0]?.collectionName === "Favorites",
-			),
-		).toBe(true);
-	}),
+			});
+			const host = defineSandboxTestHost(jellyfinManifest, { httpCall: httpHost.httpCall });
+			const records = yield* runSource(
+				jellyfin.run,
+				{ username: "user", allowInsecureConnections: true, apiUrl: "https://jellyfin.example" },
+				host,
+			);
+			expect(new Set(calls).size).toBe(4);
+			expect(
+				records
+					.flatMap((record) => record.group?.events ?? [])
+					.map((event) => event.eventSchemaSlug),
+			).toEqual(["complete", "progress"]);
+			expect(
+				records.find((record) => record.group?.events[0]?.eventSchemaSlug === "progress")?.group
+					?.events[0]?.unresolvedEpisode,
+			).toEqual({ type: "show", seasonNumber: 2, episodeNumber: 3 });
+			expect(
+				records.some(
+					(record) => record.group?.collectionMemberships[0]?.collectionName === "Favorites",
+				),
+			).toBe(true);
+		}),
+	testTimeout,
 );
 it.live(
 	"keeps source failures while collecting Audiobookshelf audiobook and ebook identifiers",
@@ -312,6 +331,7 @@ it.live(
 				stage: "input_transformation",
 			});
 		}),
+	testTimeout,
 );
 it.live(
 	"normalizes MediaTracker history over multiple detail windows and reuses details across capture pages",
@@ -386,4 +406,5 @@ it.live(
 			expect(events.filter((event) => event.eventSchemaSlug === "backlog")).toHaveLength(1);
 			expect(new Set(events.map((event) => event.operationId)).size).toBe(131);
 		}),
+	testTimeout,
 );

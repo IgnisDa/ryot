@@ -1,6 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { compileBuiltInSandboxEntry } from "@ryot-app/plugin-backend-compiler/builtins";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 const entry = `

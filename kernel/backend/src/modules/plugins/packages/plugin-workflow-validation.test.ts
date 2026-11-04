@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
-import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
 import { validatePluginExecutableScripts, validatePluginManifestReferences } from "./validation";
@@ -26,40 +29,50 @@ const workflowManifest = () => {
 	};
 };
 
-it.effect("rejects duplicate workflow slugs and non-workflow declarations", () => {
-	const cases = [
-		(manifest: ReturnType<typeof workflowManifest>) => {
-			const workflow = manifest.workflows[0];
-			assert(workflow);
-			return { ...manifest, workflows: [...manifest.workflows, { ...workflow }] };
-		},
-		(manifest: ReturnType<typeof workflowManifest>) => ({
-			...manifest,
-			workflows: [{ slug: "refresh.fixture", scriptSlug: "fixture.automation" }],
-		}),
-	];
+it.effect(
+	"rejects duplicate workflow slugs and non-workflow declarations",
+	() => {
+		const cases = [
+			(manifest: ReturnType<typeof workflowManifest>) => {
+				const workflow = manifest.workflows[0];
+				assert(workflow);
+				return { ...manifest, workflows: [...manifest.workflows, { ...workflow }] };
+			},
+			(manifest: ReturnType<typeof workflowManifest>) => ({
+				...manifest,
+				workflows: [{ slug: "refresh.fixture", scriptSlug: "fixture.automation" }],
+			}),
+		];
 
-	return Effect.forEach(cases, (mutate) =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(validatePluginManifestReferences(mutate(workflowManifest())));
-			expect(Exit.isFailure(exit)).toBe(true);
-		}),
-	);
-});
+		return Effect.forEach(cases, (mutate) =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					validatePluginManifestReferences(mutate(workflowManifest())),
+				);
+				expect(Exit.isFailure(exit)).toBe(true);
+			}),
+		);
+	},
+	testTimeout,
+);
 
-it.effect("requires workflow declarations to reference compiled workflow scripts", () => {
-	const manifest = workflowManifest();
-	const normalized = {
-		manifest,
-		scripts: [{ slug: "workflow.fixture", metadata: { kind: "operation" as const } }],
-	};
+it.effect(
+	"requires workflow declarations to reference compiled workflow scripts",
+	() => {
+		const manifest = workflowManifest();
+		const normalized = {
+			manifest,
+			scripts: [{ slug: "workflow.fixture", metadata: { kind: "operation" as const } }],
+		};
 
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
-		assert(Exit.isFailure(exit));
-		const failure = Cause.findErrorOption(exit.cause);
-		assert(Option.isSome(failure));
-		expect(failure.value._tag).toBe("PluginValidationError");
-		expect(failure.value.issues.join("; ")).toContain("must be a workflow script");
-	});
-});
+		return Effect.gen(function* () {
+			const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			expect(failure.value._tag).toBe("PluginValidationError");
+			expect(failure.value.issues.join("; ")).toContain("must be a workflow script");
+		});
+	},
+	testTimeout,
+);

@@ -1,5 +1,8 @@
+import { expect } from "bun:test";
+
 import { BunServices, BunSocketServer } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer, Path, Predicate, Result } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { NetAddress } from "effect/net";
@@ -39,7 +42,7 @@ const testCertificates = Effect.gen(function* () {
 			const exitCode = yield* spawner.exitCode(
 				ChildProcess.make("openssl", args, { cwd: dir, stdout: "ignore", stderr: "ignore" }),
 			);
-			expect(exitCode).toBe(0);
+			expect(exitCode).toBe<unknown>(0);
 		});
 	yield* fs.writeFileString(path.join(dir, "openssl.cnf"), OPENSSL_CONFIG);
 	yield* openssl([
@@ -192,66 +195,72 @@ const outcome = (client: HttpClient.HttpClient, url: string, tls?: BunFetchReque
 };
 
 layer(Layer.merge(BunServices.layer, FetchHttpClient.layer))((test) => {
-	test.effect("verifies each pinned request against its hostname on pooled connections", () =>
-		Effect.gen(function* () {
-			const { ca, key, cert } = yield* testCertificates;
-			const { port, hosts } = yield* serveOrigin({ key, cert });
-			const client = yield* guardedClient;
-			const at = (hostname: string) => `https://${hostname}:${port}/`;
+	test.effect(
+		"verifies each pinned request against its hostname on pooled connections",
+		() =>
+			Effect.gen(function* () {
+				const { ca, key, cert } = yield* testCertificates;
+				const { port, hosts } = yield* serveOrigin({ key, cert });
+				const client = yield* guardedClient;
+				const at = (hostname: string) => `https://${hostname}:${port}/`;
 
-			expect(yield* outcome(client, at("egress.test"), { ca })).toBe("200 origin");
-			expect(hosts).toEqual([`egress.test:${port}`]);
-			expect(yield* outcome(client, at("other.test"), { ca })).toBe(
-				"error ERR_TLS_CERT_ALTNAME_INVALID",
-			);
-			expect(yield* outcome(client, at("other.test"), { rejectUnauthorized: false })).toBe(
-				"200 origin",
-			);
-			expect(yield* outcome(client, at("other.test"), { ca })).toBe(
-				"error ERR_TLS_CERT_ALTNAME_INVALID",
-			);
-			expect(yield* outcome(client, at("egress.test"), { rejectUnauthorized: false })).toBe(
-				"200 origin",
-			);
-			expect(yield* outcome(client, at("egress.test"))).toBe(
-				"error UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-			);
-		}),
+				expect(yield* outcome(client, at("egress.test"), { ca })).toBe("200 origin");
+				expect(hosts).toEqual([`egress.test:${port}`]);
+				expect(yield* outcome(client, at("other.test"), { ca })).toBe(
+					"error ERR_TLS_CERT_ALTNAME_INVALID",
+				);
+				expect(yield* outcome(client, at("other.test"), { rejectUnauthorized: false })).toBe(
+					"200 origin",
+				);
+				expect(yield* outcome(client, at("other.test"), { ca })).toBe(
+					"error ERR_TLS_CERT_ALTNAME_INVALID",
+				);
+				expect(yield* outcome(client, at("egress.test"), { rejectUnauthorized: false })).toBe(
+					"200 origin",
+				);
+				expect(yield* outcome(client, at("egress.test"))).toBe(
+					"error UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("connects pinned requests directly when proxy environment variables are set", () =>
-		Effect.gen(function* () {
-			const { ca, key, cert } = yield* testCertificates;
-			const secure = yield* serveOrigin({ key, cert });
-			const plain = yield* serveOrigin();
-			const proxy = yield* recordingProxy;
-			yield* Effect.acquireRelease(
-				Effect.sync(() => setProxyEnvironment(proxy.url)),
-				(restore) => Effect.sync(restore),
-			);
-			const unguarded = yield* HttpClient.HttpClient;
-			const client = yield* guardedClient;
+	test.effect(
+		"connects pinned requests directly when proxy environment variables are set",
+		() =>
+			Effect.gen(function* () {
+				const { ca, key, cert } = yield* testCertificates;
+				const secure = yield* serveOrigin({ key, cert });
+				const plain = yield* serveOrigin();
+				const proxy = yield* recordingProxy;
+				yield* Effect.acquireRelease(
+					Effect.sync(() => setProxyEnvironment(proxy.url)),
+					(restore) => Effect.sync(restore),
+				);
+				const unguarded = yield* HttpClient.HttpClient;
+				const client = yield* guardedClient;
 
-			expect(
-				yield* outcome(unguarded, `https://127.0.0.1:${secure.port}/`, {
-					ca,
-					serverName: "egress.test",
-				}),
-			).toBe("error ERR_PROXY_TUNNEL");
-			expect(yield* outcome(unguarded, `http://127.0.0.1:${plain.port}/`)).toBe("502 ");
-			expect(proxy.requestLines).toEqual([
-				`CONNECT 127.0.0.1:${secure.port} HTTP/1.1`,
-				`GET http://127.0.0.1:${plain.port}/ HTTP/1.1`,
-			]);
+				expect(
+					yield* outcome(unguarded, `https://127.0.0.1:${secure.port}/`, {
+						ca,
+						serverName: "egress.test",
+					}),
+				).toBe("error ERR_PROXY_TUNNEL");
+				expect(yield* outcome(unguarded, `http://127.0.0.1:${plain.port}/`)).toBe("502 ");
+				expect(proxy.requestLines).toEqual([
+					`CONNECT 127.0.0.1:${secure.port} HTTP/1.1`,
+					`GET http://127.0.0.1:${plain.port}/ HTTP/1.1`,
+				]);
 
-			expect(yield* outcome(client, `https://egress.test:${secure.port}/`, { ca })).toBe(
-				"200 origin",
-			);
-			expect(yield* outcome(client, `http://egress.test:${plain.port}/`)).toBe("200 origin");
-			expect(yield* outcome(client, `http://127.0.0.1:${plain.port}/`)).toBe("200 origin");
-			expect(proxy.requestLines).toHaveLength(2);
-			expect(secure.hosts).toEqual([`egress.test:${secure.port}`]);
-			expect(plain.hosts).toEqual([`egress.test:${plain.port}`, `127.0.0.1:${plain.port}`]);
-		}),
+				expect(yield* outcome(client, `https://egress.test:${secure.port}/`, { ca })).toBe(
+					"200 origin",
+				);
+				expect(yield* outcome(client, `http://egress.test:${plain.port}/`)).toBe("200 origin");
+				expect(yield* outcome(client, `http://127.0.0.1:${plain.port}/`)).toBe("200 origin");
+				expect(proxy.requestLines).toHaveLength(2);
+				expect(secure.hosts).toEqual([`egress.test:${secure.port}`]);
+				expect(plain.hosts).toEqual([`egress.test:${plain.port}`, `127.0.0.1:${plain.port}`]);
+			}),
+		testTimeout,
 	);
 });

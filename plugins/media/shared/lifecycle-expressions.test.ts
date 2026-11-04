@@ -1,9 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { describe, expect, it } from "vitest";
 
 import { podcastEpisodesRecipe, podcastRecipes } from "./podcast-recipes";
 import { showRecipes, showSeasonEpisodesRecipe, showSeasonsRecipe } from "./show-recipes";

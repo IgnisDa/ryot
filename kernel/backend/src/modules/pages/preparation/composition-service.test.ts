@@ -1,8 +1,12 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/pages/schemas";
+import { assert } from "@ryot-app/testing/assert";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
 
 import { ImageClientArtifacts } from "#modules/pages/bundles/image-artifacts";
@@ -122,37 +126,43 @@ const compositionLayer = ClientPageCompositionService.layer.pipe(
 );
 
 layer(compositionLayer)((test) => {
-	test.effect("persists only an immutable composition manifest and detects key conflicts", () =>
-		Effect.gen(function* () {
-			const repository = yield* FakeCompositionRepository;
-			const described = yield* DescribedArtifacts;
-			const compositions = yield* ClientPageCompositionService;
-			const stored = yield* compositions.getOrMaterialize(graph);
-			expect(yield* repository.writes).toEqual([graph.compositionKey]);
-			expect(stored.identity).toEqual(graph.identity);
-			assert(stored.identity.application === "page");
-			expect(stored.manifest.descriptor).toMatchObject({
-				application: "page",
-				entry: stored.identity.entry,
-			});
-			expect(stored.compositionHash).toBe(sha256Hex(stableStringify(stored.manifest)));
-			expect(stored.manifest.imports["sdk"]).toEqual({
-				file: "runtime.js",
-				artifactHash: "a".repeat(64),
-			});
-			expect(Object.keys(stored.manifest).sort()).toEqual([
-				"bootstrap",
-				"descriptor",
-				"identity",
-				"imports",
-			]);
-			yield* compositions.getOrMaterialize(graph);
-			expect(yield* repository.writes).toEqual([graph.compositionKey]);
-			expect(yield* described.hashes).toEqual(["a".repeat(64), "b".repeat(64), "c".repeat(64)]);
-			yield* repository.replaceRow({ ...stored, compositionHash: "changed" });
-			expect((yield* compositions.getOrMaterialize(graph)).compositionHash).toBe("changed");
-			yield* repository.replaceRow({ ...stored, identity: { ...stored.identity, name: "Other" } });
-			expect(Exit.isFailure(yield* Effect.exit(compositions.getOrMaterialize(graph)))).toBe(true);
-		}),
+	test.effect(
+		"persists only an immutable composition manifest and detects key conflicts",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* FakeCompositionRepository;
+				const described = yield* DescribedArtifacts;
+				const compositions = yield* ClientPageCompositionService;
+				const stored = yield* compositions.getOrMaterialize(graph);
+				expect(yield* repository.writes).toEqual([graph.compositionKey]);
+				expect(stored.identity).toEqual(graph.identity);
+				assert(stored.identity.application === "page");
+				expect(stored.manifest.descriptor).toMatchObject({
+					application: "page",
+					entry: stored.identity.entry,
+				});
+				expect(stored.compositionHash).toBe(sha256Hex(stableStringify(stored.manifest)));
+				expect(stored.manifest.imports["sdk"]).toEqual({
+					file: "runtime.js",
+					artifactHash: "a".repeat(64),
+				});
+				expect(Object.keys(stored.manifest).sort()).toEqual([
+					"bootstrap",
+					"descriptor",
+					"identity",
+					"imports",
+				]);
+				yield* compositions.getOrMaterialize(graph);
+				expect(yield* repository.writes).toEqual([graph.compositionKey]);
+				expect(yield* described.hashes).toEqual(["a".repeat(64), "b".repeat(64), "c".repeat(64)]);
+				yield* repository.replaceRow({ ...stored, compositionHash: "changed" });
+				expect((yield* compositions.getOrMaterialize(graph)).compositionHash).toBe("changed");
+				yield* repository.replaceRow({
+					...stored,
+					identity: { ...stored.identity, name: "Other" },
+				});
+				expect(Exit.isFailure(yield* Effect.exit(compositions.getOrMaterialize(graph)))).toBe(true);
+			}),
+		testTimeout,
 	);
 });

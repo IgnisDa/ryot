@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 
 import { LocalStorageService } from "#platform/storage/local-storage";
@@ -51,38 +54,47 @@ const boundedWriteLayer = ObjectStorageService.layer.pipe(
 );
 
 layer(makeSelectionLayer(true))((test) => {
-	test.effect("prefers S3 storage for permanent uploads", () =>
-		Effect.gen(function* () {
-			const service = yield* ObjectStorageService;
-			expect(yield* service.permanentStorageProvider).toBe("s3");
-		}),
+	test.effect(
+		"prefers S3 storage for permanent uploads",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ObjectStorageService;
+				expect(yield* service.permanentStorageProvider).toBe("s3");
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeSelectionLayer(false))((test) => {
-	test.effect("falls back to local storage for permanent uploads", () =>
-		Effect.gen(function* () {
-			const service = yield* ObjectStorageService;
-			expect(yield* service.permanentStorageProvider).toBe("local");
-		}),
+	test.effect(
+		"falls back to local storage for permanent uploads",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ObjectStorageService;
+				expect(yield* service.permanentStorageProvider).toBe("local");
+			}),
+		testTimeout,
 	);
 });
 
 layer(boundedWriteLayer)((test) => {
-	test.effect("bounds S3 writes and deletes a partial object", () =>
-		Effect.gen(function* () {
-			const service = yield* ObjectStorageService;
-			const exit = yield* Effect.exit(
-				service.writeObject(
-					{ type: "s3", key: "temporary/archive.zip" },
-					Stream.make(new Uint8Array(2), new Uint8Array(2)),
-					"application/zip",
-					undefined,
-					3,
-				),
-			);
-			assertExitFails(exit, new UploadBadRequest({ reason: { code: "upload-failed" } }));
-			expect(yield* (yield* FakeS3).deletedKeys).toEqual(["temporary/archive.zip"]);
-		}),
+	test.effect(
+		"bounds S3 writes and deletes a partial object",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ObjectStorageService;
+				const exit = yield* Effect.exit(
+					service.writeObject(
+						{ type: "s3", key: "temporary/archive.zip" },
+						Stream.make(new Uint8Array(2), new Uint8Array(2)),
+						"application/zip",
+						undefined,
+						3,
+					),
+				);
+				assertExitFails(exit, new UploadBadRequest({ reason: { code: "upload-failed" } }));
+				expect(yield* (yield* FakeS3).deletedKeys).toEqual(["temporary/archive.zip"]);
+			}),
+		testTimeout,
 	);
 });

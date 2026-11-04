@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type {
 	DeclarationReference,
 	EventSchemaReference,
@@ -10,6 +11,8 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 
@@ -131,63 +134,72 @@ const collectionQueriesLayer = Layer.unwrap(
 );
 
 layer(repositoryLayer)((test) => {
-	test.effect("resolves collection definitions only from the kernel namespace", () =>
-		Effect.gen(function* () {
-			const repository = yield* CollectionsRepository;
-			expect(yield* repository.getBuiltinCollectionSchema()).toBeNull();
-			expect(yield* (yield* DefinitionLookups).entityReferences).toEqual([
-				{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") },
-			]);
-		}),
+	test.effect(
+		"resolves collection definitions only from the kernel namespace",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* CollectionsRepository;
+				expect(yield* repository.getBuiltinCollectionSchema()).toBeNull();
+				expect(yield* (yield* DefinitionLookups).entityReferences).toEqual([
+					{ owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") },
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("looks up collection events with an explicit kernel owner", () =>
-		Effect.gen(function* () {
-			const repository = yield* CollectionsRepository;
-			yield* repository.findBuiltinEventSchemaBySlug({
-				owner: { kind: "kernel" },
-				entitySchemaSlug: EntitySchemaSlug.make("collection"),
-				slug: EventSchemaSlug.make("add-entity-to-collection"),
-			});
-			expect(yield* (yield* DefinitionLookups).eventReferences).toEqual([
-				{
+	test.effect(
+		"looks up collection events with an explicit kernel owner",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* CollectionsRepository;
+				yield* repository.findBuiltinEventSchemaBySlug({
 					owner: { kind: "kernel" },
 					entitySchemaSlug: EntitySchemaSlug.make("collection"),
 					slug: EventSchemaSlug.make("add-entity-to-collection"),
-				},
-			]);
-		}),
+				});
+				expect(yield* (yield* DefinitionLookups).eventReferences).toEqual([
+					{
+						owner: { kind: "kernel" },
+						entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						slug: EventSchemaSlug.make("add-entity-to-collection"),
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(collectionQueriesLayer)((test) => {
-	test.effect("filters plugin collections and preserves membership entity owners", () =>
-		Effect.gen(function* () {
-			const repository = yield* CollectionsRepository;
-			const userId = UserId.make("user");
-			expect(
-				yield* repository.findCollectionByNameForUser({ userId, name: "Favorites" }),
-			).toBeNull();
-			expect(
-				yield* repository.getCollectionById(EntityId.make("plugin-collection"), userId),
-			).toBeNull();
-			expect(
-				yield* repository.getEntityForMembership(EntityId.make("foreign-entity"), userId),
-			).toEqual({
-				userId,
-				entitySchemaSlug: "record",
-				id: EntityId.make("foreign-entity"),
-				entitySchemaPluginId: "foreign-plugin",
-			});
-			const [byName, byId, membership] = yield* (yield* CollectionQueries).entries;
-			expect(byName?.sql).toContain('"entity"."entity_schema_slug" = $');
-			expect(byName?.sql).toContain('"entity"."entity_schema_plugin_id" is null');
-			expect(byName?.sql).not.toContain("external_id");
-			expect(byName?.sql).not.toContain("provider_id");
-			expect(byId?.sql).toContain("entity_schema_plugin_id");
-			expect(byId?.sql).toContain("is null");
-			expect(membership?.columns).toContain("entitySchemaPluginId");
-		}),
+	test.effect(
+		"filters plugin collections and preserves membership entity owners",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* CollectionsRepository;
+				const userId = UserId.make("user");
+				expect(
+					yield* repository.findCollectionByNameForUser({ userId, name: "Favorites" }),
+				).toBeNull();
+				expect(
+					yield* repository.getCollectionById(EntityId.make("plugin-collection"), userId),
+				).toBeNull();
+				expect(
+					yield* repository.getEntityForMembership(EntityId.make("foreign-entity"), userId),
+				).toEqual({
+					userId,
+					entitySchemaSlug: "record",
+					id: EntityId.make("foreign-entity"),
+					entitySchemaPluginId: "foreign-plugin",
+				});
+				const [byName, byId, membership] = yield* (yield* CollectionQueries).entries;
+				expect(byName?.sql).toContain('"entity"."entity_schema_slug" = $');
+				expect(byName?.sql).toContain('"entity"."entity_schema_plugin_id" is null');
+				expect(byName?.sql).not.toContain("external_id");
+				expect(byName?.sql).not.toContain("provider_id");
+				expect(byId?.sql).toContain("entity_schema_plugin_id");
+				expect(byId?.sql).toContain("is null");
+				expect(membership?.columns).toContain("entitySchemaPluginId");
+			}),
+		testTimeout,
 	);
 });
 
@@ -225,53 +237,64 @@ const insertCollectionRows = Effect.gen(function* () {
 });
 
 layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-	test.effect("checks collection order revision ownership and reads memberships", () =>
-		Effect.gen(function* () {
-			yield* insertCollectionRows;
-			const repository = yield* CollectionsRepository;
-			const userId = UserId.make("owner");
-			const shelf = EntityId.make("shelf");
-			expect(yield* repository.getOrderRevision(shelf, userId)).toBe(3);
-			expect(yield* repository.getOrderRevision(EntityId.make("empty"), userId)).toBe(0);
-			expect(yield* repository.getOrderRevision(shelf, UserId.make("recipient"))).toBeNull();
-			expect(
-				yield* repository.findMembership({
-					userId,
-					collectionId: shelf,
-					entityId: EntityId.make("member-c"),
-				}),
-			).toEqual({ id: "c", properties: { rank: 0, note: "unranked" } });
-			expect(
-				yield* repository.findCollectionByNameForUser({ userId, name: "Shelf" }),
-			).toMatchObject({ id: shelf });
-		}),
+	test.effect(
+		"checks collection order revision ownership and reads memberships",
+		() =>
+			Effect.gen(function* () {
+				yield* insertCollectionRows;
+				const repository = yield* CollectionsRepository;
+				const userId = UserId.make("owner");
+				const shelf = EntityId.make("shelf");
+				expect(yield* repository.getOrderRevision(shelf, userId)).toBe(3);
+				expect(yield* repository.getOrderRevision(EntityId.make("empty"), userId)).toBe(0);
+				expect(yield* repository.getOrderRevision(shelf, UserId.make("recipient"))).toBeNull();
+				expect(
+					yield* repository.findMembership({
+						userId,
+						collectionId: shelf,
+						entityId: EntityId.make("member-c"),
+					}),
+				).toEqual<unknown>({ id: "c", properties: { rank: 0, note: "unranked" } });
+				expect(
+					yield* repository.findCollectionByNameForUser({ userId, name: "Shelf" }),
+				).toMatchObject({ id: shelf });
+			}),
+		testTimeout,
 	);
 
-	test.effect("enforces unique kernel collection names per user only", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const insert = (row: { id: string } & Partial<typeof tables.entity.$inferInsert>) =>
-				Effect.result(
-					session.transaction(
-						session.run((db) =>
-							db
-								.insert(tables.entity)
-								.values({ name: "Shelf", userId: "owner", entitySchemaSlug: "collection", ...row }),
+	test.effect(
+		"enforces unique kernel collection names per user only",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const insert = (row: { id: string } & Partial<typeof tables.entity.$inferInsert>) =>
+					Effect.result(
+						session.transaction(
+							session.run((db) =>
+								db
+									.insert(tables.entity)
+									.values({
+										name: "Shelf",
+										userId: "owner",
+										entitySchemaSlug: "collection",
+										...row,
+									}),
+							),
 						),
-					),
-				);
-			const duplicate = yield* insert({ id: "duplicate" });
-			expect(Result.isFailure(duplicate) && duplicate.failure).toMatchObject({
-				code: "23505",
-				constraint: "entity_collection_name_unique",
-			});
-			for (const row of [
-				{ id: "other-user", userId: "recipient" },
-				{ id: "record", entitySchemaSlug: "record" },
-				{ id: "plugin", entitySchemaPluginId: "collection-plugin" },
-			]) {
-				expect(Result.isSuccess(yield* insert(row))).toBe(true);
-			}
-		}),
+					);
+				const duplicate = yield* insert({ id: "duplicate" });
+				expect(Result.isFailure(duplicate) && duplicate.failure).toMatchObject({
+					code: "23505",
+					constraint: "entity_collection_name_unique",
+				});
+				for (const row of [
+					{ id: "other-user", userId: "recipient" },
+					{ id: "record", entitySchemaSlug: "record" },
+					{ id: "plugin", entitySchemaPluginId: "collection-plugin" },
+				]) {
+					expect(Result.isSuccess(yield* insert(row))).toBe(true);
+				}
+			}),
+		testTimeout,
 	);
 });

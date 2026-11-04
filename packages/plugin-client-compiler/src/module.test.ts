@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
@@ -10,8 +11,10 @@ import {
 	type PluginClientArtifact,
 } from "@ryot-app/plugin-client-contract";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result } from "effect";
 
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
@@ -65,35 +68,45 @@ const emittedInput = {
 it.layer(emittedLayer("export const activity = () => null;"))(
 	"analytics section contract",
 	(test) => {
-		test.effect("accepts a generic section with the shared selection and exact reference", () =>
-			Effect.gen(function* () {
-				const compiled = yield* compileClientPluginModule({
-					...emittedInput,
-					publicExports: { activity: { kind: "analytics-section", entry: "client/activity.tsx" } },
-					files: {
-						"client/activity.tsx": bytes(`
+		test.effect(
+			"accepts a generic section with the shared selection and exact reference",
+			() =>
+				Effect.gen(function* () {
+					const compiled = yield* compileClientPluginModule({
+						...emittedInput,
+						publicExports: {
+							activity: { kind: "analytics-section", entry: "client/activity.tsx" },
+						},
+						files: {
+							"client/activity.tsx": bytes(`
 import type { AnalyticsSectionProps } from "@ryot-app/plugin-client-sdk/plugin";
 export default function Activity({ selection, timeZone, reference }: AnalyticsSectionProps) {
   return <p>{reference.pluginId}: {selection.range.kind} ({timeZone})</p>;
 }`),
-					},
-				});
-				expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
-			}),
+						},
+					});
+					expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
+				}),
+			testTimeout,
 		);
-		test.effect("rejects section exports requiring unsupported host props", () =>
-			Effect.gen(function* () {
-				const error = yield* compileClientPluginModule({
-					...emittedInput,
-					publicExports: { activity: { kind: "analytics-section", entry: "client/activity.tsx" } },
-					files: {
-						"client/activity.tsx": bytes(
-							"export default function Activity({ secret }: { secret: string }) { return <p>{secret}</p>; }",
-						),
-					},
-				}).pipe(Effect.flip);
-				expect(error.diagnostics.some(({ message }) => message.includes("secret"))).toBe(true);
-			}),
+		test.effect(
+			"rejects section exports requiring unsupported host props",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* compileClientPluginModule({
+						...emittedInput,
+						publicExports: {
+							activity: { kind: "analytics-section", entry: "client/activity.tsx" },
+						},
+						files: {
+							"client/activity.tsx": bytes(
+								"export default function Activity({ secret }: { secret: string }) { return <p>{secret}</p>; }",
+							),
+						},
+					}).pipe(Effect.flip);
+					expect(error.diagnostics.some(({ message }) => message.includes("secret"))).toBe(true);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -109,21 +122,27 @@ const inputAtSize = (size: number) => ({
 });
 
 it.layer(emittedLayer("export default {};"))("source input capacity", (test) => {
-	test.effect("accepts source input at the combined size boundary", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compileClientPluginModule(
-				inputAtSize(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
-			);
-			expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
-		}),
+	test.effect(
+		"accepts source input at the combined size boundary",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileClientPluginModule(
+					inputAtSize(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
+				);
+				expect(compiled.artifact.files.some(({ name }) => name === "module.js")).toBe(true);
+			}),
+		testTimeout,
 	);
-	test.effect("rejects source input one byte over the combined size boundary", () =>
-		Effect.gen(function* () {
-			const error = yield* compileClientPluginModule(
-				inputAtSize(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes + 1),
-			).pipe(Effect.flip);
-			expect(error.diagnostics.some(({ code }) => code === "RYOT_CLIENT_SOURCE_SIZE")).toBe(true);
-		}),
+	test.effect(
+		"rejects source input one byte over the combined size boundary",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(
+					inputAtSize(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes + 1),
+				).pipe(Effect.flip);
+				expect(error.diagnostics.some(({ code }) => code === "RYOT_CLIENT_SOURCE_SIZE")).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
@@ -145,11 +164,14 @@ for (const [reference, accepted] of [
 	it.layer(emittedLayer(`export * from ${JSON.stringify(reference)};`))(
 		`plugin output policy: ${reference}`,
 		(test) => {
-			test.effect(accepted ? "accepts the reference" : "rejects the reference", () =>
-				Effect.gen(function* () {
-					const result = yield* compileClientPluginModule(emittedInput).pipe(Effect.result);
-					expect(result._tag).toBe(accepted ? "Success" : "Failure");
-				}),
+			test.effect(
+				accepted ? "accepts the reference" : "rejects the reference",
+				() =>
+					Effect.gen(function* () {
+						const result = yield* compileClientPluginModule(emittedInput).pipe(Effect.result);
+						expect(result._tag).toBe(accepted ? "Success" : "Failure");
+					}),
+				testTimeout,
 			);
 		},
 	);
@@ -160,20 +182,26 @@ it.layer(
 		'const text = `;import "missing.js"`; /* ;export * from "other.js" */ export { text };',
 	),
 )("emitted reference syntax", (test) => {
-	test.effect("ignores import-like text inside strings and comments", () =>
-		Effect.gen(function* () {
-			const { artifact } = yield* compileClientPluginModule(emittedInput);
-			expect(text(requiredFile(artifact, "module.js").contents)).toContain("missing.js");
-		}),
+	test.effect(
+		"ignores import-like text inside strings and comments",
+		() =>
+			Effect.gen(function* () {
+				const { artifact } = yield* compileClientPluginModule(emittedInput);
+				expect(text(requiredFile(artifact, "module.js").contents)).toContain("missing.js");
+			}),
+		testTimeout,
 	);
 });
 
 it.layer(emittedLayer('export * from "./missing.js";'))("emitted missing reference", (test) => {
-	test.effect("rejects a real missing re-export", () =>
-		Effect.gen(function* () {
-			const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-			expect(error.diagnostics[0]?.message).toContain("missing.js");
-		}),
+	test.effect(
+		"rejects a real missing re-export",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.js");
+			}),
+		testTimeout,
 	);
 });
 
@@ -182,39 +210,45 @@ it.layer(
 		'import { deflateSync, inflateSync } from "@ryot-app/plugin-kit/compression"; export { deflateSync, inflateSync };',
 	),
 )("shared compression shim", (test) => {
-	test.effect("allows compression shim imports from shared sources", () =>
-		Effect.gen(function* () {
-			const { artifact } = yield* compileClientPluginModule({
-				...pluginIdentity,
-				name: "Compression plugin",
-				apiVersion: CLIENT_API_VERSION,
-				publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
-				files: {
-					"client/home.tsx": bytes(
-						'import { compress } from "../shared/compression"; export default function Home() { return <span>{compress.length}</span>; }',
-					),
-					"shared/compression.ts": bytes(`
+	test.effect(
+		"allows compression shim imports from shared sources",
+		() =>
+			Effect.gen(function* () {
+				const { artifact } = yield* compileClientPluginModule({
+					...pluginIdentity,
+					name: "Compression plugin",
+					apiVersion: CLIENT_API_VERSION,
+					publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
+					files: {
+						"shared/compression.ts": bytes(`
 import { deflateSync, inflateSync } from "@ryot-app/plugin-kit/compression";
 
 export const compress = [deflateSync, inflateSync];
 `),
-				},
-			});
-			expect(text(requiredFile(artifact, "module.js").contents)).toContain(
-				"@ryot-app/plugin-kit/compression",
-			);
-		}),
+						"client/home.tsx": bytes(
+							'import { compress } from "../shared/compression"; export default function Home() { return <span>{compress.length}</span>; }',
+						),
+					},
+				});
+				expect(text(requiredFile(artifact, "module.js").contents)).toContain(
+					"@ryot-app/plugin-kit/compression",
+				);
+			}),
+		testTimeout,
 	);
 });
 
 it.layer(emittedLayer('import value from "./missing.js"; export default value;'))(
 	"emitted static import",
 	(test) => {
-		test.effect("rejects a missing static import", () =>
-			Effect.gen(function* () {
-				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-				expect(error.diagnostics[0]?.message).toContain("missing.js");
-			}),
+		test.effect(
+			"rejects a missing static import",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+					expect(error.diagnostics[0]?.message).toContain("missing.js");
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -222,11 +256,14 @@ it.layer(emittedLayer('import value from "./missing.js"; export default value;')
 it.layer(emittedLayer('const page = import("./missing.js"); export default page;'))(
 	"emitted dynamic import",
 	(test) => {
-		test.effect("rejects a missing literal dynamic import", () =>
-			Effect.gen(function* () {
-				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-				expect(error.diagnostics[0]?.message).toContain("missing.js");
-			}),
+		test.effect(
+			"rejects a missing literal dynamic import",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+					expect(error.diagnostics[0]?.message).toContain("missing.js");
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -234,11 +271,14 @@ it.layer(emittedLayer('const page = import("./missing.js"); export default page;
 it.layer(emittedLayer("const page = import(path); export default page;"))(
 	"emitted expression import",
 	(test) => {
-		test.effect("rejects a non-literal dynamic import", () =>
-			Effect.gen(function* () {
-				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-				expect(error.diagnostics[0]?.message).toContain("non-literal dynamic import");
-			}),
+		test.effect(
+			"rejects a non-literal dynamic import",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+					expect(error.diagnostics[0]?.message).toContain("non-literal dynamic import");
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -246,11 +286,14 @@ it.layer(emittedLayer("const page = import(path); export default page;"))(
 it.layer(emittedLayer('export default new URL("./missing.png", import.meta.url);'))(
 	"emitted asset URL",
 	(test) => {
-		test.effect("rejects a missing import.meta asset reference", () =>
-			Effect.gen(function* () {
-				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-				expect(error.diagnostics[0]?.message).toContain("missing.png");
-			}),
+		test.effect(
+			"rejects a missing import.meta asset reference",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+					expect(error.diagnostics[0]?.message).toContain("missing.png");
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -258,79 +301,88 @@ it.layer(emittedLayer('export default new URL("./missing.png", import.meta.url);
 it.layer(emittedLayer("export default 1;", '@import "./missing.css";'))(
 	"emitted CSS import",
 	(test) => {
-		test.effect("rejects a missing stylesheet import", () =>
-			Effect.gen(function* () {
-				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-				expect(error.diagnostics[0]?.message).toContain("missing.css");
-			}),
+		test.effect(
+			"rejects a missing stylesheet import",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+					expect(error.diagnostics[0]?.message).toContain("missing.css");
+				}),
+			testTimeout,
 		);
 	},
 );
 
 it.layer(pluginClientCompilerPlatformLayer)("compiled audio assets", (test) => {
-	test.effect("emits exact binary audio/mpeg bytes for static asset URLs", () =>
-		Effect.gen(function* () {
-			const sounds = [
-				{ name: "add-set", contents: new Uint8Array([0xff, 0x00, 0x49, 0x44, 0x33]) },
-				{ name: "check", contents: new Uint8Array([0x00, 0x01, 0xfe, 0x7f]) },
-				{ name: "timer-started", contents: new Uint8Array([0x49, 0x44, 0x33, 0x00, 0xff]) },
-				{ name: "timer-completed", contents: new Uint8Array([0x80, 0x00, 0xfe, 0x49]) },
-			];
-			const references = sounds
-				.map(({ name }) => `new URL(\`./sounds/${name}.mp3\`, import.meta.url).href`)
-				.join(", ");
-			const { artifact } = yield* compileClientPluginModule({
-				...pluginIdentity,
-				name: "Audio plugin",
-				apiVersion: CLIENT_API_VERSION,
-				publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
-				files: {
-					...Object.fromEntries(
-						sounds.map(({ name, contents }) => [`client/sounds/${name}.mp3`, contents]),
-					),
-					"client/home.tsx": bytes(
-						`const sources = [${references}]; export default function Home() { return <div>{sources.map((src) => <audio key={src} src={src} />)}</div>; }`,
-					),
-				},
-			});
-			const audioFiles = artifact.files.filter(({ contentType }) => contentType === "audio/mpeg");
+	test.effect(
+		"emits exact binary audio/mpeg bytes for static asset URLs",
+		() =>
+			Effect.gen(function* () {
+				const sounds = [
+					{ name: "add-set", contents: new Uint8Array([0xff, 0x00, 0x49, 0x44, 0x33]) },
+					{ name: "check", contents: new Uint8Array([0x00, 0x01, 0xfe, 0x7f]) },
+					{ name: "timer-started", contents: new Uint8Array([0x49, 0x44, 0x33, 0x00, 0xff]) },
+					{ name: "timer-completed", contents: new Uint8Array([0x80, 0x00, 0xfe, 0x49]) },
+				];
+				const references = sounds
+					.map(({ name }) => `new URL(\`./sounds/${name}.mp3\`, import.meta.url).href`)
+					.join(", ");
+				const { artifact } = yield* compileClientPluginModule({
+					...pluginIdentity,
+					name: "Audio plugin",
+					apiVersion: CLIENT_API_VERSION,
+					publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
+					files: {
+						...Object.fromEntries(
+							sounds.map(({ name, contents }) => [`client/sounds/${name}.mp3`, contents]),
+						),
+						"client/home.tsx": bytes(
+							`const sources = [${references}]; export default function Home() { return <div>{sources.map((src) => <audio key={src} src={src} />)}</div>; }`,
+						),
+					},
+				});
+				const audioFiles = artifact.files.filter(({ contentType }) => contentType === "audio/mpeg");
 
-			expect(audioFiles).toHaveLength(sounds.length);
-			expect(audioFiles.map(({ contents }) => contents)).toEqual(
-				arrayContaining(sounds.map(({ contents }) => contents)),
-			);
-			expect(audioFiles.every(({ name }) => name.endsWith(".mp3"))).toBe(true);
-		}),
+				expect(audioFiles).toHaveLength(sounds.length);
+				expect(audioFiles.map(({ contents }) => contents)).toEqual<unknown>(
+					arrayContaining(sounds.map(({ contents }) => contents)),
+				);
+				expect(audioFiles.every(({ name }) => name.endsWith(".mp3"))).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 it.layer(pluginClientCompilerPlatformLayer)("nested source region names", (test) => {
-	test.effect("compiles client and shared imports using their canonical top-level region", () =>
-		Effect.gen(function* () {
-			const { artifact } = yield* compileClientPluginModule({
-				...emittedInput,
-				files: {
-					"client/base.css": bytes(".nested-region { color: red; }"),
-					"client/shared/styles.css": bytes('@import "../base.css";'),
-					"shared/value.ts": bytes('export const value = "nested-region";'),
-					"client/home.tsx": bytes('export { default } from "./shared/card";'),
-					"shared/client/helper.ts": bytes('export { value } from "../value";'),
-					"shared/shared/helper.ts": bytes('export { value } from "../value";'),
-					"client/client/helper.ts": bytes(
-						'export { value as other } from "../../shared/shared/helper";',
-					),
-					"client/shared/card.tsx": bytes(`
+	test.effect(
+		"compiles client and shared imports using their canonical top-level region",
+		() =>
+			Effect.gen(function* () {
+				const { artifact } = yield* compileClientPluginModule({
+					...emittedInput,
+					files: {
+						"client/base.css": bytes(".nested-region { color: red; }"),
+						"client/shared/styles.css": bytes('@import "../base.css";'),
+						"shared/value.ts": bytes('export const value = "nested-region";'),
+						"client/home.tsx": bytes('export { default } from "./shared/card";'),
+						"shared/client/helper.ts": bytes('export { value } from "../value";'),
+						"shared/shared/helper.ts": bytes('export { value } from "../value";'),
+						"client/client/helper.ts": bytes(
+							'export { value as other } from "../../shared/shared/helper";',
+						),
+						"client/shared/card.tsx": bytes(`
 import { createElement } from "react";
 import { value } from "../../shared/client/helper";
 import { other } from "../client/helper";
 import "./styles.css";
 export default function Home() { return createElement("span", null, value + other); }
 `),
-				},
-			});
-			expect(text(requiredFile(artifact, "module.js").contents)).toContain("nested-region");
-			expect(text(requiredFile(artifact, "module.css").contents)).toContain(".nested-region");
-		}),
+					},
+				});
+				expect(text(requiredFile(artifact, "module.js").contents)).toContain("nested-region");
+				expect(text(requiredFile(artifact, "module.css").contents)).toContain(".nested-region");
+			}),
+		testTimeout,
 	);
 });
 
@@ -373,22 +425,27 @@ it.layer(emittedLayer("export default {};"))("authored AST import policy", (test
 			source:
 				'const name = "dynamic"; export const value = new URL(`./${name}.svg`, import.meta.url);',
 		},
-	])("rejects $source in $path before Vite", ({ path, source }) =>
-		Effect.gen(function* () {
-			const failure = yield* compileClientPluginModule({
-				...emittedInput,
-				files: { ...emittedInput.files, [path]: bytes(source) },
-			}).pipe(
-				Effect.provideService(
-					ViteBuildService,
-					ViteBuildService.of({ build: () => Effect.die("Invalid authored policy reached Vite") }),
-				),
-				Effect.flip,
-			);
-			expect(failure.diagnostics).toEqual([
-				objectContaining({ file: path, code: "RYOT_CLIENT_IMPORT" }),
-			]);
-		}),
+	])(
+		"rejects $source in $path before Vite",
+		({ path, source }) =>
+			Effect.gen(function* () {
+				const failure = yield* compileClientPluginModule({
+					...emittedInput,
+					files: { ...emittedInput.files, [path]: bytes(source) },
+				}).pipe(
+					Effect.provideService(
+						ViteBuildService,
+						ViteBuildService.of({
+							build: () => Effect.die("Invalid authored policy reached Vite"),
+						}),
+					),
+					Effect.flip,
+				);
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({ file: path, code: "RYOT_CLIENT_IMPORT" }),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -446,17 +503,22 @@ it.layer(emittedLayer("export default {};"))("authored client import forms", (te
 				'export const load = () => import("react");',
 			].join("\n"),
 		},
-	])("rejects $source before Vite", ({ source, messages }) =>
-		Effect.gen(function* () {
-			const failure = yield* compileClientValue(source).pipe(
-				Effect.provideService(
-					ViteBuildService,
-					ViteBuildService.of({ build: () => Effect.die("Invalid authored policy reached Vite") }),
-				),
-				Effect.flip,
-			);
-			expect(failure.diagnostics).toEqual(messages.map(clientImportDiagnostic));
-		}),
+	])(
+		"rejects $source before Vite",
+		({ source, messages }) =>
+			Effect.gen(function* () {
+				const failure = yield* compileClientValue(source).pipe(
+					Effect.provideService(
+						ViteBuildService,
+						ViteBuildService.of({
+							build: () => Effect.die("Invalid authored policy reached Vite"),
+						}),
+					),
+					Effect.flip,
+				);
+				expect(failure.diagnostics).toEqual<unknown>(messages.map(clientImportDiagnostic));
+			}),
+		testTimeout,
 	);
 
 	test.effect.each([
@@ -489,46 +551,66 @@ it.layer(emittedLayer("export default {};"))("authored client import forms", (te
 			message:
 				'Public plugin import "@ryot-app/plugins/undeclared/x" is not present in the authorized export map',
 		},
-	])("rejects plugin import $source in $path before Vite", ({ path, source, message, declared }) =>
-		Effect.gen(function* () {
-			const failure = yield* compileClientPluginModule({
-				...emittedInput,
-				files: { ...emittedInput.files, [path]: bytes(source) },
-				...(declared
-					? {
-							pluginDependencies: {
-								media: { scope: "user" as const, packageId: dependencyPackageId },
-							},
-						}
-					: {}),
-			}).pipe(
-				Effect.provideService(
-					ViteBuildService,
-					ViteBuildService.of({ build: () => Effect.die("Invalid authored policy reached Vite") }),
-				),
-				Effect.flip,
-			);
-			expect(failure.diagnostics).toEqual([
-				{ message, line: 1, column: 1, file: path, severity: "error", code: "RYOT_CLIENT_IMPORT" },
-			]);
-		}),
+	])(
+		"rejects plugin import $source in $path before Vite",
+		({ path, source, message, declared }) =>
+			Effect.gen(function* () {
+				const failure = yield* compileClientPluginModule({
+					...emittedInput,
+					files: { ...emittedInput.files, [path]: bytes(source) },
+					...(declared
+						? {
+								pluginDependencies: {
+									media: { scope: "user" as const, packageId: dependencyPackageId },
+								},
+							}
+						: {}),
+				}).pipe(
+					Effect.provideService(
+						ViteBuildService,
+						ViteBuildService.of({
+							build: () => Effect.die("Invalid authored policy reached Vite"),
+						}),
+					),
+					Effect.flip,
+				);
+				expect(failure.diagnostics).toEqual([
+					{
+						message,
+						line: 1,
+						column: 1,
+						file: path,
+						severity: "error",
+						code: "RYOT_CLIENT_IMPORT",
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("accepts an approved import type expression in client sources", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compileClientValue('export type Value = import("react").ReactNode;');
-			expect(compiled.artifact.files.map(({ name }) => name)).toContain("module.js");
-		}),
+	test.effect(
+		"accepts an approved import type expression in client sources",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileClientValue(
+					'export type Value = import("react").ReactNode;',
+				);
+				expect(compiled.artifact.files.map(({ name }) => name)).toContain("module.js");
+			}),
+		testTimeout,
 	);
 
-	test.effect("leaves type reference directives to the TypeScript project", () =>
-		Effect.gen(function* () {
-			const result = yield* compileClientValue(
-				'/// <reference types="react" />\nexport const value = 1;',
-			).pipe(Effect.result);
-			const diagnostics = Result.isFailure(result) ? result.failure.diagnostics : [];
-			expect(diagnostics.filter(({ code }) => code === "RYOT_CLIENT_IMPORT")).toEqual([]);
-		}),
+	test.effect(
+		"leaves type reference directives to the TypeScript project",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* compileClientValue(
+					'/// <reference types="react" />\nexport const value = 1;',
+				).pipe(Effect.result);
+				const diagnostics = Result.isFailure(result) ? result.failure.diagnostics : [];
+				expect(diagnostics.filter(({ code }) => code === "RYOT_CLIENT_IMPORT")).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -567,6 +649,7 @@ export default function Home() {
 				expect(first.artifact).toEqual(second.artifact);
 				expect(text(requiredFile(first.artifact, "module.js").contents)).toContain("ast-policy");
 			}),
+		testTimeout,
 	);
 });
 
@@ -576,27 +659,33 @@ it.layer(
 		'/* url("./ignored.png") */ .page { background: url("./missing.png"); }',
 	),
 )("emitted CSS asset", (test) => {
-	test.effect("rejects a missing declaration URL without reading comments", () =>
-		Effect.gen(function* () {
-			const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
-			expect(error.diagnostics[0]?.message).toContain("missing.png");
-		}),
+	test.effect(
+		"rejects a missing declaration URL without reading comments",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* compileClientPluginModule(emittedInput).pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.png");
+			}),
+		testTimeout,
 	);
 });
 
 it.layer(emittedLayer("\ufeff  export default 1;\n", '/* url("./missing.png") */'))(
 	"emitted executable bytes",
 	(test) => {
-		test.effect("keeps the BOM, whitespace, and CSS comment bytes", () =>
-			Effect.gen(function* () {
-				const { artifact } = yield* compileClientPluginModule(emittedInput);
-				expect(requiredFile(artifact, "module.js").contents).toEqual(
-					bytes("\ufeff  export default 1;\n"),
-				);
-				expect(requiredFile(artifact, "module.css").contents).toEqual(
-					bytes('/* url("./missing.png") */'),
-				);
-			}),
+		test.effect(
+			"keeps the BOM, whitespace, and CSS comment bytes",
+			() =>
+				Effect.gen(function* () {
+					const { artifact } = yield* compileClientPluginModule(emittedInput);
+					expect(requiredFile(artifact, "module.js").contents).toEqual(
+						bytes("\ufeff  export default 1;\n"),
+					);
+					expect(requiredFile(artifact, "module.css").contents).toEqual(
+						bytes('/* url("./missing.png") */'),
+					);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -664,7 +753,7 @@ export default function Alpha() {
 				expect(css).not.toContain("--color-red-500:");
 				expect(css).not.toContain("--bg:");
 				expect(cssImports).toHaveLength(0);
-				expect(imports).toEqual(
+				expect(imports).toEqual<unknown>(
 					arrayContaining([
 						"react",
 						"react/jsx-runtime",
@@ -685,6 +774,7 @@ export default function Alpha() {
 					clientArtifactMetadata(input.name, input.packageId, artifact.files, artifact).hash,
 				);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -706,6 +796,7 @@ export default function Alpha() {
 				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
 				expect(failure.diagnostics[0]?.file).toBe("client/invalid.tsx");
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -724,7 +815,7 @@ export default function Alpha() {
 					},
 				};
 				const invalidExport = yield* compileClientPluginModule(input).pipe(Effect.flip);
-				expect(invalidExport.diagnostics).toEqual(
+				expect(invalidExport.diagnostics).toEqual<unknown>(
 					arrayContaining([objectContaining({ code: "TS2322" })]),
 				);
 
@@ -736,86 +827,96 @@ export default function Alpha() {
 						"client/home.tsx": bytes("export default function Home() { return null; }"),
 					},
 				}).pipe(Effect.flip);
-				expect(invalidSource.diagnostics).toEqual(
+				expect(invalidSource.diagnostics).toEqual<unknown>(
 					arrayContaining([objectContaining({ code: "TS2322", file: "shared/unreachable.ts" })]),
 				);
 				expect(
 					invalidSource.diagnostics.some(({ file }) => file === "shared/ignored.test.ts"),
 				).toBe(false);
 			}),
+		testTimeout,
 	);
 
-	test.effect("rejects invalid package source paths and oversized assets during planning", () =>
-		Effect.gen(function* () {
-			const input = {
-				...pluginIdentity,
-				name: "Invalid package",
-				apiVersion: CLIENT_API_VERSION,
-				publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
-				files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
-			};
-			const pathFailure = yield* compileClientPluginModule({
-				...input,
-				files: { ...input.files, "client/../secret.ts": bytes("export {};") },
-			}).pipe(Effect.flip);
-			expect(pathFailure.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_PATH");
-			const assetFailure = yield* compileClientPluginModule({
-				...input,
-				files: {
-					...input.files,
-					"client/image.png": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes + 1),
-				},
-			}).pipe(Effect.flip);
-			expect(assetFailure.diagnostics[0]?.code).toBe("RYOT_CLIENT_ASSET_SIZE");
-		}),
+	test.effect(
+		"rejects invalid package source paths and oversized assets during planning",
+		() =>
+			Effect.gen(function* () {
+				const input = {
+					...pluginIdentity,
+					name: "Invalid package",
+					apiVersion: CLIENT_API_VERSION,
+					publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
+					files: { "client/home.tsx": bytes("export default function Home() { return null; }") },
+				};
+				const pathFailure = yield* compileClientPluginModule({
+					...input,
+					files: { ...input.files, "client/../secret.ts": bytes("export {};") },
+				}).pipe(Effect.flip);
+				expect(pathFailure.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_PATH");
+				const assetFailure = yield* compileClientPluginModule({
+					...input,
+					files: {
+						...input.files,
+						"client/image.png": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.assetBytes + 1),
+					},
+				}).pipe(Effect.flip);
+				expect(assetFailure.diagnostics[0]?.code).toBe("RYOT_CLIENT_ASSET_SIZE");
+			}),
+		testTimeout,
 	);
 
-	test.effect("emits a minified module with stylesheet asset references resolved", () =>
-		Effect.gen(function* () {
-			const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01]);
-			const { artifact } = yield* compileClientPluginModule({
-				...pluginIdentity,
-				name: "Styled plugin",
-				apiVersion: CLIENT_API_VERSION,
-				publicExports: { home: { kind: "page", entry: "client/home.tsx" } },
-				files: {
-					"client/image.png": image,
-					"client/styles.css": bytes('.plugin-image { background: url("./image.png"); }'),
-					"client/home.tsx": bytes(
-						'import "./styles.css"; export default function Home() { return <div className="plugin-image">Rendered plugin</div>; }',
-					),
-				},
-			});
-			const asset = artifact.files.find(({ name }) => name.endsWith(".png"));
-			assertDefined(asset);
-			expect(asset.contents).toEqual(image);
-			expect(text(requiredFile(artifact, "module.css").contents)).toContain(`./${asset.name}`);
-			const javascript = text(requiredFile(artifact, "module.js").contents);
-			expect(javascript).toContain("Rendered plugin");
-			expect(javascript).not.toContain("function Home");
-		}),
+	test.effect(
+		"emits a minified module with stylesheet asset references resolved",
+		() =>
+			Effect.gen(function* () {
+				const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01]);
+				const { artifact } = yield* compileClientPluginModule({
+					...pluginIdentity,
+					name: "Styled plugin",
+					apiVersion: CLIENT_API_VERSION,
+					publicExports: { home: { kind: "page", entry: "client/home.tsx" } },
+					files: {
+						"client/image.png": image,
+						"client/styles.css": bytes('.plugin-image { background: url("./image.png"); }'),
+						"client/home.tsx": bytes(
+							'import "./styles.css"; export default function Home() { return <div className="plugin-image">Rendered plugin</div>; }',
+						),
+					},
+				});
+				const asset = artifact.files.find(({ name }) => name.endsWith(".png"));
+				assertDefined(asset);
+				expect(asset.contents).toEqual(image);
+				expect(text(requiredFile(artifact, "module.css").contents)).toContain(`./${asset.name}`);
+				const javascript = text(requiredFile(artifact, "module.js").contents);
+				expect(javascript).toContain("Rendered plugin");
+				expect(javascript).not.toContain("function Home");
+			}),
+		testTimeout,
 	);
 
-	test.effect("emits deterministic module files", () =>
-		Effect.gen(function* () {
-			const input = {
-				...pluginIdentity,
-				name: "CLI test plugin",
-				apiVersion: CLIENT_API_VERSION,
-				publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
-				files: {
-					"client/styles.css": bytes(".client-test { color: red; }"),
-					"shared/util.ts": bytes('export const sharedLabel = "shared";'),
-					"client/home.tsx": bytes('const Home = () => "home"; export default Home;'),
-				},
-			};
-			const first = yield* compileClientPluginModule(input);
-			const second = yield* compileClientPluginModule(input);
-			expect(
-				second.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]),
-			).toEqual(first.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]));
-			expect(second.artifact.hash).toBe(first.artifact.hash);
-		}),
+	test.effect(
+		"emits deterministic module files",
+		() =>
+			Effect.gen(function* () {
+				const input = {
+					...pluginIdentity,
+					name: "CLI test plugin",
+					apiVersion: CLIENT_API_VERSION,
+					publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
+					files: {
+						"client/styles.css": bytes(".client-test { color: red; }"),
+						"shared/util.ts": bytes('export const sharedLabel = "shared";'),
+						"client/home.tsx": bytes('const Home = () => "home"; export default Home;'),
+					},
+				};
+				const first = yield* compileClientPluginModule(input);
+				const second = yield* compileClientPluginModule(input);
+				expect(
+					second.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]),
+				).toEqual(first.artifact.files.map(({ name, contents }) => [name, sha256Hex(contents)]));
+				expect(second.artifact.hash).toBe(first.artifact.hash);
+			}),
+		testTimeout,
 	);
 	test.effect(
 		"binds identical aliases independently and leaves import-like strings unchanged",
@@ -856,21 +957,25 @@ export default function Alpha() {
 				const failure = yield* compileClientPluginModule(input).pipe(Effect.flip);
 				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
 			}),
+		testTimeout,
 	);
-	test.effect("builds kernel modules without an authored package identity", () =>
-		Effect.gen(function* () {
-			const { name, files, apiVersion, publicExports } = emittedInput;
-			const kernel = yield* compileClientPluginModule({
-				name,
-				files,
-				apiVersion,
-				publicExports,
-				kind: "kernel",
-			});
-			expect(kernel.artifact).not.toHaveProperty("packageId");
-			const plugin = yield* compileClientPluginModule(emittedInput);
-			expect(plugin.artifact.packageId).toBe(packageId);
-			expect(plugin.artifact.hash).not.toBe(kernel.artifact.hash);
-		}),
+	test.effect(
+		"builds kernel modules without an authored package identity",
+		() =>
+			Effect.gen(function* () {
+				const { name, files, apiVersion, publicExports } = emittedInput;
+				const kernel = yield* compileClientPluginModule({
+					name,
+					files,
+					apiVersion,
+					publicExports,
+					kind: "kernel",
+				});
+				expect(kernel.artifact).not.toHaveProperty("packageId");
+				const plugin = yield* compileClientPluginModule(emittedInput);
+				expect(plugin.artifact.packageId).toBe(packageId);
+				expect(plugin.artifact.hash).not.toBe(kernel.artifact.hash);
+			}),
+		testTimeout,
 	);
 });

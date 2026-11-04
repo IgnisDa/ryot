@@ -3,14 +3,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ./test.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",
 		"@better-auth/api-key": "1.7.2",
 		"@effect/platform-bun": "4.1.0",
-		"@effect/vitest": "4.1.0",
 		"@faker-js/faker": "10.4.0",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/fitness-plugin": "workspace:*",
@@ -28,6 +27,7 @@
 		"@ryot-app/testing": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"better-auth": "1.7.2",
 		"dotenv": "17.3.1",
 		"effect": "4.1.0",
@@ -37,7 +37,6 @@
 		"oauth2-mock-server": "9.1.0",
 		"playwright": "1.62.1",
 		"rfc4648": "1.5.4",
-		"testcontainers": "11.14.0",
-		"vitest": "4.1.9"
+		"testcontainers": "11.14.0"
 	}
 }

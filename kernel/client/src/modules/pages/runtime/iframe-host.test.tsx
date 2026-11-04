@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
@@ -19,7 +20,9 @@ import {
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Layer, ManagedRuntime, Option, Schema } from "effect";
 import type { ReactNode } from "react";
 
@@ -314,383 +317,78 @@ function connect(frame: HTMLIFrameElement) {
 }
 
 describe("PageIframeHost", () => {
-	it.live("keeps the minimal interstitial visible through document loading and bootstrap", () =>
-		Effect.gen(function* () {
-			const document = yield* Deferred.make<string, Error>();
-			mount({ onLoadDocument: () => Deferred.await(document) });
+	it.live(
+		"keeps the minimal interstitial visible through document loading and bootstrap",
+		() =>
+			Effect.gen(function* () {
+				const document = yield* Deferred.make<string, Error>();
+				mount({ onLoadDocument: () => Deferred.await(document) });
 
-			expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
-			expect(screen.getByRole("status").textContent).toContain("Getting your view ready");
-			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+				expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
+				expect(screen.getByRole("status").textContent).toContain("Getting your view ready");
+				expect(screen.queryByTitle("Fixture plugin")).toBeNull();
 
-			yield* Deferred.succeed(document, srcDoc);
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
+				yield* Deferred.succeed(document, srcDoc);
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Opening Fixture");
 
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("status")).toBeNull()));
-			expect(screen.queryByRole("heading")).toBeNull();
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-		}),
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("status")).toBeNull()));
+				expect(screen.queryByRole("heading")).toBeNull();
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			}),
+		testTimeout,
 	);
 
-	it.live("uses one document and bridge while location and global history change", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+	it.live(
+		"uses one document and bridge while location and global history change",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			host.move({ kind: "route", path: "/details", search: "keep=1&tab=stats" }, 1);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
+				host.move({ kind: "route", path: "/details", search: "keep=1&tab=stats" }, 1);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
 
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-			expect(bridge.init).toMatchObject({ safeAreaTop: 7, safeAreaBottom: 11 });
-			expect(bridge.messages[1]).toMatchObject({
-				index: 1,
-				key: "k1",
-				compact: true,
-				edgeBack: true,
-				location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
-			});
-		}),
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+				expect(bridge.init).toMatchObject({ safeAreaTop: 7, safeAreaBottom: 11 });
+				expect(bridge.messages[1]).toMatchObject({
+					index: 1,
+					key: "k1",
+					compact: true,
+					edgeBack: true,
+					location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("uses the current route entity-picker callback for a live bridge", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+	it.live(
+		"uses the current route entity-picker callback for a live bridge",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			const routed: PluginBridgePickEntityScreen[] = [];
-			host.setPickEntityHandler((request) =>
-				Effect.sync(() => routed.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
-			);
-			bridge.port.postMessage({
-				type: "pick-entity-screen",
-				requestId: "pick-entity-screen-1",
-				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-				library: {
-					entryEvent: null,
-					librarySchemaSlug: "fixture-library",
-					relationshipSlug: "in-fixture-library",
-				},
-			});
-			yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
-
-			expect(host.entityPicks).toEqual([]);
-			expect(routed[0]).toMatchObject({ requestId: "pick-entity-screen-1" });
-		}),
-	);
-
-	it.live("routes collection screens to the current callbacks and keeps the frame inert", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-
-			bridge.port.postMessage({ requestId: "edit-1", type: "edit-collection-screen" });
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
-			expect(bridge.messages[1]).toEqual({
-				outcome: "success",
-				requestId: "edit-1",
-				value: { kind: "cancelled" },
-				type: "edit-collection-screen-result",
-			});
-
-			const edits: EditCollectionRequest[] = [];
-			const adds: AddToCollectionRequest[] = [];
-			host.setScreens({
-				inert: true,
-				onAddToCollection: (request) =>
-					Effect.sync(() => adds.push(request)).pipe(Effect.as({ kind: "saved" as const })),
-				onEditCollection: (request) =>
-					Effect.sync(() => edits.push(request)).pipe(Effect.as({ kind: "deleted" as const })),
-			});
-			expect(frame.hasAttribute("inert")).toBe(true);
-			bridge.port.postMessage({
-				requestId: "edit-2",
-				collectionId: "collection-1",
-				type: "edit-collection-screen",
-			});
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(3)));
-			bridge.port.postMessage({
-				requestId: "add-1",
-				entityId: "entity-1",
-				type: "add-to-collection-screen",
-			});
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(4)));
-
-			expect(edits).toEqual([{ collectionId: "collection-1" }]);
-			expect(adds).toEqual([{ entityId: "entity-1" }]);
-			expect(bridge.messages.slice(2)).toEqual([
-				{
-					outcome: "success",
-					requestId: "edit-2",
-					value: { kind: "deleted" },
-					type: "edit-collection-screen-result",
-				},
-				{
-					requestId: "add-1",
-					outcome: "success",
-					value: { kind: "saved" },
-					type: "add-to-collection-screen-result",
-				},
-			]);
-			host.setScreens({});
-			expect(frame.hasAttribute("inert")).toBe(false);
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-		}),
-	);
-
-	it.live("refreshes the plugin after changed reminders, but not after cancellation", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-
-			const changedRequests: ManageRemindersRequest[] = [];
-			host.setScreens({
-				onManageReminders: (request) =>
-					Effect.sync(() => changedRequests.push(request)).pipe(
-						Effect.map((): ManageRemindersOutcome => ({ kind: "changed" })),
-					),
-			});
-			bridge.port.postMessage({
-				entityId: "entity-1",
-				parentEntityId: "parent-1",
-				requestId: "reminders-changed",
-				type: "manage-reminders-screen",
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual(
-						objectContaining({
-							requestId: "reminders-changed",
-							type: "manage-reminders-screen-result",
-						}),
-					),
-				),
-			);
-			expect(bridge.messages).toContainEqual({ type: "page-refresh" });
-			expect(changedRequests).toEqual([{ entityId: "entity-1", parentEntityId: "parent-1" }]);
-
-			host.setScreens({
-				onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
-			});
-			bridge.port.postMessage({
-				entityId: "entity-2",
-				type: "manage-reminders-screen",
-				requestId: "reminders-cancelled",
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual(
-						objectContaining({
-							requestId: "reminders-cancelled",
-							type: "manage-reminders-screen-result",
-						}),
-					),
-				),
-			);
-			expect(
-				bridge.messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						"type" in message &&
-						message.type === "page-refresh",
-				),
-			).toHaveLength(1);
-		}),
-	);
-
-	it.live("suppresses reminder replies and refreshes after document replacement", () =>
-		Effect.gen(function* () {
-			const release = yield* Deferred.make<ManageRemindersOutcome>();
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			const requests: ManageRemindersRequest[] = [];
-			host.setScreens({
-				onManageReminders: (request) =>
-					Effect.sync(() => requests.push(request)).pipe(
-						Effect.flatMap(() => Effect.uninterruptible(Deferred.await(release))),
-					),
-			});
-			bridge.port.postMessage({
-				entityId: "entity-1",
-				requestId: "reminders-stale",
-				type: "manage-reminders-screen",
-			});
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			host.replace("page-2");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual(
-						objectContaining({ type: "document", documentKey: "page-2" }),
-					),
-				),
-			);
-			const changed: ManageRemindersOutcome = { kind: "changed" };
-			yield* Deferred.succeed(release, changed);
-			yield* Effect.promise(() => flush());
-
-			expect(bridge.messages).not.toContainEqual(
-				objectContaining({ requestId: "reminders-stale" }),
-			);
-			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
-		}),
-	);
-
-	it.live("replaces a document without reloading the iframe and clears page-owned state", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			bridge.port.postMessage({ count: 1, type: "overlay-state" });
-			bridge.port.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
-			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
-			host.replace("page-2");
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual(
-						objectContaining({
-							type: "document",
-							documentKey: "page-2",
-							page: objectContaining({ target: objectContaining({ path: "page-2" }) }),
-						}),
-					),
-				),
-			);
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-			expect(host.backInterceptors.run()).toBe(false);
-		}),
-	);
-
-	it.live("loads the document once into a sandboxed srcdoc frame", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
-			expect(frame.hasAttribute("src")).toBe(false);
-			expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
-			expect(host.documentLoads()).toBe(1);
-		}),
-	);
-
-	it.live("never reloads the document when the frame rerenders or replaces its page", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-
-			host.move({ search: "", kind: "route", path: "/details" }, 1);
-			host.setActive(false);
-			host.setActive(true);
-			host.replace("page-2");
-			host.refresh();
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual(
-						objectContaining({ type: "document", documentKey: "page-2" }),
-					),
-				),
-			);
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-			expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
-			expect(host.documentLoads()).toBe(1);
-			expect(screen.queryByRole("heading", { name: "Opening Fixture" })).toBeNull();
-		}),
-	);
-
-	it.live("forwards explicit route, page-search, operation target, and matching readiness", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			bridge.port.postMessage({
-				mode: "push",
-				type: "navigate",
-				target: { search: "q=x", path: "/items", kind: "plugin-route", packageId: "ryot/fixture" },
-			});
-			bridge.port.postMessage({
-				type: "pick-entity-screen",
-				requestId: "pick-entity-screen-1",
-				schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
-				library: {
-					entryEvent: null,
-					librarySchemaSlug: "fixture-library",
-					relationshipSlug: "in-fixture-library",
-				},
-			});
-			bridge.port.postMessage({
-				mode: "replace",
-				type: "page-search",
-				update: { q: "sample", dialog: null },
-			});
-			bridge.port.postMessage({
-				input: null,
-				requestId: "op-1",
-				operationSlug: "greet",
-				packageId: "test/fixture",
-				type: "operation-request",
-			});
-			bridge.port.postMessage({
-				index: 0,
-				key: "k0",
-				type: "screen-state",
-				hasPreviousScreen: true,
-			});
-
-			yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
-			expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/fixture/items?q=x" }]);
-			expect(host.searches).toEqual([
-				{ mode: "replace", type: "page-search", update: { q: "sample", dialog: null } },
-			]);
-			expect(host.entityPicks).toEqual([
-				{
+				const routed: PluginBridgePickEntityScreen[] = [];
+				host.setPickEntityHandler((request) =>
+					Effect.sync(() => routed.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
+				);
+				bridge.port.postMessage({
 					type: "pick-entity-screen",
 					requestId: "pick-entity-screen-1",
 					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
@@ -699,365 +397,741 @@ describe("PageIframeHost", () => {
 						librarySchemaSlug: "fixture-library",
 						relationshipSlug: "in-fixture-library",
 					},
-				},
-			]);
-			expect(host.operations).toEqual([
-				{ input: null, operationSlug: "greet", packageId: PluginPackageId.make("test/fixture") },
-			]);
-			expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
-		}),
-	);
-
-	it.live("sends one page refresh for a host mutation-completed hint", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-
-			host.refresh();
-
-			yield* Effect.promise(() =>
-				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
-			);
-			expect(
-				bridge.messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						Reflect.get(message, "type") === "page-refresh",
-				),
-			).toHaveLength(1);
-		}),
-	);
-
-	it.live("suppresses retained frame effects and refreshes once after a missed mutation", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			bridge.port.postMessage({ count: 1, type: "overlay-state" });
-			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
-
-			host.setActive(false);
-			host.refresh();
-			expect(host.backInterceptors.run()).toBe(false);
-			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
-
-			host.setActive(true);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
-			);
-			expect(
-				bridge.messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						Reflect.get(message, "type") === "page-refresh",
-				),
-			).toHaveLength(1);
-		}),
-	);
-
-	it.live("sends one lifecycle page refresh only when the application becomes visible", () => {
-		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
-		return Effect.gen(function* () {
-			mount();
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-
-			act(() => {
-				Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
-				document.dispatchEvent(new Event("visibilitychange"));
-			});
-			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
-
-			act(() => {
-				Object.defineProperty(document, "visibilityState", {
-					value: "visible",
-					configurable: true,
 				});
-				document.dispatchEvent(new Event("visibilitychange"));
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
-			);
-			expect(
-				bridge.messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						Reflect.get(message, "type") === "page-refresh",
-				),
-			).toHaveLength(1);
-		}).pipe(
-			Effect.ensuring(
-				Effect.sync(() => {
-					if (visibility) {
-						Object.defineProperty(document, "visibilityState", visibility);
-					} else {
-						Reflect.deleteProperty(document, "visibilityState");
-					}
-				}),
-			),
-		);
-	});
+				yield* Effect.promise(() => waitFor(() => expect(routed).toHaveLength(1)));
 
-	it.live("sends the same page refresh on native resume and releases the listener", () =>
-		Effect.gen(function* () {
-			let resume: undefined | (() => void);
-			let released = false;
-			const host = mount({
-				subscribeResume: (resumed) => {
-					resume = resumed;
-					return () => {
-						released = true;
-					};
-				},
-			});
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-
-			act(() => resume?.());
-			yield* Effect.promise(() =>
-				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
-			);
-			expect(
-				bridge.messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						Reflect.get(message, "type") === "page-refresh",
-				),
-			).toHaveLength(1);
-
-			host.unmount();
-			expect(released).toBe(true);
-		}),
+				expect(host.entityPicks).toEqual([]);
+				expect(routed[0]).toMatchObject({ requestId: "pick-entity-screen-1" });
+			}),
+		testTimeout,
 	);
 
-	it.live("registers iframe overlay Back ownership and releases it after acknowledgement", () =>
-		Effect.gen(function* () {
-			const host = mount();
-			yield* Effect.promise(() => flush());
-			const bridge = connect(
-				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
-			);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			bridge.port.postMessage({ count: 1, type: "overlay-state" });
-			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual({
-						requestId: "overlay-1",
-						type: "dismiss-overlay",
-					}),
-				),
-			);
+	it.live(
+		"routes collection screens to the current callbacks and keeps the frame inert",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			bridge.port.postMessage({
-				dismissed: true,
-				requestId: "overlay-1",
-				type: "dismiss-overlay-result",
-			});
-			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(false)));
-		}),
+				bridge.port.postMessage({ requestId: "edit-1", type: "edit-collection-screen" });
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
+				expect(bridge.messages[1]).toEqual({
+					outcome: "success",
+					requestId: "edit-1",
+					value: { kind: "cancelled" },
+					type: "edit-collection-screen-result",
+				});
+
+				const edits: EditCollectionRequest[] = [];
+				const adds: AddToCollectionRequest[] = [];
+				host.setScreens({
+					inert: true,
+					onAddToCollection: (request) =>
+						Effect.sync(() => adds.push(request)).pipe(Effect.as({ kind: "saved" as const })),
+					onEditCollection: (request) =>
+						Effect.sync(() => edits.push(request)).pipe(Effect.as({ kind: "deleted" as const })),
+				});
+				expect(frame.hasAttribute("inert")).toBe(true);
+				bridge.port.postMessage({
+					requestId: "edit-2",
+					collectionId: "collection-1",
+					type: "edit-collection-screen",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(3)));
+				bridge.port.postMessage({
+					requestId: "add-1",
+					entityId: "entity-1",
+					type: "add-to-collection-screen",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(4)));
+
+				expect(edits).toEqual<unknown>([{ collectionId: "collection-1" }]);
+				expect(adds).toEqual<unknown>([{ entityId: "entity-1" }]);
+				expect(bridge.messages.slice(2)).toEqual([
+					{
+						outcome: "success",
+						requestId: "edit-2",
+						value: { kind: "deleted" },
+						type: "edit-collection-screen-result",
+					},
+					{
+						requestId: "add-1",
+						outcome: "success",
+						value: { kind: "saved" },
+						type: "add-to-collection-screen-result",
+					},
+				]);
+				host.setScreens({});
+				expect(frame.hasAttribute("inert")).toBe(false);
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps the current frame mounted when an invalidation reports an update", () =>
-		Effect.gen(function* () {
-			let reloads = 0;
-			let checks = 0;
-			const host = mount({
-				onReloadCurrent: () => {
-					reloads += 1;
-				},
-				onCheckFreshness: () => {
-					checks += 1;
-					return Effect.succeed(false);
-				},
-			});
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+	it.live(
+		"refreshes the plugin after changed reminders, but not after cancellation",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			host.move(home, 0, 1);
+				const changedRequests: ManageRemindersRequest[] = [];
+				host.setScreens({
+					onManageReminders: (request) =>
+						Effect.sync(() => changedRequests.push(request)).pipe(
+							Effect.map((): ManageRemindersOutcome => ({ kind: "changed" })),
+						),
+				});
+				bridge.port.postMessage({
+					entityId: "entity-1",
+					parentEntityId: "parent-1",
+					requestId: "reminders-changed",
+					type: "manage-reminders-screen",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual(
+							objectContaining({
+								requestId: "reminders-changed",
+								type: "manage-reminders-screen-result",
+							}),
+						),
+					),
+				);
+				expect(bridge.messages).toContainEqual({ type: "page-refresh" });
+				expect(changedRequests).toEqual<unknown>([
+					{ entityId: "entity-1", parentEntityId: "parent-1" },
+				]);
 
-			yield* Effect.promise(() =>
-				screen.findByText("An update is available. Reloading will discard unsaved local state."),
-			);
-			expect(checks).toBe(1);
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-			expect(reloads).toBe(0);
-			fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
-			expect(reloads).toBe(1);
-		}),
+				host.setScreens({
+					onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
+				});
+				bridge.port.postMessage({
+					entityId: "entity-2",
+					type: "manage-reminders-screen",
+					requestId: "reminders-cancelled",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual(
+							objectContaining({
+								requestId: "reminders-cancelled",
+								type: "manage-reminders-screen-result",
+							}),
+						),
+					),
+				);
+				expect(
+					bridge.messages.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							"type" in message &&
+							message.type === "page-refresh",
+					),
+				).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
-	it.live("accepts background submissions only from an active, interactive, current frame", () =>
-		Effect.gen(function* () {
-			const host = mount({ onCheckFreshness: () => Effect.succeed(false) });
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
-			const submit = (key: string) =>
+	it.live(
+		"suppresses reminder replies and refreshes after document replacement",
+		() =>
+			Effect.gen(function* () {
+				const release = yield* Deferred.make<ManageRemindersOutcome>();
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+				const requests: ManageRemindersRequest[] = [];
+				host.setScreens({
+					onManageReminders: (request) =>
+						Effect.sync(() => requests.push(request)).pipe(
+							Effect.flatMap(() => Effect.uninterruptible(Deferred.await(release))),
+						),
+				});
+				bridge.port.postMessage({
+					entityId: "entity-1",
+					requestId: "reminders-stale",
+					type: "manage-reminders-screen",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				host.replace("page-2");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual(
+							objectContaining({ type: "document", documentKey: "page-2" }),
+						),
+					),
+				);
+				const changed: ManageRemindersOutcome = { kind: "changed" };
+				yield* Deferred.succeed(release, changed);
+				yield* Effect.promise(() => flush());
+
+				expect(bridge.messages).not.toContainEqual(
+					objectContaining({ requestId: "reminders-stale" }),
+				);
+				expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"replaces a document without reloading the iframe and clears page-owned state",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+				bridge.port.postMessage({ count: 1, type: "overlay-state" });
+				bridge.port.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
+				yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
+				host.replace("page-2");
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual(
+							objectContaining({
+								type: "document",
+								documentKey: "page-2",
+								page: objectContaining({ target: objectContaining({ path: "page-2" }) }),
+							}),
+						),
+					),
+				);
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+				expect(host.backInterceptors.run()).toBe(false);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"loads the document once into a sandboxed srcdoc frame",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+				expect(frame.hasAttribute("src")).toBe(false);
+				expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
+				expect(host.documentLoads()).toBe(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"never reloads the document when the frame rerenders or replaces its page",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+				host.move({ search: "", kind: "route", path: "/details" }, 1);
+				host.setActive(false);
+				host.setActive(true);
+				host.replace("page-2");
+				host.refresh();
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual(
+							objectContaining({ type: "document", documentKey: "page-2" }),
+						),
+					),
+				);
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+				expect(frame.getAttribute("srcdoc")).toBe(srcDoc);
+				expect(host.documentLoads()).toBe(1);
+				expect(screen.queryByRole("heading", { name: "Opening Fixture" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"forwards explicit route, page-search, operation target, and matching readiness",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+				bridge.port.postMessage({
+					mode: "push",
+					type: "navigate",
+					target: {
+						search: "q=x",
+						path: "/items",
+						kind: "plugin-route",
+						packageId: "ryot/fixture",
+					},
+				});
+				bridge.port.postMessage({
+					type: "pick-entity-screen",
+					requestId: "pick-entity-screen-1",
+					schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+					library: {
+						entryEvent: null,
+						librarySchemaSlug: "fixture-library",
+						relationshipSlug: "in-fixture-library",
+					},
+				});
+				bridge.port.postMessage({
+					mode: "replace",
+					type: "page-search",
+					update: { q: "sample", dialog: null },
+				});
 				bridge.port.postMessage({
 					input: null,
-					label: "Logged",
-					idempotencyKey: key,
-					operationSlug: "log",
+					requestId: "op-1",
+					operationSlug: "greet",
 					packageId: "test/fixture",
-					requestId: `request-${key}`,
-					type: "background-operation-request",
+					type: "operation-request",
 				});
-			const reply = (key: string) =>
-				bridge.messages.find(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						"requestId" in message &&
-						message.requestId === `request-${key}`,
-				);
+				bridge.port.postMessage({
+					index: 0,
+					key: "k0",
+					type: "screen-state",
+					hasPreviousScreen: true,
+				});
 
-			submit("active");
-			yield* Effect.promise(() => waitFor(() => expect(reply("active")).toBeDefined()));
-			expect(reply("active")).toEqual({
-				outcome: "success",
-				requestId: "request-active",
-				submissionId: "submission-active",
-				type: "background-operation-accepted",
-			});
-
-			host.setActive(false);
-			submit("inactive");
-			yield* Effect.promise(() => waitFor(() => expect(reply("inactive")).toBeDefined()));
-			expect(reply("inactive")).toEqual(refusedBackground("inactive"));
-
-			host.setScreens({ inert: true });
-			submit("inert");
-			yield* Effect.promise(() => waitFor(() => expect(reply("inert")).toBeDefined()));
-			expect(reply("inert")).toEqual(refusedBackground("inert"));
-
-			host.setScreens({});
-			host.move(home, 0, 1);
-			yield* Effect.promise(() =>
-				screen.findByText("An update is available. Reloading will discard unsaved local state."),
-			);
-			submit("update-pending");
-			yield* Effect.promise(() => waitFor(() => expect(reply("update-pending")).toBeDefined()));
-			expect(reply("update-pending")).toEqual(refusedBackground("update-pending"));
-			expect(host.backgroundRequests).toEqual(["active"]);
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
+				expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/fixture/items?q=x" }]);
+				expect(host.searches).toEqual([
+					{ mode: "replace", type: "page-search", update: { q: "sample", dialog: null } },
+				]);
+				expect(host.entityPicks).toEqual([
+					{
+						type: "pick-entity-screen",
+						requestId: "pick-entity-screen-1",
+						schema: { slug: "record", owner: { kind: "plugin", pluginId: "fixture-installation" } },
+						library: {
+							entryEvent: null,
+							librarySchemaSlug: "fixture-library",
+							relationshipSlug: "in-fixture-library",
+						},
+					},
+				]);
+				expect(host.operations).toEqual([
+					{ input: null, operationSlug: "greet", packageId: PluginPackageId.make("test/fixture") },
+				]);
+				expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps the bridge mounted and reports a clear failure when an operation is stale", () =>
-		Effect.gen(function* () {
-			let reloads = 0;
-			mount({
-				onReloadCurrent: () => {
-					reloads += 1;
-				},
-				onInvokeOperation: () => Effect.succeed({ outcome: "stale-session" }),
-			});
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+	it.live(
+		"sends one page refresh for a host mutation-completed hint",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			bridge.port.postMessage({
-				input: null,
-				operationSlug: "mutate",
-				packageId: "test/fixture",
-				type: "operation-request",
-				requestId: "stale-operation",
-			});
+				host.refresh();
 
-			yield* Effect.promise(() =>
-				screen.findByText("An update is available. Reloading will discard unsaved local state."),
-			);
-			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-			expect(reloads).toBe(0);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(bridge.messages).toContainEqual({
-						outcome: "failure",
-						type: "operation-result",
-						reason: "operation-failed",
-						requestId: "stale-operation",
+				yield* Effect.promise(() =>
+					waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+				);
+				expect(
+					bridge.messages.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							Reflect.get(message, "type") === "page-refresh",
+					),
+				).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"suppresses retained frame effects and refreshes once after a missed mutation",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+				bridge.port.postMessage({ count: 1, type: "overlay-state" });
+				yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
+
+				host.setActive(false);
+				host.refresh();
+				expect(host.backInterceptors.run()).toBe(false);
+				expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
+
+				host.setActive(true);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+				);
+				expect(
+					bridge.messages.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							Reflect.get(message, "type") === "page-refresh",
+					),
+				).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"sends one lifecycle page refresh only when the application becomes visible",
+		() => {
+			const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+			return Effect.gen(function* () {
+				mount();
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+				act(() => {
+					Object.defineProperty(document, "visibilityState", {
+						value: "hidden",
+						configurable: true,
+					});
+					document.dispatchEvent(new Event("visibilitychange"));
+				});
+				expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
+
+				act(() => {
+					Object.defineProperty(document, "visibilityState", {
+						value: "visible",
+						configurable: true,
+					});
+					document.dispatchEvent(new Event("visibilitychange"));
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+				);
+				expect(
+					bridge.messages.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							Reflect.get(message, "type") === "page-refresh",
+					),
+				).toHaveLength(1);
+			}).pipe(
+				Effect.ensuring(
+					Effect.sync(() => {
+						if (visibility) {
+							Object.defineProperty(document, "visibilityState", visibility);
+						} else {
+							Reflect.deleteProperty(document, "visibilityState");
+						}
 					}),
 				),
 			);
-		}),
+		},
+		testTimeout,
 	);
 
-	it.live("reprepares the page when the bridge fails", () =>
-		Effect.gen(function* () {
-			let parentReloads = 0;
-			const host = mount({
-				onReloadCurrent: () => {
-					parentReloads += 1;
-				},
-			});
-			yield* Effect.promise(() => flush());
-			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
-			);
-			const bridge = connect(frame);
-			bridge.port.postMessage(bridge.ready);
-			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+	it.live(
+		"sends the same page refresh on native resume and releases the listener",
+		() =>
+			Effect.gen(function* () {
+				let resume: undefined | (() => void);
+				let released = false;
+				const host = mount({
+					subscribeResume: (resumed) => {
+						resume = resumed;
+						return () => {
+							released = true;
+						};
+					},
+				});
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-			bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
+				act(() => resume?.());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+				);
+				expect(
+					bridge.messages.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							Reflect.get(message, "type") === "page-refresh",
+					),
+				).toHaveLength(1);
 
-			yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
-			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-			fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-			expect(parentReloads).toBe(1);
-			host.unmount();
-		}),
+				host.unmount();
+				expect(released).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	it.live("offers a retry without rendering a frame when the document cannot load", () =>
-		Effect.gen(function* () {
-			let reloads = 0;
-			mount({
-				onReloadCurrent: () => {
-					reloads++;
-				},
-				onLoadDocument: () =>
-					Effect.fail(new AuthenticatedApiError({ cause: new Error("stale document") })),
-			});
-			yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
-			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-			fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-			expect(reloads).toBe(1);
-		}),
+	it.live(
+		"registers iframe overlay Back ownership and releases it after acknowledgement",
+		() =>
+			Effect.gen(function* () {
+				const host = mount();
+				yield* Effect.promise(() => flush());
+				const bridge = connect(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+				bridge.port.postMessage({ count: 1, type: "overlay-state" });
+				yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual({
+							requestId: "overlay-1",
+							type: "dismiss-overlay",
+						}),
+					),
+				);
+
+				bridge.port.postMessage({
+					dismissed: true,
+					requestId: "overlay-1",
+					type: "dismiss-overlay-result",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(false)));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps the current frame mounted when an invalidation reports an update",
+		() =>
+			Effect.gen(function* () {
+				let reloads = 0;
+				let checks = 0;
+				const host = mount({
+					onReloadCurrent: () => {
+						reloads += 1;
+					},
+					onCheckFreshness: () => {
+						checks += 1;
+						return Effect.succeed(false);
+					},
+				});
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+				host.move(home, 0, 1);
+
+				yield* Effect.promise(() =>
+					screen.findByText("An update is available. Reloading will discard unsaved local state."),
+				);
+				expect(checks).toBe(1);
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+				expect(reloads).toBe(0);
+				fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
+				expect(reloads).toBe(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"accepts background submissions only from an active, interactive, current frame",
+		() =>
+			Effect.gen(function* () {
+				const host = mount({ onCheckFreshness: () => Effect.succeed(false) });
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+				const submit = (key: string) =>
+					bridge.port.postMessage({
+						input: null,
+						label: "Logged",
+						idempotencyKey: key,
+						operationSlug: "log",
+						packageId: "test/fixture",
+						requestId: `request-${key}`,
+						type: "background-operation-request",
+					});
+				const reply = (key: string) =>
+					bridge.messages.find(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							"requestId" in message &&
+							message.requestId === `request-${key}`,
+					);
+
+				submit("active");
+				yield* Effect.promise(() => waitFor(() => expect(reply("active")).toBeDefined()));
+				expect(reply("active")).toEqual({
+					outcome: "success",
+					requestId: "request-active",
+					submissionId: "submission-active",
+					type: "background-operation-accepted",
+				});
+
+				host.setActive(false);
+				submit("inactive");
+				yield* Effect.promise(() => waitFor(() => expect(reply("inactive")).toBeDefined()));
+				expect(reply("inactive")).toEqual(refusedBackground("inactive"));
+
+				host.setScreens({ inert: true });
+				submit("inert");
+				yield* Effect.promise(() => waitFor(() => expect(reply("inert")).toBeDefined()));
+				expect(reply("inert")).toEqual(refusedBackground("inert"));
+
+				host.setScreens({});
+				host.move(home, 0, 1);
+				yield* Effect.promise(() =>
+					screen.findByText("An update is available. Reloading will discard unsaved local state."),
+				);
+				submit("update-pending");
+				yield* Effect.promise(() => waitFor(() => expect(reply("update-pending")).toBeDefined()));
+				expect(reply("update-pending")).toEqual(refusedBackground("update-pending"));
+				expect(host.backgroundRequests).toEqual(["active"]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps the bridge mounted and reports a clear failure when an operation is stale",
+		() =>
+			Effect.gen(function* () {
+				let reloads = 0;
+				mount({
+					onReloadCurrent: () => {
+						reloads += 1;
+					},
+					onInvokeOperation: () => Effect.succeed({ outcome: "stale-session" }),
+				});
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+				bridge.port.postMessage({
+					input: null,
+					operationSlug: "mutate",
+					packageId: "test/fixture",
+					type: "operation-request",
+					requestId: "stale-operation",
+				});
+
+				yield* Effect.promise(() =>
+					screen.findByText("An update is available. Reloading will discard unsaved local state."),
+				);
+				expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+				expect(reloads).toBe(0);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual({
+							outcome: "failure",
+							type: "operation-result",
+							reason: "operation-failed",
+							requestId: "stale-operation",
+						}),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"reprepares the page when the bridge fails",
+		() =>
+			Effect.gen(function* () {
+				let parentReloads = 0;
+				const host = mount({
+					onReloadCurrent: () => {
+						parentReloads += 1;
+					},
+				});
+				yield* Effect.promise(() => flush());
+				const frame = yield* Effect.promise(() =>
+					screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
+				);
+				const bridge = connect(frame);
+				bridge.port.postMessage(bridge.ready);
+				yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+				bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
+
+				yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
+				expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+				expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+				expect(parentReloads).toBe(1);
+				host.unmount();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers a retry without rendering a frame when the document cannot load",
+		() =>
+			Effect.gen(function* () {
+				let reloads = 0;
+				mount({
+					onReloadCurrent: () => {
+						reloads++;
+					},
+					onLoadDocument: () =>
+						Effect.fail(new AuthenticatedApiError({ cause: new Error("stale document") })),
+				});
+				yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
+				expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+				expect(reloads).toBe(1);
+			}),
+		testTimeout,
 	);
 });

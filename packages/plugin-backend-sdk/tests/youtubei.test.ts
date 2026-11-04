@@ -1,3 +1,5 @@
+import { describe, expect, test } from "bun:test";
+
 import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -5,8 +7,7 @@ import {
 	createYoutubeMusicClient,
 	type YoutubeiHost,
 } from "@ryot-app/plugin-backend-sdk/youtubei";
-import { anyOf } from "@ryot-app/testing/matchers";
-import { describe, expect, test } from "vitest";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 
 let approvedDependencyRuntimeCalls = 0;
 
@@ -228,11 +229,10 @@ describe("Youtubei sandbox adapter", () => {
 					},
 				});
 
-				yield* Effect.promise(() =>
-					expect(
-						fetch("https://example.com/resource", { body, method: "POST" }),
-					).rejects.toMatchObject({ cause: failure }),
+				const error = yield* Effect.flip(
+					Effect.tryPromise(() => fetch("https://example.com/resource", { body, method: "POST" })),
 				);
+				expect(error.cause).toMatchObject({ cause: failure });
 				expect(requests).toEqual([]);
 			}),
 		));
@@ -241,11 +241,12 @@ describe("Youtubei sandbox adapter", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const { fetch, requests } = yield* makeFetchHarness;
-				yield* Effect.promise(() =>
-					expect(
+				const error = yield* Effect.flip(
+					Effect.tryPromise(() =>
 						fetch("https://example.com/resource", { headers: { "invalid header": "value" } }),
-					).rejects.toMatchObject({ cause: anyOf(TypeError) }),
+					),
 				);
+				expect(error.cause).toEqual<unknown>(objectContaining({ cause: anyOf(TypeError) }));
 				expect(requests).toEqual([]);
 			}),
 		));
@@ -350,7 +351,7 @@ describe("Youtubei sandbox adapter", () => {
 		Effect.runPromise(
 			Effect.gen(function* () {
 				const pending = Symbol("pending");
-				const host = { httpCall: () => Effect.fail(pending) } satisfies YoutubeiHost;
+				const host = { httpCall: () => Effect.die(pending) } satisfies YoutubeiHost;
 				const client = yield* createYoutubeMusicClient(host, undefined, {
 					retrievePlayer: false,
 					retrieveInnertubeConfig: false,
@@ -359,7 +360,7 @@ describe("Youtubei sandbox adapter", () => {
 				const failure = yield* Effect.flip(
 					Effect.tryPromise(() => client.actions.execute("/pending", { value: 1 })),
 				);
-				expect(failure).toMatchObject({ cause: pending });
+				expect(failure.cause).toBe(pending);
 			}),
 		));
 });

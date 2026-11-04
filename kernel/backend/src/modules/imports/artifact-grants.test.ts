@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { ingestionArtifactGrants } from "./artifact-grants";
@@ -9,69 +12,72 @@ import { IngestionCaptures } from "./capture-service";
 import { ingestionTestRun, ingestionTestScope } from "./ingestion.test-support";
 import { ImportsRepository } from "./repository";
 
-it.effect("grants a staged handle only to its pinned owner and account generation", () =>
-	Effect.gen(function* () {
-		const reads: unknown[] = [];
-		const run = ingestionTestRun();
-		const ownerExecutionId = run.pins?.executionId ?? "";
-		const dependencies = Layer.mergeAll(
-			Layer.mock(ImportsRepository)({
-				getStagingOwner: (userId, generation, owner) =>
-					Effect.succeed(
-						userId === ingestionTestScope.userId &&
-							generation.token === ingestionTestScope.accountGeneration.token &&
-							owner === ownerExecutionId
-							? run
-							: null,
-					),
-			}),
-			Layer.mock(IngestionCaptures)({
-				resolveStaged: (scope, owner, handle) =>
-					Effect.sync(() => {
-						reads.push({ scope, owner, handle });
-						return "/tmp/staged-input";
-					}),
-			}),
-			Layer.mock(ExecutionFileStore)({
-				resolveOutputs: () => Effect.die("Staged handles must not use temporary outputs"),
-			}),
-		);
-		yield* Effect.gen(function* () {
-			const input = { artifactHandle: "staged-output" };
-			const subject = {
-				type: "user" as const,
-				userId: ingestionTestScope.userId,
-				accountGeneration: ingestionTestScope.accountGeneration,
-			};
-			const grants = {
-				artifactOwnerExecutionId: ownerExecutionId,
-				namedArtifactPaths: { original: "/tmp/original" },
-			};
-			expect(yield* ingestionArtifactGrants(input, subject, grants)).toEqual({
-				...grants,
-				artifactPath: "/tmp/staged-input",
-			});
-			expect(reads).toEqual([
-				{ owner: ownerExecutionId, scope: ingestionTestScope, handle: input.artifactHandle },
-			]);
-			for (const [candidateSubject, candidateGrants] of [
-				[subject, { ...grants, artifactOwnerExecutionId: "another-owner" }],
-				[
-					{ ...subject, accountGeneration: { ...subject.accountGeneration, token: "retired" } },
-					grants,
-				],
-			] as const) {
+it.effect(
+	"grants a staged handle only to its pinned owner and account generation",
+	() =>
+		Effect.gen(function* () {
+			const reads: unknown[] = [];
+			const run = ingestionTestRun();
+			const ownerExecutionId = run.pins?.executionId ?? "";
+			const dependencies = Layer.mergeAll(
+				Layer.mock(ImportsRepository)({
+					getStagingOwner: (userId, generation, owner) =>
+						Effect.succeed(
+							userId === ingestionTestScope.userId &&
+								generation.token === ingestionTestScope.accountGeneration.token &&
+								owner === ownerExecutionId
+								? run
+								: null,
+						),
+				}),
+				Layer.mock(IngestionCaptures)({
+					resolveStaged: (scope, owner, handle) =>
+						Effect.sync(() => {
+							reads.push({ scope, owner, handle });
+							return "/tmp/staged-input";
+						}),
+				}),
+				Layer.mock(ExecutionFileStore)({
+					resolveOutputs: () => Effect.die("Staged handles must not use temporary outputs"),
+				}),
+			);
+			yield* Effect.gen(function* () {
+				const input = { artifactHandle: "staged-output" };
+				const subject = {
+					type: "user" as const,
+					userId: ingestionTestScope.userId,
+					accountGeneration: ingestionTestScope.accountGeneration,
+				};
+				const grants = {
+					artifactOwnerExecutionId: ownerExecutionId,
+					namedArtifactPaths: { original: "/tmp/original" },
+				};
+				expect(yield* ingestionArtifactGrants(input, subject, grants)).toEqual({
+					...grants,
+					artifactPath: "/tmp/staged-input",
+				});
+				expect(reads).toEqual([
+					{ owner: ownerExecutionId, scope: ingestionTestScope, handle: input.artifactHandle },
+				]);
+				for (const [candidateSubject, candidateGrants] of [
+					[subject, { ...grants, artifactOwnerExecutionId: "another-owner" }],
+					[
+						{ ...subject, accountGeneration: { ...subject.accountGeneration, token: "retired" } },
+						grants,
+					],
+				] as const) {
+					expect(
+						(yield* Effect.exit(ingestionArtifactGrants(input, candidateSubject, candidateGrants)))
+							._tag,
+					).toBe("Failure");
+				}
 				expect(
-					(yield* Effect.exit(ingestionArtifactGrants(input, candidateSubject, candidateGrants)))
-						._tag,
+					(yield* Effect.exit(ingestionArtifactGrants(input, { type: "system" }, grants)))._tag,
 				).toBe("Failure");
-			}
-			expect(
-				(yield* Effect.exit(ingestionArtifactGrants(input, { type: "system" }, grants)))._tag,
-			).toBe("Failure");
-			expect(reads).toHaveLength(1);
-		}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
-	}),
+				expect(reads).toHaveLength(1);
+			}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -164,6 +170,7 @@ it.effect(
 				expect(reads).toHaveLength(beforeDenied);
 			}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -244,4 +251,5 @@ it.effect(
 				expect(reads).toEqual([]);
 			}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
 		}),
+	testTimeout,
 );

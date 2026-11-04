@@ -1,6 +1,7 @@
+import { expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { expect, it } from "vitest";
 
 import definition, { manifest } from "./workout-editor-context.sandbox";
 
@@ -25,7 +26,7 @@ it("returns trusted availability and own resolved settings without writing them"
 					getProAvailability: () => Effect.succeed(false),
 				}),
 			);
-			expect(result).toEqual({ settings, proAvailable: false });
+			expect(result).toEqual<unknown>({ settings, proAvailable: false });
 		}),
 	);
 });

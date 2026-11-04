@@ -1,5 +1,6 @@
+import { describe, expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { assert, describe, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { OAuthConnectionClient } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
@@ -11,7 +12,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { CryptoHasher } from "bun";
 import { eq } from "drizzle-orm";
 import {
@@ -391,7 +395,7 @@ const isolated = <A, E>(
 	name: string,
 	body: () => Effect.Effect<A, E, Layer.Success<ReturnType<typeof serviceLayer>>>,
 	isProKeyValidated = true,
-) => layer(serviceLayer(isProKeyValidated))((test) => test.effect(name, body));
+) => layer(serviceLayer(isProKeyValidated))(name, (test) => test.effect(name, body, testTimeout));
 
 describe("OAuth connections", () => {
 	isolated("connects private OAuth providers through their own installation configuration", () =>
@@ -480,7 +484,7 @@ describe("OAuth connections", () => {
 
 			const [exchange] = yield* endpoint.requests;
 			assert(exchange);
-			expect(Object.fromEntries(exchange.form)).toEqual({
+			expect(Object.fromEntries(exchange.form)).toEqual<unknown>({
 				code: "auth-code-1",
 				grant_type: "authorization_code",
 				redirect_uri: authorizeParameters.get("redirect_uri"),
@@ -533,8 +537,8 @@ describe("OAuth connections", () => {
 			assert(verifier);
 			expect(
 				Buffer.from(new CryptoHasher("sha256").update(verifier).digest()).toString("base64url"),
-			).toBe(authorizeParameters.get("code_challenge"));
-			expect(Object.fromEntries(exchange.form)).toEqual({
+			).toBe<unknown>(authorizeParameters.get("code_challenge"));
+			expect(Object.fromEntries(exchange.form)).toEqual<unknown>({
 				code: "auth-code-1",
 				code_verifier: verifier,
 				grant_type: "authorization_code",

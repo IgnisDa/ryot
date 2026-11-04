@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import {
 	notificationSubscriptionRecipe,
@@ -66,7 +67,7 @@ describe("notification subscription recipes", () => {
 					data: { notificationSubscriptions: rows([item]) },
 				}),
 			),
-		).toEqual({
+		).toEqual<unknown>({
 			pageInfo,
 			items: [
 				{ ...item, createdAt: "2025-12-31T23:00:00.000Z", updatedAt: "2026-01-01T23:00:00.000Z" },

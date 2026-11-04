@@ -1,7 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import {
 	add,

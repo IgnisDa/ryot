@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Exit } from "effect";
 
 import definition, { manifest } from "./notification.sandbox";
@@ -43,59 +46,70 @@ const inputFor = (executionUserId: null | string, reminder = false) =>
 		},
 	}).pipe(Effect.orDie);
 
-it.effect("formats the inline signal for the trusted execution recipient", () =>
-	Effect.gen(function* () {
-		const messages: string[] = [];
-		const result = yield* definition.run(
-			yield* inputFor("recipient"),
-			defineSandboxTestHost(manifest, {
-				sendNotification: (message) => {
-					messages.push(message);
-					return Effect.succeed(null);
-				},
-			}),
-		);
-		expect(result).toBeNull();
-		expect(messages).toEqual(["Integration Example has been disabled due to too many errors"]);
-	}),
-);
-
-it.effect("does not use the actor as a fallback for a missing execution recipient", () =>
-	Effect.gen(function* () {
-		const messages: string[] = [];
-		const exit = yield* Effect.exit(
-			definition.run(
-				yield* inputFor(null),
+it.effect(
+	"formats the inline signal for the trusted execution recipient",
+	() =>
+		Effect.gen(function* () {
+			const messages: string[] = [];
+			const result = yield* definition.run(
+				yield* inputFor("recipient"),
 				defineSandboxTestHost(manifest, {
 					sendNotification: (message) => {
 						messages.push(message);
 						return Effect.succeed(null);
 					},
 				}),
-			),
-		);
-		expect(Exit.isFailure(exit)).toBe(true);
-		if (Exit.isFailure(exit)) {
-			expect(Cause.pretty(exit.cause)).toContain("Signal notification requires an execution user");
-		}
-		expect(messages).toEqual([]);
-	}),
+			);
+			expect(result).toBeNull();
+			expect(messages).toEqual(["Integration Example has been disabled due to too many errors"]);
+		}),
+	testTimeout,
 );
 
-it.effect("formats reminder evidence as plain text for the trusted recipient", () =>
-	Effect.gen(function* () {
-		const messages: string[] = [];
-		yield* definition.run(
-			yield* inputFor("recipient", true),
-			defineSandboxTestHost(manifest, {
-				sendNotification: (message) => {
-					messages.push(message);
-					return Effect.succeed(null);
-				},
-			}),
-		);
-		expect(messages).toEqual([
-			"Target_[1]: Read the notes_*\nScheduled for 2026-09-15T08:30:00.000Z (Asia/Kolkata)",
-		]);
-	}),
+it.effect(
+	"does not use the actor as a fallback for a missing execution recipient",
+	() =>
+		Effect.gen(function* () {
+			const messages: string[] = [];
+			const exit = yield* Effect.exit(
+				definition.run(
+					yield* inputFor(null),
+					defineSandboxTestHost(manifest, {
+						sendNotification: (message) => {
+							messages.push(message);
+							return Effect.succeed(null);
+						},
+					}),
+				),
+			);
+			expect(Exit.isFailure(exit)).toBe(true);
+			if (Exit.isFailure(exit)) {
+				expect(Cause.pretty(exit.cause)).toContain(
+					"Signal notification requires an execution user",
+				);
+			}
+			expect(messages).toEqual([]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"formats reminder evidence as plain text for the trusted recipient",
+	() =>
+		Effect.gen(function* () {
+			const messages: string[] = [];
+			yield* definition.run(
+				yield* inputFor("recipient", true),
+				defineSandboxTestHost(manifest, {
+					sendNotification: (message) => {
+						messages.push(message);
+						return Effect.succeed(null);
+					},
+				}),
+			);
+			expect(messages).toEqual([
+				"Target_[1]: Read the notes_*\nScheduled for 2026-09-15T08:30:00.000Z (Asia/Kolkata)",
+			]);
+		}),
+	testTimeout,
 );

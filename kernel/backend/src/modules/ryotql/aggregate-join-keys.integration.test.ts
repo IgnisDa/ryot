@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type {
 	NamedQuery,
 	Predicate,
@@ -31,6 +32,9 @@ import {
 	sum,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
@@ -299,31 +303,35 @@ layer(databaseLayer)((test) => {
 				]);
 				expect(empty.result.pageInfo.hasMore).toBe(true);
 			}),
+		testTimeout,
 	);
 
-	test.effect("keeps missing, malformed and null keys under their original default coalesces", () =>
-		Effect.gen(function* () {
-			const query = ranking({ defaults: true });
-			const actual = yield* execute({
-				...query,
-				output: { ...query.output, pagination: { limit: 100 } },
-			});
-			const baseline = ranking({ defaults: true, baseline: true });
-			expect(actual.result).toEqual(
-				(yield* execute({
-					...baseline,
-					output: { ...baseline.output, pagination: { limit: 100 } },
-				})).result,
-			);
-			expect(actual.result.items[2]).toEqual({
-				id: "c",
-				keys: 4,
-				count: 4,
-				sources: 1,
-				batches: 1,
-				total: null,
-			});
-		}),
+	test.effect(
+		"keeps missing, malformed and null keys under their original default coalesces",
+		() =>
+			Effect.gen(function* () {
+				const query = ranking({ defaults: true });
+				const actual = yield* execute({
+					...query,
+					output: { ...query.output, pagination: { limit: 100 } },
+				});
+				const baseline = ranking({ defaults: true, baseline: true });
+				expect(actual.result).toEqual(
+					(yield* execute({
+						...baseline,
+						output: { ...baseline.output, pagination: { limit: 100 } },
+					})).result,
+				);
+				expect(actual.result.items[2]).toEqual({
+					id: "c",
+					keys: 4,
+					count: 4,
+					sources: 1,
+					batches: 1,
+					total: null,
+				});
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -340,6 +348,7 @@ layer(databaseLayer)((test) => {
 					);
 				}
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -358,36 +367,45 @@ layer(databaseLayer)((test) => {
 					expect(actual.result.items[0]?.["count"]).toBe(4);
 				}
 			}),
+		testTimeout,
 	);
 
-	test.effect("isolates identical key ASTs in sibling and nested lexical aggregate scopes", () =>
-		Effect.gen(function* () {
-			const actual = yield* execute(nestedRanking(false));
-			expect(actual.result).toEqual((yield* execute(nestedRanking(true))).result);
-			expect(actual.result.items).toEqual([{ one: 5, two: 0, nested: 5 }]);
-		}),
+	test.effect(
+		"isolates identical key ASTs in sibling and nested lexical aggregate scopes",
+		() =>
+			Effect.gen(function* () {
+				const actual = yield* execute(nestedRanking(false));
+				expect(actual.result).toEqual((yield* execute(nestedRanking(true))).result);
+				expect(actual.result.items).toEqual([{ one: 5, two: 0, nested: 5 }]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("does not replace localized entity properties with canonical raw payloads", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db
-					.insert(tables.entityTranslation)
-					.values({
-						language: "es",
-						entityId: "batch",
-						populatedAt: occurredAt,
-						sourceContentGeneration: 1,
-						properties: { slot: 2, kind: "y" },
-					}),
-			);
-			const actual = yield* execute(localizedRanking(false), "owner", "es");
-			expect(actual.result).toEqual((yield* execute(localizedRanking(true), "owner", "es")).result);
-			expect(actual.result.items).toEqual([{ count: 1, total: 2 }]);
-			expect((yield* execute(localizedRanking(false))).result.items).toEqual([
-				{ count: 1, total: 1 },
-			]);
-		}),
+	test.effect(
+		"does not replace localized entity properties with canonical raw payloads",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.insert(tables.entityTranslation)
+						.values({
+							language: "es",
+							entityId: "batch",
+							populatedAt: occurredAt,
+							sourceContentGeneration: 1,
+							properties: { slot: 2, kind: "y" },
+						}),
+				);
+				const actual = yield* execute(localizedRanking(false), "owner", "es");
+				expect(actual.result).toEqual(
+					(yield* execute(localizedRanking(true), "owner", "es")).result,
+				);
+				expect(actual.result.items).toEqual([{ count: 1, total: 2 }]);
+				expect((yield* execute(localizedRanking(false))).result.items).toEqual([
+					{ count: 1, total: 1 },
+				]);
+			}),
+		testTimeout,
 	);
 });

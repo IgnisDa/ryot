@@ -25,12 +25,6 @@ type LocalDateTimeParts = {
 export const localDateTime = (parts: LocalDateTimeParts) =>
 	DateTime.makeZonedUnsafe(parts, { adjustForTimeZone: true, timeZone: DateTime.zoneMakeLocal() });
 
-declare global {
-	var IS_REACT_ACT_ENVIRONMENT: boolean;
-}
-
-globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	const { client, runtime, advance, setTime, dispose } = createTestRyotClock({
 		...createTestBackgroundSubmissions().adapter,

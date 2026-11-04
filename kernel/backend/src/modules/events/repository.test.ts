@@ -1,6 +1,10 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
@@ -97,99 +101,102 @@ const restorePersistenceLayer = BackupRestorePersistence.layer.pipe(
 );
 
 layer(restorePersistenceLayer)((test) => {
-	test.effect("restores source events and seeds a stream without changing history", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const batch = [restoreEventInput("event-1"), restoreEventInput("event-2")];
-			const persistence = yield* BackupRestorePersistence;
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: "user-id", name: "Restore owner", email: "restore-owner@example.test" }),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(tables.entity)
-					.values({
-						id: "entity-id",
+	test.effect(
+		"restores source events and seeds a stream without changing history",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const batch = [restoreEventInput("event-1"), restoreEventInput("event-2")];
+				const persistence = yield* BackupRestorePersistence;
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: "user-id", name: "Restore owner", email: "restore-owner@example.test" }),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							id: "entity-id",
+							userId: "user-id",
+							name: "Restored entity",
+							entitySchemaSlug: "record",
+						}),
+				);
+				yield* session.transaction(persistence.restoreEvents(batch));
+
+				const listEvents = () =>
+					session.run((db) =>
+						db
+							.select({
+								id: tables.event.id,
+								userId: tables.event.userId,
+								entityId: tables.event.entityId,
+								createdAt: tables.event.createdAt,
+								updatedAt: tables.event.updatedAt,
+								occurredAt: tables.event.occurredAt,
+								properties: tables.event.properties,
+								eventSchemaSlug: tables.event.eventSchemaSlug,
+							})
+							.from(tables.event)
+							.orderBy(tables.event.id),
+					);
+				const events = yield* listEvents();
+				expect(events).toHaveLength(2);
+				expect(events).toEqual([
+					{
+						id: "event-1",
 						userId: "user-id",
-						name: "Restored entity",
-						entitySchemaSlug: "record",
-					}),
-			);
-			yield* session.transaction(persistence.restoreEvents(batch));
+						entityId: "entity-id",
+						eventSchemaSlug: "review",
+						properties: { rating: 80 },
+						createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-01-01T00:00:00.000Z")),
+						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-02-01T00:00:00.000Z")),
+						occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2023-12-01T00:00:00.000Z")),
+					},
+					{
+						id: "event-2",
+						userId: "user-id",
+						entityId: "entity-id",
+						eventSchemaSlug: "review",
+						properties: { rating: 80 },
+						createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-01-01T00:00:00.000Z")),
+						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-02-01T00:00:00.000Z")),
+						occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2023-12-01T00:00:00.000Z")),
+					},
+				]);
 
-			const listEvents = () =>
-				session.run((db) =>
-					db
-						.select({
-							id: tables.event.id,
-							userId: tables.event.userId,
-							entityId: tables.event.entityId,
-							createdAt: tables.event.createdAt,
-							updatedAt: tables.event.updatedAt,
-							occurredAt: tables.event.occurredAt,
-							properties: tables.event.properties,
-							eventSchemaSlug: tables.event.eventSchemaSlug,
-						})
-						.from(tables.event)
-						.orderBy(tables.event.id),
-				);
-			const events = yield* listEvents();
-			expect(events).toHaveLength(2);
-			expect(events).toEqual([
-				{
-					id: "event-1",
-					userId: "user-id",
-					entityId: "entity-id",
-					eventSchemaSlug: "review",
-					properties: { rating: 80 },
-					createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-01-01T00:00:00.000Z")),
-					updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-02-01T00:00:00.000Z")),
-					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2023-12-01T00:00:00.000Z")),
-				},
-				{
-					id: "event-2",
-					userId: "user-id",
-					entityId: "entity-id",
-					eventSchemaSlug: "review",
-					properties: { rating: 80 },
-					createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-01-01T00:00:00.000Z")),
-					updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2024-02-01T00:00:00.000Z")),
-					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2023-12-01T00:00:00.000Z")),
-				},
-			]);
+				const listStreams = () =>
+					session.run((db) =>
+						db
+							.select({
+								userId: tables.eventStream.userId,
+								entityId: tables.eventStream.entityId,
+								revision: tables.eventStream.revision,
+								eventSchemaSlug: tables.eventStream.eventSchemaSlug,
+								eventSchemaPluginId: tables.eventStream.eventSchemaPluginId,
+							})
+							.from(tables.eventStream),
+					);
+				const streams = yield* listStreams();
+				expect(streams).toEqual([
+					{
+						revision: 1,
+						userId: "user-id",
+						entityId: "entity-id",
+						eventSchemaSlug: "review",
+						eventSchemaPluginId: null,
+					},
+				]);
 
-			const listStreams = () =>
-				session.run((db) =>
-					db
-						.select({
-							userId: tables.eventStream.userId,
-							entityId: tables.eventStream.entityId,
-							revision: tables.eventStream.revision,
-							eventSchemaSlug: tables.eventStream.eventSchemaSlug,
-							eventSchemaPluginId: tables.eventStream.eventSchemaPluginId,
-						})
-						.from(tables.eventStream),
-				);
-			const streams = yield* listStreams();
-			expect(streams).toEqual([
-				{
-					revision: 1,
-					userId: "user-id",
-					entityId: "entity-id",
-					eventSchemaSlug: "review",
-					eventSchemaPluginId: null,
-				},
-			]);
-
-			yield* session.transaction(persistence.restoreEvents([]));
-			const eventsAfterEmptyRestore = yield* listEvents();
-			const streamsAfterEmptyRestore = yield* listStreams();
-			expect(eventsAfterEmptyRestore).toHaveLength(2);
-			expect(eventsAfterEmptyRestore).toEqual(events);
-			expect(streamsAfterEmptyRestore).toEqual(streams);
-		}),
+				yield* session.transaction(persistence.restoreEvents([]));
+				const eventsAfterEmptyRestore = yield* listEvents();
+				const streamsAfterEmptyRestore = yield* listStreams();
+				expect(eventsAfterEmptyRestore).toHaveLength(2);
+				expect(eventsAfterEmptyRestore).toEqual(events);
+				expect(streamsAfterEmptyRestore).toEqual(streams);
+			}),
+		testTimeout,
 	);
 });
 
@@ -199,22 +206,25 @@ layer(
 		backupRows,
 	),
 )((test) => {
-	test.effect("pages backup history by ID with a fixed bounded query size", () =>
-		Effect.gen(function* () {
-			const repository = yield* EventsRepository;
-			for (let page = 0; page < 20; page += 1) {
-				expect(
-					(yield* repository.listUserEventsForBackup({
-						excluded: [],
-						userId: UserId.make("user-id"),
-						afterId: EventId.make(`event-${page.toString().padStart(4, "0")}`),
-					})).length,
-				).toBe(BACKUP_EVENT_PAGE_SIZE);
-			}
-			expect(yield* (yield* RecordedDatabaseCalls).limits).toEqual(
-				Array.from({ length: 20 }, () => BACKUP_EVENT_PAGE_SIZE),
-			);
-		}),
+	test.effect(
+		"pages backup history by ID with a fixed bounded query size",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EventsRepository;
+				for (let page = 0; page < 20; page += 1) {
+					expect(
+						(yield* repository.listUserEventsForBackup({
+							excluded: [],
+							userId: UserId.make("user-id"),
+							afterId: EventId.make(`event-${page.toString().padStart(4, "0")}`),
+						})).length,
+					).toBe(BACKUP_EVENT_PAGE_SIZE);
+				}
+				expect(yield* (yield* RecordedDatabaseCalls).limits).toEqual(
+					Array.from({ length: 20 }, () => BACKUP_EVENT_PAGE_SIZE),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -224,156 +234,162 @@ const eventRepositoryStreamLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(isolatedDatabaseLayer("event_repository_stream_mutations")));
 
 layer(eventRepositoryStreamLayer)((test) => {
-	test.effect("requires transactions and touches streams only for committed event writes", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EventsRepository;
-			const streams = yield* EventStreamRepository;
-			const userId = UserId.make("event-stream-owner");
-			const sourceEntityId = EntityId.make("event-stream-source");
-			const targetEntityId = EntityId.make("event-stream-target");
-			const eventSchemaSlug = EventSchemaSlug.make("review");
-			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-			const sourceKey = {
-				userId,
-				eventSchemaSlug,
-				entityId: sourceEntityId,
-				eventSchemaPluginId: null,
-			};
-			const targetKey = { ...sourceKey, entityId: targetEntityId };
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: userId, name: "Event owner", email: "event-stream@example.test" }),
-			);
-			yield* session.run((db) =>
-				db.insert(tables.entity).values([
-					{ name: "Source", id: sourceEntityId, entitySchemaSlug: "record" },
-					{ name: "Target", id: targetEntityId, entitySchemaSlug: "record" },
-				]),
-			);
-			const event = {
-				userId,
-				occurredAt,
-				eventSchemaSlug,
-				entityId: sourceEntityId,
-				eventSchemaPluginId: null,
-				properties: { rating: 5 },
-				eventSchemaName: "Review",
-				id: EventId.make("event-stream-write"),
-			};
-			expect(yield* session.isTransactionActive).toBe(false);
-			const transactionError = yield* Effect.flip(repository.createEvent(event));
-			expect(transactionError).toBeInstanceOf(DbError);
-			expect(transactionError.message).toBe("Event writes require an active transaction");
-			const inserted = yield* session.transaction(
-				Effect.gen(function* () {
-					expect(yield* session.isTransactionActive).toBe(true);
-					return yield* repository.createEvent(event);
-				}),
-			);
-			expect(inserted.id).toBe(event.id);
-			const ensure = (key: typeof sourceKey) =>
-				streams.ensureStreams([key]).pipe(Effect.map(([stream]) => stream?.id ?? ""));
-			const sourceStreamId = yield* session.transaction(ensure(sourceKey));
-			const targetStreamId = yield* session.transaction(ensure(targetKey));
-			const sourceBeforeMove = yield* streamState(sourceStreamId);
-			const targetBeforeMove = yield* streamState(targetStreamId);
-			assert(sourceBeforeMove);
-			assert(targetBeforeMove);
-			expect(sourceBeforeMove.streamRevision).toBe(1);
-			expect(targetBeforeMove.streamRevision).toBe(0);
-			yield* session.transaction(repository.createEvent(event));
-			expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
-				sourceBeforeMove.streamRevision,
-			);
-
-			yield* session.transaction(
-				repository.updateEventEntityReferences({
+	test.effect(
+		"requires transactions and touches streams only for committed event writes",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EventsRepository;
+				const streams = yield* EventStreamRepository;
+				const userId = UserId.make("event-stream-owner");
+				const sourceEntityId = EntityId.make("event-stream-source");
+				const targetEntityId = EntityId.make("event-stream-target");
+				const eventSchemaSlug = EventSchemaSlug.make("review");
+				const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
+				const sourceKey = {
 					userId,
-					eventId: event.id,
-					mergeFrom: sourceEntityId,
-					mergeInto: targetEntityId,
-					updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z")),
-				}),
-			);
-			expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
-				sourceBeforeMove.streamRevision + 1,
-			);
-			expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
-				targetBeforeMove.streamRevision + 1,
-			);
+					eventSchemaSlug,
+					entityId: sourceEntityId,
+					eventSchemaPluginId: null,
+				};
+				const targetKey = { ...sourceKey, entityId: targetEntityId };
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: userId, name: "Event owner", email: "event-stream@example.test" }),
+				);
+				yield* session.run((db) =>
+					db.insert(tables.entity).values([
+						{ name: "Source", id: sourceEntityId, entitySchemaSlug: "record" },
+						{ name: "Target", id: targetEntityId, entitySchemaSlug: "record" },
+					]),
+				);
+				const event = {
+					userId,
+					occurredAt,
+					eventSchemaSlug,
+					entityId: sourceEntityId,
+					eventSchemaPluginId: null,
+					properties: { rating: 5 },
+					eventSchemaName: "Review",
+					id: EventId.make("event-stream-write"),
+				};
+				expect(yield* session.isTransactionActive).toBe(false);
+				const transactionError = yield* Effect.flip(repository.createEvent(event));
+				expect(transactionError).toBeInstanceOf(DbError);
+				expect(transactionError.message).toBe("Event writes require an active transaction");
+				const inserted = yield* session.transaction(
+					Effect.gen(function* () {
+						expect(yield* session.isTransactionActive).toBe(true);
+						return yield* repository.createEvent(event);
+					}),
+				);
+				expect(inserted.id).toBe(event.id);
+				const ensure = (key: typeof sourceKey) =>
+					streams.ensureStreams([key]).pipe(Effect.map(([stream]) => stream?.id ?? ""));
+				const sourceStreamId = yield* session.transaction(ensure(sourceKey));
+				const targetStreamId = yield* session.transaction(ensure(targetKey));
+				const sourceBeforeMove = yield* streamState(sourceStreamId);
+				const targetBeforeMove = yield* streamState(targetStreamId);
+				assert(sourceBeforeMove);
+				assert(targetBeforeMove);
+				expect(sourceBeforeMove.streamRevision).toBe(1);
+				expect(targetBeforeMove.streamRevision).toBe(0);
+				yield* session.transaction(repository.createEvent(event));
+				expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
+					sourceBeforeMove.streamRevision,
+				);
 
-			expect(
-				yield* session.transaction(repository.deleteEvent({ userId, eventId: event.id })),
-			).toBe(event.id);
-			expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
-				targetBeforeMove.streamRevision + 2,
-			);
-		}),
+				yield* session.transaction(
+					repository.updateEventEntityReferences({
+						userId,
+						eventId: event.id,
+						mergeFrom: sourceEntityId,
+						mergeInto: targetEntityId,
+						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z")),
+					}),
+				);
+				expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
+					sourceBeforeMove.streamRevision + 1,
+				);
+				expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
+					targetBeforeMove.streamRevision + 1,
+				);
+
+				expect(
+					yield* session.transaction(repository.deleteEvent({ userId, eventId: event.id })),
+				).toBe(event.id);
+				expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
+					targetBeforeMove.streamRevision + 2,
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(
 	EventsRepository.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("event_backup_exclusions"))),
 )((test) => {
-	test.effect("omits excluded event schemas from backup history by exact owner", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const repository = yield* EventsRepository;
-			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({ id: "user-id", name: "Backup owner", email: "backup-owner@example.test" }),
-			);
-			yield* session.run((db) =>
-				db.insert(tables.entity).values([
-					{ id: "library", name: "Library", userId: "user-id", entitySchemaSlug: "library" },
-					{ id: "record", name: "Record", userId: "user-id", entitySchemaSlug: "record" },
-				]),
-			);
-			const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"));
-			yield* session.run((db) =>
-				db.insert(tables.event).values([
-					{
-						occurredAt,
-						properties: {},
-						userId: "user-id",
-						entityId: "library",
-						id: "event-checkpoint",
-						eventSchemaSlug: "checkpoint",
-					},
-					{
-						occurredAt,
-						properties: {},
-						userId: "user-id",
-						entityId: "record",
-						eventSchemaSlug: "checkpoint",
-						id: "event-other-entity-schema",
-					},
-					{
-						occurredAt,
-						properties: {},
-						userId: "user-id",
-						id: "event-review",
-						entityId: "library",
-						eventSchemaSlug: "review",
-					},
-				]),
-			);
-			const ids = (
-				excluded: Parameters<typeof repository.listUserEventsForBackup>[0]["excluded"],
-			) =>
-				Effect.map(
-					repository.listUserEventsForBackup({ excluded, userId: UserId.make("user-id") }),
-					(rows) => rows.map(({ id }) => id),
+	test.effect(
+		"omits excluded event schemas from backup history by exact owner",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* EventsRepository;
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: "user-id", name: "Backup owner", email: "backup-owner@example.test" }),
 				);
-			expect(
-				yield* ids([{ pluginId: null, slug: "checkpoint", entitySchemaSlug: "library" }]),
-			).toEqual(["event-other-entity-schema", "event-review"]);
-			expect(
-				yield* ids([{ slug: "checkpoint", pluginId: "plugin-id", entitySchemaSlug: "library" }]),
-			).toEqual(["event-checkpoint", "event-other-entity-schema", "event-review"]);
-		}),
+				yield* session.run((db) =>
+					db.insert(tables.entity).values([
+						{ id: "library", name: "Library", userId: "user-id", entitySchemaSlug: "library" },
+						{ id: "record", name: "Record", userId: "user-id", entitySchemaSlug: "record" },
+					]),
+				);
+				const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"));
+				yield* session.run((db) =>
+					db.insert(tables.event).values([
+						{
+							occurredAt,
+							properties: {},
+							userId: "user-id",
+							entityId: "library",
+							id: "event-checkpoint",
+							eventSchemaSlug: "checkpoint",
+						},
+						{
+							occurredAt,
+							properties: {},
+							userId: "user-id",
+							entityId: "record",
+							eventSchemaSlug: "checkpoint",
+							id: "event-other-entity-schema",
+						},
+						{
+							occurredAt,
+							properties: {},
+							userId: "user-id",
+							id: "event-review",
+							entityId: "library",
+							eventSchemaSlug: "review",
+						},
+					]),
+				);
+				const ids = (
+					excluded: Parameters<typeof repository.listUserEventsForBackup>[0]["excluded"],
+				) =>
+					Effect.map(
+						repository.listUserEventsForBackup({ excluded, userId: UserId.make("user-id") }),
+						(rows) => rows.map(({ id }) => id),
+					);
+				expect(
+					yield* ids([{ pluginId: null, slug: "checkpoint", entitySchemaSlug: "library" }]),
+				).toEqual(["event-other-entity-schema", "event-review"]);
+				expect(
+					yield* ids([{ slug: "checkpoint", pluginId: "plugin-id", entitySchemaSlug: "library" }]),
+				).toEqual(["event-checkpoint", "event-other-entity-schema", "event-review"]);
+			}),
+		testTimeout,
 	);
 });

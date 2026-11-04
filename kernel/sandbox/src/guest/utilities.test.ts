@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { SANDBOX_LIMITS, SANDBOX_LOG_TRUNCATION_MARKER } from "../protocol/limits";
 import { createLogCollector, executionError } from "./utilities";

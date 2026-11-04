@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
@@ -13,8 +14,10 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime, type Option } from "effect";
 
 import type { AccountApi } from "#/api/account";
@@ -526,309 +529,339 @@ describe("integrations list", () => {
 				yield* Effect.promise(() => waitFor(() => expect(connect.disabled).toBe(true)));
 				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(8)));
 			}),
+		testTimeout,
 	);
-	it.live("shows all exact-installation setup reasons before a provider can be chosen", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/integrations",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({ providers: () => Effect.succeed([blockedProvider]) }),
-			);
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
-			);
-			yield* Effect.promise(() =>
-				screen.findByText(
-					"Set CLIENT_ID in this plugin installation. Set CLIENT_SECRET in this plugin installation.",
-				),
-			);
-			expect(
-				screen
-					.getByRole("button", { name: "Sample Library is unavailable" })
-					.hasAttribute("disabled"),
-			).toBe(true);
-		}),
-	);
-	it.live("keeps demo summaries visible while disabling protected actions", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/integrations",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
-				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-			);
-
-			yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Sample Library integration" }),
-			);
-			expect(
-				screen.getByText("This operation is unavailable while using the shared demo account."),
-			).not.toBeNull();
-			expect(
-				screen.getByRole("button", { name: "Connect a service" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				screen.getByRole("button", { name: "Sync all integrations" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				screen.getByRole("switch", { name: "Pause integrations" }).hasAttribute("disabled"),
-			).toBe(true);
-		}),
-	);
-
-	it.live("pauses integrations for the account and reverts the switch when saving fails", () =>
-		Effect.gen(function* () {
-			const saved: UserPreferencesPatch[] = [];
-			let current = userSettings;
-			mountView(
-				"/settings/integrations",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({ settings: () => current }),
-				AuthStub,
-				makeUserSettingsStub({
-					updatePreferences: (_scope, request) => {
-						saved.push(request.payload);
-						if (saved.length === 1) {
-							return Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }));
-						}
-						return Effect.sync(() => {
-							current = { ...current, preferences: { ...current.preferences, ...request.payload } };
-						});
-					},
-				}),
-			);
-
-			const pause = yield* Effect.promise(() =>
-				screen.findByRole("switch", { name: "Pause integrations" }),
-			);
-			expect(pause.getAttribute("aria-checked")).toBe("false");
-
-			fireEvent.click(pause);
-			yield* Effect.promise(() => screen.findByText("Could not update integrations. Try again."));
-			expect(pause.getAttribute("aria-checked")).toBe("false");
-
-			fireEvent.click(pause);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.queryByText("Could not update integrations. Try again.")).toBeNull(),
-				),
-			);
-			expect(
-				screen.getByRole("switch", { name: "Pause integrations" }).getAttribute("aria-checked"),
-			).toBe("true");
-			expect(saved).toEqual([{ disableIntegrations: true }, { disableIntegrations: true }]);
-		}),
-	);
-
-	it.live("names each integration and opens the one that was clicked", () =>
-		Effect.gen(function* () {
-			const view = mountView(
-				"/settings/integrations",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({
-					list: () =>
-						listResponse([
-							makeSummary(),
-							makeSummary({
-								isDisabled: true,
-								name: "Paused one",
-								id: IntegrationId.make("int_2"),
-							}),
-						]),
-				}),
-			);
-
-			const row = yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Sample Library integration" }),
-			);
-			expect(row.textContent).toContain("Active · Never synced");
-			expect(row.textContent).toContain("Scheduled");
-			expect(
-				screen.getByRole("link", { name: "Open the Paused one integration" }).textContent,
-			).toContain("Paused");
-
-			fireEvent.click(row);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(view.router.state.location.pathname).toBe("/settings/integrations/int_1"),
-				),
-			);
-		}),
-	);
-
-	it.live("shows append loading only while loading the next limit", () =>
-		Effect.gen(function* () {
-			const limits: number[] = [];
-			const pendingRefresh = Promise.withResolvers<ReturnType<typeof listResponse>>();
-			const pendingNextPage = Promise.withResolvers<ReturnType<typeof listResponse>>();
-			let reads = 0;
-			mountView(
-				"/settings/integrations",
-				makeIntegrationsApi({ sync: () => Effect.succeed({ executionId: "exec_1" }) }),
-				makeIntegrationQueries({
-					listEffect: (limit) => {
-						limits.push(limit);
-						reads += 1;
-						if (reads === 1) {
-							return Effect.succeed(listResponse([makeSummary()], true, limit));
-						}
-						if (reads === 2) {
-							return Effect.promise(() => pendingRefresh.promise);
-						}
-						if (reads === 3) {
-							return Effect.promise(() => pendingNextPage.promise);
-						}
-						return Effect.succeed(listResponse([makeSummary()], false, limit));
-					},
-				}),
-			);
-
-			const more = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Show more integrations" }),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Sync all integrations" }));
-			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT])));
-			expect(more.hasAttribute("disabled")).toBe(true);
-			expect(more.getAttribute("aria-busy")).toBe(null);
-
-			pendingRefresh.resolve(listResponse([makeSummary({ name: "Refreshed" })], true));
-			yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Refreshed integration" }),
-			);
-			fireEvent.click(more);
-			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT, LIMIT * 2])));
-			expect(more.hasAttribute("disabled")).toBe(true);
-			expect(more.getAttribute("aria-busy")).toBe("true");
-			pendingNextPage.resolve(listResponse([makeSummary()], false, LIMIT * 2));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.queryByRole("button", { name: "Show more integrations" })).toBeNull(),
-				),
-			);
-		}),
-	);
-
-	it.live("reports whether a sync could be started", () =>
-		Effect.gen(function* () {
-			let attempts = 0;
-			mountView(
-				"/settings/integrations",
-				makeIntegrationsApi({
-					sync: () => {
-						attempts += 1;
-						return attempts === 1
-							? Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }))
-							: Effect.succeed({ executionId: "exec_1" });
-					},
-				}),
-				makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
-			);
-
-			const syncAll = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Sync all integrations" }),
-			);
-			fireEvent.click(syncAll);
-			yield* Effect.promise(() =>
-				screen.findByText("Integration sync could not be started. Try again."),
-			);
-
-			fireEvent.click(syncAll);
-			yield* Effect.promise(() =>
-				screen.findByText("Sync started. Updates will appear as integrations finish."),
-			);
-			expect(attempts).toBe(2);
-		}),
-	);
-
-	it.live("connects a service and refreshes the expanded list without resetting pagination", () =>
-		Effect.gen(function* () {
-			const created: CreateIntegrationBody[] = [];
-			const limits: number[] = [];
-			const view = mountView(
-				"/settings/integrations",
-				makeIntegrationsApi({
-					create: (_scope, request) => {
-						created.push(request.payload);
-						return Effect.succeed({ id: IntegrationId.make("int_2") });
-					},
-				}),
-				makeIntegrationQueries({
-					list: (limit) => {
-						limits.push(limit);
-						return listResponse(
-							created.length === 0
-								? [makeSummary()]
-								: [
-										makeSummary(),
-										makeSummary({ name: "Created", id: IntegrationId.make("int_2") }),
-									],
-							limit === LIMIT,
-							limit,
-						);
-					},
-				}),
-			);
-
-			fireEvent.click(
+	it.live(
+		"shows all exact-installation setup reasons before a provider can be chosen",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/integrations",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({ providers: () => Effect.succeed([blockedProvider]) }),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
+				);
 				yield* Effect.promise(() =>
-					screen.findByRole("button", { name: "Show more integrations" }),
-				),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([20, 40])));
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.search.create).toBe(true)),
-			);
-			const dialog = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Connect a service" }),
-			);
+					screen.findByText(
+						"Set CLIENT_ID in this plugin installation. Set CLIENT_SECRET in this plugin installation.",
+					),
+				);
+				expect(
+					screen
+						.getByRole("button", { name: "Sample Library is unavailable" })
+						.hasAttribute("disabled"),
+				).toBe(true);
+			}),
+		testTimeout,
+	);
+	it.live(
+		"keeps demo summaries visible while disabling protected actions",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/integrations",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
+					makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+				);
 
-			fireEvent.click(within(dialog).getByRole("button", { name: "Connect Sample Library" }));
-			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Base URL")), {
-				target: { value: "https://sample-library.example" },
-			});
-			fireEvent.change(screen.getByLabelText("API key"), { target: { value: "secret" } });
-			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-			yield* Effect.promise(() => screen.findByText("Kept hidden"));
-			fireEvent.click(screen.getByRole("button", { name: "Connect" }));
-
-			yield* Effect.promise(() => waitFor(() => expect(created).toHaveLength(1)));
-			expect(created[0]?.provider).toEqual(libraryProvider.reference);
-			expect(created[0]?.providerSpecifics).toEqual({
-				apiKey: "secret",
-				baseUrl: "https://sample-library.example",
-			});
-			yield* Effect.promise(() =>
-				screen.findByRole("link", { name: "Open the Created integration" }),
-			);
-			expect(limits).toEqual([20, 40, 40]);
-			expect(screen.queryByRole("dialog", { name: "Connect a service" })).toBeNull();
-		}),
+				yield* Effect.promise(() =>
+					screen.findByRole("link", { name: "Open the Sample Library integration" }),
+				);
+				expect(
+					screen.getByText("This operation is unavailable while using the shared demo account."),
+				).not.toBeNull();
+				expect(
+					screen.getByRole("button", { name: "Connect a service" }).hasAttribute("disabled"),
+				).toBe(true);
+				expect(
+					screen.getByRole("button", { name: "Sync all integrations" }).hasAttribute("disabled"),
+				).toBe(true);
+				expect(
+					screen.getByRole("switch", { name: "Pause integrations" }).hasAttribute("disabled"),
+				).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps the failure visible when the services cannot be listed", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/integrations",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({
-					providers: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
-				}),
-			);
+	it.live(
+		"pauses integrations for the account and reverts the switch when saving fails",
+		() =>
+			Effect.gen(function* () {
+				const saved: UserPreferencesPatch[] = [];
+				let current = userSettings;
+				mountView(
+					"/settings/integrations",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({ settings: () => current }),
+					AuthStub,
+					makeUserSettingsStub({
+						updatePreferences: (_scope, request) => {
+							saved.push(request.payload);
+							if (saved.length === 1) {
+								return Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }));
+							}
+							return Effect.sync(() => {
+								current = {
+									...current,
+									preferences: { ...current.preferences, ...request.payload },
+								};
+							});
+						},
+					}),
+				);
 
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
-			);
-			const dialog = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Connect a service" }),
-			);
+				const pause = yield* Effect.promise(() =>
+					screen.findByRole("switch", { name: "Pause integrations" }),
+				);
+				expect(pause.getAttribute("aria-checked")).toBe("false");
 
-			expect(within(dialog).getByText("Unable to load services")).not.toBeNull();
-			expect(within(dialog).queryByText(/down/)).toBeNull();
-		}),
+				fireEvent.click(pause);
+				yield* Effect.promise(() => screen.findByText("Could not update integrations. Try again."));
+				expect(pause.getAttribute("aria-checked")).toBe("false");
+
+				fireEvent.click(pause);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.queryByText("Could not update integrations. Try again.")).toBeNull(),
+					),
+				);
+				expect(
+					screen.getByRole("switch", { name: "Pause integrations" }).getAttribute("aria-checked"),
+				).toBe("true");
+				expect(saved).toEqual([{ disableIntegrations: true }, { disableIntegrations: true }]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"names each integration and opens the one that was clicked",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView(
+					"/settings/integrations",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						list: () =>
+							listResponse([
+								makeSummary(),
+								makeSummary({
+									isDisabled: true,
+									name: "Paused one",
+									id: IntegrationId.make("int_2"),
+								}),
+							]),
+					}),
+				);
+
+				const row = yield* Effect.promise(() =>
+					screen.findByRole("link", { name: "Open the Sample Library integration" }),
+				);
+				expect(row.textContent).toContain("Active · Never synced");
+				expect(row.textContent).toContain("Scheduled");
+				expect(
+					screen.getByRole("link", { name: "Open the Paused one integration" }).textContent,
+				).toContain("Paused");
+
+				fireEvent.click(row);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.router.state.location.pathname).toBe("/settings/integrations/int_1"),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows append loading only while loading the next limit",
+		() =>
+			Effect.gen(function* () {
+				const limits: number[] = [];
+				const pendingRefresh = Promise.withResolvers<ReturnType<typeof listResponse>>();
+				const pendingNextPage = Promise.withResolvers<ReturnType<typeof listResponse>>();
+				let reads = 0;
+				mountView(
+					"/settings/integrations",
+					makeIntegrationsApi({ sync: () => Effect.succeed({ executionId: "exec_1" }) }),
+					makeIntegrationQueries({
+						listEffect: (limit) => {
+							limits.push(limit);
+							reads += 1;
+							if (reads === 1) {
+								return Effect.succeed(listResponse([makeSummary()], true, limit));
+							}
+							if (reads === 2) {
+								return Effect.promise(() => pendingRefresh.promise);
+							}
+							if (reads === 3) {
+								return Effect.promise(() => pendingNextPage.promise);
+							}
+							return Effect.succeed(listResponse([makeSummary()], false, limit));
+						},
+					}),
+				);
+
+				const more = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Show more integrations" }),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Sync all integrations" }));
+				yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT])));
+				expect(more.hasAttribute("disabled")).toBe(true);
+				expect(more.getAttribute("aria-busy")).toBe(null);
+
+				pendingRefresh.resolve(listResponse([makeSummary({ name: "Refreshed" })], true));
+				yield* Effect.promise(() =>
+					screen.findByRole("link", { name: "Open the Refreshed integration" }),
+				);
+				fireEvent.click(more);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(limits).toEqual([LIMIT, LIMIT, LIMIT * 2])),
+				);
+				expect(more.hasAttribute("disabled")).toBe(true);
+				expect(more.getAttribute("aria-busy")).toBe("true");
+				pendingNextPage.resolve(listResponse([makeSummary()], false, LIMIT * 2));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.queryByRole("button", { name: "Show more integrations" })).toBeNull(),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"reports whether a sync could be started",
+		() =>
+			Effect.gen(function* () {
+				let attempts = 0;
+				mountView(
+					"/settings/integrations",
+					makeIntegrationsApi({
+						sync: () => {
+							attempts += 1;
+							return attempts === 1
+								? Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }))
+								: Effect.succeed({ executionId: "exec_1" });
+						},
+					}),
+					makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
+				);
+
+				const syncAll = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Sync all integrations" }),
+				);
+				fireEvent.click(syncAll);
+				yield* Effect.promise(() =>
+					screen.findByText("Integration sync could not be started. Try again."),
+				);
+
+				fireEvent.click(syncAll);
+				yield* Effect.promise(() =>
+					screen.findByText("Sync started. Updates will appear as integrations finish."),
+				);
+				expect(attempts).toBe(2);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"connects a service and refreshes the expanded list without resetting pagination",
+		() =>
+			Effect.gen(function* () {
+				const created: CreateIntegrationBody[] = [];
+				const limits: number[] = [];
+				const view = mountView(
+					"/settings/integrations",
+					makeIntegrationsApi({
+						create: (_scope, request) => {
+							created.push(request.payload);
+							return Effect.succeed({ id: IntegrationId.make("int_2") });
+						},
+					}),
+					makeIntegrationQueries({
+						list: (limit) => {
+							limits.push(limit);
+							return listResponse(
+								created.length === 0
+									? [makeSummary()]
+									: [
+											makeSummary(),
+											makeSummary({ name: "Created", id: IntegrationId.make("int_2") }),
+										],
+								limit === LIMIT,
+								limit,
+							);
+						},
+					}),
+				);
+
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						screen.findByRole("button", { name: "Show more integrations" }),
+					),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([20, 40])));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.search.create).toBe(true)),
+				);
+				const dialog = yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Connect a service" }),
+				);
+
+				fireEvent.click(within(dialog).getByRole("button", { name: "Connect Sample Library" }));
+				fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Base URL")), {
+					target: { value: "https://sample-library.example" },
+				});
+				fireEvent.change(screen.getByLabelText("API key"), { target: { value: "secret" } });
+				fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+				yield* Effect.promise(() => screen.findByText("Kept hidden"));
+				fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+
+				yield* Effect.promise(() => waitFor(() => expect(created).toHaveLength(1)));
+				expect(created[0]?.provider).toEqual(libraryProvider.reference);
+				expect(created[0]?.providerSpecifics).toEqual({
+					apiKey: "secret",
+					baseUrl: "https://sample-library.example",
+				});
+				yield* Effect.promise(() =>
+					screen.findByRole("link", { name: "Open the Created integration" }),
+				);
+				expect(limits).toEqual([20, 40, 40]);
+				expect(screen.queryByRole("dialog", { name: "Connect a service" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps the failure visible when the services cannot be listed",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/integrations",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						providers: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
+					}),
+				);
+
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
+				);
+				const dialog = yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Connect a service" }),
+				);
+
+				expect(within(dialog).getByText("Unable to load services")).not.toBeNull();
+				expect(within(dialog).queryByText(/down/)).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
@@ -876,225 +909,258 @@ describe("integration detail", () => {
 				);
 				expect(requests).toHaveLength(4);
 			}),
+		testTimeout,
 	);
-	it.live("does not request or expose protected demo integration detail", () =>
-		Effect.gen(function* () {
-			let gets = 0;
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({
-					detail: () => {
-						gets++;
-						return Effect.succeed(
-							makeDetail({ webhookToken: IntegrationWebhookToken.make("webhook-token-1") }),
-						);
-					},
-				}),
-				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-			);
+	it.live(
+		"does not request or expose protected demo integration detail",
+		() =>
+			Effect.gen(function* () {
+				let gets = 0;
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						detail: () => {
+							gets++;
+							return Effect.succeed(
+								makeDetail({ webhookToken: IntegrationWebhookToken.make("webhook-token-1") }),
+							);
+						},
+					}),
+					makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+				);
 
-			yield* Effect.promise(() => screen.findByText("Integration configuration unavailable"));
-			expect(
-				screen.getByText("This operation is unavailable while using the shared demo account."),
-			).not.toBeNull();
-			expect(gets).toBe(0);
-			expect(screen.queryByText("Webhook URL")).toBeNull();
-			expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
-			expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
-		}),
-	);
-
-	it.live("uses loader data until the ID-keyed detail query succeeds", () =>
-		Effect.gen(function* () {
-			let gets = 0;
-			const pendingDetail = Promise.withResolvers<IntegrationDetailRow>();
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({
-					detail: () => {
-						gets += 1;
-						return gets === 1
-							? Effect.succeed(makeDetail({ name: "Loader integration" }))
-							: Effect.promise(() => pendingDetail.promise);
-					},
-				}),
-			);
-
-			yield* Effect.promise(() =>
-				screen.findByRole("heading", { level: 1, name: "Loader integration" }),
-			);
-			pendingDetail.resolve(makeDetail({ name: "Queried integration" }));
-			yield* Effect.promise(() =>
-				screen.findByRole("heading", { level: 1, name: "Queried integration" }),
-			);
-			expect(gets).toBe(2);
-		}),
+				yield* Effect.promise(() => screen.findByText("Integration configuration unavailable"));
+				expect(
+					screen.getByText("This operation is unavailable while using the shared demo account."),
+				).not.toBeNull();
+				expect(gets).toBe(0);
+				expect(screen.queryByText("Webhook URL")).toBeNull();
+				expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+				expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("shows the webhook URL and recent runs", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({
-					runs: () => runsResponse([completedRun]),
-					providers: () => Effect.succeed([sinkProvider]),
-					detail: () =>
-						Effect.succeed(
-							makeDetail({
-								lot: "sink",
-								providerSpecifics: {},
-								provider: "sample-sink",
-								webhookToken: IntegrationWebhookToken.make("webhook-token-1"),
-							}),
-						),
-				}),
-			);
+	it.live(
+		"uses loader data until the ID-keyed detail query succeeds",
+		() =>
+			Effect.gen(function* () {
+				let gets = 0;
+				const pendingDetail = Promise.withResolvers<IntegrationDetailRow>();
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						detail: () => {
+							gets += 1;
+							return gets === 1
+								? Effect.succeed(makeDetail({ name: "Loader integration" }))
+								: Effect.promise(() => pendingDetail.promise);
+						},
+					}),
+				);
 
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Sample Sink" }));
-			expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
-			expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
-			expect(
-				screen.getByText(
-					"reading events: 12 created · 0 updated · 0 unchanged · 0 skipped · 0 unsuccessful",
-				),
-			).not.toBeNull();
-		}),
+				yield* Effect.promise(() =>
+					screen.findByRole("heading", { level: 1, name: "Loader integration" }),
+				);
+				pendingDetail.resolve(makeDetail({ name: "Queried integration" }));
+				yield* Effect.promise(() =>
+					screen.findByRole("heading", { level: 1, name: "Queried integration" }),
+				);
+				expect(gets).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("shows older runs by expanding the run list", () =>
-		Effect.gen(function* () {
-			const limits: number[] = [];
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({
-					runs: (limit) => {
-						limits.push(limit);
-						return limit === RUNS_LIMIT
-							? runsResponse([completedRun], true, limit)
-							: runsResponse(
-									[completedRun, { ...completedRun, id: ImportRunId.make("run_2") }],
-									false,
-									limit,
-								);
-					},
-				}),
-			);
+	it.live(
+		"shows the webhook URL and recent runs",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						runs: () => runsResponse([completedRun]),
+						providers: () => Effect.succeed([sinkProvider]),
+						detail: () =>
+							Effect.succeed(
+								makeDetail({
+									lot: "sink",
+									providerSpecifics: {},
+									provider: "sample-sink",
+									webhookToken: IntegrationWebhookToken.make("webhook-token-1"),
+								}),
+							),
+					}),
+				);
 
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Show older runs" })),
-			);
-
-			yield* Effect.promise(() =>
-				waitFor(() => expect(screen.getAllByRole("img", { name: "Completed" })).toHaveLength(2)),
-			);
-			expect(limits).toEqual([RUNS_LIMIT, RUNS_LIMIT * 2]);
-			expect(screen.queryByRole("button", { name: "Show older runs" })).toBeNull();
-		}),
+				yield* Effect.promise(() =>
+					screen.findByRole("heading", { level: 1, name: "Sample Sink" }),
+				);
+				expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
+				expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
+				expect(
+					screen.getByText(
+						"reading events: 12 created · 0 updated · 0 unchanged · 0 skipped · 0 unsuccessful",
+					),
+				).not.toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("permits setup corrections when existing integration readiness is blocked", () =>
-		Effect.gen(function* () {
-			const saved: UpdateIntegrationBody[] = [];
-			let stored = makeDetail();
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi({
-					update: (_scope, request) => {
-						saved.push(request.payload);
-						stored = makeDetail({ name: "Renamed" });
-						return Effect.succeed({ id: stored.id });
-					},
-				}),
-				makeIntegrationQueries({
-					detail: () => Effect.succeed(stored),
-					providers: () => Effect.succeed([blockedProvider]),
-				}),
-			);
+	it.live(
+		"shows older runs by expanding the run list",
+		() =>
+			Effect.gen(function* () {
+				const limits: number[] = [];
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({
+						runs: (limit) => {
+							limits.push(limit);
+							return limit === RUNS_LIMIT
+								? runsResponse([completedRun], true, limit)
+								: runsResponse(
+										[completedRun, { ...completedRun, id: ImportRunId.make("run_2") }],
+										false,
+										limit,
+									);
+						},
+					}),
+				);
 
-			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Name")), {
-				target: { value: "Renamed" },
-			});
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Show older runs" })),
+				);
 
-			yield* Effect.promise(() => waitFor(() => expect(saved).toHaveLength(1)));
-			expect(saved[0]?.name).toBe("Renamed");
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Renamed" }));
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.getAllByRole("img", { name: "Completed" })).toHaveLength(2)),
+				);
+				expect(limits).toEqual([RUNS_LIMIT, RUNS_LIMIT * 2]);
+				expect(screen.queryByRole("button", { name: "Show older runs" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps successful detail content when mutation refresh fails", () =>
-		Effect.gen(function* () {
-			let gets = 0;
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi({ update: () => Effect.succeed({ id: IntegrationId.make("int_1") }) }),
-				makeIntegrationQueries({
-					detail: () => {
-						gets += 1;
-						if (gets === 1) {
-							return Effect.succeed(makeDetail({ name: "Loader integration" }));
-						}
-						if (gets === 2) {
-							return Effect.succeed(makeDetail({ name: "Current integration" }));
-						}
-						return Effect.fail(new AuthenticatedApiError({ cause: new Error("refresh failed") }));
-					},
-				}),
-			);
+	it.live(
+		"permits setup corrections when existing integration readiness is blocked",
+		() =>
+			Effect.gen(function* () {
+				const saved: UpdateIntegrationBody[] = [];
+				let stored = makeDetail();
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi({
+						update: (_scope, request) => {
+							saved.push(request.payload);
+							stored = makeDetail({ name: "Renamed" });
+							return Effect.succeed({ id: stored.id });
+						},
+					}),
+					makeIntegrationQueries({
+						detail: () => Effect.succeed(stored),
+						providers: () => Effect.succeed([blockedProvider]),
+					}),
+				);
 
-			yield* Effect.promise(() =>
-				screen.findByRole("heading", { level: 1, name: "Current integration" }),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-			yield* Effect.promise(() => waitFor(() => expect(gets).toBe(3)));
-			expect(screen.getByRole("heading", { level: 1, name: "Current integration" })).not.toBeNull();
-		}),
+				fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Name")), {
+					target: { value: "Renamed" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+				yield* Effect.promise(() => waitFor(() => expect(saved).toHaveLength(1)));
+				expect(saved[0]?.name).toBe("Renamed");
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Renamed" }));
+			}),
+		testTimeout,
 	);
 
-	it.live("returns to the list after a confirmed delete", () =>
-		Effect.gen(function* () {
-			const deleted: string[] = [];
-			const view = mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi({
-					delete: (_scope, request) => {
-						deleted.push(request.params.integrationId);
-						return Effect.succeed({ id: request.params.integrationId });
-					},
-				}),
-				makeIntegrationQueries(),
-			);
+	it.live(
+		"keeps successful detail content when mutation refresh fails",
+		() =>
+			Effect.gen(function* () {
+				let gets = 0;
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi({
+						update: () => Effect.succeed({ id: IntegrationId.make("int_1") }),
+					}),
+					makeIntegrationQueries({
+						detail: () => {
+							gets += 1;
+							if (gets === 1) {
+								return Effect.succeed(makeDetail({ name: "Loader integration" }));
+							}
+							if (gets === 2) {
+								return Effect.succeed(makeDetail({ name: "Current integration" }));
+							}
+							return Effect.fail(new AuthenticatedApiError({ cause: new Error("refresh failed") }));
+						},
+					}),
+				);
 
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Integration actions" })),
-			);
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete integration" })),
-			);
-			const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
-			fireEvent.click(within(dialog).getByRole("button", { name: "Delete integration" }));
-
-			yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["int_1"])));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/integrations")),
-			);
-		}),
+				yield* Effect.promise(() =>
+					screen.findByRole("heading", { level: 1, name: "Current integration" }),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				yield* Effect.promise(() => waitFor(() => expect(gets).toBe(3)));
+				expect(
+					screen.getByRole("heading", { level: 1, name: "Current integration" }),
+				).not.toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("shows a not-found state for an integration that no longer exists", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/integrations/int_1",
-				makeIntegrationsApi(),
-				makeIntegrationQueries({ detail: () => Effect.undefined }),
-			);
+	it.live(
+		"returns to the list after a confirmed delete",
+		() =>
+			Effect.gen(function* () {
+				const deleted: string[] = [];
+				const view = mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi({
+						delete: (_scope, request) => {
+							deleted.push(request.params.integrationId);
+							return Effect.succeed({ id: request.params.integrationId });
+						},
+					}),
+					makeIntegrationQueries(),
+				);
 
-			yield* Effect.promise(() => screen.findByText("Integration not found"));
-			expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
-		}),
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Integration actions" })),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() =>
+						screen.findByRole("menuitem", { name: "Delete integration" }),
+					),
+				);
+				const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+				fireEvent.click(within(dialog).getByRole("button", { name: "Delete integration" }));
+
+				yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["int_1"])));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/integrations")),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows a not-found state for an integration that no longer exists",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/integrations/int_1",
+					makeIntegrationsApi(),
+					makeIntegrationQueries({ detail: () => Effect.undefined }),
+				);
+
+				yield* Effect.promise(() => screen.findByText("Integration not found"));
+				expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+			}),
+		testTimeout,
 	);
 });

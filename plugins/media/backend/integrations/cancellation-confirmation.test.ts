@@ -1,4 +1,5 @@
-import { afterEach, assert, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type {
 	IngestionActivity,
@@ -36,7 +37,10 @@ import {
 	runSandboxTestScript,
 } from "@ryot-app/plugin-backend-sdk/testing";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -267,9 +271,9 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				Layer.mock(ScriptExecutionService)({
 					executeWorkflow: (input) =>
 						Effect.gen(function* () {
-							expect(input.scriptId).toBe(run.pins?.scriptId);
+							expect(input.scriptId).toBe<unknown>(run.pins?.scriptId);
 							expect(input.pluginRevision).toEqual(ingestionTestSource.pluginRevision);
-							expect(input.subject).toEqual({
+							expect(input.subject).toEqual<unknown>({
 								type: "user",
 								integrationId: run.integrationId,
 								userId: ingestionTestScope.userId,
@@ -348,4 +352,5 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				expect(next[0]?.group?.events[0]?.properties["progressPercent"]).toBe(100);
 			}
 		}),
+	testTimeout,
 );

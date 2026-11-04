@@ -1,11 +1,15 @@
+import { describe, expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	Cause,
 	Context,
@@ -19,7 +23,6 @@ import {
 	Path,
 } from "effect";
 import { Base64 } from "effect/encoding";
-import { assert, describe, expect } from "vitest";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import { ExecutionFileStore } from "./execution-files";
@@ -191,430 +194,448 @@ type SandboxFileAccess = Effect.Success<ReturnType<ExecutionFiles["Service"]["op
 
 describe("sandbox file service", () => {
 	layer(fileServiceLayer)((test) => {
-		test.effect("caps partial scratch uploads at entry admission and allows replacement", () =>
-			Effect.gen(function* () {
-				const root = yield* FileServiceRoot;
-				const service = yield* ScratchEntryFileService;
-				yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(makeInput({}));
-						for (let index = 0; index < SANDBOX_LIMITS.scratch.maxEntries; index++) {
-							yield* files.scratchWrite({
-								data: "",
-								offset: 0,
-								final: false,
-								name: `chunk-${index}`,
-							});
-						}
-						expect(
-							yield* Effect.flip(
-								files.scratchWrite({ data: "", offset: 0, final: true, name: "overflow" }),
-							),
-						).toEqual({ message: "Sandbox scratch directory exceeds 4096 entries" });
-						expect(
-							yield* files.scratchWrite({ data: "", offset: 0, final: true, name: "chunk-0" }),
-						).toBeNull();
-					}),
-				);
-				expect(yield* scratchDirectoriesIn(root)).toEqual([]);
-			}),
+		test.effect(
+			"caps partial scratch uploads at entry admission and allows replacement",
+			() =>
+				Effect.gen(function* () {
+					const root = yield* FileServiceRoot;
+					const service = yield* ScratchEntryFileService;
+					yield* Effect.scoped(
+						Effect.gen(function* () {
+							const files = yield* service.open(makeInput({}));
+							for (let index = 0; index < SANDBOX_LIMITS.scratch.maxEntries; index++) {
+								yield* files.scratchWrite({
+									data: "",
+									offset: 0,
+									final: false,
+									name: `chunk-${index}`,
+								});
+							}
+							expect(
+								yield* Effect.flip(
+									files.scratchWrite({ data: "", offset: 0, final: true, name: "overflow" }),
+								),
+							).toEqual({ message: "Sandbox scratch directory exceeds 4096 entries" });
+							expect(
+								yield* files.scratchWrite({ data: "", offset: 0, final: true, name: "chunk-0" }),
+							).toBeNull();
+						}),
+					);
+					expect(yield* scratchDirectoriesIn(root)).toEqual([]);
+				}),
+			testTimeout,
 		);
 
-		test.effect("enforces the write-time scratch quota and named harvest", () =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				const root = yield* FileServiceRoot;
-				const fs = yield* FileSystem.FileSystem;
-				const service = yield* ExecutionFiles;
-				const artifacts = yield* ExecutionFileStore;
-				const input = makeInput({ artifactOwnerExecutionId: parentExecutionId });
-				const replacement = path.join(root, "harvest-symlink-target");
-				yield* fs.writeFileString(replacement, "not a chunk");
-				const peak = { bytes: 0 };
-				const recordScratchBytes = Effect.fnUntraced(function* () {
-					const bytes = yield* scratchBytesIn(root);
-					peak.bytes = Math.max(peak.bytes, bytes);
-					expect(bytes).toBeLessThanOrEqual(SANDBOX_LIMITS.scratch.totalBytes);
-				});
-				const writeBytes = Effect.fnUntraced(function* (
-					files: SandboxFileAccess,
-					name: string,
-					contents: Uint8Array,
-					final: boolean,
-				) {
-					if (contents.byteLength === 0) {
-						yield* files.scratchWrite({ name, final, data: "", offset: 0 });
-						yield* recordScratchBytes();
-						return;
-					}
-					for (let offset = 0; offset < contents.byteLength; offset += chunkBytes) {
-						const end = Math.min(contents.byteLength, offset + chunkBytes);
-						const last = end === contents.byteLength;
-						yield* files.scratchWrite({
-							name,
-							offset,
-							final: final && last,
-							data: Base64.encode(contents.subarray(offset, end)),
-						});
-						yield* recordScratchBytes();
-					}
-				});
-
-				const result = yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(input);
-						for (const name of [
-							".",
-							"..",
-							"../escape",
-							"nested/name",
-							"back\\slash",
-							"nul\0name",
-						]) {
-							const invalidName = yield* Effect.flip(
-								files.scratchWrite({ name, data: "", offset: 0, final: true }),
-							);
-							expect(invalidName).toEqual({
-								message: "Sandbox scratch chunk name must be a plain file name",
-							});
+		test.effect(
+			"enforces the write-time scratch quota and named harvest",
+			() =>
+				Effect.gen(function* () {
+					const path = yield* Path.Path;
+					const root = yield* FileServiceRoot;
+					const fs = yield* FileSystem.FileSystem;
+					const service = yield* ExecutionFiles;
+					const artifacts = yield* ExecutionFileStore;
+					const input = makeInput({ artifactOwnerExecutionId: parentExecutionId });
+					const replacement = path.join(root, "harvest-symlink-target");
+					yield* fs.writeFileString(replacement, "not a chunk");
+					const peak = { bytes: 0 };
+					const recordScratchBytes = Effect.fnUntraced(function* () {
+						const bytes = yield* scratchBytesIn(root);
+						peak.bytes = Math.max(peak.bytes, bytes);
+						expect(bytes).toBeLessThanOrEqual(SANDBOX_LIMITS.scratch.totalBytes);
+					});
+					const writeBytes = Effect.fnUntraced(function* (
+						files: SandboxFileAccess,
+						name: string,
+						contents: Uint8Array,
+						final: boolean,
+					) {
+						if (contents.byteLength === 0) {
+							yield* files.scratchWrite({ name, final, data: "", offset: 0 });
+							yield* recordScratchBytes();
+							return;
 						}
-						expect(yield* scratchBytesIn(root)).toBe(0);
-						yield* writeBytes(files, "large.bin", new Uint8Array(4 * MiB).fill(0x61), true);
-						yield* writeBytes(files, "pending.bin", new Uint8Array(MiB).fill(0x62), false);
-						expect(yield* scratchBytesIn(root)).toBe(5 * MiB);
-
-						const overQuota = yield* Effect.exit(
-							files.scratchWrite({
-								offset: 0,
-								final: true,
-								name: "overflow.bin",
-								data: Base64.encode(new Uint8Array([1])),
-							}),
-						);
-						expect(Exit.isFailure(overQuota)).toBe(true);
-						expect(yield* scratchBytesIn(root)).toBe(5 * MiB);
-
-						yield* files.scratchWrite({
-							offset: 0,
-							final: false,
-							name: "large.bin",
-							data: Base64.encode(new Uint8Array(chunkBytes).fill(0x63)),
-						});
-						yield* recordScratchBytes();
-						for (let offset = chunkBytes; offset < 4 * MiB; offset += chunkBytes) {
-							const end = Math.min(4 * MiB, offset + chunkBytes);
+						for (let offset = 0; offset < contents.byteLength; offset += chunkBytes) {
+							const end = Math.min(contents.byteLength, offset + chunkBytes);
+							const last = end === contents.byteLength;
 							yield* files.scratchWrite({
+								name,
 								offset,
-								name: "large.bin",
-								final: end === 4 * MiB,
-								data: Base64.encode(new Uint8Array(end - offset).fill(0x63)),
+								final: final && last,
+								data: Base64.encode(contents.subarray(offset, end)),
 							});
 							yield* recordScratchBytes();
 						}
-						yield* files.scratchWrite({ data: "", final: true, offset: MiB, name: "pending.bin" });
-						yield* recordScratchBytes();
+					});
 
-						const harvested = yield* files.harvest({ chunkFiles: ["large.bin", "pending.bin"] });
-						assert(harvested !== null);
-						expect(Object.keys(harvested)).toEqual(["chunkHandles"]);
-						expect(harvested.chunkHandles).toHaveLength(2);
-						expect(harvested.chunkHandles.every((handle) => !handle.includes(root))).toBe(true);
-						const [largePath, pendingPath] = yield* artifacts.resolveOutputs(
-							parentExecutionId,
-							harvested.chunkHandles,
-						);
-						assert(largePath !== undefined && pendingPath !== undefined);
-						expect((yield* fs.readFile(largePath)).byteLength).toBe(4 * MiB);
-						expect((yield* fs.readFile(pendingPath)).byteLength).toBe(MiB);
-						expect(
-							(yield* Effect.exit(
-								artifacts.resolveOutputs("child-workflow-execution", harvested.chunkHandles),
-							))._tag,
-						).toBe("Failure");
-						return harvested;
-					}),
-				);
-				expect(result.chunkHandles).toHaveLength(2);
-				expect(yield* scratchDirectoriesIn(root)).toEqual([]);
-				expect(peak.bytes).toBeLessThanOrEqual(5 * MiB);
-
-				const rejectHarvest = Effect.fnUntraced(function* (
-					populate: (files: SandboxFileAccess) => Effect.Effect<unknown, unknown>,
-					output: unknown,
-				) {
-					const outcome = yield* Effect.scoped(
+					const result = yield* Effect.scoped(
 						Effect.gen(function* () {
 							const files = yield* service.open(input);
-							yield* populate(files);
-							return yield* Effect.exit(files.harvest(output));
+							for (const name of [
+								".",
+								"..",
+								"../escape",
+								"nested/name",
+								"back\\slash",
+								"nul\0name",
+							]) {
+								const invalidName = yield* Effect.flip(
+									files.scratchWrite({ name, data: "", offset: 0, final: true }),
+								);
+								expect(invalidName).toEqual({
+									message: "Sandbox scratch chunk name must be a plain file name",
+								});
+							}
+							expect(yield* scratchBytesIn(root)).toBe(0);
+							yield* writeBytes(files, "large.bin", new Uint8Array(4 * MiB).fill(0x61), true);
+							yield* writeBytes(files, "pending.bin", new Uint8Array(MiB).fill(0x62), false);
+							expect(yield* scratchBytesIn(root)).toBe(5 * MiB);
+
+							const overQuota = yield* Effect.exit(
+								files.scratchWrite({
+									offset: 0,
+									final: true,
+									name: "overflow.bin",
+									data: Base64.encode(new Uint8Array([1])),
+								}),
+							);
+							expect(Exit.isFailure(overQuota)).toBe(true);
+							expect(yield* scratchBytesIn(root)).toBe(5 * MiB);
+
+							yield* files.scratchWrite({
+								offset: 0,
+								final: false,
+								name: "large.bin",
+								data: Base64.encode(new Uint8Array(chunkBytes).fill(0x63)),
+							});
+							yield* recordScratchBytes();
+							for (let offset = chunkBytes; offset < 4 * MiB; offset += chunkBytes) {
+								const end = Math.min(4 * MiB, offset + chunkBytes);
+								yield* files.scratchWrite({
+									offset,
+									name: "large.bin",
+									final: end === 4 * MiB,
+									data: Base64.encode(new Uint8Array(end - offset).fill(0x63)),
+								});
+								yield* recordScratchBytes();
+							}
+							yield* files.scratchWrite({
+								data: "",
+								final: true,
+								offset: MiB,
+								name: "pending.bin",
+							});
+							yield* recordScratchBytes();
+
+							const harvested = yield* files.harvest({ chunkFiles: ["large.bin", "pending.bin"] });
+							assert(harvested !== null);
+							expect(Object.keys(harvested)).toEqual(["chunkHandles"]);
+							expect(harvested.chunkHandles).toHaveLength(2);
+							expect(harvested.chunkHandles.every((handle) => !handle.includes(root))).toBe(true);
+							const [largePath, pendingPath] = yield* artifacts.resolveOutputs(
+								parentExecutionId,
+								harvested.chunkHandles,
+							);
+							assert(largePath !== undefined && pendingPath !== undefined);
+							expect((yield* fs.readFile(largePath)).byteLength).toBe(4 * MiB);
+							expect((yield* fs.readFile(pendingPath)).byteLength).toBe(MiB);
+							expect(
+								(yield* Effect.exit(
+									artifacts.resolveOutputs("child-workflow-execution", harvested.chunkHandles),
+								))._tag,
+							).toBe("Failure");
+							return harvested;
 						}),
 					);
-					expect(Exit.isFailure(outcome)).toBe(true);
+					expect(result.chunkHandles).toHaveLength(2);
 					expect(yield* scratchDirectoriesIn(root)).toEqual([]);
-				});
-				yield* rejectHarvest(() => Effect.void, { chunkFiles: ["missing.bin"] });
-				yield* rejectHarvest(
-					(files) =>
-						files.scratchWrite({ offset: 0, final: true, data: "AQ==", name: "duplicate.bin" }),
-					{ chunkFiles: ["duplicate.bin", "duplicate.bin"] },
-				);
-				yield* rejectHarvest(
-					(files) =>
-						Effect.gen(function* () {
-							yield* files.scratchWrite({
-								offset: 0,
-								final: true,
-								data: "AQ==",
-								name: "listed.bin",
-							});
-							yield* files.scratchWrite({
-								offset: 0,
-								final: true,
-								data: "Ag==",
-								name: "unlisted.bin",
-							});
-						}),
-					{ chunkFiles: ["listed.bin"] },
-				);
-				yield* rejectHarvest(
-					(files) =>
-						Effect.gen(function* () {
-							yield* files.scratchWrite({
-								offset: 0,
-								final: true,
-								data: "AQ==",
-								name: "incomplete.bin",
-							});
-							yield* files.scratchWrite({
-								offset: 0,
-								data: "Ag==",
-								final: false,
-								name: "incomplete.bin",
-							});
-						}),
-					{ chunkFiles: ["incomplete.bin"] },
-				);
-				yield* rejectHarvest(
-					(files) =>
-						Effect.gen(function* () {
-							yield* files.scratchWrite({
-								offset: 0,
-								final: true,
-								data: "AQ==",
-								name: "linked.bin",
-							});
-							const scratchEntry = (yield* fs.readDirectory(root)).find((entry) =>
-								entry.startsWith(scratchDirectoryPrefix),
-							);
-							assert(scratchEntry !== undefined);
-							const scratchDirectory = path.join(root, scratchEntry);
-							yield* fs.remove(path.join(scratchDirectory, "linked.bin"));
-							yield* fs.symlink(replacement, path.join(scratchDirectory, "linked.bin"));
-						}),
-					{ chunkFiles: ["linked.bin"] },
-				);
+					expect(peak.bytes).toBeLessThanOrEqual(5 * MiB);
 
-				const controls = yield* FileServiceControl;
-				const concurrent = yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(input);
-						const upload = (name: string) =>
+					const rejectHarvest = Effect.fnUntraced(function* (
+						populate: (files: SandboxFileAccess) => Effect.Effect<unknown, unknown>,
+						output: unknown,
+					) {
+						const outcome = yield* Effect.scoped(
 							Effect.gen(function* () {
-								for (let offset = 0; offset < 4 * MiB; offset += chunkBytes) {
-									const end = offset + chunkBytes;
-									yield* files.scratchWrite({
-										name,
-										offset,
-										final: end === 4 * MiB,
-										data: Base64.encode(
-											new Uint8Array(chunkBytes).fill(name === "first.bin" ? 1 : 2),
-										),
-									});
-								}
-							});
-						const outcomes = yield* Effect.all(
-							[Effect.exit(upload("first.bin")), Effect.exit(upload("second.bin"))],
-							{ concurrency: 2 },
+								const files = yield* service.open(input);
+								yield* populate(files);
+								return yield* Effect.exit(files.harvest(output));
+							}),
 						);
-						return outcomes;
-					}),
-				);
-				expect(concurrent.some(Exit.isSuccess)).toBe(true);
-				expect(concurrent.some(Exit.isFailure)).toBe(true);
-				expect(yield* scratchBytesIn(root)).toBeLessThanOrEqual(5 * MiB);
-				expect(controls.maxObservedBytes).toBeLessThanOrEqual(5 * MiB);
+						expect(Exit.isFailure(outcome)).toBe(true);
+						expect(yield* scratchDirectoriesIn(root)).toEqual([]);
+					});
+					yield* rejectHarvest(() => Effect.void, { chunkFiles: ["missing.bin"] });
+					yield* rejectHarvest(
+						(files) =>
+							files.scratchWrite({ offset: 0, final: true, data: "AQ==", name: "duplicate.bin" }),
+						{ chunkFiles: ["duplicate.bin", "duplicate.bin"] },
+					);
+					yield* rejectHarvest(
+						(files) =>
+							Effect.gen(function* () {
+								yield* files.scratchWrite({
+									offset: 0,
+									final: true,
+									data: "AQ==",
+									name: "listed.bin",
+								});
+								yield* files.scratchWrite({
+									offset: 0,
+									final: true,
+									data: "Ag==",
+									name: "unlisted.bin",
+								});
+							}),
+						{ chunkFiles: ["listed.bin"] },
+					);
+					yield* rejectHarvest(
+						(files) =>
+							Effect.gen(function* () {
+								yield* files.scratchWrite({
+									offset: 0,
+									final: true,
+									data: "AQ==",
+									name: "incomplete.bin",
+								});
+								yield* files.scratchWrite({
+									offset: 0,
+									data: "Ag==",
+									final: false,
+									name: "incomplete.bin",
+								});
+							}),
+						{ chunkFiles: ["incomplete.bin"] },
+					);
+					yield* rejectHarvest(
+						(files) =>
+							Effect.gen(function* () {
+								yield* files.scratchWrite({
+									offset: 0,
+									final: true,
+									data: "AQ==",
+									name: "linked.bin",
+								});
+								const scratchEntry = (yield* fs.readDirectory(root)).find((entry) =>
+									entry.startsWith(scratchDirectoryPrefix),
+								);
+								assert(scratchEntry !== undefined);
+								const scratchDirectory = path.join(root, scratchEntry);
+								yield* fs.remove(path.join(scratchDirectory, "linked.bin"));
+								yield* fs.symlink(replacement, path.join(scratchDirectory, "linked.bin"));
+							}),
+						{ chunkFiles: ["linked.bin"] },
+					);
 
-				yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(input);
-						controls.failNextWrite = true;
-						const failed = yield* Effect.exit(
-							files.scratchWrite({
+					const controls = yield* FileServiceControl;
+					const concurrent = yield* Effect.scoped(
+						Effect.gen(function* () {
+							const files = yield* service.open(input);
+							const upload = (name: string) =>
+								Effect.gen(function* () {
+									for (let offset = 0; offset < 4 * MiB; offset += chunkBytes) {
+										const end = offset + chunkBytes;
+										yield* files.scratchWrite({
+											name,
+											offset,
+											final: end === 4 * MiB,
+											data: Base64.encode(
+												new Uint8Array(chunkBytes).fill(name === "first.bin" ? 1 : 2),
+											),
+										});
+									}
+								});
+							const outcomes = yield* Effect.all(
+								[Effect.exit(upload("first.bin")), Effect.exit(upload("second.bin"))],
+								{ concurrency: 2 },
+							);
+							return outcomes;
+						}),
+					);
+					expect(concurrent.some(Exit.isSuccess)).toBe(true);
+					expect(concurrent.some(Exit.isFailure)).toBe(true);
+					expect(yield* scratchBytesIn(root)).toBeLessThanOrEqual(5 * MiB);
+					expect(controls.maxObservedBytes).toBeLessThanOrEqual(5 * MiB);
+
+					yield* Effect.scoped(
+						Effect.gen(function* () {
+							const files = yield* service.open(input);
+							controls.failNextWrite = true;
+							const failed = yield* Effect.exit(
+								files.scratchWrite({
+									offset: 0,
+									final: true,
+									name: "retry.bin",
+									data: Base64.encode(new Uint8Array([5, 6, 7])),
+								}),
+							);
+							expect(Exit.isFailure(failed)).toBe(true);
+							expect(yield* scratchBytesIn(root)).toBe(0);
+							yield* files.scratchWrite({
 								offset: 0,
 								final: true,
 								name: "retry.bin",
 								data: Base64.encode(new Uint8Array([5, 6, 7])),
-							}),
-						);
-						expect(Exit.isFailure(failed)).toBe(true);
-						expect(yield* scratchBytesIn(root)).toBe(0);
-						yield* files.scratchWrite({
-							offset: 0,
-							final: true,
-							name: "retry.bin",
-							data: Base64.encode(new Uint8Array([5, 6, 7])),
-						});
-						expect(yield* scratchBytesIn(root)).toBe(3);
-					}),
-				);
+							});
+							expect(yield* scratchBytesIn(root)).toBe(3);
+						}),
+					);
 
-				yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(input);
-						controls.blockNextWrite = true;
-						const writeFiber = yield* Effect.forkChild(
-							files.scratchWrite({
-								offset: 0,
-								final: true,
-								name: "interrupted.bin",
-								data: Base64.encode(new Uint8Array([8, 9])),
-							}),
-						);
-						yield* Deferred.await(controls.writeStarted);
-						const interruptFiber = yield* Effect.forkChild(Fiber.interrupt(writeFiber));
-						yield* Effect.yieldNow;
-						yield* Deferred.succeed(controls.releaseWrite, undefined);
-						const outcome = yield* Fiber.await(writeFiber);
-						yield* Fiber.await(interruptFiber);
-						assert(Exit.isFailure(outcome));
-						expect(Cause.hasInterrupts(outcome.cause)).toBe(true);
-						expect(yield* scratchBytesIn(root)).toBe(0);
-					}),
-				);
-			}),
+					yield* Effect.scoped(
+						Effect.gen(function* () {
+							const files = yield* service.open(input);
+							controls.blockNextWrite = true;
+							const writeFiber = yield* Effect.forkChild(
+								files.scratchWrite({
+									offset: 0,
+									final: true,
+									name: "interrupted.bin",
+									data: Base64.encode(new Uint8Array([8, 9])),
+								}),
+							);
+							yield* Deferred.await(controls.writeStarted);
+							const interruptFiber = yield* Effect.forkChild(Fiber.interrupt(writeFiber));
+							yield* Effect.yieldNow;
+							yield* Deferred.succeed(controls.releaseWrite, undefined);
+							const outcome = yield* Fiber.await(writeFiber);
+							yield* Fiber.await(interruptFiber);
+							assert(Exit.isFailure(outcome));
+							expect(Cause.hasInterrupts(outcome.cause)).toBe(true);
+							expect(yield* scratchBytesIn(root)).toBe(0);
+						}),
+					);
+				}),
+			testTimeout,
 		);
 
-		test.effect("requires execution-bound grants for files and HTTP", () =>
-			Effect.gen(function* () {
-				const path = yield* Path.Path;
-				const root = yield* FileServiceRoot;
-				const fs = yield* FileSystem.FileSystem;
-				const service = yield* ExecutionFiles;
-				const source = path.join(root, "artifact.json");
-				const namedSource = path.join(root, "named.json");
-				const replacement = path.join(root, "replacement.json");
-				const parentDirectory = path.join(root, "parent");
-				const outsideDirectory = path.join(root, "outside");
-				yield* fs.writeFileString(source, "trusted");
-				yield* fs.writeFileString(namedSource, "named-data");
-				yield* fs.writeFileString(replacement, "spoofed");
-				yield* fs.makeDirectory(parentDirectory);
-				yield* fs.makeDirectory(outsideDirectory);
-				yield* fs.writeFileString(path.join(parentDirectory, "file.json"), "inside");
-				yield* fs.writeFileString(path.join(outsideDirectory, "file.json"), "outside");
+		test.effect(
+			"requires execution-bound grants for files and HTTP",
+			() =>
+				Effect.gen(function* () {
+					const path = yield* Path.Path;
+					const root = yield* FileServiceRoot;
+					const fs = yield* FileSystem.FileSystem;
+					const service = yield* ExecutionFiles;
+					const source = path.join(root, "artifact.json");
+					const namedSource = path.join(root, "named.json");
+					const replacement = path.join(root, "replacement.json");
+					const parentDirectory = path.join(root, "parent");
+					const outsideDirectory = path.join(root, "outside");
+					yield* fs.writeFileString(source, "trusted");
+					yield* fs.writeFileString(namedSource, "named-data");
+					yield* fs.writeFileString(replacement, "spoofed");
+					yield* fs.makeDirectory(parentDirectory);
+					yield* fs.makeDirectory(outsideDirectory);
+					yield* fs.writeFileString(path.join(parentDirectory, "file.json"), "inside");
+					yield* fs.writeFileString(path.join(outsideDirectory, "file.json"), "outside");
 
-				const pinnedRead = yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(
-							makeInput({ artifactPath: source, namedArtifactPaths: { history: namedSource } }),
-						);
-						yield* fs.rename(source, path.join(root, "original.json"));
-						yield* fs.writeFileString(source, "spoofed");
-						const artifact = yield* files.artifactReadRange({ length: 7, offset: 0 });
-						const named = yield* files.artifactReadRange({ offset: 0, length: 10, key: "history" });
-						const forged = yield* Effect.exit(
-							files.artifactReadRange({ length: 1, offset: 0, key: "forged" }),
-						);
-						assert(Exit.isFailure(forged));
-						const error = Cause.findErrorOption(forged.cause);
-						assert(Option.isSome(error));
-						expect(error.value.data).toEqual({
-							code: "missing-artifact-grant",
-							operation: "readNamedArtifact",
-						});
-						return [artifact.data, named.data];
-					}),
-				);
-				expect(pinnedRead).toEqual([btoa("trusted"), btoa("named-data")]);
+					const pinnedRead = yield* Effect.scoped(
+						Effect.gen(function* () {
+							const files = yield* service.open(
+								makeInput({ artifactPath: source, namedArtifactPaths: { history: namedSource } }),
+							);
+							yield* fs.rename(source, path.join(root, "original.json"));
+							yield* fs.writeFileString(source, "spoofed");
+							const artifact = yield* files.artifactReadRange({ length: 7, offset: 0 });
+							const named = yield* files.artifactReadRange({
+								offset: 0,
+								length: 10,
+								key: "history",
+							});
+							const forged = yield* Effect.exit(
+								files.artifactReadRange({ length: 1, offset: 0, key: "forged" }),
+							);
+							assert(Exit.isFailure(forged));
+							const error = Cause.findErrorOption(forged.cause);
+							assert(Option.isSome(error));
+							expect(error.value.data).toEqual({
+								code: "missing-artifact-grant",
+								operation: "readNamedArtifact",
+							});
+							return [artifact.data, named.data];
+						}),
+					);
+					expect(pinnedRead).toEqual([btoa("trusted"), btoa("named-data")]);
 
-				const traversal = yield* Effect.scoped(
-					Effect.exit(service.open(makeInput({ artifactPath: `${root}/../replacement.json` }))),
-				);
-				expect(Exit.isFailure(traversal)).toBe(true);
+					const traversal = yield* Effect.scoped(
+						Effect.exit(service.open(makeInput({ artifactPath: `${root}/../replacement.json` }))),
+					);
+					expect(Exit.isFailure(traversal)).toBe(true);
 
-				const linkedFile = path.join(root, "linked.json");
-				yield* fs.symlink(replacement, linkedFile);
-				const symlinkGrant = yield* Effect.scoped(
-					Effect.exit(service.open(makeInput({ artifactPath: linkedFile }))),
-				);
-				expect(Exit.isFailure(symlinkGrant)).toBe(true);
-				const namedSymlinkGrant = yield* Effect.scoped(
-					Effect.exit(service.open(makeInput({ namedArtifactPaths: { forged: linkedFile } }))),
-				);
-				expect(Exit.isFailure(namedSymlinkGrant)).toBe(true);
-				yield* fs.remove(linkedFile);
+					const linkedFile = path.join(root, "linked.json");
+					yield* fs.symlink(replacement, linkedFile);
+					const symlinkGrant = yield* Effect.scoped(
+						Effect.exit(service.open(makeInput({ artifactPath: linkedFile }))),
+					);
+					expect(Exit.isFailure(symlinkGrant)).toBe(true);
+					const namedSymlinkGrant = yield* Effect.scoped(
+						Effect.exit(service.open(makeInput({ namedArtifactPaths: { forged: linkedFile } }))),
+					);
+					expect(Exit.isFailure(namedSymlinkGrant)).toBe(true);
+					yield* fs.remove(linkedFile);
 
-				const linkedParent = path.join(root, "linked-parent");
-				yield* fs.symlink(parentDirectory, linkedParent);
-				const parentGrant = yield* Effect.scoped(
-					Effect.exit(
-						service.open(makeInput({ artifactPath: path.join(linkedParent, "file.json") })),
-					),
-				);
-				expect(Exit.isFailure(parentGrant)).toBe(true);
-				yield* fs.remove(linkedParent);
+					const linkedParent = path.join(root, "linked-parent");
+					yield* fs.symlink(parentDirectory, linkedParent);
+					const parentGrant = yield* Effect.scoped(
+						Effect.exit(
+							service.open(makeInput({ artifactPath: path.join(linkedParent, "file.json") })),
+						),
+					);
+					expect(Exit.isFailure(parentGrant)).toBe(true);
+					yield* fs.remove(linkedParent);
 
-				const control = yield* FileServiceControl;
-				const raceDirectory = path.join(root, "race-parent");
-				const raceFile = path.join(raceDirectory, "file.json");
-				yield* fs.makeDirectory(raceDirectory);
-				yield* fs.writeFileString(raceFile, "original");
-				control.symlinkAfterStat = {
-					recursive: true,
-					path: raceDirectory,
-					target: outsideDirectory,
-				};
-				const racedParent = yield* Effect.scoped(
-					Effect.exit(service.open(makeInput({ artifactPath: raceFile }))),
-				);
-				expect(Exit.isFailure(racedParent)).toBe(true);
-				yield* fs.remove(raceDirectory);
+					const control = yield* FileServiceControl;
+					const raceDirectory = path.join(root, "race-parent");
+					const raceFile = path.join(raceDirectory, "file.json");
+					yield* fs.makeDirectory(raceDirectory);
+					yield* fs.writeFileString(raceFile, "original");
+					control.symlinkAfterStat = {
+						recursive: true,
+						path: raceDirectory,
+						target: outsideDirectory,
+					};
+					const racedParent = yield* Effect.scoped(
+						Effect.exit(service.open(makeInput({ artifactPath: raceFile }))),
+					);
+					expect(Exit.isFailure(racedParent)).toBe(true);
+					yield* fs.remove(raceDirectory);
 
-				const beforePolicy = yield* Effect.scoped(
-					Effect.gen(function* () {
-						const files = yield* service.open(
-							makeInput({ artifactPath: namedSource }, ["artifact-read", "scratch"], {
-								pluginId: null,
-								stage: "before",
-								delivery: "policy",
-								executionUserId: null,
-								type: "automation-run",
-								pluginRevisionId: null,
-								accountGeneration: null,
-								pluginConfigRevisionId: null,
-								runId: AutomationRunId.make("before-run"),
-								triggerId: AutomationTriggerId.make("before-trigger"),
-								causation: {
-									depth: 0,
-									source: "api",
-									parentRunId: null,
-									lane: "interactive",
-									parentTriggerId: null,
-									initiator: { id: null, kind: "system" },
-									executionId: AutomationExecutionId.make("before-execution"),
-									rootExecutionId: AutomationExecutionId.make("before-execution"),
-								},
-							}),
-						);
-						const read = yield* Effect.exit(files.artifactReadRange({ length: 1, offset: 0 }));
-						const write = yield* Effect.exit(
-							files.scratchWrite({ offset: 0, final: true, data: "AQ==", name: "blocked.bin" }),
-						);
-						return [read, write] as const;
-					}),
-				);
-				expect(beforePolicy.every(Exit.isFailure)).toBe(true);
-			}),
+					const beforePolicy = yield* Effect.scoped(
+						Effect.gen(function* () {
+							const files = yield* service.open(
+								makeInput({ artifactPath: namedSource }, ["artifact-read", "scratch"], {
+									pluginId: null,
+									stage: "before",
+									delivery: "policy",
+									executionUserId: null,
+									type: "automation-run",
+									pluginRevisionId: null,
+									accountGeneration: null,
+									pluginConfigRevisionId: null,
+									runId: AutomationRunId.make("before-run"),
+									triggerId: AutomationTriggerId.make("before-trigger"),
+									causation: {
+										depth: 0,
+										source: "api",
+										parentRunId: null,
+										lane: "interactive",
+										parentTriggerId: null,
+										initiator: { id: null, kind: "system" },
+										executionId: AutomationExecutionId.make("before-execution"),
+										rootExecutionId: AutomationExecutionId.make("before-execution"),
+									},
+								}),
+							);
+							const read = yield* Effect.exit(files.artifactReadRange({ length: 1, offset: 0 }));
+							const write = yield* Effect.exit(
+								files.scratchWrite({ offset: 0, final: true, data: "AQ==", name: "blocked.bin" }),
+							);
+							return [read, write] as const;
+						}),
+					);
+					expect(beforePolicy.every(Exit.isFailure)).toBe(true);
+				}),
+			testTimeout,
 		);
 	});
 });

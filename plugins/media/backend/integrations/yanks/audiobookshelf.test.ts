@@ -1,9 +1,12 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	execution,
@@ -148,84 +151,100 @@ describe("Audiobookshelf yank", () => {
 				]);
 				expect(state.requests[0]?.headers).toMatchObject({ Authorization: "Bearer key" });
 			}),
+		testTimeout,
 	);
 
 	it.live.each([
 		{ expected: 67, progress: 0.31, id: "ebook-ahead", ebookProgress: 0.67 },
 		{ expected: 78, progress: 0.78, id: "audio-ahead", ebookProgress: 0.2 },
-	])("uses the greater audio or ebook progress for ISBN items (%s)", (fixture) =>
-		Effect.gen(function* () {
-			const isbn = "978-0-441-01359-3";
-			const state = setup([audiobookItem(fixture.id, { isbn, title: "ISBN Book" })], {
-				routes: {
-					[`/api/me/progress/${fixture.id}`]: {
-						isFinished: false,
-						progress: fixture.progress,
-						ebookProgress: fixture.ebookProgress,
+	])(
+		"uses the greater audio or ebook progress for ISBN items (%s)",
+		(fixture) =>
+			Effect.gen(function* () {
+				const isbn = "978-0-441-01359-3";
+				const state = setup([audiobookItem(fixture.id, { isbn, title: "ISBN Book" })], {
+					routes: {
+						[`/api/me/progress/${fixture.id}`]: {
+							isFinished: false,
+							progress: fixture.progress,
+							ebookProgress: fixture.ebookProgress,
+						},
 					},
-				},
-			});
-			const result = yield* state.run();
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups[0]).toMatchObject({
-				events: [{ properties: { progressPercent: fixture.expected } }],
-				entityRef: {
-					kind: "unresolved",
-					identifierType: "isbn",
-					entitySchemaSlug: "book",
-					identifierValue: "9780441013593",
-				},
-			});
-		}),
+				});
+				const result = yield* state.run();
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups[0]).toMatchObject({
+					events: [{ properties: { progressPercent: fixture.expected } }],
+					entityRef: {
+						kind: "unresolved",
+						identifierType: "isbn",
+						entitySchemaSlug: "book",
+						identifierValue: "9780441013593",
+					},
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("prefers the Audible reference when metadata also has an ISBN", () =>
-		Effect.gen(function* () {
-			const state = setup([
-				audiobookItem("both-ids", {
-					asin: "B08G9PRS1K",
-					isbn: "9780441013593",
-					title: "Both Identifiers",
-				}),
-			]);
-			const result = yield* state.run();
-			expect(result.entityGroups[0]?.entityRef).toMatchObject({
-				kind: "resolved",
-				externalId: "B08G9PRS1K",
-				entitySchemaSlug: "audiobook",
-				providerSlug: "audiobook.audible",
-			});
-		}),
+	it.live(
+		"prefers the Audible reference when metadata also has an ISBN",
+		() =>
+			Effect.gen(function* () {
+				const state = setup([
+					audiobookItem("both-ids", {
+						asin: "B08G9PRS1K",
+						isbn: "9780441013593",
+						title: "Both Identifiers",
+					}),
+				]);
+				const result = yield* state.run();
+				expect(result.entityGroups[0]?.entityRef).toMatchObject({
+					kind: "resolved",
+					externalId: "B08G9PRS1K",
+					entitySchemaSlug: "audiobook",
+					providerSlug: "audiobook.audible",
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("skips finished 100 percent and non-positive progress without fetching history", () =>
-		Effect.gen(function* () {
-			const items = [
-				audiobookItem("finished-audio", { asin: "ASIN-1", title: "Finished" }),
-				audiobookItem("unfinished-audio", { asin: "ASIN-2", title: "Unfinished" }),
-				audiobookItem("finished-ebook", { isbn: "9780441013593", title: "Finished Ebook" }),
-				audiobookItem("zero", { title: "Zero", asin: "ASIN-4" }),
-			];
-			const state = setup(items, {
-				routes: {
-					"/api/me/progress/zero": { progress: 0, isFinished: false },
-					"/api/me/progress/finished-audio": { progress: 1, isFinished: true },
-					"/api/me/progress/unfinished-audio": { progress: 1, isFinished: false },
-					"/api/me/progress/finished-ebook": { progress: 0.4, ebookProgress: 1, isFinished: true },
-				},
-			});
-			const result = yield* state.run();
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups).toHaveLength(1);
-			expect(result.entityGroups[0]).toMatchObject({
-				itemIndex: 1,
-				events: [{ eventSchemaSlug: "progress", properties: { progressPercent: 100 } }],
-			});
-			expect(state.requests.some(({ url }) => routeKey(url).startsWith("/api/libraries"))).toBe(
-				false,
-			);
-			expect(state.requests.some(({ url }) => routeKey(url).startsWith("/api/items/"))).toBe(false);
-		}),
+	it.live(
+		"skips finished 100 percent and non-positive progress without fetching history",
+		() =>
+			Effect.gen(function* () {
+				const items = [
+					audiobookItem("finished-audio", { asin: "ASIN-1", title: "Finished" }),
+					audiobookItem("unfinished-audio", { asin: "ASIN-2", title: "Unfinished" }),
+					audiobookItem("finished-ebook", { isbn: "9780441013593", title: "Finished Ebook" }),
+					audiobookItem("zero", { title: "Zero", asin: "ASIN-4" }),
+				];
+				const state = setup(items, {
+					routes: {
+						"/api/me/progress/zero": { progress: 0, isFinished: false },
+						"/api/me/progress/finished-audio": { progress: 1, isFinished: true },
+						"/api/me/progress/unfinished-audio": { progress: 1, isFinished: false },
+						"/api/me/progress/finished-ebook": {
+							progress: 0.4,
+							ebookProgress: 1,
+							isFinished: true,
+						},
+					},
+				});
+				const result = yield* state.run();
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups).toHaveLength(1);
+				expect(result.entityGroups[0]).toMatchObject({
+					itemIndex: 1,
+					events: [{ eventSchemaSlug: "progress", properties: { progressPercent: 100 } }],
+				});
+				expect(state.requests.some(({ url }) => routeKey(url).startsWith("/api/libraries"))).toBe(
+					false,
+				);
+				expect(state.requests.some(({ url }) => routeKey(url).startsWith("/api/items/"))).toBe(
+					false,
+				);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -277,6 +296,7 @@ describe("Audiobookshelf yank", () => {
 					Array.from({ length: 26 }, (_, index) => index),
 				);
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -304,7 +324,7 @@ describe("Audiobookshelf yank", () => {
 				expect(result.entityGroups).toHaveLength(1);
 				expect(result.entityGroups[0]).toMatchObject({ itemIndex: 1 });
 				expect(result.failures).toHaveLength(5);
-				expect(result.failures).toContainEqual(
+				expect(result.failures).toContainEqual<unknown>(
 					objectContaining({
 						itemIndex: 0,
 						stage: "source_fetch",
@@ -312,7 +332,7 @@ describe("Audiobookshelf yank", () => {
 						message: "Failed to fetch Audiobookshelf item progress",
 					}),
 				);
-				expect(result.failures).toContainEqual(
+				expect(result.failures).toContainEqual<unknown>(
 					objectContaining({
 						itemIndex: 2,
 						stage: "input_transformation",
@@ -320,7 +340,7 @@ describe("Audiobookshelf yank", () => {
 						message: "Audiobookshelf item is missing media metadata",
 					}),
 				);
-				expect(result.failures).toContainEqual(
+				expect(result.failures).toContainEqual<unknown>(
 					objectContaining({
 						itemIndex: 3,
 						stage: "input_transformation",
@@ -328,7 +348,7 @@ describe("Audiobookshelf yank", () => {
 						message: "Audiobookshelf item has no Audible, valid ISBN, or iTunes identifier",
 					}),
 				);
-				expect(result.failures).toContainEqual(
+				expect(result.failures).toContainEqual<unknown>(
 					objectContaining({
 						itemIndex: 4,
 						stage: "source_fetch",
@@ -336,7 +356,7 @@ describe("Audiobookshelf yank", () => {
 						message: "Failed to fetch Audiobookshelf item progress",
 					}),
 				);
-				expect(result.failures).toContainEqual(
+				expect(result.failures).toContainEqual<unknown>(
 					objectContaining({
 						itemIndex: 5,
 						stage: "input_transformation",
@@ -345,165 +365,183 @@ describe("Audiobookshelf yank", () => {
 					}),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("maps ownership only when enabled and gives valid EPUB ISBNs precedence", () =>
-		Effect.gen(function* () {
-			const ownedItems: JsonValue[] = [
-				audiobookItem(
-					"owned-epub",
-					{ title: "EPUB", asin: "ASIN-EPUB", isbn: "978-0-441-01359-3" },
-					"epub",
-				),
-				audiobookItem("owned-audiobook", {
-					title: "Audiobook",
-					asin: "ASIN-AUDIO",
-					isbn: "9780441013593",
-				}),
-				podcastItem("owned-podcast", 98765),
-				audiobookItem("unidentified", { title: "No Identifiers" }),
-				audiobookItem(
-					"invalid-epub",
-					{ title: "Invalid EPUB", asin: "ASIN-BAD-EPUB", isbn: "9780441013594" },
-					"epub",
-				),
-			];
-			const state = setup([], {
-				syncOwnership: true,
-				routes: {
-					"/api/libraries": { libraries: [{ id: "library", name: "Library" }] },
-					"/api/libraries/library/items?expanded=1&limit=100&page=0": { results: ownedItems },
-				},
-			});
-			const result = yield* state.run();
-			const owned = ownedGroups(result);
-			expect(result.failures).toEqual([]);
-			expect(owned).toHaveLength(3);
-			expect(owned.map(({ entityRef }) => entityRef)).toMatchObject([
-				{ kind: "unresolved", identifierType: "isbn", identifierValue: "9780441013593" },
-				{ kind: "resolved", externalId: "ASIN-AUDIO", entitySchemaSlug: "audiobook" },
-				{ kind: "resolved", externalId: "98765", entitySchemaSlug: "podcast" },
-			]);
-			for (const group of owned) {
-				expect(group.events).toEqual([]);
-				expect(group.collectionMemberships).toEqual([]);
-				expect(group.ownershipProvider).toBe("audiobookshelf");
-			}
-			expect(state.requests.some(({ url }) => routeKey(url).startsWith("/api/me/progress/"))).toBe(
-				false,
-			);
-		}),
-	);
-
-	it.live("pages every ownership library once and continues after a library failure", () =>
-		Effect.gen(function* () {
-			const firstPage = Array.from({ length: 100 }, (_, index) =>
-				audiobookItem(`page-${index}`, { asin: `ASIN-${index}`, title: `Page ${index}` }),
-			);
-			const pageOne = [audiobookItem("page-last", { asin: "ASIN-LAST", title: "Page last" })];
-			const secondLibrary = [
-				audiobookItem("library-two", { asin: "ASIN-TWO", title: "Library Two" }),
-			];
-			const state = setup([], {
-				syncOwnership: true,
-				routes: {
-					"/api/libraries/broken/items?expanded=1&limit=100&page=0": requestFailure,
-					"/api/libraries/one/items?expanded=1&limit=100&page=1": { results: pageOne },
-					"/api/libraries/one/items?expanded=1&limit=100&page=0": { results: firstPage },
-					"/api/libraries/two/items?expanded=1&limit=100&page=0": { results: secondLibrary },
-					"/api/libraries/malformed/items?expanded=1&limit=100&page=0": { results: "not-an-array" },
-					"/api/libraries": {
-						libraries: [
-							{ id: "one", name: "One" },
-							{ id: "broken", name: "Broken" },
-							{ id: "two", name: "Two" },
-							{ id: "malformed", name: "Malformed" },
-						],
+	it.live(
+		"maps ownership only when enabled and gives valid EPUB ISBNs precedence",
+		() =>
+			Effect.gen(function* () {
+				const ownedItems: JsonValue[] = [
+					audiobookItem(
+						"owned-epub",
+						{ title: "EPUB", asin: "ASIN-EPUB", isbn: "978-0-441-01359-3" },
+						"epub",
+					),
+					audiobookItem("owned-audiobook", {
+						title: "Audiobook",
+						asin: "ASIN-AUDIO",
+						isbn: "9780441013593",
+					}),
+					podcastItem("owned-podcast", 98765),
+					audiobookItem("unidentified", { title: "No Identifiers" }),
+					audiobookItem(
+						"invalid-epub",
+						{ title: "Invalid EPUB", asin: "ASIN-BAD-EPUB", isbn: "9780441013594" },
+						"epub",
+					),
+				];
+				const state = setup([], {
+					syncOwnership: true,
+					routes: {
+						"/api/libraries": { libraries: [{ id: "library", name: "Library" }] },
+						"/api/libraries/library/items?expanded=1&limit=100&page=0": { results: ownedItems },
 					},
-				},
-			});
-			const result = yield* state.run();
-			const owned = ownedGroups(result);
-			expect(owned).toHaveLength(102);
-			expect(result.failures).toHaveLength(2);
-			expect(result.failures).toContainEqual(
-				objectContaining({
-					itemIndex: 101,
-					stage: "source_fetch",
-					sourceIdentifier: "broken",
-					message: "Failed to fetch Audiobookshelf library items",
-				}),
-			);
-			expect(result.failures).toContainEqual(
-				objectContaining({
-					itemIndex: 103,
-					stage: "source_fetch",
-					sourceIdentifier: "malformed",
-					message: "Failed to fetch Audiobookshelf library items",
-				}),
-			);
-			const itemIndexes = [
-				...owned.map(({ itemIndex }) => itemIndex),
-				...result.failures.map(({ itemIndex }) => itemIndex),
-			];
-			expect(new Set(itemIndexes).size).toBe(itemIndexes.length);
-			expect(itemIndexes.sort((left, right) => left - right)).toEqual(
-				Array.from({ length: 104 }, (_, index) => index),
-			);
-			for (const path of [
-				"/api/libraries/one/items?expanded=1&limit=100&page=0",
-				"/api/libraries/one/items?expanded=1&limit=100&page=1",
-				"/api/libraries/broken/items?expanded=1&limit=100&page=0",
-				"/api/libraries/two/items?expanded=1&limit=100&page=0",
-				"/api/libraries/malformed/items?expanded=1&limit=100&page=0",
-			]) {
-				expect(state.requests.filter(({ url }) => routeKey(url) === path)).toHaveLength(1);
-			}
-		}),
+				});
+				const result = yield* state.run();
+				const owned = ownedGroups(result);
+				expect(result.failures).toEqual([]);
+				expect(owned).toHaveLength(3);
+				expect(owned.map(({ entityRef }) => entityRef)).toMatchObject([
+					{ kind: "unresolved", identifierType: "isbn", identifierValue: "9780441013593" },
+					{ kind: "resolved", externalId: "ASIN-AUDIO", entitySchemaSlug: "audiobook" },
+					{ kind: "resolved", externalId: "98765", entitySchemaSlug: "podcast" },
+				]);
+				for (const group of owned) {
+					expect(group.events).toEqual([]);
+					expect(group.collectionMemberships).toEqual([]);
+					expect(group.ownershipProvider).toBe("audiobookshelf");
+				}
+				expect(
+					state.requests.some(({ url }) => routeKey(url).startsWith("/api/me/progress/")),
+				).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live.each(rootFailures)("fails the full task for a $name", ({ routes }) =>
-		Effect.gen(function* () {
-			const state = setup([], { routes });
-			const result = yield* Effect.exit(state.run());
-			expect(result._tag).toBe("Failure");
-		}),
-	);
-
-	it.live("treats an empty in-progress snapshot as successful", () =>
-		Effect.gen(function* () {
-			const state = setup([]);
-			const result = yield* state.run();
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups).toEqual([]);
-			expect(state.requests.map(({ url }) => routeKey(url))).toEqual([
-				"/api/me",
-				"/api/me/items-in-progress?limit=1",
-			]);
-		}),
-	);
-
-	it.live("does no work for confirmation input", () =>
-		Effect.gen(function* () {
-			const state = setup([]);
-			const output = yield* runSandboxTestScript(
-				definition,
-				{
-					ingestionConfirmation: {
-						part: 0,
-						final: true,
-						runId: "run",
-						confirmed: [],
-						batchId: "batch",
-						inputFingerprint: "fingerprint",
+	it.live(
+		"pages every ownership library once and continues after a library failure",
+		() =>
+			Effect.gen(function* () {
+				const firstPage = Array.from({ length: 100 }, (_, index) =>
+					audiobookItem(`page-${index}`, { asin: `ASIN-${index}`, title: `Page ${index}` }),
+				);
+				const pageOne = [audiobookItem("page-last", { asin: "ASIN-LAST", title: "Page last" })];
+				const secondLibrary = [
+					audiobookItem("library-two", { asin: "ASIN-TWO", title: "Library Two" }),
+				];
+				const state = setup([], {
+					syncOwnership: true,
+					routes: {
+						"/api/libraries/broken/items?expanded=1&limit=100&page=0": requestFailure,
+						"/api/libraries/one/items?expanded=1&limit=100&page=1": { results: pageOne },
+						"/api/libraries/one/items?expanded=1&limit=100&page=0": { results: firstPage },
+						"/api/libraries/two/items?expanded=1&limit=100&page=0": { results: secondLibrary },
+						"/api/libraries/malformed/items?expanded=1&limit=100&page=0": {
+							results: "not-an-array",
+						},
+						"/api/libraries": {
+							libraries: [
+								{ id: "one", name: "One" },
+								{ id: "broken", name: "Broken" },
+								{ id: "two", name: "Two" },
+								{ id: "malformed", name: "Malformed" },
+							],
+						},
 					},
-				},
-				state.host,
-				execution,
-			);
-			expect(output).toEqual({ chunkFiles: [], carryFile: null });
-			expect(state.integrationReads()).toBe(0);
-			expect(state.requests).toEqual([]);
-		}),
+				});
+				const result = yield* state.run();
+				const owned = ownedGroups(result);
+				expect(owned).toHaveLength(102);
+				expect(result.failures).toHaveLength(2);
+				expect(result.failures).toContainEqual<unknown>(
+					objectContaining({
+						itemIndex: 101,
+						stage: "source_fetch",
+						sourceIdentifier: "broken",
+						message: "Failed to fetch Audiobookshelf library items",
+					}),
+				);
+				expect(result.failures).toContainEqual<unknown>(
+					objectContaining({
+						itemIndex: 103,
+						stage: "source_fetch",
+						sourceIdentifier: "malformed",
+						message: "Failed to fetch Audiobookshelf library items",
+					}),
+				);
+				const itemIndexes = [
+					...owned.map(({ itemIndex }) => itemIndex),
+					...result.failures.map(({ itemIndex }) => itemIndex),
+				];
+				expect(new Set(itemIndexes).size).toBe(itemIndexes.length);
+				expect(itemIndexes.sort((left, right) => left - right)).toEqual(
+					Array.from({ length: 104 }, (_, index) => index),
+				);
+				for (const path of [
+					"/api/libraries/one/items?expanded=1&limit=100&page=0",
+					"/api/libraries/one/items?expanded=1&limit=100&page=1",
+					"/api/libraries/broken/items?expanded=1&limit=100&page=0",
+					"/api/libraries/two/items?expanded=1&limit=100&page=0",
+					"/api/libraries/malformed/items?expanded=1&limit=100&page=0",
+				]) {
+					expect(state.requests.filter(({ url }) => routeKey(url) === path)).toHaveLength(1);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live.each(rootFailures)(
+		"fails the full task for a $name",
+		({ routes }) =>
+			Effect.gen(function* () {
+				const state = setup([], { routes });
+				const result = yield* Effect.exit(state.run());
+				expect(result._tag).toBe("Failure");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"treats an empty in-progress snapshot as successful",
+		() =>
+			Effect.gen(function* () {
+				const state = setup([]);
+				const result = yield* state.run();
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups).toEqual([]);
+				expect(state.requests.map(({ url }) => routeKey(url))).toEqual([
+					"/api/me",
+					"/api/me/items-in-progress?limit=1",
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does no work for confirmation input",
+		() =>
+			Effect.gen(function* () {
+				const state = setup([]);
+				const output = yield* runSandboxTestScript(
+					definition,
+					{
+						ingestionConfirmation: {
+							part: 0,
+							final: true,
+							runId: "run",
+							confirmed: [],
+							batchId: "batch",
+							inputFingerprint: "fingerprint",
+						},
+					},
+					state.host,
+					execution,
+				);
+				expect(output).toEqual({ chunkFiles: [], carryFile: null });
+				expect(state.integrationReads()).toBe(0);
+				expect(state.requests).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

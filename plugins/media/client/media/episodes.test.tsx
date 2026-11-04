@@ -1,7 +1,10 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	decodeEpisodicEpisodePage,
@@ -75,96 +78,111 @@ afterEach(() => {
 });
 
 describe("media episode pages", () => {
-	it.live("leads the first page with the summary's next up even when no loaded page holds it", () =>
-		Effect.gen(function* () {
-			const { adapter, documents } = pagingAdapter();
-			const view = mountRyotClient(adapter, <Pages nextUp={SUMMARY_NEXT_UP} />);
-			yield* Effect.promise(() => flushRyotClient());
+	it.live(
+		"leads the first page with the summary's next up even when no loaded page holds it",
+		() =>
+			Effect.gen(function* () {
+				const { adapter, documents } = pagingAdapter();
+				const view = mountRyotClient(adapter, <Pages nextUp={SUMMARY_NEXT_UP} />);
+				yield* Effect.promise(() => flushRyotClient());
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Nine")),
-			);
-			expect(view.container.textContent).toContain("Eight");
-			expect(view.container.textContent).toContain("Next up");
-			expect(view.container.textContent).toContain("Seven");
-			expect(documents).toHaveLength(1);
-			expect(loadMore(view.container)).not.toBeUndefined();
-			view.unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Nine")),
+				);
+				expect(view.container.textContent).toContain("Eight");
+				expect(view.container.textContent).toContain("Next up");
+				expect(view.container.textContent).toContain("Seven");
+				expect(documents).toHaveLength(1);
+				expect(loadMore(view.container)).not.toBeUndefined();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("renders no next up card without a summary next up", () =>
-		Effect.gen(function* () {
-			const { adapter } = pagingAdapter();
-			const view = mountRyotClient(adapter, <Pages />);
-			yield* Effect.promise(() => flushRyotClient());
+	it.live(
+		"renders no next up card without a summary next up",
+		() =>
+			Effect.gen(function* () {
+				const { adapter } = pagingAdapter();
+				const view = mountRyotClient(adapter, <Pages />);
+				yield* Effect.promise(() => flushRyotClient());
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Nine")),
-			);
-			expect(view.container.textContent).not.toContain("Next up");
-			view.unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Nine")),
+				);
+				expect(view.container.textContent).not.toContain("Next up");
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("appends the next page without refetching the pages already on screen", () =>
-		Effect.gen(function* () {
-			const { adapter, documents } = pagingAdapter();
-			const view = mountRyotClient(adapter, <Pages />);
-			yield* Effect.promise(() => flushRyotClient());
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Nine")),
-			);
+	it.live(
+		"appends the next page without refetching the pages already on screen",
+		() =>
+			Effect.gen(function* () {
+				const { adapter, documents } = pagingAdapter();
+				const view = mountRyotClient(adapter, <Pages />);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Nine")),
+				);
 
-			const control = loadMore(view.container);
-			if (control === undefined) {
-				throw new Error("Expected the load more control");
-			}
-			fireEvent.click(control);
-			yield* Effect.promise(() => flushRyotClient());
+				const control = loadMore(view.container);
+				if (control === undefined) {
+					throw new Error("Expected the load more control");
+				}
+				fireEvent.click(control);
+				yield* Effect.promise(() => flushRyotClient());
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Seven")),
-			);
-			expect(view.container.textContent).toContain("Nine");
-			expect(documents).toHaveLength(2);
-			expect(loadMore(view.container)).toBeUndefined();
-			view.unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Seven")),
+				);
+				expect(view.container.textContent).toContain("Nine");
+				expect(documents).toHaveLength(2);
+				expect(loadMore(view.container)).toBeUndefined();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("explains an empty feed and keeps the control away from a single page", () =>
-		Effect.gen(function* () {
-			const view = mountRyotClient(
-				{ query: () => Effect.succeed(episodicEpisodePageData({ episodes: [] })) },
-				<Pages />,
-			);
-			yield* Effect.promise(() => flushRyotClient());
+	it.live(
+		"explains an empty feed and keeps the control away from a single page",
+		() =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(
+					{ query: () => Effect.succeed(episodicEpisodePageData({ episodes: [] })) },
+					<Pages />,
+				);
+				yield* Effect.promise(() => flushRyotClient());
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(view.container.textContent).toContain("No episodes have been recorded yet."),
-				),
-			);
-			expect(loadMore(view.container)).toBeUndefined();
-			view.unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.container.textContent).toContain("No episodes have been recorded yet."),
+					),
+				);
+				expect(loadMore(view.container)).toBeUndefined();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps a page failure behind stable copy", () =>
-		Effect.gen(function* () {
-			const view = mountRyotClient(
-				{ query: () => Effect.fail(new RyotClientError({ reason: "transport" })) },
-				<Pages />,
-			);
-			yield* Effect.promise(() => flushRyotClient());
+	it.live(
+		"keeps a page failure behind stable copy",
+		() =>
+			Effect.gen(function* () {
+				const view = mountRyotClient(
+					{ query: () => Effect.fail(new RyotClientError({ reason: "transport" })) },
+					<Pages />,
+				);
+				yield* Effect.promise(() => flushRyotClient());
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(view.container.textContent).toContain("Unable to load these episodes"),
-				),
-			);
-			view.unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.container.textContent).toContain("Unable to load these episodes"),
+					),
+				);
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });

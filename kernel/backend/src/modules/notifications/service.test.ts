@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
@@ -48,42 +51,48 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("retains a channel test submission and returns its admitted notification", () =>
-		Effect.gen(function* () {
-			const service = yield* NotificationsService;
-			const submittedAt = (yield* DateTime.nowAsDate).toISOString();
-			expect(yield* service.test(user, { submittedAt, idempotencyKey: "test-1" })).toEqual({
-				id: "admitted-notification",
-			});
-			expect(yield* (yield* RecordedAdmissions).inputs).toEqual([
-				{
-					userId: user.id,
-					sourceRunId: null,
-					request: { kind: "test" },
-					sourceSubmittedAt: submittedAt,
-					sourceKey: "channel-test:test-1",
-					accountGeneration: user.accountGeneration,
-				},
-			]);
-		}),
+	test.effect(
+		"retains a channel test submission and returns its admitted notification",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* NotificationsService;
+				const submittedAt = (yield* DateTime.nowAsDate).toISOString();
+				expect(yield* service.test(user, { submittedAt, idempotencyKey: "test-1" })).toEqual({
+					id: "admitted-notification",
+				});
+				expect(yield* (yield* RecordedAdmissions).inputs).toEqual([
+					{
+						userId: user.id,
+						sourceRunId: null,
+						request: { kind: "test" },
+						sourceSubmittedAt: submittedAt,
+						sourceKey: "channel-test:test-1",
+						accountGeneration: user.accountGeneration,
+					},
+				]);
+			}),
+		testTimeout,
 	);
-	test.effect("forwards trusted run and call authority, normalizing message content", () =>
-		Effect.gen(function* () {
-			const service = yield* NotificationsService;
-			yield* service.sendMessage({
-				sourceRunId: "run-1",
-				sourceKey: "run-1-host-3-notification",
-				message: "  Subscription run completed  ",
-				accountGeneration: user.accountGeneration,
-			});
-			expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
-				userId: user.id,
-				sourceRunId: "run-1",
-				sourceSubmittedAt: null,
-				sourceKey: "run-1-host-3-notification",
-				accountGeneration: user.accountGeneration,
-				request: { kind: "message", message: "Subscription run completed" },
-			});
-		}),
+	test.effect(
+		"forwards trusted run and call authority, normalizing message content",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* NotificationsService;
+				yield* service.sendMessage({
+					sourceRunId: "run-1",
+					sourceKey: "run-1-host-3-notification",
+					message: "  Subscription run completed  ",
+					accountGeneration: user.accountGeneration,
+				});
+				expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
+					userId: user.id,
+					sourceRunId: "run-1",
+					sourceSubmittedAt: null,
+					sourceKey: "run-1-host-3-notification",
+					accountGeneration: user.accountGeneration,
+					request: { kind: "message", message: "Subscription run completed" },
+				});
+			}),
+		testTimeout,
 	);
 });

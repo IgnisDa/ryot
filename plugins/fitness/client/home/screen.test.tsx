@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type {
 	AggregateResult,
 	RowsResult,
@@ -14,7 +15,9 @@ import {
 	pluginContributor,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
@@ -277,198 +280,221 @@ const settle = (assert: () => void) =>
 	);
 
 describe("fitness home", () => {
-	it.live("keeps loaded panels visible while foreground refresh uses current rolling windows", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const now = DateTime.toEpochMillis(yield* DateTime.now);
-			yield* Effect.promise(() => clock.setTime(now));
-			yield* Effect.gen(function* () {
-				const { page, answerPending } = openHome(
-					{ goal: 5, workouts: true, metrics: [pinnedMetric] },
-					clock,
-				);
-				answerCurrent = answerPending;
-				yield* settle(() => {
+	it.live(
+		"keeps loaded panels visible while foreground refresh uses current rolling windows",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const now = DateTime.toEpochMillis(yield* DateTime.now);
+				yield* Effect.promise(() => clock.setTime(now));
+				yield* Effect.gen(function* () {
+					const { page, answerPending } = openHome(
+						{ goal: 5, workouts: true, metrics: [pinnedMetric] },
+						clock,
+					);
+					answerCurrent = answerPending;
+					yield* settle(() => {
+						expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
+						expect(
+							within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
+						).toBeTruthy();
+						expect(
+							body.getByText(
+								"From logged sets. A set counts 1 toward primary targets and ½ toward secondary; stabilizers excluded.",
+							),
+						).toBeTruthy();
+					});
+					const count = page.queryRequests().length;
+					const previous = page
+						.queryRequests()
+						.findLast((request) => "activity" in request.document.queries);
+					yield* Effect.promise(() => clock.advance(24 * HOUR_MS));
+					page.send({ type: "page-refresh" });
+					yield* Effect.promise(() => clock.advance(0));
+					yield* Effect.promise(() => clock.advance(250));
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.queryRequests().length).toBeGreaterThan(count)),
+					);
+					expect(
+						body.queryByText(/Loading (weekly goal|muscle activity|personal bests|measurements)/),
+					).toBeNull();
 					expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
 					expect(
 						within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
 					).toBeTruthy();
-					expect(
-						body.getByText(
-							"From logged sets. A set counts 1 toward primary targets and ½ toward secondary; stabilizers excluded.",
-						),
-					).toBeTruthy();
+					const refreshed = page
+						.queryRequests()
+						.slice(count)
+						.filter((request) => "activity" in request.document.queries);
+					expect(refreshed).toHaveLength(1);
+					expect(refreshed[0]?.document).not.toEqual(previous?.document);
+					answerPending();
+					yield* settle(() =>
+						expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy(),
+					);
+				}).pipe(
+					Effect.ensuring(
+						Effect.promise(() => {
+							disposePluginBridges();
+							return clock.dispose();
+						}),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"invites a new user to set up, with checklist progress from their data",
+		() =>
+			Effect.gen(function* () {
+				answerCurrent = openHome({
+					goal: 4,
+					workouts: false,
+					metrics: [pinnedMetric],
+				}).answerPending;
+				yield* settle(() => {
+					expect(body.getByRole("heading", { name: "Your training starts here" })).toBeTruthy();
+					expect(body.getByText("2 of 4 done")).toBeTruthy();
 				});
-				const count = page.queryRequests().length;
-				const previous = page
-					.queryRequests()
-					.findLast((request) => "activity" in request.document.queries);
-				yield* Effect.promise(() => clock.advance(24 * HOUR_MS));
-				page.send({ type: "page-refresh" });
-				yield* Effect.promise(() => clock.advance(0));
-				yield* Effect.promise(() => clock.advance(250));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests().length).toBeGreaterThan(count)),
-				);
-				expect(
-					body.queryByText(/Loading (weekly goal|muscle activity|personal bests|measurements)/),
-				).toBeNull();
-				expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
-				expect(
-					within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
-				).toBeTruthy();
-				const refreshed = page
-					.queryRequests()
-					.slice(count)
-					.filter((request) => "activity" in request.document.queries);
-				expect(refreshed).toHaveLength(1);
-				expect(refreshed[0]?.document).not.toEqual(previous?.document);
-				answerPending();
+				expect(body.getByRole("link", { name: "Start your first workout" })).toBeTruthy();
+				expect(body.getByRole("link", { name: "Upload CSV for Hevy export" })).toBeTruthy();
+				expect(body.queryByRole("region", { name: "Weekly goal" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows the launchpad with the week, last workout, templates, muscles and records",
+		() =>
+			Effect.gen(function* () {
+				const { page, answerPending } = openHome({
+					goal: 5,
+					workouts: true,
+					metrics: [pinnedMetric],
+				});
+				answerCurrent = answerPending;
+				yield* settle(() => {
+					expect(
+						within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
+					).toBeTruthy();
+					expect(
+						within(body.getByRole("region", { name: "Last workout" })).getByText("Legs - 2"),
+					).toBeTruthy();
+					expect(body.getByRole("link", { name: "Start Push" }).getAttribute("href")).toContain(
+						"/templates/t1/start",
+					);
+					expect(body.getByText("Never")).toBeTruthy();
+					expect(body.getByText("4 sets")).toBeTruthy();
+					expect(
+						within(body.getByRole("region", { name: "Pinned measurements" })).getByText("73.6 kg"),
+					).toBeTruthy();
+					expect(body.getByText("Most reps · ", { exact: false })).toBeTruthy();
+					expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
+				});
+				expect(body.queryByRole("heading", { name: "Your training starts here" })).toBeNull();
+				fireEvent.click(body.getByRole("link", { name: "Edit goal" }));
 				yield* settle(() =>
-					expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy(),
+					expect(
+						page.clientMessages().filter((message) => message.type === "navigate"),
+					).toEqual<unknown>([
+						{
+							mode: "push",
+							type: "navigate",
+							target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
+						},
+					]),
 				);
-			}).pipe(
-				Effect.ensuring(
-					Effect.promise(() => {
-						disposePluginBridges();
-						return clock.dispose();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"links to the generic Analytics view from desktop and compact home controls",
+		() =>
+			Effect.gen(function* () {
+				const { page, answerPending } = openHome({ workouts: true });
+				answerCurrent = answerPending;
+				const expectedNavigation = {
+					mode: "push",
+					type: "navigate",
+					target: { kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } },
+				};
+
+				yield* settle(() =>
+					expect(body.getByRole("link", { name: "Analytics" }).getAttribute("href")).toBe(
+						"/v/k/analytics",
+					),
+				);
+				fireEvent.click(body.getByRole("link", { name: "Analytics" }));
+				yield* settle(() =>
+					expect(
+						page.clientMessages().filter((message) => message.type === "navigate"),
+					).toEqual<unknown>([expectedNavigation]),
+				);
+
+				page.navigate(routeLocation("/"), { compact: true });
+				yield* settle(() =>
+					expect(body.getByRole("link", { name: "Analytics" }).getAttribute("href")).toBe(
+						"/v/k/analytics",
+					),
+				);
+				fireEvent.click(body.getByRole("link", { name: "Analytics" }));
+				yield* settle(() =>
+					expect(
+						page.clientMessages().filter((message) => message.type === "navigate"),
+					).toEqual<unknown>([expectedNavigation, expectedNavigation]),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"asks for a weekly goal once a goal is cleared and links to plugin preferences",
+		() =>
+			Effect.gen(function* () {
+				const { page, answerPending } = openHome({ goal: null, workouts: true });
+				answerCurrent = answerPending;
+				yield* settle(() => expect(body.getByRole("link", { name: "Choose a goal" })).toBeTruthy());
+				fireEvent.click(body.getByRole("link", { name: "Choose a goal" }));
+				yield* settle(() =>
+					expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
+						{
+							mode: "push",
+							type: "navigate",
+							target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
+						},
+					]),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers Resume for a device draft and navigates to the editor",
+		() =>
+			Effect.gen(function* () {
+				const { page, answerPending } = openHome({
+					workouts: true,
+					storedDraft: yield* storedEditorDraft({ name: "Push", startedAt: hoursAgo(1) }),
+				});
+				answerCurrent = answerPending;
+				yield* settle(() => {
+					const banner = body.getByRole("region", { name: "Workout in progress" });
+					expect(within(banner).getByText("Push")).toBeTruthy();
+				});
+				expect(body.queryByRole("button", { name: "Start empty workout" })).toBeNull();
+				fireEvent.click(
+					within(body.getByRole("region", { name: "Workout in progress" })).getByRole("button", {
+						name: "Resume",
 					}),
-				),
-			);
-		}),
-	);
-
-	it.live("invites a new user to set up, with checklist progress from their data", () =>
-		Effect.gen(function* () {
-			answerCurrent = openHome({ goal: 4, workouts: false, metrics: [pinnedMetric] }).answerPending;
-			yield* settle(() => {
-				expect(body.getByRole("heading", { name: "Your training starts here" })).toBeTruthy();
-				expect(body.getByText("2 of 4 done")).toBeTruthy();
-			});
-			expect(body.getByRole("link", { name: "Start your first workout" })).toBeTruthy();
-			expect(body.getByRole("link", { name: "Upload CSV for Hevy export" })).toBeTruthy();
-			expect(body.queryByRole("region", { name: "Weekly goal" })).toBeNull();
-		}),
-	);
-
-	it.live("shows the launchpad with the week, last workout, templates, muscles and records", () =>
-		Effect.gen(function* () {
-			const { page, answerPending } = openHome({
-				goal: 5,
-				workouts: true,
-				metrics: [pinnedMetric],
-			});
-			answerCurrent = answerPending;
-			yield* settle(() => {
-				expect(
-					within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
-				).toBeTruthy();
-				expect(
-					within(body.getByRole("region", { name: "Last workout" })).getByText("Legs - 2"),
-				).toBeTruthy();
-				expect(body.getByRole("link", { name: "Start Push" }).getAttribute("href")).toContain(
-					"/templates/t1/start",
 				);
-				expect(body.getByText("Never")).toBeTruthy();
-				expect(body.getByText("4 sets")).toBeTruthy();
-				expect(
-					within(body.getByRole("region", { name: "Pinned measurements" })).getByText("73.6 kg"),
-				).toBeTruthy();
-				expect(body.getByText("Most reps · ", { exact: false })).toBeTruthy();
-				expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy();
-			});
-			expect(body.queryByRole("heading", { name: "Your training starts here" })).toBeNull();
-			fireEvent.click(body.getByRole("link", { name: "Edit goal" }));
-			yield* settle(() =>
-				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
-					{
-						mode: "push",
-						type: "navigate",
-						target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
-					},
-				]),
-			);
-		}),
-	);
-
-	it.live("links to the generic Analytics view from desktop and compact home controls", () =>
-		Effect.gen(function* () {
-			const { page, answerPending } = openHome({ workouts: true });
-			answerCurrent = answerPending;
-			const expectedNavigation = {
-				mode: "push",
-				type: "navigate",
-				target: { kind: "saved-view", reference: { kind: "kernel", slug: "analytics" } },
-			};
-
-			yield* settle(() =>
-				expect(body.getByRole("link", { name: "Analytics" }).getAttribute("href")).toBe(
-					"/v/k/analytics",
-				),
-			);
-			fireEvent.click(body.getByRole("link", { name: "Analytics" }));
-			yield* settle(() =>
-				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
-					expectedNavigation,
-				]),
-			);
-
-			page.navigate(routeLocation("/"), { compact: true });
-			yield* settle(() =>
-				expect(body.getByRole("link", { name: "Analytics" }).getAttribute("href")).toBe(
-					"/v/k/analytics",
-				),
-			);
-			fireEvent.click(body.getByRole("link", { name: "Analytics" }));
-			yield* settle(() =>
-				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
-					expectedNavigation,
-					expectedNavigation,
-				]),
-			);
-		}),
-	);
-
-	it.live("asks for a weekly goal once a goal is cleared and links to plugin preferences", () =>
-		Effect.gen(function* () {
-			const { page, answerPending } = openHome({ goal: null, workouts: true });
-			answerCurrent = answerPending;
-			yield* settle(() => expect(body.getByRole("link", { name: "Choose a goal" })).toBeTruthy());
-			fireEvent.click(body.getByRole("link", { name: "Choose a goal" }));
-			yield* settle(() =>
-				expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
-					{
-						mode: "push",
-						type: "navigate",
-						target: { kind: "plugin-preferences", packageId: PLUGIN_PACKAGE_ID },
-					},
-				]),
-			);
-		}),
-	);
-
-	it.live("offers Resume for a device draft and navigates to the editor", () =>
-		Effect.gen(function* () {
-			const { page, answerPending } = openHome({
-				workouts: true,
-				storedDraft: yield* storedEditorDraft({ name: "Push", startedAt: hoursAgo(1) }),
-			});
-			answerCurrent = answerPending;
-			yield* settle(() => {
-				const banner = body.getByRole("region", { name: "Workout in progress" });
-				expect(within(banner).getByText("Push")).toBeTruthy();
-			});
-			expect(body.queryByRole("button", { name: "Start empty workout" })).toBeNull();
-			fireEvent.click(
-				within(body.getByRole("region", { name: "Workout in progress" })).getByRole("button", {
-					name: "Resume",
-				}),
-			);
-			yield* settle(() =>
-				expect(page.clientMessages().filter((message) => message.type === "navigate")).toHaveLength(
-					1,
-				),
-			);
-		}),
+				yield* settle(() =>
+					expect(
+						page.clientMessages().filter((message) => message.type === "navigate"),
+					).toHaveLength(1),
+				);
+			}),
+		testTimeout,
 	);
 });

@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import definition, { manifest } from "./notification.sandbox";
 
@@ -35,25 +38,28 @@ const notificationInput = (signalSchemaSlug: string, properties: Record<string, 
 		},
 	}).pipe(Effect.orDie);
 
-it.effect("formats workout.created exclusively from the inline signal", () =>
-	Effect.gen(function* () {
-		const messages: string[] = [];
-		return yield* definition
-			.run(
-				yield* notificationInput("workout.created", { workoutName: "Morning Run" }),
-				defineSandboxTestHost(manifest, {
-					sendNotification: (message) => {
-						messages.push(message);
-						return Effect.succeed(null);
-					},
-				}),
-			)
-			.pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(messages).toEqual(["Workout Morning Run was created"]);
-					return result;
-				}),
-			);
-	}),
+it.effect(
+	"formats workout.created exclusively from the inline signal",
+	() =>
+		Effect.gen(function* () {
+			const messages: string[] = [];
+			return yield* definition
+				.run(
+					yield* notificationInput("workout.created", { workoutName: "Morning Run" }),
+					defineSandboxTestHost(manifest, {
+						sendNotification: (message) => {
+							messages.push(message);
+							return Effect.succeed(null);
+						},
+					}),
+				)
+				.pipe(
+					Effect.map((result) => {
+						expect(result).toBeNull();
+						expect(messages).toEqual(["Workout Morning Run was created"]);
+						return result;
+					}),
+				);
+		}),
+	testTimeout,
 );

@@ -1,12 +1,17 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 	type StoredTokenSet,
 } from "@ryot-app/contract/oauth";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Fiber, Layer, Queue } from "effect";
 
 import { ServerOrigin } from "#/api/origin";
+import type { OAuthFetch } from "#/modules/auth/oauth-endpoint";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import {
 	fakeOAuthStorageLayer,
@@ -55,7 +60,7 @@ const authorizationLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const requests = yield* Queue.unbounded<PendingRequest>();
 		const context = yield* Effect.context();
-		const fetcher: typeof fetch = (input, init) =>
+		const fetcher: OAuthFetch = (input, init) =>
 			Effect.runPromiseWith(context)(
 				Effect.gen(function* () {
 					const reply = yield* Deferred.make<Response>();
@@ -118,222 +123,243 @@ const replaceAuthorization = Effect.fnUntraced(function* (
 });
 
 layer(authorizationLayer)((test) => {
-	test.effect("rotation retains the settled profile and leaves other origins independent", () =>
-		Effect.gen(function* () {
-			const storage = yield* OAuthStorage;
-			const service = yield* OAuthTokenService;
-			const auth = yield* AuthService;
-			const endpoint = yield* Endpoint;
-			const other = ServerOrigin.make("https://other-authorization.test");
-			yield* storage.setTokenSet(origin, tokens("profile-owner"));
-			yield* storage.setTokenSet(other, tokens("other-owner"));
-			for (const server of [origin, other]) {
-				const resolution = yield* Effect.forkChild(auth.settledSession(server, true));
+	test.effect(
+		"rotation retains the settled profile and leaves other origins independent",
+		() =>
+			Effect.gen(function* () {
+				const storage = yield* OAuthStorage;
+				const service = yield* OAuthTokenService;
+				const auth = yield* AuthService;
+				const endpoint = yield* Endpoint;
+				const other = ServerOrigin.make("https://other-authorization.test");
+				yield* storage.setTokenSet(origin, tokens("profile-owner"));
+				yield* storage.setTokenSet(other, tokens("other-owner"));
+				for (const server of [origin, other]) {
+					const resolution = yield* Effect.forkChild(auth.settledSession(server, true));
+					const request = yield* endpoint.next;
+					yield* Deferred.succeed(request.reply, json({ sub: server }));
+					yield* Fiber.join(resolution);
+				}
+				const session = auth.session(origin);
+				const before = session.getSnapshot();
+				const snapshots: unknown[] = [];
+				const unsubscribe = session.subscribe(() => snapshots.push(session.getSnapshot()));
+				yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
+				const refresh = yield* Effect.forkChild(service.accessToken(origin, true));
 				const request = yield* endpoint.next;
-				yield* Deferred.succeed(request.reply, json({ sub: server }));
-				yield* Fiber.join(resolution);
-			}
-			const session = auth.session(origin);
-			const before = session.getSnapshot();
-			const snapshots: unknown[] = [];
-			const unsubscribe = session.subscribe(() => snapshots.push(session.getSnapshot()));
-			yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-			const refresh = yield* Effect.forkChild(service.accessToken(origin, true));
-			const request = yield* endpoint.next;
-			yield* Deferred.succeed(request.reply, json(response("rotated-profile-owner")));
-			expect(yield* Fiber.join(refresh)).toBe("rotated-profile-owner");
-			yield* auth.clearSession(other);
-			expect(yield* auth.settledSession(origin)).toEqual(before);
-			expect(session.getSnapshot()).toBe(before);
-			expect(snapshots).toEqual([]);
-			expect(auth.session(other).getSnapshot()).toEqual({ status: "missing" });
-		}),
+				yield* Deferred.succeed(request.reply, json(response("rotated-profile-owner")));
+				expect(yield* Fiber.join(refresh)).toBe("rotated-profile-owner");
+				yield* auth.clearSession(other);
+				expect(yield* auth.settledSession(origin)).toEqual<unknown>(before);
+				expect(session.getSnapshot()).toBe(before);
+				expect(snapshots).toEqual([]);
+				expect(auth.session(other).getSnapshot()).toEqual({ status: "missing" });
+			}),
+		testTimeout,
 	);
 });
 
 layer(authorizationLayer)((test) => {
-	test.effect("does not accept a code exchange after its authorization is cleared", () =>
-		Effect.gen(function* () {
-			const storage = yield* OAuthStorage;
-			const service = yield* OAuthTokenService;
-			const auth = yield* AuthService;
-			const endpoint = yield* Endpoint;
-			yield* storage.setPending(pendingAuthorization());
-			const exchange = yield* Effect.forkChild(
-				service
-					.completeAuthorization(
-						origin,
-						[OAUTH_WEB_CLIENT_ID],
-						`${origin}/auth/callback`,
-						"replacement",
-						"code",
-					)
-					.pipe(Effect.result),
-			);
-			const request = yield* endpoint.next;
-			yield* auth.clearSession(origin);
-			yield* Deferred.succeed(request.reply, json(response("stale")));
-			const result = yield* Fiber.join(exchange);
-			assert(result._tag === "Failure");
-			expect(result.failure.reason).toBe("missing-authorization");
-			expect(yield* storage.getTokenSet(origin)).toBeNull();
-			expect(auth.session(origin).getSnapshot()).toEqual({ status: "missing" });
-		}),
+	test.effect(
+		"does not accept a code exchange after its authorization is cleared",
+		() =>
+			Effect.gen(function* () {
+				const storage = yield* OAuthStorage;
+				const service = yield* OAuthTokenService;
+				const auth = yield* AuthService;
+				const endpoint = yield* Endpoint;
+				yield* storage.setPending(pendingAuthorization());
+				const exchange = yield* Effect.forkChild(
+					service
+						.completeAuthorization(
+							origin,
+							[OAUTH_WEB_CLIENT_ID],
+							`${origin}/auth/callback`,
+							"replacement",
+							"code",
+						)
+						.pipe(Effect.result),
+				);
+				const request = yield* endpoint.next;
+				yield* auth.clearSession(origin);
+				yield* Deferred.succeed(request.reply, json(response("stale")));
+				const result = yield* Fiber.join(exchange);
+				assert(result._tag === "Failure");
+				expect(result.failure.reason).toBe("missing-authorization");
+				expect(yield* storage.getTokenSet(origin)).toBeNull();
+				expect(auth.session(origin).getSnapshot()).toEqual({ status: "missing" });
+			}),
+		testTimeout,
 	);
 });
 
 layer(authorizationLayer)((test) => {
-	test.effect("does not restore cleared tokens when a detached refresh completes", () =>
-		Effect.gen(function* () {
-			const storage = yield* OAuthStorage;
-			const service = yield* OAuthTokenService;
-			const auth = yield* AuthService;
-			const endpoint = yield* Endpoint;
-			yield* storage.setTokenSet(origin, tokens("old", now));
-			const refresh = yield* Effect.forkChild(service.accessToken(origin));
-			const request = yield* endpoint.next;
-			yield* auth.clearSession(origin);
-			yield* Deferred.succeed(request.reply, json(response("stale")));
-			expect(yield* Fiber.join(refresh)).toBeNull();
-			expect(yield* storage.getTokenSet(origin)).toBeNull();
-			expect(auth.session(origin).getSnapshot()).toEqual({ status: "missing" });
-		}),
+	test.effect(
+		"does not restore cleared tokens when a detached refresh completes",
+		() =>
+			Effect.gen(function* () {
+				const storage = yield* OAuthStorage;
+				const service = yield* OAuthTokenService;
+				const auth = yield* AuthService;
+				const endpoint = yield* Endpoint;
+				yield* storage.setTokenSet(origin, tokens("old", now));
+				const refresh = yield* Effect.forkChild(service.accessToken(origin));
+				const request = yield* endpoint.next;
+				yield* auth.clearSession(origin);
+				yield* Deferred.succeed(request.reply, json(response("stale")));
+				expect(yield* Fiber.join(refresh)).toBeNull();
+				expect(yield* storage.getTokenSet(origin)).toBeNull();
+				expect(auth.session(origin).getSnapshot()).toEqual({ status: "missing" });
+			}),
+		testTimeout,
 	);
 });
 
 layer(authorizationLayer)((test) => {
-	test.effect("does not remove a replacement authorization after stale invalid_grant", () =>
-		Effect.gen(function* () {
-			const storage = yield* OAuthStorage;
-			const service = yield* OAuthTokenService;
-			const endpoint = yield* Endpoint;
-			yield* storage.setTokenSet(origin, tokens("old", now));
-			const refresh = yield* Effect.forkChild(service.accessToken(origin));
-			const request = yield* endpoint.next;
-			yield* replaceAuthorization("replacement");
-			yield* Deferred.succeed(request.reply, json({ error: "invalid_grant" }, 400));
-			expect(yield* Fiber.join(refresh)).toBe("replacement");
-			expect((yield* storage.getTokenSet(origin))?.accessToken).toBe("replacement");
-		}),
+	test.effect(
+		"does not remove a replacement authorization after stale invalid_grant",
+		() =>
+			Effect.gen(function* () {
+				const storage = yield* OAuthStorage;
+				const service = yield* OAuthTokenService;
+				const endpoint = yield* Endpoint;
+				yield* storage.setTokenSet(origin, tokens("old", now));
+				const refresh = yield* Effect.forkChild(service.accessToken(origin));
+				const request = yield* endpoint.next;
+				yield* replaceAuthorization("replacement");
+				yield* Deferred.succeed(request.reply, json({ error: "invalid_grant" }, 400));
+				expect(yield* Fiber.join(refresh)).toBe("replacement");
+				expect((yield* storage.getTokenSet(origin))?.accessToken).toBe("replacement");
+			}),
+		testTimeout,
 	);
 });
 
 layer(authorizationLayer)((test) => {
-	test.effect("a replacement forced refresh never joins its predecessor", () =>
-		Effect.gen(function* () {
-			const storage = yield* OAuthStorage;
-			const service = yield* OAuthTokenService;
-			const endpoint = yield* Endpoint;
-			yield* storage.setTokenSet(origin, tokens("old", now));
-			const oldRefresh = yield* Effect.forkChild(service.accessToken(origin));
-			const oldRequest = yield* endpoint.next;
-			yield* replaceAuthorization("replacement");
-			const freshRefresh = yield* Effect.forkChild(service.accessToken(origin, true));
-			const freshRequest = yield* endpoint.next;
-			assert(freshRequest.init?.body instanceof URLSearchParams);
-			expect(freshRequest.init.body.get("refresh_token")).toBe("refresh-replacement");
-			yield* Deferred.succeed(freshRequest.reply, json(response("rotated-replacement")));
-			expect(yield* Fiber.join(freshRefresh)).toBe("rotated-replacement");
-			yield* Deferred.succeed(oldRequest.reply, json(response("stale")));
-			expect(yield* Fiber.join(oldRefresh)).toBe("rotated-replacement");
-			expect((yield* storage.getTokenSet(origin))?.accessToken).toBe("rotated-replacement");
-		}),
+	test.effect(
+		"a replacement forced refresh never joins its predecessor",
+		() =>
+			Effect.gen(function* () {
+				const storage = yield* OAuthStorage;
+				const service = yield* OAuthTokenService;
+				const endpoint = yield* Endpoint;
+				yield* storage.setTokenSet(origin, tokens("old", now));
+				const oldRefresh = yield* Effect.forkChild(service.accessToken(origin));
+				const oldRequest = yield* endpoint.next;
+				yield* replaceAuthorization("replacement");
+				const freshRefresh = yield* Effect.forkChild(service.accessToken(origin, true));
+				const freshRequest = yield* endpoint.next;
+				assert(freshRequest.init?.body instanceof URLSearchParams);
+				expect(freshRequest.init.body.get("refresh_token")).toBe("refresh-replacement");
+				yield* Deferred.succeed(freshRequest.reply, json(response("rotated-replacement")));
+				expect(yield* Fiber.join(freshRefresh)).toBe("rotated-replacement");
+				yield* Deferred.succeed(oldRequest.reply, json(response("stale")));
+				expect(yield* Fiber.join(oldRefresh)).toBe("rotated-replacement");
+				expect((yield* storage.getTokenSet(origin))?.accessToken).toBe("rotated-replacement");
+			}),
+		testTimeout,
 	);
 });
 
 layer(authorizationLayer)((test) => {
-	test.effect("a probe refresh that loses to a replacement settles the replacement profile", () =>
-		Effect.gen(function* () {
-			const storage = yield* OAuthStorage;
-			const service = yield* OAuthTokenService;
-			const auth = yield* AuthService;
-			const endpoint = yield* Endpoint;
-			yield* storage.setTokenSet(origin, tokens("old"));
-			const initial = yield* Effect.forkChild(auth.settledSession(origin));
-			const initialRequest = yield* endpoint.next;
-			yield* Deferred.succeed(initialRequest.reply, json({ sub: "old-user" }));
-			expect(yield* Fiber.join(initial)).toMatchObject({ user: { id: "old-user" } });
-			const expiring = yield* Effect.forkChild(service.accessToken(origin, true));
-			const expiringRequest = yield* endpoint.next;
-			yield* Deferred.succeed(
-				expiringRequest.reply,
-				json({ ...response("expiring"), expires_at: now / 1000 }),
-			);
-			expect(yield* Fiber.join(expiring)).toBe("expiring");
-			expect(auth.session(origin).getSnapshot()).toMatchObject({ user: { id: "old-user" } });
+	test.effect(
+		"a probe refresh that loses to a replacement settles the replacement profile",
+		() =>
+			Effect.gen(function* () {
+				const storage = yield* OAuthStorage;
+				const service = yield* OAuthTokenService;
+				const auth = yield* AuthService;
+				const endpoint = yield* Endpoint;
+				yield* storage.setTokenSet(origin, tokens("old"));
+				const initial = yield* Effect.forkChild(auth.settledSession(origin));
+				const initialRequest = yield* endpoint.next;
+				yield* Deferred.succeed(initialRequest.reply, json({ sub: "old-user" }));
+				expect(yield* Fiber.join(initial)).toMatchObject({ user: { id: "old-user" } });
+				const expiring = yield* Effect.forkChild(service.accessToken(origin, true));
+				const expiringRequest = yield* endpoint.next;
+				yield* Deferred.succeed(
+					expiringRequest.reply,
+					json({ ...response("expiring"), expires_at: now / 1000 }),
+				);
+				expect(yield* Fiber.join(expiring)).toBe("expiring");
+				expect(auth.session(origin).getSnapshot()).toMatchObject({ user: { id: "old-user" } });
 
-			const probe = yield* Effect.forkChild(auth.settledSession(origin));
-			const refreshRequest = yield* endpoint.next;
-			assert(refreshRequest.init?.body instanceof URLSearchParams);
-			expect(refreshRequest.init.body.get("refresh_token")).toBe("refresh-expiring");
-			yield* replaceAuthorization("replacement");
-			yield* Deferred.succeed(refreshRequest.reply, json(response("stale")));
-			const userInfoRequest = yield* endpoint.next;
-			expect(new Headers(userInfoRequest.init?.headers).get("authorization")).toBe(
-				"Bearer replacement",
-			);
-			yield* Deferred.succeed(userInfoRequest.reply, json({ sub: "new-user" }));
-			expect(yield* Fiber.join(probe)).toMatchObject({
-				status: "authenticated",
-				user: { id: "new-user" },
-			});
-		}),
+				const probe = yield* Effect.forkChild(auth.settledSession(origin));
+				const refreshRequest = yield* endpoint.next;
+				assert(refreshRequest.init?.body instanceof URLSearchParams);
+				expect(refreshRequest.init.body.get("refresh_token")).toBe("refresh-expiring");
+				yield* replaceAuthorization("replacement");
+				yield* Deferred.succeed(refreshRequest.reply, json(response("stale")));
+				const userInfoRequest = yield* endpoint.next;
+				expect(new Headers(userInfoRequest.init?.headers).get("authorization")).toBe(
+					"Bearer replacement",
+				);
+				yield* Deferred.succeed(userInfoRequest.reply, json({ sub: "new-user" }));
+				expect(yield* Fiber.join(probe)).toMatchObject({
+					status: "authenticated",
+					user: { id: "new-user" },
+				});
+			}),
+		testTimeout,
 	);
 });
 
 for (const change of ["clear", "replace"] as const) {
 	layer(authorizationLayer)((test) => {
-		test.effect(`does not publish late UserInfo after ${change}`, () =>
-			Effect.gen(function* () {
-				const storage = yield* OAuthStorage;
-				const auth = yield* AuthService;
-				const endpoint = yield* Endpoint;
-				const session = auth.session(origin);
-				const snapshots: unknown[] = [];
-				yield* storage.setTokenSet(origin, tokens("old"));
-				const initial = yield* Effect.forkChild(auth.settledSession(origin));
-				const initialRequest = yield* endpoint.next;
-				yield* Deferred.succeed(initialRequest.reply, json({ name: "Old", sub: "old-user" }));
-				expect(yield* Fiber.join(initial)).toMatchObject({
-					status: "authenticated",
-					user: { id: "old-user" },
-				});
-				const oldResolution = yield* Effect.forkChild(auth.settledSession(origin, true));
-				const oldRequest = yield* endpoint.next;
-				const unsubscribe = session.subscribe(() => snapshots.push(session.getSnapshot()));
-				yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
-				expect(new Headers(oldRequest.init?.headers).get("authorization")).toBe("Bearer old");
-				if (change === "clear") {
-					yield* auth.clearSession(origin);
-				} else {
-					yield* replaceAuthorization("replacement", OAUTH_DEMO_WEB_CLIENT_ID);
-					const newResolution = yield* Effect.forkChild(auth.settledSession(origin, true));
-					const newRequest = yield* endpoint.next;
-					expect(new Headers(newRequest.init?.headers).get("authorization")).toBe(
-						"Bearer replacement",
-					);
-					yield* Deferred.succeed(newRequest.reply, json({ name: "New", sub: "new-user" }));
-					expect(yield* Fiber.join(newResolution)).toMatchObject({
-						accessClass: "demo",
+		test.effect(
+			`does not publish late UserInfo after ${change}`,
+			() =>
+				Effect.gen(function* () {
+					const storage = yield* OAuthStorage;
+					const auth = yield* AuthService;
+					const endpoint = yield* Endpoint;
+					const session = auth.session(origin);
+					const snapshots: unknown[] = [];
+					yield* storage.setTokenSet(origin, tokens("old"));
+					const initial = yield* Effect.forkChild(auth.settledSession(origin));
+					const initialRequest = yield* endpoint.next;
+					yield* Deferred.succeed(initialRequest.reply, json({ name: "Old", sub: "old-user" }));
+					expect(yield* Fiber.join(initial)).toMatchObject({
 						status: "authenticated",
-						user: { id: "new-user" },
+						user: { id: "old-user" },
 					});
-				}
-				yield* Deferred.succeed(oldRequest.reply, json({ name: "Old", sub: "old-user" }));
-				expect(yield* Fiber.join(oldResolution)).toEqual(session.getSnapshot());
-				expect(snapshots).toEqual(
-					change === "clear"
-						? [{ status: "missing" }]
-						: [
-								{ status: "pending" },
-								{
-									accessClass: "demo",
-									status: "authenticated",
-									user: { email: "", name: "New", image: null, id: "new-user" },
-								},
-							],
-				);
-			}),
+					const oldResolution = yield* Effect.forkChild(auth.settledSession(origin, true));
+					const oldRequest = yield* endpoint.next;
+					const unsubscribe = session.subscribe(() => snapshots.push(session.getSnapshot()));
+					yield* Effect.addFinalizer(() => Effect.sync(unsubscribe));
+					expect(new Headers(oldRequest.init?.headers).get("authorization")).toBe("Bearer old");
+					if (change === "clear") {
+						yield* auth.clearSession(origin);
+					} else {
+						yield* replaceAuthorization("replacement", OAUTH_DEMO_WEB_CLIENT_ID);
+						const newResolution = yield* Effect.forkChild(auth.settledSession(origin, true));
+						const newRequest = yield* endpoint.next;
+						expect(new Headers(newRequest.init?.headers).get("authorization")).toBe(
+							"Bearer replacement",
+						);
+						yield* Deferred.succeed(newRequest.reply, json({ name: "New", sub: "new-user" }));
+						expect(yield* Fiber.join(newResolution)).toMatchObject({
+							accessClass: "demo",
+							status: "authenticated",
+							user: { id: "new-user" },
+						});
+					}
+					yield* Deferred.succeed(oldRequest.reply, json({ name: "Old", sub: "old-user" }));
+					expect(yield* Fiber.join(oldResolution)).toEqual<unknown>(session.getSnapshot());
+					expect(snapshots).toEqual(
+						change === "clear"
+							? [{ status: "missing" }]
+							: [
+									{ status: "pending" },
+									{
+										accessClass: "demo",
+										status: "authenticated",
+										user: { email: "", name: "New", image: null, id: "new-user" },
+									},
+								],
+					);
+				}),
+			testTimeout,
 		);
 	});
 }

@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { details, manifest, related } from "./shared";
 
@@ -184,7 +185,7 @@ describe("company.anilist sandbox script", () => {
 		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.flatMap((result) => {
 				expect(requestedPages).toEqual([1]);
-				expect(result.relatedEntityGroups?.[0]).toEqual(
+				expect(result.relatedEntityGroups?.[0]).toEqual<unknown>(
 					objectContaining({
 						entities: [objectContaining({ externalId: "2" })],
 						coverage: { status: "more", continuation: { page: 2 } },
@@ -219,7 +220,7 @@ describe("company.anilist sandbox script", () => {
 			Effect.map((result) => {
 				expect(requestedPages).toEqual([1, 2, 3]);
 				expect(result.coverage).toEqual({ status: "complete" });
-				expect(result.entities).toEqual([objectContaining({ externalId: "3" })]);
+				expect(result.entities).toEqual<unknown>([objectContaining({ externalId: "3" })]);
 			}),
 			Effect.runPromise,
 		);

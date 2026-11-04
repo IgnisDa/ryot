@@ -1,6 +1,9 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { EntityUpdate } from "@ryot-app/plugin-client-sdk";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { act, render } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Fiber, Layer, ManagedRuntime, Schema, Stream } from "effect";
 import { createElement, StrictMode, useEffect } from "react";
 
@@ -160,38 +163,44 @@ function setup(options: { readonly pendingTicket?: boolean } = {}) {
 }
 
 describe("entity interest session", () => {
-	it.live("disposes an in-flight ticket even while multiple layout leases remain", () =>
-		Effect.gen(function* () {
-			const test = setup({ pendingTicket: true });
-			const firstRelease = test.service.acquire(scope);
-			const secondRelease = test.service.acquire({ ...scope });
-			yield* Effect.promise(() => settle());
-			yield* Effect.promise(() => test.runtime.dispose());
-			firstRelease();
-			secondRelease();
-			test.lifecycle();
-			test.advance(60_000);
-			yield* Effect.promise(() => settle());
-			expect(test.sockets).toEqual([]);
-			expect(test.cancelledTickets()).toBe(1);
-			expect(test.timers.size).toBe(0);
-			expect(test.hasListener()).toBe(false);
-		}),
+	it.live(
+		"disposes an in-flight ticket even while multiple layout leases remain",
+		() =>
+			Effect.gen(function* () {
+				const test = setup({ pendingTicket: true });
+				const firstRelease = test.service.acquire(scope);
+				const secondRelease = test.service.acquire({ ...scope });
+				yield* Effect.promise(() => settle());
+				yield* Effect.promise(() => test.runtime.dispose());
+				firstRelease();
+				secondRelease();
+				test.lifecycle();
+				test.advance(60_000);
+				yield* Effect.promise(() => settle());
+				expect(test.sockets).toEqual([]);
+				expect(test.cancelledTickets()).toBe(1);
+				expect(test.timers.size).toBe(0);
+				expect(test.hasListener()).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("interrupts a pending ticket on reconnect and lease release", () =>
-		Effect.gen(function* () {
-			const test = setup({ pendingTicket: true });
-			const release = test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			test.service.reconnect(scope);
-			yield* Effect.promise(() => settle());
-			expect(test.cancelledTickets()).toBe(1);
-			release();
-			yield* Effect.promise(() => settle());
-			expect(test.cancelledTickets()).toBe(2);
-			expect(test.sockets).toEqual([]);
-		}),
+	it.live(
+		"interrupts a pending ticket on reconnect and lease release",
+		() =>
+			Effect.gen(function* () {
+				const test = setup({ pendingTicket: true });
+				const release = test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				test.service.reconnect(scope);
+				yield* Effect.promise(() => settle());
+				expect(test.cancelledTickets()).toBe(1);
+				release();
+				yield* Effect.promise(() => settle());
+				expect(test.cancelledTickets()).toBe(2);
+				expect(test.sockets).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -241,6 +250,7 @@ describe("entity interest session", () => {
 				});
 				expect(updates).toEqual([{ entityId: "new", reason: "translated" }]);
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -312,6 +322,7 @@ describe("entity interest session", () => {
 				expect(test.timers.size).toBe(0);
 				expect(test.hasListener()).toBe(false);
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -335,68 +346,75 @@ describe("entity interest session", () => {
 				test.service.acquire(scope);
 				expect(test.overflows).toEqual([2, 1]);
 			}),
+		testTimeout,
 	);
 
-	it.live("retains predeclared next-scope owners while invalidating the previous scope", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			let oldUpdates = 0;
-			const nextScope = { ...scope, userId: "user-2" };
-			test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
-				oldUpdates++;
-			});
-			const release = test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const oldSocket = test.socket();
-			oldSocket.ready();
-			test.service.watch(nextScope, { foreground: [], visible: ["b"] }, (update) =>
-				updates.push(update),
-			);
-			test.service.acquire({ ...nextScope });
-			release();
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			expect(oldSocket.closed).toBe(true);
-			expect(socket.closed).toBe(false);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 1,
-				type: "replace",
-				entityIds: ["b"],
-				foregroundIds: [],
-			});
-			socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
-			socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
-			expect(oldUpdates).toBe(0);
-			expect(updates).toEqual([{ entityId: "b", reason: "translated" }]);
-			yield* Effect.promise(() => test.runtime.dispose());
-			expect(socket.closed).toBe(true);
-			expect(test.timers.size).toBe(0);
-			expect(test.hasListener()).toBe(false);
-		}),
+	it.live(
+		"retains predeclared next-scope owners while invalidating the previous scope",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				let oldUpdates = 0;
+				const nextScope = { ...scope, userId: "user-2" };
+				test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
+					oldUpdates++;
+				});
+				const release = test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const oldSocket = test.socket();
+				oldSocket.ready();
+				test.service.watch(nextScope, { foreground: [], visible: ["b"] }, (update) =>
+					updates.push(update),
+				);
+				test.service.acquire({ ...nextScope });
+				release();
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				expect(oldSocket.closed).toBe(true);
+				expect(socket.closed).toBe(false);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 1,
+					type: "replace",
+					entityIds: ["b"],
+					foregroundIds: [],
+				});
+				socket.frame({ entityId: "b", reason: "translated", type: "entity-updated" });
+				socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
+				expect(oldUpdates).toBe(0);
+				expect(updates).toEqual([{ entityId: "b", reason: "translated" }]);
+				yield* Effect.promise(() => test.runtime.dispose());
+				expect(socket.closed).toBe(true);
+				expect(test.timers.size).toBe(0);
+				expect(test.hasListener()).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("isolates listener exceptions and stops disposed owners immediately", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
-				throw new Error("Listener failed");
-			});
-			const owner = test.service.watch(scope, { foreground: [], visible: ["a"] }, (update) =>
-				updates.push(update),
-			);
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
-			owner.dispose();
-			owner.dispose();
-			owner.update({ visible: [], foreground: ["a"] });
-			socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
-			expect(updates).toEqual([{ entityId: "a", reason: "populated" }]);
-			expect(socket.closed).toBe(false);
-		}),
+	it.live(
+		"isolates listener exceptions and stops disposed owners immediately",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {
+					throw new Error("Listener failed");
+				});
+				const owner = test.service.watch(scope, { foreground: [], visible: ["a"] }, (update) =>
+					updates.push(update),
+				);
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				socket.frame({ entityId: "a", reason: "populated", type: "entity-updated" });
+				owner.dispose();
+				owner.dispose();
+				owner.update({ visible: [], foreground: ["a"] });
+				socket.frame({ entityId: "a", reason: "translated", type: "entity-updated" });
+				expect(updates).toEqual([{ entityId: "a", reason: "populated" }]);
+				expect(socket.closed).toBe(false);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -427,138 +445,148 @@ describe("entity interest session", () => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 
-	it.live("sends all 500 admitted members and 50 foreground IDs on a priority-only change", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			const ids = Array.from(
-				{ length: 500 },
-				(_, index) => `member-${String(index).padStart(3, "0")}`,
-			);
-			const owner = test.service.watch(
-				scope,
-				{ visible: ids, foreground: ids.slice(0, 50) },
-				() => {},
-			);
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			expect(socket.sent).toHaveLength(2);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 1,
-				entityIds: ids,
-				type: "replace",
-				foregroundIds: ids.slice(0, 50),
-			});
-			socket.frame({ revision: 1, type: "applied" });
-			owner.update({ visible: ids, foreground: ids.slice(1, 51) });
-			test.advance(100);
-			expect(socket.sent).toHaveLength(3);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 2,
-				entityIds: ids,
-				type: "replace",
-				foregroundIds: ids.slice(1, 51),
-			});
-			socket.frame({ revision: 2, type: "applied" });
-			expect(socket.sent).toHaveLength(3);
-		}),
+	it.live(
+		"sends all 500 admitted members and 50 foreground IDs on a priority-only change",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const ids = Array.from(
+					{ length: 500 },
+					(_, index) => `member-${String(index).padStart(3, "0")}`,
+				);
+				const owner = test.service.watch(
+					scope,
+					{ visible: ids, foreground: ids.slice(0, 50) },
+					() => {},
+				);
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				expect(socket.sent).toHaveLength(2);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 1,
+					entityIds: ids,
+					type: "replace",
+					foregroundIds: ids.slice(0, 50),
+				});
+				socket.frame({ revision: 1, type: "applied" });
+				owner.update({ visible: ids, foreground: ids.slice(1, 51) });
+				test.advance(100);
+				expect(socket.sent).toHaveLength(3);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 2,
+					entityIds: ids,
+					type: "replace",
+					foregroundIds: ids.slice(1, 51),
+				});
+				socket.frame({ revision: 2, type: "applied" });
+				expect(socket.sent).toHaveLength(3);
+			}),
+		testTimeout,
 	);
 
-	it.live("admits the active owner's interests first after activation changes", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			let activeFirst = true;
-			const retained = Array.from(
-				{ length: 500 },
-				(_, index) => `retained-${String(index).padStart(3, "0")}`,
-			);
-			test.service.watch(
-				scope,
-				{ foreground: [], visible: retained },
-				() => {},
-				() => !activeFirst,
-			);
-			test.service.watch(
-				scope,
-				{ visible: [], foreground: ["zz-active"] },
-				() => {},
-				() => activeFirst,
-			);
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 1,
-				type: "replace",
-				foregroundIds: ["zz-active"],
-				entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
-			});
-			socket.frame({ revision: 1, type: "applied" });
+	it.live(
+		"admits the active owner's interests first after activation changes",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				let activeFirst = true;
+				const retained = Array.from(
+					{ length: 500 },
+					(_, index) => `retained-${String(index).padStart(3, "0")}`,
+				);
+				test.service.watch(
+					scope,
+					{ foreground: [], visible: retained },
+					() => {},
+					() => !activeFirst,
+				);
+				test.service.watch(
+					scope,
+					{ visible: [], foreground: ["zz-active"] },
+					() => {},
+					() => activeFirst,
+				);
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 1,
+					type: "replace",
+					foregroundIds: ["zz-active"],
+					entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
+				});
+				socket.frame({ revision: 1, type: "applied" });
 
-			activeFirst = false;
-			test.service.refresh(scope);
-			test.advance(100);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 2,
-				type: "replace",
-				foregroundIds: [],
-				entityIds: retained,
-			});
-			socket.frame({ revision: 2, type: "applied" });
+				activeFirst = false;
+				test.service.refresh(scope);
+				test.advance(100);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 2,
+					type: "replace",
+					foregroundIds: [],
+					entityIds: retained,
+				});
+				socket.frame({ revision: 2, type: "applied" });
 
-			activeFirst = true;
-			test.service.refresh(scope);
-			test.advance(100);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 3,
-				type: "replace",
-				foregroundIds: ["zz-active"],
-				entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
-			});
-		}),
+				activeFirst = true;
+				test.service.refresh(scope);
+				test.advance(100);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 3,
+					type: "replace",
+					foregroundIds: ["zz-active"],
+					entityIds: [...retained.slice(0, 499), "zz-active"].sort(),
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("sends at most 50 foreground IDs, only from active owners, in complete snapshots", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			let retainedActive = false;
-			const foreground = Array.from(
-				{ length: 60 },
-				(_, index) => `foreground-${String(index).padStart(2, "0")}`,
-			);
-			test.service.watch(scope, { foreground, visible: ["card"] }, () => {});
-			test.service.watch(
-				scope,
-				{ visible: [], foreground: ["aa-retained"] },
-				() => {},
-				() => retainedActive,
-			);
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 1,
-				type: "replace",
-				foregroundIds: foreground.slice(0, 50),
-				entityIds: ["aa-retained", "card", ...foreground],
-			});
-			socket.frame({ revision: 1, type: "applied" });
+	it.live(
+		"sends at most 50 foreground IDs, only from active owners, in complete snapshots",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				let retainedActive = false;
+				const foreground = Array.from(
+					{ length: 60 },
+					(_, index) => `foreground-${String(index).padStart(2, "0")}`,
+				);
+				test.service.watch(scope, { foreground, visible: ["card"] }, () => {});
+				test.service.watch(
+					scope,
+					{ visible: [], foreground: ["aa-retained"] },
+					() => {},
+					() => retainedActive,
+				);
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 1,
+					type: "replace",
+					foregroundIds: foreground.slice(0, 50),
+					entityIds: ["aa-retained", "card", ...foreground],
+				});
+				socket.frame({ revision: 1, type: "applied" });
 
-			retainedActive = true;
-			test.service.refresh(scope);
-			test.advance(100);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 2,
-				type: "replace",
-				entityIds: ["aa-retained", "card", ...foreground],
-				foregroundIds: ["aa-retained", ...foreground.slice(0, 49)],
-			});
-		}),
+				retainedActive = true;
+				test.service.refresh(scope);
+				test.advance(100);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 2,
+					type: "replace",
+					entityIds: ["aa-retained", "card", ...foreground],
+					foregroundIds: ["aa-retained", ...foreground.slice(0, 49)],
+				});
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -605,75 +633,82 @@ describe("entity interest session", () => {
 				socket.frame({ revision: 3, type: "applied" });
 				expect(socket.sent).toHaveLength(4);
 			}),
+		testTimeout,
 	);
 
-	it.live("batches additions, serializes acknowledgements, and removes only after grace", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			owner.update({ visible: [], foreground: ["a", "b"] });
-			test.advance(100);
-			expect(socket.sent).toHaveLength(2);
-			socket.frame({ revision: 1, type: "applied" });
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 2,
-				type: "replace",
-				entityIds: ["a", "b"],
-				foregroundIds: ["a", "b"],
-			});
-			owner.update({ visible: [], foreground: ["b", "c"] });
-			test.advance(99);
-			socket.frame({ revision: 2, type: "applied" });
-			expect(socket.sent).toHaveLength(3);
-			test.advance(1);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 3,
-				type: "replace",
-				entityIds: ["a", "b", "c"],
-				foregroundIds: ["a", "b", "c"],
-			});
-			socket.frame({ revision: 3, type: "applied" });
-			test.advance(1899);
-			expect(socket.sent).toHaveLength(4);
-			test.advance(1);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 4,
-				type: "replace",
-				entityIds: ["b", "c"],
-				foregroundIds: ["b", "c"],
-			});
-		}),
+	it.live(
+		"batches additions, serializes acknowledgements, and removes only after grace",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const owner = test.service.watch(scope, { visible: [], foreground: ["a"] }, () => {});
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				owner.update({ visible: [], foreground: ["a", "b"] });
+				test.advance(100);
+				expect(socket.sent).toHaveLength(2);
+				socket.frame({ revision: 1, type: "applied" });
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 2,
+					type: "replace",
+					entityIds: ["a", "b"],
+					foregroundIds: ["a", "b"],
+				});
+				owner.update({ visible: [], foreground: ["b", "c"] });
+				test.advance(99);
+				socket.frame({ revision: 2, type: "applied" });
+				expect(socket.sent).toHaveLength(3);
+				test.advance(1);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 3,
+					type: "replace",
+					entityIds: ["a", "b", "c"],
+					foregroundIds: ["a", "b", "c"],
+				});
+				socket.frame({ revision: 3, type: "applied" });
+				test.advance(1899);
+				expect(socket.sent).toHaveLength(4);
+				test.advance(1);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 4,
+					type: "replace",
+					entityIds: ["b", "c"],
+					foregroundIds: ["b", "c"],
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("evicts grace entries for new demand and cancels removal when demand returns", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			const ids = Array.from({ length: 500 }, (_, i) => `id-${i}`);
-			const owner = test.service.watch(scope, { visible: ids, foreground: [] }, () => {});
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			socket.frame({ revision: 1, type: "applied" });
-			owner.update({ foreground: ["new"], visible: ids.slice(1) });
-			test.advance(100);
-			expect(socket.sent.at(-1)).toEqual({
-				revision: 2,
-				type: "replace",
-				foregroundIds: ["new"],
-				entityIds: [...ids.slice(1), "new"].sort(),
-			});
-			socket.frame({ revision: 2, type: "applied" });
-			owner.update(empty);
-			test.advance(1000);
-			owner.update({ foreground: ["new"], visible: ids.slice(1) });
-			test.advance(2000);
-			expect(socket.sent).toHaveLength(3);
-		}),
+	it.live(
+		"evicts grace entries for new demand and cancels removal when demand returns",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const ids = Array.from({ length: 500 }, (_, i) => `id-${i}`);
+				const owner = test.service.watch(scope, { visible: ids, foreground: [] }, () => {});
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				socket.frame({ revision: 1, type: "applied" });
+				owner.update({ foreground: ["new"], visible: ids.slice(1) });
+				test.advance(100);
+				expect(socket.sent.at(-1)).toEqual({
+					revision: 2,
+					type: "replace",
+					foregroundIds: ["new"],
+					entityIds: [...ids.slice(1), "new"].sort(),
+				});
+				socket.frame({ revision: 2, type: "applied" });
+				owner.update(empty);
+				test.advance(1000);
+				owner.update({ foreground: ["new"], visible: ids.slice(1) });
+				test.advance(2000);
+				expect(socket.sent).toHaveLength(3);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -718,6 +753,7 @@ describe("entity interest session", () => {
 					{ entityId: "b", reason: "translated" },
 				]);
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -756,67 +792,76 @@ describe("entity interest session", () => {
 				yield* Effect.promise(() => settle());
 				expect(test.tickets()).toBe(4);
 			}),
+		testTimeout,
 	);
 
-	it.live("reconnects with the latest full pair and ignores stale acknowledgements", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			const owner = test.service.watch(scope, { visible: ["a"], foreground: [] }, () => {});
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const first = test.socket();
-			first.ready();
-			first.frame({ revision: 1, type: "applied" });
-			owner.update({ visible: [], foreground: ["a"] });
-			test.advance(100);
-			const stale = first.messageListener;
-			first.dispatchEvent(new CloseEvent("close", { code: 4001 }));
-			owner.update({ visible: [], foreground: ["b"] });
-			test.advance(2000);
-			yield* Effect.promise(() => settle());
-			const next = test.socket();
-			next.ready();
-			stale?.(
-				new MessageEvent("message", { data: yield* encodeJson({ revision: 2, type: "applied" }) }),
-			);
-			expect(next.closed).toBe(false);
-			expect(next.sent).toEqual([
-				{ ticket: "ticket-2", type: "authenticate" },
-				{ revision: 1, type: "replace", entityIds: ["b"], foregroundIds: ["b"] },
-			]);
-			next.frame({ revision: 1, type: "applied" });
-			expect(next.sent).toHaveLength(2);
-		}),
+	it.live(
+		"reconnects with the latest full pair and ignores stale acknowledgements",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const owner = test.service.watch(scope, { visible: ["a"], foreground: [] }, () => {});
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const first = test.socket();
+				first.ready();
+				first.frame({ revision: 1, type: "applied" });
+				owner.update({ visible: [], foreground: ["a"] });
+				test.advance(100);
+				const stale = first.messageListener;
+				first.dispatchEvent(new CloseEvent("close", { code: 4001 }));
+				owner.update({ visible: [], foreground: ["b"] });
+				test.advance(2000);
+				yield* Effect.promise(() => settle());
+				const next = test.socket();
+				next.ready();
+				stale?.(
+					new MessageEvent("message", {
+						data: yield* encodeJson({ revision: 2, type: "applied" }),
+					}),
+				);
+				expect(next.closed).toBe(false);
+				expect(next.sent).toEqual([
+					{ ticket: "ticket-2", type: "authenticate" },
+					{ revision: 1, type: "replace", entityIds: ["b"], foregroundIds: ["b"] },
+				]);
+				next.frame({ revision: 1, type: "applied" });
+				expect(next.sent).toHaveLength(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("streams derived-data updates for the scope on frames and reconnects", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			const received: string[] = [];
-			const record = (label: string, target: typeof scope) =>
-				Stream.runForEach(test.service.derivedDataUpdates(target), () =>
-					Effect.sync(() => received.push(label)),
-				).pipe(Effect.forkChild);
-			const current = yield* record("current", scope);
-			yield* record("other", { ...scope, userId: "other" });
-			yield* Effect.yieldNow;
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			test.socket().ready();
-			test.socket().frame({ type: "derived-data-updated" });
-			yield* Effect.promise(() => settle());
-			expect(received).toEqual(["current"]);
-			test.socket().dispatchEvent(new CloseEvent("close", { code: 4001 }));
-			test.advance(1000);
-			yield* Effect.promise(() => settle());
-			test.socket().ready();
-			yield* Effect.promise(() => settle());
-			expect(received).toEqual(["current", "current"]);
-			yield* Fiber.interrupt(current);
-			test.socket().frame({ type: "derived-data-updated" });
-			yield* Effect.promise(() => settle());
-			expect(received).toEqual(["current", "current"]);
-		}),
+	it.live(
+		"streams derived-data updates for the scope on frames and reconnects",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				const received: string[] = [];
+				const record = (label: string, target: typeof scope) =>
+					Stream.runForEach(test.service.derivedDataUpdates(target), () =>
+						Effect.sync(() => received.push(label)),
+					).pipe(Effect.forkChild);
+				const current = yield* record("current", scope);
+				yield* record("other", { ...scope, userId: "other" });
+				yield* Effect.yieldNow;
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				test.socket().ready();
+				test.socket().frame({ type: "derived-data-updated" });
+				yield* Effect.promise(() => settle());
+				expect(received).toEqual(["current"]);
+				test.socket().dispatchEvent(new CloseEvent("close", { code: 4001 }));
+				test.advance(1000);
+				yield* Effect.promise(() => settle());
+				test.socket().ready();
+				yield* Effect.promise(() => settle());
+				expect(received).toEqual(["current", "current"]);
+				yield* Fiber.interrupt(current);
+				test.socket().frame({ type: "derived-data-updated" });
+				yield* Effect.promise(() => settle());
+				expect(received).toEqual(["current", "current"]);
+			}),
+		testTimeout,
 	);
 
 	it.live.each([
@@ -824,52 +869,58 @@ describe("entity interest session", () => {
 		{ type: "ready", maxEntityIds: 500, sessionId: "duplicate", heartbeatIntervalMs: 25_000 },
 		{ entityId: "a", reason: "invalid", type: "entity-updated" },
 		{ revision: 1, type: "rejected", maxEntityIds: 500, code: "interest-limit-exceeded" },
-	])("reconnects on malformed or out-of-order frames: $type", (frame) =>
-		Effect.gen(function* () {
-			const test = setup();
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			const socket = test.socket();
-			socket.ready();
-			socket.frame(frame);
-			expect(socket.closed).toBe(true);
-			test.advance(1000);
-			yield* Effect.promise(() => settle());
-			expect(test.tickets()).toBe(2);
-		}),
+	])(
+		"reconnects on malformed or out-of-order frames: $type",
+		(frame) =>
+			Effect.gen(function* () {
+				const test = setup();
+				test.service.acquire(scope);
+				yield* Effect.promise(() => settle());
+				const socket = test.socket();
+				socket.ready();
+				socket.frame(frame);
+				expect(socket.closed).toBe(true);
+				test.advance(1000);
+				yield* Effect.promise(() => settle());
+				expect(test.tickets()).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("times out tickets and handshakes, caps backoff, and answers heartbeats", () =>
-		Effect.gen(function* () {
-			const test = setup();
-			test.service.acquire(scope);
-			yield* Effect.promise(() => settle());
-			for (const delay of [1000, 2000, 4000, 8000, 16_000, 30_000, 30_000]) {
-				const count = test.tickets();
-				test.advance(15_000);
-				expect(test.socket().closed).toBe(true);
-				test.advance(delay - 1);
+	it.live(
+		"times out tickets and handshakes, caps backoff, and answers heartbeats",
+		() =>
+			Effect.gen(function* () {
+				const test = setup();
+				test.service.acquire(scope);
 				yield* Effect.promise(() => settle());
-				expect(test.tickets()).toBe(count);
+				for (const delay of [1000, 2000, 4000, 8000, 16_000, 30_000, 30_000]) {
+					const count = test.tickets();
+					test.advance(15_000);
+					expect(test.socket().closed).toBe(true);
+					test.advance(delay - 1);
+					yield* Effect.promise(() => settle());
+					expect(test.tickets()).toBe(count);
+					test.advance(1);
+					yield* Effect.promise(() => settle());
+					expect(test.tickets()).toBe(count + 1);
+				}
+				const socket = test.socket();
+				socket.ready();
+				test.advance(25_000);
+				socket.frame({ type: "ping", nonce: "nonce" });
+				expect(socket.sent.at(-1)).toEqual({ type: "pong", nonce: "nonce" });
+				test.advance(74_999);
+				expect(socket.closed).toBe(false);
 				test.advance(1);
-				yield* Effect.promise(() => settle());
-				expect(test.tickets()).toBe(count + 1);
-			}
-			const socket = test.socket();
-			socket.ready();
-			test.advance(25_000);
-			socket.frame({ type: "ping", nonce: "nonce" });
-			expect(socket.sent.at(-1)).toEqual({ type: "pong", nonce: "nonce" });
-			test.advance(74_999);
-			expect(socket.closed).toBe(false);
-			test.advance(1);
-			expect(socket.closed).toBe(true);
-			const pending = setup({ pendingTicket: true });
-			const release = pending.service.acquire(scope);
-			pending.advance(15_000);
-			expect(pending.sockets).toHaveLength(0);
-			release();
-			expect(pending.timers.size).toBe(0);
-		}),
+				expect(socket.closed).toBe(true);
+				const pending = setup({ pendingTicket: true });
+				const release = pending.service.acquire(scope);
+				pending.advance(15_000);
+				expect(pending.sockets).toHaveLength(0);
+				release();
+				expect(pending.timers.size).toBe(0);
+			}),
+		testTimeout,
 	);
 });

@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { pluginInstallationUserSettingsRecipe } from "@ryot-app/ryotql-recipes/plugin-user-settings";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -98,127 +101,145 @@ const read = (
 ) => pluginUserSettingsOutcome({ api, scope, contributors, currentScope, request: { pluginId } });
 
 describe("plugin user settings bridge read", () => {
-	it.effect("reads contributing plugins with defaults and refuses installed non-contributors", () =>
-		Effect.gen(function* () {
-			const { api, executed } = makeApi();
+	it.effect(
+		"reads contributing plugins with defaults and refuses installed non-contributors",
+		() =>
+			Effect.gen(function* () {
+				const { api, executed } = makeApi();
 
-			expect(yield* read(api, pluginA)).toEqual({
-				outcome: "success",
-				settings: { limit: 5, enabled: true },
-			});
-			expect(yield* read(api, pluginB)).toEqual({ settings: {}, outcome: "success" });
-			expect(yield* read(api, pluginC)).toEqual({ outcome: "failure", reason: "invalid-request" });
-			expect(executed).toEqual([
-				{ scope, document: pluginInstallationUserSettingsRecipe({ pluginId: pluginA }).document },
-				{ scope, document: pluginInstallationUserSettingsRecipe({ pluginId: pluginB }).document },
-			]);
-		}),
+				expect(yield* read(api, pluginA)).toEqual({
+					outcome: "success",
+					settings: { limit: 5, enabled: true },
+				});
+				expect(yield* read(api, pluginB)).toEqual({ settings: {}, outcome: "success" });
+				expect(yield* read(api, pluginC)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				expect(executed).toEqual([
+					{ scope, document: pluginInstallationUserSettingsRecipe({ pluginId: pluginA }).document },
+					{ scope, document: pluginInstallationUserSettingsRecipe({ pluginId: pluginB }).document },
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("returns an empty record for a contributor whose plugin declares no settings", () =>
-		Effect.gen(function* () {
-			const api = {
-				execute: () =>
-					Effect.succeed({
-						data: {
-							installation: {
-								type: "rows" as const,
-								pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-								items: [{ settings: {}, settingsSchema: null, id: "installation-a" }],
+	it.effect(
+		"returns an empty record for a contributor whose plugin declares no settings",
+		() =>
+			Effect.gen(function* () {
+				const api = {
+					execute: () =>
+						Effect.succeed({
+							data: {
+								installation: {
+									type: "rows" as const,
+									pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+									items: [{ settings: {}, settingsSchema: null, id: "installation-a" }],
+								},
 							},
-						},
-					}),
-			};
-			expect(yield* read(api, pluginA)).toEqual({ settings: {}, outcome: "success" });
-		}),
+						}),
+				};
+				expect(yield* read(api, pluginA)).toEqual({ settings: {}, outcome: "success" });
+			}),
+		testTimeout,
 	);
 
-	it.effect("refuses requests after a scope switch, including one during the read", () =>
-		Effect.gen(function* () {
-			let current: ApiScope | undefined = otherScope;
-			const switched = makeApi();
-			expect(yield* read(switched.api, pluginA, () => current)).toEqual({
-				outcome: "failure",
-				reason: "invalid-request",
-			});
-			current = undefined;
-			expect(yield* read(switched.api, pluginA, () => current)).toEqual({
-				outcome: "failure",
-				reason: "invalid-request",
-			});
-			expect(switched.executed).toEqual([]);
+	it.effect(
+		"refuses requests after a scope switch, including one during the read",
+		() =>
+			Effect.gen(function* () {
+				let current: ApiScope | undefined = otherScope;
+				const switched = makeApi();
+				expect(yield* read(switched.api, pluginA, () => current)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				current = undefined;
+				expect(yield* read(switched.api, pluginA, () => current)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				expect(switched.executed).toEqual([]);
 
-			current = scope;
-			const during = makeApi({
-				onExecute: () => {
-					current = otherScope;
-				},
-			});
-			expect(yield* read(during.api, pluginA, () => current)).toEqual({
-				outcome: "failure",
-				reason: "invalid-request",
-			});
-			expect(during.executed).toHaveLength(1);
-		}),
+				current = scope;
+				const during = makeApi({
+					onExecute: () => {
+						current = otherScope;
+					},
+				});
+				expect(yield* read(during.api, pluginA, () => current)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+				expect(during.executed).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
-	it.effect("reports transport failures", () =>
-		Effect.gen(function* () {
-			expect(yield* read(makeApi({ fail: true }).api, pluginA)).toEqual({
-				outcome: "failure",
-				reason: "transport",
-			});
-		}),
+	it.effect(
+		"reports transport failures",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* read(makeApi({ fail: true }).api, pluginA)).toEqual({
+					outcome: "failure",
+					reason: "transport",
+				});
+			}),
+		testTimeout,
 	);
 });
 
 describe("reporting preferences bridge read", () => {
-	it.effect("returns only the reporting time zone and rejects a changed account", () =>
-		Effect.gen(function* () {
-			let current = scope;
-			let switchAccount = false;
-			const input = {
-				scope,
-				currentScope: () => current,
-				api: {
-					execute: () =>
-						Effect.sync(() => {
-							if (switchAccount) {
-								current = otherScope;
-							}
-							return {
-								data: {
-									user: {
-										type: "rows" as const,
-										pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-										items: [
-											{
-												image: null,
-												id: "user-1",
-												name: "Private name",
-												email: "private@example.com",
-												preferences: {
-													language: "en",
-													disableIntegrations: true,
-													reportingTimeZone: "Asia/Tokyo",
+	it.effect(
+		"returns only the reporting time zone and rejects a changed account",
+		() =>
+			Effect.gen(function* () {
+				let current = scope;
+				let switchAccount = false;
+				const input = {
+					scope,
+					currentScope: () => current,
+					api: {
+						execute: () =>
+							Effect.sync(() => {
+								if (switchAccount) {
+									current = otherScope;
+								}
+								return {
+									data: {
+										user: {
+											type: "rows" as const,
+											pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+											items: [
+												{
+													image: null,
+													id: "user-1",
+													name: "Private name",
+													email: "private@example.com",
+													preferences: {
+														language: "en",
+														disableIntegrations: true,
+														reportingTimeZone: "Asia/Tokyo",
+													},
 												},
-											},
-										],
+											],
+										},
 									},
-								},
-							};
-						}),
-				},
-			};
-			expect(yield* reportingPreferencesOutcome(input)).toEqual({
-				outcome: "success",
-				preferences: { timeZone: "Asia/Tokyo" },
-			});
-			switchAccount = true;
-			expect(yield* reportingPreferencesOutcome(input)).toEqual({
-				outcome: "failure",
-				reason: "invalid-request",
-			});
-		}),
+								};
+							}),
+					},
+				};
+				expect(yield* reportingPreferencesOutcome(input)).toEqual<unknown>({
+					outcome: "success",
+					preferences: { timeZone: "Asia/Tokyo" },
+				});
+				switchAccount = true;
+				expect(yield* reportingPreferencesOutcome(input)).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+				});
+			}),
+		testTimeout,
 	);
 });

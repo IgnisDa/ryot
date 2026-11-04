@@ -1,5 +1,6 @@
+import { expect, test } from "bun:test";
+
 import { escapeMarkdownText } from "@ryot-app/plugin-backend-sdk/markdown-text";
-import { expect, test } from "vitest";
 
 test("escapes literal punctuation, indentation, and line breaks without runtime dependencies", () => {
 	expect(

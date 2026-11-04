@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	add,
 	and,
@@ -16,7 +18,6 @@ import {
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { describe, expect, it } from "vitest";
 
 import { audiobookRecipes } from "./audiobook-recipes";
 

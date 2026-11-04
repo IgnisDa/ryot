@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AutomationTriggerPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
@@ -10,6 +11,8 @@ import {
 	EntityId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -153,75 +156,88 @@ const inspectionLayer = AutomationInspectionRepository.layer.pipe(
 );
 
 layer(inspectionLayer)((test) => {
-	test.effect("filters retained trigger evidence and pages beyond 100 records", () =>
-		Effect.gen(function* () {
-			const signal = yield* seed;
-			const repository = yield* AutomationInspectionRepository;
-			expect((yield* repository.listTriggers({ triggerId })).map(({ id }) => id)).toEqual([
-				"signal",
-			]);
-			expect((yield* repository.listTriggers({ actorUserId: owner })).map(({ id }) => id)).toEqual([
-				"signal",
-			]);
-			expect((yield* repository.listTriggers({ payload: signal })).map(({ id }) => id)).toEqual([
-				"signal",
-			]);
-			expect(
-				(yield* repository.listTriggers({
-					sourceRecord: { id: entityId, resource: "entity" },
-				})).map(({ id }) => id),
-			).toEqual(["deleted"]);
-			expect(
-				(yield* repository.listTriggers({
-					sourceRecord: { id: entityId, resource: "provider-entity-import" },
-				})).map(({ id }) => id),
-			).toEqual(["imported"]);
-			expect(
-				yield* repository.listTriggers({
-					sourceRecord: { resource: "entity", id: EntityId.make("absent") },
-				}),
-			).toEqual([]);
-			const first = yield* repository.listTriggers({ actorUserId: null, rootExecutionId: "pages" });
-			const second = yield* repository.listTriggers({
-				offset: 100,
-				actorUserId: null,
-				rootExecutionId: "pages",
-			});
-			expect(first).toHaveLength(100);
-			expect(second.map(({ id }) => id)).toEqual(["page-001", "page-000"]);
-			expect(new Set([...first, ...second].map(({ id }) => id)).size).toBe(102);
-		}),
+	test.effect(
+		"filters retained trigger evidence and pages beyond 100 records",
+		() =>
+			Effect.gen(function* () {
+				const signal = yield* seed;
+				const repository = yield* AutomationInspectionRepository;
+				expect(
+					(yield* repository.listTriggers({ triggerId })).map(({ id }) => id),
+				).toEqual<unknown>(["signal"]);
+				expect(
+					(yield* repository.listTriggers({ actorUserId: owner })).map(({ id }) => id),
+				).toEqual<unknown>(["signal"]);
+				expect(
+					(yield* repository.listTriggers({ payload: signal })).map(({ id }) => id),
+				).toEqual<unknown>(["signal"]);
+				expect(
+					(yield* repository.listTriggers({
+						sourceRecord: { id: entityId, resource: "entity" },
+					})).map(({ id }) => id),
+				).toEqual<unknown>(["deleted"]);
+				expect(
+					(yield* repository.listTriggers({
+						sourceRecord: { id: entityId, resource: "provider-entity-import" },
+					})).map(({ id }) => id),
+				).toEqual<unknown>(["imported"]);
+				expect(
+					yield* repository.listTriggers({
+						sourceRecord: { resource: "entity", id: EntityId.make("absent") },
+					}),
+				).toEqual([]);
+				const first = yield* repository.listTriggers({
+					actorUserId: null,
+					rootExecutionId: "pages",
+				});
+				const second = yield* repository.listTriggers({
+					offset: 100,
+					actorUserId: null,
+					rootExecutionId: "pages",
+				});
+				expect(first).toHaveLength(100);
+				expect(second.map(({ id }) => id)).toEqual<unknown>(["page-001", "page-000"]);
+				expect(new Set([...first, ...second].map(({ id }) => id)).size).toBe(102);
+			}),
+		testTimeout,
 	);
 });
 
 layer(inspectionLayer)((test) => {
-	test.effect("returns filtered run pins, raw attempts and recipients for execution tests", () =>
-		Effect.gen(function* () {
-			yield* seed;
-			const repository = yield* AutomationInspectionRepository;
-			expect(
-				(yield* repository.listRuns({
-					triggerId,
-					status: "failed",
-					executionUserId: owner,
-					hookSlug: AutomationHookSlug.make("fixture.hook"),
-				})).map(({ id }) => id),
-			).toEqual(["run"]);
-			expect(
-				(yield* repository.listRuns({ triggerId, executionUserId: null })).map(({ id }) => id),
-			).toEqual(["system-run"]);
-			expect(yield* repository.listRuns({ triggerId, status: "skipped" })).toEqual([]);
-			expect(yield* repository.listAttempts({ runId, status: "failed" })).toMatchObject([
-				{ id: "attempt", startedAt: now.toISOString(), logs: [{ level: "info", message: "raw" }] },
-			]);
-			expect(yield* repository.listAttempts({ runId, status: "succeeded" })).toEqual([]);
-			expect(yield* repository.listRecipients({ triggerId })).toEqual([
-				{ triggerId, userId: "other" },
-				{ triggerId, userId: owner },
-			]);
-			expect(yield* repository.listRecipients({ triggerId, userId: owner })).toEqual([
-				{ triggerId, userId: owner },
-			]);
-		}),
+	test.effect(
+		"returns filtered run pins, raw attempts and recipients for execution tests",
+		() =>
+			Effect.gen(function* () {
+				yield* seed;
+				const repository = yield* AutomationInspectionRepository;
+				expect(
+					(yield* repository.listRuns({
+						triggerId,
+						status: "failed",
+						executionUserId: owner,
+						hookSlug: AutomationHookSlug.make("fixture.hook"),
+					})).map(({ id }) => id),
+				).toEqual<unknown>(["run"]);
+				expect(
+					(yield* repository.listRuns({ triggerId, executionUserId: null })).map(({ id }) => id),
+				).toEqual<unknown>(["system-run"]);
+				expect(yield* repository.listRuns({ triggerId, status: "skipped" })).toEqual([]);
+				expect(yield* repository.listAttempts({ runId, status: "failed" })).toMatchObject([
+					{
+						id: "attempt",
+						startedAt: now.toISOString(),
+						logs: [{ level: "info", message: "raw" }],
+					},
+				]);
+				expect(yield* repository.listAttempts({ runId, status: "succeeded" })).toEqual([]);
+				expect(yield* repository.listRecipients({ triggerId })).toEqual<unknown>([
+					{ triggerId, userId: "other" },
+					{ triggerId, userId: owner },
+				]);
+				expect(yield* repository.listRecipients({ triggerId, userId: owner })).toEqual([
+					{ triggerId, userId: owner },
+				]);
+			}),
+		testTimeout,
 	);
 });

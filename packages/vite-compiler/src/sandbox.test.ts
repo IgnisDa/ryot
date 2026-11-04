@@ -1,7 +1,9 @@
+import { describe, expect } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { describe, expect, it, layer } from "@effect/vitest";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result, Schema } from "effect";
 
 import {
@@ -56,30 +58,36 @@ describe("Sandbox ESM audit", () => {
 		['new Event("vite:preloadError");', "forbidden runtime helper"],
 		["new Event(`vite:preloadError`);", "forbidden runtime helper"],
 		['new Event("vite:\\x70reloadError");', "forbidden runtime helper"],
-	] as const)("rejects %s", ([javascript, message]) =>
-		Effect.sync(() => {
-			const result = auditSandboxEsmOutput(javascript, new Set(["approved"]));
-			expect(Result.isFailure(result) && result.failure.message).toContain(message);
-		}),
+	] as const)(
+		"rejects %s",
+		([javascript, message]) =>
+			Effect.sync(() => {
+				const result = auditSandboxEsmOutput(javascript, new Set(["approved"]));
+				expect(Result.isFailure(result) && result.failure.message).toContain(message);
+			}),
+		testTimeout,
 	);
 
-	it.effect("allows approved imports and ignores comments, strings, and source-map text", () =>
-		Effect.sync(() => {
-			expect(
-				auditSandboxEsmOutput(
-					[
-						'import value from "approved";',
-						'await import("approved");',
-						'const text = \'Bun require("ignored") import("node:path") /*\';',
-						'const eventName = "vite:preloadError";',
-						'// Bun.file("ignored")',
-						'/* document.getElementsByTagName("ignored") */',
-						'//# sourceMappingURL=data:require("ignored")',
-					].join("\n"),
-					new Set(["approved"]),
-				),
-			).toEqual(Result.succeed(["approved"]));
-		}),
+	it.effect(
+		"allows approved imports and ignores comments, strings, and source-map text",
+		() =>
+			Effect.sync(() => {
+				expect(
+					auditSandboxEsmOutput(
+						[
+							'import value from "approved";',
+							'await import("approved");',
+							'const text = \'Bun require("ignored") import("node:path") /*\';',
+							'const eventName = "vite:preloadError";',
+							'// Bun.file("ignored")',
+							'/* document.getElementsByTagName("ignored") */',
+							'//# sourceMappingURL=data:require("ignored")',
+						].join("\n"),
+						new Set(["approved"]),
+					),
+				).toEqual(Result.succeed(["approved"]));
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -98,59 +106,66 @@ describe("Sandbox ESM audit", () => {
 					),
 				).toEqual(Result.succeed(["alpha", "middle", "zeta"]));
 			}),
+		testTimeout,
 	);
 
-	it.effect("allows only explicitly approved non-literal dynamic import expressions", () =>
-		Effect.sync(() => {
-			expect(
-				auditSandboxEsmOutput(
-					"await import(payload.moduleUrl);",
+	it.effect(
+		"allows only explicitly approved non-literal dynamic import expressions",
+		() =>
+			Effect.sync(() => {
+				expect(
+					auditSandboxEsmOutput(
+						"await import(payload.moduleUrl);",
+						new Set(),
+						new Set(["payload.moduleUrl"]),
+					),
+				).toEqual(Result.succeed([]));
+				const rejected = auditSandboxEsmOutput(
+					"await import(other.moduleUrl);",
 					new Set(),
 					new Set(["payload.moduleUrl"]),
-				),
-			).toEqual(Result.succeed([]));
-			const rejected = auditSandboxEsmOutput(
-				"await import(other.moduleUrl);",
-				new Set(),
-				new Set(["payload.moduleUrl"]),
-			);
-			expect(Result.isFailure(rejected) && rejected.failure.message).toContain(
-				"non-literal dynamic import",
-			);
-		}),
+				);
+				expect(Result.isFailure(rejected) && rejected.failure.message).toContain(
+					"non-literal dynamic import",
+				);
+			}),
+		testTimeout,
 	);
 });
 
 describe("Sandbox ESM build", () => {
 	layer(fakeLayer("module.mjs"))((test) => {
-		test.effect("owns the protected ES2022 unminified single-module profile", () =>
-			Effect.gen(function* () {
-				yield* buildSandboxEsm({
-					entry: "entry.ts",
-					outputFile: "module.mjs",
-					approvedExternalSpecifiers: new Set(["effect"]),
-					sources: [{ path: "entry.ts", contents: "export const value = 1;" }],
-					aliases: [{ find: /^effect$/, replacement: "/packages/effect/index.js" }],
-				});
-				const [config] = yield* (yield* FakeViteBuild).builds;
-				expect(config?.resolve).toMatchObject({
-					conditions: ["worker", "browser", "import", "module", "default"],
-					mainFields: ["browser", "module", "jsnext:main", "jsnext", "main"],
-				});
-				expect(config?.define).toEqual({ "globalThis.Bun": "undefined" });
-				expect(config?.build).toMatchObject({
-					minify: false,
-					target: "es2022",
-					cssCodeSplit: false,
-					sourcemap: "inline",
-					modulePreload: false,
-				});
-				expect(config?.build?.rolldownOptions).toMatchObject({
-					preserveEntrySignatures: "strict",
-					output: { format: "es", codeSplitting: false, entryFileNames: "module.mjs" },
-				});
-				expect(config?.build?.lib).toMatchObject({ formats: ["es"] });
-			}),
+		test.effect(
+			"owns the protected ES2022 unminified single-module profile",
+			() =>
+				Effect.gen(function* () {
+					yield* buildSandboxEsm({
+						entry: "entry.ts",
+						outputFile: "module.mjs",
+						approvedExternalSpecifiers: new Set(["effect"]),
+						sources: [{ path: "entry.ts", contents: "export const value = 1;" }],
+						aliases: [{ find: /^effect$/, replacement: "/packages/effect/index.js" }],
+					});
+					const [config] = yield* (yield* FakeViteBuild).builds;
+					expect(config?.resolve).toMatchObject({
+						conditions: ["worker", "browser", "import", "module", "default"],
+						mainFields: ["browser", "module", "jsnext:main", "jsnext", "main"],
+					});
+					expect(config?.define).toEqual({ "globalThis.Bun": "undefined" });
+					expect(config?.build).toMatchObject({
+						minify: false,
+						target: "es2022",
+						cssCodeSplit: false,
+						sourcemap: "inline",
+						modulePreload: false,
+					});
+					expect(config?.build?.rolldownOptions).toMatchObject({
+						preserveEntrySignatures: "strict",
+						output: { format: "es", codeSplitting: false, entryFileNames: "module.mjs" },
+					});
+					expect(config?.build?.lib).toMatchObject({ formats: ["es"] });
+				}),
+			testTimeout,
 		);
 	});
 
@@ -192,73 +207,86 @@ describe("Sandbox ESM build", () => {
 						javascript: "export const value = 1;",
 					});
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(liveLayer)((test) => {
-		test.effect("preserves executable named and default exports from an external entry", () =>
-			Effect.gen(function* () {
-				const result = yield* buildSandboxEsm({
-					outputFile: "default-entry.mjs",
-					approvedExternalSpecifiers: new Set(),
-					entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
-				});
-				const module = yield* importDefaultEntry(result.javascript);
-				expect(module.named).toBe("named");
-				expect(module.default()).toBe("default");
-			}),
+		test.effect(
+			"preserves executable named and default exports from an external entry",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildSandboxEsm({
+						outputFile: "default-entry.mjs",
+						approvedExternalSpecifiers: new Set(),
+						entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
+					});
+					const module = yield* importDefaultEntry(result.javascript);
+					expect(module.named).toBe("named");
+					expect(module.default()).toBe("default");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(fakeLayer("extra.mjs"))((test) => {
-		test.effect("rejects unsafe staged entries, unexpected outputs, and audited output", () =>
-			Effect.gen(function* () {
-				const common = {
-					outputFile: "module.mjs",
-					approvedExternalSpecifiers: new Set<string>(),
-					sources: [{ path: "entry.ts", contents: "export {};" }],
-				};
-				const unsafe = yield* Effect.flip(buildSandboxEsm({ ...common, entry: "../entry.ts" }));
-				expect(unsafe.reason).toBe("invalid-input");
-				const unexpected = yield* Effect.flip(buildSandboxEsm({ ...common, entry: "entry.ts" }));
-				expect(unexpected.reason).toBe("invalid-output");
-				yield* (yield* FakeViteBuild).respondWith(() =>
-					Effect.succeed(emitted("module.mjs", 'import "node:path";')),
-				);
-				const audited = yield* Effect.flip(buildSandboxEsm({ ...common, entry: "entry.ts" }));
-				expect(audited.reason).toBe("invalid-output");
-				expect(audited.diagnostics?.[0]?.message).toContain("forbidden runtime import");
-			}),
+		test.effect(
+			"rejects unsafe staged entries, unexpected outputs, and audited output",
+			() =>
+				Effect.gen(function* () {
+					const common = {
+						outputFile: "module.mjs",
+						approvedExternalSpecifiers: new Set<string>(),
+						sources: [{ path: "entry.ts", contents: "export {};" }],
+					};
+					const unsafe = yield* Effect.flip(buildSandboxEsm({ ...common, entry: "../entry.ts" }));
+					expect(unsafe.reason).toBe("invalid-input");
+					const unexpected = yield* Effect.flip(buildSandboxEsm({ ...common, entry: "entry.ts" }));
+					expect(unexpected.reason).toBe("invalid-output");
+					yield* (yield* FakeViteBuild).respondWith(() =>
+						Effect.succeed(emitted("module.mjs", 'import "node:path";')),
+					);
+					const audited = yield* Effect.flip(buildSandboxEsm({ ...common, entry: "entry.ts" }));
+					expect(audited.reason).toBe("invalid-output");
+					expect(audited.diagnostics?.[0]?.message).toContain("forbidden runtime import");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(liveLayer)((test) => {
-		test.effect("builds staged TypeScript with an inline source map", () =>
-			Effect.gen(function* () {
-				const result = yield* buildSandboxEsm({
-					entry: "nested/entry.ts",
-					outputFile: "module.mjs",
-					approvedExternalSpecifiers: new Set(),
-					sources: [{ path: "nested/entry.ts", contents: "export const value: number = 1;" }],
-				});
-				expect(result.diagnostics).toEqual([]);
-				expect(result.javascript).toContain("export { value }");
-				expect(result.javascript).toContain("//# sourceMappingURL=data:application/json;base64,");
-			}),
+		test.effect(
+			"builds staged TypeScript with an inline source map",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildSandboxEsm({
+						entry: "nested/entry.ts",
+						outputFile: "module.mjs",
+						approvedExternalSpecifiers: new Set(),
+						sources: [{ path: "nested/entry.ts", contents: "export const value: number = 1;" }],
+					});
+					expect(result.diagnostics).toEqual([]);
+					expect(result.javascript).toContain("export { value }");
+					expect(result.javascript).toContain("//# sourceMappingURL=data:application/json;base64,");
+				}),
+			testTimeout,
 		);
-		test.effect("omits trusted dependency maps while preserving their executable exports", () =>
-			Effect.gen(function* () {
-				const result = yield* buildSandboxEsm({
-					sourceMap: false,
-					outputFile: "runtime.mjs",
-					approvedExternalSpecifiers: new Set(),
-					entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
-				});
-				expect(result.javascript).not.toContain("sourceMappingURL");
-				const module = yield* importDefaultEntry(result.javascript);
-				expect(module.named).toBe("named");
-				expect(module.default()).toBe("default");
-			}),
+		test.effect(
+			"omits trusted dependency maps while preserving their executable exports",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildSandboxEsm({
+						sourceMap: false,
+						outputFile: "runtime.mjs",
+						approvedExternalSpecifiers: new Set(),
+						entry: fileURLToPath(new URL("./fixtures/default-entry.mjs", import.meta.url)),
+					});
+					expect(result.javascript).not.toContain("sourceMappingURL");
+					const module = yield* importDefaultEntry(result.javascript);
+					expect(module.named).toBe("named");
+					expect(module.default()).toBe("default");
+				}),
+			testTimeout,
 		);
 	});
 });
@@ -271,49 +299,57 @@ describe("Sandbox ESM package build", () => {
 	];
 
 	layer(fakeLayer("module.mjs"))((test) => {
-		test.effect("stages the package once and builds every entry against it", () =>
-			Effect.gen(function* () {
-				const modules = yield* buildSandboxEsmPackage({
-					concurrency: 2,
-					sources: packageSources,
-					outputFile: "module.mjs",
-					approvedExternalSpecifiers: new Set(),
-					entries: ["first/entry.ts", "second/entry.ts"],
-				});
-				expect(modules.map(({ entry }) => entry)).toEqual(["first/entry.ts", "second/entry.ts"]);
-				const builds = yield* (yield* FakeViteBuild).builds;
-				expect(builds).toHaveLength(2);
-				expect(new Set(builds.map(({ root }) => root)).size).toBe(1);
-			}),
+		test.effect(
+			"stages the package once and builds every entry against it",
+			() =>
+				Effect.gen(function* () {
+					const modules = yield* buildSandboxEsmPackage({
+						concurrency: 2,
+						sources: packageSources,
+						outputFile: "module.mjs",
+						approvedExternalSpecifiers: new Set(),
+						entries: ["first/entry.ts", "second/entry.ts"],
+					});
+					expect(modules.map(({ entry }) => entry)).toEqual(["first/entry.ts", "second/entry.ts"]);
+					const builds = yield* (yield* FakeViteBuild).builds;
+					expect(builds).toHaveLength(2);
+					expect(new Set(builds.map(({ root }) => root)).size).toBe(1);
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(liveLayer)((test) => {
-		test.effect("emits one audited module per entry and rejects unsafe entries", () =>
-			Effect.gen(function* () {
-				const modules = yield* buildSandboxEsmPackage({
-					sources: packageSources,
-					outputFile: "module.mjs",
-					approvedExternalSpecifiers: new Set(),
-					entries: ["first/entry.ts", "second/entry.ts"],
-				});
-				expect(modules[0]?.javascript).toContain("export { value as first }");
-				expect(modules[1]?.javascript).toContain("export { value as second }");
-				for (const module of modules) {
-					expect(module.diagnostics).toEqual([]);
-					expect(module.runtimeImports).toEqual([]);
-					expect(module.javascript).toContain("//# sourceMappingURL=data:application/json;base64,");
-				}
-				const unsafe = yield* Effect.flip(
-					buildSandboxEsmPackage({
+		test.effect(
+			"emits one audited module per entry and rejects unsafe entries",
+			() =>
+				Effect.gen(function* () {
+					const modules = yield* buildSandboxEsmPackage({
 						sources: packageSources,
 						outputFile: "module.mjs",
-						entries: ["../first/entry.ts"],
 						approvedExternalSpecifiers: new Set(),
-					}),
-				);
-				expect(unsafe.reason).toBe("invalid-input");
-			}),
+						entries: ["first/entry.ts", "second/entry.ts"],
+					});
+					expect(modules[0]?.javascript).toContain("export { value as first }");
+					expect(modules[1]?.javascript).toContain("export { value as second }");
+					for (const module of modules) {
+						expect(module.diagnostics).toEqual([]);
+						expect(module.runtimeImports).toEqual([]);
+						expect(module.javascript).toContain(
+							"//# sourceMappingURL=data:application/json;base64,",
+						);
+					}
+					const unsafe = yield* Effect.flip(
+						buildSandboxEsmPackage({
+							sources: packageSources,
+							outputFile: "module.mjs",
+							entries: ["../first/entry.ts"],
+							approvedExternalSpecifiers: new Set(),
+						}),
+					);
+					expect(unsafe.reason).toBe("invalid-input");
+				}),
+			testTimeout,
 		);
 	});
 });

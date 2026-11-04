@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	POLICY_SAFE_SANDBOX_CAPABILITIES,
 	SANDBOX_HOST_CAPABILITIES,
@@ -12,7 +14,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { isSandboxCapabilityAllowed, requireSandboxCapabilityInput } from "./capabilities";
 import { makeSubjectRunInput } from "./principal.test-support";
@@ -127,9 +128,15 @@ describe("requireSandboxCapabilityInput", () => {
 			userId: UserId.make("user_1"),
 			accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
 		});
-		expect(Effect.runSync(requireSandboxCapabilityInput(input, "getUserPreferences"))).toBe(input);
-		expect(Effect.runSync(requireSandboxCapabilityInput(input, "updateEvents"))).toBe(input);
-		expect(Effect.runSync(requireSandboxCapabilityInput(input, "deleteEvents"))).toBe(input);
+		expect(
+			Effect.runSync(requireSandboxCapabilityInput(input, "getUserPreferences")),
+		).toBe<unknown>(input);
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "updateEvents"))).toBe<unknown>(
+			input,
+		);
+		expect(Effect.runSync(requireSandboxCapabilityInput(input, "deleteEvents"))).toBe<unknown>(
+			input,
+		);
 	});
 
 	it("limits Pro availability and managed asset verification to user-owned runs", () => {
@@ -203,9 +210,9 @@ describe("requireSandboxCapabilityInput", () => {
 			{ kind: "script" },
 			{ pluginRevision: pluginRevision() },
 		);
-		expect(Effect.runSync(requireSandboxCapabilityInput(input, "upsertGlobalEntities"))).toBe(
-			input,
-		);
+		expect(
+			Effect.runSync(requireSandboxCapabilityInput(input, "upsertGlobalEntities")),
+		).toBe<unknown>(input);
 		expect(() =>
 			Effect.runSync(
 				requireSandboxCapabilityInput(
@@ -223,16 +230,18 @@ describe("requireSandboxCapabilityInput", () => {
 			{ kind: "script" },
 			{ pluginRevision: pluginRevision() },
 		);
-		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeRyotql"))).toBe(script);
+		expect(Effect.runSync(requireSandboxCapabilityInput(script, "executeRyotql"))).toBe<unknown>(
+			script,
+		);
 		const automation = makeSubjectRunInput(
 			{ type: "system" },
 			null,
 			{ kind: "automation" },
 			{ pluginRevision: pluginRevision() },
 		);
-		expect(Effect.runSync(requireSandboxCapabilityInput(automation, "executeRyotql"))).toBe(
-			automation,
-		);
+		expect(
+			Effect.runSync(requireSandboxCapabilityInput(automation, "executeRyotql")),
+		).toBe<unknown>(automation);
 	});
 
 	it("rejects elevated system paths outside a pinned system plugin", () => {
@@ -260,7 +269,7 @@ describe("requireSandboxCapabilityInput", () => {
 			{ kind: "automation" },
 			{ pluginRevision: pluginRevision() },
 		);
-		expect(Effect.runSync(requireSandboxCapabilityInput(automation, "emitSignal"))).toBe(
+		expect(Effect.runSync(requireSandboxCapabilityInput(automation, "emitSignal"))).toBe<unknown>(
 			automation,
 		);
 		expect(() =>
@@ -287,9 +296,9 @@ describe("requireSandboxCapabilityInput", () => {
 			{ kind: "script" },
 			{ pluginRevision: pluginRevision(true) },
 		);
-		expect(Effect.runSync(requireSandboxCapabilityInput(trusted, "ensureUserEntities"))).toBe(
-			trusted,
-		);
+		expect(
+			Effect.runSync(requireSandboxCapabilityInput(trusted, "ensureUserEntities")),
+		).toBe<unknown>(trusted);
 		const privateBootstrap = {
 			...trusted,
 			principal: {
@@ -303,10 +312,10 @@ describe("requireSandboxCapabilityInput", () => {
 		};
 		expect(
 			Effect.runSync(requireSandboxCapabilityInput(privateBootstrap, "ensureUserEntities")),
-		).toBe(privateBootstrap);
-		expect(Effect.runSync(requireSandboxCapabilityInput(privateBootstrap, "executeRyotql"))).toBe(
-			privateBootstrap,
-		);
+		).toBe<unknown>(privateBootstrap);
+		expect(
+			Effect.runSync(requireSandboxCapabilityInput(privateBootstrap, "executeRyotql")),
+		).toBe<unknown>(privateBootstrap);
 		expect(() =>
 			Effect.runSync(
 				requireSandboxCapabilityInput(

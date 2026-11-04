@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	type AutomationFailureKind,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { describe, expect, it } from "vitest";
 
 import { automaticRetryAt, isRetryableAutomationFailure } from "./retry-policy";
 

@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	type NamedQuery,
 	RowsResult,
@@ -25,6 +26,9 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq as databaseEq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 
@@ -280,26 +284,30 @@ layer(databaseLayer)((test) => {
 					null,
 				]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("keeps nulls, scalar kinds and strict object traversal unchanged", () =>
-		Effect.gen(function* () {
-			const actual = yield* execute(shapeQuery(false));
-			expect(yield* encodeRows(actual.result)).toBe(
-				yield* encodeRows((yield* execute(shapeQuery(true))).result),
-			);
-			expect(actual.result.items.slice(0, 15)).toEqual(
-				Array.from({ length: 15 }, () => ({ text: null, number: null, boolean: null })),
-			);
-			expect(actual.result.items.slice(15)).toEqual([
-				...["", "null", "3", "true", "1e", "NaN", "Infinity", " \t", "'\"\\\n日本語🧪"].map(
-					(text) => ({ text, number: null, boolean: null }),
-				),
-				{ text: null, number: null, boolean: true },
-				{ text: null, number: null, boolean: false },
-				{ number: 3, text: null, boolean: null },
-			]);
-		}),
+	test.effect(
+		"keeps nulls, scalar kinds and strict object traversal unchanged",
+		() =>
+			Effect.gen(function* () {
+				const actual = yield* execute(shapeQuery(false));
+				expect(yield* encodeRows(actual.result)).toBe(
+					yield* encodeRows((yield* execute(shapeQuery(true))).result),
+				);
+				expect(actual.result.items.slice(0, 15)).toEqual(
+					Array.from({ length: 15 }, () => ({ text: null, number: null, boolean: null })),
+				);
+				expect(actual.result.items.slice(15)).toEqual([
+					...["", "null", "3", "true", "1e", "NaN", "Infinity", " \t", "'\"\\\n日本語🧪"].map(
+						(text) => ({ text, number: null, boolean: null }),
+					),
+					{ text: null, number: null, boolean: true },
+					{ text: null, number: null, boolean: false },
+					{ number: 3, text: null, boolean: null },
+				]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -320,6 +328,7 @@ layer(databaseLayer)((test) => {
 					),
 				]);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -349,96 +358,103 @@ layer(databaseLayer)((test) => {
 				);
 				expect(objects.result.items).toEqual([{ zero: 4, space: 5, unicode: "replacement" }]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("retains localized, subquery, JSON-element and non-JSON input cast behavior", () =>
-		Effect.gen(function* () {
-			const localized = rows(subject, {
-				where: eq(column(subject, "id"), literal("subject")),
-				fields: [field("label", castText(jsonPath(column(subject, "properties"), "label")))],
-			});
-			const canonical = yield* execute(localized);
-			const translated = yield* execute(localized, "es");
-			expect(canonical.result.items).toEqual([{ label: "canonical" }]);
-			expect(translated.result.items).toEqual([{ label: "translated" }]);
-			const nested = yield* execute(
-				rows(subject, {
+	test.effect(
+		"retains localized, subquery, JSON-element and non-JSON input cast behavior",
+		() =>
+			Effect.gen(function* () {
+				const localized = rows(subject, {
 					where: eq(column(subject, "id"), literal("subject")),
-					fields: [
-						field(
-							"first",
-							castNumber(
-								jsonPath(
-									first(source, {
-										select: column(source, "properties"),
-										orderBy: [ascending(column(source, "id"))],
-										where: eq(column(source, "id"), literal("number-03")),
-									}),
-									"nested",
-									"value",
+					fields: [field("label", castText(jsonPath(column(subject, "properties"), "label")))],
+				});
+				const canonical = yield* execute(localized);
+				const translated = yield* execute(localized, "es");
+				expect(canonical.result.items).toEqual([{ label: "canonical" }]);
+				expect(translated.result.items).toEqual([{ label: "translated" }]);
+				const nested = yield* execute(
+					rows(subject, {
+						where: eq(column(subject, "id"), literal("subject")),
+						fields: [
+							field(
+								"first",
+								castNumber(
+									jsonPath(
+										first(source, {
+											select: column(source, "properties"),
+											orderBy: [ascending(column(source, "id"))],
+											where: eq(column(source, "id"), literal("number-03")),
+										}),
+										"nested",
+										"value",
+									),
 								),
 							),
-						),
-						field("number", castNumber(literal("3"))),
-						field("boolean", castBoolean(literal("true"))),
-						field("date", castDate(literal("2026-01-01"))),
-					],
-				}),
-			);
-			expect(nested.result.items).toEqual([
-				{ first: 1, number: 3, boolean: true, date: "2026-01-01T00:00:00.000Z" },
-			]);
-			const items = jsonPath(column(source, "properties"), "items");
-			const element = jsonElementsJoin("inner", "element", items);
-			const elements = yield* execute(
-				rows(source, {
-					joins: [element],
-					where: eq(column(source, "id"), literal("fallback")),
-					fields: [
-						field("value", castText(jsonPath(column(element, "value"), "value"))),
-						field(
-							"count",
-							jsonArrayCount(items, eq(castText(jsonPath(jsonElement(), "value")), literal("x"))),
-						),
-					],
-				}),
-			);
-			expect(elements.result.items).toEqual([{ count: 1, value: "x" }]);
-		}),
+							field("number", castNumber(literal("3"))),
+							field("boolean", castBoolean(literal("true"))),
+							field("date", castDate(literal("2026-01-01"))),
+						],
+					}),
+				);
+				expect(nested.result.items).toEqual([
+					{ first: 1, number: 3, boolean: true, date: "2026-01-01T00:00:00.000Z" },
+				]);
+				const items = jsonPath(column(source, "properties"), "items");
+				const element = jsonElementsJoin("inner", "element", items);
+				const elements = yield* execute(
+					rows(source, {
+						joins: [element],
+						where: eq(column(source, "id"), literal("fallback")),
+						fields: [
+							field("value", castText(jsonPath(column(element, "value"), "value"))),
+							field(
+								"count",
+								jsonArrayCount(items, eq(castText(jsonPath(jsonElement(), "value")), literal("x"))),
+							),
+						],
+					}),
+				);
+				expect(elements.result.items).toEqual([{ count: 1, value: "x" }]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps nullable private joins and conditional values fresh across executions", () =>
-		Effect.gen(function* () {
-			const value = castNumber(jsonPath(column(source, "properties"), "nested", "value"));
-			const enabled = castBoolean(jsonPath(column(source, "properties"), "enabled"));
-			const query = (id: string) =>
-				rows(subject, {
-					where: eq(column(subject, "id"), literal("subject")),
-					joins: [join("left", source, eq(column(source, "id"), literal(id)))],
-					fields: [
-						field("value", value),
-						field("enabled", enabled),
-						field("conditional", conditional(eq(enabled, literal(true)), value, literal(0))),
-						field("projection", castText(jsonPath(column(source, "projection"), "label"))),
-					],
-				});
-			expect((yield* execute(query("hidden"))).result.items).toEqual([
-				{ value: null, enabled: null, conditional: 0, projection: null },
-			]);
-			const reused = query("mutable");
-			expect((yield* execute(reused)).result.items).toEqual([
-				{ value: 3, enabled: true, conditional: 3, projection: null },
-			]);
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db
-					.update(tables.event)
-					.set({ properties: { enabled: false, nested: { value: 4 } } })
-					.where(databaseEq(tables.event.id, "mutable")),
-			);
-			expect((yield* execute(reused)).result.items).toEqual([
-				{ value: 4, enabled: false, conditional: 0, projection: null },
-			]);
-		}),
+	test.effect(
+		"keeps nullable private joins and conditional values fresh across executions",
+		() =>
+			Effect.gen(function* () {
+				const value = castNumber(jsonPath(column(source, "properties"), "nested", "value"));
+				const enabled = castBoolean(jsonPath(column(source, "properties"), "enabled"));
+				const query = (id: string) =>
+					rows(subject, {
+						where: eq(column(subject, "id"), literal("subject")),
+						joins: [join("left", source, eq(column(source, "id"), literal(id)))],
+						fields: [
+							field("value", value),
+							field("enabled", enabled),
+							field("conditional", conditional(eq(enabled, literal(true)), value, literal(0))),
+							field("projection", castText(jsonPath(column(source, "projection"), "label"))),
+						],
+					});
+				expect((yield* execute(query("hidden"))).result.items).toEqual([
+					{ value: null, enabled: null, conditional: 0, projection: null },
+				]);
+				const reused = query("mutable");
+				expect((yield* execute(reused)).result.items).toEqual([
+					{ value: 3, enabled: true, conditional: 3, projection: null },
+				]);
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.update(tables.event)
+						.set({ properties: { enabled: false, nested: { value: 4 } } })
+						.where(databaseEq(tables.event.id, "mutable")),
+				);
+				expect((yield* execute(reused)).result.items).toEqual([
+					{ value: 4, enabled: false, conditional: 0, projection: null },
+				]);
+			}),
+		testTimeout,
 	);
 });

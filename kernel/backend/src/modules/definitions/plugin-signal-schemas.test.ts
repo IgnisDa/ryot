@@ -1,5 +1,9 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result } from "effect";
 
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
@@ -65,31 +69,34 @@ const signalDefinitions = () => {
 	);
 };
 
-it.effect("indexes and validates strict actor signal contracts", () =>
-	Effect.gen(function* () {
-		const definition = signalDefinitions().find(({ slug }) => slug === "fixture.actor");
-		assert(definition);
+it.effect(
+	"indexes and validates strict actor signal contracts",
+	() =>
+		Effect.gen(function* () {
+			const definition = signalDefinitions().find(({ slug }) => slug === "fixture.actor");
+			assert(definition);
 
-		expect(definition.audiencePolicy).toEqual({ kind: "actor" });
-		expect(
-			yield* parseAppSchemaProperties({
-				kind: "Signal",
-				properties: { message: "ready" },
-				propertiesSchema: definition.propertiesSchema,
-			}),
-		).toEqual({ message: "ready" });
-		expect(
-			Result.isFailure(
-				yield* Effect.result(
-					parseAppSchemaProperties({
-						kind: "Signal",
-						propertiesSchema: definition.propertiesSchema,
-						properties: { message: "ready", unexpected: true },
-					}),
+			expect(definition.audiencePolicy).toEqual({ kind: "actor" });
+			expect(
+				yield* parseAppSchemaProperties({
+					kind: "Signal",
+					properties: { message: "ready" },
+					propertiesSchema: definition.propertiesSchema,
+				}),
+			).toEqual({ message: "ready" });
+			expect(
+				Result.isFailure(
+					yield* Effect.result(
+						parseAppSchemaProperties({
+							kind: "Signal",
+							propertiesSchema: definition.propertiesSchema,
+							properties: { message: "ready", unexpected: true },
+						}),
+					),
 				),
-			),
-		).toBe(true);
-	}),
+			).toBe(true);
+		}),
+	testTimeout,
 );
 
 it("indexes related-user signal audience policies", () => {

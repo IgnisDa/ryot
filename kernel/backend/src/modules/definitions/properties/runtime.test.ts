@@ -1,3 +1,5 @@
+import { describe, expect, it } from "bun:test";
+
 import { imagesField, videosField } from "@ryot-app/contract/schema/core";
 import type {
 	AppArrayProperty,
@@ -17,7 +19,6 @@ import type {
 } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { fixtureExamplePropertiesSchema } from "./fixture.test-support";
 import {
@@ -667,10 +668,12 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		).toBe(false);
 	});
 
-	it.each([
-		["__proto__", "toString"],
-		["settings", "__proto__", "toString"],
-	])("does not delete inherited properties while omitting hidden defaults %j", (...path) => {
+	it.each(
+		[
+			["__proto__", "toString"],
+			["settings", "__proto__", "toString"],
+		].map((path) => ({ path })),
+	)("does not delete inherited properties while omitting hidden defaults %j", ({ path }) => {
 		const descriptor = Object.getOwnPropertyDescriptor(Object.prototype, "toString");
 		const s = schema(
 			{ settings: objectProp({}), enabled: bool({ defaultValue: false }) },
@@ -833,16 +836,17 @@ describe("validateAppSchemaDefinition", () => {
 		expect(validateAppSchemaDefinition(s)).toEqual([]);
 	});
 
-	it.each([["__proto__", "toString"], ["constructor"], ["settings", "toString"]])(
-		"rejects inherited visibility target paths %j",
-		(...path) => {
-			const s = schema(
-				{ enabled: bool(), settings: objectProp({}) },
-				{ rules: [visibilityRule(path, { value: false, operator: "eq", path: ["enabled"] })] },
-			);
-			expect(validateAppSchemaDefinition(s)).toHaveLength(1);
-		},
-	);
+	it.each(
+		[["__proto__", "toString"], ["constructor"], ["settings", "toString"]].map((path) => ({
+			path,
+		})),
+	)("rejects inherited visibility target paths %j", ({ path }) => {
+		const s = schema(
+			{ enabled: bool(), settings: objectProp({}) },
+			{ rules: [visibilityRule(path, { value: false, operator: "eq", path: ["enabled"] })] },
+		);
+		expect(validateAppSchemaDefinition(s)).toHaveLength(1);
+	});
 
 	it("returns an issue when the rule path points to a missing field", () => {
 		const s = schema(

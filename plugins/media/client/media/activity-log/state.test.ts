@@ -1,6 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, test } from "bun:test";
+
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { mediaActivityLogContextRecipe } from "../../../shared/activity-log-recipes";
@@ -356,7 +359,7 @@ describe("entries", () => {
 		});
 	});
 
-	it.each([
+	test.each([
 		["2026-10-20T00:15:00+14:00", "2026-10-19T10:15:00.000Z"],
 		["2026-10-20T23:15:00-12:00", "2026-10-20T00:00:00.000Z"],
 	])("keeps a picked progress day across the UTC boundary at %s", (at, finishedOn) => {
@@ -848,6 +851,7 @@ describe("activity edits", () => {
 				expect(encoded.expected.properties).toEqual(record.properties);
 				expect(encoded.expected.absentProperties).toContain("progressPercent");
 			}),
+		testTimeout,
 	);
 
 	it("keeps stored pages above the current provider total editable", () => {

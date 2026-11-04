@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EventId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { PluginId } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	automationContext,
@@ -87,80 +90,89 @@ const createHost = (entities: readonly [string, string][]) => {
 	return { host, calls, created };
 };
 
-it.live("records one add-to-media-library event per membership in a single write", () =>
-	Effect.gen(function* () {
-		const { host, calls, created } = createHost([
-			["entity-1", "book"],
-			["entity-2", "book"],
-		]);
+it.live(
+	"records one add-to-media-library event per membership in a single write",
+	() =>
+		Effect.gen(function* () {
+			const { host, calls, created } = createHost([
+				["entity-1", "book"],
+				["entity-2", "book"],
+			]);
 
-		yield* definition.run(
-			yield* batchContext(
-				{ relationship: membership("relationship-1", "entity-1") },
-				{ relationship: membership("relationship-2", "entity-2", "2026-01-02T00:00:00.000Z") },
-			),
-			host,
-		);
+			yield* definition.run(
+				yield* batchContext(
+					{ relationship: membership("relationship-1", "entity-1") },
+					{ relationship: membership("relationship-2", "entity-2", "2026-01-02T00:00:00.000Z") },
+				),
+				host,
+			);
 
-		expect(created).toEqual([
-			[
-				{
-					properties: {},
-					entityId: "entity-1",
-					occurredAt: "2026-01-01T00:00:00.000Z",
-					eventSchemaSlug: "add-to-media-library",
-				},
-				{
-					properties: {},
-					entityId: "entity-2",
-					occurredAt: "2026-01-02T00:00:00.000Z",
-					eventSchemaSlug: "add-to-media-library",
-				},
-			],
-		]);
-		expect(calls).toEqual({ entityReads: 1, schemaReads: 1 });
-	}),
-);
-
-it.live("skips non-membership relationships, deletions, and non-media entities", () =>
-	Effect.gen(function* () {
-		const { host, calls, created } = createHost([
-			["entity-1", "workout"],
-			["entity-2", "book"],
-		]);
-
-		yield* definition.run(
-			yield* batchContext(
-				{
-					relationship: {
-						...membership("relationship-1", "entity-2"),
-						relationshipSchemaSlug: "owns",
+			expect(created).toEqual([
+				[
+					{
+						properties: {},
+						entityId: "entity-1",
+						occurredAt: "2026-01-01T00:00:00.000Z",
+						eventSchemaSlug: "add-to-media-library",
 					},
-				},
-				{ operation: "delete", relationship: membership("relationship-2", "entity-2") },
-				{ relationship: membership("relationship-3", "entity-1") },
-			),
-			host,
-		);
-
-		expect(created).toEqual([]);
-		expect(calls).toEqual({ entityReads: 1, schemaReads: 0 });
-	}),
+					{
+						properties: {},
+						entityId: "entity-2",
+						occurredAt: "2026-01-02T00:00:00.000Z",
+						eventSchemaSlug: "add-to-media-library",
+					},
+				],
+			]);
+			expect(calls).toEqual({ entityReads: 1, schemaReads: 1 });
+		}),
+	testTimeout,
 );
 
-it.live("does nothing when the batch has no membership creations", () =>
-	Effect.gen(function* () {
-		const { host, calls, created } = createHost([]);
+it.live(
+	"skips non-membership relationships, deletions, and non-media entities",
+	() =>
+		Effect.gen(function* () {
+			const { host, calls, created } = createHost([
+				["entity-1", "workout"],
+				["entity-2", "book"],
+			]);
 
-		yield* definition.run(
-			yield* batchContext({
-				operation: "delete",
-				relationship: membership("relationship-1", "entity-1"),
-			}),
-			host,
-		);
+			yield* definition.run(
+				yield* batchContext(
+					{
+						relationship: {
+							...membership("relationship-1", "entity-2"),
+							relationshipSchemaSlug: "owns",
+						},
+					},
+					{ operation: "delete", relationship: membership("relationship-2", "entity-2") },
+					{ relationship: membership("relationship-3", "entity-1") },
+				),
+				host,
+			);
 
-		expect(created).toEqual([]);
-		expect(calls).toEqual({ entityReads: 0, schemaReads: 0 });
-	}),
+			expect(created).toEqual([]);
+			expect(calls).toEqual({ entityReads: 1, schemaReads: 0 });
+		}),
+	testTimeout,
+);
+
+it.live(
+	"does nothing when the batch has no membership creations",
+	() =>
+		Effect.gen(function* () {
+			const { host, calls, created } = createHost([]);
+
+			yield* definition.run(
+				yield* batchContext({
+					operation: "delete",
+					relationship: membership("relationship-1", "entity-1"),
+				}),
+				host,
+			);
+
+			expect(created).toEqual([]);
+			expect(calls).toEqual({ entityReads: 0, schemaReads: 0 });
+		}),
+	testTimeout,
 );

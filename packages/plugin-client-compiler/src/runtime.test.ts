@@ -1,7 +1,10 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
 import type { ClientRuntimeArtifact } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { CLIENT_DEPENDENCY_SPECIFIERS } from "./dependencies";
@@ -98,11 +101,14 @@ for (const [reference, accepted] of [
 	it.layer(emittedRuntime(`export * from ${JSON.stringify(reference)};`))(
 		`runtime output policy: ${reference}`,
 		(test) => {
-			test.effect(accepted ? "accepts the reference" : "rejects the reference", () =>
-				Effect.gen(function* () {
-					const result = yield* buildClientRuntime.pipe(Effect.result);
-					expect(result._tag).toBe(accepted ? "Success" : "Failure");
-				}),
+			test.effect(
+				accepted ? "accepts the reference" : "rejects the reference",
+				() =>
+					Effect.gen(function* () {
+						const result = yield* buildClientRuntime.pipe(Effect.result);
+						expect(result._tag).toBe(accepted ? "Success" : "Failure");
+					}),
+				testTimeout,
 			);
 		},
 	);
@@ -113,11 +119,14 @@ it.layer(
 		{ fileName: "nested/module.js", code: 'export * from "../entry-0.js?query#fragment";' },
 	]),
 )("runtime nested output", (test) => {
-	test.effect("resolves imports relative to the containing file", () =>
-		Effect.gen(function* () {
-			const runtime = yield* buildClientRuntime;
-			expect(runtime.artifact.files.some(({ name }) => name === "nested/module.js")).toBe(true);
-		}),
+	test.effect(
+		"resolves imports relative to the containing file",
+		() =>
+			Effect.gen(function* () {
+				const runtime = yield* buildClientRuntime;
+				expect(runtime.artifact.files.some(({ name }) => name === "nested/module.js")).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
@@ -128,11 +137,14 @@ for (const [css, accepted] of [
 	['@import "./entry-0.js";', false],
 ] satisfies readonly (readonly [string, boolean])[]) {
 	it.layer(emittedRuntime("export default 1;", css))(`runtime CSS policy: ${css}`, (test) => {
-		test.effect(accepted ? "accepts the reference" : "rejects the reference", () =>
-			Effect.gen(function* () {
-				const result = yield* buildClientRuntime.pipe(Effect.result);
-				expect(result._tag).toBe(accepted ? "Success" : "Failure");
-			}),
+		test.effect(
+			accepted ? "accepts the reference" : "rejects the reference",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* buildClientRuntime.pipe(Effect.result);
+					expect(result._tag).toBe(accepted ? "Success" : "Failure");
+				}),
+			testTimeout,
 		);
 	});
 }
@@ -143,114 +155,126 @@ it.layer(
 		'/* url("./missing.png") */',
 	),
 )("runtime output text", (test) => {
-	test.effect("ignores reference-like text in templates and comments", () =>
-		Effect.gen(function* () {
-			const runtime = yield* buildClientRuntime;
-			expect(
-				runtime.artifact.files.find((file) => file.name === "entry-bootstrap.js"),
-			).toBeDefined();
-		}),
+	test.effect(
+		"ignores reference-like text in templates and comments",
+		() =>
+			Effect.gen(function* () {
+				const runtime = yield* buildClientRuntime;
+				expect(
+					runtime.artifact.files.find((file) => file.name === "entry-bootstrap.js"),
+				).toBeDefined();
+			}),
+		testTimeout,
 	);
 });
 
 it.layer(emittedRuntime('export * from "./missing.js";'))("runtime missing import", (test) => {
-	test.effect("rejects a real missing re-export", () =>
-		Effect.gen(function* () {
-			const error = yield* buildClientRuntime.pipe(Effect.flip);
-			expect(error.diagnostics[0]?.message).toContain("missing.js");
-		}),
+	test.effect(
+		"rejects a real missing re-export",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* buildClientRuntime.pipe(Effect.flip);
+				expect(error.diagnostics[0]?.message).toContain("missing.js");
+			}),
+		testTimeout,
 	);
 });
 
 it.layer(emittedRuntime("export default 1;", '@import url("./missing.css");'))(
 	"runtime CSS import",
 	(test) => {
-		test.effect("rejects a real missing stylesheet import", () =>
-			Effect.gen(function* () {
-				const error = yield* buildClientRuntime.pipe(Effect.flip);
-				expect(error.diagnostics[0]?.message).toContain("missing.css");
-			}),
+		test.effect(
+			"rejects a real missing stylesheet import",
+			() =>
+				Effect.gen(function* () {
+					const error = yield* buildClientRuntime.pipe(Effect.flip);
+					expect(error.diagnostics[0]?.message).toContain("missing.css");
+				}),
+			testTimeout,
 		);
 	},
 );
 
 it.layer(pluginClientCompilerPlatformLayer)("buildClientRuntime", (test) => {
-	test.effect("builds deterministic registry entries with shared React and SDK chunks", () =>
-		Effect.gen(function* () {
-			const first = yield* buildClientRuntime;
-			const second = yield* buildClientRuntime;
-			expect(first.artifact).not.toHaveProperty("packageId");
+	test.effect(
+		"builds deterministic registry entries with shared React and SDK chunks",
+		() =>
+			Effect.gen(function* () {
+				const first = yield* buildClientRuntime;
+				const second = yield* buildClientRuntime;
+				expect(first.artifact).not.toHaveProperty("packageId");
 
-			expect(Object.keys(first.entries)).toEqual([...CLIENT_DEPENDENCY_SPECIFIERS, "bootstrap"]);
-			for (const [index, specifier] of CLIENT_DEPENDENCY_SPECIFIERS.entries()) {
-				const name = first.entries[specifier];
-				assertDefined(name);
-				expect(name).toBe(`entry-${index}.js`);
-				expect(first.artifact.files.find((file) => file.name === name)?.contentType).toMatch(
-					/^text\/javascript/,
-				);
-			}
-			const compressionEntry = first.entries["@ryot-app/plugin-kit/compression"];
-			assertDefined(compressionEntry);
-			const compressionFile = first.artifact.files.find(({ name }) => name === compressionEntry);
-			assertDefined(compressionFile);
-			expect(text(compressionFile.contents)).toContain("deflateSync");
-			expect(text(compressionFile.contents)).toContain("inflateSync");
-			const reactEntry = first.entries.react;
-			const clsxEntry = first.entries.clsx;
-			assertDefined(reactEntry);
-			assertDefined(clsxEntry);
-			const reactFile = first.artifact.files.find((file) => file.name === reactEntry);
-			const clsxFile = first.artifact.files.find((file) => file.name === clsxEntry);
-			assertDefined(reactFile);
-			assertDefined(clsxFile);
-			expect(text(reactFile.contents)).toMatch(/\bdefault\b/);
-			expect(text(clsxFile.contents)).toMatch(/\bdefault\b/);
-			const bootstrapName = first.entries.bootstrap;
-			assertDefined(bootstrapName);
-			const bootstrapFile = first.artifact.files.find((file) => file.name === bootstrapName);
-			assertDefined(bootstrapFile);
-			expect(bootstrapFile.contentType).toMatch(/^text\/javascript/);
-			const bootstrapSource = text(bootstrapFile.contents);
-			const staticImports = [
-				...bootstrapSource.matchAll(
-					/(?:^|;)(?:import|export)\s*(?:[^;]*?\bfrom\s*)?["'`]([^"'`]+)["'`]/g,
-				),
-			].map((match) => match[1]);
-			expect(staticImports.length).toBeGreaterThan(0);
-			expect(staticImports.every((specifier) => specifier?.startsWith("./"))).toBe(true);
-
-			const fileContents = new Map(
-				first.artifact.files.map(({ name, contents }) => [name, text(contents)]),
-			);
-			const reactChunks = reachableChunks(reactEntry, fileContents);
-			const markdownEntry = first.entries["@ryot-app/plugin-ui-sdk/markdown"];
-			assertDefined(markdownEntry);
-			expect(fileContents.get(markdownEntry)).toContain("MarkdownContent");
-			expect(fileContents.get(markdownEntry)).toContain("markdownPlainText");
-			const markdownChunks = reachableChunks(markdownEntry, fileContents);
-			expect([...reactChunks].some((name) => markdownChunks.has(name))).toBe(true);
-			const sdkReactEntry = first.entries["@ryot-app/plugin-client-sdk/react"];
-			assertDefined(sdkReactEntry);
-			const sdkChunks = reachableChunks(sdkReactEntry, fileContents);
-			expect([...reactChunks].some((name) => sdkChunks.has(name))).toBe(true);
-
-			const stylesheet = fileContents.get("runtime.css");
-			assertDefined(stylesheet);
-			expect([
-				...new Set(
-					[...stylesheet.matchAll(/@layer ([\w,]+)/g)].flatMap(
-						(match) => match[1]?.split(",") ?? [],
+				expect(Object.keys(first.entries)).toEqual([...CLIENT_DEPENDENCY_SPECIFIERS, "bootstrap"]);
+				for (const [index, specifier] of CLIENT_DEPENDENCY_SPECIFIERS.entries()) {
+					const name = first.entries[specifier];
+					assertDefined(name);
+					expect(name).toBe(`entry-${index}.js`);
+					expect(first.artifact.files.find((file) => file.name === name)?.contentType).toMatch(
+						/^text\/javascript/,
+					);
+				}
+				const compressionEntry = first.entries["@ryot-app/plugin-kit/compression"];
+				assertDefined(compressionEntry);
+				const compressionFile = first.artifact.files.find(({ name }) => name === compressionEntry);
+				assertDefined(compressionFile);
+				expect(text(compressionFile.contents)).toContain("deflateSync");
+				expect(text(compressionFile.contents)).toContain("inflateSync");
+				const reactEntry = first.entries.react;
+				const clsxEntry = first.entries.clsx;
+				assertDefined(reactEntry);
+				assertDefined(clsxEntry);
+				const reactFile = first.artifact.files.find((file) => file.name === reactEntry);
+				const clsxFile = first.artifact.files.find((file) => file.name === clsxEntry);
+				assertDefined(reactFile);
+				assertDefined(clsxFile);
+				expect(text(reactFile.contents)).toMatch(/\bdefault\b/);
+				expect(text(clsxFile.contents)).toMatch(/\bdefault\b/);
+				const bootstrapName = first.entries.bootstrap;
+				assertDefined(bootstrapName);
+				const bootstrapFile = first.artifact.files.find((file) => file.name === bootstrapName);
+				assertDefined(bootstrapFile);
+				expect(bootstrapFile.contentType).toMatch(/^text\/javascript/);
+				const bootstrapSource = text(bootstrapFile.contents);
+				const staticImports = [
+					...bootstrapSource.matchAll(
+						/(?:^|;)(?:import|export)\s*(?:[^;]*?\bfrom\s*)?["'`]([^"'`]+)["'`]/g,
 					),
-				),
-			]).toEqual(["properties", "theme", "base", "components", "utilities"]);
-			expect(stylesheet).toContain("@font-face");
-			expect(stylesheet).toContain("--color-red-500:");
-			expect(stylesheet).toContain("--bg:");
+				].map((match) => match[1]);
+				expect(staticImports.length).toBeGreaterThan(0);
+				expect(staticImports.every((specifier) => specifier?.startsWith("./"))).toBe(true);
 
-			expect(second.entries).toEqual(first.entries);
-			expect(second.artifact.hash).toBe(first.artifact.hash);
-			expect(artifactSnapshot(second.artifact)).toEqual(artifactSnapshot(first.artifact));
-		}),
+				const fileContents = new Map(
+					first.artifact.files.map(({ name, contents }) => [name, text(contents)]),
+				);
+				const reactChunks = reachableChunks(reactEntry, fileContents);
+				const markdownEntry = first.entries["@ryot-app/plugin-ui-sdk/markdown"];
+				assertDefined(markdownEntry);
+				expect(fileContents.get(markdownEntry)).toContain("MarkdownContent");
+				expect(fileContents.get(markdownEntry)).toContain("markdownPlainText");
+				const markdownChunks = reachableChunks(markdownEntry, fileContents);
+				expect([...reactChunks].some((name) => markdownChunks.has(name))).toBe(true);
+				const sdkReactEntry = first.entries["@ryot-app/plugin-client-sdk/react"];
+				assertDefined(sdkReactEntry);
+				const sdkChunks = reachableChunks(sdkReactEntry, fileContents);
+				expect([...reactChunks].some((name) => sdkChunks.has(name))).toBe(true);
+
+				const stylesheet = fileContents.get("runtime.css");
+				assertDefined(stylesheet);
+				expect([
+					...new Set(
+						[...stylesheet.matchAll(/@layer ([\w,]+)/g)].flatMap(
+							(match) => match[1]?.split(",") ?? [],
+						),
+					),
+				]).toEqual(["properties", "theme", "base", "components", "utilities"]);
+				expect(stylesheet).toContain("@font-face");
+				expect(stylesheet).toContain("--color-red-500:");
+				expect(stylesheet).toContain("--bg:");
+
+				expect(second.entries).toEqual(first.entries);
+				expect(second.artifact.hash).toBe(first.artifact.hash);
+				expect(artifactSnapshot(second.artifact)).toEqual(artifactSnapshot(first.artifact));
+			}),
+		testTimeout,
 	);
 });

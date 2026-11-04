@@ -1,6 +1,7 @@
+import { expect, it } from "bun:test";
+
 import { pluginEventGroupIssue } from "@ryot-app/contract/modules/plugins/event-groups";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { expect, it } from "vitest";
 
 import { eventGroupDeclaration } from "./event-groups.test-support";
 

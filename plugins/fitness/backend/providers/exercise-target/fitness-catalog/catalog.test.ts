@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { describe, expect, it } from "vitest";
 
 import { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../../../shared/taxonomy";
 import { getTaxonomyDetails, resolveTaxonomyEntry, searchTaxonomyCatalog } from "../../taxonomy";

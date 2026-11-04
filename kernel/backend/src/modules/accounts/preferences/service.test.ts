@@ -1,5 +1,6 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -9,6 +10,8 @@ import {
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -68,70 +71,85 @@ const serviceLayer = () =>
 	);
 
 layer(serviceLayer())((test) => {
-	test.effect("writes an explicit reporting time zone as an ordinary patch", () =>
-		Effect.gen(function* () {
-			const service = yield* UserSettingsService;
-			const user = makeUser(defaultUserPreferences);
-			yield* service.updatePreferences(user, {
-				reportingTimeZone: TimeZone.make("Pacific/Auckland"),
-			});
-			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-				{ userId: user.id, preferences: { reportingTimeZone: TimeZone.make("Pacific/Auckland") } },
-			]);
-		}),
+	test.effect(
+		"writes an explicit reporting time zone as an ordinary patch",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserSettingsService;
+				const user = makeUser(defaultUserPreferences);
+				yield* service.updatePreferences(user, {
+					reportingTimeZone: TimeZone.make("Pacific/Auckland"),
+				});
+				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
+					{
+						userId: user.id,
+						preferences: { reportingTimeZone: TimeZone.make("Pacific/Auckland") },
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(serviceLayer())((test) => {
-	test.effect("sends only changed fields even when CurrentUser is stale", () =>
-		Effect.gen(function* () {
-			const service = yield* UserSettingsService;
-			const user = makeUser({
-				language: "es",
-				disableIntegrations: false,
-				reportingTimeZone: TimeZone.make("America/New_York"),
-			});
-			yield* service.updatePreferences(user, { disableIntegrations: true });
-			yield* service.updatePreferences(user, { language: null, disableIntegrations: false });
-			yield* service.updatePreferences(user, { language: "  fr  " });
-			yield* service.updatePreferences(user, { language: " \t " });
-			yield* service.updatePreferences(user, {});
+	test.effect(
+		"sends only changed fields even when CurrentUser is stale",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserSettingsService;
+				const user = makeUser({
+					language: "es",
+					disableIntegrations: false,
+					reportingTimeZone: TimeZone.make("America/New_York"),
+				});
+				yield* service.updatePreferences(user, { disableIntegrations: true });
+				yield* service.updatePreferences(user, { language: null, disableIntegrations: false });
+				yield* service.updatePreferences(user, { language: "  fr  " });
+				yield* service.updatePreferences(user, { language: " \t " });
+				yield* service.updatePreferences(user, {});
 
-			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-				{ userId: user.id, preferences: { disableIntegrations: true } },
-				{ userId: user.id, preferences: { language: null, disableIntegrations: false } },
-				{ userId: user.id, preferences: { language: "fr" } },
-				{ userId: user.id, preferences: { language: null } },
-			]);
-		}),
+				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
+					{ userId: user.id, preferences: { disableIntegrations: true } },
+					{ userId: user.id, preferences: { language: null, disableIntegrations: false } },
+					{ userId: user.id, preferences: { language: "fr" } },
+					{ userId: user.id, preferences: { language: null } },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(serviceLayer())((test) => {
-	test.effect("keeps omitted fields out of the patch", () =>
-		Effect.gen(function* () {
-			const service = yield* UserSettingsService;
-			const user = makeUser(defaultUserPreferences);
-			yield* service.updatePreferences(user, { language: "es" });
+	test.effect(
+		"keeps omitted fields out of the patch",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserSettingsService;
+				const user = makeUser(defaultUserPreferences);
+				yield* service.updatePreferences(user, { language: "es" });
 
-			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
-				{ userId: user.id, preferences: { language: "es" } },
-			]);
-		}),
+				expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
+					{ userId: user.id, preferences: { language: "es" } },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(serviceLayer())((test) => {
-	test.effect("generates and persists a fresh avatar", () =>
-		Effect.gen(function* () {
-			const service = yield* UserSettingsService;
-			const user = makeUser(defaultUserPreferences);
-			yield* service.refreshAvatar(user);
+	test.effect(
+		"generates and persists a fresh avatar",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserSettingsService;
+				const user = makeUser(defaultUserPreferences);
+				yield* service.refreshAvatar(user);
 
-			const calls = yield* (yield* FakeAuthSettings).imageUpdates;
-			expect(calls).toHaveLength(1);
-			expect(calls[0]?.userId).toBe(user.id);
-			expect(calls[0]?.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
-		}),
+				const calls = yield* (yield* FakeAuthSettings).imageUpdates;
+				expect(calls).toHaveLength(1);
+				expect(calls[0]?.userId).toBe(user.id);
+				expect(calls[0]?.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
+			}),
+		testTimeout,
 	);
 });

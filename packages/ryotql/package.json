@@ -7,7 +7,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun test --isolate",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -16,8 +16,7 @@
 	},
 	"devDependencies": {
 		"@ryot-app/contract": "workspace:*",
-		"@ryot-app/testing": "workspace:*",
-		"vitest": "4.1.9"
+		"@ryot-app/testing": "workspace:*"
 	},
 	"peerDependencies": {
 		"@ryot-app/contract": "workspace:*"

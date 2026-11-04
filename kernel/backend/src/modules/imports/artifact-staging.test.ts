@@ -1,7 +1,10 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, FileSystem, Layer, Option, Redacted, Schema } from "effect";
 import { Reactivity } from "effect/reactivity";
@@ -306,5 +309,6 @@ layer(
 					yield* database.run((db) => db.select().from(tables.importPayloadReservation)),
 				).toHaveLength(0);
 			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { localDateOf, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { describe, expect, it } from "vitest";
 
 import {
 	activityDays,

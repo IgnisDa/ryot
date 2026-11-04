@@ -1,5 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import { Cause, Effect } from "effect";
 import { DeadlockError, SqlError, UniqueViolation } from "effect/sql/SqlError";
@@ -60,38 +63,44 @@ it("matches only the requested unique constraint", () => {
 	expect(matchesEmailConstraint(new DbError({ code: "40001", message: "retry" }))).toBe(false);
 });
 
-it.effect("retries a deadlocked transaction twice", () =>
-	Effect.gen(function* () {
-		let attempts = 0;
-		const result = yield* retryOnDeadlock(
-			Effect.suspend(() => {
-				attempts += 1;
-				return attempts < 3
-					? Effect.fail(new DbError({ code: "40P01", message: "deadlock" }))
-					: Effect.succeed("committed");
-			}),
-		);
-
-		expect(result).toBe("committed");
-		expect(attempts).toBe(3);
-	}),
-);
-
-it.effect("does not retry another database failure", () =>
-	Effect.gen(function* () {
-		let attempts = 0;
-		const error = yield* Effect.flip(
-			retryOnDeadlock(
+it.effect(
+	"retries a deadlocked transaction twice",
+	() =>
+		Effect.gen(function* () {
+			let attempts = 0;
+			const result = yield* retryOnDeadlock(
 				Effect.suspend(() => {
 					attempts += 1;
-					return Effect.fail(new DbError({ code: "40001", message: "serialization" }));
+					return attempts < 3
+						? Effect.fail(new DbError({ code: "40P01", message: "deadlock" }))
+						: Effect.succeed("committed");
 				}),
-			),
-		);
+			);
 
-		expect(error.code).toBe("40001");
-		expect(attempts).toBe(1);
-	}),
+			expect(result).toBe("committed");
+			expect(attempts).toBe(3);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"does not retry another database failure",
+	() =>
+		Effect.gen(function* () {
+			let attempts = 0;
+			const error = yield* Effect.flip(
+				retryOnDeadlock(
+					Effect.suspend(() => {
+						attempts += 1;
+						return Effect.fail(new DbError({ code: "40001", message: "serialization" }));
+					}),
+				),
+			);
+
+			expect(error.code).toBe("40001");
+			expect(attempts).toBe(1);
+		}),
+	testTimeout,
 );
 
 it("recovers PostgreSQL metadata from a Drizzle query failure", () => {
@@ -116,21 +125,24 @@ it("recovers the violated constraint from a Drizzle query failure", () => {
 	).toBe(true);
 });
 
-it.effect("retries a deadlock reported through Drizzle", () =>
-	Effect.gen(function* () {
-		let attempts = 0;
-		const result = yield* retryOnDeadlock(
-			mapDatabaseErrors(
-				Effect.suspend(() => {
-					attempts += 1;
-					return attempts < 3
-						? Effect.fail(drizzleQueryFailure(deadlock()))
-						: Effect.succeed("committed");
-				}),
-			),
-		);
+it.effect(
+	"retries a deadlock reported through Drizzle",
+	() =>
+		Effect.gen(function* () {
+			let attempts = 0;
+			const result = yield* retryOnDeadlock(
+				mapDatabaseErrors(
+					Effect.suspend(() => {
+						attempts += 1;
+						return attempts < 3
+							? Effect.fail(drizzleQueryFailure(deadlock()))
+							: Effect.succeed("committed");
+					}),
+				),
+			);
 
-		expect(result).toBe("committed");
-		expect(attempts).toBe(3);
-	}),
+			expect(result).toBe("committed");
+			expect(attempts).toBe(3);
+		}),
+	testTimeout,
 );

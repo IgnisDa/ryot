@@ -1,4 +1,5 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
@@ -14,7 +15,9 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import * as Deferred from "effect/Deferred";
 import { act, useEffect, useRef, useState } from "react";
 
@@ -154,7 +157,7 @@ it.live(
 					waitFor(() => {
 						respond();
 						expect(screen.getByText("Recovered session")).toBeTruthy();
-						expect(page.clientMessages()).toContainEqual(
+						expect(page.clientMessages()).toContainEqual<unknown>(
 							objectContaining({ enabled: true, action: "awake", type: "device-request" }),
 						);
 					}),
@@ -190,6 +193,7 @@ it.live(
 				yield* Effect.promise(() => clock.dispose());
 			}
 		}),
+	testTimeout,
 );
 
 const saveProbeTarget = {
@@ -405,96 +409,12 @@ const saveProbeHarness = Effect.fnUntraced(function* (
 	};
 });
 
-it.live("shares acknowledgement and busy state through cleanup failure and consumer remount", () =>
-	Effect.gen(function* () {
-		const clock = createTestRyotClock();
-		const { page, respond, setRemoval } = yield* saveProbeHarness(clock);
-		try {
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					respond();
-					expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
-					expect(screen.getByText("Second: ready, idle, unsaved")).toBeTruthy();
-				}),
-			);
-			act(() => screen.getByRole("button", { name: "Save First" }).click());
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					respond();
-					expect(screen.getByText("First: ready, busy, saved-workout")).toBeTruthy();
-					expect(screen.getByText("Second: ready, busy, saved-workout")).toBeTruthy();
-				}),
-			);
-			act(() => screen.getByRole("button", { name: "Save Second" }).click());
-			setRemoval("failure");
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					respond();
-					expect(screen.getByText("First: ready, idle, saved-workout")).toBeTruthy();
-					expect(screen.getByText("Second: ready, idle, saved-workout")).toBeTruthy();
-				}),
-			);
-			act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
-			act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					respond();
-					expect(screen.getByText("First: ready, idle, saved-workout")).toBeTruthy();
-					expect(screen.getByText("Second: ready, idle, saved-workout")).toBeTruthy();
-				}),
-			);
-			setRemoval("pending");
-			act(() => screen.getByRole("button", { name: "Save Second" }).click());
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					respond();
-					expect(screen.getByText("First: ready, busy, saved-workout")).toBeTruthy();
-					expect(screen.getByText("Second: ready, busy, saved-workout")).toBeTruthy();
-				}),
-			);
-			setRemoval("success");
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					respond();
-					expect(screen.getByText("First: empty, idle, saved-workout")).toBeTruthy();
-					expect(screen.getByText("Second: empty, idle, saved-workout")).toBeTruthy();
-				}),
-			);
-			expect(
-				page
-					.clientMessages()
-					.filter(
-						(request) =>
-							request.type === "operation-request" &&
-							request.operationSlug === workoutEditorSaveOperationSlug,
-					),
-			).toHaveLength(1);
-			expect(
-				page
-					.clientMessages()
-					.filter((request) => request.type === "storage-request" && request.action === "remove"),
-			).toHaveLength(2);
-			expect(
-				page
-					.clientMessages()
-					.filter((request) => request.type === "storage-request" && request.action === "get"),
-			).toHaveLength(1);
-		} finally {
-			disposePluginBridges();
-			yield* Effect.promise(() => clock.dispose());
-		}
-	}),
-);
-
-for (const stage of ["persistence", "invocation", "cleanup"] as const) {
-	it.live(`keeps an interrupted save active across all-consumer teardown during ${stage}`, () =>
+it.live(
+	"shares acknowledgement and busy state through cleanup failure and consumer remount",
+	() =>
 		Effect.gen(function* () {
-			const entered = yield* Deferred.make<void>();
-			const release = yield* Deferred.make<void>();
 			const clock = createTestRyotClock();
-			const harness = yield* saveProbeHarness(clock, { stage, entered, release });
-			const { page, respond } = harness;
-			harness.setRemoval("success");
+			const { page, respond, setRemoval } = yield* saveProbeHarness(clock);
 			try {
 				yield* Effect.promise(() =>
 					waitFor(() => {
@@ -507,38 +427,38 @@ for (const stage of ["persistence", "invocation", "cleanup"] as const) {
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						respond();
-						expect(clock.runtime.runSync(Deferred.isDone(entered))).toBe(true);
-					}),
-				);
-				yield* Deferred.await(entered);
-				const acknowledged = stage === "cleanup" ? "saved-workout" : "unsaved";
-				expect(screen.getByText(`First: ready, busy, ${acknowledged}`)).toBeTruthy();
-				expect(screen.getByText(`Second: ready, busy, ${acknowledged}`)).toBeTruthy();
-				act(() => screen.getByRole("button", { name: "Interrupt First" }).click());
-				act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
-				expect(screen.queryByRole("button", { name: "Save First" })).toBeNull();
-				expect(screen.queryByRole("button", { name: "Save Second" })).toBeNull();
-				yield* waitForMessagePortMacrotask;
-				act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
-				yield* Effect.promise(() =>
-					waitFor(() => {
-						respond();
-						expect(screen.getByText(`First: ready, busy, ${acknowledged}`)).toBeTruthy();
-						expect(screen.getByText(`Second: ready, busy, ${acknowledged}`)).toBeTruthy();
+						expect(screen.getByText("First: ready, busy, saved-workout")).toBeTruthy();
+						expect(screen.getByText("Second: ready, busy, saved-workout")).toBeTruthy();
 					}),
 				);
 				act(() => screen.getByRole("button", { name: "Save Second" }).click());
-				act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
-				expect(screen.queryByRole("button", { name: "Save First" })).toBeNull();
-				expect(screen.queryByRole("button", { name: "Save Second" })).toBeNull();
-				yield* Deferred.succeed(release, undefined);
+				setRemoval("failure");
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						respond();
-						expect(harness.stored).toBeNull();
+						expect(screen.getByText("First: ready, idle, saved-workout")).toBeTruthy();
+						expect(screen.getByText("Second: ready, idle, saved-workout")).toBeTruthy();
 					}),
 				);
 				act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
+				act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						respond();
+						expect(screen.getByText("First: ready, idle, saved-workout")).toBeTruthy();
+						expect(screen.getByText("Second: ready, idle, saved-workout")).toBeTruthy();
+					}),
+				);
+				setRemoval("pending");
+				act(() => screen.getByRole("button", { name: "Save Second" }).click());
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						respond();
+						expect(screen.getByText("First: ready, busy, saved-workout")).toBeTruthy();
+						expect(screen.getByText("Second: ready, busy, saved-workout")).toBeTruthy();
+					}),
+				);
+				setRemoval("success");
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						respond();
@@ -546,7 +466,6 @@ for (const stage of ["persistence", "invocation", "cleanup"] as const) {
 						expect(screen.getByText("Second: empty, idle, saved-workout")).toBeTruthy();
 					}),
 				);
-				expect(harness.stored).toBeNull();
 				expect(
 					page
 						.clientMessages()
@@ -560,56 +479,152 @@ for (const stage of ["persistence", "invocation", "cleanup"] as const) {
 					page
 						.clientMessages()
 						.filter((request) => request.type === "storage-request" && request.action === "remove"),
-				).toHaveLength(1);
+				).toHaveLength(2);
 				expect(
 					page
 						.clientMessages()
 						.filter((request) => request.type === "storage-request" && request.action === "get"),
 				).toHaveLength(1);
 			} finally {
-				yield* Deferred.succeed(release, undefined);
 				disposePluginBridges();
 				yield* Effect.promise(() => clock.dispose());
 			}
 		}),
+	testTimeout,
+);
+
+for (const stage of ["persistence", "invocation", "cleanup"] as const) {
+	it.live(
+		`keeps an interrupted save active across all-consumer teardown during ${stage}`,
+		() =>
+			Effect.gen(function* () {
+				const entered = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const clock = createTestRyotClock();
+				const harness = yield* saveProbeHarness(clock, { stage, entered, release });
+				const { page, respond } = harness;
+				harness.setRemoval("success");
+				try {
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							respond();
+							expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
+							expect(screen.getByText("Second: ready, idle, unsaved")).toBeTruthy();
+						}),
+					);
+					act(() => screen.getByRole("button", { name: "Save First" }).click());
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							respond();
+							expect(clock.runtime.runSync(Deferred.isDone(entered))).toBe(true);
+						}),
+					);
+					yield* Deferred.await(entered);
+					const acknowledged = stage === "cleanup" ? "saved-workout" : "unsaved";
+					expect(screen.getByText(`First: ready, busy, ${acknowledged}`)).toBeTruthy();
+					expect(screen.getByText(`Second: ready, busy, ${acknowledged}`)).toBeTruthy();
+					act(() => screen.getByRole("button", { name: "Interrupt First" }).click());
+					act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
+					expect(screen.queryByRole("button", { name: "Save First" })).toBeNull();
+					expect(screen.queryByRole("button", { name: "Save Second" })).toBeNull();
+					yield* waitForMessagePortMacrotask;
+					act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							respond();
+							expect(screen.getByText(`First: ready, busy, ${acknowledged}`)).toBeTruthy();
+							expect(screen.getByText(`Second: ready, busy, ${acknowledged}`)).toBeTruthy();
+						}),
+					);
+					act(() => screen.getByRole("button", { name: "Save Second" }).click());
+					act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
+					expect(screen.queryByRole("button", { name: "Save First" })).toBeNull();
+					expect(screen.queryByRole("button", { name: "Save Second" })).toBeNull();
+					yield* Deferred.succeed(release, undefined);
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							respond();
+							expect(harness.stored).toBeNull();
+						}),
+					);
+					act(() => screen.getByRole("button", { name: "Toggle consumers" }).click());
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							respond();
+							expect(screen.getByText("First: empty, idle, saved-workout")).toBeTruthy();
+							expect(screen.getByText("Second: empty, idle, saved-workout")).toBeTruthy();
+						}),
+					);
+					expect(harness.stored).toBeNull();
+					expect(
+						page
+							.clientMessages()
+							.filter(
+								(request) =>
+									request.type === "operation-request" &&
+									request.operationSlug === workoutEditorSaveOperationSlug,
+							),
+					).toHaveLength(1);
+					expect(
+						page
+							.clientMessages()
+							.filter(
+								(request) => request.type === "storage-request" && request.action === "remove",
+							),
+					).toHaveLength(1);
+					expect(
+						page
+							.clientMessages()
+							.filter((request) => request.type === "storage-request" && request.action === "get"),
+					).toHaveLength(1);
+				} finally {
+					yield* Deferred.succeed(release, undefined);
+					disposePluginBridges();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 }
 
-it.live("starts a fresh editor request after the shared controller has completed a save", () =>
-	Effect.gen(function* () {
-		const clock = createTestRyotClock();
-		const harness = yield* saveProbeHarness(clock);
-		harness.setRemoval("success");
-		try {
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					harness.respond();
-					expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
-				}),
-			);
-			act(() => screen.getByRole("button", { name: "Save First" }).click());
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					harness.respond();
-					expect(screen.getByText("First: empty, idle, saved-workout")).toBeTruthy();
-				}),
-			);
-			act(() => screen.getByRole("button", { name: "Open next edit" }).click());
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					harness.respond();
-					expect(screen.getByText("Next edit, started, unsaved")).toBeTruthy();
-				}),
-			);
-			const stored = decodeWorkoutEditorDraft(harness.stored);
-			expect(stored._tag).toBe("Success");
-			if (stored._tag === "Success") {
-				expect(stored.success.draftId).toBe("next-edit");
-				expect(stored.success.submission).toBeUndefined();
+it.live(
+	"starts a fresh editor request after the shared controller has completed a save",
+	() =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			const harness = yield* saveProbeHarness(clock);
+			harness.setRemoval("success");
+			try {
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						harness.respond();
+						expect(screen.getByText("First: ready, idle, unsaved")).toBeTruthy();
+					}),
+				);
+				act(() => screen.getByRole("button", { name: "Save First" }).click());
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						harness.respond();
+						expect(screen.getByText("First: empty, idle, saved-workout")).toBeTruthy();
+					}),
+				);
+				act(() => screen.getByRole("button", { name: "Open next edit" }).click());
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						harness.respond();
+						expect(screen.getByText("Next edit, started, unsaved")).toBeTruthy();
+					}),
+				);
+				const stored = decodeWorkoutEditorDraft(harness.stored);
+				expect(stored._tag).toBe("Success");
+				if (stored._tag === "Success") {
+					expect(stored.success.draftId).toBe("next-edit");
+					expect(stored.success.submission).toBeUndefined();
+				}
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
 			}
-		} finally {
-			disposePluginBridges();
-			yield* Effect.promise(() => clock.dispose());
-		}
-	}),
+		}),
+	testTimeout,
 );

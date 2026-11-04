@@ -1,8 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { APIError } from "better-auth/api";
 import type { Result } from "effect";
 import { Effect, Layer } from "effect";
-import { describe } from "vitest";
 
 import { fakeDatabaseSession } from "#testing/effect";
 
@@ -49,41 +51,53 @@ const extractError = (either: Result.Result<void, unknown>) => {
 
 describe("gateSessionCreation", () => {
 	layer(gateLayer([{ disabledAt: null }]))((test) => {
-		test.effect("resolves when the user is enabled", () =>
-			Effect.gen(function* () {
-				const either = yield* runGate("user-1");
-				expect(either._tag).toBe("Success");
-			}),
+		test.effect(
+			"resolves when the user is enabled",
+			() =>
+				Effect.gen(function* () {
+					const either = yield* runGate("user-1");
+					expect(either._tag).toBe("Success");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(gateLayer([{ disabledAt }]))((test) => {
-		test.effect("throws USER_DISABLED (403) when the user is disabled", () =>
-			Effect.gen(function* () {
-				const either = yield* runGate("user-1");
-				const error = extractError(either);
-				expect(error.statusCode).toBe(403);
-				expect(error.body?.code).toBe("USER_DISABLED");
-			}),
+		test.effect(
+			"throws USER_DISABLED (403) when the user is disabled",
+			() =>
+				Effect.gen(function* () {
+					const either = yield* runGate("user-1");
+					const error = extractError(either);
+					expect(error.statusCode).toBe(403);
+					expect(error.body?.code).toBe("USER_DISABLED");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(gateLayer([], true))((test) => {
-		test.effect("throws USER_LIFECYCLE_ACTIVE before creating a session", () =>
-			Effect.gen(function* () {
-				const error = extractError(yield* runGate("user-1"));
-				expect(error.statusCode).toBe(403);
-				expect(error.body?.code).toBe("USER_LIFECYCLE_ACTIVE");
-			}),
+		test.effect(
+			"throws USER_LIFECYCLE_ACTIVE before creating a session",
+			() =>
+				Effect.gen(function* () {
+					const error = extractError(yield* runGate("user-1"));
+					expect(error.statusCode).toBe(403);
+					expect(error.body?.code).toBe("USER_LIFECYCLE_ACTIVE");
+				}),
+			testTimeout,
 		);
 	});
 
 	layer(gateLayer([]))((test) => {
-		test.effect("resolves when the user row is not found", () =>
-			Effect.gen(function* () {
-				const either = yield* runGate("missing-user");
-				expect(either._tag).toBe("Success");
-			}),
+		test.effect(
+			"resolves when the user row is not found",
+			() =>
+				Effect.gen(function* () {
+					const either = yield* runGate("missing-user");
+					expect(either._tag).toBe("Success");
+				}),
+			testTimeout,
 		);
 	});
 });

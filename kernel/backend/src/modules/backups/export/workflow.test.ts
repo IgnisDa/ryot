@@ -1,10 +1,13 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { BackupRunFailure } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -69,11 +72,14 @@ const recordingOperationsLayer = Layer.mergeAll(
 );
 
 layer(recordingOperationsLayer)((test) => {
-	test.effect("runs export side effects only through backup workflow operations", () =>
-		Effect.gen(function* () {
-			yield* runExportBackupWorkflow({ runId, userId }, runId);
-			expect(yield* (yield* FakeExportOperations).calls).toEqual(["begin", "build", "complete"]);
-		}),
+	test.effect(
+		"runs export side effects only through backup workflow operations",
+		() =>
+			Effect.gen(function* () {
+				yield* runExportBackupWorkflow({ runId, userId }, runId);
+				expect(yield* (yield* FakeExportOperations).calls).toEqual(["begin", "build", "complete"]);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -103,6 +109,7 @@ layer(recordingOperationsLayer)((test) => {
 				);
 				expect(yield* calls.calls).toEqual([...before, "begin", "build", "fail"]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -184,16 +191,19 @@ const ambiguousCompletionLayer = ExportBackupWorkflowOperationsLive.pipe(
 );
 
 layer(ambiguousCompletionLayer)((test) => {
-	test.effect("preserves an artifact after an ambiguous export completion", () =>
-		Effect.gen(function* () {
-			const operations = yield* ExportBackupWorkflowOperations;
-			const cleanup = yield* FakeExportCleanup;
-			const error = yield* operations.complete({ runId, userId }, artifact).pipe(Effect.flip);
-			expect(error._tag).toBe("InternalError");
-			yield* operations.fail({ runId, userId }, error, artifact);
-			expect(yield* cleanup.deletes).toBe(0);
-			expect(yield* cleanup.failures).toBe(0);
-		}),
+	test.effect(
+		"preserves an artifact after an ambiguous export completion",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* ExportBackupWorkflowOperations;
+				const cleanup = yield* FakeExportCleanup;
+				const error = yield* operations.complete({ runId, userId }, artifact).pipe(Effect.flip);
+				expect(error._tag).toBe("InternalError");
+				yield* operations.fail({ runId, userId }, error, artifact);
+				expect(yield* cleanup.deletes).toBe(0);
+				expect(yield* cleanup.failures).toBe(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -257,19 +267,22 @@ const archiveFailureLayer = ExportBackupWorkflowOperationsLive.pipe(
 );
 
 layer(archiveFailureLayer)((test) => {
-	test.effect("preserves an archive limit failure when storage masks the stream error", () =>
-		Effect.gen(function* () {
-			const operations = yield* ExportBackupWorkflowOperations;
-			const error = yield* operations.build({ runId, userId }).pipe(Effect.flip);
-			expect(error).toBeInstanceOf(BackupArchiveError);
-			yield* operations.fail({ runId, userId }, error);
-			expect(yield* (yield* ExportFailureRecorder).failure).toEqual({
-				code: "archive-invalid",
-				path: "entities.ndjson",
-				issue: "entry-too-large",
-				maxBytes: ARCHIVE_LIMITS.maxEntryBytes,
-				actualBytes: ARCHIVE_LIMITS.maxEntryBytes + 1,
-			});
-		}),
+	test.effect(
+		"preserves an archive limit failure when storage masks the stream error",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* ExportBackupWorkflowOperations;
+				const error = yield* operations.build({ runId, userId }).pipe(Effect.flip);
+				expect(error).toBeInstanceOf(BackupArchiveError);
+				yield* operations.fail({ runId, userId }, error);
+				expect(yield* (yield* ExportFailureRecorder).failure).toEqual({
+					code: "archive-invalid",
+					path: "entities.ndjson",
+					issue: "entry-too-large",
+					maxBytes: ARCHIVE_LIMITS.maxEntryBytes,
+					actualBytes: ARCHIVE_LIMITS.maxEntryBytes + 1,
+				});
+			}),
+		testTimeout,
 	);
 });

@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { table } from "@ryot-app/ryotql";
-import { describe, expect, it } from "vitest";
 
 import { libraryLinkExists } from "../shared/entity-selections";
 import { flatMediaSchemaSlugs } from "../shared/media-schema-slugs";
@@ -25,7 +26,7 @@ describe("media calendar sources", () => {
 				subject.entityAlias,
 				subject.schemas.map(({ slug: schemaSlug }) => schemaSlug),
 			]),
-		).toEqual([
+		).toEqual<unknown>([
 			["show-episodes", "date", "show", ["show"]],
 			["podcast-episodes", "date", "podcast", ["podcast"]],
 			["anime-airings", "instant", "anime", ["anime"]],

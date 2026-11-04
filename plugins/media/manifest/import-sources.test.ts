@@ -1,5 +1,7 @@
+import { expect, it } from "bun:test";
+
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { assert, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import { mediaPlugin } from "./plugin";
 
@@ -41,7 +43,7 @@ it("declares strict, positioned input schemas and export documentation for every
 		audiobookshelf: "audiobookshelf",
 	} as const;
 
-	expect([...sources.keys()].sort()).toEqual(Object.keys(docsPages).sort());
+	expect([...sources.keys()].sort()).toEqual<unknown>(Object.keys(docsPages).sort());
 	for (const source of mediaPlugin.importSources) {
 		const docsPage = docsPages[source.slug];
 		expect(source.inputSchema.unknownKeys).toBe("strict");
@@ -134,7 +136,7 @@ it("declares Trakt modes and hides only fields outside the selected mode", () =>
 		expect(schema.fields[field].validation).toMatchObject({ required: true });
 	}
 	expect(schema.fields.url).toMatchObject({ format: { kind: "url" } });
-	expect(schema.rules).toEqual(
+	expect(schema.rules).toEqual<unknown>(
 		[
 			["exportUploadToken", "export"],
 			["username", "user"],

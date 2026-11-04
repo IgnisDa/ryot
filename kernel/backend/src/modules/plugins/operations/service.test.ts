@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -20,11 +21,13 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
-import { assert } from "vitest";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
@@ -445,83 +448,92 @@ const invoke = (input: {
 	);
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
-	test.effect("reuses a keyed operation admission identity and cached result", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			const request = {
-				payload: { value: "same" },
-				packageId: SYSTEM_PACKAGE_ID,
-				idempotencyKey: "operation-request-1",
-			};
-			expect(yield* invoke(request)).toBe("ok");
-			expect(yield* invoke(request)).toBe("ok");
-			expect(yield* invoke({ ...request, contentHash: SOURCE_HASH })).toBe("ok");
-			expect(yield* Effect.flip(invoke({ ...request, contentHash: "stale" }))).toMatchObject({
-				_tag: "PluginConflictError",
-				reason: { code: "source-revision-stale" },
-			});
-			const registrations = yield* fake.referenceRegistrations;
-			const captured = yield* fake.captured;
-			expect(registrations).toHaveLength(1);
-			expect(captured).toHaveLength(1);
-			expect(captured).toMatchObject([{ executionId: registrations[0] }]);
-		}),
-	);
-});
-
-layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
-	test.effect("derives distinct operation admission identities for distinct keys", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			const request = { payload: { value: "same" }, packageId: SYSTEM_PACKAGE_ID };
-			expect(yield* invoke({ ...request, idempotencyKey: "operation-request-1" })).toBe("ok");
-			expect(yield* invoke({ ...request, idempotencyKey: "operation-request-2" })).toBe("ok");
-			const registrations = yield* fake.referenceRegistrations;
-			const captured = yield* fake.captured;
-			expect(registrations).toHaveLength(2);
-			expect(registrations[0]).not.toBe(registrations[1]);
-			expect(captured).toHaveLength(2);
-			expect(captured).toMatchObject([
-				{ executionId: registrations[0] },
-				{ executionId: registrations[1] },
-			]);
-		}),
-	);
-});
-
-layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
-	test.effect("rejects a keyed operation admission identity when its input changes", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			const idempotencyKey = "operation-request-1";
-			expect(
-				yield* invoke({
-					idempotencyKey,
-					payload: { value: "first" },
+	test.effect(
+		"reuses a keyed operation admission identity and cached result",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				const request = {
+					payload: { value: "same" },
 					packageId: SYSTEM_PACKAGE_ID,
-				}),
-			).toBe("ok");
-			assertExitFails(
-				yield* Effect.exit(
-					invoke({ idempotencyKey, packageId: SYSTEM_PACKAGE_ID, payload: { value: "second" } }),
-				),
-				new PluginRequestError({
-					reason: {
-						code: "validation-failed",
-						diagnostics: [
-							{
-								phase: "validate",
-								severity: "error",
-								code: "operation-idempotency-conflict",
-								message: "Operation idempotency key was reused with different input",
-							},
-						],
-					},
-				}),
-			);
-			expect(yield* fake.captured).toHaveLength(1);
-			expect(yield* fake.referenceRegistrations).toHaveLength(1);
-		}),
+					idempotencyKey: "operation-request-1",
+				};
+				expect(yield* invoke(request)).toBe("ok");
+				expect(yield* invoke(request)).toBe("ok");
+				expect(yield* invoke({ ...request, contentHash: SOURCE_HASH })).toBe("ok");
+				expect(yield* Effect.flip(invoke({ ...request, contentHash: "stale" }))).toMatchObject({
+					_tag: "PluginConflictError",
+					reason: { code: "source-revision-stale" },
+				});
+				const registrations = yield* fake.referenceRegistrations;
+				const captured = yield* fake.captured;
+				expect(registrations).toHaveLength(1);
+				expect(captured).toHaveLength(1);
+				expect(captured).toMatchObject([{ executionId: registrations[0] }]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
+	test.effect(
+		"derives distinct operation admission identities for distinct keys",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				const request = { payload: { value: "same" }, packageId: SYSTEM_PACKAGE_ID };
+				expect(yield* invoke({ ...request, idempotencyKey: "operation-request-1" })).toBe("ok");
+				expect(yield* invoke({ ...request, idempotencyKey: "operation-request-2" })).toBe("ok");
+				const registrations = yield* fake.referenceRegistrations;
+				const captured = yield* fake.captured;
+				expect(registrations).toHaveLength(2);
+				expect(registrations[0]).not.toBe(registrations[1]);
+				expect(captured).toHaveLength(2);
+				expect(captured).toMatchObject([
+					{ executionId: registrations[0] },
+					{ executionId: registrations[1] },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
+	test.effect(
+		"rejects a keyed operation admission identity when its input changes",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				const idempotencyKey = "operation-request-1";
+				expect(
+					yield* invoke({
+						idempotencyKey,
+						payload: { value: "first" },
+						packageId: SYSTEM_PACKAGE_ID,
+					}),
+				).toBe("ok");
+				assertExitFails(
+					yield* Effect.exit(
+						invoke({ idempotencyKey, packageId: SYSTEM_PACKAGE_ID, payload: { value: "second" } }),
+					),
+					new PluginRequestError({
+						reason: {
+							code: "validation-failed",
+							diagnostics: [
+								{
+									phase: "validate",
+									severity: "error",
+									code: "operation-idempotency-conflict",
+									message: "Operation idempotency key was reused with different input",
+								},
+							],
+						},
+					}),
+				);
+				expect(yield* fake.captured).toHaveLength(1);
+				expect(yield* fake.referenceRegistrations).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -569,28 +581,35 @@ layer(
 					},
 				]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
-	test.effect("returns NotFound for a plugin absent from every registry the caller owns", () =>
-		Effect.gen(function* () {
-			expectError(
-				yield* Effect.exit(invoke({ packageId: PluginPackageId.make("test/missing") })),
-				PluginNotFoundError,
-			);
-		}),
+	test.effect(
+		"returns NotFound for a plugin absent from every registry the caller owns",
+		() =>
+			Effect.gen(function* () {
+				expectError(
+					yield* Effect.exit(invoke({ packageId: PluginPackageId.make("test/missing") })),
+					PluginNotFoundError,
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
-	test.effect("returns NotFound for an unknown operation", () =>
-		Effect.gen(function* () {
-			expectError(
-				yield* Effect.exit(invoke({ operationSlug: "missing", packageId: SYSTEM_PACKAGE_ID })),
-				PluginNotFoundError,
-			);
-		}),
+	test.effect(
+		"returns NotFound for an unknown operation",
+		() =>
+			Effect.gen(function* () {
+				expectError(
+					yield* Effect.exit(invoke({ operationSlug: "missing", packageId: SYSTEM_PACKAGE_ID })),
+					PluginNotFoundError,
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -601,16 +620,19 @@ layer(
 		activeSourceHash: "next-source-hash",
 	}),
 )((test) => {
-	test.effect("rejects a plugin operation when its active source revision changed", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(invoke({ contentHash: SOURCE_HASH, packageId: SYSTEM_PACKAGE_ID })),
-				PluginConflictError,
-			);
-			expect(yield* fake.captured).toEqual([]);
-			expect(yield* fake.events).toEqual(["lock", "revision"]);
-		}),
+	test.effect(
+		"rejects a plugin operation when its active source revision changed",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(invoke({ contentHash: SOURCE_HASH, packageId: SYSTEM_PACKAGE_ID })),
+					PluginConflictError,
+				);
+				expect(yield* fake.captured).toEqual([]);
+				expect(yield* fake.events).toEqual(["lock", "revision"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -630,16 +652,19 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("returns NotFound for a plugin owned only by another user", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(invoke({ packageId: PRIVATE_PACKAGE_ID })),
-				PluginNotFoundError,
-			);
-			expect(yield* fake.packageLookups).toEqual([`${USER_TWO}:${PRIVATE_PACKAGE_ID}`]);
-			expect(yield* fake.availableLookups).toBe(0);
-		}),
+	test.effect(
+		"returns NotFound for a plugin owned only by another user",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(invoke({ packageId: PRIVATE_PACKAGE_ID })),
+					PluginNotFoundError,
+				);
+				expect(yield* fake.packageLookups).toEqual([`${USER_TWO}:${PRIVATE_PACKAGE_ID}`]);
+				expect(yield* fake.availableLookups).toBe(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -650,24 +675,27 @@ layer(
 		privateInstallation: privateInstallation(),
 	}),
 )((test) => {
-	test.effect("reports the stored private package identity for an owned quarantined plugin", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			const exit = yield* Effect.exit(invoke({ packageId: PRIVATE_PACKAGE_ID }));
-			assert(Exit.isFailure(exit));
-			expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
-				new PluginConflictError({
-					reason: {
-						pluginId: PRIVATE_ID,
-						packageId: PRIVATE_PACKAGE_ID,
-						code: "package-identity-conflict",
-					},
-				}),
-			);
-			expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);
-			expect(yield* fake.availableLookups).toBe(0);
-			expect(yield* fake.events).toEqual(["lock"]);
-		}),
+	test.effect(
+		"reports the stored private package identity for an owned quarantined plugin",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				const exit = yield* Effect.exit(invoke({ packageId: PRIVATE_PACKAGE_ID }));
+				assert(Exit.isFailure(exit));
+				expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
+					new PluginConflictError({
+						reason: {
+							pluginId: PRIVATE_ID,
+							packageId: PRIVATE_PACKAGE_ID,
+							code: "package-identity-conflict",
+						},
+					}),
+				);
+				expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);
+				expect(yield* fake.availableLookups).toBe(0);
+				expect(yield* fake.events).toEqual(["lock"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -686,53 +714,62 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("dispatches a private operation with the owning user's subject", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ packageId: PRIVATE_PACKAGE_ID })).toBe("ok");
-			expect(yield* fake.captured).toEqual([
-				objectContaining({
-					lane: "interactive",
-					scriptId: "install-private-user-1-script",
-					subject: {
-						type: "user",
-						userId: USER_ONE,
-						accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-					},
-				}),
-			]);
-		}),
+	test.effect(
+		"dispatches a private operation with the owning user's subject",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(yield* invoke({ packageId: PRIVATE_PACKAGE_ID })).toBe("ok");
+				expect(yield* fake.captured).toEqual([
+					objectContaining({
+						lane: "interactive",
+						scriptId: "install-private-user-1-script",
+						subject: {
+							type: "user",
+							userId: USER_ONE,
+							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+						},
+					}),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
-	test.effect("preserves user operation access for standard credentials", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
-			expect(yield* fake.captured).toEqual([
-				objectContaining({
-					subject: {
-						type: "user",
-						userId: USER_ONE,
-						accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-					},
-				}),
-			]);
-			expect(yield* fake.events).toEqual(["lock", "dispatch"]);
-		}),
+	test.effect(
+		"preserves user operation access for standard credentials",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
+				expect(yield* fake.captured).toEqual([
+					objectContaining({
+						subject: {
+							type: "user",
+							userId: USER_ONE,
+							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+						},
+					}),
+				]);
+				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(
 	makeLayer({ accessClass: "demo", currentUserId: USER_ONE, available: [systemUserOperation] }),
 )((test) => {
-	test.effect("dispatches a demo-accessible system user operation for demo credentials", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
-			expect(yield* fake.events).toEqual(["lock", "dispatch"]);
-		}),
+	test.effect(
+		"dispatches a demo-accessible system user operation for demo credentials",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
+				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -743,15 +780,18 @@ layer(
 		available: [{ ...systemUserOperation, demoAccess: "protected" }],
 	}),
 )((test) => {
-	test.effect("rejects a protected system user operation for demo credentials", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })),
-				DemoOperationProtected,
-			);
-			expect(yield* fake.events).toEqual(["lock"]);
-		}),
+	test.effect(
+		"rejects a protected system user operation for demo credentials",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })),
+					DemoOperationProtected,
+				);
+				expect(yield* fake.events).toEqual(["lock"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -784,6 +824,7 @@ layer(makeLayer({ accessClass: "demo", currentUserId: USER_ONE }))((test) => {
 					}),
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -798,14 +839,17 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("preserves integration operation access for demo credentials", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expect(
-				yield* invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-			).toBe("ok");
-			expect(yield* fake.events).toEqual(["lock", "dispatch"]);
-		}),
+	test.effect(
+		"preserves integration operation access for demo credentials",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(
+					yield* invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+				).toBe("ok");
+				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -837,6 +881,7 @@ layer(
 					}),
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -850,23 +895,26 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("requires the webhook capability for a sink integration operation", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(
-					invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-				),
-				PluginNotFoundError,
-			);
-			expect(
-				yield* invoke({
-					packageId: SYSTEM_PACKAGE_ID,
-					payload: { webhookToken: "webhook-token-1" },
-				}),
-			).toBe("ok");
-			expect(yield* fake.events).toEqual(["lock", "lock", "dispatch"]);
-		}),
+	test.effect(
+		"requires the webhook capability for a sink integration operation",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(
+						invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+					),
+					PluginNotFoundError,
+				);
+				expect(
+					yield* invoke({
+						packageId: SYSTEM_PACKAGE_ID,
+						payload: { webhookToken: "webhook-token-1" },
+					}),
+				).toBe("ok");
+				expect(yield* fake.events).toEqual(["lock", "lock", "dispatch"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -879,17 +927,20 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("rejects an integration from another installation owned by the same user", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(
-					invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-				),
-				PluginNotFoundError,
-			);
-			expect(yield* fake.captured).toEqual([]);
-		}),
+	test.effect(
+		"rejects an integration from another installation owned by the same user",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(
+						invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+					),
+					PluginNotFoundError,
+				);
+				expect(yield* fake.captured).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -916,6 +967,7 @@ layer(
 				);
 				expect(yield* fake.captured).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -932,17 +984,20 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("rejects an integration owned by another user's installation", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(
-					invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-				),
-				PluginNotFoundError,
-			);
-			expect(yield* fake.captured).toEqual([]);
-		}),
+	test.effect(
+		"rejects an integration owned by another user's installation",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(
+						invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+					),
+					PluginNotFoundError,
+				);
+				expect(yield* fake.captured).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -955,25 +1010,28 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("dispatches a private integration operation for its owner's integration", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expect(
-				yield* invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-			).toBe("ok");
-			expect(yield* fake.captured).toEqual([
-				objectContaining({
-					scriptId: "install-private-user-1-script",
-					subject: {
-						type: "user",
-						userId: USER_ONE,
-						integrationId: "int-1",
-						accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-					},
-				}),
-			]);
-			expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);
-		}),
+	test.effect(
+		"dispatches a private integration operation for its owner's integration",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(
+					yield* invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+				).toBe("ok");
+				expect(yield* fake.captured).toEqual([
+					objectContaining({
+						scriptId: "install-private-user-1-script",
+						subject: {
+							type: "user",
+							userId: USER_ONE,
+							integrationId: "int-1",
+							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+						},
+					}),
+				]);
+				expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -986,69 +1044,87 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("rejects a foreign integration for a private integration operation", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			expectError(
-				yield* Effect.exit(
-					invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-				),
-				PluginNotFoundError,
-			);
-			expect(yield* fake.captured).toEqual([]);
-		}),
+	test.effect(
+		"rejects a foreign integration for a private integration operation",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(
+						invoke({ packageId: PRIVATE_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+					),
+					PluginNotFoundError,
+				);
+				expect(yield* fake.captured).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemIntegrationOperation] }))((test) => {
-	test.effect("rejects an authenticated integration operation without a scope payload", () =>
-		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })), PluginRequestError);
-		}),
+	test.effect(
+		"rejects an authenticated integration operation without a scope payload",
+		() =>
+			Effect.gen(function* () {
+				expectError(
+					yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })),
+					PluginRequestError,
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemIntegrationOperation] }))((test) => {
-	test.effect("rejects integration operations for a missing or disabled integration", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeOperationDependencies;
-			yield* Effect.forEach(
-				[
-					null,
-					makeIntegration({
-						userId: USER_ONE,
-						isDisabled: true,
-						pluginInstallationId: "install-fixture-user-1",
-					}),
-				] as const,
-				(integration) =>
-					Effect.gen(function* () {
-						yield* fake.useIntegration(integration);
-						expectError(
-							yield* Effect.exit(
-								invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
-							),
-							PluginNotFoundError,
-						);
-					}),
-			);
-		}),
+	test.effect(
+		"rejects integration operations for a missing or disabled integration",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				yield* Effect.forEach(
+					[
+						null,
+						makeIntegration({
+							userId: USER_ONE,
+							isDisabled: true,
+							pluginInstallationId: "install-fixture-user-1",
+						}),
+					] as const,
+					(integration) =>
+						Effect.gen(function* () {
+							yield* fake.useIntegration(integration);
+							expectError(
+								yield* Effect.exit(
+									invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
+								),
+								PluginNotFoundError,
+							);
+						}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ available: [systemUserOperation] }))((test) => {
-	test.effect("rejects user operations without an authenticated session", () =>
-		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })), AuthUnauthorized);
-		}),
+	test.effect(
+		"rejects user operations without an authenticated session",
+		() =>
+			Effect.gen(function* () {
+				expectError(yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })), AuthUnauthorized);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ available: [systemIntegrationOperation] }))((test) => {
-	test.effect("rejects an unauthenticated call that carries no integration scope", () =>
-		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })), AuthUnauthorized);
-		}),
+	test.effect(
+		"rejects an unauthenticated call that carries no integration scope",
+		() =>
+			Effect.gen(function* () {
+				expectError(yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })), AuthUnauthorized);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1059,26 +1135,29 @@ layer(
 		available: [systemUserOperation],
 	}),
 )((test) => {
-	test.effect("propagates sandbox failures from operation scripts", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
-			assert(Exit.isFailure(exit));
-			expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
-				new PluginInvocationError({
-					reason: {
-						code: "runtime-failed",
-						diagnostics: [
-							{
-								phase: "execute",
-								severity: "error",
-								message: "operation failed",
-								code: "sandbox-runtime-error",
-							},
-						],
-					},
-				}),
-			);
-		}),
+	test.effect(
+		"propagates sandbox failures from operation scripts",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
+				assert(Exit.isFailure(exit));
+				expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
+					new PluginInvocationError({
+						reason: {
+							code: "runtime-failed",
+							diagnostics: [
+								{
+									phase: "execute",
+									severity: "error",
+									message: "operation failed",
+									code: "sandbox-runtime-error",
+								},
+							],
+						},
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });
 
@@ -1089,25 +1168,28 @@ layer(
 		available: [systemUserOperation],
 	}),
 )((test) => {
-	test.effect("rejects non-JSON operation results as runtime failures", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
-			assert(Exit.isFailure(exit));
-			expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
-				new PluginInvocationError({
-					reason: {
-						code: "runtime-failed",
-						diagnostics: [
-							{
-								phase: "output",
-								severity: "error",
-								code: "sandbox-runtime-error",
-								message: "Sandbox operation result must be JSON",
-							},
-						],
-					},
-				}),
-			);
-		}),
+	test.effect(
+		"rejects non-JSON operation results as runtime failures",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID }));
+				assert(Exit.isFailure(exit));
+				expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
+					new PluginInvocationError({
+						reason: {
+							code: "runtime-failed",
+							diagnostics: [
+								{
+									phase: "output",
+									severity: "error",
+									code: "sandbox-runtime-error",
+									message: "Sandbox operation result must be JSON",
+								},
+							],
+						},
+					}),
+				);
+			}),
+		testTimeout,
 	);
 });

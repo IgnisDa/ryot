@@ -10,7 +10,7 @@
 	],
 	"scripts": {
 		"dev": "turbo dev",
-		"test": "turbo test",
+		"test": "turbo --filter='!@ryot-app/e2e' test",
 		"build": "turbo build",
 		"prepare": "effect-tsgo patch --no-typescript --oxlint",
 		"docker:up": "docker compose -f ci/dev/docker-compose.yml up",
@@ -26,5 +26,8 @@
 		"tsconfig-moon": "1.4.2",
 		"turbo": "2.10.12"
 	},
-	"packageManager": "bun@1.4.4"
+	"packageManager": "bun@1.4.4",
+	"patchedDependencies": {
+		"bun-types@1.4.4": "patches/bun-types@1.4.4.patch"
+	}
 }

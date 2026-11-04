@@ -10,7 +10,8 @@ import {
 	OAuthUserInfoResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { anyOf } from "@ryot-app/testing/matchers";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Clock, Effect, Schema } from "effect";
 
@@ -80,11 +81,13 @@ const runImpersonationClientFlow = (
 			encodedPayload.toString("utf8"),
 		);
 		const claims = requireObjectRecord(decodedClaims, "Access token claims are not an object");
-		expect(claims).toMatchObject({
-			azp: clientId,
-			sub: target.userId,
-			impersonation: { expiresAt: anyOf(Number) },
-		});
+		expect(claims).toEqual<unknown>(
+			objectContaining({
+				azp: clientId,
+				sub: target.userId,
+				impersonation: objectContaining({ expiresAt: anyOf(Number) }),
+			}),
+		);
 		const sessionId = requireString(claims["sid"], "Access token has no session ID");
 
 		const sessionResponse = yield* webRequest(
@@ -123,8 +126,8 @@ const runImpersonationClientFlow = (
 		const current = yield* getUserSettings(target.client);
 		expect(current.preferences).toEqual({
 			language: null,
-			reportingTimeZone: "UTC",
 			disableIntegrations: false,
+			reportingTimeZone: TimeZone.make("UTC"),
 		});
 		const language = clientId === OAUTH_IMPERSONATION_NATIVE_CLIENT_ID ? "fr" : "es";
 		yield* updateUserSettingsPreferences(impersonation.client, {
@@ -133,13 +136,13 @@ const runImpersonationClientFlow = (
 		});
 		expect((yield* getUserSettings(impersonation.client)).preferences).toEqual({
 			language,
-			reportingTimeZone: "UTC",
 			disableIntegrations: true,
+			reportingTimeZone: TimeZone.make("UTC"),
 		});
 		expect((yield* getUserSettings(target.client)).preferences).toEqual({
 			language,
-			reportingTimeZone: "UTC",
 			disableIntegrations: true,
+			reportingTimeZone: TimeZone.make("UTC"),
 		});
 
 		const regularClientId =
@@ -189,8 +192,8 @@ const runImpersonationClientFlow = (
 		);
 		expect((yield* getUserSettings(refreshedClient)).preferences).toEqual({
 			language,
-			reportingTimeZone: "UTC",
 			disableIntegrations: true,
+			reportingTimeZone: TimeZone.make("UTC"),
 		});
 	});
 
@@ -320,7 +323,7 @@ describe("Instance Admin impersonation", () => {
 				latestRefreshToken,
 			);
 			expect(invalidRefreshToken.response.status).toBe(400);
-			expect((yield* getUserSettings(target.client)).id).toBe(target.userId);
+			expect((yield* getUserSettings(target.client)).id).toBe<unknown>(target.userId);
 		}),
 	);
 });

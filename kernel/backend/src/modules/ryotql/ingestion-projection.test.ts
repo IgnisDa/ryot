@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { importIssuesRecipe, manualImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result } from "effect";
-import { assert } from "vitest";
 
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
@@ -179,5 +182,6 @@ layer(testLayer)((test) => {
 					).items,
 				).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

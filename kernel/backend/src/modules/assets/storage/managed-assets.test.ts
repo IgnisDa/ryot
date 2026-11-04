@@ -1,10 +1,13 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { CryptoHasher } from "bun";
 import type { FileSystem } from "effect";
 import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream } from "effect";
@@ -197,28 +200,36 @@ const verifiedLocators = [
 ];
 
 layer(makeLayer(verifiedLocators))((test) => {
-	test.effect("verifies ownership for the complete locator set", () =>
-		Effect.gen(function* () {
-			const service = yield* ManagedAssetsService;
-			expect(yield* service.verifyManagedAssetOwnership(userId, verifiedLocators)).toHaveLength(2);
-		}),
+	test.effect(
+		"verifies ownership for the complete locator set",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ManagedAssetsService;
+				expect(yield* service.verifyManagedAssetOwnership(userId, verifiedLocators)).toHaveLength(
+					2,
+				);
+			}),
+		testTimeout,
 	);
 });
 
 const ownedLocators = [{ type: "s3" as const, key: "permanent/owned.png" }];
 
 layer(makeLayer(ownedLocators))((test) => {
-	test.effect("rejects a partially owned locator set", () =>
-		Effect.gen(function* () {
-			const service = yield* ManagedAssetsService;
-			const exit = yield* Effect.exit(
-				service.verifyManagedAssetOwnership(userId, [
-					...ownedLocators,
-					{ type: "local", key: "permanent/unowned.png" },
-				]),
-			);
-			assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
-		}),
+	test.effect(
+		"rejects a partially owned locator set",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ManagedAssetsService;
+				const exit = yield* Effect.exit(
+					service.verifyManagedAssetOwnership(userId, [
+						...ownedLocators,
+						{ type: "local", key: "permanent/unowned.png" },
+					]),
+				);
+				assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
+			}),
+		testTimeout,
 	);
 });
 
@@ -258,32 +269,35 @@ const downloadLayer = ManagedAssetsService.layer.pipe(
 );
 
 layer(downloadLayer)((test) => {
-	test.effect("returns one deterministic expiry for local and S3 download resolutions", () =>
-		Effect.gen(function* () {
-			const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-			const service = yield* ManagedAssetsService;
-			const result = yield* service.resolveDownloads(user, downloadLocators);
-			const expiresAt = DateTime.formatIso(DateTime.makeUnsafe((now + 15 * 60) * 1000));
-			expect(result).toEqual([
-				{
-					expiresAt,
-					asset: downloadLocators[0],
-					downloadUrl: "uploads/local/download?key=permanent/local.png",
-				},
-				{
-					expiresAt,
-					asset: downloadLocators[1],
-					downloadUrl: "https://s3.test/permanent/remote.svg",
-				},
-			]);
-			expect(yield* (yield* FakeS3Presigner).presigned).toEqual([
-				{
-					expiresInSeconds: 15 * 60,
-					key: "permanent/remote.svg",
-					contentDisposition: "attachment",
-				},
-			]);
-		}),
+	test.effect(
+		"returns one deterministic expiry for local and S3 download resolutions",
+		() =>
+			Effect.gen(function* () {
+				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				const service = yield* ManagedAssetsService;
+				const result = yield* service.resolveDownloads(user, downloadLocators);
+				const expiresAt = DateTime.formatIso(DateTime.makeUnsafe((now + 15 * 60) * 1000));
+				expect(result).toEqual<unknown>([
+					{
+						expiresAt,
+						asset: downloadLocators[0],
+						downloadUrl: "uploads/local/download?key=permanent/local.png",
+					},
+					{
+						expiresAt,
+						asset: downloadLocators[1],
+						downloadUrl: "https://s3.test/permanent/remote.svg",
+					},
+				]);
+				expect(yield* (yield* FakeS3Presigner).presigned).toEqual([
+					{
+						expiresInSeconds: 15 * 60,
+						key: "permanent/remote.svg",
+						contentDisposition: "attachment",
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -301,39 +315,42 @@ const concurrentStagingLayer = ManagedAssetsService.layer.pipe(
 );
 
 layer(concurrentStagingLayer)((test) => {
-	test.effect("assigns concurrent staging ownership only to the conditional-create winner", () =>
-		Effect.gen(function* () {
-			const bytes = new TextEncoder().encode("concurrent asset");
-			const sha256 = new CryptoHasher("sha256").update(bytes).digest("hex");
-			const input = () => ({
-				sha256,
-				ownerUserId: userId,
-				size: bytes.byteLength,
-				stream: Stream.make(bytes),
-				provider: "local" as const,
-				contentType: "application/octet-stream",
-			});
-			const managedAssets = yield* ManagedAssetsService;
-			const objectStorage = yield* FakeObjectStorage;
-			const staged = yield* Effect.all(
-				[
-					managedAssets.stageContentAddressedPermanentAsset(input()),
-					managedAssets.stageContentAddressedPermanentAsset(input()),
-				],
-				{ concurrency: "unbounded" },
-			);
-			expect(staged.map(({ created }) => created).sort((a, b) => Number(a) - Number(b))).toEqual([
-				false,
-				true,
-			]);
-			const loser = staged.find(({ created }) => !created);
-			expect(loser).toBeDefined();
-			if (loser) {
-				yield* managedAssets.cleanupStagedPermanentAsset(loser);
-			}
-			expect(yield* objectStorage.stored).not.toBeNull();
-			expect(yield* objectStorage.deletes).toBe(0);
-		}),
+	test.effect(
+		"assigns concurrent staging ownership only to the conditional-create winner",
+		() =>
+			Effect.gen(function* () {
+				const bytes = new TextEncoder().encode("concurrent asset");
+				const sha256 = new CryptoHasher("sha256").update(bytes).digest("hex");
+				const input = () => ({
+					sha256,
+					ownerUserId: userId,
+					size: bytes.byteLength,
+					stream: Stream.make(bytes),
+					provider: "local" as const,
+					contentType: "application/octet-stream",
+				});
+				const managedAssets = yield* ManagedAssetsService;
+				const objectStorage = yield* FakeObjectStorage;
+				const staged = yield* Effect.all(
+					[
+						managedAssets.stageContentAddressedPermanentAsset(input()),
+						managedAssets.stageContentAddressedPermanentAsset(input()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				expect(staged.map(({ created }) => created).sort((a, b) => Number(a) - Number(b))).toEqual([
+					false,
+					true,
+				]);
+				const loser = staged.find(({ created }) => !created);
+				expect(loser).toBeDefined();
+				if (loser) {
+					yield* managedAssets.cleanupStagedPermanentAsset(loser);
+				}
+				expect(yield* objectStorage.stored).not.toBeNull();
+				expect(yield* objectStorage.deletes).toBe(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -352,21 +369,24 @@ const blockedRegistrationLayer = ManagedAssetsService.layer.pipe(
 );
 
 layer(blockedRegistrationLayer)((test) => {
-	test.effect("blocks managed asset registration while the owner lifecycle is active", () =>
-		Effect.gen(function* () {
-			const service = yield* ManagedAssetsService;
-			const exit = yield* Effect.exit(
-				service.registerManagedAsset({
-					size: 1,
-					provider: "s3",
-					ownerUserId: userId,
-					sha256: "a".repeat(64),
-					contentType: "image/png",
-					key: "permanent/image.png",
-				}),
-			);
-			assertExitFails(exit, new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
-		}),
+	test.effect(
+		"blocks managed asset registration while the owner lifecycle is active",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ManagedAssetsService;
+				const exit = yield* Effect.exit(
+					service.registerManagedAsset({
+						size: 1,
+						provider: "s3",
+						ownerUserId: userId,
+						sha256: "a".repeat(64),
+						contentType: "image/png",
+						key: "permanent/image.png",
+					}),
+				);
+				assertExitFails(exit, new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
+			}),
+		testTimeout,
 	);
 });
 
@@ -409,5 +429,6 @@ layer(racedRegistrationLayer)((test) => {
 				expect(yield* objectStorage.stored).toBeNull();
 				expect(yield* objectStorage.deletes).toBe(1);
 			}),
+		testTimeout,
 	);
 });

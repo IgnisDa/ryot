@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { render, screen } from "@testing-library/react";
 import { motionValue } from "motion/react";
-import { describe, expect, it } from "vitest";
 
 import { completesEdgeGesture, EdgeGesture } from "#/modules/navigation/edge-gesture";
 

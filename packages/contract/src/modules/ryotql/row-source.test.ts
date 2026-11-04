@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { PluginId } from "../../schema/brands";
 import {
@@ -32,7 +32,7 @@ describe("row source queries", () => {
 				? { kind: "local", pluginId: PluginId.make("plugin-1") }
 				: reference,
 		);
-		expect(bound).toEqual({
+		expect(bound).toEqual<unknown>({
 			...query,
 			where: {
 				...query.where,

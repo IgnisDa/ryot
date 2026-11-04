@@ -1,12 +1,16 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	Clock,
 	Context,
@@ -661,7 +665,7 @@ const userCoreConnections = (harness: HarnessService) =>
 const supervisorTest = <A, E>(
 	name: string,
 	effect: () => Effect.Effect<A, E, Scope.Scope | Layer.Success<typeof dependencyLayer>>,
-) => layer(Layer.fresh(dependencyLayer))((test) => test.effect(name, effect));
+) => layer(Layer.fresh(dependencyLayer))((test) => test.effect(name, effect, testTimeout));
 
 supervisorTest("starts lazy tiers once and stops them only when idle", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
@@ -1254,7 +1258,9 @@ supervisorTest("preserves retry budgets and committed work in collateral recover
 					yield* TestClock.adjust("4 seconds");
 				}
 				connection = yield* awaitConnection(harness, "user/core", connection.generation);
-				expect(connection.connectedAt - failureAt).toBe([1_000, 2_000, 4_000][index]);
+				const expectedDelay = [1_000, 2_000, 4_000][index];
+				assert(expectedDelay !== undefined);
+				expect(connection.connectedAt - failureAt).toBe(expectedDelay);
 				victimRun = yield* Queue.take(connection.nextRun);
 				expect(victimRun.input).toEqual(victimInput);
 				expect(victimRun.module).toEqual({ sha256: pinHash, source: moduleSource });

@@ -1,5 +1,6 @@
+import { expect, it } from "bun:test";
+
 import { arrayContaining } from "@ryot-app/testing/matchers";
-import { expect, it } from "vitest";
 
 import {
 	workoutExerciseCollectionOptionsRecipe,
@@ -29,7 +30,7 @@ it("filters the paged exercise picker by selected categories and includes taxono
 		{ direction: "asc", expr: { field: "name", type: "column", tableAlias: "pickerExercise" } },
 		{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "pickerExercise" } },
 	]);
-	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual(
+	expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual<unknown>(
 		arrayContaining([
 			"id",
 			"name",

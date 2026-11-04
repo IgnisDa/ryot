@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { Effect, FileSystem, Path } from "effect";
 import getPort from "get-port";
 
-import { runPromise } from "./src/support/e2e-runtime";
+import { provideE2eServices } from "./src/support/e2e-runtime";
 import { verifyNativeSandboxProvisioning } from "./src/support/native-sandbox-provisioning";
 import {
 	buildApiEnv,
@@ -19,10 +19,12 @@ const S3_BUCKET_NAME = "ryot-test";
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
-export default async () => {
-	const resources = makeTestResourceScope();
-	const setup = await runPromise(
+export default Effect.gen(function* () {
+	const resources = yield* Effect.acquireRelease(
+		Effect.sync(makeTestResourceScope),
+		(acquired) => acquired.close,
+	);
+	const setup = yield* provideE2eServices(
 		resources.run(
 			Effect.gen(function* () {
 				if (process.platform === "darwin") {
@@ -104,11 +106,12 @@ export default async () => {
 			}),
 		),
 	);
-	process.env.E2E_FRONTEND_URL = setup.frontendUrl;
-	process.env.E2E_SERVER_PID = String(setup.apiPid);
-	process.env.E2E_API_URL = setup.apiUrl;
-	process.env.E2E_ADMIN_ACCESS_TOKEN = setup.adminToken;
-	process.env.E2E_SERVER_LOG_FILE = setup.logFile;
-	console.info(`PostgreSQL logs: ${setup.pgLogPath}`);
-	return () => runPromise(resources.close);
-};
+	yield* Effect.logInfo(`PostgreSQL logs: ${setup.pgLogPath}`);
+	return {
+		E2E_API_URL: setup.apiUrl,
+		E2E_SERVER_LOG_FILE: setup.logFile,
+		E2E_FRONTEND_URL: setup.frontendUrl,
+		E2E_SERVER_PID: String(setup.apiPid),
+		E2E_ADMIN_ACCESS_TOKEN: setup.adminToken,
+	};
+});

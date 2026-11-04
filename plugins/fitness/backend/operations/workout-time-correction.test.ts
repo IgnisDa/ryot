@@ -1,8 +1,9 @@
+import { expect, it } from "bun:test";
+
 import type { UserCommandInput } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
-import { expect, it } from "vitest";
 
 import type { WorkoutEditorBaselineSchema } from "../../shared/workout-editor-recipes";
 import { encodeWorkoutEditorBaseline } from "../../shared/workout-editor-recipes";
@@ -74,7 +75,7 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 					submissionId: "correction-1",
 					conflictToken: yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)),
 				});
-				expect(yield* definition.run(input, host)).toEqual({
+				expect(yield* definition.run(input, host)).toEqual<unknown>({
 					kind: "saved",
 					entityId: "workout-1",
 				});

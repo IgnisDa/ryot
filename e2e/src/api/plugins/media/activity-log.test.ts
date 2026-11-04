@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	episodicEarlierUnwatchedRecipe,
@@ -86,7 +87,7 @@ describe("Media activity log operation", () => {
 			expect(nowEvents).toHaveLength(1);
 			const [nowEvent] = nowEvents;
 			assertPresent(nowEvent, "Expected the just-now completion");
-			expect(nowEvent.eventSchemaSlug).toBe("complete");
+			expect(nowEvent.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 			expect(isoOf(nowEvent.occurredAt)).toBe(submittedAt);
 			expect(nowEvent.properties).toEqual({
 				timeSpent: 95,

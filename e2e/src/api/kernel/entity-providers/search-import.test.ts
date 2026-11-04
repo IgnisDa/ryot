@@ -1,4 +1,4 @@
-import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { EventSchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
@@ -334,7 +334,9 @@ describe("GET /entity-providers/imports/{jobId}", () => {
 			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
 
 			assertCompleted(result, "import job");
-			expect(yield* listEventSlugs(providerClient, result.data.id)).toEqual(["planned"]);
+			expect(yield* listEventSlugs(providerClient, result.data.id)).toEqual([
+				EventSchemaSlug.make("planned"),
+			]);
 		}),
 	);
 

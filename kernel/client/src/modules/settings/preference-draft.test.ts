@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { UTC } from "@ryot-app/contract/schema/time-zone";
-import { describe, expect, it } from "vitest";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 

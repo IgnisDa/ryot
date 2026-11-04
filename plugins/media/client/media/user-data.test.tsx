@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { anyOf } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import {
@@ -58,67 +61,73 @@ const entityQuery = () =>
 		},
 	});
 
-it.live("offers removal without library membership and lets the user cancel", () =>
-	Effect.gen(function* () {
-		const calls: unknown[] = [];
-		const mounted = mountRyotClient(
-			{
-				invokeOperation: (request) =>
-					Effect.sync(() => {
-						calls.push(request);
-						return { count: 2, status: "saved" };
-					}),
-			},
-			<MediaUserDataControl media={summary("movie", false)} />,
-		);
-		try {
-			clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
-			expect(getByRole(document.body, "dialog").textContent).toContain("Source Film");
-			expect(getByRole(document.body, "dialog").textContent).toContain("child data");
-			expect(getByRole(document.body, "dialog").textContent).toContain("metadata remains");
-			clickRyotElement(getByRole(document.body, "button", { name: "Cancel" }));
-			expect(queryByRole(document.body, "dialog")).toBeNull();
-			expect(calls).toEqual([]);
-		} finally {
-			mounted.unmount();
-		}
-	}),
+it.live(
+	"offers removal without library membership and lets the user cancel",
+	() =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const mounted = mountRyotClient(
+				{
+					invokeOperation: (request) =>
+						Effect.sync(() => {
+							calls.push(request);
+							return { count: 2, status: "saved" };
+						}),
+				},
+				<MediaUserDataControl media={summary("movie", false)} />,
+			);
+			try {
+				clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
+				expect(getByRole(document.body, "dialog").textContent).toContain("Source Film");
+				expect(getByRole(document.body, "dialog").textContent).toContain("child data");
+				expect(getByRole(document.body, "dialog").textContent).toContain("metadata remains");
+				clickRyotElement(getByRole(document.body, "button", { name: "Cancel" }));
+				expect(queryByRole(document.body, "dialog")).toBeNull();
+				expect(calls).toEqual([]);
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
-it.live("removes data once and refreshes active queries after success", () =>
-	Effect.gen(function* () {
-		const requests: unknown[] = [];
-		const mounted = mountRyotClient(
-			{
-				invokeOperation: (request) =>
-					Effect.sync(() => {
-						requests.push(request);
-						return { count: 4, status: "saved" };
-					}),
-			},
-			<MediaUserDataControl media={summary("movie", false)} />,
-		);
-		let hints = 0;
-		const unsubscribe = mounted.client.mutationCompleted.subscribe(() => hints++);
-		try {
-			yield* Effect.promise(() => mounted.setTime(Date.parse(submittedAt)));
-			clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
-			clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
+it.live(
+	"removes data once and refreshes active queries after success",
+	() =>
+		Effect.gen(function* () {
+			const requests: unknown[] = [];
+			const mounted = mountRyotClient(
+				{
+					invokeOperation: (request) =>
+						Effect.sync(() => {
+							requests.push(request);
+							return { count: 4, status: "saved" };
+						}),
+				},
+				<MediaUserDataControl media={summary("movie", false)} />,
 			);
-			expect(requests[0]).toMatchObject({
-				packageId: "ryot/media",
-				slug: "media-user-data",
-				input: { submittedAt, action: "remove", entityId: "media-1", entitySchemaSlug: "movie" },
-			});
-			expect(hints).toBe(1);
-		} finally {
-			unsubscribe();
-			mounted.unmount();
-		}
-	}),
+			let hints = 0;
+			const unsubscribe = mounted.client.mutationCompleted.subscribe(() => hints++);
+			try {
+				yield* Effect.promise(() => mounted.setTime(Date.parse(submittedAt)));
+				clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
+				clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
+				);
+				expect(requests[0]).toMatchObject({
+					packageId: "ryot/media",
+					slug: "media-user-data",
+					input: { submittedAt, action: "remove", entityId: "media-1", entitySchemaSlug: "movie" },
+				});
+				expect(hints).toBe(1);
+			} finally {
+				unsubscribe();
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
 it.live(
@@ -172,17 +181,19 @@ it.live(
 				clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
 				yield* Effect.promise(() => waitFor(() => expect(operations).toHaveLength(1)));
 				yield* Effect.promise(() => waitFor(() => expect(navigation).toHaveLength(1)));
-				expect(operations[0]).toMatchObject({
-					slug: "media-user-data",
-					idempotencyKey: anyOf(String),
-					input: {
-						submittedAt,
-						action: "merge",
-						mergeFrom: "media-1",
-						mergeInto: "target-1",
-						entitySchemaSlug: "movie",
-					},
-				});
+				expect(operations[0]).toEqual<unknown>(
+					objectContaining({
+						slug: "media-user-data",
+						idempotencyKey: anyOf(String),
+						input: objectContaining({
+							submittedAt,
+							action: "merge",
+							mergeFrom: "media-1",
+							mergeInto: "target-1",
+							entitySchemaSlug: "movie",
+						}),
+					}),
+				);
 				expect(navigation).toEqual([
 					{ mode: "replace", target: { kind: "entity", entityId: "target-1" } },
 				]);
@@ -190,125 +201,138 @@ it.live(
 				mounted.unmount();
 			}
 		}),
+	testTimeout,
 );
 
 it.live.each([
 	{ entityIds: ["media-1"], message: "Choose a different media item as the merge destination." },
 	{ entityIds: ["target-1", "target-2"], message: "Select exactly one merge destination." },
 	{ entityIds: [], message: "Select exactly one merge destination." },
-])("rejects an invalid destination selection: $message", ({ message, entityIds }) =>
-	Effect.gen(function* () {
-		const operations: unknown[] = [];
-		const mounted = mountRyotClient(
-			{
-				pickEntity: () => Effect.succeed({ entityIds, kind: "selected" }),
-				invokeOperation: (request) =>
-					Effect.sync(() => {
-						operations.push(request);
-						return { count: 0, status: "saved" };
-					}),
-			},
-			<MediaUserDataControl media={summary()} />,
-		);
-		try {
-			clickRyotElement(
-				yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+])(
+	"rejects an invalid destination selection: $message",
+	({ message, entityIds }) =>
+		Effect.gen(function* () {
+			const operations: unknown[] = [];
+			const mounted = mountRyotClient(
+				{
+					pickEntity: () => Effect.succeed({ entityIds, kind: "selected" }),
+					invokeOperation: (request) =>
+						Effect.sync(() => {
+							operations.push(request);
+							return { count: 0, status: "saved" };
+						}),
+				},
+				<MediaUserDataControl media={summary()} />,
 			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(getByRole(mounted.container, "alert").textContent).toBe(message)),
-			);
-			expect(queryByRole(document.body, "dialog")).toBeNull();
-			expect(operations).toEqual([]);
-		} finally {
-			mounted.unmount();
-		}
-	}),
+			try {
+				clickRyotElement(
+					yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(getByRole(mounted.container, "alert").textContent).toBe(message)),
+				);
+				expect(queryByRole(document.body, "dialog")).toBeNull();
+				expect(operations).toEqual([]);
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
-it.live("keeps an actionable merge conflict in the confirmation", () =>
-	Effect.gen(function* () {
-		const message =
-			"Cannot merge: episode 3 has no unique matching destination. Update child data.";
-		const mounted = mountRyotClient(
-			{
-				query: () => entityQuery(),
-				invokeOperation: () => Effect.succeed({ message, status: "rejected" }),
-				pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
-			},
-			<MediaUserDataControl media={summary()} />,
-		);
-		try {
-			clickRyotElement(
-				yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+it.live(
+	"keeps an actionable merge conflict in the confirmation",
+	() =>
+		Effect.gen(function* () {
+			const message =
+				"Cannot merge: episode 3 has no unique matching destination. Update child data.";
+			const mounted = mountRyotClient(
+				{
+					query: () => entityQuery(),
+					invokeOperation: () => Effect.succeed({ message, status: "rejected" }),
+					pickEntity: () => Effect.succeed({ kind: "selected", entityIds: ["target-1"] }),
+				},
+				<MediaUserDataControl media={summary()} />,
 			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(queryByRole(document.body, "dialog")).not.toBeNull()),
-			);
-			clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
-			);
-			expect(queryByRole(document.body, "dialog")).not.toBeNull();
-		} finally {
-			mounted.unmount();
-		}
-	}),
+			try {
+				clickRyotElement(
+					yield* Effect.promise(() => chooseMenuItem(mounted.container, "Merge my data into…")),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(queryByRole(document.body, "dialog")).not.toBeNull()),
+				);
+				clickRyotElement(getByRole(document.body, "button", { name: "Merge data" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(getByRole(document.body, "alert").textContent).toBe(message)),
+				);
+				expect(queryByRole(document.body, "dialog")).not.toBeNull();
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
-it.live("retries the same immutable operation after a transport failure", () =>
-	Effect.gen(function* () {
-		const requests: unknown[] = [];
-		const mounted = mountRyotClient(
-			{
-				invokeOperation: (request) =>
-					Effect.suspend(() => {
-						requests.push(request);
-						return requests.length === 1
-							? Effect.fail(new RyotClientError({ reason: "transport" }))
-							: Effect.succeed({ count: 1, status: "saved" });
-					}),
-			},
-			<MediaUserDataControl media={summary()} />,
-		);
-		try {
-			clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
-			clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(getByRole(document.body, "alert").textContent).toBe(
-						"Couldn't reach the server. Retry to finish this change safely.",
+it.live(
+	"retries the same immutable operation after a transport failure",
+	() =>
+		Effect.gen(function* () {
+			const requests: unknown[] = [];
+			const mounted = mountRyotClient(
+				{
+					invokeOperation: (request) =>
+						Effect.suspend(() => {
+							requests.push(request);
+							return requests.length === 1
+								? Effect.fail(new RyotClientError({ reason: "transport" }))
+								: Effect.succeed({ count: 1, status: "saved" });
+						}),
+				},
+				<MediaUserDataControl media={summary()} />,
+			);
+			try {
+				clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
+				clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(getByRole(document.body, "alert").textContent).toBe(
+							"Couldn't reach the server. Retry to finish this change safely.",
+						),
 					),
-				),
-			);
-			clickRyotElement(getByRole(document.body, "button", { name: "Retry removal" }));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-			expect(requests[1]).toEqual(requests[0]);
-		} finally {
-			mounted.unmount();
-		}
-	}),
+				);
+				clickRyotElement(getByRole(document.body, "button", { name: "Retry removal" }));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+				expect(requests[1]).toEqual(requests[0]);
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
-it.live("explains protected demo-operation failures", () =>
-	Effect.gen(function* () {
-		const mounted = mountRyotClient(
-			{ invokeOperation: () => Effect.fail(new RyotClientError({ reason: "operation-failed" })) },
-			<MediaUserDataControl media={summary()} />,
-		);
-		try {
-			clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
-			clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(getByRole(document.body, "alert").textContent).toBe(
-						"This action could not be completed. Demo accounts cannot change media data.",
-					),
-				),
+it.live(
+	"explains protected demo-operation failures",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountRyotClient(
+				{ invokeOperation: () => Effect.fail(new RyotClientError({ reason: "operation-failed" })) },
+				<MediaUserDataControl media={summary()} />,
 			);
-		} finally {
-			mounted.unmount();
-		}
-	}),
+			try {
+				clickRyotElement(yield* Effect.promise(() => chooseRemove(mounted.container)));
+				clickRyotElement(getByRole(document.body, "button", { name: "Remove data" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(getByRole(document.body, "alert").textContent).toBe(
+							"This action could not be completed. Demo accounts cannot change media data.",
+						),
+					),
+				);
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	testTimeout,
 );
 
 it("shows the control for every shared media library member summary schema", () => {

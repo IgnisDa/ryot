@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	CLIENT_API_VERSION,
 	type PluginConfigSchema,
@@ -62,11 +63,13 @@ import {
 import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { twoFactorStatusRecipe } from "@ryot-app/ryotql-recipes/user-settings";
+import { assert } from "@ryot-app/testing/assert";
 import { anyOf } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Option, Result } from "effect";
-import { assert } from "vitest";
 
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import {
@@ -663,183 +666,198 @@ type Reader = "admin" | { readonly userId: string; readonly audience: RyotQLAudi
 const owner = { userId: "owner", audience: "kernel" } as const;
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("groups repeated local hours and calendar years in PostgreSQL", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const timeZone = "America/New_York";
-			const response = yield* service.executeForUser("owner", null, "kernel", {
-				queries: {
-					rows: rows(table("user", "account"), {
-						fields: [
-							field(
-								"beforeGap",
-								localHour(castDate(literal("2024-03-10T06:30:00Z")), { timeZone }),
-							),
-							field("afterGap", localHour(castDate(literal("2024-03-10T07:30:00Z")), { timeZone })),
-							field(
-								"firstHour",
-								localHour(castDate(literal("2024-11-03T05:30:00Z")), { timeZone }),
-							),
-							field(
-								"secondHour",
-								localHour(castDate(literal("2024-11-03T06:30:00Z")), { timeZone }),
-							),
-							field(
-								"year",
-								dateBucket(castDate(literal("2024-01-01T02:00:00Z")), { timeZone, bucket: "year" }),
-							),
-						],
-					}),
-				},
-			});
-			expect(rowsOf(response).items).toEqual([
-				{
-					afterGap: 3,
-					beforeGap: 1,
-					firstHour: 1,
-					secondHour: 1,
-					year: "2023-01-01T05:00:00.000Z",
-				},
-			]);
-		}),
+	test.effect(
+		"groups repeated local hours and calendar years in PostgreSQL",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const timeZone = "America/New_York";
+				const response = yield* service.executeForUser("owner", null, "kernel", {
+					queries: {
+						rows: rows(table("user", "account"), {
+							fields: [
+								field(
+									"beforeGap",
+									localHour(castDate(literal("2024-03-10T06:30:00Z")), { timeZone }),
+								),
+								field(
+									"afterGap",
+									localHour(castDate(literal("2024-03-10T07:30:00Z")), { timeZone }),
+								),
+								field(
+									"firstHour",
+									localHour(castDate(literal("2024-11-03T05:30:00Z")), { timeZone }),
+								),
+								field(
+									"secondHour",
+									localHour(castDate(literal("2024-11-03T06:30:00Z")), { timeZone }),
+								),
+								field(
+									"year",
+									dateBucket(castDate(literal("2024-01-01T02:00:00Z")), {
+										timeZone,
+										bucket: "year",
+									}),
+								),
+							],
+						}),
+					},
+				});
+				expect(rowsOf(response).items).toEqual([
+					{
+						afterGap: 3,
+						beforeGap: 1,
+						firstHour: 1,
+						secondHour: 1,
+						year: "2023-01-01T05:00:00.000Z",
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("returns local calendar dates across zones and supports RyotQL operations", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const users = table("user", "account");
-			const timeZone = "America/New_York";
-			const sameInstant = castDate(literal("2024-03-01T00:30:00Z"));
-			const response = yield* service.executeForAdmin({
-				queries: {
-					rows: rows(users, {
-						limit: 1,
-						fields: [
-							field("utc", localDate(sameInstant, { timeZone: "UTC" })),
-							field("pacific", localDate(sameInstant, { timeZone: "America/Los_Angeles" })),
-							field(
-								"beforeGap",
-								localDate(castDate(literal("2024-03-10T06:30:00Z")), { timeZone }),
-							),
-							field("afterGap", localDate(castDate(literal("2024-03-10T07:30:00Z")), { timeZone })),
-							field(
-								"firstRepeatedHour",
-								localDate(castDate(literal("2024-11-03T05:30:00Z")), { timeZone }),
-							),
-							field(
-								"secondRepeatedHour",
-								localDate(castDate(literal("2024-11-03T06:30:00Z")), { timeZone }),
-							),
-							field(
-								"leapDay",
-								localDate(castDate(literal("2024-02-29T23:30:00Z")), { timeZone: "UTC" }),
-							),
-							field("missing", localDate(castDate(literal(null)), { timeZone: "UTC" })),
-						],
-					}),
-				},
-			});
-			expect(rowsOf(response).items).toEqual([
-				{
-					missing: null,
-					utc: "2024-03-01",
-					pacific: "2024-02-29",
-					leapDay: "2024-02-29",
-					afterGap: "2024-03-10",
-					beforeGap: "2024-03-10",
-					firstRepeatedHour: "2024-11-03",
-					secondRepeatedHour: "2024-11-03",
-				},
-			]);
-
-			const filterDate = localDate(sameInstant, { timeZone: "America/Los_Angeles" });
-			const filtered = yield* service.executeForAdmin({
-				queries: {
-					rows: rows(users, {
-						orderBy: [ascending(column(users, "id"))],
-						fields: [field("id", column(users, "id"))],
-						where: queryEq(filterDate, literal("2024-02-29")),
-					}),
-				},
-			});
-			expect(rowsOf(filtered).items).toEqual([
-				{ id: "mixed" },
-				{ id: "other" },
-				{ id: "owner" },
-				{ id: "plain" },
-			]);
-
-			const createdDay = localDate(column(users, "createdAt"), { timeZone: "UTC" });
-			const pages = yield* collectPages(
-				rows(users, {
-					orderBy: [ascending(createdDay)],
-					fields: [field("id", column(users, "id")), field("day", createdDay)],
-				}),
-			);
-			expect(pages.map((row) => row["id"])).toEqual(["mixed", "other", "owner", "plain"]);
-
-			const grouped = yield* service.executeForAdmin({
-				queries: {
-					groups: aggregate(users, {
-						limit: 10,
-						orderBy: [groupAscending("day")],
-						groupBy: [field("day", createdDay)],
-						measures: [measure("count", { function: "count" })],
-					}),
-				},
-			});
-			expect(grouped.data["groups"]).toMatchObject({
-				type: "aggregate",
-				items: [{ count: 4, day: pages[0]?.["day"] }],
-			});
-
-			const groupPage = (after: null | string) =>
-				service
-					.executeForAdmin({
-						queries: {
-							groups: aggregate(users, {
-								limit: 3,
-								after: after ?? undefined,
-								orderBy: [measureDescending("count")],
-								groupBy: [field("id", column(users, "id"))],
-								measures: [measure("count", { function: "count" })],
-							}),
-						},
-					})
-					.pipe(
-						Effect.map(({ data }) => {
-							const result = data["groups"];
-							assert(result?.type === "aggregate" && result.pageInfo);
-							return {
-								after: result.pageInfo.nextCursor,
-								ids: result.items.map((item) => item["id"]),
-							};
+	test.effect(
+		"returns local calendar dates across zones and supports RyotQL operations",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const users = table("user", "account");
+				const timeZone = "America/New_York";
+				const sameInstant = castDate(literal("2024-03-01T00:30:00Z"));
+				const response = yield* service.executeForAdmin({
+					queries: {
+						rows: rows(users, {
+							limit: 1,
+							fields: [
+								field("utc", localDate(sameInstant, { timeZone: "UTC" })),
+								field("pacific", localDate(sameInstant, { timeZone: "America/Los_Angeles" })),
+								field(
+									"beforeGap",
+									localDate(castDate(literal("2024-03-10T06:30:00Z")), { timeZone }),
+								),
+								field(
+									"afterGap",
+									localDate(castDate(literal("2024-03-10T07:30:00Z")), { timeZone }),
+								),
+								field(
+									"firstRepeatedHour",
+									localDate(castDate(literal("2024-11-03T05:30:00Z")), { timeZone }),
+								),
+								field(
+									"secondRepeatedHour",
+									localDate(castDate(literal("2024-11-03T06:30:00Z")), { timeZone }),
+								),
+								field(
+									"leapDay",
+									localDate(castDate(literal("2024-02-29T23:30:00Z")), { timeZone: "UTC" }),
+								),
+								field("missing", localDate(castDate(literal(null)), { timeZone: "UTC" })),
+							],
 						}),
-					);
-			const first = yield* groupPage(null);
-			const second = yield* groupPage(first.after);
-			const groupPages = [first.ids, second.ids];
-			expect(second.after).toBeNull();
-			expect(groupPages).toEqual([["mixed", "other", "owner"], ["plain"]]);
+					},
+				});
+				expect(rowsOf(response).items).toEqual([
+					{
+						missing: null,
+						utc: "2024-03-01",
+						pacific: "2024-02-29",
+						leapDay: "2024-02-29",
+						afterGap: "2024-03-10",
+						beforeGap: "2024-03-10",
+						firstRepeatedHour: "2024-11-03",
+						secondRepeatedHour: "2024-11-03",
+					},
+				]);
 
-			const choices = jsonElementsJoin("inner", "choice", literal(["date-only", "instant"]));
-			const sameDay = conditional(
-				queryEq(column(choices, "ordinal"), literal(1)),
-				literal("2024-02-29"),
-				localDate(castDate(literal("2024-02-29T12:00:00Z")), { timeZone: "UTC" }),
-			);
-			const distinct = yield* service.executeForAdmin({
-				queries: {
-					days: aggregate(users, {
-						joins: [choices],
-						measures: [measure("count", { expr: sameDay, function: "countDistinct" })],
+				const filterDate = localDate(sameInstant, { timeZone: "America/Los_Angeles" });
+				const filtered = yield* service.executeForAdmin({
+					queries: {
+						rows: rows(users, {
+							orderBy: [ascending(column(users, "id"))],
+							fields: [field("id", column(users, "id"))],
+							where: queryEq(filterDate, literal("2024-02-29")),
+						}),
+					},
+				});
+				expect(rowsOf(filtered).items).toEqual([
+					{ id: "mixed" },
+					{ id: "other" },
+					{ id: "owner" },
+					{ id: "plain" },
+				]);
+
+				const createdDay = localDate(column(users, "createdAt"), { timeZone: "UTC" });
+				const pages = yield* collectPages(
+					rows(users, {
+						orderBy: [ascending(createdDay)],
+						fields: [field("id", column(users, "id")), field("day", createdDay)],
 					}),
-				},
-			});
-			expect(distinct.data["days"]).toEqual({ type: "aggregate", items: [{ count: 1 }] });
-		}),
+				);
+				expect(pages.map((row) => row["id"])).toEqual(["mixed", "other", "owner", "plain"]);
+
+				const grouped = yield* service.executeForAdmin({
+					queries: {
+						groups: aggregate(users, {
+							limit: 10,
+							orderBy: [groupAscending("day")],
+							groupBy: [field("day", createdDay)],
+							measures: [measure("count", { function: "count" })],
+						}),
+					},
+				});
+				expect(grouped.data["groups"]).toMatchObject({
+					type: "aggregate",
+					items: [{ count: 4, day: pages[0]?.["day"] }],
+				});
+
+				const groupPage = (after: null | string) =>
+					service
+						.executeForAdmin({
+							queries: {
+								groups: aggregate(users, {
+									limit: 3,
+									after: after ?? undefined,
+									orderBy: [measureDescending("count")],
+									groupBy: [field("id", column(users, "id"))],
+									measures: [measure("count", { function: "count" })],
+								}),
+							},
+						})
+						.pipe(
+							Effect.map(({ data }) => {
+								const result = data["groups"];
+								assert(result?.type === "aggregate" && result.pageInfo);
+								return {
+									after: result.pageInfo.nextCursor,
+									ids: result.items.map((item) => item["id"]),
+								};
+							}),
+						);
+				const first = yield* groupPage(null);
+				const second = yield* groupPage(first.after);
+				const groupPages = [first.ids, second.ids];
+				expect(second.after).toBeNull();
+				expect(groupPages).toEqual([["mixed", "other", "owner"], ["plain"]]);
+
+				const choices = jsonElementsJoin("inner", "choice", literal(["date-only", "instant"]));
+				const sameDay = conditional(
+					queryEq(column(choices, "ordinal"), literal(1)),
+					literal("2024-02-29"),
+					localDate(castDate(literal("2024-02-29T12:00:00Z")), { timeZone: "UTC" }),
+				);
+				const distinct = yield* service.executeForAdmin({
+					queries: {
+						days: aggregate(users, {
+							joins: [choices],
+							measures: [measure("count", { expr: sameDay, function: "countDistinct" })],
+						}),
+					},
+				});
+				expect(distinct.data["days"]).toEqual({ type: "aggregate", items: [{ count: 1 }] });
+			}),
+		testTimeout,
 	);
 });
 
@@ -990,6 +1008,7 @@ layer(catalogDatabaseLayer)((test) => {
 					{ projection: null, id: "projection-gate", projectionStatus: "none" },
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -1205,130 +1224,134 @@ layer(catalogDatabaseLayer)((test) => {
 					});
 				}
 			}),
+		testTimeout,
 	);
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("hides relationship projections until their note and binding are current", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const fields = ["id", "projection", "projectionStatus"];
-			yield* session.run((db) =>
-				db
-					.update(pluginInstallation)
-					.set({ health: "ready" })
-					.where(eq(pluginInstallation.id, "owner-system")),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(relationship)
-					.values({
-						userId: "owner",
-						id: "projected-link",
-						sourceEntityId: "stream-entity-owner",
-						targetEntityId: "stream-entity-owner",
-						relationshipSchemaSlug: "projected-link",
-						relationshipSchemaPluginId: "system-plugin",
-					}),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(relationshipProjectionWork)
-					.values({
-						userId: "owner",
-						id: "projected-link-work",
-						outputSchema: { fields: {} },
-						processorScriptId: "processor",
-						relationshipSchemaSlug: "projected-link",
-						pluginRevisionId: "system-plugin-revision",
-						relationshipSchemaPluginId: "system-plugin",
-						pluginPin: { configRevisionId: "system-env" },
-						accountToken: sql`(select account_generation from "user" where id = 'owner')`,
-					}),
-			);
-			yield* session.run((db) =>
-				db
-					.insert(relationshipProjection)
-					.values({
-						revision: 1,
-						projectedRevision: 1,
-						properties: { score: 4 },
-						workId: "projected-link-work",
-						relationshipId: "projected-link",
-					}),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				id: "projected-link",
-				projection: { score: 4 },
-				projectionStatus: "ready",
-			});
-			yield* session.run((db) =>
-				db
-					.update(relationshipProjectionWork)
-					.set({ accountToken: "retired" })
-					.where(eq(relationshipProjectionWork.id, "projected-link-work")),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				projection: null,
-				id: "projected-link",
-				projectionStatus: "none",
-			});
-			yield* session.run((db) =>
-				db
-					.update(relationshipProjectionWork)
-					.set({ accountToken: sql`(select account_generation from "user" where id = 'owner')` })
-					.where(eq(relationshipProjectionWork.id, "projected-link-work")),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				id: "projected-link",
-				projection: { score: 4 },
-				projectionStatus: "ready",
-			});
-			yield* session.run((db) =>
-				db.update(user).set({ disabledAt: occurredAt }).where(eq(user.id, "owner")),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				projection: null,
-				id: "projected-link",
-				projectionStatus: "none",
-			});
-			yield* session.run((db) =>
-				db.update(user).set({ disabledAt: null }).where(eq(user.id, "owner")),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				id: "projected-link",
-				projection: { score: 4 },
-				projectionStatus: "ready",
-			});
-			yield* session.run((db) =>
-				db
-					.update(relationshipProjection)
-					.set({ revision: 2 })
-					.where(eq(relationshipProjection.relationshipId, "projected-link")),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				projection: null,
-				id: "projected-link",
-				projectionStatus: "pending",
-			});
-			yield* session.run((db) =>
-				db
-					.update(relationshipProjection)
-					.set({ projectedRevision: 2 })
-					.where(eq(relationshipProjection.relationshipId, "projected-link")),
-			);
-			yield* session.run((db) =>
-				db
-					.update(relationshipProjectionWork)
-					.set({ pluginRevisionId: "retired-revision" })
-					.where(eq(relationshipProjectionWork.id, "projected-link-work")),
-			);
-			expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-				projection: null,
-				id: "projected-link",
-				projectionStatus: "none",
-			});
-		}),
+	test.effect(
+		"hides relationship projections until their note and binding are current",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const fields = ["id", "projection", "projectionStatus"];
+				yield* session.run((db) =>
+					db
+						.update(pluginInstallation)
+						.set({ health: "ready" })
+						.where(eq(pluginInstallation.id, "owner-system")),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(relationship)
+						.values({
+							userId: "owner",
+							id: "projected-link",
+							sourceEntityId: "stream-entity-owner",
+							targetEntityId: "stream-entity-owner",
+							relationshipSchemaSlug: "projected-link",
+							relationshipSchemaPluginId: "system-plugin",
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(relationshipProjectionWork)
+						.values({
+							userId: "owner",
+							id: "projected-link-work",
+							outputSchema: { fields: {} },
+							processorScriptId: "processor",
+							relationshipSchemaSlug: "projected-link",
+							pluginRevisionId: "system-plugin-revision",
+							relationshipSchemaPluginId: "system-plugin",
+							pluginPin: { configRevisionId: "system-env" },
+							accountToken: sql`(select account_generation from "user" where id = 'owner')`,
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(relationshipProjection)
+						.values({
+							revision: 1,
+							projectedRevision: 1,
+							properties: { score: 4 },
+							workId: "projected-link-work",
+							relationshipId: "projected-link",
+						}),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					id: "projected-link",
+					projection: { score: 4 },
+					projectionStatus: "ready",
+				});
+				yield* session.run((db) =>
+					db
+						.update(relationshipProjectionWork)
+						.set({ accountToken: "retired" })
+						.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					projection: null,
+					id: "projected-link",
+					projectionStatus: "none",
+				});
+				yield* session.run((db) =>
+					db
+						.update(relationshipProjectionWork)
+						.set({ accountToken: sql`(select account_generation from "user" where id = 'owner')` })
+						.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					id: "projected-link",
+					projection: { score: 4 },
+					projectionStatus: "ready",
+				});
+				yield* session.run((db) =>
+					db.update(user).set({ disabledAt: occurredAt }).where(eq(user.id, "owner")),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					projection: null,
+					id: "projected-link",
+					projectionStatus: "none",
+				});
+				yield* session.run((db) =>
+					db.update(user).set({ disabledAt: null }).where(eq(user.id, "owner")),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					id: "projected-link",
+					projection: { score: 4 },
+					projectionStatus: "ready",
+				});
+				yield* session.run((db) =>
+					db
+						.update(relationshipProjection)
+						.set({ revision: 2 })
+						.where(eq(relationshipProjection.relationshipId, "projected-link")),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					projection: null,
+					id: "projected-link",
+					projectionStatus: "pending",
+				});
+				yield* session.run((db) =>
+					db
+						.update(relationshipProjection)
+						.set({ projectedRevision: 2 })
+						.where(eq(relationshipProjection.relationshipId, "projected-link")),
+				);
+				yield* session.run((db) =>
+					db
+						.update(relationshipProjectionWork)
+						.set({ pluginRevisionId: "retired-revision" })
+						.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+				);
+				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
+					projection: null,
+					id: "projected-link",
+					projectionStatus: "none",
+				});
+			}),
+		testTimeout,
 	);
 });
 const other = { userId: "other", audience: "kernel" } as const;
@@ -1359,81 +1382,91 @@ layer(catalogDatabaseLayer)((test) => {
 					),
 				).toEqual({ enabled: true, available: true });
 			}),
+		testTimeout,
 	);
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("reads owned OAuth status with query-time expiry and no credential fields", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db.insert(oauthConnection).values(
-					(
-						[
-							{ id: "pending", status: "pending", expiresAt: futureExpiry },
-							{ id: "authorized", status: "authorized", expiresAt: futureExpiry },
-							{ id: "connected", expiresAt: null, status: "connected" },
-							{ id: "lapsed", status: "pending", expiresAt: occurredAt },
-							{ status: "authorized", expiresAt: occurredAt, id: "lapsed-authorized" },
-							{ status: "connected", expiresAt: occurredAt, id: "lapsed-connected" },
-							{ id: "failed", status: "failed", expiresAt: occurredAt },
-							{ id: "expired", status: "expired", expiresAt: futureExpiry },
-						] satisfies ReadonlyArray<
-							Pick<typeof oauthConnection.$inferInsert, "id" | "status" | "expiresAt">
-						>
-					).map((row) => ({
-						id: row.id,
-						userId: "owner",
-						field: "account",
-						stateHash: row.id,
-						status: row.status,
-						expiresAt: row.expiresAt,
-						oauthProviderSlug: "test-oauth",
-						client: { kind: "web" as const },
-						pluginInstallationId: "owner-private",
-						tokenUrlOrigin: "https://example.test",
-						integrationProviderSlug: "test-integration",
-					})),
-				),
-			);
-			const service = yield* RyotQLService;
-			for (const [id, status] of [
-				["pending", "pending"],
-				["authorized", "authorized"],
-				["connected", "connected"],
-				["lapsed", "expired"],
-				["lapsed-authorized", "expired"],
-				["lapsed-connected", "expired"],
-				["failed", "failed"],
-				["expired", "expired"],
-			] as const) {
-				const recipe = oauthConnectionStatusRecipe({ id });
-				expect(
-					Result.getOrThrow(
-						recipe.decode(yield* service.executeForUser("owner", null, "kernel", recipe.document)),
+	test.effect(
+		"reads owned OAuth status with query-time expiry and no credential fields",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(oauthConnection).values(
+						(
+							[
+								{ id: "pending", status: "pending", expiresAt: futureExpiry },
+								{ id: "authorized", status: "authorized", expiresAt: futureExpiry },
+								{ id: "connected", expiresAt: null, status: "connected" },
+								{ id: "lapsed", status: "pending", expiresAt: occurredAt },
+								{ status: "authorized", expiresAt: occurredAt, id: "lapsed-authorized" },
+								{ status: "connected", expiresAt: occurredAt, id: "lapsed-connected" },
+								{ id: "failed", status: "failed", expiresAt: occurredAt },
+								{ id: "expired", status: "expired", expiresAt: futureExpiry },
+							] satisfies ReadonlyArray<
+								Pick<typeof oauthConnection.$inferInsert, "id" | "status" | "expiresAt">
+							>
+						).map((row) => ({
+							id: row.id,
+							userId: "owner",
+							field: "account",
+							stateHash: row.id,
+							status: row.status,
+							expiresAt: row.expiresAt,
+							oauthProviderSlug: "test-oauth",
+							client: { kind: "web" as const },
+							pluginInstallationId: "owner-private",
+							tokenUrlOrigin: "https://example.test",
+							integrationProviderSlug: "test-integration",
+						})),
 					),
-				).toEqual(Option.some(status));
+				);
+				const service = yield* RyotQLService;
+				for (const [id, status] of [
+					["pending", "pending"],
+					["authorized", "authorized"],
+					["connected", "connected"],
+					["lapsed", "expired"],
+					["lapsed-authorized", "expired"],
+					["lapsed-connected", "expired"],
+					["failed", "failed"],
+					["expired", "expired"],
+				] as const) {
+					const recipe = oauthConnectionStatusRecipe({ id });
+					expect(
+						Result.getOrThrow(
+							recipe.decode(
+								yield* service.executeForUser("owner", null, "kernel", recipe.document),
+							),
+						),
+					).toEqual(Option.some(status));
+					expect(
+						Result.getOrThrow(
+							recipe.decode(
+								yield* service.executeForUser("other", null, "kernel", recipe.document),
+							),
+						),
+					).toEqual(Option.none());
+				}
+				const missing = oauthConnectionStatusRecipe({ id: "missing" });
 				expect(
 					Result.getOrThrow(
-						recipe.decode(yield* service.executeForUser("other", null, "kernel", recipe.document)),
+						missing.decode(
+							yield* service.executeForUser("owner", null, "kernel", missing.document),
+						),
 					),
 				).toEqual(Option.none());
-			}
-			const missing = oauthConnectionStatusRecipe({ id: "missing" });
-			expect(
-				Result.getOrThrow(
-					missing.decode(yield* service.executeForUser("owner", null, "kernel", missing.document)),
-				),
-			).toEqual(Option.none());
-			const connection = table("oauthConnection", "connection");
-			const response = yield* service.executeForUser("owner", null, "kernel", {
-				queries: { rows: rows(connection, { fields: [star(connection)] }) },
-			});
-			expect(rowsOf(response).items.find(({ id }) => id === "failed")).toEqual({
-				id: "failed",
-				status: "failed",
-			});
-		}),
+				const connection = table("oauthConnection", "connection");
+				const response = yield* service.executeForUser("owner", null, "kernel", {
+					queries: { rows: rows(connection, { fields: [star(connection)] }) },
+				});
+				expect(rowsOf(response).items.find(({ id }) => id === "failed")).toEqual({
+					id: "failed",
+					status: "failed",
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -1486,435 +1519,434 @@ const collectPages = (query: ReturnType<typeof rows>, reader: Reader = "admin") 
 	});
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("reports no projection for source events without a projection declaration", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db
-					.insert(event)
-					.values({
-						properties: {},
-						userId: "owner",
-						occurredAt: new Date(),
-						eventSchemaSlug: "source",
-						id: "projection-source-owner",
-						entityId: "stream-entity-owner",
-					}),
-			);
-			expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
-				{ projection: null, projectionStatus: "none", id: "projection-source-owner" },
-			]);
-			expect(yield* readRows(other, "event", ["id", "projection", "projectionStatus"])).toEqual([]);
-		}),
+	test.effect(
+		"reports no projection for source events without a projection declaration",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.insert(event)
+						.values({
+							properties: {},
+							userId: "owner",
+							occurredAt: new Date(),
+							eventSchemaSlug: "source",
+							id: "projection-source-owner",
+							entityId: "stream-entity-owner",
+						}),
+				);
+				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
+					{ projection: null, projectionStatus: "none", id: "projection-source-owner" },
+				]);
+				expect(yield* readRows(other, "event", ["id", "projection", "projectionStatus"])).toEqual(
+					[],
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("executes recipe documents and decodes correlated includes and admin totals", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const userRecipe = entityDefinitionsRecipe({ limit: 20 });
-			const entities = Result.getOrThrow(
-				userRecipe.decode(
-					yield* service.executeForUser("owner", null, "kernel", userRecipe.document),
-				),
-			);
-			expect(
-				entities.items.find(({ slug }) => slug === "kernel-entity")?.eventSchemas.items,
-			).toMatchObject([{ slug: "kernel-event" }]);
-
-			const sourcesRecipe = importSourcesRecipe({ limit: 20 });
-			const sources = Result.getOrThrow(
-				sourcesRecipe.decode(
-					yield* service.executeForUser("owner", null, "kernel", sourcesRecipe.document),
-				),
-			);
-			expect(sources.items.find(({ slug }) => slug === "import-sys-ready")).toMatchObject({
-				isStartable: true,
-				workflowSlug: "import",
-			});
-
-			const installationsRecipe = pluginInstallationsRecipe({ limit: 20 });
-			const installations = Result.getOrThrow(
-				installationsRecipe.decode(
-					yield* service.executeForUser("owner", null, "kernel", installationsRecipe.document),
-				),
-			);
-			expect(
-				installations.items.find(({ packageId }) => packageId === "test/private")
-					?.configuredSecrets,
-			).toEqual(["token"]);
-
-			const usersRecipe = instanceAdminUsersRecipe({ limit: 2, search: "example.test" });
-			const users = Result.getOrThrow(
-				usersRecipe.decode(yield* service.executeForAdmin(usersRecipe.document)),
-			);
-			expect(users.total).toBe(4);
-			expect(users.pageInfo.hasMore).toBe(true);
-
-			const reportRecipe = migrationReportRecipe({ limit: 3 });
-			const report = Result.getOrThrow(
-				reportRecipe.decode(yield* service.executeForAdmin(reportRecipe.document)),
-			);
-			expect(report.items.map(({ level }) => level)).toEqual(["warning", "warning", "info"]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("pages numeric primary keys with admin cursors and derives detail totals", () =>
-		Effect.gen(function* () {
-			const report = table("migrationReport", "report");
-			const items = yield* collectPages(
-				rows(report, {
-					orderBy: [],
-					fields: [
-						field("seq", column(report, "seq")),
-						field("message", column(report, "message")),
-						field("totalDetails", column(report, "totalDetails")),
-					],
-				}),
-			);
-
-			expect(items).toEqual([
-				{ seq: 1, message: "first", totalDetails: null },
-				{ seq: 2, message: "second", totalDetails: null },
-				{ seq: 3, message: "third", totalDetails: null },
-				{ seq: 4, totalDetails: 0, message: "uncounted" },
-				{ seq: 5, totalDetails: 5, message: "counted" },
-			]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("pages timestamp cursors at full database precision", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db.insert(backupRun).values([
-					{
-						kind: "export",
-						userId: "owner",
-						id: "precision-a",
-						status: "completed",
-						createdAt: sql`'2026-01-01T00:00:00.100Z'::timestamptz`,
-					},
-					{
-						kind: "export",
-						userId: "owner",
-						id: "precision-b",
-						status: "completed",
-						createdAt: sql`'2026-01-01T00:00:00.200Z'::timestamptz`,
-					},
-					{
-						kind: "export",
-						userId: "owner",
-						id: "precision-c",
-						status: "completed",
-						createdAt: sql`'2026-01-01T00:00:00.300Z'::timestamptz`,
-					},
-				]),
-			);
-			const runs = table("backupRun", "runs");
-			const ids = ["precision-a", "precision-b", "precision-c"].map(literal);
-			const fields = [field("id", column(runs, "id"))];
-			const where = inArray(column(runs, "id"), ids);
-
-			expect(
-				yield* collectPages(
-					rows(runs, { where, fields, orderBy: [ascending(column(runs, "createdAt"))] }),
-					owner,
-				),
-			).toEqual([{ id: "precision-a" }, { id: "precision-b" }, { id: "precision-c" }]);
-			expect(
-				yield* collectPages(
-					rows(runs, { where, fields, orderBy: [descending(column(runs, "createdAt"))] }),
-					owner,
-				),
-			).toEqual([{ id: "precision-c" }, { id: "precision-b" }, { id: "precision-a" }]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("pages composite primary keys with every key column as a tie breaker", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db.insert(entityTranslation).values([
-					{ language: "en", sourceContentGeneration: 1, entityId: "stream-entity-other" },
-					{ language: "en", sourceContentGeneration: 1, entityId: "stream-entity-owner" },
-					{ language: "de", sourceContentGeneration: 1, entityId: "stream-entity-owner" },
-				]),
-			);
-			const translations = table("entityTranslation", "translations");
-			const entityIds = ["stream-entity-other", "stream-entity-owner"].map(literal);
-			const where = inArray(column(translations, "entityId"), entityIds);
-			const fields = [
-				field("entityId", column(translations, "entityId")),
-				field("language", column(translations, "language")),
-			];
-
-			expect(yield* collectPages(rows(translations, { where, fields, orderBy: [] }))).toEqual([
-				{ language: "en", entityId: "stream-entity-other" },
-				{ language: "de", entityId: "stream-entity-owner" },
-				{ language: "en", entityId: "stream-entity-owner" },
-			]);
-			expect(
-				yield* collectPages(
-					rows(translations, {
-						where,
-						fields,
-						orderBy: [descending(column(translations, "language"))],
-					}),
-				),
-			).toEqual([
-				{ language: "en", entityId: "stream-entity-other" },
-				{ language: "en", entityId: "stream-entity-owner" },
-				{ language: "de", entityId: "stream-entity-owner" },
-			]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("exposes the private installation configuration pin to admin readers", () =>
-		Effect.gen(function* () {
-			const installations = yield* readRows("admin", "pluginInstallation", [
-				"id",
-				"activeConfigRevisionId",
-			]);
-			expect(installations.find(({ id }) => id === "owner-private")).toEqual({
-				id: "owner-private",
-				activeConfigRevisionId: "private-config",
-			});
-		}),
-	);
-	test.effect("hides uninstalled installations from users but not from admins", () =>
-		Effect.gen(function* () {
-			for (const audience of ["kernel", "plugin"] as const) {
+	test.effect(
+		"executes recipe documents and decodes correlated includes and admin totals",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const userRecipe = entityDefinitionsRecipe({ limit: 20 });
+				const entities = Result.getOrThrow(
+					userRecipe.decode(
+						yield* service.executeForUser("owner", null, "kernel", userRecipe.document),
+					),
+				);
 				expect(
-					yield* readRows({ audience, userId: "owner" }, "pluginInstallation", ["id"]),
+					entities.items.find(({ slug }) => slug === "kernel-entity")?.eventSchemas.items,
+				).toMatchObject([{ slug: "kernel-event" }]);
+
+				const sourcesRecipe = importSourcesRecipe({ limit: 20 });
+				const sources = Result.getOrThrow(
+					sourcesRecipe.decode(
+						yield* service.executeForUser("owner", null, "kernel", sourcesRecipe.document),
+					),
+				);
+				expect(sources.items.find(({ slug }) => slug === "import-sys-ready")).toMatchObject({
+					isStartable: true,
+					workflowSlug: "import",
+				});
+
+				const installationsRecipe = pluginInstallationsRecipe({ limit: 20 });
+				const installations = Result.getOrThrow(
+					installationsRecipe.decode(
+						yield* service.executeForUser("owner", null, "kernel", installationsRecipe.document),
+					),
+				);
+				expect(
+					installations.items.find(({ packageId }) => packageId === "test/private")
+						?.configuredSecrets,
+				).toEqual(["token"]);
+
+				const usersRecipe = instanceAdminUsersRecipe({ limit: 2, search: "example.test" });
+				const users = Result.getOrThrow(
+					usersRecipe.decode(yield* service.executeForAdmin(usersRecipe.document)),
+				);
+				expect(users.total).toBe(4);
+				expect(users.pageInfo.hasMore).toBe(true);
+
+				const reportRecipe = migrationReportRecipe({ limit: 3 });
+				const report = Result.getOrThrow(
+					reportRecipe.decode(yield* service.executeForAdmin(reportRecipe.document)),
+				);
+				expect(report.items.map(({ level }) => level)).toEqual(["warning", "warning", "info"]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"pages numeric primary keys with admin cursors and derives detail totals",
+		() =>
+			Effect.gen(function* () {
+				const report = table("migrationReport", "report");
+				const items = yield* collectPages(
+					rows(report, {
+						orderBy: [],
+						fields: [
+							field("seq", column(report, "seq")),
+							field("message", column(report, "message")),
+							field("totalDetails", column(report, "totalDetails")),
+						],
+					}),
+				);
+
+				expect(items).toEqual([
+					{ seq: 1, message: "first", totalDetails: null },
+					{ seq: 2, message: "second", totalDetails: null },
+					{ seq: 3, message: "third", totalDetails: null },
+					{ seq: 4, totalDetails: 0, message: "uncounted" },
+					{ seq: 5, totalDetails: 5, message: "counted" },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"pages timestamp cursors at full database precision",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(backupRun).values([
+						{
+							kind: "export",
+							userId: "owner",
+							id: "precision-a",
+							status: "completed",
+							createdAt: sql`'2026-01-01T00:00:00.100Z'::timestamptz`,
+						},
+						{
+							kind: "export",
+							userId: "owner",
+							id: "precision-b",
+							status: "completed",
+							createdAt: sql`'2026-01-01T00:00:00.200Z'::timestamptz`,
+						},
+						{
+							kind: "export",
+							userId: "owner",
+							id: "precision-c",
+							status: "completed",
+							createdAt: sql`'2026-01-01T00:00:00.300Z'::timestamptz`,
+						},
+					]),
+				);
+				const runs = table("backupRun", "runs");
+				const ids = ["precision-a", "precision-b", "precision-c"].map(literal);
+				const fields = [field("id", column(runs, "id"))];
+				const where = inArray(column(runs, "id"), ids);
+
+				expect(
+					yield* collectPages(
+						rows(runs, { where, fields, orderBy: [ascending(column(runs, "createdAt"))] }),
+						owner,
+					),
+				).toEqual([{ id: "precision-a" }, { id: "precision-b" }, { id: "precision-c" }]);
+				expect(
+					yield* collectPages(
+						rows(runs, { where, fields, orderBy: [descending(column(runs, "createdAt"))] }),
+						owner,
+					),
+				).toEqual([{ id: "precision-c" }, { id: "precision-b" }, { id: "precision-a" }]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"pages composite primary keys with every key column as a tie breaker",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(entityTranslation).values([
+						{ language: "en", sourceContentGeneration: 1, entityId: "stream-entity-other" },
+						{ language: "en", sourceContentGeneration: 1, entityId: "stream-entity-owner" },
+						{ language: "de", sourceContentGeneration: 1, entityId: "stream-entity-owner" },
+					]),
+				);
+				const translations = table("entityTranslation", "translations");
+				const entityIds = ["stream-entity-other", "stream-entity-owner"].map(literal);
+				const where = inArray(column(translations, "entityId"), entityIds);
+				const fields = [
+					field("entityId", column(translations, "entityId")),
+					field("language", column(translations, "language")),
+				];
+
+				expect(yield* collectPages(rows(translations, { where, fields, orderBy: [] }))).toEqual([
+					{ language: "en", entityId: "stream-entity-other" },
+					{ language: "de", entityId: "stream-entity-owner" },
+					{ language: "en", entityId: "stream-entity-owner" },
+				]);
+				expect(
+					yield* collectPages(
+						rows(translations, {
+							where,
+							fields,
+							orderBy: [descending(column(translations, "language"))],
+						}),
+					),
 				).toEqual([
+					{ language: "en", entityId: "stream-entity-other" },
+					{ language: "en", entityId: "stream-entity-owner" },
+					{ language: "de", entityId: "stream-entity-owner" },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"exposes the private installation configuration pin to admin readers",
+		() =>
+			Effect.gen(function* () {
+				const installations = yield* readRows("admin", "pluginInstallation", [
+					"id",
+					"activeConfigRevisionId",
+				]);
+				expect(installations.find(({ id }) => id === "owner-private")).toEqual({
+					id: "owner-private",
+					activeConfigRevisionId: "private-config",
+				});
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"hides uninstalled installations from users but not from admins",
+		() =>
+			Effect.gen(function* () {
+				for (const audience of ["kernel", "plugin"] as const) {
+					expect(
+						yield* readRows({ audience, userId: "owner" }, "pluginInstallation", ["id"]),
+					).toEqual([
+						{ id: "installed" },
+						{ id: "owner-disabled" },
+						{ id: "owner-private" },
+						{ id: "owner-system" },
+					]);
+				}
+				expect(yield* readRows("admin", "pluginInstallation", ["id"])).toEqual([
 					{ id: "installed" },
+					{ id: "other-private" },
+					{ id: "other-system" },
 					{ id: "owner-disabled" },
 					{ id: "owner-private" },
 					{ id: "owner-system" },
+					{ id: "uninstalled" },
 				]);
-			}
-			expect(yield* readRows("admin", "pluginInstallation", ["id"])).toEqual([
-				{ id: "installed" },
-				{ id: "other-private" },
-				{ id: "other-system" },
-				{ id: "owner-disabled" },
-				{ id: "owner-private" },
-				{ id: "owner-system" },
-				{ id: "uninstalled" },
-			]);
-		}),
+			}),
+		testTimeout,
 	);
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("expands admin-only fields only for admin wildcards", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const subscription = table("notificationSubscription", "subscription");
-			const document = { queries: { rows: rows(subscription, { fields: [star(subscription)] }) } };
+	test.effect(
+		"expands admin-only fields only for admin wildcards",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subscription = table("notificationSubscription", "subscription");
+				const document = {
+					queries: { rows: rows(subscription, { fields: [star(subscription)] }) },
+				};
 
-			const [userItem] = rowsOf(
-				yield* service.executeForUser("owner", null, "kernel", document),
-			).items;
-			const [adminItem] = rowsOf(yield* service.executeForAdmin(document)).items;
+				const [userItem] = rowsOf(
+					yield* service.executeForUser("owner", null, "kernel", document),
+				).items;
+				const [adminItem] = rowsOf(yield* service.executeForAdmin(document)).items;
 
-			expect(userItem).not.toHaveProperty("userId");
-			expect(adminItem).toMatchObject({ userId: "owner", id: "subscription" });
-		}),
+				expect(userItem).not.toHaveProperty("userId");
+				expect(adminItem).toMatchObject({ userId: "owner", id: "subscription" });
+			}),
+		testTimeout,
 	);
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("shows users only themselves and classifies auth state for admins", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const users = table("user", "users");
-			const document = { queries: { rows: rows(users, { fields: [star(users)] }) } };
+	test.effect(
+		"shows users only themselves and classifies auth state for admins",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const users = table("user", "users");
+				const document = { queries: { rows: rows(users, { fields: [star(users)] }) } };
 
-			expect(
-				rowsOf(yield* service.executeForUser("owner", null, "kernel", document)).items,
-			).toEqual([
-				{
-					id: "owner",
-					image: null,
-					name: "Owner",
-					createdAt: anyOf(String),
-					email: "owner@example.test",
-					twoFactorStatus: { enabled: false, available: true },
-					preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-				},
-			]);
-			expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([
-				{ id: "mixed", authState: "mixed" },
-				{ id: "other", authState: "oidc" },
-				{ id: "owner", authState: "credential" },
-				{ id: "plain", authState: "none" },
-			]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("scopes backups and saved views to their owner without artifact keys", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const backups = table("backupRun", "backups");
-			const [backup, ...rest] = rowsOf(
-				yield* service.executeForUser("owner", null, "kernel", {
-					queries: { rows: rows(backups, { fields: [star(backups)] }) },
-				}),
-			).items;
-
-			expect(rest).toEqual([]);
-			expect(backup).toMatchObject({ id: "backup-owner", artifactProvider: "local" });
-			expect(Object.values(backup ?? {})).not.toContain("secret-key");
-			expect(yield* readRows(other, "backupRun", ["id"])).toEqual([{ id: "backup-other" }]);
-			expect(yield* readRows(owner, "savedView", ["id"])).toEqual([
-				{ id: builtinSavedViewId("owner", definitionOwner("system-plugin"), "system-home") },
-				{ id: builtinSavedViewId("owner", definitionOwner("private-plugin"), "private-home") },
-				{ id: builtinSavedViewId("owner", definitionOwner("disabled-plugin"), "disabled-home") },
-				{ id: "view-component" },
-				{ id: "view-kernel" },
-				{ id: "view-plugin-component" },
-			]);
-			expect(yield* readRows(other, "savedView", ["id"])).toEqual([
-				{ id: builtinSavedViewId("other", definitionOwner("system-plugin"), "system-home") },
-			]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("withholds results above the byte budget across named queries", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const views = table("savedView", "views");
-			const viewRows = rows(views, {
-				orderBy: [descending(column(views, "id"))],
-				fields: [field("id", column(views, "id"))],
-			});
-			const execute = (queries: RyotQLDocument["queries"], resultBytes: number) =>
-				service.executeForUser("owner", null, "kernel", { queries }, "standard", resultBytes);
-
-			let fitting = 1;
-			while (Result.isFailure(yield* Effect.result(execute({ rows: viewRows }, fitting)))) {
-				fitting *= 2;
-			}
-			expect(rowsOf(yield* execute({ rows: viewRows }, fitting)).items).toEqual([
-				{ id: "view-plugin-component" },
-				{ id: "view-kernel" },
-				{ id: "view-component" },
-				{ id: builtinSavedViewId("owner", definitionOwner("disabled-plugin"), "disabled-home") },
-				{ id: builtinSavedViewId("owner", definitionOwner("private-plugin"), "private-home") },
-				{ id: builtinSavedViewId("owner", definitionOwner("system-plugin"), "system-home") },
-			]);
-			expect(yield* Effect.flip(execute({ rows: viewRows }, fitting / 2))).toMatchObject({
-				reason: { limitBytes: fitting / 2, code: "result-too-large" },
-			});
-			expect(
-				yield* Effect.flip(execute({ rows: viewRows, again: viewRows }, fitting)),
-			).toMatchObject({ reason: { limitBytes: fitting, code: "result-too-large" } });
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("reads plugin revision metadata and redacted installation projections", () =>
-		Effect.gen(function* () {
-			expect(
-				(yield* readRows(owner, "plugin", [
-					"id",
-					"description",
-					"configSchema",
-					"activeRevisionId",
-				])).find((row) => row["id"] === "system-plugin"),
-			).toEqual({
-				id: "system-plugin",
-				activeRevisionId: "system-plugin-revision",
-				description: `${systemPluginName} description`,
-				configSchema: { fields: {}, unknownKeys: "strict" },
-			});
-			expect(
-				(yield* readRows("admin", "plugin", ["id", "environmentConfigRevisionId"])).find(
-					(row) => row["id"] === "system-plugin",
-				),
-			).toEqual({ id: "system-plugin", environmentConfigRevisionId: "system-env" });
-			expect(
-				(yield* readRows(owner, "pluginInstallation", [
-					"id",
-					"config",
-					"healthReason",
-					"configuredSecrets",
-				])).find((row) => row["id"] === "owner-private"),
-			).toEqual({
-				id: "owner-private",
-				healthReason: "configured",
-				config: { visible: "yes" },
-				configuredSecrets: ["token"],
-			});
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("never exposes secret config defaults through plugin or readiness reads", () =>
-		Effect.gen(function* () {
-			const secretDefault = "default-secret-value";
-			yield* insertPlugin({
-				slug: "secret",
-				homeView: null,
-				ownerId: "owner",
-				id: "secret-plugin",
-				configSchema: {
-					unknownKeys: "strict",
-					fields: {
-						apiToken: {
-							secret: true,
-							type: "string",
-							label: "API token",
-							description: "API token",
-							defaultValue: secretDefault,
-						},
+				expect(
+					rowsOf(yield* service.executeForUser("owner", null, "kernel", document)).items,
+				).toEqual([
+					{
+						id: "owner",
+						image: null,
+						name: "Owner",
+						createdAt: anyOf(String),
+						email: "owner@example.test",
+						twoFactorStatus: { enabled: false, available: true },
+						preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 					},
-				},
-			});
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				Effect.gen(function* () {
-					yield* db
-						.insert(pluginInstallation)
-						.values({ userId: "owner", id: "owner-secret", pluginId: "secret-plugin" });
-					yield* db
-						.insert(pluginConfigRevision)
-						.values(
-							configRevision("secret-config", "secret-plugin-revision", ["apiToken"], {
-								ownerUserId: "owner",
-								pluginInstallationId: "owner-secret",
-							}),
-						);
-					yield* db
-						.update(pluginInstallation)
-						.set({ health: "ready", activeConfigRevisionId: "secret-config" })
-						.where(eq(pluginInstallation.id, "owner-secret"));
-					yield* db
-						.insert(definitionImportSource)
-						.values(importSourceDefinition("import-secret", "secret-plugin", [], "private.import"));
-				}),
-			);
-			for (const audience of ["kernel", "plugin"] as const) {
-				const row = (yield* readRows({ audience, userId: "owner" }, "plugin", [
-					"id",
-					"configSchema",
-				])).find((item) => item["id"] === "secret-plugin");
-				expect(row).toEqual({
+				]);
+				expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([
+					{ id: "mixed", authState: "mixed" },
+					{ id: "other", authState: "oidc" },
+					{ id: "owner", authState: "credential" },
+					{ id: "plain", authState: "none" },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"scopes backups and saved views to their owner without artifact keys",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const backups = table("backupRun", "backups");
+				const [backup, ...rest] = rowsOf(
+					yield* service.executeForUser("owner", null, "kernel", {
+						queries: { rows: rows(backups, { fields: [star(backups)] }) },
+					}),
+				).items;
+
+				expect(rest).toEqual([]);
+				expect(backup).toMatchObject({ id: "backup-owner", artifactProvider: "local" });
+				expect(Object.values(backup ?? {})).not.toContain("secret-key");
+				expect(yield* readRows(other, "backupRun", ["id"])).toEqual([{ id: "backup-other" }]);
+				expect(yield* readRows(owner, "savedView", ["id"])).toEqual([
+					{ id: builtinSavedViewId("owner", definitionOwner("system-plugin"), "system-home") },
+					{ id: builtinSavedViewId("owner", definitionOwner("private-plugin"), "private-home") },
+					{ id: builtinSavedViewId("owner", definitionOwner("disabled-plugin"), "disabled-home") },
+					{ id: "view-component" },
+					{ id: "view-kernel" },
+					{ id: "view-plugin-component" },
+				]);
+				expect(yield* readRows(other, "savedView", ["id"])).toEqual([
+					{ id: builtinSavedViewId("other", definitionOwner("system-plugin"), "system-home") },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"withholds results above the byte budget across named queries",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const views = table("savedView", "views");
+				const viewRows = rows(views, {
+					orderBy: [descending(column(views, "id"))],
+					fields: [field("id", column(views, "id"))],
+				});
+				const execute = (queries: RyotQLDocument["queries"], resultBytes: number) =>
+					service.executeForUser("owner", null, "kernel", { queries }, "standard", resultBytes);
+
+				let fitting = 1;
+				while (Result.isFailure(yield* Effect.result(execute({ rows: viewRows }, fitting)))) {
+					fitting *= 2;
+				}
+				expect(rowsOf(yield* execute({ rows: viewRows }, fitting)).items).toEqual([
+					{ id: "view-plugin-component" },
+					{ id: "view-kernel" },
+					{ id: "view-component" },
+					{ id: builtinSavedViewId("owner", definitionOwner("disabled-plugin"), "disabled-home") },
+					{ id: builtinSavedViewId("owner", definitionOwner("private-plugin"), "private-home") },
+					{ id: builtinSavedViewId("owner", definitionOwner("system-plugin"), "system-home") },
+				]);
+				expect(yield* Effect.flip(execute({ rows: viewRows }, fitting / 2))).toMatchObject({
+					reason: { limitBytes: fitting / 2, code: "result-too-large" },
+				});
+				expect(
+					yield* Effect.flip(execute({ rows: viewRows, again: viewRows }, fitting)),
+				).toMatchObject({ reason: { limitBytes: fitting, code: "result-too-large" } });
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"reads plugin revision metadata and redacted installation projections",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					(yield* readRows(owner, "plugin", [
+						"id",
+						"description",
+						"configSchema",
+						"activeRevisionId",
+					])).find((row) => row["id"] === "system-plugin"),
+				).toEqual({
+					id: "system-plugin",
+					activeRevisionId: "system-plugin-revision",
+					description: `${systemPluginName} description`,
+					configSchema: { fields: {}, unknownKeys: "strict" },
+				});
+				expect(
+					(yield* readRows("admin", "plugin", ["id", "environmentConfigRevisionId"])).find(
+						(row) => row["id"] === "system-plugin",
+					),
+				).toEqual({ id: "system-plugin", environmentConfigRevisionId: "system-env" });
+				expect(
+					(yield* readRows(owner, "pluginInstallation", [
+						"id",
+						"config",
+						"healthReason",
+						"configuredSecrets",
+					])).find((row) => row["id"] === "owner-private"),
+				).toEqual({
+					id: "owner-private",
+					healthReason: "configured",
+					config: { visible: "yes" },
+					configuredSecrets: ["token"],
+				});
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"never exposes secret config defaults through plugin or readiness reads",
+		() =>
+			Effect.gen(function* () {
+				const secretDefault = "default-secret-value";
+				yield* insertPlugin({
+					slug: "secret",
+					homeView: null,
+					ownerId: "owner",
 					id: "secret-plugin",
 					configSchema: {
 						unknownKeys: "strict",
@@ -1924,244 +1956,314 @@ layer(catalogDatabaseLayer)((test) => {
 								type: "string",
 								label: "API token",
 								description: "API token",
+								defaultValue: secretDefault,
 							},
 						},
 					},
 				});
-			}
-			const source = (yield* readRows(owner, "importSource", ["id", "readinessMetadata"])).find(
-				(item) => item["id"] === "import-secret",
-			);
-			expect(source?.["readinessMetadata"]).toMatchObject({ availableConfigKeys: ["apiToken"] });
-			expect(stableStringify(source)).not.toContain(secretDefault);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("derives the effective home view from usable selections and manifest defaults", () =>
-		Effect.gen(function* () {
-			const expected = [
-				{ id: "installed", homeSavedView: null },
-				{ id: "other-private", homeSavedView: null },
-				{
-					id: "other-system",
-					homeSavedView: { kind: "plugin", slug: "system-home", pluginId: "system-plugin" },
-				},
-				{ homeSavedView: null, id: "owner-disabled" },
-				{
-					id: "owner-private",
-					homeSavedView: { kind: "plugin", slug: "private-home", pluginId: "private-plugin" },
-				},
-				{ id: "owner-system", homeSavedView: { kind: "custom", savedViewId: "view-kernel" } },
-				{ id: "uninstalled", homeSavedView: null },
-			];
-
-			expect(yield* readRows("admin", "pluginInstallation", ["id", "homeSavedView"])).toEqual(
-				expected,
-			);
-			expect(
-				yield* readRows({ userId: "owner", audience: "plugin" }, "pluginInstallation", [
-					"id",
-					"homeSavedView",
-				]),
-			).toEqual(expected.filter(({ id }) => id === "installed" || id.startsWith("owner-")));
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("exposes only effective definitions to their user in every audience", () =>
-		Effect.gen(function* () {
-			for (const audience of ["kernel", "plugin"] as const) {
-				expect(
-					yield* readRows({ audience, userId: "owner" }, "entitySchema", [
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					Effect.gen(function* () {
+						yield* db
+							.insert(pluginInstallation)
+							.values({ userId: "owner", id: "owner-secret", pluginId: "secret-plugin" });
+						yield* db
+							.insert(pluginConfigRevision)
+							.values(
+								configRevision("secret-config", "secret-plugin-revision", ["apiToken"], {
+									ownerUserId: "owner",
+									pluginInstallationId: "owner-secret",
+								}),
+							);
+						yield* db
+							.update(pluginInstallation)
+							.set({ health: "ready", activeConfigRevisionId: "secret-config" })
+							.where(eq(pluginInstallation.id, "owner-secret"));
+						yield* db
+							.insert(definitionImportSource)
+							.values(
+								importSourceDefinition("import-secret", "secret-plugin", [], "private.import"),
+							);
+					}),
+				);
+				for (const audience of ["kernel", "plugin"] as const) {
+					const row = (yield* readRows({ audience, userId: "owner" }, "plugin", [
 						"id",
-						"pluginId",
-						"mergeIdentityProperties",
+						"configSchema",
+					])).find((item) => item["id"] === "secret-plugin");
+					expect(row).toEqual({
+						id: "secret-plugin",
+						configSchema: {
+							unknownKeys: "strict",
+							fields: {
+								apiToken: {
+									secret: true,
+									type: "string",
+									label: "API token",
+									description: "API token",
+								},
+							},
+						},
+					});
+				}
+				const source = (yield* readRows(owner, "importSource", ["id", "readinessMetadata"])).find(
+					(item) => item["id"] === "import-secret",
+				);
+				expect(source?.["readinessMetadata"]).toMatchObject({ availableConfigKeys: ["apiToken"] });
+				expect(stableStringify(source)).not.toContain(secretDefault);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"derives the effective home view from usable selections and manifest defaults",
+		() =>
+			Effect.gen(function* () {
+				const expected = [
+					{ id: "installed", homeSavedView: null },
+					{ id: "other-private", homeSavedView: null },
+					{
+						id: "other-system",
+						homeSavedView: { kind: "plugin", slug: "system-home", pluginId: "system-plugin" },
+					},
+					{ homeSavedView: null, id: "owner-disabled" },
+					{
+						id: "owner-private",
+						homeSavedView: { kind: "plugin", slug: "private-home", pluginId: "private-plugin" },
+					},
+					{ id: "owner-system", homeSavedView: { kind: "custom", savedViewId: "view-kernel" } },
+					{ id: "uninstalled", homeSavedView: null },
+				];
+
+				expect(yield* readRows("admin", "pluginInstallation", ["id", "homeSavedView"])).toEqual(
+					expected,
+				);
+				expect(
+					yield* readRows({ userId: "owner", audience: "plugin" }, "pluginInstallation", [
+						"id",
+						"homeSavedView",
 					]),
-				).toEqual([
-					{ pluginId: null, id: "kernel-entity", mergeIdentityProperties: ["name"] },
-					{ id: "private-entity", pluginId: "private-plugin", mergeIdentityProperties: ["name"] },
-					{ id: "system-entity", pluginId: "system-plugin", mergeIdentityProperties: ["name"] },
+				).toEqual(expected.filter(({ id }) => id === "installed" || id.startsWith("owner-")));
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"exposes only effective definitions to their user in every audience",
+		() =>
+			Effect.gen(function* () {
+				for (const audience of ["kernel", "plugin"] as const) {
+					expect(
+						yield* readRows({ audience, userId: "owner" }, "entitySchema", [
+							"id",
+							"pluginId",
+							"mergeIdentityProperties",
+						]),
+					).toEqual([
+						{ pluginId: null, id: "kernel-entity", mergeIdentityProperties: ["name"] },
+						{ id: "private-entity", pluginId: "private-plugin", mergeIdentityProperties: ["name"] },
+						{ id: "system-entity", pluginId: "system-plugin", mergeIdentityProperties: ["name"] },
+					]);
+				}
+				expect(yield* readRows(other, "entitySchema", ["id"])).toEqual([
+					{ id: "kernel-entity" },
+					{ id: "other-entity" },
+					{ id: "system-entity" },
 				]);
-			}
-			expect(yield* readRows(other, "entitySchema", ["id"])).toEqual([
-				{ id: "kernel-entity" },
-				{ id: "other-entity" },
-				{ id: "system-entity" },
-			]);
-			expect(yield* readRows(owner, "eventSchema", ["id", "pluginId", "entitySchemaSlug"])).toEqual(
-				[
+				expect(
+					yield* readRows(owner, "eventSchema", ["id", "pluginId", "entitySchemaSlug"]),
+				).toEqual([
 					{ pluginId: null, id: "kernel-event", entitySchemaSlug: "kernel-entity" },
 					{ id: "system-event", pluginId: "system-plugin", entitySchemaSlug: "system-entity" },
-				],
-			);
-			expect(yield* readRows(owner, "relationshipSchema", ["id"])).toEqual([
-				{ id: "kernel-link" },
-				{ id: "private-link" },
-			]);
-			expect(yield* readRows(other, "relationshipSchema", ["id"])).toEqual([{ id: "kernel-link" }]);
-			expect(yield* readRows(other, "signalSchema", ["id", "pluginId", "catalogState"])).toEqual([
-				{ id: "system.signal", catalogState: "active", pluginId: "system-plugin" },
-			]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("derives import source readiness and integration provider scripts", () =>
-		Effect.gen(function* () {
-			expect(
-				yield* readRows(owner, "importSource", ["id", "missingPluginConfigKeys", "isStartable"]),
-			).toEqual([
-				{ isStartable: true, id: "import-private", missingPluginConfigKeys: [] },
-				{
-					isStartable: false,
-					id: "import-sys-missing",
-					missingPluginConfigKeys: [pluginConfigEnvironmentKey(systemPackageId, "clientSecret")],
-				},
-				{ isStartable: false, id: "import-sys-no-script", missingPluginConfigKeys: [] },
-				{ isStartable: true, id: "import-sys-ready", missingPluginConfigKeys: [] },
-				{ isStartable: true, missingPluginConfigKeys: [], id: `kernel:data-json:${owner.userId}` },
-			]);
-			expect(yield* readRows(other, "importSource", ["id"])).not.toContainEqual({
-				id: "import-private",
-			});
-			expect(
-				yield* readRows(owner, "integrationProvider", ["id", "lot", "hasScript", "plan"]),
-			).toEqual([
-				{ plan: null, lot: "sink", hasScript: true, id: `kernel:data-json:${owner.userId}` },
-				{ plan: null, lot: "yank", hasScript: false, id: "provider-missing" },
-				{ plan: null, lot: "push", hasScript: true, id: "provider-push" },
-				{
-					lot: "yank",
-					hasScript: true,
-					id: "provider-yank",
-					plan: { selections: { collector: { value: "remote" } } },
-				},
-			]);
-		}),
-	);
-});
-
-layer(catalogDatabaseLayer)((test) => {
-	test.effect("exposes one user-scoped background job catalog without execution authority", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db.insert(backgroundWork).values(
-					[
-						{ userId: "owner", id: "background-owner", purpose: "user-script" as const },
-						{ userId: "other", id: "background-other", purpose: "event-projection" as const },
-					].map((job) => ({
-						id: job.id,
-						key: job.id,
-						scope: "subject",
-						inputHash: job.id,
-						userId: job.userId,
-						purpose: job.purpose,
-						pluginId: "system-plugin",
-						status: "queued" as const,
-						accountToken: "private-generation",
-						payload: { authority: "private-authority" },
-					})),
-				),
-			);
-			for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
-				expect(
-					yield* readRows({ audience, userId: "owner" }, "backgroundWork", [
-						"id",
-						"status",
-						"scope",
-					]),
-				).toEqual([{ status: "queued", scope: "subject", id: "background-owner" }]);
-				expect(yield* readRows({ audience, userId: "other" }, "backgroundWork", ["id"])).toEqual([
-					{ id: "background-other" },
 				]);
-				for (const name of [
-					"payload",
-					"accountToken",
-					"inputHash",
-					"execution",
-					"pluginPin",
-					"checkpoint",
-				]) {
+				expect(yield* readRows(owner, "relationshipSchema", ["id"])).toEqual([
+					{ id: "kernel-link" },
+					{ id: "private-link" },
+				]);
+				expect(yield* readRows(other, "relationshipSchema", ["id"])).toEqual([
+					{ id: "kernel-link" },
+				]);
+				expect(yield* readRows(other, "signalSchema", ["id", "pluginId", "catalogState"])).toEqual([
+					{ id: "system.signal", catalogState: "active", pluginId: "system-plugin" },
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"derives import source readiness and integration provider scripts",
+		() =>
+			Effect.gen(function* () {
+				expect(
+					yield* readRows(owner, "importSource", ["id", "missingPluginConfigKeys", "isStartable"]),
+				).toEqual([
+					{ isStartable: true, id: "import-private", missingPluginConfigKeys: [] },
+					{
+						isStartable: false,
+						id: "import-sys-missing",
+						missingPluginConfigKeys: [pluginConfigEnvironmentKey(systemPackageId, "clientSecret")],
+					},
+					{ isStartable: false, id: "import-sys-no-script", missingPluginConfigKeys: [] },
+					{ isStartable: true, id: "import-sys-ready", missingPluginConfigKeys: [] },
+					{
+						isStartable: true,
+						missingPluginConfigKeys: [],
+						id: `kernel:data-json:${owner.userId}`,
+					},
+				]);
+				expect(yield* readRows(other, "importSource", ["id"])).not.toContainEqual({
+					id: "import-private",
+				});
+				expect(
+					yield* readRows(owner, "integrationProvider", ["id", "lot", "hasScript", "plan"]),
+				).toEqual([
+					{ plan: null, lot: "sink", hasScript: true, id: `kernel:data-json:${owner.userId}` },
+					{ plan: null, lot: "yank", hasScript: false, id: "provider-missing" },
+					{ plan: null, lot: "push", hasScript: true, id: "provider-push" },
+					{
+						lot: "yank",
+						hasScript: true,
+						id: "provider-yank",
+						plan: { selections: { collector: { value: "remote" } } },
+					},
+				]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect(
+		"exposes one user-scoped background job catalog without execution authority",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(backgroundWork).values(
+						[
+							{ userId: "owner", id: "background-owner", purpose: "user-script" as const },
+							{ userId: "other", id: "background-other", purpose: "event-projection" as const },
+						].map((job) => ({
+							id: job.id,
+							key: job.id,
+							scope: "subject",
+							inputHash: job.id,
+							userId: job.userId,
+							purpose: job.purpose,
+							pluginId: "system-plugin",
+							status: "queued" as const,
+							accountToken: "private-generation",
+							payload: { authority: "private-authority" },
+						})),
+					),
+				);
+				for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
+					expect(
+						yield* readRows({ audience, userId: "owner" }, "backgroundWork", [
+							"id",
+							"status",
+							"scope",
+						]),
+					).toEqual([{ status: "queued", scope: "subject", id: "background-owner" }]);
+					expect(yield* readRows({ audience, userId: "other" }, "backgroundWork", ["id"])).toEqual([
+						{ id: "background-other" },
+					]);
+					for (const name of [
+						"payload",
+						"accountToken",
+						"inputHash",
+						"execution",
+						"pluginPin",
+						"checkpoint",
+					]) {
+						expect(
+							Result.isFailure(
+								yield* Effect.result(
+									readRows({ audience, userId: "owner" }, "backgroundWork", [name]),
+								),
+							),
+						).toBe(true);
+					}
 					expect(
 						Result.isFailure(
-							yield* Effect.result(
-								readRows({ audience, userId: "owner" }, "backgroundWork", [name]),
-							),
+							yield* Effect.result(readRows({ audience, userId: "owner" }, "userWork", ["id"])),
 						),
 					).toBe(true);
 				}
-				expect(
-					Result.isFailure(
-						yield* Effect.result(readRows({ audience, userId: "owner" }, "userWork", ["id"])),
-					),
-				).toBe(true);
-			}
-		}),
+			}),
+		testTimeout,
 	);
 
-	test.effect("scopes event streams and work to their owner in kernel and plugin audiences", () =>
-		Effect.gen(function* () {
-			for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
-				expect(
-					yield* readRows({ audience, userId: "owner" }, "eventStream", [
-						"id",
-						"entityId",
-						"eventSchemaSlug",
-						"eventSchemaPluginId",
-						"revision",
-					]),
-				).toEqual([
-					{
-						revision: 4,
-						id: "stream-owner",
-						eventSchemaPluginId: null,
-						eventSchemaSlug: "record-set",
-						entityId: "stream-entity-owner",
-					},
-				]);
-				expect(
-					yield* readRows({ audience, userId: "owner" }, "eventStreamWork", [
-						"id",
-						"completedRevision",
-					]),
-				).toEqual([{ id: "stream-owner", completedRevision: 4 }]);
+	test.effect(
+		"scopes event streams and work to their owner in kernel and plugin audiences",
+		() =>
+			Effect.gen(function* () {
+				for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
+					expect(
+						yield* readRows({ audience, userId: "owner" }, "eventStream", [
+							"id",
+							"entityId",
+							"eventSchemaSlug",
+							"eventSchemaPluginId",
+							"revision",
+						]),
+					).toEqual([
+						{
+							revision: 4,
+							id: "stream-owner",
+							eventSchemaPluginId: null,
+							eventSchemaSlug: "record-set",
+							entityId: "stream-entity-owner",
+						},
+					]);
+					expect(
+						yield* readRows({ audience, userId: "owner" }, "eventStreamWork", [
+							"id",
+							"completedRevision",
+						]),
+					).toEqual([{ id: "stream-owner", completedRevision: 4 }]);
 
-				expect(yield* readRows({ audience, userId: "other" }, "eventStream", ["id"])).toEqual([
-					{ id: "stream-other" },
-				]);
-				expect(
-					yield* readRows({ audience, userId: "other" }, "eventStreamWork", [
-						"id",
-						"completedRevision",
-					]),
-				).toEqual([{ id: "stream-other", completedRevision: null }]);
-			}
-		}),
+					expect(yield* readRows({ audience, userId: "other" }, "eventStream", ["id"])).toEqual([
+						{ id: "stream-other" },
+					]);
+					expect(
+						yield* readRows({ audience, userId: "other" }, "eventStreamWork", [
+							"id",
+							"completedRevision",
+						]),
+					).toEqual([{ id: "stream-other", completedRevision: null }]);
+				}
+			}),
+		testTimeout,
 	);
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("never returns sandbox script bodies to admins", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const scripts = table("sandboxScript", "scripts");
-			const items = rowsOf(
-				yield* service.executeForAdmin({
-					queries: { rows: rows(scripts, { fields: [star(scripts)] }) },
-				}),
-			).items;
+	test.effect(
+		"never returns sandbox script bodies to admins",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const scripts = table("sandboxScript", "scripts");
+				const items = rowsOf(
+					yield* service.executeForAdmin({
+						queries: { rows: rows(scripts, { fields: [star(scripts)] }) },
+					}),
+				).items;
 
-			expect(items).toHaveLength(4);
-			for (const item of items) {
-				expect(Object.values(item)).not.toContain("private-source");
-				expect(Object.values(item)).not.toContain("private-code");
-			}
-		}),
+				expect(items).toHaveLength(4);
+				for (const item of items) {
+					expect(Object.values(item)).not.toContain("private-source");
+					expect(Object.values(item)).not.toContain("private-code");
+				}
+			}),
+		testTimeout,
 	);
 });
 
@@ -2184,115 +2286,120 @@ const matchingIds = Effect.fn(function* (userId: string, where: Predicate) {
 const ids = (values: readonly string[]) => values.map((id) => ({ id }));
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("matches text prefixes and substrings with literal pattern characters", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db.insert(entity).values([
-					...(
-						[
-							["a", "Alphabet"],
-							["b", "the alphabet"],
-							["c", "a\\%b tail"],
-							["d", "a%b tail"],
-							["e", "a\\Zb tail"],
-							["f", "\\lead"],
-							["g", "_x tail"],
-							["h", "yx tail"],
-							["i", "%pct"],
-							["j", "mid a\\%b _x"],
-						] as const
-					).map(([id, name]) => ({ id, name, userId: "plain", entitySchemaSlug: "probe" })),
-					...(
-						[
-							["p01", "Alphabet", "ALPHA"],
-							["p02", "the alphabet", "alpha"],
-							["p03", "a\\%b tail", "a\\%b"],
-							["p04", "a%b tail", "a\\%b"],
-							["p05", "a\\Zb tail", "a\\%b"],
-							["p06", "x a\\%b", "a\\%b"],
-							["p07", "\\lead", "\\"],
-							["p08", "%lead", "\\"],
-							["p09", "_x tail", "_x"],
-							["p10", "yx tail", "_x"],
-							["p11", "%pct", "%"],
-							["p12", "no pct", "%"],
-							["p13", "a %", "%"],
-						] as const
-					).map(([id, name, entitySchemaSlug]) => ({
-						id,
-						name,
-						userId: "mixed",
-						entitySchemaSlug,
-						externalId: id === "p01" ? "ext-1" : null,
-					})),
-				]),
-			);
-			const name = column(matchSource, "name");
-			const slug = column(matchSource, "entitySchemaSlug");
-			const externalId = column(matchSource, "externalId");
-			const pairs = [
-				"p01",
-				"p02",
-				"p03",
-				"p04",
-				"p05",
-				"p06",
-				"p07",
-				"p08",
-				"p09",
-				"p10",
-				"p11",
-				"p12",
-				"p13",
-			];
-			const cases: readonly {
-				readonly nullNeedle: string;
-				readonly columns: readonly string[];
-				readonly literals: readonly (readonly [string, readonly string[]])[];
-				readonly match: (left: ScalarExpression, right: ScalarExpression) => Predicate;
-			}[] = [
-				{
-					match: startsWith,
-					nullNeedle: "ext",
-					columns: ["p01", "p03", "p07", "p09", "p11"],
-					literals: [
-						["alpha", ["a"]],
-						["ALPHA", ["a"]],
-						["a\\%b", ["c"]],
-						["\\", ["f"]],
-						["_x", ["g"]],
-						["%", ["i"]],
-					],
-				},
-				{
-					match: contains,
-					nullNeedle: "xt-",
-					columns: ["p01", "p02", "p03", "p06", "p07", "p09", "p11", "p13"],
-					literals: [
-						["alpha", ["a", "b"]],
-						["ALPHA", ["a", "b"]],
-						["a\\%b", ["c", "j"]],
-						["\\", ["c", "e", "f", "j"]],
-						["_x", ["g", "j"]],
-						["%", ["c", "d", "i", "j"]],
-					],
-				},
-			];
-			for (const { match, columns, literals, nullNeedle } of cases) {
-				for (const [needle, expected] of literals) {
-					expect(yield* matchingIds("plain", match(name, literal(needle)))).toEqual(ids(expected));
+	test.effect(
+		"matches text prefixes and substrings with literal pattern characters",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(entity).values([
+						...(
+							[
+								["a", "Alphabet"],
+								["b", "the alphabet"],
+								["c", "a\\%b tail"],
+								["d", "a%b tail"],
+								["e", "a\\Zb tail"],
+								["f", "\\lead"],
+								["g", "_x tail"],
+								["h", "yx tail"],
+								["i", "%pct"],
+								["j", "mid a\\%b _x"],
+							] as const
+						).map(([id, name]) => ({ id, name, userId: "plain", entitySchemaSlug: "probe" })),
+						...(
+							[
+								["p01", "Alphabet", "ALPHA"],
+								["p02", "the alphabet", "alpha"],
+								["p03", "a\\%b tail", "a\\%b"],
+								["p04", "a%b tail", "a\\%b"],
+								["p05", "a\\Zb tail", "a\\%b"],
+								["p06", "x a\\%b", "a\\%b"],
+								["p07", "\\lead", "\\"],
+								["p08", "%lead", "\\"],
+								["p09", "_x tail", "_x"],
+								["p10", "yx tail", "_x"],
+								["p11", "%pct", "%"],
+								["p12", "no pct", "%"],
+								["p13", "a %", "%"],
+							] as const
+						).map(([id, name, entitySchemaSlug]) => ({
+							id,
+							name,
+							userId: "mixed",
+							entitySchemaSlug,
+							externalId: id === "p01" ? "ext-1" : null,
+						})),
+					]),
+				);
+				const name = column(matchSource, "name");
+				const slug = column(matchSource, "entitySchemaSlug");
+				const externalId = column(matchSource, "externalId");
+				const pairs = [
+					"p01",
+					"p02",
+					"p03",
+					"p04",
+					"p05",
+					"p06",
+					"p07",
+					"p08",
+					"p09",
+					"p10",
+					"p11",
+					"p12",
+					"p13",
+				];
+				const cases: readonly {
+					readonly nullNeedle: string;
+					readonly columns: readonly string[];
+					readonly literals: readonly (readonly [string, readonly string[]])[];
+					readonly match: (left: ScalarExpression, right: ScalarExpression) => Predicate;
+				}[] = [
+					{
+						match: startsWith,
+						nullNeedle: "ext",
+						columns: ["p01", "p03", "p07", "p09", "p11"],
+						literals: [
+							["alpha", ["a"]],
+							["ALPHA", ["a"]],
+							["a\\%b", ["c"]],
+							["\\", ["f"]],
+							["_x", ["g"]],
+							["%", ["i"]],
+						],
+					},
+					{
+						match: contains,
+						nullNeedle: "xt-",
+						columns: ["p01", "p02", "p03", "p06", "p07", "p09", "p11", "p13"],
+						literals: [
+							["alpha", ["a", "b"]],
+							["ALPHA", ["a", "b"]],
+							["a\\%b", ["c", "j"]],
+							["\\", ["c", "e", "f", "j"]],
+							["_x", ["g", "j"]],
+							["%", ["c", "d", "i", "j"]],
+						],
+					},
+				];
+				for (const { match, columns, literals, nullNeedle } of cases) {
+					for (const [needle, expected] of literals) {
+						expect(yield* matchingIds("plain", match(name, literal(needle)))).toEqual(
+							ids(expected),
+						);
+					}
+					expect(yield* matchingIds("mixed", match(name, slug))).toEqual(ids(columns));
+					expect(yield* matchingIds("mixed", match(externalId, literal(nullNeedle)))).toEqual(
+						ids(["p01"]),
+					);
+					expect(yield* matchingIds("mixed", not(match(externalId, literal(nullNeedle))))).toEqual(
+						ids(pairs.slice(1)),
+					);
+					expect(yield* matchingIds("mixed", not(match(externalId, slug)))).toEqual(ids(pairs));
+					expect(yield* matchingIds("mixed", not(match(name, externalId)))).toEqual(ids(pairs));
 				}
-				expect(yield* matchingIds("mixed", match(name, slug))).toEqual(ids(columns));
-				expect(yield* matchingIds("mixed", match(externalId, literal(nullNeedle)))).toEqual(
-					ids(["p01"]),
-				);
-				expect(yield* matchingIds("mixed", not(match(externalId, literal(nullNeedle))))).toEqual(
-					ids(pairs.slice(1)),
-				);
-				expect(yield* matchingIds("mixed", not(match(externalId, slug)))).toEqual(ids(pairs));
-				expect(yield* matchingIds("mixed", not(match(name, externalId)))).toEqual(ids(pairs));
-			}
-		}),
+			}),
+		testTimeout,
 	);
 });

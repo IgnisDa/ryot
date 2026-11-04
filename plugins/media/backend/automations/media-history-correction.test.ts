@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { HistoryCorrectionRequest } from "../contracts/history-correction";
@@ -98,72 +101,84 @@ it.live.each(["entity-stale", "event-stale", "event-not-found", "mutation-confli
 				},
 			]);
 		}),
+	testTimeout,
 );
 
-it.live("fails other commit errors instead of re-queueing them", () =>
-	Effect.gen(function* () {
-		const requests: Parameters<typeof correctionHost>[1] = [];
-		const host = correctionHost(() => Effect.fail("policy-rejected"), requests);
-		const failure = yield* Effect.flip(runSandboxTestScript(definition, input, host, execution));
-		expect(failure).toMatchObject({ message: "policy-rejected" });
-		expect(requests).toEqual([]);
-	}),
+it.live(
+	"fails other commit errors instead of re-queueing them",
+	() =>
+		Effect.gen(function* () {
+			const requests: Parameters<typeof correctionHost>[1] = [];
+			const host = correctionHost(() => Effect.fail("policy-rejected"), requests);
+			const failure = yield* Effect.flip(runSandboxTestScript(definition, input, host, execution));
+			expect(failure).toMatchObject({ message: "policy-rejected" });
+			expect(requests).toEqual([]);
+		}),
+	testTimeout,
 );
 
-it.live("fails after ten consecutive no-progress requeues with unique keys", () =>
-	Effect.gen(function* () {
-		const requests: Parameters<typeof correctionHost>[1] = [];
-		const host = correctionHost(() => Effect.fail("event-stale"), requests);
-		let current: typeof HistoryCorrectionRequest.Type = {
-			...input,
-			workKey: "start",
-			conflictAttempt: 0,
-			conflictBase: "start",
-		};
-		for (let run = 1; run <= 10; run += 1) {
-			expect(yield* runSandboxTestScript(definition, current, host, execution)).toBeNull();
-			expect(requests).toHaveLength(run);
-			current = yield* Schema.decodeUnknownEffect(HistoryCorrectionRequest)(
-				requests[run - 1]?.input,
+it.live(
+	"fails after ten consecutive no-progress requeues with unique keys",
+	() =>
+		Effect.gen(function* () {
+			const requests: Parameters<typeof correctionHost>[1] = [];
+			const host = correctionHost(() => Effect.fail("event-stale"), requests);
+			let current: typeof HistoryCorrectionRequest.Type = {
+				...input,
+				workKey: "start",
+				conflictAttempt: 0,
+				conflictBase: "start",
+			};
+			for (let run = 1; run <= 10; run += 1) {
+				expect(yield* runSandboxTestScript(definition, current, host, execution)).toBeNull();
+				expect(requests).toHaveLength(run);
+				current = yield* Schema.decodeUnknownEffect(HistoryCorrectionRequest)(
+					requests[run - 1]?.input,
+				);
+			}
+			expect(new Set(requests.map(({ key }) => key)).size).toBe(10);
+			expect(requests.at(-1)?.key).toBe("start:conflict:10");
+			const failure = yield* Effect.flip(
+				runSandboxTestScript(definition, current, host, execution),
 			);
-		}
-		expect(new Set(requests.map(({ key }) => key)).size).toBe(10);
-		expect(requests.at(-1)?.key).toBe("start:conflict:10");
-		const failure = yield* Effect.flip(runSandboxTestScript(definition, current, host, execution));
-		expect(failure).toMatchObject({
-			message: "History correction kept conflicting with concurrent changes",
-		});
-		expect(requests).toHaveLength(10);
-	}),
+			expect(failure).toMatchObject({
+				message: "History correction kept conflicting with concurrent changes",
+			});
+			expect(requests).toHaveLength(10);
+		}),
+	testTimeout,
 );
 
-it.live("resets the conflict budget after each committed step", () =>
-	Effect.gen(function* () {
-		const requests: Parameters<typeof correctionHost>[1] = [];
-		let commits = 0;
-		const host = correctionHost(
-			() =>
-				Effect.suspend(() => {
-					commits += 1;
-					return commits % 2 === 1 ? Effect.void : Effect.fail("event-stale");
-				}),
-			requests,
-		);
-		let current: typeof HistoryCorrectionRequest.Type = {
-			...input,
-			force: false,
-			workKey: "start",
-			conflictAttempt: 0,
-			conflictBase: "start",
-		};
-		for (let run = 1; run <= 12; run += 1) {
-			expect(yield* runSandboxTestScript(definition, current, host, execution)).toBeNull();
-			expect(requests).toHaveLength(run);
-			current = yield* Schema.decodeUnknownEffect(HistoryCorrectionRequest)(
-				requests[run - 1]?.input,
+it.live(
+	"resets the conflict budget after each committed step",
+	() =>
+		Effect.gen(function* () {
+			const requests: Parameters<typeof correctionHost>[1] = [];
+			let commits = 0;
+			const host = correctionHost(
+				() =>
+					Effect.suspend(() => {
+						commits += 1;
+						return commits % 2 === 1 ? Effect.void : Effect.fail("event-stale");
+					}),
+				requests,
 			);
-			expect(current.conflictAttempt).toBe(1);
-		}
-		expect(commits).toBe(24);
-	}),
+			let current: typeof HistoryCorrectionRequest.Type = {
+				...input,
+				force: false,
+				workKey: "start",
+				conflictAttempt: 0,
+				conflictBase: "start",
+			};
+			for (let run = 1; run <= 12; run += 1) {
+				expect(yield* runSandboxTestScript(definition, current, host, execution)).toBeNull();
+				expect(requests).toHaveLength(run);
+				current = yield* Schema.decodeUnknownEffect(HistoryCorrectionRequest)(
+					requests[run - 1]?.input,
+				);
+				expect(current.conflictAttempt).toBe(1);
+			}
+			expect(commits).toBe(24);
+		}),
+	testTimeout,
 );

@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Config, Effect, Option, Schema } from "effect";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 
 const redisPort = 6379;
@@ -33,25 +33,21 @@ export const stopRedisContainerEffect = (started: StartedRedisContainer) =>
 		catch: (cause) => containerError("Could not stop Redis container", cause),
 	});
 
-export const redisGlobalSetup =
-	(input: { label: string }) =>
-	({ provide }: { provide: (key: "redisUrl", value: string) => void }) => {
-		const running = process.env["TEST_REDIS_URL"];
-		if (running) {
-			provide("redisUrl", running);
-			return () => Promise.resolve();
-		}
-
-		return Effect.runPromise(
-			startRedisContainerEffect.pipe(
-				Effect.mapError((cause) =>
-					containerError(
-						`Could not start Redis for the ${input.label} suite. Start a container runtime (a non-default socket needs DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE in the package's .env), or point TEST_REDIS_URL at a disposable Redis instance (bun run docker:up).`,
-						cause,
-					),
+export const redisTestSetup = Effect.fn(function* (input: { label: string }) {
+	const running = yield* Config.String("TEST_REDIS_URL").pipe(Config.option);
+	if (Option.isSome(running) && running.value.length > 0) {
+		return running.value;
+	}
+	const redis = yield* Effect.acquireRelease(
+		startRedisContainerEffect.pipe(
+			Effect.mapError((cause) =>
+				containerError(
+					`Could not start Redis for the ${input.label} suite. Start a container runtime (a non-default socket needs DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE in the package's .env), or point TEST_REDIS_URL at a disposable Redis instance (bun run docker:up).`,
+					cause,
 				),
-				Effect.tap((redis) => Effect.sync(() => provide("redisUrl", redis.url))),
-				Effect.map((redis) => () => Effect.runPromise(stopRedisContainerEffect(redis))),
 			),
-		);
-	};
+		),
+		(started) => stopRedisContainerEffect(started).pipe(Effect.orDie),
+	);
+	return redis.url;
+});

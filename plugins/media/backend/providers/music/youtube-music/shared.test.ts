@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { configureApprovedDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { describe, expect, it } from "vitest";
 
 import type { YoutubeMusicHost } from "../../../lib/vendors/youtube-music";
 import { runHistory } from "./history.sandbox";

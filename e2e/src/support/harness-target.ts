@@ -2,7 +2,7 @@ const requireHarnessEnv = (name: string) => {
 	const value = process.env[name];
 	if (!value) {
 		throw new Error(
-			`${name} is unset. Vitest runs receive it from global-setup.ts; scripts must set it before calling any fixture.`,
+			`${name} is unset. Test runs receive it from global-setup.ts; scripts must set it before calling any fixture.`,
 		);
 	}
 	return value;

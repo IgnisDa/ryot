@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { creditGroupFixtureRecipes, groupFixtureRecipes } from "../tests/client/group/recipes";
 import { withMemberCoverFallback } from "./group-recipes";
@@ -20,13 +20,15 @@ describe("media group recipes", () => {
 	});
 
 	it("falls back to only the first member's covers when the group has no images", () => {
-		expect(withMemberCoverFallback({ images: [], memberImages: [backdrop, cover] })).toEqual({
+		expect(
+			withMemberCoverFallback({ images: [], memberImages: [backdrop, cover] }),
+		).toEqual<unknown>({ images: [cover] });
+		expect(withMemberCoverFallback({ images: null, memberImages: [cover] })).toEqual<unknown>({
 			images: [cover],
 		});
-		expect(withMemberCoverFallback({ images: null, memberImages: [cover] })).toEqual({
-			images: [cover],
+		expect(withMemberCoverFallback({ images: null, memberImages: null })).toEqual<unknown>({
+			images: [],
 		});
-		expect(withMemberCoverFallback({ images: null, memberImages: null })).toEqual({ images: [] });
 	});
 
 	it("pages members from the cursor in relationship order, then name, then id", () => {

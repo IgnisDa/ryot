@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { partialFake } from "@ryot-app/testing/fakes";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ReusableCapabilityGrantStore } from "#modules/pages/bundles/reusable-capability-grants";
@@ -72,5 +75,6 @@ layer(grantServiceLayer)((test) => {
 				expect((yield* grants.issue(user, "artifact-A")).token).not.toBe(first.token);
 			});
 		},
+		testTimeout,
 	);
 });

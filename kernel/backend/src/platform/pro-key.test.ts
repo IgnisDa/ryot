@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { HTTPClient } from "@unkey/api";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Duration, Effect, Layer, MutableRef, Option, Redacted, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -50,83 +53,107 @@ const fakeUnkeyLayer = (
 	);
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true }), Option.none()))((test) => {
-	test.effect("makes no request when the Pro Key is empty", () =>
-		Effect.gen(function* () {
-			const proKey = yield* ProKeyService;
-			expect(yield* proKey.isValidated).toBe(false);
-			expect(yield* (yield* FakeUnkey).requests).toHaveLength(0);
-		}),
+	test.effect(
+		"makes no request when the Pro Key is empty",
+		() =>
+			Effect.gen(function* () {
+				const proKey = yield* ProKeyService;
+				expect(yield* proKey.isValidated).toBe(false);
+				expect(yield* (yield* FakeUnkey).requests).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 });
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true })))((test) => {
-	test.effect("returns true for a valid key", () =>
-		Effect.gen(function* () {
-			const proKey = yield* ProKeyService;
-			expect(yield* proKey.isValidated).toBe(true);
-		}),
+	test.effect(
+		"returns true for a valid key",
+		() =>
+			Effect.gen(function* () {
+				const proKey = yield* ProKeyService;
+				expect(yield* proKey.isValidated).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: false })))((test) => {
-	test.effect("returns false when the key is no longer valid", () =>
-		Effect.gen(function* () {
-			const proKey = yield* ProKeyService;
-			expect(yield* proKey.isValidated).toBe(false);
-		}),
+	test.effect(
+		"returns false when the key is no longer valid",
+		() =>
+			Effect.gen(function* () {
+				const proKey = yield* ProKeyService;
+				expect(yield* proKey.isValidated).toBe(false);
+			}),
+		testTimeout,
 	);
 });
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "2999-01-01" } })))(
 	(test) => {
-		test.effect("returns true when meta.expiry is in the future", () =>
-			Effect.gen(function* () {
-				const proKey = yield* ProKeyService;
-				expect(yield* proKey.isValidated).toBe(true);
-			}),
+		test.effect(
+			"returns true when meta.expiry is in the future",
+			() =>
+				Effect.gen(function* () {
+					const proKey = yield* ProKeyService;
+					expect(yield* proKey.isValidated).toBe(true);
+				}),
+			testTimeout,
 		);
 	},
 );
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "1969-01-01" } })))(
 	(test) => {
-		test.effect("returns false when meta.expiry precedes the verification time", () =>
-			Effect.gen(function* () {
-				const proKey = yield* ProKeyService;
-				expect(yield* proKey.isValidated).toBe(false);
-			}),
+		test.effect(
+			"returns false when meta.expiry precedes the verification time",
+			() =>
+				Effect.gen(function* () {
+					const proKey = yield* ProKeyService;
+					expect(yield* proKey.isValidated).toBe(false);
+				}),
+			testTimeout,
 		);
 	},
 );
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true, meta: { expiry: "whenever" } })))(
 	(test) => {
-		test.effect("returns false when meta.expiry is not a date", () =>
-			Effect.gen(function* () {
-				const proKey = yield* ProKeyService;
-				expect(yield* proKey.isValidated).toBe(false);
-			}),
+		test.effect(
+			"returns false when meta.expiry is not a date",
+			() =>
+				Effect.gen(function* () {
+					const proKey = yield* ProKeyService;
+					expect(yield* proKey.isValidated).toBe(false);
+				}),
+			testTimeout,
 		);
 	},
 );
 
 layer(fakeUnkeyLayer(() => Promise.reject(new Error("connection refused"))))((test) => {
-	test.effect("returns false when the transport rejects", () =>
-		Effect.gen(function* () {
-			const proKey = yield* ProKeyService;
-			expect(yield* proKey.isValidated).toBe(false);
-		}),
+	test.effect(
+		"returns false when the transport rejects",
+		() =>
+			Effect.gen(function* () {
+				const proKey = yield* ProKeyService;
+				expect(yield* proKey.isValidated).toBe(false);
+			}),
+		testTimeout,
 	);
 });
 
 layer(fakeUnkeyLayer(() => verifyKeyResponse({ valid: true })))((test) => {
-	test.effect("caches verification so two calls issue exactly one request", () =>
-		Effect.gen(function* () {
-			const proKey = yield* ProKeyService;
-			expect(yield* proKey.isValidated).toBe(true);
-			expect(yield* proKey.isValidated).toBe(true);
-			expect(yield* (yield* FakeUnkey).requests).toHaveLength(1);
-		}),
+	test.effect(
+		"caches verification so two calls issue exactly one request",
+		() =>
+			Effect.gen(function* () {
+				const proKey = yield* ProKeyService;
+				expect(yield* proKey.isValidated).toBe(true);
+				expect(yield* proKey.isValidated).toBe(true);
+				expect(yield* (yield* FakeUnkey).requests).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -135,13 +162,16 @@ layer(
 		verifyKeyResponse({ valid: true, meta: { expiry: "1970-01-01T00:30:00Z" } }),
 	),
 )((test) => {
-	test.effect("re-compares an unchanged expiry against the clock once the cache lapses", () =>
-		Effect.gen(function* () {
-			const proKey = yield* ProKeyService;
-			expect(yield* proKey.isValidated).toBe(true);
-			yield* TestClock.adjust(Duration.hours(1));
-			expect(yield* proKey.isValidated).toBe(false);
-			expect(yield* (yield* FakeUnkey).requests).toHaveLength(2);
-		}),
+	test.effect(
+		"re-compares an unchanged expiry against the clock once the cache lapses",
+		() =>
+			Effect.gen(function* () {
+				const proKey = yield* ProKeyService;
+				expect(yield* proKey.isValidated).toBe(true);
+				yield* TestClock.adjust(Duration.hours(1));
+				expect(yield* proKey.isValidated).toBe(false);
+				expect(yield* (yield* FakeUnkey).requests).toHaveLength(2);
+			}),
+		testTimeout,
 	);
 });

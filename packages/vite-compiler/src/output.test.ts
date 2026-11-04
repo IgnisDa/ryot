@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { collectViteOutputs } from "./index";
 import type { ViteCompilerError } from "./index";

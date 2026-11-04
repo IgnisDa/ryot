@@ -1,4 +1,6 @@
-import { assert, expect, it } from "vitest";
+import { expect, it } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
 
 import { kernelDefinitionSource, kernelScripts } from "./kernel-source";
 

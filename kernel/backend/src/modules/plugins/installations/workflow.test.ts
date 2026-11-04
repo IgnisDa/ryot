@@ -1,6 +1,9 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -322,111 +325,117 @@ const workflowLayer = (input: {
 const runWorkflow = runPluginInstallationWorkflow({ activationId, installationId }, "execution-1");
 
 layer(workflowLayer({ bootstrap: resolved() }))((test) => {
-	test.effect("runs bootstrap entries in declared order with owner subject and stable ids", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			yield* runWorkflow;
-			expect(yield* fake.order).toEqual(["health:ready", "invalidate"]);
-			expect(yield* fake.executions).toEqual([
-				{
-					pluginRevision,
-					initialization,
-					lane: "background",
-					scriptId: "first-id",
-					executionId: pluginInstallationBootstrapExecutionId(
-						installationId,
-						activationId,
-						"first",
-					),
-					subject: {
-						userId,
-						type: "user",
-						accountGeneration: { userId, token: "test-account-generation" },
+	test.effect(
+		"runs bootstrap entries in declared order with owner subject and stable ids",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* runWorkflow;
+				expect(yield* fake.order).toEqual(["health:ready", "invalidate"]);
+				expect(yield* fake.executions).toEqual<unknown>([
+					{
+						pluginRevision,
+						initialization,
+						lane: "background",
+						scriptId: "first-id",
+						executionId: pluginInstallationBootstrapExecutionId(
+							installationId,
+							activationId,
+							"first",
+						),
+						subject: {
+							userId,
+							type: "user",
+							accountGeneration: { userId, token: "test-account-generation" },
+						},
 					},
-				},
-				{
-					pluginRevision,
-					initialization,
-					lane: "background",
-					scriptId: "second-id",
-					executionId: pluginInstallationBootstrapExecutionId(
-						installationId,
-						activationId,
-						"second",
-					),
-					subject: {
-						userId,
-						type: "user",
-						accountGeneration: { userId, token: "test-account-generation" },
+					{
+						pluginRevision,
+						initialization,
+						lane: "background",
+						scriptId: "second-id",
+						executionId: pluginInstallationBootstrapExecutionId(
+							installationId,
+							activationId,
+							"second",
+						),
+						subject: {
+							userId,
+							type: "user",
+							accountGeneration: { userId, token: "test-account-generation" },
+						},
 					},
-				},
-			]);
-			expect(yield* fake.scriptPinLookups).toEqual([
-				{
-					initialization,
-					expectedRevision: undefined,
-					scriptId: SandboxScriptId.make("first-id"),
-					subject: {
-						userId,
-						type: "user",
-						accountGeneration: { userId, token: "test-account-generation" },
+				]);
+				expect(yield* fake.scriptPinLookups).toEqual([
+					{
+						initialization,
+						expectedRevision: undefined,
+						scriptId: SandboxScriptId.make("first-id"),
+						subject: {
+							userId,
+							type: "user",
+							accountGeneration: { userId, token: "test-account-generation" },
+						},
 					},
-				},
-				{
-					initialization,
-					expectedRevision: undefined,
-					scriptId: SandboxScriptId.make("second-id"),
-					subject: {
-						userId,
-						type: "user",
-						accountGeneration: { userId, token: "test-account-generation" },
+					{
+						initialization,
+						expectedRevision: undefined,
+						scriptId: SandboxScriptId.make("second-id"),
+						subject: {
+							userId,
+							type: "user",
+							accountGeneration: { userId, token: "test-account-generation" },
+						},
 					},
-				},
-			]);
-			expect(yield* fake.registrations).toEqual([
-				{
-					userId,
-					initialization,
-					pluginId: pluginRevision.id,
-					contentHash: "first-id-hash",
-					expectedRevision: pluginRevision,
-					scriptId: SandboxScriptId.make("first-id"),
-					executionId: pluginInstallationBootstrapExecutionId(
-						installationId,
-						activationId,
-						"first",
-					),
-				},
-				{
-					userId,
-					initialization,
-					pluginId: pluginRevision.id,
-					contentHash: "second-id-hash",
-					expectedRevision: pluginRevision,
-					scriptId: SandboxScriptId.make("second-id"),
-					executionId: pluginInstallationBootstrapExecutionId(
-						installationId,
-						activationId,
-						"second",
-					),
-				},
-			]);
-			expect(yield* fake.healthUpdates).toEqual([
-				{ health: "ready", healthReason: null, id: installationId },
-			]);
-		}),
+				]);
+				expect(yield* fake.registrations).toEqual([
+					{
+						userId,
+						initialization,
+						pluginId: pluginRevision.id,
+						contentHash: "first-id-hash",
+						expectedRevision: pluginRevision,
+						scriptId: SandboxScriptId.make("first-id"),
+						executionId: pluginInstallationBootstrapExecutionId(
+							installationId,
+							activationId,
+							"first",
+						),
+					},
+					{
+						userId,
+						initialization,
+						pluginId: pluginRevision.id,
+						contentHash: "second-id-hash",
+						expectedRevision: pluginRevision,
+						scriptId: SandboxScriptId.make("second-id"),
+						executionId: pluginInstallationBootstrapExecutionId(
+							installationId,
+							activationId,
+							"second",
+						),
+					},
+				]);
+				expect(yield* fake.healthUpdates).toEqual([
+					{ health: "ready", healthReason: null, id: installationId },
+				]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(workflowLayer({ bootstrap: resolved({ activationId: "replacement" }) }))((test) => {
-	test.effect("does not register bootstrap pins for a stale activation", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			yield* runWorkflow;
-			expect(yield* fake.scriptPinLookups).toEqual([]);
-			expect(yield* fake.registrations).toEqual([]);
-			expect(yield* fake.executions).toEqual([]);
-		}),
+	test.effect(
+		"does not register bootstrap pins for a stale activation",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* runWorkflow;
+				expect(yield* fake.scriptPinLookups).toEqual([]);
+				expect(yield* fake.registrations).toEqual([]);
+				expect(yield* fake.executions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -436,20 +445,23 @@ layer(
 		bootstrap: resolved({ entries: [bootstrapEntry("ordinary")] }),
 	}),
 )((test) => {
-	test.effect("does not register a hidden installation's non-bootstrap script", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			yield* runWorkflow;
-			const scriptPinLookups = yield* fake.scriptPinLookups;
-			expect(scriptPinLookups.map(({ scriptId }) => scriptId)).toEqual(
-				scriptPinLookups.map(() => SandboxScriptId.make("ordinary-id")),
-			);
-			expect(
-				scriptPinLookups.map(({ initialization: lookupInitialization }) => lookupInitialization),
-			).toEqual(scriptPinLookups.map(() => initialization));
-			expect(yield* fake.registrations).toEqual([]);
-			expect(yield* fake.executions).toEqual([]);
-		}),
+	test.effect(
+		"does not register a hidden installation's non-bootstrap script",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* runWorkflow;
+				const scriptPinLookups = yield* fake.scriptPinLookups;
+				expect(scriptPinLookups.map(({ scriptId }) => scriptId)).toEqual(
+					scriptPinLookups.map(() => SandboxScriptId.make("ordinary-id")),
+				);
+				expect(
+					scriptPinLookups.map(({ initialization: lookupInitialization }) => lookupInitialization),
+				).toEqual(scriptPinLookups.map(() => initialization));
+				expect(yield* fake.registrations).toEqual([]);
+				expect(yield* fake.executions).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -462,6 +474,7 @@ layer(workflowLayer({ bootstrap: resolved(), quarantineOnExecution: true }))((te
 				yield* runWorkflow;
 				expect(yield* fake.healthUpdates).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -485,7 +498,7 @@ layer(
 						revisionId: pin?.revisionId,
 						configRevisionId: pin?.configRevisionId,
 					})),
-				).toEqual([
+				).toEqual<unknown>([
 					{
 						scriptId: "first-id",
 						revisionId: pluginRevision.revisionId,
@@ -501,6 +514,7 @@ layer(
 					{ health: "ready", healthReason: null, id: installationId },
 				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -518,8 +532,11 @@ layer(
 				const fake = yield* FakeInstallationWorkflow;
 				yield* runWorkflow;
 				expect(yield* fake.healthUpdates).toEqual([]);
-				expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual(["first-id"]);
+				expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual<unknown>([
+					"first-id",
+				]);
 			}),
+		testTimeout,
 	);
 });
 
@@ -557,56 +574,71 @@ layer(workflowLayer({ bootstrap: resolved(), quarantineAfterFirstSeed: true }))(
 					pluginInstallationBootstrapExecutionId(installationId, recoveredActivation, "second"),
 				]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(workflowLayer({ bootstrap: null }))((test) => {
-	test.effect("does nothing for a missing or settled installation", () => {
-		const cases = [null, resolved({ health: "ready" }), resolved({ activationId: "replacement" })];
-		return Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			yield* Effect.forEach(cases, (bootstrap) =>
-				Effect.gen(function* () {
-					yield* fake.resolveBootstrapWith(bootstrap);
-					yield* runWorkflow;
-					expect(yield* fake.executions).toEqual([]);
-					expect(yield* fake.healthUpdates).toEqual([]);
-				}),
-			);
-		});
-	});
+	test.effect(
+		"does nothing for a missing or settled installation",
+		() => {
+			const cases = [
+				null,
+				resolved({ health: "ready" }),
+				resolved({ activationId: "replacement" }),
+			];
+			return Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* Effect.forEach(cases, (bootstrap) =>
+					Effect.gen(function* () {
+						yield* fake.resolveBootstrapWith(bootstrap);
+						yield* runWorkflow;
+						expect(yield* fake.executions).toEqual([]);
+						expect(yield* fake.healthUpdates).toEqual([]);
+					}),
+				);
+			});
+		},
+		testTimeout,
+	);
 });
 
 layer(workflowLayer({ bootstrap: resolved() }))((test) => {
-	test.effect("does not rerun initialization after guarded completion", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			yield* runWorkflow;
-			yield* runWorkflow;
-			expect((yield* fake.executions).map(({ executionId }) => executionId)).toEqual([
-				pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
-				pluginInstallationBootstrapExecutionId(installationId, activationId, "second"),
-			]);
-			expect(yield* fake.isInitialized).toBe(true);
-		}),
+	test.effect(
+		"does not rerun initialization after guarded completion",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* runWorkflow;
+				yield* runWorkflow;
+				expect((yield* fake.executions).map(({ executionId }) => executionId)).toEqual([
+					pluginInstallationBootstrapExecutionId(installationId, activationId, "first"),
+					pluginInstallationBootstrapExecutionId(installationId, activationId, "second"),
+				]);
+				expect(yield* fake.isInitialized).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 layer(workflowLayer({ bootstrap: resolved({ entries: [{ slug: "first", scriptId: null }] }) }))(
 	(test) => {
-		test.effect("fails the installation when a bootstrap entry has no compiled script", () =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationWorkflow;
-				yield* runWorkflow;
-				expect(yield* fake.executions).toEqual([]);
-				expect(yield* fake.healthUpdates).toEqual([
-					{
-						health: "failed",
-						id: installationId,
-						healthReason: "Plugin installation could not be started",
-					},
-				]);
-			}),
+		test.effect(
+			"fails the installation when a bootstrap entry has no compiled script",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationWorkflow;
+					yield* runWorkflow;
+					expect(yield* fake.executions).toEqual([]);
+					expect(yield* fake.healthUpdates).toEqual([
+						{
+							health: "failed",
+							id: installationId,
+							healthReason: "Plugin installation could not be started",
+						},
+					]);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -617,21 +649,26 @@ layer(
 		scriptErrors: { "first-id": "TypeError at scripts/bootstrap.sandbox.ts:12" },
 	}),
 )((test) => {
-	test.effect("fails the installation with a safe reason and skips later entries", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			yield* runWorkflow;
-			expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual(["first-id"]);
-			const healthUpdates = yield* fake.healthUpdates;
-			expect(healthUpdates).toEqual([
-				{
-					health: "failed",
-					id: installationId,
-					healthReason: "Plugin installation bootstrap failed: first",
-				},
-			]);
-			expect(String(healthUpdates[0]?.healthReason)).not.toContain("TypeError");
-			expect(String(healthUpdates[0]?.healthReason)).not.toContain("bootstrap.sandbox.ts");
-		}),
+	test.effect(
+		"fails the installation with a safe reason and skips later entries",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				yield* runWorkflow;
+				expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual<unknown>([
+					"first-id",
+				]);
+				const healthUpdates = yield* fake.healthUpdates;
+				expect(healthUpdates).toEqual([
+					{
+						health: "failed",
+						id: installationId,
+						healthReason: "Plugin installation bootstrap failed: first",
+					},
+				]);
+				expect(String(healthUpdates[0]?.healthReason)).not.toContain("TypeError");
+				expect(String(healthUpdates[0]?.healthReason)).not.toContain("bootstrap.sandbox.ts");
+			}),
+		testTimeout,
 	);
 });

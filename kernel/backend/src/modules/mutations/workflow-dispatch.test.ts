@@ -1,7 +1,10 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
@@ -40,8 +43,8 @@ it.effect(
 			const engine = makeWorkflowEngine({
 				execute: (definition, options) =>
 					Effect.gen(function* () {
-						expect(definition).toBe(workflow);
-						expect(options.executionId).toBe(owner);
+						expect(definition).toBe<unknown>(workflow);
+						expect(options.executionId).toBe<unknown>(owner);
 						calls.push("dispatch");
 						attempts += 1;
 						return yield* attempts === 1 ? Effect.fail("unavailable") : Effect.succeed("completed");
@@ -63,6 +66,7 @@ it.effect(
 			expect(derivations).toBe(2);
 			expect(calls).toEqual(["admit", "dispatch", "admit", "dispatch"]);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -98,6 +102,7 @@ it.effect(
 			assertExitFails(exit, failure);
 			expect(dispatched).toBe(false);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -117,7 +122,7 @@ it.effect(
 				execute: (definition, options) =>
 					Effect.sync(() => {
 						expect(registered).toBe(true);
-						expect(definition).toBe(workflow);
+						expect(definition).toBe<unknown>(workflow);
 						expect(options).toEqual({
 							discard: true,
 							executionId: "explicit",
@@ -145,4 +150,5 @@ it.effect(
 			);
 			expect(result).toBe("explicit");
 		}),
+	testTimeout,
 );

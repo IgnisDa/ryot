@@ -1,7 +1,10 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { serializeMediaRecords } from "./collection";
 import { mediaFilesystem, resetMediaFilesystem } from "./ingestion.test-support";
@@ -93,4 +96,5 @@ it.live(
 			});
 			expect(chunk.items[0]?.collectionMemberships?.[0]?.collectionName).toBe("Imported");
 		}),
+	testTimeout,
 );

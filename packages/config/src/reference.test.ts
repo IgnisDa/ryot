@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import { defineConfig, definePluginConfig, group, stringField } from "./index";
 import { renderConfigReference } from "./reference";

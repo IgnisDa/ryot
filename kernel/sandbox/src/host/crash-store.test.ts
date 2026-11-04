@@ -1,4 +1,7 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { QUARANTINE_MS, SandboxCrashStore, sandboxProtectionKeys } from "./crash-store";
@@ -28,84 +31,96 @@ const identities = Effect.acquireRelease(
 );
 
 layer(storeLayer)((test) => {
-	test.effect("counts distinct crashes atomically and blocks owner and content rotation", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const store = yield* SandboxCrashStore;
-				const redis = yield* SandboxRedis;
-				const keys = yield* identities;
-				yield* store.strike(keys, "crash-1");
-				yield* store.strike(keys, "crash-1");
-				yield* store.strike(keys, "crash-2");
-				expect(yield* store.acquire(keys, "run-1")).toBe("allowed");
-				yield* store.strike(keys, "crash-3");
-				for (const key of keys) {
-					expect(yield* store.acquire([key], "rotation")).toBe("blocked");
-					const ttl = yield* Effect.promise(() =>
-						redis.client.pttl(sandboxRedisKeys.quarantine(key)),
+	test.effect(
+		"counts distinct crashes atomically and blocks owner and content rotation",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const store = yield* SandboxCrashStore;
+					const redis = yield* SandboxRedis;
+					const keys = yield* identities;
+					yield* store.strike(keys, "crash-1");
+					yield* store.strike(keys, "crash-1");
+					yield* store.strike(keys, "crash-2");
+					expect(yield* store.acquire(keys, "run-1")).toBe("allowed");
+					yield* store.strike(keys, "crash-3");
+					for (const key of keys) {
+						expect(yield* store.acquire([key], "rotation")).toBe("blocked");
+						const ttl = yield* Effect.promise(() =>
+							redis.client.pttl(sandboxRedisKeys.quarantine(key)),
+						);
+						expect(ttl).toBeGreaterThan(QUARANTINE_MS - 100_000);
+						expect(ttl).toBeLessThanOrEqual(QUARANTINE_MS);
+					}
+				}),
+			),
+		testTimeout,
+	);
+	test.effect(
+		"removes strikes outside the ten-minute window before counting",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const store = yield* SandboxCrashStore;
+					const redis = yield* SandboxRedis;
+					const keys = yield* identities;
+					for (const key of keys) {
+						yield* Effect.promise(() =>
+							redis.client.zadd(sandboxRedisKeys.crashWindow(key), 0, "expired-crash"),
+						);
+					}
+					yield* store.strike(keys, "crash-1");
+					yield* store.strike(keys, "crash-2");
+					expect(yield* store.acquire(keys, "run")).toBe("allowed");
+				}),
+			),
+		testTimeout,
+	);
+	test.effect(
+		"allows one probation owner and preserves probation after cancellation",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const store = yield* SandboxCrashStore;
+					const redis = yield* SandboxRedis;
+					const keys = yield* identities;
+					for (const key of keys) {
+						yield* Effect.promise(() => redis.client.set(sandboxRedisKeys.probation(key), "1"));
+					}
+					const results = yield* Effect.all(
+						[store.acquire(keys, "first"), store.acquire(keys, "second")],
+						{ concurrency: "unbounded" },
 					);
-					expect(ttl).toBeGreaterThan(QUARANTINE_MS - 100_000);
-					expect(ttl).toBeLessThanOrEqual(QUARANTINE_MS);
-				}
-			}),
-		),
+					expect(results.filter((result) => result === "probation")).toHaveLength(1);
+					expect(results.filter((result) => result === "blocked")).toHaveLength(1);
+					const owner = results[0] === "probation" ? "first" : "second";
+					expect(yield* store.survived(keys, "foreign")).toBe("stale");
+					expect(yield* store.acquire(keys, "third")).toBe("blocked");
+					yield* store.release(keys, owner);
+					expect(yield* store.acquire(keys, "third")).toBe("probation");
+					yield* store.survived(keys, "third");
+					expect(yield* store.acquire(keys, "fourth")).toBe("allowed");
+				}),
+			),
+		testTimeout,
 	);
-	test.effect("removes strikes outside the ten-minute window before counting", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const store = yield* SandboxCrashStore;
-				const redis = yield* SandboxRedis;
-				const keys = yield* identities;
-				for (const key of keys) {
-					yield* Effect.promise(() =>
-						redis.client.zadd(sandboxRedisKeys.crashWindow(key), 0, "expired-crash"),
-					);
-				}
-				yield* store.strike(keys, "crash-1");
-				yield* store.strike(keys, "crash-2");
-				expect(yield* store.acquire(keys, "run")).toBe("allowed");
-			}),
-		),
-	);
-	test.effect("allows one probation owner and preserves probation after cancellation", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const store = yield* SandboxCrashStore;
-				const redis = yield* SandboxRedis;
-				const keys = yield* identities;
-				for (const key of keys) {
-					yield* Effect.promise(() => redis.client.set(sandboxRedisKeys.probation(key), "1"));
-				}
-				const results = yield* Effect.all(
-					[store.acquire(keys, "first"), store.acquire(keys, "second")],
-					{ concurrency: "unbounded" },
-				);
-				expect(results.filter((result) => result === "probation")).toHaveLength(1);
-				expect(results.filter((result) => result === "blocked")).toHaveLength(1);
-				const owner = results[0] === "probation" ? "first" : "second";
-				expect(yield* store.survived(keys, "foreign")).toBe("stale");
-				expect(yield* store.acquire(keys, "third")).toBe("blocked");
-				yield* store.release(keys, owner);
-				expect(yield* store.acquire(keys, "third")).toBe("probation");
-				yield* store.survived(keys, "third");
-				expect(yield* store.acquire(keys, "fourth")).toBe("allowed");
-			}),
-		),
-	);
-	test.effect("renews quarantine when an exclusive probation execution crashes", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const store = yield* SandboxCrashStore;
-				const redis = yield* SandboxRedis;
-				const keys = yield* identities;
-				for (const key of keys) {
-					yield* Effect.promise(() => redis.client.set(sandboxRedisKeys.probation(key), "1"));
-				}
-				expect(yield* store.acquire(keys, "probe")).toBe("probation");
-				yield* store.strike(keys, "probe-crash");
-				expect(yield* store.acquire(keys, "next")).toBe("blocked");
-				expect(yield* store.survived(keys, "probe")).toBe("stale");
-			}),
-		),
+	test.effect(
+		"renews quarantine when an exclusive probation execution crashes",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const store = yield* SandboxCrashStore;
+					const redis = yield* SandboxRedis;
+					const keys = yield* identities;
+					for (const key of keys) {
+						yield* Effect.promise(() => redis.client.set(sandboxRedisKeys.probation(key), "1"));
+					}
+					expect(yield* store.acquire(keys, "probe")).toBe("probation");
+					yield* store.strike(keys, "probe-crash");
+					expect(yield* store.acquire(keys, "next")).toBe("blocked");
+					expect(yield* store.survived(keys, "probe")).toBe("stale");
+				}),
+			),
+		testTimeout,
 	);
 });

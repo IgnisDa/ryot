@@ -1,7 +1,10 @@
+import { expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Duration, Effect, Exit, Fiber, Layer, Metric, Schema, Scope } from "effect";
 import type { PersistedQueue } from "effect/persistence";
 
@@ -163,195 +166,217 @@ const dispatchOrder = Effect.fnUntraced(function* (aPlugins: ReadonlyArray<strin
 layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
 	excludeTestServices: true,
 })((test) => {
-	test.effect("execution_admission_is_fair_across_users_and_plugins", () =>
-		Effect.gen(function* () {
-			const threePlugins = yield* dispatchOrder(["pa1", "pa2", "pa3"]);
-			const onePlugin = yield* dispatchOrder(["pa1"]);
+	test.effect(
+		"execution_admission_is_fair_across_users_and_plugins",
+		() =>
+			Effect.gen(function* () {
+				const threePlugins = yield* dispatchOrder(["pa1", "pa2", "pa3"]);
+				const onePlugin = yield* dispatchOrder(["pa1"]);
 
-			for (const order of [threePlugins, onePlugin]) {
-				expect(order.slice(0, 40).map((item) => item.tenant)).toEqual(
-					Array.from({ length: 20 }, () => ["user:a", "user:b"]).flat(),
+				for (const order of [threePlugins, onePlugin]) {
+					expect(order.slice(0, 40).map((item) => item.tenant)).toEqual(
+						Array.from({ length: 20 }, () => ["user:a", "user:b"]).flat(),
+					);
+					expect(order.slice(40).every((item) => item.tenant === "user:a")).toBe(true);
+				}
+				const aOrder = threePlugins.filter((item) => item.tenant === "user:a");
+				expect(aOrder.slice(0, 6).map((item) => item.plugin)).toEqual([
+					"pa1",
+					"pa2",
+					"pa3",
+					"pa1",
+					"pa2",
+					"pa3",
+				]);
+				for (const plugin of ["pa1", "pa2", "pa3"]) {
+					expect(aOrder.filter((item) => item.plugin === plugin).map((item) => item.n)).toEqual(
+						Array.from({ length: 20 }, (_, n) => n),
+					);
+				}
+				expect(
+					threePlugins.filter((item) => item.tenant === "user:b").map((item) => item.n),
+				).toEqual(Array.from({ length: 20 }, (_, n) => n));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"execution_lanes_preserve_interactive_headroom_and_background_progress",
+		() =>
+			Effect.gen(function* () {
+				const capacity = { total: 2, background: 1 };
+
+				const idle = yield* makeTestStore({ capacity });
+				const first = yield* holdTake(idle.store);
+				const second = yield* holdTake(idle.store);
+				yield* Effect.yieldNow;
+				yield* offerAll(idle.store, [
+					entry(background, "user:a", "p", 0),
+					entry(background, "user:a", "p", 1),
+				]);
+				const firstItem = yield* Deferred.await(first.received).pipe(Effect.timeout("10 seconds"));
+				yield* settle;
+				expect(yield* decodeEntry(firstItem.element)).toMatchObject({ n: 0, lane: background });
+				expect(yield* Deferred.isDone(second.received)).toBe(false);
+				expect(yield* call(() => idle.client.scard(idle.keys.pending))).toBe(1);
+				yield* offerAll(idle.store, [entry(interactive, "user:b", "p", 2)]);
+				const secondItem = yield* Deferred.await(second.received).pipe(
+					Effect.timeout("10 seconds"),
 				);
-				expect(order.slice(40).every((item) => item.tenant === "user:a")).toBe(true);
-			}
-			const aOrder = threePlugins.filter((item) => item.tenant === "user:a");
-			expect(aOrder.slice(0, 6).map((item) => item.plugin)).toEqual([
-				"pa1",
-				"pa2",
-				"pa3",
-				"pa1",
-				"pa2",
-				"pa3",
-			]);
-			for (const plugin of ["pa1", "pa2", "pa3"]) {
-				expect(aOrder.filter((item) => item.plugin === plugin).map((item) => item.n)).toEqual(
-					Array.from({ length: 20 }, (_, n) => n),
+				expect(yield* decodeEntry(secondItem.element)).toMatchObject({ n: 2, lane: interactive });
+				yield* Deferred.succeed(first.finish, undefined);
+				yield* Deferred.succeed(second.finish, undefined);
+				yield* Fiber.join(first.fiber);
+				yield* Fiber.join(second.fiber);
+				expect(yield* call(() => idle.client.scard(idle.keys.pending))).toBe(0);
+
+				yield* withIsolatedRegistry(
+					Effect.gen(function* () {
+						const starving = yield* makeTestStore({ capacity });
+						yield* offerAll(starving.store, [
+							...Array.from({ length: 8 }, (_, n) => entry(interactive, "user:a", "p", n)),
+							...Array.from({ length: 2 }, (_, n) => entry(background, "user:b", "p", n)),
+						]);
+						const order = yield* interactiveFlowOrder(starving.store, 10);
+						expect(order.map((item) => item.lane)).toEqual<unknown>([
+							...Array.from({ length: 4 }, () => interactive),
+							background,
+							...Array.from({ length: 4 }, () => interactive),
+							background,
+						]);
+						const snapshots = yield* Metric.snapshot;
+						const series = (id: string, lane: string) =>
+							snapshots.find(
+								(snapshot) => snapshot.id === id && snapshot.attributes?.["lane"] === lane,
+							)?.state;
+						expect(series("ryot.durable_queue.dispatches", interactive)).toMatchObject({
+							count: 8,
+						});
+						expect(series("ryot.durable_queue.dispatches", background)).toMatchObject({ count: 2 });
+						expect(series("ryot.durable_queue.wait_duration", interactive)).toMatchObject({
+							count: 8,
+						});
+						expect(series("ryot.durable_queue.wait_duration", background)).toMatchObject({
+							count: 2,
+						});
+					}),
 				);
-			}
-			expect(threePlugins.filter((item) => item.tenant === "user:b").map((item) => item.n)).toEqual(
-				Array.from({ length: 20 }, (_, n) => n),
-			);
-		}),
+
+				const long = yield* makeTestStore({ capacity });
+				yield* offerAll(long.store, [
+					entry(background, "user:a", "p", 0),
+					entry(background, "user:b", "p", 1),
+				]);
+				const running = yield* holdTake(long.store);
+				yield* Deferred.await(running.received).pipe(Effect.timeout("10 seconds"));
+				yield* offerAll(
+					long.store,
+					Array.from({ length: 10 }, (_, n) => entry(interactive, "user:c", "p", n)),
+				);
+				const during = yield* interactiveFlowOrder(long.store, 4);
+				expect(during.map((item) => item.lane)).toEqual(
+					Array.from({ length: 4 }, () => interactive),
+				);
+				yield* Deferred.succeed(running.finish, undefined);
+				yield* Fiber.join(running.fiber);
+				const after = yield* interactiveFlowOrder(long.store, 5);
+				expect(after[0]?.lane).toBe(interactive);
+				expect(after.findIndex((item) => item.lane === background)).toBeLessThanOrEqual(4);
+			}),
+		testTimeout,
 	);
 
-	test.effect("execution_lanes_preserve_interactive_headroom_and_background_progress", () =>
-		Effect.gen(function* () {
-			const capacity = { total: 2, background: 1 };
+	test.effect(
+		"fair_admission_releases_tickets_and_reservations_exactly_once",
+		() =>
+			Effect.gen(function* () {
+				const capacity = { total: 1, background: 1 };
+				const { keys, store, client, prefix } = yield* makeTestStore({ capacity });
+				const idle = yield* redisSnapshot(client, prefix);
+				const element = entry(interactive, "user:a", "p", 0);
+				const queued = entry(interactive, "user:a", "p", 1);
+				const id = yield* randomUuid;
+				yield* store.offer({ id, element, name: queueName, isCustomId: false });
+				const offered = yield* redisSnapshot(client, prefix);
+				const flow = yield* call(() => client.hget(keys.flows, id));
 
-			const idle = yield* makeTestStore({ capacity });
-			const first = yield* holdTake(idle.store);
-			const second = yield* holdTake(idle.store);
-			yield* Effect.yieldNow;
-			yield* offerAll(idle.store, [
-				entry(background, "user:a", "p", 0),
-				entry(background, "user:a", "p", 1),
-			]);
-			const firstItem = yield* Deferred.await(first.received).pipe(Effect.timeout("10 seconds"));
-			yield* settle;
-			expect(yield* decodeEntry(firstItem.element)).toMatchObject({ n: 0, lane: background });
-			expect(yield* Deferred.isDone(second.received)).toBe(false);
-			expect(yield* call(() => idle.client.scard(idle.keys.pending))).toBe(1);
-			yield* offerAll(idle.store, [entry(interactive, "user:b", "p", 2)]);
-			const secondItem = yield* Deferred.await(second.received).pipe(Effect.timeout("10 seconds"));
-			expect(yield* decodeEntry(secondItem.element)).toMatchObject({ n: 2, lane: interactive });
-			yield* Deferred.succeed(first.finish, undefined);
-			yield* Deferred.succeed(second.finish, undefined);
-			yield* Fiber.join(first.fiber);
-			yield* Fiber.join(second.fiber);
-			expect(yield* call(() => idle.client.scard(idle.keys.pending))).toBe(0);
+				const interrupted = yield* holdTake(store);
+				yield* Deferred.await(interrupted.received);
+				yield* Fiber.interrupt(interrupted.fiber);
+				expect(yield* redisSnapshot(client, prefix)).toEqual(offered);
 
-			yield* withIsolatedRegistry(
-				Effect.gen(function* () {
-					const starving = yield* makeTestStore({ capacity });
-					yield* offerAll(starving.store, [
-						...Array.from({ length: 8 }, (_, n) => entry(interactive, "user:a", "p", n)),
-						...Array.from({ length: 2 }, (_, n) => entry(background, "user:b", "p", n)),
-					]);
-					const order = yield* interactiveFlowOrder(starving.store, 10);
-					expect(order.map((item) => item.lane)).toEqual([
-						...Array.from({ length: 4 }, () => interactive),
-						background,
-						...Array.from({ length: 4 }, () => interactive),
-						background,
-					]);
-					const snapshots = yield* Metric.snapshot;
-					const series = (id: string, lane: string) =>
-						snapshots.find(
-							(snapshot) => snapshot.id === id && snapshot.attributes?.["lane"] === lane,
-						)?.state;
-					expect(series("ryot.durable_queue.dispatches", interactive)).toMatchObject({ count: 8 });
-					expect(series("ryot.durable_queue.dispatches", background)).toMatchObject({ count: 2 });
-					expect(series("ryot.durable_queue.wait_duration", interactive)).toMatchObject({
-						count: 8,
-					});
-					expect(series("ryot.durable_queue.wait_duration", background)).toMatchObject({
-						count: 2,
-					});
-				}),
-			);
+				yield* store.offer({
+					element: queued,
+					name: queueName,
+					isCustomId: false,
+					id: yield* randomUuid,
+				});
+				const failing = yield* holdTake(store);
+				expect((yield* Deferred.await(failing.received)).id).toBe(id);
+				yield* Deferred.fail(failing.finish, "boom");
+				yield* Fiber.await(failing.fiber);
+				const retry = yield* holdTake(store);
+				const retried = yield* Deferred.await(retry.received);
+				expect({ id: retried.id, attempts: retried.attempts }).toEqual({ id, attempts: 2 });
+				expect(yield* call(() => client.hget(keys.flows, id))).toBe(flow);
+				yield* Deferred.succeed(retry.finish, undefined);
+				yield* Fiber.join(retry.fiber);
+				expect((yield* takeThenComplete(store)).element).toEqual(queued);
+				expect(yield* redisSnapshot(client, prefix)).toEqual(idle);
 
-			const long = yield* makeTestStore({ capacity });
-			yield* offerAll(long.store, [
-				entry(background, "user:a", "p", 0),
-				entry(background, "user:b", "p", 1),
-			]);
-			const running = yield* holdTake(long.store);
-			yield* Deferred.await(running.received).pipe(Effect.timeout("10 seconds"));
-			yield* offerAll(
-				long.store,
-				Array.from({ length: 10 }, (_, n) => entry(interactive, "user:c", "p", n)),
-			);
-			const during = yield* interactiveFlowOrder(long.store, 4);
-			expect(during.map((item) => item.lane)).toEqual(Array.from({ length: 4 }, () => interactive));
-			yield* Deferred.succeed(running.finish, undefined);
-			yield* Fiber.join(running.fiber);
-			const after = yield* interactiveFlowOrder(long.store, 5);
-			expect(after[0]?.lane).toBe(interactive);
-			expect(after.findIndex((item) => item.lane === background)).toBeLessThanOrEqual(4);
-		}),
+				const failingPoll = yield* makeTestStore({ capacity });
+				const waiting = yield* holdTake(failingPoll.store);
+				yield* call(() => failingPoll.client.set(failingPoll.keys.delayed, "not-a-sorted-set"));
+				yield* offerAll(failingPoll.store, [element]);
+				const beforeRecovery = yield* redisSnapshot(failingPoll.client, failingPoll.prefix);
+				yield* Effect.sleep(700);
+				expect(yield* Deferred.isDone(waiting.received)).toBe(false);
+				expect(yield* redisSnapshot(failingPoll.client, failingPoll.prefix)).toEqual(
+					beforeRecovery,
+				);
+				yield* call(() => failingPoll.client.del(failingPoll.keys.delayed));
+				const recovered = yield* Deferred.await(waiting.received).pipe(
+					Effect.timeout("10 seconds"),
+				);
+				expect(recovered.element).toEqual(element);
+				yield* Deferred.succeed(waiting.finish, undefined);
+				yield* Fiber.join(waiting.fiber);
+				yield* offerAll(failingPoll.store, [queued]);
+				expect((yield* takeThenComplete(failingPoll.store)).element).toEqual(queued);
+			}),
+		testTimeout,
 	);
 
-	test.effect("fair_admission_releases_tickets_and_reservations_exactly_once", () =>
-		Effect.gen(function* () {
-			const capacity = { total: 1, background: 1 };
-			const { keys, store, client, prefix } = yield* makeTestStore({ capacity });
-			const idle = yield* redisSnapshot(client, prefix);
-			const element = entry(interactive, "user:a", "p", 0);
-			const queued = entry(interactive, "user:a", "p", 1);
-			const id = yield* randomUuid;
-			yield* store.offer({ id, element, name: queueName, isCustomId: false });
-			const offered = yield* redisSnapshot(client, prefix);
-			const flow = yield* call(() => client.hget(keys.flows, id));
+	test.effect(
+		"fair_queue_redispatches_expired_peer_locks",
+		() =>
+			Effect.gen(function* () {
+				const prefix = `ryot:test:fair:${yield* randomUuid}:`;
+				const peer = yield* makeTestStore({ prefix });
+				const flowElement = entry(interactive, "user:a", "p", 0);
+				const next = entry(interactive, "user:a", "p", 1);
+				const id = yield* randomUuid;
+				yield* peer.store.offer({ id, name: queueName, isCustomId: false, element: flowElement });
+				yield* offerAll(peer.store, [next]);
 
-			const interrupted = yield* holdTake(store);
-			yield* Deferred.await(interrupted.received);
-			yield* Fiber.interrupt(interrupted.fiber);
-			expect(yield* redisSnapshot(client, prefix)).toEqual(offered);
+				const stalled = yield* holdTake(peer.store);
+				expect((yield* Deferred.await(stalled.received)).attempts).toBe(1);
+				const lockTtl = yield* call(() => peer.client.pttl(peer.keys.lock(id)));
+				expect(lockTtl).toBeGreaterThan(0);
+				expect(lockTtl).toBeLessThanOrEqual(90_000);
+				yield* call(() => peer.client.del(peer.keys.lock(id)));
 
-			yield* store.offer({
-				element: queued,
-				name: queueName,
-				isCustomId: false,
-				id: yield* randomUuid,
-			});
-			const failing = yield* holdTake(store);
-			expect((yield* Deferred.await(failing.received)).id).toBe(id);
-			yield* Deferred.fail(failing.finish, "boom");
-			yield* Fiber.await(failing.fiber);
-			const retry = yield* holdTake(store);
-			const retried = yield* Deferred.await(retry.received);
-			expect({ id: retried.id, attempts: retried.attempts }).toEqual({ id, attempts: 2 });
-			expect(yield* call(() => client.hget(keys.flows, id))).toBe(flow);
-			yield* Deferred.succeed(retry.finish, undefined);
-			yield* Fiber.join(retry.fiber);
-			expect((yield* takeThenComplete(store)).element).toEqual(queued);
-			expect(yield* redisSnapshot(client, prefix)).toEqual(idle);
-
-			const failingPoll = yield* makeTestStore({ capacity });
-			const waiting = yield* holdTake(failingPoll.store);
-			yield* call(() => failingPoll.client.set(failingPoll.keys.delayed, "not-a-sorted-set"));
-			yield* offerAll(failingPoll.store, [element]);
-			const beforeRecovery = yield* redisSnapshot(failingPoll.client, failingPoll.prefix);
-			yield* Effect.sleep(700);
-			expect(yield* Deferred.isDone(waiting.received)).toBe(false);
-			expect(yield* redisSnapshot(failingPoll.client, failingPoll.prefix)).toEqual(beforeRecovery);
-			yield* call(() => failingPoll.client.del(failingPoll.keys.delayed));
-			const recovered = yield* Deferred.await(waiting.received).pipe(Effect.timeout("10 seconds"));
-			expect(recovered.element).toEqual(element);
-			yield* Deferred.succeed(waiting.finish, undefined);
-			yield* Fiber.join(waiting.fiber);
-			yield* offerAll(failingPoll.store, [queued]);
-			expect((yield* takeThenComplete(failingPoll.store)).element).toEqual(queued);
-		}),
-	);
-
-	test.effect("fair_queue_redispatches_expired_peer_locks", () =>
-		Effect.gen(function* () {
-			const prefix = `ryot:test:fair:${yield* randomUuid}:`;
-			const peer = yield* makeTestStore({ prefix });
-			const flowElement = entry(interactive, "user:a", "p", 0);
-			const next = entry(interactive, "user:a", "p", 1);
-			const id = yield* randomUuid;
-			yield* peer.store.offer({ id, name: queueName, isCustomId: false, element: flowElement });
-			yield* offerAll(peer.store, [next]);
-
-			const stalled = yield* holdTake(peer.store);
-			expect((yield* Deferred.await(stalled.received)).attempts).toBe(1);
-			const lockTtl = yield* call(() => peer.client.pttl(peer.keys.lock(id)));
-			expect(lockTtl).toBeGreaterThan(0);
-			expect(lockTtl).toBeLessThanOrEqual(90_000);
-			yield* call(() => peer.client.del(peer.keys.lock(id)));
-
-			const survivor = yield* makeTestStore({ prefix });
-			const taken = [
-				yield* takeThenComplete(survivor.store),
-				yield* takeThenComplete(survivor.store),
-			];
-			expect(taken.find((item) => item.id === id)?.attempts).toBe(2);
-			expect(taken.map((item) => item.element)).toContainEqual(next);
-			yield* Fiber.interrupt(stalled.fiber);
-			expect(yield* redisSnapshot(peer.client, prefix)).toEqual({});
-		}),
+				const survivor = yield* makeTestStore({ prefix });
+				const taken = [
+					yield* takeThenComplete(survivor.store),
+					yield* takeThenComplete(survivor.store),
+				];
+				expect(taken.find((item) => item.id === id)?.attempts).toBe(2);
+				expect(taken.map((item) => item.element)).toContainEqual(next);
+				yield* Fiber.interrupt(stalled.fiber);
+				expect(yield* redisSnapshot(peer.client, prefix)).toEqual({});
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -411,5 +436,6 @@ layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
 				const resumed = yield* takeThenComplete(restarted.store);
 				expect({ id: resumed.id, attempts: resumed.attempts }).toEqual({ id, attempts: 2 });
 			}),
+		testTimeout,
 	);
 });

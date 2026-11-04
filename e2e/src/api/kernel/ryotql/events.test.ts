@@ -14,7 +14,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
-import { anyOf } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -108,13 +108,15 @@ describe("RyotQL event queries", () => {
 				"RyotQLEventMovie Entity",
 				"RyotQLEventBook Entity",
 			]);
-			expect(events.items[0]).toMatchObject({
-				rating: 5,
-				sessionEntityId: null,
-				createdAt: anyOf(String),
-				updatedAt: anyOf(String),
-				occurredAt: "2026-08-01T00:00:00.000Z",
-			});
+			expect(events.items[0]).toEqual<unknown>(
+				objectContaining({
+					rating: 5,
+					sessionEntityId: null,
+					createdAt: anyOf(String),
+					updatedAt: anyOf(String),
+					occurredAt: "2026-08-01T00:00:00.000Z",
+				}),
+			);
 		}),
 	);
 

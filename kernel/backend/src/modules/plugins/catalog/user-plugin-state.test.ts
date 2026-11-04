@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber } from "effect";
 
@@ -262,206 +265,249 @@ const contend = Effect.fn(function* <E1, R1, E2, R2>(
 });
 
 layer(isolatedDatabaseLayer("user_plugin_state_test"))((test) => {
-	test.effect("lists an installed system plugin and follows uninstall and reinstall", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("system");
-			const { configId, installationId } = yield* installConfigured(world);
-			expect(yield* userPlugins(world.userId)).toEqual([
-				{
-					installationId,
-					isListed: true,
-					health: "ready",
-					isHidden: false,
-					scope: "system",
-					isExecutable: true,
-					pluginId: world.pluginId,
-					configRevisionId: configId,
-					isDefinitionEffective: true,
-					activeRevisionId: world.revisionIds[0],
-				},
-			]);
-			expect(yield* sandboxProviderCount(world)).toBe(1);
+	test.effect(
+		"lists an installed system plugin and follows uninstall and reinstall",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("system");
+				const { configId, installationId } = yield* installConfigured(world);
+				expect(yield* userPlugins(world.userId)).toEqual([
+					{
+						installationId,
+						isListed: true,
+						health: "ready",
+						isHidden: false,
+						scope: "system",
+						isExecutable: true,
+						pluginId: world.pluginId,
+						configRevisionId: configId,
+						isDefinitionEffective: true,
+						activeRevisionId: world.revisionIds[0],
+					},
+				]);
+				expect(yield* sandboxProviderCount(world)).toBe(1);
 
-			yield* setInstallation(installationId, { uninstalledAt: epoch });
-			expect(yield* userPlugins(world.userId)).toEqual([]);
-			expect(yield* pluginEntitySchemaCount(world)).toBe(0);
+				yield* setInstallation(installationId, { uninstalledAt: epoch });
+				expect(yield* userPlugins(world.userId)).toEqual([]);
+				expect(yield* pluginEntitySchemaCount(world)).toBe(0);
 
-			yield* setInstallation(installationId, { uninstalledAt: null });
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ installationId, isExecutable: true },
-			]);
-			expect(yield* pluginEntitySchemaCount(world)).toBe(1);
-		}),
+				yield* setInstallation(installationId, { uninstalledAt: null });
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ installationId, isExecutable: true },
+				]);
+				expect(yield* pluginEntitySchemaCount(world)).toBe(1);
+			}),
+		testTimeout,
 	);
 
-	test.effect("follows visibility and health", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("system");
-			const { installationId } = yield* installConfigured(world);
+	test.effect(
+		"follows visibility and health",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("system");
+				const { installationId } = yield* installConfigured(world);
 
-			yield* setInstallation(installationId, { isHidden: true });
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isHidden: true, isListed: true, isExecutable: false, isDefinitionEffective: false },
-			]);
+				yield* setInstallation(installationId, { isHidden: true });
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ isHidden: true, isListed: true, isExecutable: false, isDefinitionEffective: false },
+				]);
 
-			yield* setInstallation(installationId, { isHidden: false, health: "installing" });
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isListed: true, isExecutable: false, health: "installing", isDefinitionEffective: true },
-			]);
+				yield* setInstallation(installationId, { isHidden: false, health: "installing" });
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{
+						isListed: true,
+						isExecutable: false,
+						health: "installing",
+						isDefinitionEffective: true,
+					},
+				]);
 
-			yield* setInstallation(installationId, {
-				health: "incompatible",
-				incompatibilityReason: "package-identity-conflict",
-			});
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isListed: false, isExecutable: false, health: "incompatible" },
-			]);
-			expect(yield* pluginEntitySchemaCount(world)).toBe(0);
-			expect(yield* sandboxProviderCount(world)).toBe(0);
-		}),
+				yield* setInstallation(installationId, {
+					health: "incompatible",
+					incompatibilityReason: "package-identity-conflict",
+				});
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ isListed: false, isExecutable: false, health: "incompatible" },
+				]);
+				expect(yield* pluginEntitySchemaCount(world)).toBe(0);
+				expect(yield* sandboxProviderCount(world)).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	test.effect("follows revision and installation configuration activation for a user plugin", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("user");
-			const { configId, installationId } = yield* installConfigured(world);
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ scope: "user", isExecutable: true, configRevisionId: configId },
-			]);
+	test.effect(
+		"follows revision and installation configuration activation for a user plugin",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("user");
+				const { configId, installationId } = yield* installConfigured(world);
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ scope: "user", isExecutable: true, configRevisionId: configId },
+				]);
 
-			yield* setPlugin(world, { activeRevisionId: world.revisionIds[1] });
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isExecutable: false, configRevisionId: configId, activeRevisionId: world.revisionIds[1] },
-			]);
-			expect(yield* sandboxProviderCount(world)).toBe(0);
+				yield* setPlugin(world, { activeRevisionId: world.revisionIds[1] });
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{
+						isExecutable: false,
+						configRevisionId: configId,
+						activeRevisionId: world.revisionIds[1],
+					},
+				]);
+				expect(yield* sandboxProviderCount(world)).toBe(0);
 
-			const nextConfigId = `config-next-${world.key}`;
-			yield* insertConfig({
-				id: nextConfigId,
-				ownerUserId: world.userId,
-				pluginInstallationId: installationId,
-				pluginRevisionId: world.revisionIds[1],
-			});
-			yield* setInstallation(installationId, { activeConfigRevisionId: nextConfigId });
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isExecutable: true, configRevisionId: nextConfigId },
-			]);
-			expect(yield* sandboxProviderCount(world)).toBe(1);
-		}),
+				const nextConfigId = `config-next-${world.key}`;
+				yield* insertConfig({
+					id: nextConfigId,
+					ownerUserId: world.userId,
+					pluginInstallationId: installationId,
+					pluginRevisionId: world.revisionIds[1],
+				});
+				yield* setInstallation(installationId, { activeConfigRevisionId: nextConfigId });
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ isExecutable: true, configRevisionId: nextConfigId },
+				]);
+				expect(yield* sandboxProviderCount(world)).toBe(1);
+			}),
+		testTimeout,
 	);
 
-	test.effect("follows environment configuration activation for a system plugin", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("system");
-			yield* install(world);
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isExecutable: false, configRevisionId: null },
-			]);
+	test.effect(
+		"follows environment configuration activation for a system plugin",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("system");
+				yield* install(world);
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ isExecutable: false, configRevisionId: null },
+				]);
 
-			const configId = `config-${world.key}`;
-			yield* insertConfig({
-				id: configId,
-				ownerUserId: null,
-				pluginInstallationId: null,
-				pluginRevisionId: world.revisionIds[1],
-			});
-			yield* setPlugin(world, {
-				environmentConfigRevisionId: configId,
-				activeRevisionId: world.revisionIds[1],
-			});
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isExecutable: true, configRevisionId: configId, activeRevisionId: world.revisionIds[1] },
-			]);
+				const configId = `config-${world.key}`;
+				yield* insertConfig({
+					id: configId,
+					ownerUserId: null,
+					pluginInstallationId: null,
+					pluginRevisionId: world.revisionIds[1],
+				});
+				yield* setPlugin(world, {
+					environmentConfigRevisionId: configId,
+					activeRevisionId: world.revisionIds[1],
+				});
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{
+						isExecutable: true,
+						configRevisionId: configId,
+						activeRevisionId: world.revisionIds[1],
+					},
+				]);
 
-			yield* setPlugin(world, { environmentConfigRevisionId: null });
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isExecutable: false, configRevisionId: null },
-			]);
-		}),
+				yield* setPlugin(world, { environmentConfigRevisionId: null });
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ isExecutable: false, configRevisionId: null },
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("drops the row while the plugin is not active", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("system");
-			yield* installConfigured(world);
-			yield* setPlugin(world, { status: "inactive" });
-			expect(yield* userPlugins(world.userId)).toEqual([]);
-			expect(yield* sandboxProviderCount(world)).toBe(0);
-			yield* setPlugin(world, { status: "active" });
-			expect(yield* userPlugins(world.userId)).toMatchObject([{ isExecutable: true }]);
-		}),
+	test.effect(
+		"drops the row while the plugin is not active",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("system");
+				yield* installConfigured(world);
+				yield* setPlugin(world, { status: "inactive" });
+				expect(yield* userPlugins(world.userId)).toEqual([]);
+				expect(yield* sandboxProviderCount(world)).toBe(0);
+				yield* setPlugin(world, { status: "active" });
+				expect(yield* userPlugins(world.userId)).toMatchObject([{ isExecutable: true }]);
+			}),
+		testTimeout,
 	);
 
 	for (const scope of ["user", "system"] as const) {
-		test.effect(`stops executing a ${scope} plugin whose configuration payload is pruned`, () =>
-			Effect.gen(function* () {
-				const world = yield* createWorld(scope);
-				const { configId } = yield* installConfigured(world);
-				expect(yield* sandboxProviderCount(world)).toBe(1);
-				yield* pruneConfig(configId);
-				expect(yield* userPlugins(world.userId)).toMatchObject([
-					{ isExecutable: false, configRevisionId: configId },
-				]);
-				expect(yield* sandboxProviderCount(world)).toBe(0);
-			}),
+		test.effect(
+			`stops executing a ${scope} plugin whose configuration payload is pruned`,
+			() =>
+				Effect.gen(function* () {
+					const world = yield* createWorld(scope);
+					const { configId } = yield* installConfigured(world);
+					expect(yield* sandboxProviderCount(world)).toBe(1);
+					yield* pruneConfig(configId);
+					expect(yield* userPlugins(world.userId)).toMatchObject([
+						{ isExecutable: false, configRevisionId: configId },
+					]);
+					expect(yield* sandboxProviderCount(world)).toBe(0);
+				}),
+			testTimeout,
 		);
 	}
 
-	test.effect("never lists another user's private plugin", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("user");
-			const intruder = `intruder-${world.key}`;
-			yield* insertUser(intruder);
-			yield* install(world, intruder);
-			expect(yield* userPlugins(intruder)).toEqual([]);
-		}),
+	test.effect(
+		"never lists another user's private plugin",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("user");
+				const intruder = `intruder-${world.key}`;
+				yield* insertUser(intruder);
+				yield* install(world, intruder);
+				expect(yield* userPlugins(intruder)).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("merges a concurrent plugin update and installation update", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("user");
-			const { configId, installationId } = yield* installConfigured(world);
-			yield* contend(
-				setPlugin(world, { activeRevisionId: world.revisionIds[1] }),
-				setInstallation(installationId, { isHidden: true }),
-			);
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{
-					isHidden: true,
-					isExecutable: false,
-					configRevisionId: configId,
-					activeRevisionId: world.revisionIds[1],
-				},
-			]);
-		}),
+	test.effect(
+		"merges a concurrent plugin update and installation update",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("user");
+				const { configId, installationId } = yield* installConfigured(world);
+				yield* contend(
+					setPlugin(world, { activeRevisionId: world.revisionIds[1] }),
+					setInstallation(installationId, { isHidden: true }),
+				);
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{
+						isHidden: true,
+						isExecutable: false,
+						configRevisionId: configId,
+						activeRevisionId: world.revisionIds[1],
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("does not list an installation inserted while the plugin is being deactivated", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("system");
-			yield* contend(setPlugin(world, { status: "inactive" }), install(world));
-			expect(yield* userPlugins(world.userId)).toEqual([]);
-		}),
+	test.effect(
+		"does not list an installation inserted while the plugin is being deactivated",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("system");
+				yield* contend(setPlugin(world, { status: "inactive" }), install(world));
+				expect(yield* userPlugins(world.userId)).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("does not execute with a configuration pruned while the installation adopts it", () =>
-		Effect.gen(function* () {
-			const world = yield* createWorld("user");
-			const { installationId } = yield* installConfigured(world);
-			const prunedId = `config-pruned-${world.key}`;
-			yield* insertConfig({
-				id: prunedId,
-				ownerUserId: world.userId,
-				pluginInstallationId: installationId,
-				pluginRevisionId: world.revisionIds[0],
-			});
-			yield* contend(
-				pruneConfig(prunedId),
-				setInstallation(installationId, { activeConfigRevisionId: prunedId }),
-			);
-			expect(yield* userPlugins(world.userId)).toMatchObject([
-				{ isExecutable: false, configRevisionId: prunedId },
-			]);
-		}),
+	test.effect(
+		"does not execute with a configuration pruned while the installation adopts it",
+		() =>
+			Effect.gen(function* () {
+				const world = yield* createWorld("user");
+				const { installationId } = yield* installConfigured(world);
+				const prunedId = `config-pruned-${world.key}`;
+				yield* insertConfig({
+					id: prunedId,
+					ownerUserId: world.userId,
+					pluginInstallationId: installationId,
+					pluginRevisionId: world.revisionIds[0],
+				});
+				yield* contend(
+					pruneConfig(prunedId),
+					setInstallation(installationId, { activeConfigRevisionId: prunedId }),
+				);
+				expect(yield* userPlugins(world.userId)).toMatchObject([
+					{ isExecutable: false, configRevisionId: prunedId },
+				]);
+			}),
+		testTimeout,
 	);
 });

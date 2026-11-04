@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { LogEntry, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	entityRecord,
@@ -173,31 +176,34 @@ describe("jellyfin-push sandbox script", () => {
 		);
 	});
 
-	it.effect("treats a played-item HTTP failure as non-fatal", () =>
-		Effect.gen(function* () {
-			const calls: HttpCall[] = [];
-			const warnings: (readonly LogEntry[])[] = [];
-			const host = createHost({
-				entity: movieEntity,
-				log: createLog(warnings),
-				integrations: [jellyfinIntegration],
-				httpCall: createHttpCall(
-					calls,
-					[{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }],
-					true,
-				),
-			});
-			const result = yield* runAutomation(host);
-			expect(result).toBeNull();
-			expect(warnings).toEqual([
-				[
-					{
-						level: "warning",
-						message: "Jellyfin push failed",
-						attributes: { error: "already played" },
-					},
-				],
-			]);
-		}),
+	it.effect(
+		"treats a played-item HTTP failure as non-fatal",
+		() =>
+			Effect.gen(function* () {
+				const calls: HttpCall[] = [];
+				const warnings: (readonly LogEntry[])[] = [];
+				const host = createHost({
+					entity: movieEntity,
+					log: createLog(warnings),
+					integrations: [jellyfinIntegration],
+					httpCall: createHttpCall(
+						calls,
+						[{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }],
+						true,
+					),
+				});
+				const result = yield* runAutomation(host);
+				expect(result).toBeNull();
+				expect(warnings).toEqual([
+					[
+						{
+							level: "warning",
+							message: "Jellyfin push failed",
+							attributes: { error: "already played" },
+						},
+					],
+				]);
+			}),
+		testTimeout,
 	);
 });

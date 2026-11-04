@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
@@ -6,7 +7,9 @@ import {
 	mountPluginPage,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { fixtureRoutePageContext } from "../tests/client/page-context";
 import { PokemonPicker } from "./pokemon-picker";
@@ -47,61 +50,64 @@ const collectionRequests = (page: ReturnType<typeof mountPluginPage>) =>
 describe("PokemonPicker", () => {
 	afterEach(disposePluginBridges);
 
-	it.live("cancels a locally pushed choice without writing and pops host history", () =>
-		Effect.gen(function* () {
-			const page = mountPluginPage(PokemonPicker, {
-				page: fixtureRoutePageContext(),
-				location: routeLocation("/", "keep=1"),
-			});
-			yield* replyChoices(page);
+	it.live(
+		"cancels a locally pushed choice without writing and pops host history",
+		() =>
+			Effect.gen(function* () {
+				const page = mountPluginPage(PokemonPicker, {
+					page: fixtureRoutePageContext(),
+					location: routeLocation("/", "keep=1"),
+				});
+				yield* replyChoices(page);
 
-			fireEvent.click(screen.getByRole("button", { name: "Add Charmander to collection" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.clientMessages()).toContainEqual({
-						mode: "push",
-						type: "page-search",
-						update: { entityId: "pokemon-2", dialog: "add-to-collection" },
-					}),
-				),
-			);
-			page.navigate(routeLocation("/", "keep=1&dialog=add-to-collection&entityId=pokemon-2"), {
-				index: 1,
-				key: "k1",
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("dialog", { name: "Choose a collection" })).toBeTruthy(),
-				),
-			);
-			expect(
-				page.clientMessages().filter((message) => message.type === "overlay-state"),
-			).toHaveLength(0);
-			fireEvent.click(screen.getByRole("radio", { name: "Favorites" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						screen.getByRole("radio", { name: "Favorites" }).getAttribute("aria-checked"),
-					).toBe("true"),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Review" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(screen.getByRole("heading", { name: "Review collection change" })).toBeTruthy(),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+				fireEvent.click(screen.getByRole("button", { name: "Add Charmander to collection" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual({
+							mode: "push",
+							type: "page-search",
+							update: { entityId: "pokemon-2", dialog: "add-to-collection" },
+						}),
+					),
+				);
+				page.navigate(routeLocation("/", "keep=1&dialog=add-to-collection&entityId=pokemon-2"), {
+					index: 1,
+					key: "k1",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("dialog", { name: "Choose a collection" })).toBeTruthy(),
+					),
+				);
+				expect(
+					page.clientMessages().filter((message) => message.type === "overlay-state"),
+				).toHaveLength(0);
+				fireEvent.click(screen.getByRole("radio", { name: "Favorites" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("radio", { name: "Favorites" }).getAttribute("aria-checked"),
+						).toBe("true"),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Review" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("heading", { name: "Review collection change" })).toBeTruthy(),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						page.clientMessages().filter((message) => message.type === "navigate-back"),
-					).toHaveLength(1),
-				),
-			);
-			expect(collectionRequests(page)).toHaveLength(0);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							page.clientMessages().filter((message) => message.type === "navigate-back"),
+						).toHaveLength(1),
+					),
+				);
+				expect(collectionRequests(page)).toHaveLength(0);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -190,5 +196,6 @@ describe("PokemonPicker", () => {
 					page.clientMessages().filter((message) => message.type === "navigate-back"),
 				).toHaveLength(0);
 			}),
+		testTimeout,
 	);
 });

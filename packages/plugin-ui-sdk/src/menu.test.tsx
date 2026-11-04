@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useRef, useState } from "react";
-import { describe, expect, it } from "vitest";
 
 import { Menu, type MenuItem } from "./menu";
 

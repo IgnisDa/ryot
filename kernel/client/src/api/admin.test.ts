@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http";
 
@@ -10,48 +13,54 @@ import { FileDownloadError, type FileDownloadRequest } from "#/modules/downloads
 const origin = ServerOrigin.make("https://ryot.example");
 
 describe("admin API", () => {
-	it.live("starts a download from its short-lived URL", () =>
-		Effect.gen(function* () {
-			const downloads: Array<FileDownloadRequest> = [];
-			const api = makeAdminApi(
-				HttpClient.make(() => Effect.die("not used")),
-				{ download: (request) => Effect.sync(() => downloads.push(request)) },
-			);
-			yield* api.download(
-				"https://ryot.example/api/instance-admin/logs/download?ticket=short",
-				"logs.zip",
-			);
+	it.live(
+		"starts a download from its short-lived URL",
+		() =>
+			Effect.gen(function* () {
+				const downloads: Array<FileDownloadRequest> = [];
+				const api = makeAdminApi(
+					HttpClient.make(() => Effect.die("not used")),
+					{ download: (request) => Effect.sync(() => downloads.push(request)) },
+				);
+				yield* api.download(
+					"https://ryot.example/api/instance-admin/logs/download?ticket=short",
+					"logs.zip",
+				);
 
-			expect(downloads).toEqual([
-				{
-					fileName: "logs.zip",
-					url: "https://ryot.example/api/instance-admin/logs/download?ticket=short",
-				},
-			]);
-		}),
+				expect(downloads).toEqual([
+					{
+						fileName: "logs.zip",
+						url: "https://ryot.example/api/instance-admin/logs/download?ticket=short",
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("maps native unauthorized and transport failures", () =>
-		Effect.gen(function* () {
-			const api = makeAdminApi(
-				HttpClient.make(() => Effect.die("not used")),
-				{
-					download: (request) =>
-						Effect.fail(
-							request.fileName === "unauthorized.zip"
-								? new FileDownloadError({ cause: 401, status: 401 })
-								: new FileDownloadError({ cause: "offline" }),
-						),
-				},
-			);
-			const unauthorized = yield* Effect.flip(
-				api.download("https://download.test/a", "unauthorized.zip"),
-			);
-			const transport = yield* Effect.flip(api.download("https://download.test/b", "logs.zip"));
+	it.live(
+		"maps native unauthorized and transport failures",
+		() =>
+			Effect.gen(function* () {
+				const api = makeAdminApi(
+					HttpClient.make(() => Effect.die("not used")),
+					{
+						download: (request) =>
+							Effect.fail(
+								request.fileName === "unauthorized.zip"
+									? new FileDownloadError({ cause: 401, status: 401 })
+									: new FileDownloadError({ cause: "offline" }),
+							),
+					},
+				);
+				const unauthorized = yield* Effect.flip(
+					api.download("https://download.test/a", "unauthorized.zip"),
+				);
+				const transport = yield* Effect.flip(api.download("https://download.test/b", "logs.zip"));
 
-			expect(unauthorized.cause).toBeInstanceOf(AuthUnauthorized);
-			expect(transport.cause).toBeInstanceOf(FileDownloadError);
-		}),
+				expect(unauthorized.cause).toBeInstanceOf(AuthUnauthorized);
+				expect(transport.cause).toBeInstanceOf(FileDownloadError);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -83,26 +92,30 @@ describe("admin API", () => {
 				expect(requests[0]?.headers).toMatchObject({ "admin-access-token": "admin-secret" });
 				expect(requests[0]?.headers).not.toHaveProperty("authorization");
 			}),
+		testTimeout,
 	);
 
-	it.effect("wraps contract failures without exposing the token", () =>
-		Effect.gen(function* () {
-			const api = makeAdminApi(
-				HttpClient.make((request) =>
-					Effect.fail(
-						new HttpClientError.HttpClientError({
-							reason: new HttpClientError.TransportError({ request, description: "offline" }),
-						}),
+	it.effect(
+		"wraps contract failures without exposing the token",
+		() =>
+			Effect.gen(function* () {
+				const api = makeAdminApi(
+					HttpClient.make((request) =>
+						Effect.fail(
+							new HttpClientError.HttpClientError({
+								reason: new HttpClientError.TransportError({ request, description: "offline" }),
+							}),
+						),
 					),
-				),
-				{ download: () => Effect.void },
-			);
-			const error = yield* Effect.flip(
-				api.run(origin, "admin-secret", (client) => client.system.health()),
-			);
+					{ download: () => Effect.void },
+				);
+				const error = yield* Effect.flip(
+					api.run(origin, "admin-secret", (client) => client.system.health()),
+				);
 
-			expect(error.cause).toBeInstanceOf(HttpClientError.HttpClientError);
-			expect(String(error)).not.toContain("admin-secret");
-		}),
+				expect(error.cause).toBeInstanceOf(HttpClientError.HttpClientError);
+				expect(String(error)).not.toContain("admin-secret");
+			}),
+		testTimeout,
 	);
 });

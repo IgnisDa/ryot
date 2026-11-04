@@ -9,7 +9,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun test --isolate",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -19,7 +19,6 @@
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",
-		"bun-types": "1.4.4",
-		"vitest": "4.1.9"
+		"bun-types": "1.4.4"
 	}
 }

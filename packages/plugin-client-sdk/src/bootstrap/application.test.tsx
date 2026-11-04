@@ -1,4 +1,5 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
@@ -12,8 +13,11 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
 import { Modal } from "@ryot-app/plugin-ui-sdk";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 import { useEffect, useState } from "react";
@@ -284,456 +288,497 @@ describe("bootstrapClientPlugin", () => {
 					yield* Effect.promise(() => b.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("interrupts pending page work on disposal without disposing its harness clock", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			let started = false;
-			let interrupted = false;
-			const Pending = () => {
-				const schedule = useRyotSchedule();
-				useEffect(() => {
-					schedule.run(
-						Effect.sync(() => {
-							started = true;
-						}).pipe(
-							Effect.andThen(Effect.never),
-							Effect.ensuring(
-								Effect.sync(() => {
-									interrupted = true;
-								}),
+	it.live(
+		"interrupts pending page work on disposal without disposing its harness clock",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				let started = false;
+				let interrupted = false;
+				const Pending = () => {
+					const schedule = useRyotSchedule();
+					useEffect(() => {
+						schedule.run(
+							Effect.sync(() => {
+								started = true;
+							}).pipe(
+								Effect.andThen(Effect.never),
+								Effect.ensuring(
+									Effect.sync(() => {
+										interrupted = true;
+									}),
+								),
+							),
+							() => {},
+						);
+					}, [schedule]);
+					return <p>Waiting</p>;
+				};
+				try {
+					const page = mountPluginPage(Pending, {
+						bootstrap: clock.bootstrap,
+						location: routeLocation("/"),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(page.container?.textContent).toBe("Waiting")),
+					);
+					yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
+					page.dispose();
+					yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+					const next = mountPluginPage(ScheduledHome, {
+						bootstrap: clock.bootstrap,
+						location: routeLocation("/"),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(next.container?.textContent).toBe("ticks:0")),
+					);
+					yield* Effect.promise(() => clock.advance(100));
+					expect(next.container?.textContent).toBe("ticks:1");
+					next.dispose();
+				} finally {
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"cleans up the port and listeners when runtime construction fails",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				const broken = createClientBootstrap(() => {
+					throw new Error("private bootstrap failure");
+				});
+				try {
+					const failed = mountPluginPage(StaticHome, {
+						bootstrap: broken,
+						location: routeLocation("/"),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(failed.messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+						),
+					);
+					failed.dispose();
+					const next = mountPluginPage(ScheduledHome, {
+						bootstrap: clock.bootstrap,
+						location: routeLocation("/"),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() => expect(next.container?.textContent).toBe("ticks:0")),
+					);
+					yield* Effect.promise(() => clock.advance(100));
+					expect(next.container?.textContent).toBe("ticks:1");
+					next.dispose();
+				} finally {
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"disposes a runtime once after fatal bootstrap failure and explicit disposal",
+		() =>
+			Effect.gen(function* () {
+				let disposals = 0;
+				const bootstrap = createClientBootstrap((client, navigation) =>
+					ManagedRuntime.make(
+						Layer.mergeAll(
+							RyotClientService.layer(client),
+							RyotNavigationService.layer(navigation),
+							Layer.provide(RyotScheduleService.layer, SecureRandom.layerWebCrypto),
+							Layer.effectDiscard(
+								Effect.addFinalizer(() =>
+									Effect.sync(() => {
+										disposals += 1;
+									}),
+								),
 							),
 						),
-						() => {},
-					);
-				}, [schedule]);
-				return <p>Waiting</p>;
-			};
-			try {
-				const page = mountPluginPage(Pending, {
-					bootstrap: clock.bootstrap,
-					location: routeLocation("/"),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(page.container?.textContent).toBe("Waiting")),
+					),
 				);
-				yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
-				page.dispose();
-				yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
-				const next = mountPluginPage(ScheduledHome, {
-					bootstrap: clock.bootstrap,
-					location: routeLocation("/"),
-				});
+				const page = mountPluginPage(StaticHome, { bootstrap, location: routeLocation("/") });
 				yield* Effect.promise(() =>
-					waitFor(() => expect(next.container?.textContent).toBe("ticks:0")),
+					waitFor(() => expect(page.container?.textContent).toBe("Mounted")),
 				);
-				yield* Effect.promise(() => clock.advance(100));
-				expect(next.container?.textContent).toBe("ticks:1");
-				next.dispose();
-			} finally {
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
-
-	it.live("cleans up the port and listeners when runtime construction fails", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			const broken = createClientBootstrap(() => {
-				throw new Error("private bootstrap failure");
-			});
-			try {
-				const failed = mountPluginPage(StaticHome, {
-					bootstrap: broken,
-					location: routeLocation("/"),
-				});
+				window.dispatchEvent(
+					new ErrorEvent("error", { cancelable: true, error: new Error("fatal") }),
+				);
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						expect(failed.messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+						expect(page.messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
 					),
 				);
-				failed.dispose();
-				const next = mountPluginPage(ScheduledHome, {
-					bootstrap: clock.bootstrap,
-					location: routeLocation("/"),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() => expect(next.container?.textContent).toBe("ticks:0")),
-				);
-				yield* Effect.promise(() => clock.advance(100));
-				expect(next.container?.textContent).toBe("ticks:1");
-				next.dispose();
-			} finally {
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
-	);
-
-	it.live("disposes a runtime once after fatal bootstrap failure and explicit disposal", () =>
-		Effect.gen(function* () {
-			let disposals = 0;
-			const bootstrap = createClientBootstrap((client, navigation) =>
-				ManagedRuntime.make(
-					Layer.mergeAll(
-						RyotClientService.layer(client),
-						RyotNavigationService.layer(navigation),
-						Layer.provide(RyotScheduleService.layer, SecureRandom.layerWebCrypto),
-						Layer.effectDiscard(
-							Effect.addFinalizer(() =>
-								Effect.sync(() => {
-									disposals += 1;
-								}),
-							),
-						),
-					),
-				),
-			);
-			const page = mountPluginPage(StaticHome, { bootstrap, location: routeLocation("/") });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.container?.textContent).toBe("Mounted")),
-			);
-			window.dispatchEvent(
-				new ErrorEvent("error", { cancelable: true, error: new Error("fatal") }),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(page.messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
-				),
-			);
-			yield* Effect.promise(() => waitFor(() => expect(disposals).toBe(1)));
-			page.dispose();
-			yield* waitForMessagePortMacrotask;
-			expect(disposals).toBe(1);
-		}),
+				yield* Effect.promise(() => waitFor(() => expect(disposals).toBe(1)));
+				page.dispose();
+				yield* waitForMessagePortMacrotask;
+				expect(disposals).toBe(1);
+			}),
+		testTimeout,
 	);
 
 	it("does not expose the removed navigation hook", () => {
 		expect(pluginSurface).not.toHaveProperty("usePluginNavigation");
 	});
 
-	it.live("does not register a session without valid embedded metadata", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			yield* waitForMessagePortMacrotask;
-			expect(messages).toEqual([]);
-		}),
+	it.live(
+		"does not register a session without valid embedded metadata",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				yield* waitForMessagePortMacrotask;
+				expect(messages).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("creates one session client and supplies it through RyotProvider", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toContainEqual(
-						objectContaining({ requestId: "operation-1", type: "operation-request" }),
+	it.live(
+		"creates one session client and supplies it through RyotProvider",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toContainEqual(
+							objectContaining({ requestId: "operation-1", type: "operation-request" }),
+						),
 					),
-				),
-			);
-			channel.port1.postMessage({
-				value: "Hello",
-				outcome: "success",
-				type: "operation-result",
-				requestId: "operation-1",
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello")),
-			);
-			channel.port1.postMessage({ mode: "dark", type: "theme" });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello")),
-			);
-		}),
+				);
+				channel.port1.postMessage({
+					value: "Hello",
+					outcome: "success",
+					type: "operation-result",
+					requestId: "operation-1",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello")),
+				);
+				channel.port1.postMessage({ mode: "dark", type: "theme" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("supplies plugin-route page context through the shared page hook", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: PageContextHome } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", {
-					source: window.parent,
-					ports: [channel.port2],
-					data: {
-						...init,
-						page: {
-							view: null,
-							settings: {},
-							contributors: [],
-							dataSources: null,
-							route: { params: {} },
-							renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
-							target: {
-								path: "/",
-								search: "tab=stats",
-								kind: "plugin-route",
-								packageId: PluginPackageId.make("test/plugin-1"),
+	it.live(
+		"supplies plugin-route page context through the shared page hook",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: PageContextHome } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						source: window.parent,
+						ports: [channel.port2],
+						data: {
+							...init,
+							page: {
+								view: null,
+								settings: {},
+								contributors: [],
+								dataSources: null,
+								route: { params: {} },
+								renderer: { kind: "plugin", exportName: "home", pluginId: "plugin-1" },
+								target: {
+									path: "/",
+									search: "tab=stats",
+									kind: "plugin-route",
+									packageId: PluginPackageId.make("test/plugin-1"),
+								},
 							},
 						},
-					},
-				}),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/", "tab=stats"),
-			});
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe(
-						"plugin-route:plugin:test/plugin-1",
-					),
-				),
-			);
-		}),
-	);
-
-	it.live("renders a selected dynamic page at its logical route with prepared params", () =>
-		Effect.gen(function* () {
-			mountSelectedPage(
-				{
-					view: null,
-					settings: {},
-					contributors: [],
-					dataSources: null,
-					route: { params: { itemId: "item-1" } },
-					renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "details" },
-					target: {
-						search: "tab=stats",
-						kind: "plugin-route",
-						path: "/details/item-1",
-						packageId: PluginPackageId.make("test/plugin-1"),
-					},
-				},
-				routeLocation("/details/item-1", "tab=stats"),
-			);
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("plugin-route:item-1:none:none"),
-				),
-			);
-		}),
-	);
-
-	it.live("replaces page state and cancelled query caches while keeping the runtime client", () =>
-		Effect.gen(function* () {
-			const clients: unknown[] = [];
-			let reads = 0;
-			const pending = Deferred.makeUnsafe<string, RyotClientError>();
-			const query = createRyotQuery(() =>
-				Effect.suspend(() => {
-					reads++;
-					return reads === 1 ? Deferred.await(pending) : Effect.succeed("fresh");
-				}),
-			);
-			const Counter = () => {
-				const client = useRyot();
-				const result = useRyotQuery(query);
-				const { settings } = usePageContext();
-				const [count, setCount] = useState(0);
-				useEffect(() => {
-					clients.push(client);
-				}, [client]);
-				return (
-					<button
-						type="button"
-						onClick={() => setCount((value) => value + 1)}
-					>{`${typeof settings.label === "string" ? settings.label : ""}:${count}:${result.isError ? "disposed" : (result.data ?? "pending")}`}</button>
+					}),
 				);
-			};
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPage(Counter));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			channel.port1.start();
-			const navigation = {
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location" as const,
-				leading: "drawer" as const,
-				location: routeLocation("/"),
-			};
-			window.dispatchEvent(
-				new MessageEvent("message", {
-					source: window.parent,
-					ports: [channel.port2],
-					data: { ...init, page: replacementPage("Records") },
-				}),
-			);
-			channel.port1.postMessage(navigation);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("Records:0:pending"),
-				),
-			);
-			const button = document.querySelector("button");
-			assert(button);
-			fireEvent.click(button);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("Records:1:pending"),
-				),
-			);
-			channel.port1.postMessage({
-				navigation,
-				type: "document",
-				documentKey: "page-2",
-				page: replacementPage("Music"),
-			});
-			yield* Effect.promise(() => waitFor(() => expect(clients).toHaveLength(2)));
-			yield* Deferred.fail(pending, new RyotClientError({ reason: "disposed" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Music:0:fresh")),
-			);
-			expect(reads).toBe(2);
-			expect(clients).toHaveLength(2);
-			expect(clients[1]).toBe(clients[0]);
-		}),
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/", "tab=stats"),
+				});
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe(
+							"plugin-route:plugin:test/plugin-1",
+						),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("renders an already-selected not-found page at the unmatched logical route", () =>
-		Effect.gen(function* () {
-			mountSelectedPage(
-				{
-					view: null,
-					settings: {},
-					contributors: [],
-					dataSources: null,
-					route: { params: {} },
-					renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "not-found" },
-					target: {
-						search: "",
-						path: "/missing",
-						kind: "plugin-route",
-						packageId: PluginPackageId.make("test/plugin-1"),
+	it.live(
+		"renders a selected dynamic page at its logical route with prepared params",
+		() =>
+			Effect.gen(function* () {
+				mountSelectedPage(
+					{
+						view: null,
+						settings: {},
+						contributors: [],
+						dataSources: null,
+						route: { params: { itemId: "item-1" } },
+						renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "details" },
+						target: {
+							search: "tab=stats",
+							kind: "plugin-route",
+							path: "/details/item-1",
+							packageId: PluginPackageId.make("test/plugin-1"),
+						},
 					},
-				},
-				routeLocation("/missing"),
-			);
+					routeLocation("/details/item-1", "tab=stats"),
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("plugin-route:none:none:none"),
-				),
-			);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe(
+							"plugin-route:item-1:none:none",
+						),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("renders a selected entity page with entity renderer props", () =>
-		Effect.gen(function* () {
-			const channel = mountSelectedPage(
-				{
-					view: null,
-					settings: {},
-					contributors: [],
-					dataSources: null,
-					route: { params: {} },
-					renderer: { kind: "plugin", exportName: "detail", pluginId: "plugin-1" },
-					target: {
+	it.live(
+		"replaces page state and cancelled query caches while keeping the runtime client",
+		() =>
+			Effect.gen(function* () {
+				const clients: unknown[] = [];
+				let reads = 0;
+				const pending = Deferred.makeUnsafe<string, RyotClientError>();
+				const query = createRyotQuery(() =>
+					Effect.suspend(() => {
+						reads++;
+						return reads === 1 ? Deferred.await(pending) : Effect.succeed("fresh");
+					}),
+				);
+				const Counter = () => {
+					const client = useRyot();
+					const result = useRyotQuery(query);
+					const { settings } = usePageContext();
+					const [count, setCount] = useState(0);
+					useEffect(() => {
+						clients.push(client);
+					}, [client]);
+					return (
+						<button
+							type="button"
+							onClick={() => setCount((value) => value + 1)}
+						>{`${typeof settings.label === "string" ? settings.label : ""}:${count}:${result.isError ? "disposed" : (result.data ?? "pending")}`}</button>
+					);
+				};
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPage(Counter));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				channel.port1.start();
+				const navigation = {
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location" as const,
+					leading: "drawer" as const,
+					location: routeLocation("/"),
+				};
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						source: window.parent,
+						ports: [channel.port2],
+						data: { ...init, page: replacementPage("Records") },
+					}),
+				);
+				channel.port1.postMessage(navigation);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe("Records:0:pending"),
+					),
+				);
+				const button = document.querySelector("button");
+				assert(button);
+				fireEvent.click(button);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe("Records:1:pending"),
+					),
+				);
+				channel.port1.postMessage({
+					navigation,
+					type: "document",
+					documentKey: "page-2",
+					page: replacementPage("Music"),
+				});
+				yield* Effect.promise(() => waitFor(() => expect(clients).toHaveLength(2)));
+				yield* Deferred.fail(pending, new RyotClientError({ reason: "disposed" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Music:0:fresh")),
+				);
+				expect(reads).toBe(2);
+				expect(clients).toHaveLength(2);
+				expect(clients[1]).toBe(clients[0]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"renders an already-selected not-found page at the unmatched logical route",
+		() =>
+			Effect.gen(function* () {
+				mountSelectedPage(
+					{
+						view: null,
+						settings: {},
+						contributors: [],
+						dataSources: null,
+						route: { params: {} },
+						renderer: { kind: "plugin", pluginId: "plugin-1", exportName: "not-found" },
+						target: {
+							search: "",
+							path: "/missing",
+							kind: "plugin-route",
+							packageId: PluginPackageId.make("test/plugin-1"),
+						},
+					},
+					routeLocation("/missing"),
+				);
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe("plugin-route:none:none:none"),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"renders a selected entity page with entity renderer props",
+		() =>
+			Effect.gen(function* () {
+				const channel = mountSelectedPage(
+					{
+						view: null,
+						settings: {},
+						contributors: [],
+						dataSources: null,
+						route: { params: {} },
+						renderer: { kind: "plugin", exportName: "detail", pluginId: "plugin-1" },
+						target: {
+							kind: "entity",
+							entitySchemaPluginId: "plugin-1",
+							entityId: EntityId.make("entity-1"),
+							entitySchemaSlug: EntitySchemaSlug.make("show"),
+						},
+					},
+					{
 						kind: "entity",
-						entitySchemaPluginId: "plugin-1",
+						search: "tab=history",
 						entityId: EntityId.make("entity-1"),
 						entitySchemaSlug: EntitySchemaSlug.make("show"),
 					},
-				},
-				{
-					kind: "entity",
-					search: "tab=history",
-					entityId: EntityId.make("entity-1"),
-					entitySchemaSlug: EntitySchemaSlug.make("show"),
-				},
-			);
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("entity:none:entity-1:show"),
-				),
-			);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe("entity:none:entity-1:show"),
+					),
+				);
 
-			channel.port1.postMessage({
-				index: 1,
-				key: "k1",
-				compact: false,
-				edgeBack: true,
-				leading: "back",
-				type: "location",
-				location: {
-					search: "",
-					kind: "entity",
-					entityId: EntityId.make("entity-2"),
-					entitySchemaSlug: EntitySchemaSlug.make("show"),
-				},
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toContain(
-						"entity:none:entity-2:show",
+				channel.port1.postMessage({
+					index: 1,
+					key: "k1",
+					compact: false,
+					edgeBack: true,
+					leading: "back",
+					type: "location",
+					location: {
+						search: "",
+						kind: "entity",
+						entityId: EntityId.make("entity-2"),
+						entitySchemaSlug: EntitySchemaSlug.make("show"),
+					},
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toContain(
+							"entity:none:entity-2:show",
+						),
 					),
-				),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: {
-					kind: "entity",
-					search: "tab=history",
-					entityId: EntityId.make("entity-1"),
-					entitySchemaSlug: EntitySchemaSlug.make("show"),
-				},
-			});
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toContain(
-						"entity:none:entity-1:show",
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: {
+						kind: "entity",
+						search: "tab=history",
+						entityId: EntityId.make("entity-1"),
+						entitySchemaSlug: EntitySchemaSlug.make("show"),
+					},
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toContain(
+							"entity:none:entity-1:show",
+						),
 					),
-				),
-			);
-		}),
+				);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -848,382 +893,453 @@ describe("bootstrapClientPlugin", () => {
 					}),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("accepts entity renderer registrations during bootstrap", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(
-				bootstrapClientPlugin({
-					home: { component: StaticHome },
-					entities: { "fixture-record": { component: RecordRenderer } },
-				}),
-			);
-			const channel = new MessageChannel();
-			channels.push(channel);
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "record",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: {
-					search: "",
-					kind: "entity",
-					entityId: "record-1",
-					entitySchemaSlug: "fixture-record",
-				},
-			});
-
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("record-1:fixture-record"),
-				),
-			);
-		}),
-	);
-
-	it.live("publishes the active screen's own title, including after a pop", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(
-				bootstrapClientPlugin({
-					home: { component: TitledHome },
-					routes: [{ path: "/items/$itemId", component: TitledDetail }],
-				}),
-			);
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			const headers = () =>
-				messages.filter(
-					(message) =>
-						typeof message === "object" &&
-						message !== null &&
-						"type" in message &&
-						message.type === "header",
+	it.live(
+		"accepts entity renderer registrations during bootstrap",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(
+					bootstrapClientPlugin({
+						home: { component: StaticHome },
+						entities: { "fixture-record": { component: RecordRenderer } },
+					}),
 				);
-			const goTo = (index: number, key: string, path: string) => {
+				const channel = new MessageChannel();
+				channels.push(channel);
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
 				channel.port1.postMessage({
-					key,
-					index,
+					index: 0,
+					key: "record",
 					compact: false,
+					edgeBack: false,
 					type: "location",
-					edgeBack: index > 0,
-					location: routeLocation(path),
-					leading: index > 0 ? "back" : "drawer",
+					leading: "drawer",
+					location: {
+						search: "",
+						kind: "entity",
+						entityId: "record-1",
+						entitySchemaSlug: "fixture-record",
+					},
 				});
-				return waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
-			};
 
-			yield* Effect.promise(() => goTo(0, "home", "/"));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(headers()).toEqual([
-						{ index: 0, key: "home", type: "header", header: { title: "Home" } },
-					]),
-				),
-			);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(document.getElementById("app")?.textContent).toBe("record-1:fixture-record"),
+					),
+				);
+			}),
+		testTimeout,
+	);
 
-			yield* Effect.promise(() => goTo(1, "detail", "/items/1"));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(headers().at(-1)).toEqual({
-						index: 1,
-						key: "detail",
-						type: "header",
-						header: { title: "Item 1" },
+	it.live(
+		"publishes the active screen's own title, including after a pop",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(
+					bootstrapClientPlugin({
+						home: { component: TitledHome },
+						routes: [{ path: "/items/$itemId", component: TitledDetail }],
 					}),
-				),
-			);
-
-			yield* Effect.promise(() => goTo(0, "home", "/"));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(headers().at(-1)).toEqual({
-						index: 0,
-						key: "home",
-						type: "header",
-						header: { title: "Home" },
+				);
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
 					}),
-				),
-			);
-		}),
+				);
+				const headers = () =>
+					messages.filter(
+						(message) =>
+							typeof message === "object" &&
+							message !== null &&
+							"type" in message &&
+							message.type === "header",
+					);
+				const goTo = (index: number, key: string, path: string) => {
+					channel.port1.postMessage({
+						key,
+						index,
+						compact: false,
+						type: "location",
+						edgeBack: index > 0,
+						location: routeLocation(path),
+						leading: index > 0 ? "back" : "drawer",
+					});
+					return waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
+				};
+
+				yield* Effect.promise(() => goTo(0, "home", "/"));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(headers()).toEqual([
+							{ index: 0, key: "home", type: "header", header: { title: "Home" } },
+						]),
+					),
+				);
+
+				yield* Effect.promise(() => goTo(1, "detail", "/items/1"));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(headers().at(-1)).toEqual({
+							index: 1,
+							key: "detail",
+							type: "header",
+							header: { title: "Item 1" },
+						}),
+					),
+				);
+
+				yield* Effect.promise(() => goTo(0, "home", "/"));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(headers().at(-1)).toEqual({
+							index: 0,
+							key: "home",
+							type: "header",
+							header: { title: "Home" },
+						}),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("does not mount plugin React before the initial location", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			yield* waitForMessagePortMacrotask;
-			expect(document.getElementById("app")?.textContent).toBe("");
+	it.live(
+		"does not mount plugin React before the initial location",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				yield* waitForMessagePortMacrotask;
+				expect(document.getElementById("app")?.textContent).toBe("");
 
-			yield* waitForMessagePortMacrotask;
-			expect(document.getElementById("app")?.textContent).toBe("");
+				yield* waitForMessagePortMacrotask;
+				expect(document.getElementById("app")?.textContent).toBe("");
 
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
-			);
-		}),
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("contains fatal window errors before activation", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			const error = new ErrorEvent("error", { cancelable: true, error: new Error("fatal") });
-			window.dispatchEvent(error);
+	it.live(
+		"contains fatal window errors before activation",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				const error = new ErrorEvent("error", { cancelable: true, error: new Error("fatal") });
+				window.dispatchEvent(error);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
-				),
-			);
-			expect(error.defaultPrevented).toBe(true);
-			expect(document.getElementById("app")?.textContent).toBe("");
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+					),
+				);
+				expect(error.defaultPrevented).toBe(true);
+				expect(document.getElementById("app")?.textContent).toBe("");
+			}),
+		testTimeout,
 	);
 
-	it.live("contains fatal React render errors", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: CrashingHome } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
+	it.live(
+		"contains fatal React render errors",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: CrashingHome } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
-				),
-			);
-			expect(document.getElementById("app")?.textContent).toBe("");
-			const error = new ErrorEvent("error", { cancelable: true, error: new Error("late") });
-			window.dispatchEvent(error);
-			expect(error.defaultPrevented).toBe(false);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+					),
+				);
+				expect(document.getElementById("app")?.textContent).toBe("");
+				const error = new ErrorEvent("error", { cancelable: true, error: new Error("late") });
+				window.dispatchEvent(error);
+				expect(error.defaultPrevented).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("reports uncaught window errors through the active session", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
-			);
+	it.live(
+		"reports uncaught window errors through the active session",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
+				);
 
-			const error = new ErrorEvent("error", { cancelable: true, error: new Error("uncaught") });
-			window.dispatchEvent(error);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
-				),
-			);
-			expect(error.defaultPrevented).toBe(true);
-		}),
+				const error = new ErrorEvent("error", { cancelable: true, error: new Error("uncaught") });
+				window.dispatchEvent(error);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+					),
+				);
+				expect(error.defaultPrevented).toBe(true);
+			}),
+		testTimeout,
 	);
 
-	it.live("reports unhandled rejections and removes session listeners after failure", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			const bootstrap = bootstrapClientPlugin({ home: { component: StaticHome } });
-			bootstraps.push(bootstrap);
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
-			);
+	it.live(
+		"reports unhandled rejections and removes session listeners after failure",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				const bootstrap = bootstrapClientPlugin({ home: { component: StaticHome } });
+				bootstraps.push(bootstrap);
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
+				);
 
-			const rejection = new Event("unhandledrejection", { cancelable: true });
-			window.dispatchEvent(rejection);
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
-				),
-			);
-			expect(rejection.defaultPrevented).toBe(true);
+				const rejection = new Event("unhandledrejection", { cancelable: true });
+				window.dispatchEvent(rejection);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toContainEqual({ reason: "failed", type: "lifecycle-close" }),
+					),
+				);
+				expect(rejection.defaultPrevented).toBe(true);
 
-			bootstrap.dispose();
-			const lateError = new ErrorEvent("error", { cancelable: true, error: new Error("late") });
-			const lateRejection = new Event("unhandledrejection", { cancelable: true });
-			window.dispatchEvent(lateError);
-			window.dispatchEvent(lateRejection);
-			expect(lateError.defaultPrevented).toBe(false);
-			expect(lateRejection.defaultPrevented).toBe(false);
-		}),
+				bootstrap.dispose();
+				const lateError = new ErrorEvent("error", { cancelable: true, error: new Error("late") });
+				const lateRejection = new Event("unhandledrejection", { cancelable: true });
+				window.dispatchEvent(lateError);
+				window.dispatchEvent(lateRejection);
+				expect(lateError.defaultPrevented).toBe(false);
+				expect(lateRejection.defaultPrevented).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("removes session listeners on normal disposal", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			const bootstrap = bootstrapClientPlugin({ home: { component: StaticHome } });
-			bootstraps.push(bootstrap);
-			const channel = new MessageChannel();
-			channels.push(channel);
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
-			);
+	it.live(
+		"removes session listeners on normal disposal",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				const bootstrap = bootstrapClientPlugin({ home: { component: StaticHome } });
+				bootstraps.push(bootstrap);
+				const channel = new MessageChannel();
+				channels.push(channel);
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
+				);
 
-			bootstrap.dispose();
-			const error = new ErrorEvent("error", { cancelable: true, error: new Error("late") });
-			const rejection = new Event("unhandledrejection", { cancelable: true });
-			window.dispatchEvent(error);
-			window.dispatchEvent(rejection);
-			expect(error.defaultPrevented).toBe(false);
-			expect(rejection.defaultPrevented).toBe(false);
-		}),
+				bootstrap.dispose();
+				const error = new ErrorEvent("error", { cancelable: true, error: new Error("late") });
+				const rejection = new Event("unhandledrejection", { cancelable: true });
+				window.dispatchEvent(error);
+				window.dispatchEvent(rejection);
+				expect(error.defaultPrevented).toBe(false);
+				expect(rejection.defaultPrevented).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("removes its window listener when disposed before initialization", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			const bootstrap = bootstrapClientPlugin({ home: { component: Home } });
-			bootstrap.dispose();
-			const channel = new MessageChannel();
-			channels.push(channel);
-			const messages: unknown[] = [];
-			channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-			channel.port1.start();
+	it.live(
+		"removes its window listener when disposed before initialization",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				const bootstrap = bootstrapClientPlugin({ home: { component: Home } });
+				bootstrap.dispose();
+				const channel = new MessageChannel();
+				channels.push(channel);
+				const messages: unknown[] = [];
+				channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+				channel.port1.start();
 
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			yield* waitForMessagePortMacrotask;
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				yield* waitForMessagePortMacrotask;
 
-			expect(messages).toEqual([]);
-		}),
+				expect(messages).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("unmounts the React root when the host disposes the runtime", () =>
-		Effect.gen(function* () {
-			document.body.innerHTML = '<div id="app"></div>';
-			embedMetadata();
-			bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
-			const channel = new MessageChannel();
-			channels.push(channel);
-			channel.port1.start();
-			window.dispatchEvent(
-				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
-			);
-			channel.port1.postMessage({
-				index: 0,
-				key: "k0",
-				compact: false,
-				edgeBack: false,
-				type: "location",
-				leading: "drawer",
-				location: routeLocation("/"),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
-			);
+	it.live(
+		"unmounts the React root when the host disposes the runtime",
+		() =>
+			Effect.gen(function* () {
+				document.body.innerHTML = '<div id="app"></div>';
+				embedMetadata();
+				bootstraps.push(bootstrapClientPlugin({ home: { component: StaticHome } }));
+				const channel = new MessageChannel();
+				channels.push(channel);
+				channel.port1.start();
+				window.dispatchEvent(
+					new MessageEvent("message", {
+						data: init,
+						source: window.parent,
+						ports: [channel.port2],
+					}),
+				);
+				channel.port1.postMessage({
+					index: 0,
+					key: "k0",
+					compact: false,
+					edgeBack: false,
+					type: "location",
+					leading: "drawer",
+					location: routeLocation("/"),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted")),
+				);
 
-			channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
+				channel.port1.postMessage({ reason: "disposed", type: "lifecycle-close" });
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("")),
-			);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.getElementById("app")?.textContent).toBe("")),
+				);
+			}),
+		testTimeout,
 	);
 });

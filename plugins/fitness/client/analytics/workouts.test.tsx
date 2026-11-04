@@ -1,4 +1,5 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -10,7 +11,10 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type {
@@ -203,6 +207,7 @@ describe("Fitness analytics workout charts", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -259,38 +264,44 @@ describe("Fitness analytics workout charts", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 
-	it.live("clips consistency to the most recent bucket-limit days of the selected period", () =>
-		Effect.gen(function* () {
-			const clock = createTestRyotClock();
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-12-31T18:00:00Z")));
-			const allTime: AnalyticsScope["selection"] = {
-				grouping: "auto",
-				range: { kind: "all-time" },
-				comparison: "previous-period",
-			};
-			const { page } = mountWorkouts(clock, allTime);
-			const answered = new Set<string>();
-			try {
-				yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
-				yield* answerInitial(page, answered, {
-					trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)]),
-				});
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByText(/^Workout starts per day · .* · last 366 days$/)).toBeDefined(),
-					),
-				);
-				expect(
-					screen.getByRole("img", { name: /^Workout starts · Dec 31, 2025 – Dec 31, 2026$/ }),
-				).toBeDefined();
-				expect(page.queryRequests("workoutTrend")).toHaveLength(2);
-			} finally {
-				page.dispose();
-				yield* Effect.promise(() => clock.dispose());
-			}
-		}),
+	it.live(
+		"clips consistency to the most recent bucket-limit days of the selected period",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				yield* Effect.promise(() => clock.setTime(Date.parse("2026-12-31T18:00:00Z")));
+				const allTime: AnalyticsScope["selection"] = {
+					grouping: "auto",
+					range: { kind: "all-time" },
+					comparison: "previous-period",
+				};
+				const { page } = mountWorkouts(clock, allTime);
+				const answered = new Set<string>();
+				try {
+					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
+					yield* answerInitial(page, answered, {
+						trend: () => trendResponse([workoutPoint("2026-12-31T00:00:00.000Z", 2)]),
+					});
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								screen.getByText(/^Workout starts per day · .* · last 366 days$/),
+							).toBeDefined(),
+						),
+					);
+					expect(
+						screen.getByRole("img", { name: /^Workout starts · Dec 31, 2025 – Dec 31, 2026$/ }),
+					).toBeDefined();
+					expect(page.queryRequests("workoutTrend")).toHaveLength(2);
+				} finally {
+					page.dispose();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -363,5 +374,6 @@ describe("Fitness analytics workout charts", () => {
 					yield* Effect.promise(() => clock.dispose());
 				}
 			}),
+		testTimeout,
 	);
 });

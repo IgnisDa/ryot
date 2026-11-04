@@ -1,6 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { assert, describe, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import type { SpotifyHost } from "../../../lib/vendors/spotify";

@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	CollectionConflict,
@@ -14,12 +15,14 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit, Layer } from "effect";
-import { assert } from "vitest";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { CollectionOrderingService } from "#modules/collections/ordering-service";
@@ -236,7 +239,7 @@ layer(orderingLayer)((test) => {
 					);
 					revision += 1;
 					expect(result).toEqual({ orderRevision: revision, collectionId: fixture.collectionId });
-					expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(move.expected);
+					expect(yield* orderedMemberIds(fixture.collectionId)).toEqual<unknown>(move.expected);
 				}
 				const noOp = yield* ordering.reorder(
 					currentUser(ownerId),
@@ -256,6 +259,7 @@ layer(orderingLayer)((test) => {
 					});
 				}
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -303,76 +307,83 @@ layer(orderingLayer)((test) => {
 				);
 				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(laterOrder);
 			}),
+		testTimeout,
 	);
 
-	test.effect("allows only one concurrent reorder at a shared expected revision", () =>
-		Effect.gen(function* () {
-			const ordering = yield* CollectionOrderingService;
-			const fixture = yield* makeFixture({ memberCount: 4 });
-			const [a, b] = fixture.memberIds;
-			assert(a && b);
-			const revision = yield* orderRevision(fixture.collectionId);
-			const moves: ReadonlyArray<{
-				readonly member: EntityId;
-				readonly destination: ReorderMembershipBody["destination"];
-			}> = [
-				{ member: a, destination: { kind: "end" } },
-				{ member: b, destination: { kind: "start" } },
-			];
-			const exits = yield* Effect.forEach(
-				moves,
-				({ member, destination }) =>
-					Effect.exit(
-						ordering.reorder(
-							currentUser(ownerId),
-							reorderInput(
-								fixture.collectionId,
-								member,
-								revision,
-								destination,
-								crypto.randomUUID(),
+	test.effect(
+		"allows only one concurrent reorder at a shared expected revision",
+		() =>
+			Effect.gen(function* () {
+				const ordering = yield* CollectionOrderingService;
+				const fixture = yield* makeFixture({ memberCount: 4 });
+				const [a, b] = fixture.memberIds;
+				assert(a && b);
+				const revision = yield* orderRevision(fixture.collectionId);
+				const moves: ReadonlyArray<{
+					readonly member: EntityId;
+					readonly destination: ReorderMembershipBody["destination"];
+				}> = [
+					{ member: a, destination: { kind: "end" } },
+					{ member: b, destination: { kind: "start" } },
+				];
+				const exits = yield* Effect.forEach(
+					moves,
+					({ member, destination }) =>
+						Effect.exit(
+							ordering.reorder(
+								currentUser(ownerId),
+								reorderInput(
+									fixture.collectionId,
+									member,
+									revision,
+									destination,
+									crypto.randomUUID(),
+								),
+								lifecycleCommand(crypto.randomUUID()),
 							),
-							lifecycleCommand(crypto.randomUUID()),
 						),
-					),
-				{ concurrency: 2 },
-			);
-			expect(exits.filter(Exit.isSuccess)).toHaveLength(1);
-			const failure = exits.find(Exit.isFailure);
-			assert(failure);
-			assertExitFails(failure, new CollectionConflict({ reason: { code: "order-stale" } }));
-		}),
+					{ concurrency: 2 },
+				);
+				expect(exits.filter(Exit.isSuccess)).toHaveLength(1);
+				const failure = exits.find(Exit.isFailure);
+				assert(failure);
+				assertExitFails(failure, new CollectionConflict({ reason: { code: "order-stale" } }));
+			}),
+		testTimeout,
 	);
 
-	test.effect("does not stale a collection after a different collection changes", () =>
-		Effect.gen(function* () {
-			const ordering = yield* CollectionOrderingService;
-			const left = yield* makeFixture({ memberCount: 3 });
-			const right = yield* makeFixture({ memberCount: 3 });
-			const leftRevision = yield* orderRevision(left.collectionId);
-			const rightRevision = yield* orderRevision(right.collectionId);
-			const rightMember = right.memberIds[0];
-			const leftMember = left.memberIds[0];
-			assert(rightMember && leftMember);
-			const changedRight = yield* ordering.reorder(
-				currentUser(ownerId),
-				reorderInput(
-					right.collectionId,
-					rightMember,
-					rightRevision,
-					{ kind: "end" },
-					"right-change",
-				),
-				lifecycleCommand(yield* randomUuid),
-			);
-			expect(changedRight.orderRevision).toBeGreaterThan(rightRevision);
-			const changedLeft = yield* ordering.reorder(
-				currentUser(ownerId),
-				reorderInput(left.collectionId, leftMember, leftRevision, { kind: "end" }, "left-change"),
-				lifecycleCommand(yield* randomUuid),
-			);
-			expect(changedLeft.orderRevision).toBeGreaterThan(leftRevision);
-		}),
+	test.effect(
+		"does not stale a collection after a different collection changes",
+		() =>
+			Effect.gen(function* () {
+				const ordering = yield* CollectionOrderingService;
+				const left = yield* makeFixture({ memberCount: 3 });
+				const right = yield* makeFixture({ memberCount: 3 });
+				const leftRevision = yield* orderRevision(left.collectionId);
+				const rightRevision = yield* orderRevision(right.collectionId);
+				const rightMember = right.memberIds[0];
+				const leftMember = left.memberIds[0];
+				assert(rightMember && leftMember);
+				const changedRight = yield* ordering.reorder(
+					currentUser(ownerId),
+					reorderInput(
+						right.collectionId,
+						rightMember,
+						rightRevision,
+						{ kind: "end" },
+						"right-change",
+					),
+					lifecycleCommand(yield* randomUuid),
+				);
+				expect(changedRight.orderRevision).toBeGreaterThan(rightRevision);
+				const changedLeft = yield* ordering.reorder(
+					currentUser(ownerId),
+					reorderInput(left.collectionId, leftMember, leftRevision, { kind: "end" }, "left-change"),
+					lifecycleCommand(yield* randomUuid),
+				);
+				expect(changedLeft.orderRevision).toBeGreaterThan(leftRevision);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -452,6 +463,7 @@ layer(orderingLayer)((test) => {
 				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(initialOrder);
 				expect(yield* orderRevision(fixture.collectionId)).toBe(revision);
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -510,6 +522,7 @@ layer(orderingLayer)((test) => {
 				const ordered = yield* orderedMemberIds(fixture.collectionId);
 				expect(new Set(ordered.slice(0, 2))).toEqual(new Set(unseededMembers));
 			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -561,112 +574,122 @@ layer(orderingLayer)((test) => {
 					expect(row.properties["metadata"]).toEqual({ sourceIndex: originalIndex });
 				}
 			}),
+		testTimeout,
 	);
 
-	test.effect("globally redistributes a dense collection when local ranks cannot fit a move", () =>
-		Effect.gen(function* () {
-			const ordering = yield* CollectionOrderingService;
-			const fixture = yield* makeFixture({ rankStep: 1, memberCount: 620 });
-			const anchor = fixture.memberIds[310];
-			const moving = fixture.memberIds[619];
-			const first = fixture.memberIds[0];
-			assert(anchor && moving && first);
-			const revision = yield* orderRevision(fixture.collectionId);
-			const result = yield* ordering.reorder(
-				currentUser(ownerId),
-				reorderInput(
-					fixture.collectionId,
+	test.effect(
+		"globally redistributes a dense collection when local ranks cannot fit a move",
+		() =>
+			Effect.gen(function* () {
+				const ordering = yield* CollectionOrderingService;
+				const fixture = yield* makeFixture({ rankStep: 1, memberCount: 620 });
+				const anchor = fixture.memberIds[310];
+				const moving = fixture.memberIds[619];
+				const first = fixture.memberIds[0];
+				assert(anchor && moving && first);
+				const revision = yield* orderRevision(fixture.collectionId);
+				const result = yield* ordering.reorder(
+					currentUser(ownerId),
+					reorderInput(
+						fixture.collectionId,
+						moving,
+						revision,
+						{ kind: "after", entityId: anchor },
+						"dense-middle",
+					),
+					lifecycleCommand(yield* randomUuid),
+				);
+				const expectedOrder = [
+					...fixture.memberIds.slice(0, 311),
 					moving,
-					revision,
-					{ kind: "after", entityId: anchor },
-					"dense-middle",
-				),
-				lifecycleCommand(yield* randomUuid),
-			);
-			const expectedOrder = [
-				...fixture.memberIds.slice(0, 311),
-				moving,
-				...fixture.memberIds.slice(311, 619),
-			];
-			expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(expectedOrder);
-			expect(result.orderRevision).toBeGreaterThan(revision);
-			const rows = yield* membershipRows(fixture.collectionId);
-			const ranks = rows.map(({ properties }) => rankOf(properties));
-			expect(new Set(ranks).size).toBe(rows.length);
-			expect(ranks.every(Number.isSafeInteger)).toBe(true);
-			const firstRow = rows.find((row) => row.sourceEntityId === first);
-			assert(firstRow);
-			expect(rankOf(firstRow.properties)).not.toBe(0);
-		}),
+					...fixture.memberIds.slice(311, 619),
+				];
+				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(expectedOrder);
+				expect(result.orderRevision).toBeGreaterThan(revision);
+				const rows = yield* membershipRows(fixture.collectionId);
+				const ranks = rows.map(({ properties }) => rankOf(properties));
+				expect(new Set(ranks).size).toBe(rows.length);
+				expect(ranks.every(Number.isSafeInteger)).toBe(true);
+				const firstRow = rows.find((row) => row.sourceEntityId === first);
+				assert(firstRow);
+				expect(rankOf(firstRow.properties)).not.toBe(0);
+			}),
+		testTimeout,
 	);
 
-	test.effect("invalidates a captured revision after membership deletion", () =>
-		Effect.gen(function* () {
-			const ordering = yield* CollectionOrderingService;
-			const session = yield* DatabaseSession;
-			const fixture = yield* makeFixture({ memberCount: 3 });
-			const [deleted, remaining] = fixture.memberIds;
-			assert(deleted && remaining);
-			const revision = yield* orderRevision(fixture.collectionId);
-			yield* session.run((db) =>
-				db
-					.delete(tables.relationship)
-					.where(
-						and(
-							eq(tables.relationship.userId, ownerId),
-							eq(tables.relationship.targetEntityId, fixture.collectionId),
-							eq(tables.relationship.sourceEntityId, deleted),
+	test.effect(
+		"invalidates a captured revision after membership deletion",
+		() =>
+			Effect.gen(function* () {
+				const ordering = yield* CollectionOrderingService;
+				const session = yield* DatabaseSession;
+				const fixture = yield* makeFixture({ memberCount: 3 });
+				const [deleted, remaining] = fixture.memberIds;
+				assert(deleted && remaining);
+				const revision = yield* orderRevision(fixture.collectionId);
+				yield* session.run((db) =>
+					db
+						.delete(tables.relationship)
+						.where(
+							and(
+								eq(tables.relationship.userId, ownerId),
+								eq(tables.relationship.targetEntityId, fixture.collectionId),
+								eq(tables.relationship.sourceEntityId, deleted),
+							),
+						),
+				);
+				expect(yield* orderRevision(fixture.collectionId)).toBe(revision + 1);
+				assertExitFails(
+					yield* Effect.exit(
+						ordering.reorder(
+							currentUser(ownerId),
+							reorderInput(
+								fixture.collectionId,
+								remaining,
+								revision,
+								{ kind: "end" },
+								"deleted-stale",
+							),
+							lifecycleCommand(yield* randomUuid),
 						),
 					),
-			);
-			expect(yield* orderRevision(fixture.collectionId)).toBe(revision + 1);
-			assertExitFails(
-				yield* Effect.exit(
-					ordering.reorder(
-						currentUser(ownerId),
-						reorderInput(
-							fixture.collectionId,
-							remaining,
-							revision,
-							{ kind: "end" },
-							"deleted-stale",
-						),
-						lifecycleCommand(yield* randomUuid),
-					),
-				),
-				new CollectionConflict({ reason: { code: "order-stale" } }),
-			);
-		}),
+					new CollectionConflict({ reason: { code: "order-stale" } }),
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("invalidates a captured revision when member deletion cascades", () =>
-		Effect.gen(function* () {
-			const ordering = yield* CollectionOrderingService;
-			const session = yield* DatabaseSession;
-			const fixture = yield* makeFixture({ memberCount: 3 });
-			const [deleted, remaining] = fixture.memberIds;
-			assert(deleted && remaining);
-			const revision = yield* orderRevision(fixture.collectionId);
-			yield* session.run((db) => db.delete(tables.entity).where(eq(tables.entity.id, deleted)));
-			expect(yield* orderRevision(fixture.collectionId)).toBe(revision + 1);
-			expect(yield* orderedMemberIds(fixture.collectionId)).not.toContain(deleted);
-			assertExitFails(
-				yield* Effect.exit(
-					ordering.reorder(
-						currentUser(ownerId),
-						reorderInput(
-							fixture.collectionId,
-							remaining,
-							revision,
-							{ kind: "end" },
-							"cascade-stale",
+	test.effect(
+		"invalidates a captured revision when member deletion cascades",
+		() =>
+			Effect.gen(function* () {
+				const ordering = yield* CollectionOrderingService;
+				const session = yield* DatabaseSession;
+				const fixture = yield* makeFixture({ memberCount: 3 });
+				const [deleted, remaining] = fixture.memberIds;
+				assert(deleted && remaining);
+				const revision = yield* orderRevision(fixture.collectionId);
+				yield* session.run((db) => db.delete(tables.entity).where(eq(tables.entity.id, deleted)));
+				expect(yield* orderRevision(fixture.collectionId)).toBe(revision + 1);
+				expect(yield* orderedMemberIds(fixture.collectionId)).not.toContain(deleted);
+				assertExitFails(
+					yield* Effect.exit(
+						ordering.reorder(
+							currentUser(ownerId),
+							reorderInput(
+								fixture.collectionId,
+								remaining,
+								revision,
+								{ kind: "end" },
+								"cascade-stale",
+							),
+							lifecycleCommand(yield* randomUuid),
 						),
-						lifecycleCommand(yield* randomUuid),
 					),
-				),
-				new CollectionConflict({ reason: { code: "order-stale" } }),
-			);
-		}),
+					new CollectionConflict({ reason: { code: "order-stale" } }),
+				);
+			}),
+		testTimeout,
 	);
 
 	test.effect(
@@ -711,5 +734,6 @@ layer(orderingLayer)((test) => {
 				);
 				expect(yield* orderRevision(fixture.collectionId)).toBe(revision);
 			}),
+		testTimeout,
 	);
 });

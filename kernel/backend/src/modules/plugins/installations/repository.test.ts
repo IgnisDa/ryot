@@ -1,8 +1,11 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { type PluginPackageId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
-import { assert, describe } from "vitest";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -81,115 +84,120 @@ const recordedActivationsLayer = Layer.effectContext(
 
 describe("installation revision persistence", () => {
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("quarantines exact private claims without replacing records or configuration", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const plugins = yield* PluginRepository;
-				const installations = yield* PluginInstallationRepository;
-				const plugin = revisionPackage("same-name");
-				const privateInstallation = yield* session.transaction(
-					Effect.gen(function* () {
-						yield* plugins.lockIngestion();
-						const pluginId = yield* plugins.persist(plugin, { scope: "user", ownerId: owner });
-						return yield* installations.create({
-							pluginId,
-							config: {},
-							sortOrder: 0,
-							userId: owner,
-							health: "ready",
-							isHidden: false,
-						});
-					}),
-				);
-				assert(privateInstallation);
-				const quarantined = yield* session.transaction(
-					Effect.gen(function* () {
-						yield* plugins.lockIngestion();
-						yield* plugins.persist(plugin, { ownerId: null, scope: "system" });
-						return yield* installations.quarantinePackageIdentityConflicts(
-							plugin.manifest.metadata.packageId,
-						);
-					}),
-				);
-				expect(quarantined).toEqual([
-					{ userId: owner, id: privateInstallation.id, pluginId: privateInstallation.pluginId },
-				]);
-				const retained = yield* installations.findByUserAndPlugin(
-					owner,
-					privateInstallation.pluginId,
-				);
-				expect(retained).toMatchObject({
-					uninstalledAt: null,
-					health: "incompatible",
-					id: privateInstallation.id,
-					config: privateInstallation.config,
-					incompatibilityReason: "package-identity-conflict",
-					activeConfigRevisionId: privateInstallation.activeConfigRevisionId,
-				});
-				const privatePlugin = yield* plugins.findPrivateByIdForUser(
-					privateInstallation.pluginId,
-					owner,
-				);
-				assert(privatePlugin);
-				expect(
-					yield* session.transaction(
-						installations.updateHealthForActivation({
-							health: "ready",
-							healthReason: null,
-							id: privateInstallation.id,
-							activationId: privatePlugin.activationId,
+		test.effect(
+			"quarantines exact private claims without replacing records or configuration",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const plugins = yield* PluginRepository;
+					const installations = yield* PluginInstallationRepository;
+					const plugin = revisionPackage("same-name");
+					const privateInstallation = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* plugins.lockIngestion();
+							const pluginId = yield* plugins.persist(plugin, { scope: "user", ownerId: owner });
+							return yield* installations.create({
+								pluginId,
+								config: {},
+								sortOrder: 0,
+								userId: owner,
+								health: "ready",
+								isHidden: false,
+							});
 						}),
-					),
-				).toBe(false);
-				const recoveredActivation = yield* session.transaction(
-					Effect.gen(function* () {
-						yield* plugins.lockIngestion();
-						const system = yield* plugins.findActiveSystemPluginByPackageId(
-							plugin.manifest.metadata.packageId,
-						);
-						assert(system);
-						yield* plugins.deactivate(system.id);
-						const activationId = yield* plugins.rotatePrivateActivation({
-							ownerId: owner,
-							pluginId: privatePlugin.id,
-							expectedActivationId: privatePlugin.activationId,
-						});
-						yield* installations.updateHealth({
-							healthReason: null,
-							health: "installing",
-							id: privateInstallation.id,
-						});
-						return activationId;
-					}),
-				);
-				expect(recoveredActivation).not.toBe(privatePlugin.activationId);
-				expect(
-					yield* session.transaction(
-						installations.updateHealthForActivation({
-							health: "ready",
-							healthReason: null,
-							id: privateInstallation.id,
-							activationId: privatePlugin.activationId,
+					);
+					assert(privateInstallation);
+					const quarantined = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* plugins.lockIngestion();
+							yield* plugins.persist(plugin, { ownerId: null, scope: "system" });
+							return yield* installations.quarantinePackageIdentityConflicts(
+								plugin.manifest.metadata.packageId,
+							);
 						}),
-					),
-				).toBe(false);
-				expect((yield* installations.findById(privateInstallation.id))?.isInitialized).toBe(false);
-				expect(
-					yield* session.transaction(
-						installations.updateHealthForActivation({
-							health: "ready",
-							healthReason: null,
-							id: privateInstallation.id,
-							activationId: recoveredActivation,
+					);
+					expect(quarantined).toEqual([
+						{ userId: owner, id: privateInstallation.id, pluginId: privateInstallation.pluginId },
+					]);
+					const retained = yield* installations.findByUserAndPlugin(
+						owner,
+						privateInstallation.pluginId,
+					);
+					expect(retained).toMatchObject({
+						uninstalledAt: null,
+						health: "incompatible",
+						id: privateInstallation.id,
+						config: privateInstallation.config,
+						incompatibilityReason: "package-identity-conflict",
+						activeConfigRevisionId: privateInstallation.activeConfigRevisionId,
+					});
+					const privatePlugin = yield* plugins.findPrivateByIdForUser(
+						privateInstallation.pluginId,
+						owner,
+					);
+					assert(privatePlugin);
+					expect(
+						yield* session.transaction(
+							installations.updateHealthForActivation({
+								health: "ready",
+								healthReason: null,
+								id: privateInstallation.id,
+								activationId: privatePlugin.activationId,
+							}),
+						),
+					).toBe(false);
+					const recoveredActivation = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* plugins.lockIngestion();
+							const system = yield* plugins.findActiveSystemPluginByPackageId(
+								plugin.manifest.metadata.packageId,
+							);
+							assert(system);
+							yield* plugins.deactivate(system.id);
+							const activationId = yield* plugins.rotatePrivateActivation({
+								ownerId: owner,
+								pluginId: privatePlugin.id,
+								expectedActivationId: privatePlugin.activationId,
+							});
+							yield* installations.updateHealth({
+								healthReason: null,
+								health: "installing",
+								id: privateInstallation.id,
+							});
+							return activationId;
 						}),
-					),
-				).toBe(true);
-				expect(yield* installations.findByUserAndPlugin(owner, privatePlugin.id)).toMatchObject({
-					health: "ready",
-					isInitialized: true,
-					activeConfigRevisionId: privateInstallation.activeConfigRevisionId,
-				});
-			}),
+					);
+					expect(recoveredActivation).not.toBe(privatePlugin.activationId);
+					expect(
+						yield* session.transaction(
+							installations.updateHealthForActivation({
+								health: "ready",
+								healthReason: null,
+								id: privateInstallation.id,
+								activationId: privatePlugin.activationId,
+							}),
+						),
+					).toBe(false);
+					expect((yield* installations.findById(privateInstallation.id))?.isInitialized).toBe(
+						false,
+					);
+					expect(
+						yield* session.transaction(
+							installations.updateHealthForActivation({
+								health: "ready",
+								healthReason: null,
+								id: privateInstallation.id,
+								activationId: recoveredActivation,
+							}),
+						),
+					).toBe(true);
+					expect(yield* installations.findByUserAndPlugin(owner, privatePlugin.id)).toMatchObject({
+						health: "ready",
+						isInitialized: true,
+						activeConfigRevisionId: privateInstallation.activeConfigRevisionId,
+					});
+				}),
+			testTimeout,
 		);
 		test.effect(
 			"marks system initialization from no-entry proof or guarded successful bootstrap completion",
@@ -249,63 +257,69 @@ describe("installation revision persistence", () => {
 					).toBe(true);
 					expect((yield* installations.findById(hasEntries.id))?.isInitialized).toBe(true);
 				}),
+			testTimeout,
 		);
-		test.effect("completes no-entry initializations only for matching activation pairs", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const plugins = yield* PluginRepository;
-				const installations = yield* PluginInstallationRepository;
-				const [firstId, secondId] = yield* session.transaction(
-					Effect.gen(function* () {
-						yield* plugins.lockIngestion();
-						const pluginIds = yield* Effect.forEach(
-							[revisionPackage("first-empty"), revisionPackage("second-empty")],
-							(plugin) => plugins.persist(plugin, { ownerId: null, scope: "system" }),
-						);
-						yield* installations.provisionSystemInstallationsForUser(owner);
-						yield* session.run((db) =>
-							db
-								.update(tables.pluginInstallation)
-								.set({ health: "installing", isInitialized: false })
-								.where(eq(tables.pluginInstallation.userId, owner)),
-						);
-						return pluginIds;
-					}),
-				);
-				assert(firstId && secondId);
-				const first = yield* installations.findByUserAndPlugin(owner, firstId);
-				const second = yield* installations.findByUserAndPlugin(owner, secondId);
-				const firstPlugin = yield* plugins.findActiveSystemPluginById(firstId);
-				const secondPlugin = yield* plugins.findActiveSystemPluginById(secondId);
-				assert(first && second && firstPlugin && secondPlugin);
-				expect(
-					yield* session.transaction(
-						installations.completeNoEntryInitializations({
-							userId: owner,
-							installations: [
-								{ installationId: first.id, activationId: secondPlugin.activationId },
-								{ installationId: second.id, activationId: firstPlugin.activationId },
-							],
+		test.effect(
+			"completes no-entry initializations only for matching activation pairs",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const plugins = yield* PluginRepository;
+					const installations = yield* PluginInstallationRepository;
+					const [firstId, secondId] = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* plugins.lockIngestion();
+							const pluginIds = yield* Effect.forEach(
+								[revisionPackage("first-empty"), revisionPackage("second-empty")],
+								(plugin) => plugins.persist(plugin, { ownerId: null, scope: "system" }),
+							);
+							yield* installations.provisionSystemInstallationsForUser(owner);
+							yield* session.run((db) =>
+								db
+									.update(tables.pluginInstallation)
+									.set({ health: "installing", isInitialized: false })
+									.where(eq(tables.pluginInstallation.userId, owner)),
+							);
+							return pluginIds;
 						}),
-					),
-				).toEqual([]);
-				expect(
-					yield* session.transaction(
-						installations.completeNoEntryInitializations({
-							userId: owner,
-							installations: [{ installationId: first.id, activationId: firstPlugin.activationId }],
-						}),
-					),
-				).toEqual([first.id]);
-				expect(yield* installations.findById(first.id)).toMatchObject({
-					health: "ready",
-					isInitialized: true,
-				});
-				expect(yield* installations.findById(second.id)).toMatchObject({
-					health: "installing",
-					isInitialized: false,
-				});
-			}),
+					);
+					assert(firstId && secondId);
+					const first = yield* installations.findByUserAndPlugin(owner, firstId);
+					const second = yield* installations.findByUserAndPlugin(owner, secondId);
+					const firstPlugin = yield* plugins.findActiveSystemPluginById(firstId);
+					const secondPlugin = yield* plugins.findActiveSystemPluginById(secondId);
+					assert(first && second && firstPlugin && secondPlugin);
+					expect(
+						yield* session.transaction(
+							installations.completeNoEntryInitializations({
+								userId: owner,
+								installations: [
+									{ installationId: first.id, activationId: secondPlugin.activationId },
+									{ installationId: second.id, activationId: firstPlugin.activationId },
+								],
+							}),
+						),
+					).toEqual([]);
+					expect(
+						yield* session.transaction(
+							installations.completeNoEntryInitializations({
+								userId: owner,
+								installations: [
+									{ installationId: first.id, activationId: firstPlugin.activationId },
+								],
+							}),
+						),
+					).toEqual([first.id]);
+					expect(yield* installations.findById(first.id)).toMatchObject({
+						health: "ready",
+						isInitialized: true,
+					});
+					expect(yield* installations.findById(second.id)).toMatchObject({
+						health: "installing",
+						isInitialized: false,
+					});
+				}),
+			testTimeout,
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
@@ -342,25 +356,29 @@ describe("installation revision persistence", () => {
 						).toEqual({ view: { renderer, isHidden: false } });
 					}
 				}),
+			testTimeout,
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("scopes home-view writes to the owning user", () =>
-			Effect.gen(function* () {
-				const repository = yield* PluginInstallationRepository;
-				const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
-				expect(
-					yield* repository.setHomeSavedView(
-						UserId.make("recipient"),
-						installed.installation.id,
-						null,
-					),
-				).toBe(false);
-				expect(yield* repository.setHomeSavedView(owner, installed.installation.id, null)).toBe(
-					true,
-				);
-			}),
+		test.effect(
+			"scopes home-view writes to the owning user",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* PluginInstallationRepository;
+					const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
+					expect(
+						yield* repository.setHomeSavedView(
+							UserId.make("recipient"),
+							installed.installation.id,
+							null,
+						),
+					).toBe(false);
+					expect(yield* repository.setHomeSavedView(owner, installed.installation.id, null)).toBe(
+						true,
+					);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -428,6 +446,7 @@ describe("installation revision persistence", () => {
 						configuredSecretPaths: ["token"],
 					});
 				}),
+			testTimeout,
 		);
 	});
 
@@ -471,6 +490,7 @@ describe("installation revision persistence", () => {
 					expect(state?.activeConfigRevisionId).toBeNull();
 					expect(yield* environmentRevisions()).toEqual(before);
 				}),
+			testTimeout,
 		);
 	});
 
@@ -517,6 +537,7 @@ describe("installation revision persistence", () => {
 						configuredSecretPaths: [],
 					});
 				}),
+			testTimeout,
 		);
 	});
 });
@@ -542,30 +563,33 @@ const settingsPackage = (version: string, field: string) => {
 
 describe("pinned user settings", () => {
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("reads the settings schema of the pinned revision after a plugin update", () =>
-			Effect.gen(function* () {
-				const installations = yield* PluginInstallationRepository;
-				const first = yield* installRevisionPackage(settingsPackage("v1", "timezone"), owner);
-				const second = yield* installRevisionPackage(settingsPackage("v2", "locale"), owner);
-				expect(second.revisionId).not.toBe(first.revisionId);
-				const pinned = (pluginRevisionId: string) =>
-					installations.findUserSettingsForRevision({
-						userId: owner,
-						pluginRevisionId,
-						pluginId: first.pluginId,
-						installationId: first.installation.id,
-					});
-				expect((yield* pinned(first.revisionId))?.userSettingsSchema?.fields).toHaveProperty(
-					"timezone",
-				);
-				expect((yield* pinned(second.revisionId))?.userSettingsSchema?.fields).toHaveProperty(
-					"locale",
-				);
-				expect(
-					(yield* installations.findUserSettings(owner, first.installation.id))?.userSettingsSchema
-						?.fields,
-				).toHaveProperty("locale");
-			}),
+		test.effect(
+			"reads the settings schema of the pinned revision after a plugin update",
+			() =>
+				Effect.gen(function* () {
+					const installations = yield* PluginInstallationRepository;
+					const first = yield* installRevisionPackage(settingsPackage("v1", "timezone"), owner);
+					const second = yield* installRevisionPackage(settingsPackage("v2", "locale"), owner);
+					expect(second.revisionId).not.toBe(first.revisionId);
+					const pinned = (pluginRevisionId: string) =>
+						installations.findUserSettingsForRevision({
+							userId: owner,
+							pluginRevisionId,
+							pluginId: first.pluginId,
+							installationId: first.installation.id,
+						});
+					expect((yield* pinned(first.revisionId))?.userSettingsSchema?.fields).toHaveProperty(
+						"timezone",
+					);
+					expect((yield* pinned(second.revisionId))?.userSettingsSchema?.fields).toHaveProperty(
+						"locale",
+					);
+					expect(
+						(yield* installations.findUserSettings(owner, first.installation.id))
+							?.userSettingsSchema?.fields,
+					).toHaveProperty("locale");
+				}),
+			testTimeout,
 		);
 	});
 });

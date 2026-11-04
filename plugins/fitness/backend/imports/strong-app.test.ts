@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { closeTo, objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { parseCsvText } from "./csv";
 import { adaptStrongAppRows } from "./strong-app";
@@ -127,7 +128,7 @@ describe("adaptStrongAppRows", () => {
 				"Etc/GMT",
 			);
 			expect(result.item).toBeUndefined();
-			expect(result.failures).toEqual([
+			expect(result.failures).toEqual<unknown>([
 				objectContaining({ message: `Could not parse workout duration "${duration}"` }),
 			]);
 		},
@@ -152,7 +153,7 @@ describe("adaptStrongAppRows", () => {
 			endedAt: "2026-01-01T11:02:03.000Z",
 			sourceIdentifier: "2026-01-01 10:00:00:Push Day",
 		});
-		expect(result.item?.exercises).toEqual([
+		expect(result.item?.exercises).toEqual<unknown>([
 			{
 				name: "Bench Press",
 				kind: "reps_and_weight",
@@ -187,7 +188,7 @@ describe("adaptStrongAppRows", () => {
 		const result = adaptStrongAppRows(indexedRows(csv), "Etc/GMT");
 
 		expect(result.failures).toEqual([]);
-		expect(result.item?.exercises).toEqual([
+		expect(result.item?.exercises).toEqual<unknown>([
 			{
 				name: "Bench Press",
 				kind: "reps_and_weight",
@@ -216,7 +217,7 @@ describe("adaptStrongAppRows", () => {
 		const result = adaptStrongAppRows(indexedRows(csv), "Etc/GMT");
 
 		expect(result.item).toBeUndefined();
-		expect(result.failures).toEqual([
+		expect(result.failures).toEqual<unknown>([
 			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Row 1",
@@ -240,7 +241,7 @@ describe("adaptStrongAppRows", () => {
 		const result = adaptStrongAppRows(indexedRows(csv), "Etc/GMT");
 
 		expect(result.item).toBeUndefined();
-		expect(result.failures).toEqual([
+		expect(result.failures).toEqual<unknown>([
 			objectContaining({
 				itemIndex: 0,
 				sourceLabel: "Exercise: Mystery",

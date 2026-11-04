@@ -1,8 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Ref } from "effect";
 
 import { makeSubjectRunInput } from "#modules/scripts/authorization/principal.test-support";
@@ -33,53 +36,59 @@ const makeManagedAssetsService = (calls: Ref.Ref<ReadonlyArray<AssetVerification
 			),
 	});
 
-it.effect("uses the trusted execution owner and returns no managed asset metadata", () =>
-	Effect.gen(function* () {
-		const calls = yield* Ref.make<ReadonlyArray<AssetVerificationCall>>([]);
-		const host = yield* makeAssetsScriptHost.pipe(
-			Effect.provideService(ManagedAssetsService, makeManagedAssetsService(calls)),
-		);
-		const userId = UserId.make("execution-owner");
-		const locators = [{ type: "s3", key: "permanent/asset.webp" }] as const;
-		const input = makeSubjectRunInput({
-			userId,
-			type: "user",
-			accountGeneration: { userId, token: "test-account-generation" },
-		});
+it.effect(
+	"uses the trusted execution owner and returns no managed asset metadata",
+	() =>
+		Effect.gen(function* () {
+			const calls = yield* Ref.make<ReadonlyArray<AssetVerificationCall>>([]);
+			const host = yield* makeAssetsScriptHost.pipe(
+				Effect.provideService(ManagedAssetsService, makeManagedAssetsService(calls)),
+			);
+			const userId = UserId.make("execution-owner");
+			const locators = [{ type: "s3", key: "permanent/asset.webp" }] as const;
+			const input = makeSubjectRunInput({
+				userId,
+				type: "user",
+				accountGeneration: { userId, token: "test-account-generation" },
+			});
 
-		expect(yield* host.verifyManagedAssets(input, locators)).toBeNull();
-		expect(
-			yield* host.verifyManagedAssets(
-				makeSubjectRunInput(automationRunSubject("after", userId)),
-				locators,
-			),
-		).toBeNull();
-		expect(yield* Ref.get(calls)).toEqual([
-			{ locators, ownerUserId: userId },
-			{ locators, ownerUserId: userId },
-		]);
-	}),
+			expect(yield* host.verifyManagedAssets(input, locators)).toBeNull();
+			expect(
+				yield* host.verifyManagedAssets(
+					makeSubjectRunInput(automationRunSubject("after", userId)),
+					locators,
+				),
+			).toBeNull();
+			expect(yield* Ref.get(calls)).toEqual([
+				{ locators, ownerUserId: userId },
+				{ locators, ownerUserId: userId },
+			]);
+		}),
+	testTimeout,
 );
 
-it.effect("fails closed when any locator is not owned by the trusted execution owner", () =>
-	Effect.gen(function* () {
-		const calls = yield* Ref.make<ReadonlyArray<AssetVerificationCall>>([]);
-		const host = yield* makeAssetsScriptHost.pipe(
-			Effect.provideService(ManagedAssetsService, makeManagedAssetsService(calls)),
-		);
-		const userId = UserId.make("execution-owner");
-		const input = makeSubjectRunInput({
-			userId,
-			type: "user",
-			accountGeneration: { userId, token: "test-account-generation" },
-		});
-		const failure = yield* host
-			.verifyManagedAssets(input, [{ type: "local", key: "foreign" }])
-			.pipe(Effect.flip);
+it.effect(
+	"fails closed when any locator is not owned by the trusted execution owner",
+	() =>
+		Effect.gen(function* () {
+			const calls = yield* Ref.make<ReadonlyArray<AssetVerificationCall>>([]);
+			const host = yield* makeAssetsScriptHost.pipe(
+				Effect.provideService(ManagedAssetsService, makeManagedAssetsService(calls)),
+			);
+			const userId = UserId.make("execution-owner");
+			const input = makeSubjectRunInput({
+				userId,
+				type: "user",
+				accountGeneration: { userId, token: "test-account-generation" },
+			});
+			const failure = yield* host
+				.verifyManagedAssets(input, [{ type: "local", key: "foreign" }])
+				.pipe(Effect.flip);
 
-		expect(failure.data).toEqual({ code: "asset-forbidden" });
-		expect(yield* Ref.get(calls)).toEqual([
-			{ ownerUserId: userId, locators: [{ type: "local", key: "foreign" }] },
-		]);
-	}),
+			expect(failure.data).toEqual({ code: "asset-forbidden" });
+			expect(yield* Ref.get(calls)).toEqual([
+				{ ownerUserId: userId, locators: [{ type: "local", key: "foreign" }] },
+			]);
+		}),
+	testTimeout,
 );

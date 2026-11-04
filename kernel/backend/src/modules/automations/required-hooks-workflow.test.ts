@@ -1,6 +1,8 @@
+import { expect } from "bun:test";
+
 import { BunCrypto, BunServices } from "@effect/platform-bun";
-import { expect, it } from "@effect/vitest";
 import { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import { it } from "@voila.dev/effect-bun-test";
 import { Clock, Duration, Effect, Layer, Schedule, Schema } from "effect";
 import { Reactivity } from "effect/reactivity";
 import { Workflow } from "effect/workflow";

@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -45,7 +46,10 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "backlog");
 			expect(events).toHaveLength(2);
-			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["backlog", "backlog"]);
+			expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("backlog"),
+				EventSchemaSlug.make("backlog"),
+			]);
 			expect(events.map((event) => event.properties)).toEqual([{}, {}]);
 		}),
 	);
@@ -81,7 +85,10 @@ describe("Events built-in status schemas", () => {
 				expect(allEvents.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(0);
 				const events = allEvents.filter((event) => event.eventSchemaSlug === "progress");
 				expect(events).toHaveLength(2);
-				expect(events.map((event) => event.eventSchemaSlug)).toEqual(["progress", "progress"]);
+				expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+					EventSchemaSlug.make("progress"),
+					EventSchemaSlug.make("progress"),
+				]);
 				expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
 					25.555, 50.444,
 				]);
@@ -112,8 +119,11 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 			expect(events).toHaveLength(2);
-			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
-			expect(events.map((event) => event.properties)).toEqual(
+			expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("complete"),
+				EventSchemaSlug.make("complete"),
+			]);
+			expect(events.map((event) => event.properties)).toEqual<unknown>(
 				arrayContaining([
 					{ dateUnknown: true, consumptionBasis: { unit: "pages", property: "pages" } },
 					{ consumptionBasis: { unit: "pages", property: "pages" } },
@@ -141,7 +151,7 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "complete");
 			expect(events).toHaveLength(1);
-			expect(events[0]?.eventSchemaSlug).toBe("complete");
+			expect(events[0]?.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 			expect(events[0]?.properties).toMatchObject({ timeSpent: 120 });
 		}),
 	);
@@ -214,8 +224,11 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "review");
 			expect(events).toHaveLength(2);
-			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["review", "review"]);
-			expect(events.map((event) => event.properties)).toEqual(
+			expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("review"),
+				EventSchemaSlug.make("review"),
+			]);
+			expect(events.map((event) => event.properties)).toEqual<unknown>(
 				arrayContaining([{ rating: 5, text: "Even better" }, { rating: 4 }]),
 			);
 		}),
@@ -243,7 +256,7 @@ describe("Events built-in status schemas", () => {
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
 			const droppedEvent = allEvents.find((event) => event.eventSchemaSlug === "dropped");
-			expect(droppedEvent?.eventSchemaSlug).toBe("dropped");
+			expect(droppedEvent?.eventSchemaSlug).toBe(EventSchemaSlug.make("dropped"));
 			expect(droppedEvent?.properties).toMatchObject({ timeSpent: 90, progressPercent: 40 });
 		}),
 	);
@@ -270,7 +283,7 @@ describe("Events built-in status schemas", () => {
 
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 2);
 			const onHoldEvent = allEvents.find((event) => event.eventSchemaSlug === "on_hold");
-			expect(onHoldEvent?.eventSchemaSlug).toBe("on_hold");
+			expect(onHoldEvent?.eventSchemaSlug).toBe(EventSchemaSlug.make("on_hold"));
 			expect(onHoldEvent?.properties).toMatchObject({ timeSpent: 45, progressPercent: 60 });
 		}),
 	);
@@ -356,7 +369,10 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "dropped");
 			expect(events).toHaveLength(2);
-			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["dropped", "dropped"]);
+			expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("dropped"),
+				EventSchemaSlug.make("dropped"),
+			]);
 			expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
 				33.333, 66.666,
 			]);
@@ -391,7 +407,10 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entityId, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug === "on_hold");
 			expect(events).toHaveLength(2);
-			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["on_hold", "on_hold"]);
+			expect(events.map((event) => event.eventSchemaSlug)).toEqual([
+				EventSchemaSlug.make("on_hold"),
+				EventSchemaSlug.make("on_hold"),
+			]);
 			expect(sortBy(events.map((event) => getProgressPercent(event.properties)))).toEqual([
 				45.555, 75.444,
 			]);
@@ -441,7 +460,10 @@ describe("Events built-in status schemas", () => {
 			const allEvents = yield* waitForEventCount(apiClient, entity.id, 3);
 			const events = allEvents.filter((event) => event.eventSchemaSlug !== "add-to-media-library");
 			expect(events).toHaveLength(2);
-			expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
+			expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual([
+				EventSchemaSlug.make("dropped"),
+				EventSchemaSlug.make("on_hold"),
+			]);
 			const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);
 			expect(sortedEvents.map((event) => event.properties)).toEqual([
 				{ consumptionBasis: { unit: "episodes" } },

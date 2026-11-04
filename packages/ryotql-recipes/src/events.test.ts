@@ -1,6 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { column, literal, table } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { eventHistoryRecipe, eventIsAfter, eventOrderDescending, latestEventField } from "./events";
 import { rowsResponse } from "./test-utils";
@@ -151,7 +153,7 @@ describe("event recipes", () => {
 				{ left: { field: "entityId" }, right: { value: "entity-1" } },
 			],
 		});
-		expect(Result.getOrThrow(recipe.decode(responseWithItems([event])))).toEqual({
+		expect(Result.getOrThrow(recipe.decode(responseWithItems([event])))).toEqual<unknown>({
 			pageInfo,
 			items: [
 				{

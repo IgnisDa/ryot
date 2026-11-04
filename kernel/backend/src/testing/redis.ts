@@ -1,12 +1,16 @@
+import { assert } from "@ryot-app/testing/assert";
 import { Effect, Layer } from "effect";
 import Redis from "ioredis";
-import { inject } from "vitest";
 
 import { RedisService } from "#platform/redis";
 
 import { makeRedisService } from "./effect";
 
-export const testRedisUrl = () => inject("redisUrl");
+export const testRedisUrl = () => {
+	const url = Bun.env["TEST_REDIS_URL"];
+	assert(url, "Run Redis tests through the package test script");
+	return url;
+};
 
 export const testExecutionId = (label: string) => `${label}-${crypto.randomUUID()}`;
 
@@ -28,9 +32,3 @@ export const testRedisServiceLayer = Layer.effect(
 	RedisService,
 	Effect.map(testRedisClient, (client) => makeRedisService({ client })),
 );
-
-declare module "vitest" {
-	interface ProvidedContext {
-		redisUrl: string;
-	}
-}

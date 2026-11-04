@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
@@ -8,8 +9,11 @@ import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { makeSandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { appendWorkflowJournal } from "#modules/scripts/replay/journal";
@@ -244,6 +248,7 @@ layer(
 				expect(executedContent).not.toContain(replacementContent);
 			});
 		},
+		testTimeout,
 	);
 });
 
@@ -285,52 +290,55 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("executes the exact queued row and preserves provider identity", () =>
-		Effect.gen(function* () {
-			const result = yield* executeSandboxExecution({
-				lane: "interactive",
-				...queuedReplay,
-				context: {},
-				executionId: "execution-id",
-				principal: {
-					scriptSlug: "queued",
-					pluginRevision: null,
-					scriptId: queuedScriptId,
-					subject: { type: "system" },
-					contentHash: queuedContentHash,
-					metadata: { runtimeImports: [] },
-					providerId: SandboxProviderId.make("provider-id"),
-				},
-			});
-			yield* executeSandboxExecution({
-				lane: "interactive",
-				...queuedReplay,
-				context: {},
-				executionId: "kernel-execution-id",
-				principal: {
-					providerId: null,
-					scriptSlug: "kernel",
-					pluginRevision: null,
-					scriptId: kernelScriptId,
-					subject: { type: "system" },
-					contentHash: kernelContentHash,
-					metadata: { runtimeImports: [] },
-				},
-			});
-			const runs = yield* (yield* RecordedRuns).runs;
+	test.effect(
+		"executes the exact queued row and preserves provider identity",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* executeSandboxExecution({
+					lane: "interactive",
+					...queuedReplay,
+					context: {},
+					executionId: "execution-id",
+					principal: {
+						scriptSlug: "queued",
+						pluginRevision: null,
+						scriptId: queuedScriptId,
+						subject: { type: "system" },
+						contentHash: queuedContentHash,
+						metadata: { runtimeImports: [] },
+						providerId: SandboxProviderId.make("provider-id"),
+					},
+				});
+				yield* executeSandboxExecution({
+					lane: "interactive",
+					...queuedReplay,
+					context: {},
+					executionId: "kernel-execution-id",
+					principal: {
+						providerId: null,
+						scriptSlug: "kernel",
+						pluginRevision: null,
+						scriptId: kernelScriptId,
+						subject: { type: "system" },
+						contentHash: kernelContentHash,
+						metadata: { runtimeImports: [] },
+					},
+				});
+				const runs = yield* (yield* RecordedRuns).runs;
 
-			expect(runs.map((run) => run.compiledCode)).toEqual([queuedCode, kernelCode]);
-			expect(runs.map((run) => run.principal.scriptId)).toEqual([queuedScriptId, kernelScriptId]);
-			expect(runs.map((run) => run.principal)).toMatchObject([
-				{ providerId: "provider-id" },
-				{ providerId: null },
-			]);
-			expect(runs.map((run) => run.principal.contentHash)).toEqual([
-				queuedContentHash,
-				kernelContentHash,
-			]);
-			expect(result.value).toBe("queued-result");
-		}),
+				expect(runs.map((run) => run.compiledCode)).toEqual([queuedCode, kernelCode]);
+				expect(runs.map((run) => run.principal.scriptId)).toEqual([queuedScriptId, kernelScriptId]);
+				expect(runs.map((run) => run.principal)).toMatchObject([
+					{ providerId: "provider-id" },
+					{ providerId: null },
+				]);
+				expect(runs.map((run) => run.principal.contentHash)).toEqual([
+					queuedContentHash,
+					kernelContentHash,
+				]);
+				expect(result.value).toBe("queued-result");
+			}),
+		testTimeout,
 	);
 });
 
@@ -393,131 +401,14 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("durable_replay_pins_inspected_journal_without_loading_values", () =>
-		Effect.gen(function* () {
-			const workflowExecutionId = testExecutionId("inspected-replay");
-			const journal = [{ value: { output: "日本語" }, request: { ...inlineRequest, index: 0 } }];
-			yield* appendWorkflowJournal(workflowExecutionId, 0, journal);
-			yield* executeSandboxExecution({
-				lane: "interactive",
-				...queuedReplay,
-				context: {},
-				journalLength: 1,
-				workflowExecutionId,
-				principal: inlinePrincipal([]),
-				executionId: `${workflowExecutionId}-replay-1`,
-			});
-			const pinned = (yield* (yield* RecordedRuns).runs).at(-1)?.replayJournal;
-			assert(pinned !== undefined);
-			expect(pinned.bytes).toBe(utf8ByteLength(yield* encodeJson(journal)));
-			expect(yield* readPinnedJournal(pinned)).toEqual(journal);
-		}),
-	);
-
-	test.effect("offers inline settlement only for declared activity capabilities", () => {
-		return Effect.gen(function* () {
-			const before = (yield* (yield* RecordedRuns).runs).length;
-			const reservedBefore = (yield* (yield* RecordedRuns).reserved).length;
-			yield* appendWorkflowJournal(
-				inlineWorkflowId,
-				0,
-				[0, 1, 2].map((index) => ({ value: null, request: { ...inlineRequest, index } })),
-			);
-			yield* executeSandboxExecution({
-				journalLength: 3,
-				lane: "background",
-				context: { item: 1 },
-				workflowExecutionId: inlineWorkflowId,
-				startedAt: "2026-01-01T00:00:00.000Z",
-				executionId: `${inlineWorkflowId}-replay-2`,
-				principal: inlinePrincipal(["createEvents", "getCachedValue", "log"]),
-			});
-			yield* executeSandboxExecution({
-				context: {},
-				journalLength: 0,
-				lane: "interactive",
-				workflowExecutionId: "other-id",
-				executionId: "other-id-replay-0",
-				startedAt: "2026-01-01T00:00:00.000Z",
-				principal: inlinePrincipal(["createEvents", "emitSignal"]),
-			});
-			const runs = (yield* (yield* RecordedRuns).runs).slice(before);
-			const offered = runs.map(({ inlineDurableHost: inline }) =>
-				inline ? inline.capabilities : null,
-			);
-
-			expect(offered).toEqual([["getCachedValue"], []]);
-			expect(runs.map((run) => run.replayJournal?.entries.length)).toEqual([3, 0]);
-			expect(runs.map((run) => run.lane)).toEqual(["background", "interactive"]);
-			expect((yield* (yield* RecordedRuns).reserved).slice(reservedBefore)).toEqual([
-				"background",
-				"interactive",
-			]);
-			expect(yield* (yield* RecordedSettlements).settlements).toEqual([
-				{
-					lane: "background",
-					context: { item: 1 },
-					executionId: inlineWorkflowId,
-					startedAt: "2026-01-01T00:00:00.000Z",
-				},
-			]);
-		});
-	});
-
-	test.effect("durable_replay_reports_a_suspended_sidecar_recovery_as_a_typed_failure", () =>
-		Effect.gen(function* () {
-			const workflowExecutionId = testExecutionId("recovery-suspended");
-			yield* appendWorkflowJournal(workflowExecutionId, 0, []);
-			const runtime = stubRuntimeSandboxExecutor(() =>
-				Effect.fail(new SidecarRecoverySuspended({ instance: "instance-1" })),
-			);
-			const exit = yield* executeSandboxExecution({
-				lane: "interactive",
-				...queuedReplay,
-				context: {},
-				journalLength: 0,
-				workflowExecutionId,
-				principal: inlinePrincipal([]),
-				executionId: `${workflowExecutionId}-replay-0`,
-			}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.exit);
-
-			assertExitFails(exit, new SandboxRecoverySuspended({ instance: "instance-1" }));
-		}),
-	);
-
-	test.effect("durable_replay_reports_projection_faults_over_the_script_outcome", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const replay = Effect.fnUntraced(function* (
-				label: string,
-				fault: (key: string) => Promise<unknown>,
-			) {
-				const workflowExecutionId = testExecutionId(label);
-				const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
-				yield* appendWorkflowJournal(workflowExecutionId, 0, [
-					{ value: "small", request: { ...inlineRequest, index: 0 } },
-				]);
-				const runtime = stubRuntimeSandboxExecutor((input) =>
-					Effect.gen(function* () {
-						yield* Effect.promise(() => fault(key));
-						expect(
-							yield* input.replayJournal?.readChunk(0, 0) ?? Effect.die("unpinned"),
-						).toBeNull();
-						return {
-							logs: [],
-							inline: [],
-							error: null,
-							success: true,
-							harvest: null,
-							pendingInline: [],
-							executionId: input.executionId,
-							value: "script caught the failed read",
-							timing: { totalMs: 1, executionMs: 1 },
-							recovery: recoveryIdentity(input.executionId),
-						};
-					}),
-				);
-				return yield* executeSandboxExecution({
+	test.effect(
+		"durable_replay_pins_inspected_journal_without_loading_values",
+		() =>
+			Effect.gen(function* () {
+				const workflowExecutionId = testExecutionId("inspected-replay");
+				const journal = [{ value: { output: "日本語" }, request: { ...inlineRequest, index: 0 } }];
+				yield* appendWorkflowJournal(workflowExecutionId, 0, journal);
+				yield* executeSandboxExecution({
 					lane: "interactive",
 					...queuedReplay,
 					context: {},
@@ -525,20 +416,150 @@ layer(
 					workflowExecutionId,
 					principal: inlinePrincipal([]),
 					executionId: `${workflowExecutionId}-replay-1`,
-				}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.result);
-			});
+				});
+				const pinned = (yield* (yield* RecordedRuns).runs).at(-1)?.replayJournal;
+				assert(pinned !== undefined);
+				expect(pinned.bytes).toBe(utf8ByteLength(yield* encodeJson(journal)));
+				expect(yield* readPinnedJournal(pinned)).toEqual(journal);
+			}),
+		testTimeout,
+	);
 
-			const changed = yield* replay("projection-changed", (key) =>
-				redis.client.hset(key, "c:0:0", "x".repeat(1024)),
-			);
-			assert(changed._tag === "Failure" && changed.failure instanceof SandboxRunError);
-			expect(changed.failure).toMatchObject({
-				kind: "infrastructure",
-				message: "Sandbox workflow journal changed after inspection",
+	test.effect(
+		"offers inline settlement only for declared activity capabilities",
+		() => {
+			return Effect.gen(function* () {
+				const before = (yield* (yield* RecordedRuns).runs).length;
+				const reservedBefore = (yield* (yield* RecordedRuns).reserved).length;
+				yield* appendWorkflowJournal(
+					inlineWorkflowId,
+					0,
+					[0, 1, 2].map((index) => ({ value: null, request: { ...inlineRequest, index } })),
+				);
+				yield* executeSandboxExecution({
+					journalLength: 3,
+					lane: "background",
+					context: { item: 1 },
+					workflowExecutionId: inlineWorkflowId,
+					startedAt: "2026-01-01T00:00:00.000Z",
+					executionId: `${inlineWorkflowId}-replay-2`,
+					principal: inlinePrincipal(["createEvents", "getCachedValue", "log"]),
+				});
+				yield* executeSandboxExecution({
+					context: {},
+					journalLength: 0,
+					lane: "interactive",
+					workflowExecutionId: "other-id",
+					executionId: "other-id-replay-0",
+					startedAt: "2026-01-01T00:00:00.000Z",
+					principal: inlinePrincipal(["createEvents", "emitSignal"]),
+				});
+				const runs = (yield* (yield* RecordedRuns).runs).slice(before);
+				const offered = runs.map(({ inlineDurableHost: inline }) =>
+					inline ? inline.capabilities : null,
+				);
+
+				expect(offered).toEqual([["getCachedValue"], []]);
+				expect(runs.map((run) => run.replayJournal?.entries.length)).toEqual([3, 0]);
+				expect(runs.map((run) => run.lane)).toEqual(["background", "interactive"]);
+				expect((yield* (yield* RecordedRuns).reserved).slice(reservedBefore)).toEqual([
+					"background",
+					"interactive",
+				]);
+				expect(yield* (yield* RecordedSettlements).settlements).toEqual([
+					{
+						lane: "background",
+						context: { item: 1 },
+						executionId: inlineWorkflowId,
+						startedAt: "2026-01-01T00:00:00.000Z",
+					},
+				]);
 			});
-			const missing = yield* replay("projection-lost", (key) => redis.client.del(key));
-			assert(missing._tag === "Failure" && missing.failure instanceof SandboxProjectionMissing);
-		}),
+		},
+		testTimeout,
+	);
+
+	test.effect(
+		"durable_replay_reports_a_suspended_sidecar_recovery_as_a_typed_failure",
+		() =>
+			Effect.gen(function* () {
+				const workflowExecutionId = testExecutionId("recovery-suspended");
+				yield* appendWorkflowJournal(workflowExecutionId, 0, []);
+				const runtime = stubRuntimeSandboxExecutor(() =>
+					Effect.fail(new SidecarRecoverySuspended({ instance: "instance-1" })),
+				);
+				const exit = yield* executeSandboxExecution({
+					lane: "interactive",
+					...queuedReplay,
+					context: {},
+					journalLength: 0,
+					workflowExecutionId,
+					principal: inlinePrincipal([]),
+					executionId: `${workflowExecutionId}-replay-0`,
+				}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.exit);
+
+				assertExitFails(exit, new SandboxRecoverySuspended({ instance: "instance-1" }));
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"durable_replay_reports_projection_faults_over_the_script_outcome",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const replay = Effect.fnUntraced(function* (
+					label: string,
+					fault: (key: string) => Promise<unknown>,
+				) {
+					const workflowExecutionId = testExecutionId(label);
+					const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
+					yield* appendWorkflowJournal(workflowExecutionId, 0, [
+						{ value: "small", request: { ...inlineRequest, index: 0 } },
+					]);
+					const runtime = stubRuntimeSandboxExecutor((input) =>
+						Effect.gen(function* () {
+							yield* Effect.promise(() => fault(key));
+							expect(
+								yield* input.replayJournal?.readChunk(0, 0) ?? Effect.die("unpinned"),
+							).toBeNull();
+							return {
+								logs: [],
+								inline: [],
+								error: null,
+								success: true,
+								harvest: null,
+								pendingInline: [],
+								executionId: input.executionId,
+								value: "script caught the failed read",
+								timing: { totalMs: 1, executionMs: 1 },
+								recovery: recoveryIdentity(input.executionId),
+							};
+						}),
+					);
+					return yield* executeSandboxExecution({
+						lane: "interactive",
+						...queuedReplay,
+						context: {},
+						journalLength: 1,
+						workflowExecutionId,
+						principal: inlinePrincipal([]),
+						executionId: `${workflowExecutionId}-replay-1`,
+					}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.result);
+				});
+
+				const changed = yield* replay("projection-changed", (key) =>
+					redis.client.hset(key, "c:0:0", "x".repeat(1024)),
+				);
+				assert(changed._tag === "Failure" && changed.failure instanceof SandboxRunError);
+				expect(changed.failure).toMatchObject({
+					kind: "infrastructure",
+					message: "Sandbox workflow journal changed after inspection",
+				});
+				const missing = yield* replay("projection-lost", (key) => redis.client.del(key));
+				assert(missing._tag === "Failure" && missing.failure instanceof SandboxProjectionMissing);
+			}),
+		testTimeout,
 	);
 });
 
@@ -554,21 +575,24 @@ layer(
 		runtimeSandboxLayer(() => Effect.die("sandbox must not start")),
 	),
 )((test) => {
-	test.effect("reports a lost journal projection without starting the sandbox", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.exit(
-				executeSandboxExecution({
-					lane: "interactive",
-					...queuedReplay,
-					context: {},
-					journalLength: 2,
-					principal: inlinePrincipal([]),
-					executionId: "workflow-id-replay-1",
-				}),
-			);
+	test.effect(
+		"reports a lost journal projection without starting the sandbox",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.exit(
+					executeSandboxExecution({
+						lane: "interactive",
+						...queuedReplay,
+						context: {},
+						journalLength: 2,
+						principal: inlinePrincipal([]),
+						executionId: "workflow-id-replay-1",
+					}),
+				);
 
-			assertExitFails(result, new SandboxProjectionMissing());
-			expect(yield* (yield* RecordedRuns).runs).toEqual([]);
-		}),
+				assertExitFails(result, new SandboxProjectionMissing());
+				expect(yield* (yield* RecordedRuns).runs).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

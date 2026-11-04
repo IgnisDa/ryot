@@ -1,7 +1,10 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	decodeCreditGroupOverview,
@@ -159,55 +162,61 @@ describe("group detail screen", () => {
 });
 
 describe("group members tab", () => {
-	it.live("numbers each member by its position in the group", () =>
-		Effect.gen(function* () {
-			const { adapter } = pagingAdapter();
-			const view = mountRyotClient(
-				adapter,
-				<groupFixtureSchema.MembersTab compact entityId="group-1" />,
-			);
-			yield* Effect.promise(() => flushRyotClient());
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("The Matrix")),
-			);
+	it.live(
+		"numbers each member by its position in the group",
+		() =>
+			Effect.gen(function* () {
+				const { adapter } = pagingAdapter();
+				const view = mountRyotClient(
+					adapter,
+					<groupFixtureSchema.MembersTab compact entityId="group-1" />,
+				);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("The Matrix")),
+				);
 
-			const articles = Array.from(view.container.querySelectorAll("article"));
-			expect(
-				articles.map((article) => article.querySelector(":scope > span")?.textContent ?? null),
-			).toEqual(["1", null]);
-			expect(articles[0]?.querySelector('[aria-label="In your library"]')).not.toBeNull();
-			expect(articles[1]?.querySelector('[aria-label="In your library"]')).toBeNull();
-			view.unmount();
-		}),
+				const articles = Array.from(view.container.querySelectorAll("article"));
+				expect(
+					articles.map((article) => article.querySelector(":scope > span")?.textContent ?? null),
+				).toEqual(["1", null]);
+				expect(articles[0]?.querySelector('[aria-label="In your library"]')).not.toBeNull();
+				expect(articles[1]?.querySelector('[aria-label="In your library"]')).toBeNull();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 
-	it.live("appends the next page without refetching the page already on screen", () =>
-		Effect.gen(function* () {
-			const { adapter, documents } = pagingAdapter();
-			const view = mountRyotClient(
-				adapter,
-				<groupFixtureSchema.MembersTab compact entityId="group-1" />,
-			);
-			yield* Effect.promise(() => flushRyotClient());
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("The Matrix")),
-			);
+	it.live(
+		"appends the next page without refetching the page already on screen",
+		() =>
+			Effect.gen(function* () {
+				const { adapter, documents } = pagingAdapter();
+				const view = mountRyotClient(
+					adapter,
+					<groupFixtureSchema.MembersTab compact entityId="group-1" />,
+				);
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("The Matrix")),
+				);
 
-			const control = loadMore(view.container);
-			if (control === undefined) {
-				throw new Error("Expected the load more control");
-			}
-			clickRyotElement(control);
-			yield* Effect.promise(() => flushRyotClient());
+				const control = loadMore(view.container);
+				if (control === undefined) {
+					throw new Error("Expected the load more control");
+				}
+				clickRyotElement(control);
+				yield* Effect.promise(() => flushRyotClient());
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.container.textContent).toContain("Revolutions")),
-			);
-			expect(view.container.textContent).toContain("The Matrix");
-			expect(documents).toHaveLength(2);
-			expect(loadMore(view.container)).toBeUndefined();
-			view.unmount();
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.container.textContent).toContain("Revolutions")),
+				);
+				expect(view.container.textContent).toContain("The Matrix");
+				expect(documents).toHaveLength(2);
+				expect(loadMore(view.container)).toBeUndefined();
+				view.unmount();
+			}),
+		testTimeout,
 	);
 });
 

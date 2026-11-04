@@ -1,3 +1,5 @@
+import { expect, it } from "bun:test";
+
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
@@ -6,7 +8,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { column, field, pluginId, rows, table } from "@ryot-app/ryotql";
-import { assert, expect, it } from "vitest";
+import { assert } from "@ryot-app/testing/assert";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -224,7 +226,7 @@ it("resolves self owners and plugin references in entity schema browse fields", 
 		...manifest,
 		entitySchemas: [{ ...entitySchema, browse: { fields: [owned, tags, labels] } }],
 	}).entitySchemas;
-	expect(materialized?.browse).toEqual({
+	expect(materialized?.browse).toEqual<unknown>({
 		fields: [
 			{
 				...owned,
@@ -267,7 +269,7 @@ it("materializes calendar sources with self references bound to the stable plugi
 	expect(
 		revisionDefinitions("plugin-a", { ...fixtureManifest(), calendarSources: [calendarSource] })
 			.calendarSources,
-	).toEqual([
+	).toEqual<unknown>([
 		{
 			art: null,
 			done: null,

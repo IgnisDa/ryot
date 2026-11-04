@@ -1,9 +1,10 @@
+import { expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
-import { arrayContaining } from "@ryot-app/testing/matchers";
-import { expect, it } from "vitest";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import { CompletionEpisode, CompletionOccurrence } from "../../shared/history-correction";
 import { mediaHistoryCorrectionStatusRecipe } from "../../shared/history-correction-status";
@@ -75,13 +76,15 @@ it("matches correction records by subject through structural property containmen
 		...input,
 		slug: "completion-occurrence",
 	}).document.queries;
-	expect(records?.where).toMatchObject({
-		predicates: arrayContaining([
-			{
-				type: "contains",
-				right: { type: "literal", value: { subjectEntityId: "subject" } },
-				left: { type: "column", field: "properties", tableAlias: "correctionRecord" },
-			},
-		]),
-	});
+	expect(records?.where).toEqual<unknown>(
+		objectContaining({
+			predicates: arrayContaining([
+				{
+					type: "contains",
+					right: { type: "literal", value: { subjectEntityId: "subject" } },
+					left: { type: "column", field: "properties", tableAlias: "correctionRecord" },
+				},
+			]),
+		}),
+	);
 });

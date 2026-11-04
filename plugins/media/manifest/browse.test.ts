@@ -1,9 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	browseConsistencyIssue,
 	browseIssue,
 } from "@ryot-app/kernel-backend/modules/definitions/browse-validation";
 import { revisionDefinitions } from "@ryot-app/kernel-backend/modules/definitions/source";
-import { describe, expect, it } from "vitest";
 
 import { mediaPlugin } from "./plugin";
 

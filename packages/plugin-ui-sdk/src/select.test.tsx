@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
 import { useState } from "react";
-import { axe } from "vitest-axe";
 
 import { Select } from "./select";
 
@@ -66,18 +69,21 @@ describe("Select", () => {
 		);
 	});
 
-	it.live("passes an axe pass with its options modal open", () =>
-		Effect.gen(function* () {
-			render(<LanguageSelect />);
-			openOptions();
+	it.live(
+		"passes an axe pass with its options modal open",
+		() =>
+			Effect.gen(function* () {
+				render(<LanguageSelect />);
+				openOptions();
 
-			const results = yield* Effect.promise(() =>
-				axe(document.body, {
-					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-				}),
-			);
+				const results = yield* Effect.promise(() =>
+					axe.run(document.body, {
+						rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+					}),
+				);
 
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

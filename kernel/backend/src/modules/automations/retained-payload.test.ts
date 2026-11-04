@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import {
 	AutomationRun,
 	AutomationTriggerPayload,
@@ -13,10 +14,12 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
-import { assert, describe } from "vitest";
 
 import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
@@ -183,115 +186,121 @@ const seedPinnedRevisions = (pinnedManifest: (base: PluginManifest) => PluginMan
 
 describe("retained automation payloads", () => {
 	layer(historyDatabaseLayer)((test) => {
-		test.effect("redacts secret entity properties with the pinned revision schema", () =>
-			Effect.gen(function* () {
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* seedPinnedRevisions((base) => ({
-							...base,
-							entitySchemas: base.entitySchemas.map((entity) =>
-								Object.assign({}, entity, {
-									propertiesSchema: {
-										fields: {
-											count: { type: "number", label: "Count", description: "Counter" },
-											token: {
-												secret: true,
-												type: "string",
-												label: "Token",
-												description: "Secret token",
+		test.effect(
+			"redacts secret entity properties with the pinned revision schema",
+			() =>
+				Effect.gen(function* () {
+					yield* (yield* DatabaseSession).run((db) =>
+						Effect.gen(function* () {
+							yield* seedPinnedRevisions((base) => ({
+								...base,
+								entitySchemas: base.entitySchemas.map((entity) =>
+									Object.assign({}, entity, {
+										propertiesSchema: {
+											fields: {
+												count: { type: "number", label: "Count", description: "Counter" },
+												token: {
+													secret: true,
+													type: "string",
+													label: "Token",
+													description: "Secret token",
+												},
 											},
-										},
-									} satisfies AppSchema,
-								}),
-							),
-						}));
-						const snapshot = {
-							id: "entity",
-							name: "Item",
-							externalId: null,
-							providerId: null,
-							populatedAt: null,
-							entitySchemaPluginId: "plugin",
-							entitySchemaSlug: "fixture-entity",
-							createdAt: "2026-09-15T00:00:00.000Z",
-							updatedAt: "2026-09-15T00:00:00.000Z",
-							properties: { count: 2, token: "hidden" },
-						};
-						yield* db
-							.update(automationTrigger)
-							.set({
-								category: "change",
-								operation: "update",
-								resourceKind: "entity",
-								payload: yield* Schema.decodeEffect(AutomationTriggerPayload)({
-									after: snapshot,
-									before: snapshot,
+										} satisfies AppSchema,
+									}),
+								),
+							}));
+							const snapshot = {
+								id: "entity",
+								name: "Item",
+								externalId: null,
+								providerId: null,
+								populatedAt: null,
+								entitySchemaPluginId: "plugin",
+								entitySchemaSlug: "fixture-entity",
+								createdAt: "2026-09-15T00:00:00.000Z",
+								updatedAt: "2026-09-15T00:00:00.000Z",
+								properties: { count: 2, token: "hidden" },
+							};
+							yield* db
+								.update(automationTrigger)
+								.set({
 									category: "change",
-									resource: "entity",
 									operation: "update",
-								}),
-							})
-							.where(eq(automationTrigger.id, "trigger"));
-						yield* seedRun("pinned", pinnedRevision);
-						const [stored] = yield* db
-							.select({ historyPayload: automationRun.historyPayload })
-							.from(automationRun)
-							.where(eq(automationRun.id, "pinned"));
-						expect(stored?.historyPayload).toMatchObject({
-							after: { properties: { count: 2 } },
-							before: { properties: { count: 2 } },
-						});
-						expect(stableStringify(stored?.historyPayload)).not.toContain("hidden");
-					}),
-				);
-			}),
+									resourceKind: "entity",
+									payload: yield* Schema.decodeEffect(AutomationTriggerPayload)({
+										after: snapshot,
+										before: snapshot,
+										category: "change",
+										resource: "entity",
+										operation: "update",
+									}),
+								})
+								.where(eq(automationTrigger.id, "trigger"));
+							yield* seedRun("pinned", pinnedRevision);
+							const [stored] = yield* db
+								.select({ historyPayload: automationRun.historyPayload })
+								.from(automationRun)
+								.where(eq(automationRun.id, "pinned"));
+							expect(stored?.historyPayload).toMatchObject({
+								after: { properties: { count: 2 } },
+								before: { properties: { count: 2 } },
+							});
+							expect(stableStringify(stored?.historyPayload)).not.toContain("hidden");
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	});
 	layer(historyDatabaseLayer)((test) => {
-		test.effect("omits oversized retained payloads and clears history payloads after pruning", () =>
-			Effect.gen(function* () {
-				yield* (yield* DatabaseSession).run((db) =>
-					Effect.gen(function* () {
-						yield* db
-							.update(automationTrigger)
-							.set({
-								payload: {
-									properties: {},
-									operation: "emit",
-									category: "signal",
-									resource: "signal",
-									signalSchemaPluginId: null,
-									signalSchemaSlug: SignalSchemaSlug.make("fixture.signal"),
-									actorUserId: UserId.make("x".repeat(AUTOMATION_HISTORY_LIMITS.payloadBytes)),
-								},
-							})
-							.where(eq(automationTrigger.id, "trigger"));
-						yield* seedRun("large");
-						const runId = AutomationRunId.make("large");
-						const [retained] = yield* db
-							.select({
-								historyPayload: automationRun.historyPayload,
-								historyPayloadTruncated: automationRun.historyPayloadTruncated,
-							})
-							.from(automationRun)
-							.where(eq(automationRun.id, runId));
-						expect(retained).toEqual({ historyPayload: null, historyPayloadTruncated: true });
-						yield* db
-							.update(automationTrigger)
-							.set({ payload: null, payloadPrunedAt: now })
-							.where(eq(automationTrigger.id, "trigger"));
-						yield* (yield* AutomationRunRepository).clearHistoryPayloads(["trigger"]);
-						const [pruned] = yield* db
-							.select({
-								historyPayload: automationRun.historyPayload,
-								historyPayloadTruncated: automationRun.historyPayloadTruncated,
-							})
-							.from(automationRun)
-							.where(eq(automationRun.id, runId));
-						expect(pruned).toEqual({ historyPayload: null, historyPayloadTruncated: false });
-					}),
-				);
-			}),
+		test.effect(
+			"omits oversized retained payloads and clears history payloads after pruning",
+			() =>
+				Effect.gen(function* () {
+					yield* (yield* DatabaseSession).run((db) =>
+						Effect.gen(function* () {
+							yield* db
+								.update(automationTrigger)
+								.set({
+									payload: {
+										properties: {},
+										operation: "emit",
+										category: "signal",
+										resource: "signal",
+										signalSchemaPluginId: null,
+										signalSchemaSlug: SignalSchemaSlug.make("fixture.signal"),
+										actorUserId: UserId.make("x".repeat(AUTOMATION_HISTORY_LIMITS.payloadBytes)),
+									},
+								})
+								.where(eq(automationTrigger.id, "trigger"));
+							yield* seedRun("large");
+							const runId = AutomationRunId.make("large");
+							const [retained] = yield* db
+								.select({
+									historyPayload: automationRun.historyPayload,
+									historyPayloadTruncated: automationRun.historyPayloadTruncated,
+								})
+								.from(automationRun)
+								.where(eq(automationRun.id, runId));
+							expect(retained).toEqual({ historyPayload: null, historyPayloadTruncated: true });
+							yield* db
+								.update(automationTrigger)
+								.set({ payload: null, payloadPrunedAt: now })
+								.where(eq(automationTrigger.id, "trigger"));
+							yield* (yield* AutomationRunRepository).clearHistoryPayloads(["trigger"]);
+							const [pruned] = yield* db
+								.select({
+									historyPayload: automationRun.historyPayload,
+									historyPayloadTruncated: automationRun.historyPayloadTruncated,
+								})
+								.from(automationRun)
+								.where(eq(automationRun.id, runId));
+							expect(pruned).toEqual({ historyPayload: null, historyPayloadTruncated: false });
+						}),
+					);
+				}),
+			testTimeout,
 		);
 	});
 });

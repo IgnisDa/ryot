@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { RECENT_DESTINATION_LIMIT, recordRecent } from "#/modules/command-center/recents";
 

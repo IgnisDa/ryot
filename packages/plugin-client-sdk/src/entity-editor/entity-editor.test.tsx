@@ -1,15 +1,18 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import type {
 	EntityEditorSaveOutput,
 	EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PickEntityRequest } from "@ryot-app/plugin-client-contract";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { assert } from "vitest";
 
 import type { RyotClientAdapter } from "../client/adapter";
 import { RyotClientError } from "../client/errors";
@@ -166,322 +169,361 @@ const recording = (output: EntityEditorSaveOutput) => {
 };
 
 describe("EntityEditor", () => {
-	it.live("loads an entity for edit, locks immutable fields, and submits the diffed shape", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
-			const saved: string[] = [];
-			const container = mount(
-				{ onSaved: (id) => saved.push(id), mode: { kind: "edit", entityId: "part-1" } },
-				adapterFor(saves.save),
-			);
-			const view = within(container);
+	it.live(
+		"loads an entity for edit, locks immutable fields, and submits the diffed shape",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+				const saved: string[] = [];
+				const container = mount(
+					{ onSaved: (id) => saved.push(id), mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor(saves.save),
+				);
+				const view = within(container);
 
-			const name = yield* Effect.promise(() => view.findByLabelText("Name"));
-			expect(name).toHaveProperty("value", "Curl");
-			expect(view.getByLabelText("Kind").closest("fieldset")?.disabled).toBe(true);
-			expect(view.getByText("Biceps")).toBeTruthy();
+				const name = yield* Effect.promise(() => view.findByLabelText("Name"));
+				expect(name).toHaveProperty("value", "Curl");
+				expect(view.getByLabelText("Kind").closest("fieldset")?.disabled).toBe(true);
+				expect(view.getByText("Biceps")).toBeTruthy();
 
-			fireEvent.change(view.getByLabelText("Role"), { target: { value: "secondary" } });
-			fireEvent.change(name, { target: { value: "Hammer curl" } });
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
+				fireEvent.change(view.getByLabelText("Role"), { target: { value: "secondary" } });
+				fireEvent.change(name, { target: { value: "Hammer curl" } });
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
 
-			yield* Effect.promise(() => waitFor(() => expect(saved).toEqual(["part-1"])));
-			expect(saves.requests).toHaveLength(1);
-			expect(saves.requests[0]?.idempotencyKey).not.toBe("");
-			expect(saves.requests[0]?.submittedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-			expect(saves.requests[0]?.submission).toEqual({
-				action: "save",
-				name: "Hammer curl",
-				properties: { kind: "reps", title: "Curl" },
-				entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				relationships: [
-					{
-						relationshipSchemaSlug: "targets",
-						targets: [{ entityId: "target-1", properties: { role: "secondary" } }],
-					},
-				],
-				target: {
-					kind: "update",
-					entityId: "part-1",
-					expected: {
-						name: "Curl",
-						updatedAt: "2026-01-01T00:00:00.000Z",
-						properties: { kind: "reps", title: "Curl" },
-						relationships: [
-							{
-								relationshipSchemaSlug: "targets",
-								targets: [{ entityId: "target-1", properties: { role: "primary" } }],
-							},
-						],
-					},
-				},
-			});
-		}),
-	);
-
-	it.live("seeds a create and adds targets picked through the kernel entity picker", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-2") });
-			const picks: PickEntityRequest[] = [];
-			const container = mount(
-				{ mode: { kind: "create", seedEntityId: "part-1" } },
-				adapterFor(saves.save, { picks, picked: ["target-2", "target-1"] }),
-			);
-			const view = within(container);
-			const name = yield* Effect.promise(() => view.findByLabelText("Name"));
-			expect(name).toHaveProperty("value", "Curl");
-			expect(view.getByLabelText("Kind").closest("fieldset")?.disabled).toBe(false);
-
-			fireEvent.click(view.getByRole("button", { name: "Add Targets" }));
-			yield* Effect.promise(() => view.findByText("Triceps"));
-			expect(picks).toEqual([
-				{ schema: { slug: "target", owner: { kind: "plugin", pluginId: "plugin-1" } } },
-			]);
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-
-			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
-			expect(saveSubmission(saves.requests[0]).target).toEqual({ kind: "create" });
-			expect(saveSubmission(saves.requests[0]).relationships[0]?.targets).toEqual([
-				{ entityId: "target-1", properties: { role: "primary" } },
-				{ properties: {}, entityId: "target-2" },
-			]);
-		}),
-	);
-
-	it.live("retains the original relationship baseline when removing the last target", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
-			const view = within(
-				mount({ mode: { kind: "edit", entityId: "part-1" } }, adapterFor(saves.save)),
-			);
-			yield* Effect.promise(() => view.findByLabelText("Name"));
-			fireEvent.click(view.getByRole("button", { name: "Remove Biceps from Targets" }));
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
-			expect(saves.requests[0]?.submission).toMatchObject({
-				relationships: [{ targets: [], relationshipSchemaSlug: "targets" }],
-				target: {
-					expected: {
-						relationships: [
-							{
-								relationshipSchemaSlug: "targets",
-								targets: [{ entityId: "target-1", properties: { role: "primary" } }],
-							},
-						],
-					},
-				},
-			});
-		}),
-	);
-
-	it.live("submits empty declared relationship groups and their baseline", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
-			const view = within(
-				mount(
-					{ mode: { kind: "edit", entityId: "part-1" } },
-					adapterFor(saves.save, { relationships: [] }),
-				),
-			);
-			yield* Effect.promise(() => view.findByLabelText("Name"));
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
-			expect(saves.requests[0]?.submission).toMatchObject({
-				relationships: [{ targets: [], relationshipSchemaSlug: "targets" }],
-				target: {
-					expected: { relationships: [{ targets: [], relationshipSchemaSlug: "targets" }] },
-				},
-			});
-		}),
-	);
-
-	it.live("does not open a writable form for a non-editable source", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
-			const view = within(
-				mount(
-					{ mode: { kind: "edit", entityId: "part-1" } },
-					adapterFor(saves.save, { canEdit: false }),
-				),
-			);
-			yield* Effect.promise(() => view.findByText("This item cannot be edited here."));
-			expect(view.queryByRole("button", { name: "Save" })).toBeNull();
-			expect(saves.requests).toEqual([]);
-		}),
-	);
-
-	it.live("focuses the name and does not save when it is empty", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-3") });
-			const container = mount({ mode: { kind: "create" } }, adapterFor(saves.save));
-			const view = within(container);
-			const name = yield* Effect.promise(() => view.findByLabelText("Name"));
-
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-
-			yield* Effect.promise(() => view.findByText("Enter a name"));
-			expect(document.activeElement).toBe(name);
-			expect(saves.requests).toEqual([]);
-		}),
-	);
-
-	it.live("leaves targets unchanged when the entity picker is cancelled", () =>
-		Effect.gen(function* () {
-			const picks: PickEntityRequest[] = [];
-			const container = mount(
-				{ mode: { kind: "edit", entityId: "part-1" } },
-				adapterFor(recording({ kind: "stale" }).save, { picks }),
-			);
-			const view = within(container);
-			yield* Effect.promise(() => view.findByLabelText("Name"));
-
-			fireEvent.click(view.getByRole("button", { name: "Add Targets" }));
-
-			yield* Effect.promise(() => waitFor(() => expect(picks).toHaveLength(1)));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						view.getByRole("button", { name: "Add Targets" }).getAttribute("aria-busy"),
-					).not.toBe("true"),
-				),
-			);
-			expect(view.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
-			expect(view.queryByText("Triceps")).toBeNull();
-		}),
-	);
-
-	it.live("shows the stale message and keeps the editor open", () =>
-		Effect.gen(function* () {
-			const container = mount(
-				{ mode: { kind: "edit", entityId: "part-1" } },
-				adapterFor(() => Effect.succeed({ kind: "stale" })),
-			);
-			const view = within(container);
-			yield* Effect.promise(() => view.findByLabelText("Name"));
-
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-
-			const alert = yield* Effect.promise(() => view.findByRole("alert"));
-			expect(alert.textContent).toBe("This changed elsewhere. Reload and try again.");
-		}),
-	);
-
-	it.live("retries a failed save with the same identity and starts a new one after edits", () =>
-		Effect.gen(function* () {
-			const requests: EntityEditorSaveRequest[] = [];
-			const container = mount(
-				{ mode: { kind: "edit", entityId: "part-1" } },
-				adapterFor((request) => {
-					requests.push(request);
-					return Effect.fail(new RyotClientError({ reason: "entity-save-failed" }));
-				}),
-			);
-			const view = within(container);
-			const name = yield* Effect.promise(() => view.findByLabelText("Name"));
-
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-			const alert = yield* Effect.promise(() => view.findByRole("alert"));
-			expect(alert.textContent).toBe("Could not save. Try again.");
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
-			fireEvent.change(name, { target: { value: "Hammer curl" } });
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(3)));
-
-			const [first, retry, edited] = requests;
-			expect(retry).toEqual(first);
-			expect(edited?.idempotencyKey).not.toBe(first?.idempotencyKey);
-			expect(saveSubmission(edited).name).toBe("Hammer curl");
-		}),
-	);
-
-	it.live("refuses to edit a schema without a declared editor", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "stale" });
-			const container = mount(
-				{ mode: { kind: "create" } },
-				adapterFor(saves.save, { editor: null }),
-			);
-			const alert = yield* Effect.promise(() => within(container).findByRole("alert"));
-			expect(alert.textContent).toBe("This item cannot be edited here.");
-			expect(saves.requests).toEqual([]);
-		}),
-	);
-	it.live("creates under a fixed parent with seeded properties", () =>
-		Effect.gen(function* () {
-			const saves = recording({ kind: "saved", entityId: EntityId.make("part-4") });
-			const saved: Array<readonly [string, string | undefined]> = [];
-			const container = mount(
-				{
-					onSaved: (entityId, parentEntityId) => saved.push([entityId, parentEntityId]),
-					mode: {
-						kind: "create",
-						parents: { targets: "target-2" },
-						initialProperties: { title: "Seeded" },
-					},
-				},
-				adapterFor(saves.save, {
-					relatedSchemaSide: "source",
-					editor: { relationships: [{ slug: "targets", direction: "parent" }] },
-				}),
-			);
-			const view = within(container);
-			yield* Effect.promise(() => view.findByText("Triceps"));
-			expect(view.getByLabelText("Title")).toHaveProperty("value", "Seeded");
-			expect(view.queryByRole("button", { name: "Add Targets" })).toBeNull();
-			expect(view.queryByRole("button", { name: "Remove Triceps from Targets" })).toBeNull();
-			fireEvent.change(view.getByLabelText("Name"), { target: { value: "Child" } });
-			fireEvent.click(view.getByRole("button", { name: "Save" }));
-			yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
-			yield* Effect.promise(() => waitFor(() => expect(saved).toEqual([["part-4", "target-2"]])));
-			expect(saveSubmission(saves.requests[0]).relationships).toEqual([
-				{ relationshipSchemaSlug: "targets", targets: [{ properties: {}, entityId: "target-2" }] },
-			]);
-		}),
-	);
-
-	it.live("confirms deletion, reports refusals, and settles a deleted entity", () =>
-		Effect.gen(function* () {
-			const outputs: EntityEditorSaveOutput[] = [
-				{ kind: "invalid", message: "Remove this entity's history before deleting it" },
-				{ kind: "deleted" },
-			];
-			const requests: EntityEditorSaveRequest[] = [];
-			const deleted: string[] = [];
-			const container = mount(
-				{ onDeleted: () => deleted.push("deleted"), mode: { kind: "edit", entityId: "part-1" } },
-				adapterFor(
-					(request) => {
-						requests.push(request);
-						return Effect.succeed(outputs.shift() ?? { kind: "stale" });
-					},
-					{
-						editor: {
-							deletable: true,
-							relationships: [{ slug: "targets", direction: "outgoing" }],
+				yield* Effect.promise(() => waitFor(() => expect(saved).toEqual(["part-1"])));
+				expect(saves.requests).toHaveLength(1);
+				expect(saves.requests[0]?.idempotencyKey).not.toBe("");
+				expect(saves.requests[0]?.submittedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+				expect(saves.requests[0]?.submission).toEqual<unknown>({
+					action: "save",
+					name: "Hammer curl",
+					properties: { kind: "reps", title: "Curl" },
+					entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
+					relationships: [
+						{
+							relationshipSchemaSlug: "targets",
+							targets: [{ entityId: "target-1", properties: { role: "secondary" } }],
+						},
+					],
+					target: {
+						kind: "update",
+						entityId: "part-1",
+						expected: {
+							name: "Curl",
+							updatedAt: "2026-01-01T00:00:00.000Z",
+							properties: { kind: "reps", title: "Curl" },
+							relationships: [
+								{
+									relationshipSchemaSlug: "targets",
+									targets: [{ entityId: "target-1", properties: { role: "primary" } }],
+								},
+							],
 						},
 					},
-				),
-			);
-			const view = within(container);
-			fireEvent.click(yield* Effect.promise(() => view.findByRole("button", { name: "Delete" })));
-			const dialog = yield* Effect.promise(() => within(document.body).findByRole("dialog"));
-			fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
-			yield* Effect.promise(() =>
-				within(dialog).findByText("Remove this entity's history before deleting it"),
-			);
-			fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
-			yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["deleted"])));
-			expect(requests.map(({ submission }) => submission)).toEqual([
-				{
-					action: "delete",
-					entityId: "part-1",
-					expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
-					entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
-				},
-				requests[0]?.submission,
-			]);
-			expect(requests[1]?.idempotencyKey).toBe(requests[0]?.idempotencyKey);
-		}),
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"seeds a create and adds targets picked through the kernel entity picker",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-2") });
+				const picks: PickEntityRequest[] = [];
+				const container = mount(
+					{ mode: { kind: "create", seedEntityId: "part-1" } },
+					adapterFor(saves.save, { picks, picked: ["target-2", "target-1"] }),
+				);
+				const view = within(container);
+				const name = yield* Effect.promise(() => view.findByLabelText("Name"));
+				expect(name).toHaveProperty("value", "Curl");
+				expect(view.getByLabelText("Kind").closest("fieldset")?.disabled).toBe(false);
+
+				fireEvent.click(view.getByRole("button", { name: "Add Targets" }));
+				yield* Effect.promise(() => view.findByText("Triceps"));
+				expect(picks).toEqual<unknown>([
+					{ schema: { slug: "target", owner: { kind: "plugin", pluginId: "plugin-1" } } },
+				]);
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+
+				yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+				expect(saveSubmission(saves.requests[0]).target).toEqual({ kind: "create" });
+				expect(saveSubmission(saves.requests[0]).relationships[0]?.targets).toEqual<unknown>([
+					{ entityId: "target-1", properties: { role: "primary" } },
+					{ properties: {}, entityId: "target-2" },
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"retains the original relationship baseline when removing the last target",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+				const view = within(
+					mount({ mode: { kind: "edit", entityId: "part-1" } }, adapterFor(saves.save)),
+				);
+				yield* Effect.promise(() => view.findByLabelText("Name"));
+				fireEvent.click(view.getByRole("button", { name: "Remove Biceps from Targets" }));
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+				yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+				expect(saves.requests[0]?.submission).toMatchObject({
+					relationships: [{ targets: [], relationshipSchemaSlug: "targets" }],
+					target: {
+						expected: {
+							relationships: [
+								{
+									relationshipSchemaSlug: "targets",
+									targets: [{ entityId: "target-1", properties: { role: "primary" } }],
+								},
+							],
+						},
+					},
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"submits empty declared relationship groups and their baseline",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+				const view = within(
+					mount(
+						{ mode: { kind: "edit", entityId: "part-1" } },
+						adapterFor(saves.save, { relationships: [] }),
+					),
+				);
+				yield* Effect.promise(() => view.findByLabelText("Name"));
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+				yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+				expect(saves.requests[0]?.submission).toMatchObject({
+					relationships: [{ targets: [], relationshipSchemaSlug: "targets" }],
+					target: {
+						expected: { relationships: [{ targets: [], relationshipSchemaSlug: "targets" }] },
+					},
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does not open a writable form for a non-editable source",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-1") });
+				const view = within(
+					mount(
+						{ mode: { kind: "edit", entityId: "part-1" } },
+						adapterFor(saves.save, { canEdit: false }),
+					),
+				);
+				yield* Effect.promise(() => view.findByText("This item cannot be edited here."));
+				expect(view.queryByRole("button", { name: "Save" })).toBeNull();
+				expect(saves.requests).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"focuses the name and does not save when it is empty",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-3") });
+				const container = mount({ mode: { kind: "create" } }, adapterFor(saves.save));
+				const view = within(container);
+				const name = yield* Effect.promise(() => view.findByLabelText("Name"));
+
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+
+				yield* Effect.promise(() => view.findByText("Enter a name"));
+				expect(document.activeElement).toBe(name);
+				expect(saves.requests).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"leaves targets unchanged when the entity picker is cancelled",
+		() =>
+			Effect.gen(function* () {
+				const picks: PickEntityRequest[] = [];
+				const container = mount(
+					{ mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor(recording({ kind: "stale" }).save, { picks }),
+				);
+				const view = within(container);
+				yield* Effect.promise(() => view.findByLabelText("Name"));
+
+				fireEvent.click(view.getByRole("button", { name: "Add Targets" }));
+
+				yield* Effect.promise(() => waitFor(() => expect(picks).toHaveLength(1)));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							view.getByRole("button", { name: "Add Targets" }).getAttribute("aria-busy"),
+						).not.toBe("true"),
+					),
+				);
+				expect(view.getAllByRole("button", { name: /^Remove / })).toHaveLength(1);
+				expect(view.queryByText("Triceps")).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"shows the stale message and keeps the editor open",
+		() =>
+			Effect.gen(function* () {
+				const container = mount(
+					{ mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor(() => Effect.succeed({ kind: "stale" })),
+				);
+				const view = within(container);
+				yield* Effect.promise(() => view.findByLabelText("Name"));
+
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+
+				const alert = yield* Effect.promise(() => view.findByRole("alert"));
+				expect(alert.textContent).toBe("This changed elsewhere. Reload and try again.");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"retries a failed save with the same identity and starts a new one after edits",
+		() =>
+			Effect.gen(function* () {
+				const requests: EntityEditorSaveRequest[] = [];
+				const container = mount(
+					{ mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor((request) => {
+						requests.push(request);
+						return Effect.fail(new RyotClientError({ reason: "entity-save-failed" }));
+					}),
+				);
+				const view = within(container);
+				const name = yield* Effect.promise(() => view.findByLabelText("Name"));
+
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+				const alert = yield* Effect.promise(() => view.findByRole("alert"));
+				expect(alert.textContent).toBe("Could not save. Try again.");
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+				fireEvent.change(name, { target: { value: "Hammer curl" } });
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(3)));
+
+				const [first, retry, edited] = requests;
+				expect(retry).toEqual(first);
+				expect(edited?.idempotencyKey).not.toBe(first?.idempotencyKey);
+				expect(saveSubmission(edited).name).toBe("Hammer curl");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"refuses to edit a schema without a declared editor",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "stale" });
+				const container = mount(
+					{ mode: { kind: "create" } },
+					adapterFor(saves.save, { editor: null }),
+				);
+				const alert = yield* Effect.promise(() => within(container).findByRole("alert"));
+				expect(alert.textContent).toBe("This item cannot be edited here.");
+				expect(saves.requests).toEqual([]);
+			}),
+		testTimeout,
+	);
+	it.live(
+		"creates under a fixed parent with seeded properties",
+		() =>
+			Effect.gen(function* () {
+				const saves = recording({ kind: "saved", entityId: EntityId.make("part-4") });
+				const saved: Array<readonly [string, string | undefined]> = [];
+				const container = mount(
+					{
+						onSaved: (entityId, parentEntityId) => saved.push([entityId, parentEntityId]),
+						mode: {
+							kind: "create",
+							parents: { targets: "target-2" },
+							initialProperties: { title: "Seeded" },
+						},
+					},
+					adapterFor(saves.save, {
+						relatedSchemaSide: "source",
+						editor: { relationships: [{ slug: "targets", direction: "parent" }] },
+					}),
+				);
+				const view = within(container);
+				yield* Effect.promise(() => view.findByText("Triceps"));
+				expect(view.getByLabelText("Title")).toHaveProperty("value", "Seeded");
+				expect(view.queryByRole("button", { name: "Add Targets" })).toBeNull();
+				expect(view.queryByRole("button", { name: "Remove Triceps from Targets" })).toBeNull();
+				fireEvent.change(view.getByLabelText("Name"), { target: { value: "Child" } });
+				fireEvent.click(view.getByRole("button", { name: "Save" }));
+				yield* Effect.promise(() => waitFor(() => expect(saves.requests).toHaveLength(1)));
+				yield* Effect.promise(() => waitFor(() => expect(saved).toEqual([["part-4", "target-2"]])));
+				expect(saveSubmission(saves.requests[0]).relationships).toEqual<unknown>([
+					{
+						relationshipSchemaSlug: "targets",
+						targets: [{ properties: {}, entityId: "target-2" }],
+					},
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"confirms deletion, reports refusals, and settles a deleted entity",
+		() =>
+			Effect.gen(function* () {
+				const outputs: EntityEditorSaveOutput[] = [
+					{ kind: "invalid", message: "Remove this entity's history before deleting it" },
+					{ kind: "deleted" },
+				];
+				const requests: EntityEditorSaveRequest[] = [];
+				const deleted: string[] = [];
+				const container = mount(
+					{ onDeleted: () => deleted.push("deleted"), mode: { kind: "edit", entityId: "part-1" } },
+					adapterFor(
+						(request) => {
+							requests.push(request);
+							return Effect.succeed(outputs.shift() ?? { kind: "stale" });
+						},
+						{
+							editor: {
+								deletable: true,
+								relationships: [{ slug: "targets", direction: "outgoing" }],
+							},
+						},
+					),
+				);
+				const view = within(container);
+				fireEvent.click(yield* Effect.promise(() => view.findByRole("button", { name: "Delete" })));
+				const dialog = yield* Effect.promise(() => within(document.body).findByRole("dialog"));
+				fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+				yield* Effect.promise(() =>
+					within(dialog).findByText("Remove this entity's history before deleting it"),
+				);
+				fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }));
+				yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["deleted"])));
+				expect(requests.map(({ submission }) => submission)).toEqual<unknown>([
+					{
+						action: "delete",
+						entityId: "part-1",
+						expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
+						entitySchema: { slug: "part", owner: { kind: "plugin", pluginId: "plugin-1" } },
+					},
+					requests[0]?.submission,
+				]);
+				expect(requests[1]?.idempotencyKey).toBe(requests[0]?.idempotencyKey);
+			}),
+		testTimeout,
 	);
 });

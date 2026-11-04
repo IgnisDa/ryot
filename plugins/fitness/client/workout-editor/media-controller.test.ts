@@ -1,6 +1,10 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Fiber } from "effect";
 
 import {
@@ -29,46 +33,52 @@ const fixture = (options: Parameters<typeof controllerHarness>[0] = {}) =>
 	});
 
 describe("workout media lifecycle", () => {
-	it.effect("persists completed uploads and recovers them without signed URLs or bytes", () =>
-		Effect.gen(function* () {
-			const state = fixture();
-			yield* state.controller.load();
-			yield* state.controller.start(initial());
-			yield* state.controller.uploadMedia(
-				{ kind: "occurrence", occurrenceId: "occurrence-1" },
-				"images",
-				new File(["image"], "image.jpg", { type: "image/jpeg" }),
-			);
-			const decoded = decodeWorkoutEditorDraft(state.read());
-			assert(decoded._tag === "Success");
-			expect(decoded.success.occurrences[0]?.images).toEqual([asset]);
-			const recovered = fixture({ stored: state.read() });
-			yield* recovered.controller.load();
-			const snapshot = recovered.controller.getSnapshot();
-			assert(snapshot.status === "ready");
-			expect(snapshot.draft.occurrences[0]?.images).toEqual([asset]);
-		}),
-	);
-	it.effect("keeps work in memory when upload persistence fails", () =>
-		Effect.gen(function* () {
-			let fail = false;
-			const state = fixture({ onWrite: () => (fail ? Effect.fail("quota") : Effect.void) });
-			yield* state.controller.load();
-			yield* state.controller.start(initial());
-			fail = true;
-			yield* state.controller
-				.uploadMedia(
+	it.effect(
+		"persists completed uploads and recovers them without signed URLs or bytes",
+		() =>
+			Effect.gen(function* () {
+				const state = fixture();
+				yield* state.controller.load();
+				yield* state.controller.start(initial());
+				yield* state.controller.uploadMedia(
 					{ kind: "occurrence", occurrenceId: "occurrence-1" },
 					"images",
-					new File(["image"], "image.jpg"),
-				)
-				.pipe(Effect.ignore);
-			const snapshot = state.controller.getSnapshot();
-			assert(snapshot.status === "ready");
-			expect(snapshot.draft.occurrences[0]?.images).toEqual([asset]);
-			expect(snapshot.persistenceError).toBeDefined();
-			expect(snapshot.uploading).toBe(false);
-		}),
+					new File(["image"], "image.jpg", { type: "image/jpeg" }),
+				);
+				const decoded = decodeWorkoutEditorDraft(state.read());
+				assert(decoded._tag === "Success");
+				expect(decoded.success.occurrences[0]?.images).toEqual([asset]);
+				const recovered = fixture({ stored: state.read() });
+				yield* recovered.controller.load();
+				const snapshot = recovered.controller.getSnapshot();
+				assert(snapshot.status === "ready");
+				expect(snapshot.draft.occurrences[0]?.images).toEqual([asset]);
+			}),
+		testTimeout,
+	);
+	it.effect(
+		"keeps work in memory when upload persistence fails",
+		() =>
+			Effect.gen(function* () {
+				let fail = false;
+				const state = fixture({ onWrite: () => (fail ? Effect.fail("quota") : Effect.void) });
+				yield* state.controller.load();
+				yield* state.controller.start(initial());
+				fail = true;
+				yield* state.controller
+					.uploadMedia(
+						{ kind: "occurrence", occurrenceId: "occurrence-1" },
+						"images",
+						new File(["image"], "image.jpg"),
+					)
+					.pipe(Effect.ignore);
+				const snapshot = state.controller.getSnapshot();
+				assert(snapshot.status === "ready");
+				expect(snapshot.draft.occurrences[0]?.images).toEqual([asset]);
+				expect(snapshot.persistenceError).toBeDefined();
+				expect(snapshot.uploading).toBe(false);
+			}),
+		testTimeout,
 	);
 	it.effect(
 		"blocks saving and discarding during upload and drops a late result for a deleted occurrence",
@@ -118,49 +128,56 @@ describe("workout media lifecycle", () => {
 				assert(snapshot.status === "ready");
 				expect(snapshot.draft.occurrences).toEqual([]);
 			}),
+		testTimeout,
 	);
-	it.effect("preserves recovered frozen submissions", () =>
-		Effect.gen(function* () {
-			const submission = yield* Schema.decodeEffect(WorkoutEditorSaveInputSchema)({
-				submittedAt: now,
-				submissionId: "save-1",
-				data: {
-					videos: [],
-					supersets: [],
-					startedAt: now,
-					name: "Workout",
-					kind: "workout",
-					images: [asset],
-					occurrences: [],
-					target: { kind: "create" },
-					activeDuration: { seconds: 0, kind: "set" },
-				},
-			});
-			const state = fixture({
-				stored: yield* Effect.fromResult(encodeWorkoutEditorDraft({ ...initial(), submission })),
-			});
-			yield* state.controller.load();
-			yield* state.controller.flush();
-			expect(yield* state.controller.discard()).toBe(false);
-		}),
+	it.effect(
+		"preserves recovered frozen submissions",
+		() =>
+			Effect.gen(function* () {
+				const submission = yield* Schema.decodeEffect(WorkoutEditorSaveInputSchema)({
+					submittedAt: now,
+					submissionId: "save-1",
+					data: {
+						videos: [],
+						supersets: [],
+						startedAt: now,
+						name: "Workout",
+						kind: "workout",
+						images: [asset],
+						occurrences: [],
+						target: { kind: "create" },
+						activeDuration: { seconds: 0, kind: "set" },
+					},
+				});
+				const state = fixture({
+					stored: yield* Effect.fromResult(encodeWorkoutEditorDraft({ ...initial(), submission })),
+				});
+				yield* state.controller.load();
+				yield* state.controller.flush();
+				expect(yield* state.controller.discard()).toBe(false);
+			}),
+		testTimeout,
 	);
-	it.effect("permits free exercise uploads but rejects protected workout uploads", () =>
-		Effect.gen(function* () {
-			const state = fixture({ pro: false });
-			yield* state.controller.load();
-			yield* state.controller.start(initial());
-			const protectedUpload = yield* state.controller
-				.uploadMedia({ kind: "workout" }, "images", new File(["image"], "image.jpg"))
-				.pipe(Effect.result);
-			expect(protectedUpload._tag).toBe("Failure");
-			yield* state.controller.uploadMedia(
-				{ kind: "occurrence", occurrenceId: "occurrence-1" },
-				"images",
-				new File(["image"], "image.jpg"),
-			);
-			const snapshot = state.controller.getSnapshot();
-			assert(snapshot.status === "ready");
-			expect(snapshot.draft.occurrences[0]?.images).toEqual([asset]);
-		}),
+	it.effect(
+		"permits free exercise uploads but rejects protected workout uploads",
+		() =>
+			Effect.gen(function* () {
+				const state = fixture({ pro: false });
+				yield* state.controller.load();
+				yield* state.controller.start(initial());
+				const protectedUpload = yield* state.controller
+					.uploadMedia({ kind: "workout" }, "images", new File(["image"], "image.jpg"))
+					.pipe(Effect.result);
+				expect(protectedUpload._tag).toBe("Failure");
+				yield* state.controller.uploadMedia(
+					{ kind: "occurrence", occurrenceId: "occurrence-1" },
+					"images",
+					new File(["image"], "image.jpg"),
+				);
+				const snapshot = state.controller.getSnapshot();
+				assert(snapshot.status === "ready");
+				expect(snapshot.draft.occurrences[0]?.images).toEqual([asset]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { Appearance } from "#/modules/settings/appearance";
 import { makeTestThemeStore } from "#/modules/theme/store.test-store";

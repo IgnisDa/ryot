@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 import type { Recipe } from "./index";
 import {
@@ -211,7 +212,7 @@ describe("RyotQL builders", () => {
 			{ key: "entityId", expr: column(entity, "id") },
 			{ key: "score", expr: column(entity, "score") },
 		]);
-		expect(Result.getOrThrow(result)).toEqual({
+		expect(Result.getOrThrow(result)).toEqual<unknown>({
 			items: [{ score: 42, entityId: "entity-1" }],
 			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 		});
@@ -394,7 +395,7 @@ describe("RyotQL builders", () => {
 					items: [row],
 					pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 				}),
-		).toEqual(decoded);
+		).toEqual<unknown>(decoded);
 	});
 
 	it("defaults recipe success to decoded queries without a mapper", () => {
@@ -662,7 +663,7 @@ describe("RyotQL builders", () => {
 		if (query.where?.type !== "and") {
 			throw new Error("Expected conjunction");
 		}
-		expect(query.where.predicates).toEqual(
+		expect(query.where.predicates).toEqual<unknown>(
 			arrayContaining([
 				objectContaining({ operator: "gt", type: "comparison" }),
 				objectContaining({ type: "contains" }),
@@ -670,7 +671,7 @@ describe("RyotQL builders", () => {
 				{ type: "or", predicates: [] },
 			]),
 		);
-		expect(query.output.fields).toEqual(
+		expect(query.output.fields).toEqual<unknown>(
 			arrayContaining([
 				objectContaining({
 					key: "score",
@@ -701,26 +702,31 @@ describe("RyotQL builders", () => {
 					field("notNull", isNotNull(value)),
 				],
 			}),
-		).toMatchObject({
-			output: {
-				fields: arrayContaining([
-					objectContaining({ key: "concat", expr: objectContaining({ type: "concat" }) }),
-					objectContaining({ key: "conditional", expr: objectContaining({ type: "conditional" }) }),
-					objectContaining({
-						key: "title",
-						expr: objectContaining({ name: "titleCase", type: "transform" }),
-					}),
-					objectContaining({
-						key: "kebab",
-						expr: objectContaining({ name: "kebabCase", type: "transform" }),
-					}),
-					objectContaining({ key: "round", expr: objectContaining({ type: "round" }) }),
-					objectContaining({ key: "floor", expr: objectContaining({ type: "floor" }) }),
-					objectContaining({ key: "integer", expr: objectContaining({ type: "integer" }) }),
-					objectContaining({ key: "notNull", expr: objectContaining({ type: "isNotNull" }) }),
-				]),
-			},
-		});
+		).toEqual<unknown>(
+			objectContaining({
+				output: objectContaining({
+					fields: arrayContaining([
+						objectContaining({ key: "concat", expr: objectContaining({ type: "concat" }) }),
+						objectContaining({
+							key: "conditional",
+							expr: objectContaining({ type: "conditional" }),
+						}),
+						objectContaining({
+							key: "title",
+							expr: objectContaining({ name: "titleCase", type: "transform" }),
+						}),
+						objectContaining({
+							key: "kebab",
+							expr: objectContaining({ name: "kebabCase", type: "transform" }),
+						}),
+						objectContaining({ key: "round", expr: objectContaining({ type: "round" }) }),
+						objectContaining({ key: "floor", expr: objectContaining({ type: "floor" }) }),
+						objectContaining({ key: "integer", expr: objectContaining({ type: "integer" }) }),
+						objectContaining({ key: "notNull", expr: objectContaining({ type: "isNotNull" }) }),
+					]),
+				}),
+			}),
+		);
 	});
 
 	it("rejects non-finite literal numbers", () => {
@@ -805,7 +811,7 @@ describe("RyotQL builders", () => {
 			type: "exists",
 			query: { where: related.where, from: { table: "event", alias: "event" } },
 		});
-		expect(query.output.fields).toEqual(
+		expect(query.output.fields).toEqual<unknown>(
 			arrayContaining([
 				objectContaining({ key: "latest", expr: objectContaining({ type: "first" }) }),
 				objectContaining({

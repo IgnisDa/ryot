@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { objectContaining, stringMatching } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
 
 import {
@@ -141,76 +144,86 @@ const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
 	);
 
 describe("Plex yank", () => {
-	it.live("maps watched movies and per-episode show coverage by guid", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex({
-					"/library/sections": libraries([
-						{ key: "1", type: "movie", title: "Movies" },
-						{ key: "2", type: "show", title: "Shows" },
-					]),
-					"/library/metadata/555/allLeaves": metadata([
-						{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
-					]),
-					"/library/sections/1/all?includeGuids=1": metadata([
-						{
-							key: "/m/1",
-							type: "movie",
-							title: "Arrival",
-							lastViewedAt: 1_700_000_000,
-							Guid: [{ id: "tmdb://329865" }],
-						},
-					]),
-					"/library/sections/2/all?includeGuids=1": metadata([
-						{
-							key: "/s/1",
-							type: "show",
-							ratingKey: "555",
-							title: "Severance",
-							lastViewedAt: 1_700_000_000,
-							Guid: [{ id: "tmdb://95396" }],
-						},
-					]),
-				}),
-			);
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups).toHaveLength(2);
-			expect(result.entityGroups[0]).toMatchObject({
-				events: [{ eventSchemaSlug: "complete" }],
-				entityRef: { externalId: "329865", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
-			});
-			expect(result.entityGroups[1]).toMatchObject({
-				entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
-				events: [
-					{
-						eventSchemaSlug: "progress",
-						properties: { progressPercent: 100 },
-						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+	it.live(
+		"maps watched movies and per-episode show coverage by guid",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex({
+						"/library/sections": libraries([
+							{ key: "1", type: "movie", title: "Movies" },
+							{ key: "2", type: "show", title: "Shows" },
+						]),
+						"/library/metadata/555/allLeaves": metadata([
+							{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
+						]),
+						"/library/sections/1/all?includeGuids=1": metadata([
+							{
+								key: "/m/1",
+								type: "movie",
+								title: "Arrival",
+								lastViewedAt: 1_700_000_000,
+								Guid: [{ id: "tmdb://329865" }],
+							},
+						]),
+						"/library/sections/2/all?includeGuids=1": metadata([
+							{
+								key: "/s/1",
+								type: "show",
+								ratingKey: "555",
+								title: "Severance",
+								lastViewedAt: 1_700_000_000,
+								Guid: [{ id: "tmdb://95396" }],
+							},
+						]),
+					}),
+				);
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups).toHaveLength(2);
+				expect(result.entityGroups[0]).toMatchObject({
+					events: [{ eventSchemaSlug: "complete" }],
+					entityRef: {
+						externalId: "329865",
+						entitySchemaSlug: "movie",
+						providerSlug: "movie.tmdb",
 					},
-				],
-			});
-		}),
+				});
+				expect(result.entityGroups[1]).toMatchObject({
+					entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
+					events: [
+						{
+							eventSchemaSlug: "progress",
+							properties: { progressPercent: 100 },
+							unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
+						},
+					],
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("records a failure for a watched item without a provider id", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex({
-					"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
-					"/library/sections/1/all?includeGuids=1": metadata([
-						{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
-					]),
-				}),
-			);
-			expect(result.entityGroups).toEqual([]);
-			expect(result.failures).toHaveLength(1);
-			expect(result.failures[0]).toMatchObject({
-				itemIndex: 0,
-				sourceLabel: "No Ids",
-				stage: "input_transformation",
-				message: "Plex item has no TMDB, TVDB, or IMDb identifier",
-			});
-		}),
+	it.live(
+		"records a failure for a watched item without a provider id",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex({
+						"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
+						"/library/sections/1/all?includeGuids=1": metadata([
+							{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
+						]),
+					}),
+				);
+				expect(result.entityGroups).toEqual([]);
+				expect(result.failures).toHaveLength(1);
+				expect(result.failures[0]).toMatchObject({
+					itemIndex: 0,
+					sourceLabel: "No Ids",
+					stage: "input_transformation",
+					message: "Plex item has no TMDB, TVDB, or IMDb identifier",
+				});
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -232,150 +245,166 @@ describe("Plex yank", () => {
 				expect(result.failures.map(({ itemIndex }) => itemIndex)).toEqual([0, 1, 2]);
 				yield* expectDistinctChunkFailureIds(result.failures);
 			}),
+		testTimeout,
 	);
 
-	it.live("returns owned movies and shows regardless of watch state", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(
-					{
-						"/library/sections": libraries([
-							{ key: "1", type: "movie", title: "Movies" },
-							{ key: "2", type: "show", title: "Shows" },
-						]),
-						"/library/sections/1/all?includeGuids=1": metadata([
-							{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
-						]),
-						"/library/sections/2/all?includeGuids=1": metadata([
-							{ key: "/s/1", type: "show", title: "Severance", Guid: [{ id: "tmdb://95396" }] },
-						]),
-					},
-					true,
-				),
-			);
-			const owned = result.entityGroups.filter(
-				(group: EntityGroup) => group.ownershipProvider === "plex_yank",
-			);
-			expect(owned).toHaveLength(2);
-			expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
-				{ externalId: "329865", entitySchemaSlug: "movie" },
-				{ externalId: "95396", entitySchemaSlug: "show" },
-			]);
-		}),
+	it.live(
+		"returns owned movies and shows regardless of watch state",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex(
+						{
+							"/library/sections": libraries([
+								{ key: "1", type: "movie", title: "Movies" },
+								{ key: "2", type: "show", title: "Shows" },
+							]),
+							"/library/sections/1/all?includeGuids=1": metadata([
+								{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+							]),
+							"/library/sections/2/all?includeGuids=1": metadata([
+								{ key: "/s/1", type: "show", title: "Severance", Guid: [{ id: "tmdb://95396" }] },
+							]),
+						},
+						true,
+					),
+				);
+				const owned = result.entityGroups.filter(
+					(group: EntityGroup) => group.ownershipProvider === "plex_yank",
+				);
+				expect(owned).toHaveLength(2);
+				expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
+					{ externalId: "329865", entitySchemaSlug: "movie" },
+					{ externalId: "95396", entitySchemaSlug: "show" },
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("omits owned items without a provider id", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(
-					{
+	it.live(
+		"omits owned items without a provider id",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex(
+						{
+							"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
+							"/library/sections/1/all?includeGuids=1": metadata([
+								{ key: "/m/1", type: "movie", title: "With Id", Guid: [{ id: "tmdb://1" }] },
+								{ key: "/m/2", type: "movie", title: "No Id" },
+							]),
+						},
+						true,
+					),
+				);
+				expect(
+					result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+				).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"skips a section whose item fetch fails and keeps the rest",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex(
+						{
+							"/library/sections/2/all?includeGuids=1": failure,
+							"/library/sections": libraries([
+								{ key: "1", type: "movie", title: "Movies" },
+								{ key: "2", type: "show", title: "Shows" },
+							]),
+							"/library/sections/1/all?includeGuids=1": metadata([
+								{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+							]),
+						},
+						true,
+					),
+				);
+				expect(
+					result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
+				).toHaveLength(1);
+				expect(result.failures[0]).toMatchObject({ stage: "source_fetch" });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"falls back to an unresolved IMDb ref",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex({
 						"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
 						"/library/sections/1/all?includeGuids=1": metadata([
-							{ key: "/m/1", type: "movie", title: "With Id", Guid: [{ id: "tmdb://1" }] },
-							{ key: "/m/2", type: "movie", title: "No Id" },
+							{
+								key: "/m/1",
+								type: "movie",
+								title: "Primer",
+								lastViewedAt: 1_700_000_000,
+								Guid: [{ id: "imdb://tt0390384" }, { id: "tvdb://123" }],
+							},
 						]),
-					},
-					true,
-				),
-			);
-			expect(
-				result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
-			).toHaveLength(1);
-		}),
+					}),
+				);
+				expect(result.entityGroups[0]?.entityRef).toEqual({
+					kind: "unresolved",
+					sourceLabel: "Primer",
+					identifierType: "imdb",
+					entitySchemaSlug: "movie",
+					identifierValue: "tt0390384",
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("skips a section whose item fetch fails and keeps the rest", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex(
-					{
-						"/library/sections/2/all?includeGuids=1": failure,
-						"/library/sections": libraries([
-							{ key: "1", type: "movie", title: "Movies" },
-							{ key: "2", type: "show", title: "Shows" },
+	it.live(
+		"isolates a show episode request failure and continues later rows",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex({
+						"/library/metadata/1/allLeaves": failure,
+						"/library/sections": libraries([{ key: "1", type: "show", title: "Shows" }]),
+						"/library/metadata/2/allLeaves": metadata([
+							{
+								index: 1,
+								key: "/e/2",
+								parentIndex: 1,
+								title: "Episode",
+								lastViewedAt: 1_700_000_100,
+							},
 						]),
 						"/library/sections/1/all?includeGuids=1": metadata([
-							{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
+							{
+								key: "/s/1",
+								type: "show",
+								ratingKey: "1",
+								title: "Broken",
+								Guid: [{ id: "tmdb://1" }],
+								lastViewedAt: 1_700_000_000,
+							},
+							{
+								key: "/s/2",
+								type: "show",
+								ratingKey: "2",
+								title: "Working",
+								Guid: [{ id: "tmdb://2" }],
+								lastViewedAt: 1_700_000_000,
+							},
 						]),
-					},
-					true,
-				),
-			);
-			expect(
-				result.entityGroups.filter((group: EntityGroup) => group.ownershipProvider),
-			).toHaveLength(1);
-			expect(result.failures[0]).toMatchObject({ stage: "source_fetch" });
-		}),
-	);
-
-	it.live("falls back to an unresolved IMDb ref", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex({
-					"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
-					"/library/sections/1/all?includeGuids=1": metadata([
-						{
-							key: "/m/1",
-							type: "movie",
-							title: "Primer",
-							lastViewedAt: 1_700_000_000,
-							Guid: [{ id: "imdb://tt0390384" }, { id: "tvdb://123" }],
-						},
-					]),
-				}),
-			);
-			expect(result.entityGroups[0]?.entityRef).toEqual({
-				kind: "unresolved",
-				sourceLabel: "Primer",
-				identifierType: "imdb",
-				entitySchemaSlug: "movie",
-				identifierValue: "tt0390384",
-			});
-		}),
-	);
-
-	it.live("isolates a show episode request failure and continues later rows", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.promise(() =>
-				runPlex({
-					"/library/metadata/1/allLeaves": failure,
-					"/library/sections": libraries([{ key: "1", type: "show", title: "Shows" }]),
-					"/library/metadata/2/allLeaves": metadata([
-						{
-							index: 1,
-							key: "/e/2",
-							parentIndex: 1,
-							title: "Episode",
-							lastViewedAt: 1_700_000_100,
-						},
-					]),
-					"/library/sections/1/all?includeGuids=1": metadata([
-						{
-							key: "/s/1",
-							type: "show",
-							ratingKey: "1",
-							title: "Broken",
-							Guid: [{ id: "tmdb://1" }],
-							lastViewedAt: 1_700_000_000,
-						},
-						{
-							key: "/s/2",
-							type: "show",
-							ratingKey: "2",
-							title: "Working",
-							Guid: [{ id: "tmdb://2" }],
-							lastViewedAt: 1_700_000_000,
-						},
-					]),
-				}),
-			);
-			expect(result.failures[0]).toMatchObject({
-				itemIndex: 0,
-				stage: "source_fetch",
-				message: "Failed to fetch watched episodes from Plex",
-			});
-			expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "2" });
-		}),
+					}),
+				);
+				expect(result.failures[0]).toMatchObject({
+					itemIndex: 0,
+					stage: "source_fetch",
+					message: "Failed to fetch watched episodes from Plex",
+				});
+				expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "2" });
+			}),
+		testTimeout,
 	);
 });
 
@@ -423,44 +452,47 @@ describe("Komga yank", () => {
 		expect(extractMangaRef([], "Berserk")).toBeNull();
 	});
 
-	it.live("accepts null and unread progress while preserving ownership", () =>
-		Effect.gen(function* () {
-			const book = {
-				id: "book1",
-				readProgress: null,
-				media: { pagesCount: 100 },
-				metadata: {
-					title: "Berserk",
-					links: [{ label: "AniList", url: "https://anilist.co/manga/30002" }],
-				},
-			};
-			const result = yield* runIntegrationTestScript(
-				komgaDefinition,
-				{},
-				defineSandboxTestHost(komgaManifest, {
-					httpCall: httpCall({
-						"/api/v1/books/list?page=0&size=500": {
-							totalPages: 1,
-							content: [book, { ...book, id: "unread", readProgress: { page: 0 } }],
-						},
+	it.live(
+		"accepts null and unread progress while preserving ownership",
+		() =>
+			Effect.gen(function* () {
+				const book = {
+					id: "book1",
+					readProgress: null,
+					media: { pagesCount: 100 },
+					metadata: {
+						title: "Berserk",
+						links: [{ label: "AniList", url: "https://anilist.co/manga/30002" }],
+					},
+				};
+				const result = yield* runIntegrationTestScript(
+					komgaDefinition,
+					{},
+					defineSandboxTestHost(komgaManifest, {
+						httpCall: httpCall({
+							"/api/v1/books/list?page=0&size=500": {
+								totalPages: 1,
+								content: [book, { ...book, id: "unread", readProgress: { page: 0 } }],
+							},
+						}),
+						getCurrentIntegration: () =>
+							hostSuccess(
+								integrationRecord({
+									provider: "komga",
+									syncOwnership: true,
+									providerSpecifics: { apiKey: "key", baseUrl: "http://komga.test" },
+								}),
+							),
 					}),
-					getCurrentIntegration: () =>
-						hostSuccess(
-							integrationRecord({
-								provider: "komga",
-								syncOwnership: true,
-								providerSpecifics: { apiKey: "key", baseUrl: "http://komga.test" },
-							}),
-						),
-				}),
-				execution,
-			);
-			expect(result.failures).toEqual([]);
-			expect(result.entityGroups).toEqual([
-				objectContaining({ events: [], ownershipProvider: "komga" }),
-				objectContaining({ events: [], ownershipProvider: "komga" }),
-			]);
-		}),
+					execution,
+				);
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups).toEqual<unknown>([
+					objectContaining({ events: [], ownershipProvider: "komga" }),
+					objectContaining({ events: [], ownershipProvider: "komga" }),
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -533,12 +565,15 @@ describe("YouTube Music yank", () => {
 		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
 	});
 
-	it.effect("rejects a stored timezone that is not an IANA zone", () =>
-		Effect.gen(function* () {
-			const { run } = setup([], { authCookie: "cookie", timezone: "Not/AZone" });
-			const error = yield* Effect.flip(run("2026-01-01T00:00:00.000Z"));
-			expect(error.message).toContain("timezone must be an IANA time zone");
-		}),
+	it.effect(
+		"rejects a stored timezone that is not an IANA zone",
+		() =>
+			Effect.gen(function* () {
+				const { run } = setup([], { authCookie: "cookie", timezone: "Not/AZone" });
+				const error = yield* Effect.flip(run("2026-01-01T00:00:00.000Z"));
+				expect(error.message).toContain("timezone must be an IANA time zone");
+			}),
+		testTimeout,
 	);
 
 	it("accounts for a longer local day when daylight saving time ends", () => {
@@ -551,28 +586,34 @@ describe("YouTube Music yank", () => {
 		expect(dailyProgressWindow("UTC", "2026-01-01T23:50:00.000Z").isFinalWindow).toBe(true);
 	});
 
-	it.effect("emits 35 once, emits 100 once, then skips songs already completed that day", () =>
-		Effect.gen(function* () {
-			const { run } = setup([
-				{ videoId: "v1", title: "First" },
-				{ videoId: "v2", title: "Second" },
-				{ videoId: "v1", title: "First duplicate" },
-			]);
-			expect(progressValues(yield* run("2026-01-01T12:00:00.000Z"))).toEqual([35, 35]);
-			expect(progressValues(yield* run("2026-01-01T12:05:00.000Z"))).toEqual([100, 100]);
-			expect(progressValues(yield* run("2026-01-01T12:10:00.000Z"))).toEqual([]);
-		}),
+	it.effect(
+		"emits 35 once, emits 100 once, then skips songs already completed that day",
+		() =>
+			Effect.gen(function* () {
+				const { run } = setup([
+					{ videoId: "v1", title: "First" },
+					{ videoId: "v2", title: "Second" },
+					{ videoId: "v1", title: "First duplicate" },
+				]);
+				expect(progressValues(yield* run("2026-01-01T12:00:00.000Z"))).toEqual([35, 35]);
+				expect(progressValues(yield* run("2026-01-01T12:05:00.000Z"))).toEqual([100, 100]);
+				expect(progressValues(yield* run("2026-01-01T12:10:00.000Z"))).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("completes a song directly when first found in the final ten minutes", () =>
-		Effect.gen(function* () {
-			const { run, claims } = setup();
-			expect(progressValues(yield* run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
-			expect(progressValues(yield* run("2026-01-01T23:55:00.000Z"))).toEqual([]);
-			expect([...claims]).toEqual([
-				stringMatching(/:v1:2026-01-01:seen$/),
-				stringMatching(/:v1:2026-01-01:completed$/),
-			]);
-		}),
+	it.effect(
+		"completes a song directly when first found in the final ten minutes",
+		() =>
+			Effect.gen(function* () {
+				const { run, claims } = setup();
+				expect(progressValues(yield* run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
+				expect(progressValues(yield* run("2026-01-01T23:55:00.000Z"))).toEqual([]);
+				expect([...claims]).toEqual<unknown>([
+					stringMatching(/:v1:2026-01-01:seen$/),
+					stringMatching(/:v1:2026-01-01:completed$/),
+				]);
+			}),
+		testTimeout,
 	);
 });

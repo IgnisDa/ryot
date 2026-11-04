@@ -538,12 +538,13 @@ const eventInput = (
 	eventSchemaSlug: string,
 	marker: string,
 	occurredAt: string,
-): EventInput => ({
-	entityId,
-	occurredAt,
-	properties: { marker },
-	eventSchemaSlug: EventSchemaSlug.make(eventSchemaSlug),
-});
+) =>
+	({
+		entityId,
+		occurredAt,
+		properties: { marker },
+		eventSchemaSlug: EventSchemaSlug.make(eventSchemaSlug),
+	}) satisfies EventInput;
 
 const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
 	const marker = isObjectRecord(input.properties) ? input.properties["marker"] : undefined;
@@ -1099,7 +1100,7 @@ describe("automation lifecycle triggers", () => {
 					fanoutRuns
 						.map(({ status, hookSlug }) => ({ status, hookSlug }))
 						.sort((left, right) => left.hookSlug.localeCompare(right.hookSlug)),
-				).toEqual(
+				).toEqual<unknown>(
 					[
 						{ status: "failed", hookSlug: slugs.fanoutFailureHook },
 						{ status: "succeeded", hookSlug: slugs.fanoutSuccessHook },
@@ -1140,7 +1141,7 @@ describe("automation lifecycle triggers", () => {
 				hookSlug: AutomationHookSlug.make(slugs.asyncHook),
 			});
 			expect(immediateRuns).toHaveLength(1);
-			expect(["queued", "running"]).toContain(immediateRuns[0]?.status);
+			expect(["queued", "running"]).toContain<unknown>(immediateRuns[0]?.status);
 			expect(elapsedMs).toBeLessThan(5_000);
 			const terminalRuns = yield* pollTerminalAutomationRuns({ triggerId: trigger.id });
 			expect(terminalRuns).toMatchObject([{ delivery: "async", status: "succeeded" }]);

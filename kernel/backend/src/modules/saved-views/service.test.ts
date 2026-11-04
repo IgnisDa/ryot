@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type ListedSavedView,
@@ -8,6 +9,8 @@ import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands"
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import {
@@ -210,17 +213,20 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("clones a validated plugin-rendered builtin with its stable runtime reference", () =>
-		Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const calls = yield* SavedViewsCalls;
-			const cloned = yield* service.clone(user, pluginView.reference);
-			expect(cloned).toEqual({ id: SavedViewId.make("plugin-copy-id") });
-			expect(yield* calls.created).toMatchObject([
-				{ renderer: pluginRenderer, settings: { title: "Fixture" } },
-			]);
-			expect(yield* calls.events).toEqual(["create", "invalidate"]);
-		}),
+	test.effect(
+		"clones a validated plugin-rendered builtin with its stable runtime reference",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				const calls = yield* SavedViewsCalls;
+				const cloned = yield* service.clone(user, pluginView.reference);
+				expect(cloned).toEqual({ id: SavedViewId.make("plugin-copy-id") });
+				expect(yield* calls.created).toMatchObject([
+					{ renderer: pluginRenderer, settings: { title: "Fixture" } },
+				]);
+				expect(yield* calls.events).toEqual(["create", "invalidate"]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -233,20 +239,23 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("clones renderer settings and data sources without copying source code", () =>
-		Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const cloned = yield* service.clone(user, baseView.reference);
-			expect(cloned).toEqual({ id: SavedViewId.make("copy-id") });
-			expect(yield* (yield* SavedViewsCalls).created).toMatchObject([
-				{
-					name: "My View (Copy)",
-					renderer: baseView.renderer,
-					settings: baseView.settings,
-					dataSources: baseView.dataSources,
-				},
-			]);
-		}),
+	test.effect(
+		"clones renderer settings and data sources without copying source code",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				const cloned = yield* service.clone(user, baseView.reference);
+				expect(cloned).toEqual({ id: SavedViewId.make("copy-id") });
+				expect(yield* (yield* SavedViewsCalls).created).toMatchObject([
+					{
+						name: "My View (Copy)",
+						renderer: baseView.renderer,
+						settings: baseView.settings,
+						dataSources: baseView.dataSources,
+					},
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -274,28 +283,31 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("rejects unavailable plugin renderers before create, update, or clone writes", () =>
-		Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const config = {
-				dataSources: null,
-				renderer: pluginRenderer,
-				settings: { title: "Fixture" },
-			};
-			for (const operation of [
-				service.create(user, { ...config, icon: "record", name: "Plugin view" }),
-				service.update(user, baseView.reference, { ...config, isHidden: false }),
-				service.clone(user, pluginView.reference),
-			]) {
-				assertExitFails(
-					yield* Effect.exit(operation),
-					new SavedViewBadRequest({ reason: { code: "renderer-not-found" } }),
-				);
-			}
-			const calls = yield* SavedViewsCalls;
-			expect(yield* calls.created).toEqual([]);
-			expect(yield* calls.events).toEqual([]);
-		}),
+	test.effect(
+		"rejects unavailable plugin renderers before create, update, or clone writes",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				const config = {
+					dataSources: null,
+					renderer: pluginRenderer,
+					settings: { title: "Fixture" },
+				};
+				for (const operation of [
+					service.create(user, { ...config, icon: "record", name: "Plugin view" }),
+					service.update(user, baseView.reference, { ...config, isHidden: false }),
+					service.clone(user, pluginView.reference),
+				]) {
+					assertExitFails(
+						yield* Effect.exit(operation),
+						new SavedViewBadRequest({ reason: { code: "renderer-not-found" } }),
+					);
+				}
+				const calls = yield* SavedViewsCalls;
+				expect(yield* calls.created).toEqual([]);
+				expect(yield* calls.events).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -308,20 +320,23 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("refuses to clone the kernel calendar and creates no custom view", () =>
-		Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const exit = yield* Effect.exit(service.clone(user, calendarView.reference));
-			assertExitFails(
-				exit,
-				new SavedViewBadRequest({
-					reason: { code: "settings-incompatible", message: "Saved view definition is invalid" },
-				}),
-			);
-			const calls = yield* SavedViewsCalls;
-			expect(yield* calls.created).toEqual([]);
-			expect(yield* calls.events).toEqual([]);
-		}),
+	test.effect(
+		"refuses to clone the kernel calendar and creates no custom view",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				const exit = yield* Effect.exit(service.clone(user, calendarView.reference));
+				assertExitFails(
+					exit,
+					new SavedViewBadRequest({
+						reason: { code: "settings-incompatible", message: "Saved view definition is invalid" },
+					}),
+				);
+				const calls = yield* SavedViewsCalls;
+				expect(yield* calls.created).toEqual([]);
+				expect(yield* calls.events).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -334,21 +349,24 @@ layer(
 		},
 	}),
 )((test) => {
-	test.effect("clears home references when disabling a saved view", () =>
-		Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const updated = yield* service.update(user, baseView.reference, {
-				isHidden: true,
-				icon: baseView.icon,
-				name: baseView.name,
-			});
-			expect(updated).toEqual({ id: baseView.id });
-			expect(yield* (yield* SavedViewsCalls).events).toEqual([
-				"update",
-				`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
-				"invalidate",
-			]);
-		}),
+	test.effect(
+		"clears home references when disabling a saved view",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				const updated = yield* service.update(user, baseView.reference, {
+					isHidden: true,
+					icon: baseView.icon,
+					name: baseView.name,
+				});
+				expect(updated).toEqual({ id: baseView.id });
+				expect(yield* (yield* SavedViewsCalls).events).toEqual([
+					"update",
+					`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
+					"invalidate",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -359,35 +377,41 @@ const hiddenViewRepository = {
 };
 
 layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
-	test.effect("reveals a hidden view without building its composition", () =>
-		Effect.gen(function* () {
-			const service = yield* SavedViewsService;
-			const updated = yield* service.update(user, baseView.reference, {
-				isHidden: false,
-				icon: baseView.icon,
-				name: baseView.name,
-			});
-			expect(updated).toEqual({ id: baseView.id });
-			expect(yield* (yield* SavedViewsCalls).events).toEqual(["update", "invalidate"]);
-		}),
+	test.effect(
+		"reveals a hidden view without building its composition",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* SavedViewsService;
+				const updated = yield* service.update(user, baseView.reference, {
+					isHidden: false,
+					icon: baseView.icon,
+					name: baseView.name,
+				});
+				expect(updated).toEqual({ id: baseView.id });
+				expect(yield* (yield* SavedViewsCalls).events).toEqual(["update", "invalidate"]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
-	test.effect("updates a hidden view without preparing its renderer", () =>
-		Effect.gen(function* () {
-			const updated = yield* (yield* SavedViewsService).update(user, baseView.reference, {
-				isHidden: true,
-				icon: baseView.icon,
-				name: "Renamed View",
-			});
-			expect(updated).toEqual({ id: baseView.id });
-			expect(yield* (yield* SavedViewsCalls).events).toEqual([
-				"update",
-				`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
-				"invalidate",
-			]);
-		}),
+	test.effect(
+		"updates a hidden view without preparing its renderer",
+		() =>
+			Effect.gen(function* () {
+				const updated = yield* (yield* SavedViewsService).update(user, baseView.reference, {
+					isHidden: true,
+					icon: baseView.icon,
+					name: "Renamed View",
+				});
+				expect(updated).toEqual({ id: baseView.id });
+				expect(yield* (yield* SavedViewsCalls).events).toEqual([
+					"update",
+					`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
+					"invalidate",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -432,22 +456,25 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("rejects saved view settings that reference another user's managed asset", () =>
-		Effect.gen(function* () {
-			const foreign = yield* insertManagedAsset(UserId.make("saved-view-asset-foreign"));
-			assertExitFails(
-				yield* Effect.exit(
-					(yield* SavedViewsService).create(user, {
-						icon: "record",
-						dataSources: null,
-						name: "Asset view",
-						renderer: pluginRenderer,
-						settings: { image: foreign, title: "Fixture" },
-					}),
-				),
-				new SavedViewBadRequest({ reason: { code: "asset-forbidden" } }),
-			);
-			expect(yield* (yield* SavedViewsCalls).created).toEqual([]);
-		}),
+	test.effect(
+		"rejects saved view settings that reference another user's managed asset",
+		() =>
+			Effect.gen(function* () {
+				const foreign = yield* insertManagedAsset(UserId.make("saved-view-asset-foreign"));
+				assertExitFails(
+					yield* Effect.exit(
+						(yield* SavedViewsService).create(user, {
+							icon: "record",
+							dataSources: null,
+							name: "Asset view",
+							renderer: pluginRenderer,
+							settings: { image: foreign, title: "Fixture" },
+						}),
+					),
+					new SavedViewBadRequest({ reason: { code: "asset-forbidden" } }),
+				);
+				expect(yield* (yield* SavedViewsCalls).created).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

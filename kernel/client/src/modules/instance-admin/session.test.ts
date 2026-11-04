@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { ServerOrigin } from "#/api/origin";
 import { makeInstanceAdminSessionService } from "#/modules/instance-admin/session";

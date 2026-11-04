@@ -1,9 +1,10 @@
+import { expect } from "bun:test";
 import { fileURLToPath } from "node:url";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, it, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Stream } from "effect";
 
@@ -244,10 +245,9 @@ if (process.env["RYOT_BACKUP_MEMORY_CHILD"] !== "1") {
 						Bun.spawn(
 							[
 								process.execPath,
-								"--bun",
-								"run",
-								"vitest",
-								"run",
+								"test",
+								"--isolate",
+								"--timeout=120000",
 								"src/modules/backups/streaming-memory.test.ts",
 							],
 							{

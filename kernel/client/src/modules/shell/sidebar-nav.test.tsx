@@ -1,10 +1,14 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
+import axe from "axe-core";
 import { Effect } from "effect";
-import { axe } from "vitest-axe";
 
 import { SidebarNav } from "#/modules/shell/sidebar-nav";
 import type { SidebarSections } from "#/modules/shell/sidebar-sections";
@@ -169,14 +173,17 @@ describe("sidebar navigation", () => {
 		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
 	});
 
-	it.live("has no accessibility violations", () =>
-		Effect.gen(function* () {
-			const view = renderSidebar(true);
-			const results = yield* Effect.promise(() =>
-				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
-			);
-			expect(results.violations.map((violation) => violation.id)).toEqual([]);
-		}),
+	it.live(
+		"has no accessibility violations",
+		() =>
+			Effect.gen(function* () {
+				const view = renderSidebar(true);
+				const results = yield* Effect.promise(() =>
+					axe.run(view.container, { rules: { "color-contrast": { enabled: false } } }),
+				);
+				expect(results.violations.map((violation) => violation.id)).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it("offers no customize affordances when the consumer supplies no handlers", () => {

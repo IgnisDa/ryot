@@ -1,26 +1,32 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { decodeServerOrigin, ServerOrigin } from "#/api/origin";
 import { apiScopeKey } from "#/api/scope";
 
 describe("API scope", () => {
-	it.effect("uses canonical origins to partition users and servers", () =>
-		Effect.gen(function* () {
-			const firstOrigin = ServerOrigin.make("https://one.test");
-			const first = apiScopeKey({ userId: "user-1", serverUrl: firstOrigin });
+	it.effect(
+		"uses canonical origins to partition users and servers",
+		() =>
+			Effect.gen(function* () {
+				const firstOrigin = ServerOrigin.make("https://one.test");
+				const first = apiScopeKey({ userId: "user-1", serverUrl: firstOrigin });
 
-			expect(first).toBe(
-				apiScopeKey({
-					userId: "user-1",
-					serverUrl: yield* decodeServerOrigin("https://one.test/"),
-				}),
-			);
-			expect(first).not.toBe(apiScopeKey({ userId: "user-2", serverUrl: firstOrigin }));
-			expect(first).not.toBe(
-				apiScopeKey({ userId: "user-1", serverUrl: ServerOrigin.make("https://two.test") }),
-			);
-		}),
+				expect(first).toBe(
+					apiScopeKey({
+						userId: "user-1",
+						serverUrl: yield* decodeServerOrigin("https://one.test/"),
+					}),
+				);
+				expect(first).not.toBe(apiScopeKey({ userId: "user-2", serverUrl: firstOrigin }));
+				expect(first).not.toBe(
+					apiScopeKey({ userId: "user-1", serverUrl: ServerOrigin.make("https://two.test") }),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("excludes unrelated fields from the key", () => {

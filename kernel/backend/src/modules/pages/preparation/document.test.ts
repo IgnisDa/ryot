@@ -1,6 +1,10 @@
-import { assert, expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
@@ -56,7 +60,7 @@ it("warms every supported file of an authorized lazy artifact without importing 
 	const prefix = `/api/page-bundles/${"c".repeat(64)}/${"x".repeat(43)}/`;
 	expect(plan.modulepreloads).toContain(`${prefix}module.js`);
 	expect(plan.stylesheets).toContain(`${prefix}module.css`);
-	expect(plan.preloads).toEqual(
+	expect(plan.preloads).toEqual<unknown>(
 		arrayContaining([
 			{ as: "font", type: "font/woff2", href: `${prefix}font.woff2` },
 			{ as: "image", type: "image/svg+xml", href: `${prefix}icon.svg` },
@@ -216,5 +220,6 @@ layer(documentDependenciesLayer)((test) => {
 				);
 			});
 		},
+		testTimeout,
 	);
 });

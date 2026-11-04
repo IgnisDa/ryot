@@ -1,10 +1,10 @@
 import { BunCrypto } from "@effect/platform-bun";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Redacted } from "effect";
-import { assert } from "vitest";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";

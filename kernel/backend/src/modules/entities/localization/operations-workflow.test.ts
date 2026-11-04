@@ -1,9 +1,12 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	PluginConfigRevisionId,
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -100,7 +103,7 @@ layer(operationsLayer)((test) => {
 					yield* operations.captureExecution(translationPayload, "admitted-after-upgrade", 1),
 				);
 				expect(retry.execution).toEqual(first.execution);
-				expect(fresh.execution.principal.pluginRevision?.revisionId).toBe(
+				expect(fresh.execution.principal.pluginRevision?.revisionId).toBe<unknown>(
 					"compatible-additive-revision",
 				);
 				expect(yield* effects.calls).toMatchObject([
@@ -124,5 +127,6 @@ layer(operationsLayer)((test) => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 });

@@ -1,7 +1,10 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
@@ -101,34 +104,38 @@ const openPanel = () =>
 	);
 
 describe("customize sidebar route", () => {
-	it.live("opens read-only for demo sessions", () => {
-		const restore = stubDesktopMatchMedia();
-		const saves: SavedPlan[] = [];
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar", saves, {
-				auth: makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-			});
-			const panel = yield* Effect.promise(() => openPanel());
+	it.live(
+		"opens read-only for demo sessions",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			const saves: SavedPlan[] = [];
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar", saves, {
+					auth: makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+				});
+				const panel = yield* Effect.promise(() => openPanel());
 
-			expect(
-				panel.getByText("This operation is unavailable while using the shared demo account."),
-			).not.toBeNull();
-			expect(
-				panel
-					.getByRole("switch", { name: "Show Fixture View in sidebar" })
-					.hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				panel.getByRole("button", { name: "Reorder Fixture View" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
-				panel.getByRole("button", { name: "Save sidebar changes" }).hasAttribute("disabled"),
-			).toBe(true);
-			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
-			expect(saves).toEqual([]);
-			expect(view.router.state.location.pathname).toBe("/customize-sidebar");
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				expect(
+					panel.getByText("This operation is unavailable while using the shared demo account."),
+				).not.toBeNull();
+				expect(
+					panel
+						.getByRole("switch", { name: "Show Fixture View in sidebar" })
+						.hasAttribute("disabled"),
+				).toBe(true);
+				expect(
+					panel.getByRole("button", { name: "Reorder Fixture View" }).hasAttribute("disabled"),
+				).toBe(true);
+				expect(
+					panel.getByRole("button", { name: "Save sidebar changes" }).hasAttribute("disabled"),
+				).toBe(true);
+				fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
+				expect(saves).toEqual([]);
+				expect(view.router.state.location.pathname).toBe("/customize-sidebar");
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
 	it.live(
 		"turns the desktop sidebar into the customize panel and drops the nav and account footer",
@@ -145,134 +152,163 @@ describe("customize sidebar route", () => {
 				expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("w-100");
 			}).pipe(Effect.ensuring(Effect.sync(restore)));
 		},
+		testTimeout,
 	);
 
-	it.live("renders no mobile header or drawer over the customize screen", () => {
-		const restore = stubCompactMatchMedia();
-		return Effect.gen(function* () {
-			mountView("/customize-sidebar");
-			yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Cancel sidebar customization" }),
-			);
+	it.live(
+		"renders no mobile header or drawer over the customize screen",
+		() => {
+			const restore = stubCompactMatchMedia();
+			return Effect.gen(function* () {
+				mountView("/customize-sidebar");
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Cancel sidebar customization" }),
+				);
 
-			expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
-			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
+				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
-	it.live("opens on the section named in the search params", () => {
-		const restore = stubDesktopMatchMedia();
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar?section=savedViews");
-			yield* Effect.promise(() => openPanel());
+	it.live(
+		"opens on the section named in the search params",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar?section=savedViews");
+				yield* Effect.promise(() => openPanel());
 
-			expect(view.router.state.location.search.section).toBe("savedViews");
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				expect(view.router.state.location.search.section).toBe("savedViews");
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
-	it.live("leaves without asking while the draft is clean", () => {
-		const restore = stubDesktopMatchMedia();
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar");
-			const panel = yield* Effect.promise(() => openPanel());
+	it.live(
+		"leaves without asking while the draft is clean",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar");
+				const panel = yield* Effect.promise(() => openPanel());
 
-			fireEvent.click(panel.getByRole("button", { name: "Cancel sidebar customization" }));
+				fireEvent.click(panel.getByRole("button", { name: "Cancel sidebar customization" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
-			);
-			expect(screen.queryByText("Discard sidebar changes?")).toBeNull();
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
+				);
+				expect(screen.queryByText("Discard sidebar changes?")).toBeNull();
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
-	it.live("asks before discarding a dirty draft and stays put while editing continues", () => {
-		const restore = stubDesktopMatchMedia();
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar");
-			const panel = yield* Effect.promise(() => openPanel());
+	it.live(
+		"asks before discarding a dirty draft and stays put while editing continues",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar");
+				const panel = yield* Effect.promise(() => openPanel());
 
-			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture View in sidebar" }));
-			fireEvent.click(panel.getByRole("button", { name: "Cancel sidebar customization" }));
+				fireEvent.click(panel.getByRole("switch", { name: "Show Fixture View in sidebar" }));
+				fireEvent.click(panel.getByRole("button", { name: "Cancel sidebar customization" }));
 
-			yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Discard sidebar changes?" }),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+				yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Discard sidebar changes?" }),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
 
-			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
-			expect(view.router.state.location.pathname).toBe("/customize-sidebar");
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
+				expect(view.router.state.location.pathname).toBe("/customize-sidebar");
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
 	// A load started while still on the customize route is the bug the ordering exists to prevent:
 	// the navigation that follows aborts it, so the sidebar keeps rendering the order just changed.
-	it.live("starts no load until it has left, so the navigation cannot abort the refresh", () => {
-		const restore = stubDesktopMatchMedia();
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar");
-			const panel = yield* Effect.promise(() => openPanel());
-			const loadedAt: string[] = [];
-			view.router.subscribe("onBeforeLoad", () =>
-				loadedAt.push(view.router.latestLocation.pathname),
-			);
+	it.live(
+		"starts no load until it has left, so the navigation cannot abort the refresh",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar");
+				const panel = yield* Effect.promise(() => openPanel());
+				const loadedAt: string[] = [];
+				view.router.subscribe("onBeforeLoad", () =>
+					loadedAt.push(view.router.latestLocation.pathname),
+				);
 
-			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture View in sidebar" }));
-			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
+				fireEvent.click(panel.getByRole("switch", { name: "Show Fixture View in sidebar" }));
+				fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
-			);
-			expect(loadedAt).not.toContain("/customize-sidebar");
-			expect(loadedAt).toContain("/p/test/plugin-1");
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
+				);
+				expect(loadedAt).not.toContain("/customize-sidebar");
+				expect(loadedAt).toContain("/p/test/plugin-1");
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
-	it.live("saves the plan and leaves once the save succeeds", () => {
-		const restore = stubDesktopMatchMedia();
-		const saves: SavedPlan[] = [];
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar", saves);
-			const panel = yield* Effect.promise(() => openPanel());
+	it.live(
+		"saves the plan and leaves once the save succeeds",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			const saves: SavedPlan[] = [];
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar", saves);
+				const panel = yield* Effect.promise(() => openPanel());
 
-			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture View in sidebar" }));
-			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
+				fireEvent.click(panel.getByRole("switch", { name: "Show Fixture View in sidebar" }));
+				fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
-			);
-			expect(saves).toHaveLength(1);
-			expect(saves[0]?.updates.map((update) => update.reference)).toEqual([
-				{ kind: "plugin", pluginId: "plugin-1", slug: "fixture-view" },
-			]);
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
+				);
+				expect(saves).toHaveLength(1);
+				expect(saves[0]?.updates.map((update) => update.reference)).toEqual<unknown>([
+					{ kind: "plugin", pluginId: "plugin-1", slug: "fixture-view" },
+				]);
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
-	it.live("moves to the first enabled workspace after disabling the current workspace", () => {
-		const restore = stubDesktopMatchMedia();
-		const recorder = makeWorkspaceRecorder();
-		const primary = catalog[0];
-		const alternate = {
-			...primary,
-			sortOrder: 1,
-			name: "Alternate",
-			installationId: "installation-2",
-			pluginId: PluginId.make("plugin-2"),
-			packageId: PluginPackageId.make("test/plugin-2"),
-		};
-		return Effect.gen(function* () {
-			const view = mountView("/customize-sidebar", [], {
-				catalog: [primary, alternate],
-				storage: makeStorageStub("plugin-1", recorder),
-			});
-			const panel = yield* Effect.promise(() => openPanel());
+	it.live(
+		"moves to the first enabled workspace after disabling the current workspace",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			const recorder = makeWorkspaceRecorder();
+			const primary = catalog[0];
+			const alternate = {
+				...primary,
+				sortOrder: 1,
+				name: "Alternate",
+				installationId: "installation-2",
+				pluginId: PluginId.make("plugin-2"),
+				packageId: PluginPackageId.make("test/plugin-2"),
+			};
+			return Effect.gen(function* () {
+				const view = mountView("/customize-sidebar", [], {
+					catalog: [primary, alternate],
+					storage: makeStorageStub("plugin-1", recorder),
+				});
+				const panel = yield* Effect.promise(() => openPanel());
 
-			fireEvent.click(panel.getByRole("switch", { name: "Show Fixture in sidebar" }));
-			fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
+				fireEvent.click(panel.getByRole("switch", { name: "Show Fixture in sidebar" }));
+				fireEvent.click(panel.getByRole("button", { name: "Save sidebar changes" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
-			);
-			expect(recorder.setCalls.map(({ slug }) => slug)).toEqual(["plugin-2"]);
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
+				);
+				expect(recorder.setCalls.map(({ slug }) => slug)).toEqual(["plugin-2"]);
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 });

@@ -1,5 +1,8 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result, Schema } from "effect";
 
 import { EntityId } from "../../schema/brands";
@@ -21,14 +24,14 @@ const replace = (entityIds: readonly string[], foregroundIds: readonly string[])
 
 describe("entity-watches socket messages", () => {
 	it("decodes every client message and deduplicates command IDs", () => {
-		expect(decodeEntityWatchClientMessage('{"type":"authenticate","ticket":"ticket"}')).toEqual(
-			objectContaining({ success: { ticket: "ticket", type: "authenticate" } }),
-		);
+		expect(
+			decodeEntityWatchClientMessage('{"type":"authenticate","ticket":"ticket"}'),
+		).toEqual<unknown>(objectContaining({ success: { ticket: "ticket", type: "authenticate" } }));
 		expect(
 			decodeEntityWatchClientMessage(
 				'{"type":"replace","revision":1,"entityIds":["entity-2","entity-1","entity-2"],"foregroundIds":["entity-1","entity-1"]}',
 			),
-		).toEqual(
+		).toEqual<unknown>(
 			objectContaining({
 				success: {
 					revision: 1,
@@ -38,7 +41,7 @@ describe("entity-watches socket messages", () => {
 				},
 			}),
 		);
-		expect(decodeEntityWatchClientMessage('{"type":"pong","nonce":"nonce"}')).toEqual(
+		expect(decodeEntityWatchClientMessage('{"type":"pong","nonce":"nonce"}')).toEqual<unknown>(
 			objectContaining({ success: { type: "pong", nonce: "nonce" } }),
 		);
 	});
@@ -73,67 +76,78 @@ describe("entity-watches socket messages", () => {
 		expect(Result.isSuccess(replace(atCap, [...atCap, ...atCap]))).toBe(true);
 	});
 
-	it.effect("round-trips a full 500-member and 50-foreground frame within its byte budget", () =>
-		Effect.gen(function* () {
-			const entityIds = Array.from(
-				{ length: MAX_INTEREST_ENTITY_IDS },
-				(_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-			);
-			const message = {
-				entityIds,
-				revision: 2,
-				type: "replace" as const,
-				foregroundIds: entityIds.slice(0, MAX_FOREGROUND_ENTITY_IDS),
-			};
-			const frame = yield* Effect.fromResult(encodeEntityWatchClientMessage(message));
-			expect(new TextEncoder().encode(frame).byteLength).toBe(21513);
-			expect(decodeEntityWatchClientMessage(frame)).toEqual(objectContaining({ success: message }));
-		}),
+	it.effect(
+		"round-trips a full 500-member and 50-foreground frame within its byte budget",
+		() =>
+			Effect.gen(function* () {
+				const entityIds = Array.from(
+					{ length: MAX_INTEREST_ENTITY_IDS },
+					(_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+				);
+				const message = {
+					entityIds,
+					revision: 2,
+					type: "replace" as const,
+					foregroundIds: entityIds.slice(0, MAX_FOREGROUND_ENTITY_IDS),
+				};
+				const frame = yield* Effect.fromResult(encodeEntityWatchClientMessage(message));
+				expect(new TextEncoder().encode(frame).byteLength).toBe(21513);
+				expect(decodeEntityWatchClientMessage(frame)).toEqual<unknown>(
+					objectContaining({ success: message }),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("round-trips client and server text frames", () =>
-		Effect.gen(function* () {
-			const client = yield* Effect.fromResult(
-				encodeEntityWatchClientMessage({
-					revision: 1,
-					type: "replace",
-					entityIds: ["entity-1"],
-					foregroundIds: ["entity-1"],
-				}),
-			);
-			const server = yield* Effect.fromResult(
-				encodeEntityWatchServerMessage({
-					reason: "translated",
-					type: "entity-updated",
-					entityId: EntityId.make("entity-1"),
-				}),
-			);
-
-			expect(decodeEntityWatchClientMessage(client)).toEqual(
-				objectContaining({
-					success: {
+	it.effect(
+		"round-trips client and server text frames",
+		() =>
+			Effect.gen(function* () {
+				const client = yield* Effect.fromResult(
+					encodeEntityWatchClientMessage({
 						revision: 1,
 						type: "replace",
 						entityIds: ["entity-1"],
 						foregroundIds: ["entity-1"],
-					},
-				}),
-			);
-			expect(decodeEntityWatchServerMessage(server)).toEqual(
-				objectContaining({
-					success: { entityId: "entity-1", reason: "translated", type: "entity-updated" },
-				}),
-			);
-		}),
+					}),
+				);
+				const server = yield* Effect.fromResult(
+					encodeEntityWatchServerMessage({
+						reason: "translated",
+						type: "entity-updated",
+						entityId: EntityId.make("entity-1"),
+					}),
+				);
+
+				expect(decodeEntityWatchClientMessage(client)).toEqual<unknown>(
+					objectContaining({
+						success: {
+							revision: 1,
+							type: "replace",
+							entityIds: ["entity-1"],
+							foregroundIds: ["entity-1"],
+						},
+					}),
+				);
+				expect(decodeEntityWatchServerMessage(server)).toEqual<unknown>(
+					objectContaining({
+						success: { entityId: "entity-1", reason: "translated", type: "entity-updated" },
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.effect("encodes ticket responses with an ISO 8601 UTC expiry", () =>
-		Effect.gen(function* () {
-			const encode = Schema.encodeEffect(Schema.fromJsonString(EntityWatchSocketTicketResponse));
-			expect(yield* encode({ ticket: "ticket", expiresAt: "2026-08-20T12:00:30.000Z" })).toBe(
-				'{"ticket":"ticket","expiresAt":"2026-08-20T12:00:30.000Z"}',
-			);
-			yield* Effect.flip(encode({ ticket: "ticket", expiresAt: "not-a-date" }));
-		}),
+	it.effect(
+		"encodes ticket responses with an ISO 8601 UTC expiry",
+		() =>
+			Effect.gen(function* () {
+				const encode = Schema.encodeEffect(Schema.fromJsonString(EntityWatchSocketTicketResponse));
+				expect(yield* encode({ ticket: "ticket", expiresAt: "2026-08-20T12:00:30.000Z" })).toBe(
+					'{"ticket":"ticket","expiresAt":"2026-08-20T12:00:30.000Z"}',
+				);
+				yield* Effect.flip(encode({ ticket: "ticket", expiresAt: "not-a-date" }));
+			}),
+		testTimeout,
 	);
 });

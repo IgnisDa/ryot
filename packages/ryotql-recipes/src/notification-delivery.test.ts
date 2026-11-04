@@ -1,5 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
-import { assert, describe, expect, it } from "vitest";
 
 import { notificationDeliveriesRecipe, notificationOutcomeRecipe } from "./notification-delivery";
 import { rowsResponse } from "./test-utils";
@@ -33,7 +35,7 @@ describe("notification delivery recipes", () => {
 		const recipe = notificationOutcomeRecipe({ id: "notification-1" });
 
 		expect(Result.getOrThrow(recipe.decode(outcomeResponse([])))).toBeNull();
-		expect(Result.getOrThrow(recipe.decode(outcomeResponse([outcome])))).toEqual({
+		expect(Result.getOrThrow(recipe.decode(outcomeResponse([outcome])))).toEqual<unknown>({
 			...outcome,
 			createdAt: "2025-12-31T23:00:00.000Z",
 		});
@@ -64,7 +66,7 @@ describe("notification delivery recipes", () => {
 		const items = ["accepted", "unknown", "skipped"].map((status, index) =>
 			Object.assign({}, delivery, { status, id: `delivery-${index + 1}` }),
 		);
-		expect(Result.getOrThrow(recipe.decode(deliveriesResponse(items)))).toEqual({
+		expect(Result.getOrThrow(recipe.decode(deliveriesResponse(items)))).toEqual<unknown>({
 			pageInfo,
 			items: items.map((item) =>
 				Object.assign({}, item, {

@@ -1,7 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect, test } from "bun:test";
+
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { assert } from "@ryot-app/testing/assert";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
-import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
 import { SchemaEvolutionError, validateAdditiveSchemaEvolution } from "./schema-evolution";
@@ -184,7 +186,7 @@ it("rejects merge identity and relationship endpoint changes", () => {
 	});
 });
 
-it.each([
+test.each([
 	{
 		code: "schema_removed",
 		next: (previous: PluginManifest): PluginManifest => ({ ...previous, signalSchemas: [] }),

@@ -1,8 +1,9 @@
+import { describe, expect, it } from "bun:test";
+
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
 
 import { details, manifest, related } from "./shared";
 
@@ -243,7 +244,7 @@ describe("person.anilist sandbox script", () => {
 		return runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
 			Effect.flatMap((result) => {
 				expect(requestedPages).toEqual([1]);
-				expect(result.relatedEntityGroups?.[0]).toEqual(
+				expect(result.relatedEntityGroups?.[0]).toEqual<unknown>(
 					objectContaining({
 						entities: [objectContaining({ externalId: "2" })],
 						coverage: { status: "more", continuation: { page: 2 } },
@@ -262,7 +263,7 @@ describe("person.anilist sandbox script", () => {
 				);
 			}),
 			Effect.flatMap((result) => {
-				expect(result).toEqual({
+				expect(result).toEqual<unknown>({
 					coverage: { status: "more", continuation: { page: 3 } },
 					entities: [
 						objectContaining({ externalId: "3", relationshipProperties: { roles: ["Writer"] } }),

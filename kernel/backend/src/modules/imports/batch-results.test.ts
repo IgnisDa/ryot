@@ -1,9 +1,13 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type {
 	IngestionBatch,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import {
@@ -154,6 +158,7 @@ it.effect(
 				]);
 			}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
 		}),
+	testTimeout,
 );
 
 it("derives failure operations from their own operation identity", () => {

@@ -157,7 +157,7 @@ describe("plugin namespace backups", () => {
 				);
 				expect(view.id).not.toBe(created.id);
 				const restoredQuery = requirePresent(view.dataSources, "Retained query missing");
-				expect(restoredQuery).toEqual(
+				expect(restoredQuery).toEqual<unknown>(
 					mapPluginIdentityReferences(query, () => ({
 						kind: "local",
 						pluginId: restored.pluginId,
@@ -427,7 +427,7 @@ describe("plugin namespace backups", () => {
 						}),
 					);
 					expect(bottles).toHaveLength(2);
-					expect(bottles).toEqual(
+					expect(bottles).toEqual<unknown>(
 						arrayContaining([
 							objectContaining({
 								owner: installation.pluginId,
@@ -547,7 +547,7 @@ describe("plugin namespace backups", () => {
 					target.client,
 					workspaceSavedViewRecordsRecipe(),
 				);
-				expect(associations).toEqual(
+				expect(associations).toEqual<unknown>(
 					arrayContaining([
 						{ id: restoredView.id, installationId: restoredA.id },
 						{ installationId: restoredB.id, id: restoredContributorView.id },

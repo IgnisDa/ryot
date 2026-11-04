@@ -1,4 +1,5 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -55,7 +56,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			const schemas = yield* listEntitySchemas(client, { pluginId, slugs: ["pokemon"] });
 			const schema = schemas[0];
 			assertPresent(schema, "Expected the fixture-owned 'pokemon' entity schema");
-			expect(schema.id).toBe("pokemon");
+			expect(schema.id).toBe(EntitySchemaSlug.make("pokemon"));
 			expect(schema.pluginId).toBe(pluginId);
 			const searchable = yield* executeRyotQLRecipe(
 				client,
@@ -144,7 +145,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					schema: { slug: schema.id, owner: definitionOwner(pluginId) },
 				},
 			});
-			expect(source.output.fields).toEqual(
+			expect(source.output.fields).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						key: "entityId",
@@ -160,15 +161,17 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					}),
 				]),
 			);
-			expect(source.where).toMatchObject({
-				type: "and",
-				predicates: arrayContaining([
-					objectContaining({
-						right: { type: "literal", value: schema.id },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-					}),
-				]),
-			});
+			expect(source.where).toEqual<unknown>(
+				objectContaining({
+					type: "and",
+					predicates: arrayContaining([
+						objectContaining({
+							right: { type: "literal", value: schema.id },
+							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+						}),
+					]),
+				}),
+			);
 			expect(view.settings["tableColumns"]).toEqual([
 				{ field: "image", label: "Image", displayKind: "managed-asset" },
 				{ label: "Name", field: "name", displayKind: "text" },
@@ -179,7 +182,9 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				{ field: "weight", label: "Weight (hg)", displayKind: "number" },
 				{ displayKind: "number", field: "baseExperience", label: "Base Experience" },
 			]);
-			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
+			expect(
+				source.output.fields.map((selection) => "key" in selection && selection.key),
+			).toEqual<unknown>(
 				arrayContaining(["entityId", "name", "image", "ownerPluginId", "entitySchemaSlug"]),
 			);
 		}),
@@ -192,7 +197,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			const schemas = yield* listEntitySchemas(client, { pluginId, slugs: ["move"] });
 			const schema = schemas[0];
 			assertPresent(schema, "Expected the fixture-owned 'move' entity schema");
-			expect(schema.id).toBe("move");
+			expect(schema.id).toBe(EntitySchemaSlug.make("move"));
 			expect(schema.pluginId).toBe(pluginId);
 			const searchable = yield* executeRyotQLRecipe(
 				client,
@@ -311,7 +316,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					schema: { slug: schema.id, owner: definitionOwner(pluginId) },
 				},
 			});
-			expect(source.output.fields).toEqual(
+			expect(source.output.fields).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
 						key: "entityId",
@@ -327,15 +332,17 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					}),
 				]),
 			);
-			expect(source.where).toMatchObject({
-				type: "and",
-				predicates: arrayContaining([
-					objectContaining({
-						right: { type: "literal", value: schema.id },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-					}),
-				]),
-			});
+			expect(source.where).toEqual<unknown>(
+				objectContaining({
+					type: "and",
+					predicates: arrayContaining([
+						objectContaining({
+							right: { type: "literal", value: schema.id },
+							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+						}),
+					]),
+				}),
+			);
 			expect(view.settings["tableColumns"]).toEqual([
 				{ field: "name", label: "Name", displayKind: "text" },
 				{ field: "type", label: "Type", displayKind: "text" },
@@ -346,7 +353,9 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 				{ field: "priority", label: "Priority", displayKind: "number" },
 				{ field: "generation", label: "Generation", displayKind: "text" },
 			]);
-			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
+			expect(
+				source.output.fields.map((selection) => "key" in selection && selection.key),
+			).toEqual<unknown>(
 				arrayContaining(["entityId", "name", "ownerPluginId", "entitySchemaSlug"]),
 			);
 		}),

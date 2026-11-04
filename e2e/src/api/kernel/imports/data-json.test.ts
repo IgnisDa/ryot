@@ -226,7 +226,7 @@ describe("Native data JSON imports", () => {
 
 			const { run } = yield* startDataJsonImport(user, input);
 			assertCompleted(run, "mixed-schema data JSON import");
-			expect(run.summary).toEqual(
+			expect(run.summary).toEqual<unknown>(
 				arrayContaining([
 					{
 						unit: "entities",
@@ -286,7 +286,7 @@ describe("Native data JSON imports", () => {
 
 			const events = yield* listEventsForEntity(user.client, alphaId, undefined, 100);
 			expect(events).toHaveLength(1);
-			expect(events[0]?.sessionEntityId).toBe(betaId);
+			expect(events[0]?.sessionEntityId).toBe<unknown>(betaId);
 			expect(events[0]?.properties.details).toEqual({
 				entityReference: betaId,
 				relationshipReference: relationshipId,
@@ -330,7 +330,7 @@ describe("Native data JSON imports", () => {
 					],
 				});
 				assertCompleted(run, "partially failed data JSON import");
-				expect(run.summary).toEqual(
+				expect(run.summary).toEqual<unknown>(
 					arrayContaining([
 						{
 							unit: "entities",
@@ -347,9 +347,9 @@ describe("Native data JSON imports", () => {
 				expect(run.summary).toHaveLength(2);
 				const detail = yield* getImportRun(user.client, runId, undefined, 10);
 				expect(detail.issues.items).toHaveLength(2);
-				expect(detail.issues.items.map(({ data }) => data.attribution?.sourceIdentifier)).toEqual(
-					arrayContaining(["invalid-entity", "dependent-event"]),
-				);
+				expect(
+					detail.issues.items.map(({ data }) => data.attribution?.sourceIdentifier),
+				).toEqual<unknown>(arrayContaining(["invalid-entity", "dependent-event"]));
 				expect(yield* listImportedEntityNames(user.client, graph.entityA.schemaId)).toEqual([]);
 				expect(yield* listImportedEntityNames(user.client, graph.entityB.schemaId)).toEqual([
 					survivorName,

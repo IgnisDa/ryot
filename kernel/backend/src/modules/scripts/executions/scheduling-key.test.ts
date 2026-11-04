@@ -1,7 +1,9 @@
-import { it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
-import { expect } from "vitest";
 
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
@@ -82,36 +84,39 @@ const encodeQueueElement = (
 const keyOf = (...input: Parameters<typeof encodeQueueElement>) =>
 	encodeQueueElement(...input).pipe(Effect.flatMap(sandboxSchedulingKey));
 
-it.effect("scheduling_identity_uses_execution_user_and_pinned_plugin", () =>
-	Effect.gen(function* () {
-		expect(yield* keyOf(userSubject, userPlugin, "interactive")).toEqual({
-			plugin: "plugin-1",
-			lane: "interactive",
-			tenant: "user:user-1",
-		});
-		expect(yield* keyOf(automationSubject("user-1", userPlugin), userPlugin, "background")).toEqual(
-			{ lane: "background", plugin: "plugin-1", tenant: "user:user-1" },
-		);
-		expect(
-			yield* keyOf(automationSubject("user-1", systemPlugin), systemPlugin, "background"),
-		).toEqual({ lane: "background", tenant: "user:user-1", plugin: "system-plugin" });
-		expect(yield* keyOf(automationSubject(null, systemPlugin), systemPlugin, "background")).toEqual(
-			{ tenant: "system", lane: "background", plugin: "system-plugin" },
-		);
-		expect(yield* keyOf({ type: "system" }, systemPlugin, "background")).toEqual({
-			tenant: "system",
-			lane: "background",
-			plugin: "system-plugin",
-		});
-		expect(yield* keyOf(userSubject, null, "interactive")).toEqual({
-			plugin: "kernel",
-			lane: "interactive",
-			tenant: "user:user-1",
-		});
-		expect(yield* keyOf({ type: "system" }, null, "background", true)).toEqual({
-			tenant: "system",
-			plugin: "kernel",
-			lane: "background",
-		});
-	}),
+it.effect(
+	"scheduling_identity_uses_execution_user_and_pinned_plugin",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* keyOf(userSubject, userPlugin, "interactive")).toEqual({
+				plugin: "plugin-1",
+				lane: "interactive",
+				tenant: "user:user-1",
+			});
+			expect(
+				yield* keyOf(automationSubject("user-1", userPlugin), userPlugin, "background"),
+			).toEqual({ lane: "background", plugin: "plugin-1", tenant: "user:user-1" });
+			expect(
+				yield* keyOf(automationSubject("user-1", systemPlugin), systemPlugin, "background"),
+			).toEqual({ lane: "background", tenant: "user:user-1", plugin: "system-plugin" });
+			expect(
+				yield* keyOf(automationSubject(null, systemPlugin), systemPlugin, "background"),
+			).toEqual({ tenant: "system", lane: "background", plugin: "system-plugin" });
+			expect(yield* keyOf({ type: "system" }, systemPlugin, "background")).toEqual({
+				tenant: "system",
+				lane: "background",
+				plugin: "system-plugin",
+			});
+			expect(yield* keyOf(userSubject, null, "interactive")).toEqual({
+				plugin: "kernel",
+				lane: "interactive",
+				tenant: "user:user-1",
+			});
+			expect(yield* keyOf({ type: "system" }, null, "background", true)).toEqual({
+				tenant: "system",
+				plugin: "kernel",
+				lane: "background",
+			});
+		}),
+	testTimeout,
 );

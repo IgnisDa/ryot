@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	AdminMiddleware,
 	AuthMiddleware,
@@ -10,6 +11,8 @@ import { CalendarSourceNotFound } from "@ryot-app/contract/modules/calendar-sour
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { CalendarSourceSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -119,25 +122,30 @@ const visibility = (pluginId: string, isHidden: boolean, slug = "dates") => ({
 });
 
 layer(routesLayer)((test) => {
-	test.effect("hides and shows an effective source for the authenticated user", () =>
-		Effect.gen(function* () {
-			const installed = yield* installRevisionPackage(calendarSourcePackage("alpha"), owner);
-			const api = yield* client;
-			expect(
-				yield* api.calendarSources.setVisibility({ payload: visibility(installed.pluginId, true) }),
-			).toEqual(visibility(installed.pluginId, true));
-			expect(yield* overrides()).toEqual([
-				{ slug: "dates", userId: owner, isHidden: true, pluginId: installed.pluginId },
-			]);
-			yield* api.calendarSources.setVisibility({ payload: visibility(installed.pluginId, true) });
-			expect(yield* overrides()).toHaveLength(1);
-			expect(
-				yield* api.calendarSources.setVisibility({
-					payload: visibility(installed.pluginId, false),
-				}),
-			).toEqual(visibility(installed.pluginId, false));
-			expect(yield* overrides()).toEqual([]);
-		}),
+	test.effect(
+		"hides and shows an effective source for the authenticated user",
+		() =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(calendarSourcePackage("alpha"), owner);
+				const api = yield* client;
+				expect(
+					yield* api.calendarSources.setVisibility({
+						payload: visibility(installed.pluginId, true),
+					}),
+				).toEqual(visibility(installed.pluginId, true));
+				expect(yield* overrides()).toEqual([
+					{ slug: "dates", userId: owner, isHidden: true, pluginId: installed.pluginId },
+				]);
+				yield* api.calendarSources.setVisibility({ payload: visibility(installed.pluginId, true) });
+				expect(yield* overrides()).toHaveLength(1);
+				expect(
+					yield* api.calendarSources.setVisibility({
+						payload: visibility(installed.pluginId, false),
+					}),
+				).toEqual(visibility(installed.pluginId, false));
+				expect(yield* overrides()).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -173,21 +181,25 @@ layer(routesLayer)((test) => {
 				}
 				expect(yield* overrides()).toEqual([]);
 			}),
+		testTimeout,
 	);
 });
 
 layer(routesLayer)((test) => {
-	test.effect("rejects demo credentials before writing", () =>
-		Effect.gen(function* () {
-			const caller = yield* RouteCaller;
-			const installed = yield* installRevisionPackage(calendarSourcePackage("alpha"), owner);
-			yield* caller.sendAs(owner, "demo");
-			const api = yield* client;
-			const failure = yield* Effect.flip(
-				api.calendarSources.setVisibility({ payload: visibility(installed.pluginId, true) }),
-			);
-			expect(failure).toBeInstanceOf(DemoOperationProtected);
-			expect(yield* overrides()).toEqual([]);
-		}),
+	test.effect(
+		"rejects demo credentials before writing",
+		() =>
+			Effect.gen(function* () {
+				const caller = yield* RouteCaller;
+				const installed = yield* installRevisionPackage(calendarSourcePackage("alpha"), owner);
+				yield* caller.sendAs(owner, "demo");
+				const api = yield* client;
+				const failure = yield* Effect.flip(
+					api.calendarSources.setVisibility({ payload: visibility(installed.pluginId, true) }),
+				);
+				expect(failure).toBeInstanceOf(DemoOperationProtected);
+				expect(yield* overrides()).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

@@ -1,13 +1,17 @@
+import { expect } from "bun:test";
+
 import { BunFileSystem } from "@effect/platform-bun";
-import { assert, expect, layer } from "@effect/vitest";
 import {
 	AutomationTriggerId,
 	BackupRunId,
 	EntityId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, FileSystem, Layer, Stream } from "effect";
 
@@ -160,10 +164,10 @@ layer(services)((test) => {
 				);
 				const exportedRecords = yield* collectExportFixtureRecords(exported, fs);
 				expect(exportedRecords.reminders).toHaveLength(5);
-				expect(exportedRecords.reminders).toContainEqual(
+				expect(exportedRecords.reminders).toContainEqual<unknown>(
 					objectContaining({ id: "source-cancelled", replacementId: "source-scheduled" }),
 				);
-				expect(exportedRecords.entityDependencies).toEqual([
+				expect(exportedRecords.entityDependencies).toEqual<unknown>([
 					objectContaining({
 						name: "Global parent",
 						id: globalParentEntityId,
@@ -278,5 +282,6 @@ layer(services)((test) => {
 				expect(yield* session.run((db) => db.select().from(tables.notification))).toEqual([]);
 				expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

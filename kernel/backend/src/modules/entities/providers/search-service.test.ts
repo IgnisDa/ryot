@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ProviderEntityBadRequest,
@@ -8,6 +9,9 @@ import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/s
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 
 import {
@@ -247,52 +251,61 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("executes one provider search and returns its singular response", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const result = yield* service.search(user, {
-				page: 2,
-				providerId,
-				pageSize: 10,
-				query: "record",
-				options: { passRawQuery: true },
-			});
+	test.effect(
+		"executes one provider search and returns its singular response",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const result = yield* service.search(user, {
+					page: 2,
+					providerId,
+					pageSize: 10,
+					query: "record",
+					options: { passRawQuery: true },
+				});
 
-			const executions = yield* (yield* FakeProviderSearch).executions;
-			expect(result).toEqual({
-				providerId,
-				providerName: "Records",
-				rootEntitySchemaSlug: "record",
-				items: [{ title: "Record", externalId: "search-script-id-external" }],
-			});
-			expect(executions).toHaveLength(1);
-			expect(executions[0]).toMatchObject({
-				lane: "interactive",
-				scriptId: "search-script-id",
-				input: { page: 2, pageSize: 10, query: "record", options: { passRawQuery: true } },
-				subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
-			});
-		}),
+				const executions = yield* (yield* FakeProviderSearch).executions;
+				expect(result).toEqual<unknown>({
+					providerId,
+					providerName: "Records",
+					rootEntitySchemaSlug: "record",
+					items: [{ title: "Record", externalId: "search-script-id-external" }],
+				});
+				expect(executions).toHaveLength(1);
+				expect(executions[0]).toMatchObject({
+					lane: "interactive",
+					scriptId: "search-script-id",
+					input: { page: 2, pageSize: 10, query: "record", options: { passRawQuery: true } },
+					subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
+				});
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("returns no schema when the provider search has no options", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			expect(yield* service.resolveSearchOptionsSchema(user, providerId)).toBeNull();
-		}),
+	test.effect(
+		"returns no schema when the provider search has no options",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				expect(yield* service.resolveSearchOptionsSchema(user, providerId)).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ optionsSchema, execute: () => Effect.die("unused") }))((test) => {
-	test.effect("returns static options without executing the auxiliary operation", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
-			expect(schema).toEqual(optionsSchema);
-			expect((yield* (yield* FakeProviderSearch).executions).length).toBe(0);
-		}),
+	test.effect(
+		"returns static options without executing the auxiliary operation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
+				expect(schema).toEqual(optionsSchema);
+				expect((yield* (yield* FakeProviderSearch).executions).length).toBe(0);
+			}),
+		testTimeout,
 	);
 });
 
@@ -313,14 +326,17 @@ layer(
 		} satisfies AppSchema,
 	}),
 )((test) => {
-	test.effect("keeps required static options validation for omitted options", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-		}),
+	test.effect(
+		"keeps required static options validation for omitted options",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+			}),
+		testTimeout,
 	);
 });
 
@@ -337,24 +353,27 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("executes and materializes dynamic search options", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
-			expect(schema).toMatchObject({
-				fields: {
-					status: { choices: { kind: "static", values: [{ value: "active", label: "Active" }] } },
-				},
-			});
-			const executions = yield* (yield* FakeProviderSearch).executions;
-			expect(executions).toHaveLength(1);
-			expect(executions[0]).toMatchObject({
-				input: {},
-				lane: "interactive",
-				scriptId: searchOptionsScript.id,
-				subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
-			});
-		}),
+	test.effect(
+		"executes and materializes dynamic search options",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
+				expect(schema).toMatchObject({
+					fields: {
+						status: { choices: { kind: "static", values: [{ value: "active", label: "Active" }] } },
+					},
+				});
+				const executions = yield* (yield* FakeProviderSearch).executions;
+				expect(executions).toHaveLength(1);
+				expect(executions[0]).toMatchObject({
+					input: {},
+					lane: "interactive",
+					scriptId: searchOptionsScript.id,
+					subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -373,15 +392,18 @@ layer(
 					}),
 	}),
 )((test) => {
-	test.effect("uses cached dynamic options without executing the auxiliary operation twice", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			yield* service.resolveSearchOptionsSchema(user, providerId);
-			yield* service.resolveSearchOptionsSchema(user, providerId);
-			const search = yield* FakeProviderSearch;
-			expect((yield* search.executions).length).toBe(1);
-			expect(yield* search.cacheWrites).toBe(1);
-		}),
+	test.effect(
+		"uses cached dynamic options without executing the auxiliary operation twice",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				yield* service.resolveSearchOptionsSchema(user, providerId);
+				yield* service.resolveSearchOptionsSchema(user, providerId);
+				const search = yield* FakeProviderSearch;
+				expect((yield* search.executions).length).toBe(1);
+				expect(yield* search.cacheWrites).toBe(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -398,14 +420,17 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("refreshes malformed cached dynamic options", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			expect(yield* service.resolveSearchOptionsSchema(user, providerId)).not.toBeNull();
-			const search = yield* FakeProviderSearch;
-			expect((yield* search.executions).length).toBe(1);
-			expect(yield* search.cacheWrites).toBe(1);
-		}),
+	test.effect(
+		"refreshes malformed cached dynamic options",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				expect(yield* service.resolveSearchOptionsSchema(user, providerId)).not.toBeNull();
+				const search = yield* FakeProviderSearch;
+				expect((yield* search.executions).length).toBe(1);
+				expect(yield* search.cacheWrites).toBe(1);
+			}),
+		testTimeout,
 	);
 });
 
@@ -422,43 +447,49 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("refreshes a decodable stale cache missing a required source", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
-			expect(schema).toMatchObject({
-				fields: {
-					status: { choices: { kind: "static", values: [{ value: "active", label: "Active" }] } },
-				},
-			});
-			const search = yield* FakeProviderSearch;
-			expect((yield* search.executions).length).toBe(1);
-			expect(yield* search.cacheWrites).toBe(1);
-			expect(yield* search.cachedOptions).toBe(
-				'{"sources":{"statuses":[{"value":"active","label":"Active"}]}}',
-			);
-		}),
+	test.effect(
+		"refreshes a decodable stale cache missing a required source",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const schema = yield* service.resolveSearchOptionsSchema(user, providerId);
+				expect(schema).toMatchObject({
+					fields: {
+						status: { choices: { kind: "static", values: [{ value: "active", label: "Active" }] } },
+					},
+				});
+				const search = yield* FakeProviderSearch;
+				expect((yield* search.executions).length).toBe(1);
+				expect(yield* search.cacheWrites).toBe(1);
+				expect(yield* search.cachedOptions).toBe(
+					'{"sources":{"statuses":[{"value":"active","label":"Active"}]}}',
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ cached: null, optionsSchema: dynamicOptionsSchema }))((test) => {
-	test.effect("does not cache malformed or unmaterializable search-options results", () =>
-		Effect.gen(function* () {
-			const cases = [
-				{ sources: { other: [{ value: "active" }] } },
-				{ sources: { statuses: [{ value: "" }] } },
-			];
-			const search = yield* FakeProviderSearch;
-			for (const value of cases) {
-				yield* search.respondWith(() =>
-					Effect.succeed({ value, logs: [], error: null, status: "completed" as const }),
-				);
-				const service = yield* ProviderEntitySearchService;
-				const exit = yield* Effect.exit(service.resolveSearchOptionsSchema(user, providerId));
-				assertFailureInstance(exit, ProviderEntityBadRequest);
-				expect(yield* search.cacheWrites).toBe(0);
-			}
-		}),
+	test.effect(
+		"does not cache malformed or unmaterializable search-options results",
+		() =>
+			Effect.gen(function* () {
+				const cases = [
+					{ sources: { other: [{ value: "active" }] } },
+					{ sources: { statuses: [{ value: "" }] } },
+				];
+				const search = yield* FakeProviderSearch;
+				for (const value of cases) {
+					yield* search.respondWith(() =>
+						Effect.succeed({ value, logs: [], error: null, status: "completed" as const }),
+					);
+					const service = yield* ProviderEntitySearchService;
+					const exit = yield* Effect.exit(service.resolveSearchOptionsSchema(user, providerId));
+					assertFailureInstance(exit, ProviderEntityBadRequest);
+					expect(yield* search.cacheWrites).toBe(0);
+				}
+			}),
+		testTimeout,
 	);
 });
 
@@ -470,37 +501,43 @@ layer(
 			Effect.succeed({ logs: [], error: null, value: { items: [] }, status: "completed" as const }),
 	}),
 )((test) => {
-	test.effect("keeps plain dynamic searches available when options resolution fails", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			yield* service.search(user, { page: 1, providerId, pageSize: 20, query: "record" });
-			const executions = yield* (yield* FakeProviderSearch).executions;
-			expect(executions).toHaveLength(1);
-			expect(executions[0]).toMatchObject({
-				scriptId: searchScript.id,
-				input: { query: "record" },
-			});
-			expect(executions[0]?.input).not.toHaveProperty("options");
-		}),
+	test.effect(
+		"keeps plain dynamic searches available when options resolution fails",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				yield* service.search(user, { page: 1, providerId, pageSize: 20, query: "record" });
+				const executions = yield* (yield* FakeProviderSearch).executions;
+				expect(executions).toHaveLength(1);
+				expect(executions[0]).toMatchObject({
+					scriptId: searchScript.id,
+					input: { query: "record" },
+				});
+				expect(executions[0]?.input).not.toHaveProperty("options");
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ optionsSchema: dynamicOptionsSchema, searchOptionsError: "script_unavailable" }))(
 	(test) => {
-		test.effect("rejects filtered dynamic searches when options resolution fails", () =>
-			Effect.gen(function* () {
-				const service = yield* ProviderEntitySearchService;
-				const exit = yield* Effect.exit(
-					service.search(user, {
-						page: 1,
-						providerId,
-						pageSize: 20,
-						query: "record",
-						options: { status: "active" },
-					}),
-				);
-				assertFailureInstance(exit, ProviderEntityBadRequest);
-			}),
+		test.effect(
+			"rejects filtered dynamic searches when options resolution fails",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* ProviderEntitySearchService;
+					const exit = yield* Effect.exit(
+						service.search(user, {
+							page: 1,
+							providerId,
+							pageSize: 20,
+							query: "record",
+							options: { status: "active" },
+						}),
+					);
+					assertFailureInstance(exit, ProviderEntityBadRequest);
+				}),
+			testTimeout,
 		);
 	},
 );
@@ -519,45 +556,51 @@ const dynamicOptionsExecute: Execute = (input) =>
 layer(
 	makeLayer({ cached: null, execute: dynamicOptionsExecute, optionsSchema: dynamicOptionsSchema }),
 )((test) => {
-	test.effect("validates dynamic option membership before provider search execution", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, {
-					page: 1,
-					providerId,
-					pageSize: 20,
-					query: "record",
-					options: { status: "unknown" },
-				}),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-			const executions = yield* (yield* FakeProviderSearch).executions;
-			expect(executions).toHaveLength(1);
-			expect(executions[0]?.scriptId).toBe(searchOptionsScript.id);
-		}),
+	test.effect(
+		"validates dynamic option membership before provider search execution",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, {
+						page: 1,
+						providerId,
+						pageSize: 20,
+						query: "record",
+						options: { status: "unknown" },
+					}),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+				const executions = yield* (yield* FakeProviderSearch).executions;
+				expect(executions).toHaveLength(1);
+				expect(executions[0]?.scriptId).toBe(searchOptionsScript.id);
+			}),
+		testTimeout,
 	);
 });
 
 layer(
 	makeLayer({ cached: null, execute: dynamicOptionsExecute, optionsSchema: dynamicOptionsSchema }),
 )((test) => {
-	test.effect("resolves the provider and search script once for a filtered dynamic search", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			yield* service.search(user, {
-				page: 1,
-				providerId,
-				pageSize: 20,
-				query: "record",
-				options: { status: "active" },
-			});
-			expect(yield* (yield* FakeProviderSearch).resolutions).toEqual({
-				search: 1,
-				provider: 1,
-				searchOptions: 1,
-			});
-		}),
+	test.effect(
+		"resolves the provider and search script once for a filtered dynamic search",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				yield* service.search(user, {
+					page: 1,
+					providerId,
+					pageSize: 20,
+					query: "record",
+					options: { status: "active" },
+				});
+				expect(yield* (yield* FakeProviderSearch).resolutions).toEqual({
+					search: 1,
+					provider: 1,
+					searchOptions: 1,
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -568,69 +611,84 @@ layer(
 			Effect.succeed({ logs: [], error: null, value: { items: [] }, status: "completed" as const }),
 	}),
 )((test) => {
-	test.effect("rejects invalid provider search options before execution", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, {
-					page: 1,
-					providerId,
-					pageSize: 20,
-					query: "record",
-					options: { passRawQuery: "yes" },
-				}),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-			expect((yield* (yield* FakeProviderSearch).executions).length).toBe(0);
-		}),
+	test.effect(
+		"rejects invalid provider search options before execution",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, {
+						page: 1,
+						providerId,
+						pageSize: 20,
+						query: "record",
+						options: { passRawQuery: "yes" },
+					}),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+				expect((yield* (yield* FakeProviderSearch).executions).length).toBe(0);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer())((test) => {
-	test.effect("rejects options when the provider operation has no options schema", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, options: {}, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-		}),
+	test.effect(
+		"rejects options when the provider operation has no options schema",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, options: {}, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ provider: null }))((test) => {
-	test.effect("rejects a missing provider", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityNotFound);
-		}),
+	test.effect(
+		"rejects a missing provider",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityNotFound);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ searchError: "inactive_provider" }))((test) => {
-	test.effect("rejects an inactive provider", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityNotFound);
-		}),
+	test.effect(
+		"rejects an inactive provider",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityNotFound);
+			}),
+		testTimeout,
 	);
 });
 
 layer(makeLayer({ searchError: "unsupported_operation" }))((test) => {
-	test.effect("rejects a provider without a search operation", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-		}),
+	test.effect(
+		"rejects a provider without a search operation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+			}),
+		testTimeout,
 	);
 });
 
@@ -649,14 +707,17 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("fails the whole request when provider execution fails", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-		}),
+	test.effect(
+		"fails the whole request when provider execution fails",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+			}),
+		testTimeout,
 	);
 });
 
@@ -671,13 +732,16 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("fails the whole request when provider output cannot be decoded", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderEntitySearchService;
-			const exit = yield* Effect.exit(
-				service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
-			);
-			assertFailureInstance(exit, ProviderEntityBadRequest);
-		}),
+	test.effect(
+		"fails the whole request when provider output cannot be decoded",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* ProviderEntitySearchService;
+				const exit = yield* Effect.exit(
+					service.search(user, { page: 1, providerId, pageSize: 20, query: "record" }),
+				);
+				assertFailureInstance(exit, ProviderEntityBadRequest);
+			}),
+		testTimeout,
 	);
 });

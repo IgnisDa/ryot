@@ -1,11 +1,14 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
-import { stringMatching } from "@ryot-app/testing/matchers";
+import { objectContaining, stringMatching } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
 
@@ -162,62 +165,63 @@ layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
 	excludeTestServices: true,
 })((test) => {
 	describe("http_admission_is_fair_across_instances_users_and_plugins", () => {
-		test.effect("alternates users within a round however many plugins one user rotates", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { declaration } = yield* usePolicy();
-					const instances = [
-						yield* makeProviderHttpAdmission(),
-						yield* makeProviderHttpAdmission(),
-					];
-					const userA = ["p1", "p2", "p3"].flatMap((plugin) =>
-						range(4).map((n) => ticket(`a-${plugin}-${n}`, "user:a", plugin)),
-					);
-					const userB = range(6).map((n) => ticket(`b-${n}`, "user:b"));
-					yield* registerAll(instances, declaration, [...userA, ...userB]);
+		test.effect(
+			"alternates users within a round however many plugins one user rotates",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { declaration } = yield* usePolicy();
+						const instances = [
+							yield* makeProviderHttpAdmission(),
+							yield* makeProviderHttpAdmission(),
+						];
+						const userA = ["p1", "p2", "p3"].flatMap((plugin) =>
+							range(4).map((n) => ticket(`a-${plugin}-${n}`, "user:a", plugin)),
+						);
+						const userB = range(6).map((n) => ticket(`b-${n}`, "user:b"));
+						yield* registerAll(instances, declaration, [...userA, ...userB]);
 
-					const admitted = yield* admitAll(instances, declaration, [...userA, ...userB], 12);
+						const admitted = yield* admitAll(instances, declaration, [...userA, ...userB], 12);
 
-					expect(admitted.map(({ tenant }) => tenant)).toEqual(
-						range(12).map((n) => (n % 2 === 0 ? "user:a" : "user:b")),
-					);
-					expect(admitted.filter(({ tenant }) => tenant === "user:a").map(({ id }) => id)).toEqual([
-						"a-p1-0",
-						"a-p2-0",
-						"a-p3-0",
-						"a-p1-1",
-						"a-p2-1",
-						"a-p3-1",
-					]);
-					expect(admitted.filter(({ tenant }) => tenant === "user:b").map(({ id }) => id)).toEqual(
-						range(6).map((n) => `b-${n}`),
-					);
-				}),
-			),
+						expect(admitted.map(({ tenant }) => tenant)).toEqual(
+							range(12).map((n) => (n % 2 === 0 ? "user:a" : "user:b")),
+						);
+						expect(
+							admitted.filter(({ tenant }) => tenant === "user:a").map(({ id }) => id),
+						).toEqual(["a-p1-0", "a-p2-0", "a-p3-0", "a-p1-1", "a-p2-1", "a-p3-1"]);
+						expect(
+							admitted.filter(({ tenant }) => tenant === "user:b").map(({ id }) => id),
+						).toEqual(range(6).map((n) => `b-${n}`));
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("a tenant at its cap does not block another tenant's registration", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					yield* registerAll(
-						[service],
-						declaration,
-						range(PROVIDER_HTTP_TICKET_LIMITS.tenant).map((n) => ticket(`a-${n}`, "user:a")),
-					);
+		test.effect(
+			"a tenant at its cap does not block another tenant's registration",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { state, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						yield* registerAll(
+							[service],
+							declaration,
+							range(PROVIDER_HTTP_TICKET_LIMITS.tenant).map((n) => ticket(`a-${n}`, "user:a")),
+						);
 
-					expect(yield* service.register(declaration, ticket("a-over", "user:a"))).toMatchObject({
-						status: "overloaded",
-					});
-					expect(yield* service.register(declaration, ticket("b-0", "user:b"))).toEqual({
-						status: "registered",
-					});
-					expect(yield* ticketCount(client, state.tickets)).toBe(
-						PROVIDER_HTTP_TICKET_LIMITS.tenant + 1,
-					);
-				}),
-			),
+						expect(yield* service.register(declaration, ticket("a-over", "user:a"))).toMatchObject({
+							status: "overloaded",
+						});
+						expect(yield* service.register(declaration, ticket("b-0", "user:b"))).toEqual({
+							status: "registered",
+						});
+						expect(yield* ticketCount(client, state.tickets)).toBe(
+							PROVIDER_HTTP_TICKET_LIMITS.tenant + 1,
+						);
+					}),
+				),
+			testTimeout,
 		);
 
 		test.effect(
@@ -252,279 +256,325 @@ layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
 						expect(rest.map(({ id }) => id)).toEqual(["b1", "a1", "b2"]);
 					}),
 				),
+			testTimeout,
 		);
 	});
 
 	describe("http_lanes_preserve_spacing_and_background_progress", () => {
-		test.effect("admits interactive first and background no later than every fifth claim", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					const background = range(3).map((n) => ticket(`bg-${n}`, "user:a", "p", "background"));
-					const interactive = range(10).map((n) => ticket(`in-${n}`, `user:${n % 2}`));
-					yield* registerAll([service], declaration, [...background, ...interactive]);
+		test.effect(
+			"admits interactive first and background no later than every fifth claim",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						const background = range(3).map((n) => ticket(`bg-${n}`, "user:a", "p", "background"));
+						const interactive = range(10).map((n) => ticket(`in-${n}`, `user:${n % 2}`));
+						yield* registerAll([service], declaration, [...background, ...interactive]);
 
-					const admitted = yield* admitAll([service], declaration, [...background, ...interactive]);
+						const admitted = yield* admitAll([service], declaration, [
+							...background,
+							...interactive,
+						]);
 
-					expect(admitted.map(({ lane }) => lane)).toEqual([
-						...Array<ExecutionLane>(4).fill("interactive"),
-						"background",
-						...Array<ExecutionLane>(4).fill("interactive"),
-						"background",
-						"interactive",
-						"interactive",
-						"background",
-					]);
-				}),
-			),
+						expect(admitted.map(({ lane }) => lane)).toEqual([
+							...Array<ExecutionLane>(4).fill("interactive"),
+							"background",
+							...Array<ExecutionLane>(4).fill("interactive"),
+							"background",
+							"interactive",
+							"interactive",
+							"background",
+						]);
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("never spaces admitted claims below the declared spacing", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy({ requests: 1, intervalMs: 40 });
-					const service = yield* makeProviderHttpAdmission();
-					const tickets = range(6).map((n) => ticket(`t-${n}`, `user:${n % 3}`));
-					yield* registerAll([service], declaration, tickets);
-					const anchors: Array<number> = [];
-					const pending = [...tickets];
-					let sleeperAwake = false;
-					while (pending.length > 0) {
-						yield* admitNext(
-							[service],
-							declaration,
-							pending,
-							(candidate) => candidate.id === "t-1" && !sleeperAwake,
-						);
-						anchors.push(yield* stateField(client, state.state, "a"));
-						sleeperAwake = anchors.length >= 2;
-						expect(
-							yield* service.claim(declaration, pending[0] ?? ticket("none", "x"), "stale"),
-						).toMatchObject({ status: stringMatching(/^(rejected|unknown)$/) });
-					}
+		test.effect(
+			"never spaces admitted claims below the declared spacing",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { state, client, declaration } = yield* usePolicy({
+							requests: 1,
+							intervalMs: 40,
+						});
+						const service = yield* makeProviderHttpAdmission();
+						const tickets = range(6).map((n) => ticket(`t-${n}`, `user:${n % 3}`));
+						yield* registerAll([service], declaration, tickets);
+						const anchors: Array<number> = [];
+						const pending = [...tickets];
+						let sleeperAwake = false;
+						while (pending.length > 0) {
+							yield* admitNext(
+								[service],
+								declaration,
+								pending,
+								(candidate) => candidate.id === "t-1" && !sleeperAwake,
+							);
+							anchors.push(yield* stateField(client, state.state, "a"));
+							sleeperAwake = anchors.length >= 2;
+							expect(
+								yield* service.claim(declaration, pending[0] ?? ticket("none", "x"), "stale"),
+							).toEqual<unknown>(
+								objectContaining({ status: stringMatching(/^(rejected|unknown)$/) }),
+							);
+						}
 
-					const gaps = anchors.slice(1).map((anchor, index) => anchor - (anchors[index] ?? 0));
-					expect(gaps.every((gap) => gap >= 40)).toBe(true);
-					expect(anchors).toHaveLength(6);
-				}),
-			),
+						const gaps = anchors.slice(1).map((anchor, index) => anchor - (anchors[index] ?? 0));
+						expect(gaps.every((gap) => gap >= 40)).toBe(true);
+						expect(anchors).toHaveLength(6);
+					}),
+				),
+			testTimeout,
 		);
 	});
 
 	describe("http_fair_tickets_preserve_durable_admission_protections", () => {
-		test.effect("treats a duplicate registration as a no-op and a mismatched one as corrupt", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { keys, client, declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					const first = ticket("t-1", "user:a");
-					yield* service.register(declaration, first);
-					const before = yield* snapshot(client, keys);
+		test.effect(
+			"treats a duplicate registration as a no-op and a mismatched one as corrupt",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { keys, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						const first = ticket("t-1", "user:a");
+						yield* service.register(declaration, first);
+						const before = yield* snapshot(client, keys);
 
-					expect(yield* service.register(declaration, first)).toEqual({ status: "registered" });
-					expect(yield* snapshot(client, keys)).toEqual(before);
-					assertExitFails(
-						yield* Effect.exit(service.register(declaration, { ...first, plugin: "other" })),
-						new ProviderHttpAdmissionCorruptState({ message: "Redis admission state is corrupt" }),
-					);
-					expect(yield* snapshot(client, keys)).toEqual(before);
-				}),
-			),
-		);
-
-		test.effect("rejects a claim with another ticket's grant or a wrong nonce", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					const [first, second] = [ticket("t-1", "user:a"), ticket("t-2", "user:b")];
-					yield* registerAll([service], declaration, [first, second]);
-					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
-
-					expect(yield* service.claim(declaration, second, nonce)).toEqual({ status: "rejected" });
-					expect(yield* service.claim(declaration, first, `${nonce}0`)).toEqual({
-						status: "rejected",
-					});
-					expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "admitted" });
-				}),
-			),
-		);
-
-		test.effect("admits a retried claim after a lost reply once without spending a slot", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { keys, state, client, declaration } = yield* usePolicy({
-						requests: 1,
-						intervalMs: 60_000,
-					});
-					const service = yield* makeProviderHttpAdmission();
-					const first = ticket("t-1", "user:a");
-					yield* service.register(declaration, first);
-					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
-					expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "admitted" });
-					const anchor = yield* stateField(client, state.state, "a");
-					const after = yield* snapshot(client, keys);
-
-					expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "admitted" });
-					expect(yield* service.register(declaration, first)).toEqual({ status: "claimed" });
-					expect(yield* service.poll(declaration, first)).toEqual({ status: "claimed" });
-					expect(yield* stateField(client, state.state, "a")).toBe(anchor);
-					expect(yield* snapshot(client, keys)).toEqual(after);
-				}),
-			),
-		);
-
-		test.effect("enforces blocks and spacing at claim and wakes waiters after them", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { declaration } = yield* usePolicy({ requests: 1, intervalMs: 30_000 });
-					const service = yield* makeProviderHttpAdmission();
-					const [first, second] = [ticket("t-1", "user:a"), ticket("t-2", "user:b")];
-					yield* registerAll([service], declaration, [first, second]);
-					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
-					const blocked = yield* service.block(declaration, 90_000);
-
-					expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "rejected" });
-					const waiting = yield* service.poll(declaration, first);
-					expect(waiting.status).toBe("wait");
-					if (waiting.status === "wait" && blocked.status === "blocked") {
-						expect(waiting.waitMs).toBeGreaterThanOrEqual(
-							blocked.blockedUntilMs - blocked.observedAtMs - 50,
+						expect(yield* service.register(declaration, first)).toEqual({ status: "registered" });
+						expect(yield* snapshot(client, keys)).toEqual(before);
+						assertExitFails(
+							yield* Effect.exit(service.register(declaration, { ...first, plugin: "other" })),
+							new ProviderHttpAdmissionCorruptState({
+								message: "Redis admission state is corrupt",
+							}),
 						);
-					}
-				}),
-			),
+						expect(yield* snapshot(client, keys)).toEqual(before);
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("keeps a blocked waiter's ticket through a block longer than its lease", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					const waiter = ticket("waiter", "user:a");
-					yield* service.register(declaration, waiter);
-					yield* service.block(declaration, 300_000);
-					const waiting = yield* service.poll(declaration, waiter);
-					expect(waiting.status === "wait" && waiting.waitMs).toBeGreaterThanOrEqual(250_000);
-					yield* ageTicket(client, state, "waiter", 200_000);
+		test.effect(
+			"rejects a claim with another ticket's grant or a wrong nonce",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						const [first, second] = [ticket("t-1", "user:a"), ticket("t-2", "user:b")];
+						yield* registerAll([service], declaration, [first, second]);
+						const nonce = yield* grantNonce(yield* service.poll(declaration, first));
 
-					expect(yield* service.register(declaration, ticket("other", "user:b"))).toEqual({
-						status: "registered",
-					});
-					expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "wait" });
-					yield* call(() => client.hset(state.state, "b", "0"));
-					expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "granted" });
-				}),
-			),
+						expect(yield* service.claim(declaration, second, nonce)).toEqual({
+							status: "rejected",
+						});
+						expect(yield* service.claim(declaration, first, `${nonce}0`)).toEqual({
+							status: "rejected",
+						});
+						expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "admitted" });
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("keeps the block and spacing anchor on a hash change and invalidates tickets", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					const [first, stale, fresh] = [
-						ticket("t-1", "user:a"),
-						ticket("t-2", "user:b"),
-						ticket("t-3", "user:c"),
-					];
-					yield* service.register(declaration, first);
-					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
-					yield* service.claim(declaration, first, nonce);
-					yield* service.block(declaration, 5_000);
-					yield* service.register(declaration, stale);
-					const anchor = yield* stateField(client, state.state, "a");
-					const blockedUntil = yield* stateField(client, state.state, "b");
-					const changed = { ...declaration, hash: "declaration-v2" };
+		test.effect(
+			"admits a retried claim after a lost reply once without spending a slot",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { keys, state, client, declaration } = yield* usePolicy({
+							requests: 1,
+							intervalMs: 60_000,
+						});
+						const service = yield* makeProviderHttpAdmission();
+						const first = ticket("t-1", "user:a");
+						yield* service.register(declaration, first);
+						const nonce = yield* grantNonce(yield* service.poll(declaration, first));
+						expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "admitted" });
+						const anchor = yield* stateField(client, state.state, "a");
+						const after = yield* snapshot(client, keys);
 
-					expect(yield* service.register(changed, fresh)).toEqual({ status: "registered" });
-					expect(yield* stateField(client, state.state, "a")).toBe(anchor);
-					expect(yield* stateField(client, state.state, "b")).toBe(blockedUntil);
-					expect(yield* service.poll(declaration, stale)).toEqual({ status: "unknown" });
-					expect(yield* service.poll(changed, stale)).toEqual({ status: "unknown" });
-					expect(yield* service.register(changed, stale)).toEqual({ status: "registered" });
-					expect(yield* ticketCount(client, state.tickets)).toBe(2);
-				}),
-			),
+						expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "admitted" });
+						expect(yield* service.register(declaration, first)).toEqual({ status: "claimed" });
+						expect(yield* service.poll(declaration, first)).toEqual({ status: "claimed" });
+						expect(yield* stateField(client, state.state, "a")).toBe(anchor);
+						expect(yield* snapshot(client, keys)).toEqual(after);
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("expires cancelled and abandoned tickets within one lease", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					const [cancelled, abandoned, later] = [
-						ticket("cancelled", "user:a"),
-						ticket("abandoned", "user:b"),
-						ticket("later", "user:c"),
-					];
-					yield* registerAll([service], declaration, [cancelled, abandoned]);
-					yield* service.cancel(declaration, cancelled);
-					expect(yield* call(() => client.hkeys(state.tickets))).toEqual(["abandoned"]);
-					yield* ageTicket(client, state, "abandoned", 121_000);
+		test.effect(
+			"enforces blocks and spacing at claim and wakes waiters after them",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { declaration } = yield* usePolicy({ requests: 1, intervalMs: 30_000 });
+						const service = yield* makeProviderHttpAdmission();
+						const [first, second] = [ticket("t-1", "user:a"), ticket("t-2", "user:b")];
+						yield* registerAll([service], declaration, [first, second]);
+						const nonce = yield* grantNonce(yield* service.poll(declaration, first));
+						const blocked = yield* service.block(declaration, 90_000);
 
-					yield* service.register(declaration, later);
-
-					expect(yield* call(() => client.hkeys(state.tickets))).toEqual(["later"]);
-					expect(yield* call(() => client.lrange(state.interactiveTenants, 0, -1))).toEqual([
-						"user%3Ac",
-					]);
-					expect(yield* service.poll(declaration, abandoned)).toEqual({ status: "unknown" });
-				}),
-			),
+						expect(yield* service.claim(declaration, first, nonce)).toEqual({ status: "rejected" });
+						const waiting = yield* service.poll(declaration, first);
+						expect(waiting.status).toBe("wait");
+						if (waiting.status === "wait" && blocked.status === "blocked") {
+							expect(waiting.waitMs).toBeGreaterThanOrEqual(
+								blocked.blockedUntilMs - blocked.observedAtMs - 50,
+							);
+						}
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("cleans more than one scan of stale tickets boundedly and retries", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
-					yield* registerAll(
-						[service],
-						declaration,
-						range(40).map((n) => ticket(`stale-${n}`, "user:a")),
-					);
-					const changed = { ...declaration, hash: "declaration-v2" };
-					const caller = ticket("caller", "user:b");
-					yield* service.register(changed, caller);
+		test.effect(
+			"keeps a blocked waiter's ticket through a block longer than its lease",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { state, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						const waiter = ticket("waiter", "user:a");
+						yield* service.register(declaration, waiter);
+						yield* service.block(declaration, 300_000);
+						const waiting = yield* service.poll(declaration, waiter);
+						expect(waiting.status === "wait" && waiting.waitMs).toBeGreaterThanOrEqual(250_000);
+						yield* ageTicket(client, state, "waiter", 200_000);
 
-					const statuses = [];
-					const counts = [];
-					for (let attempt = 0; attempt < 4; attempt += 1) {
-						statuses.push((yield* service.poll(changed, caller)).status);
-						counts.push(yield* ticketCount(client, state.tickets));
-					}
-
-					expect(statuses).toEqual(["retry", "retry", "granted", "granted"]);
-					expect(counts).toEqual([25, 9, 1, 1]);
-				}),
-			),
+						expect(yield* service.register(declaration, ticket("other", "user:b"))).toEqual({
+							status: "registered",
+						});
+						expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "wait" });
+						yield* call(() => client.hset(state.state, "b", "0"));
+						expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "granted" });
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("caps an honoured Retry-After at one hour", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { declaration } = yield* usePolicy();
-					const service = yield* makeProviderHttpAdmission();
+		test.effect(
+			"keeps the block and spacing anchor on a hash change and invalidates tickets",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { state, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						const [first, stale, fresh] = [
+							ticket("t-1", "user:a"),
+							ticket("t-2", "user:b"),
+							ticket("t-3", "user:c"),
+						];
+						yield* service.register(declaration, first);
+						const nonce = yield* grantNonce(yield* service.poll(declaration, first));
+						yield* service.claim(declaration, first, nonce);
+						yield* service.block(declaration, 5_000);
+						yield* service.register(declaration, stale);
+						const anchor = yield* stateField(client, state.state, "a");
+						const blockedUntil = yield* stateField(client, state.state, "b");
+						const changed = { ...declaration, hash: "declaration-v2" };
 
-					assertExitFails(
-						yield* Effect.exit(
-							service.block(declaration, PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs + 1),
-						),
-						new ProviderHttpAdmissionCorruptState({
-							message: "Provider HTTP admission block delay is invalid",
-						}),
-					);
-					const blocked = yield* service.block(
-						declaration,
-						PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs,
-					);
-					expect(
-						blocked.status === "blocked" && blocked.blockedUntilMs - blocked.observedAtMs,
-					).toBe(PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs);
-				}),
-			),
+						expect(yield* service.register(changed, fresh)).toEqual({ status: "registered" });
+						expect(yield* stateField(client, state.state, "a")).toBe(anchor);
+						expect(yield* stateField(client, state.state, "b")).toBe(blockedUntil);
+						expect(yield* service.poll(declaration, stale)).toEqual({ status: "unknown" });
+						expect(yield* service.poll(changed, stale)).toEqual({ status: "unknown" });
+						expect(yield* service.register(changed, stale)).toEqual({ status: "registered" });
+						expect(yield* ticketCount(client, state.tickets)).toBe(2);
+					}),
+				),
+			testTimeout,
+		);
+
+		test.effect(
+			"expires cancelled and abandoned tickets within one lease",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { state, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						const [cancelled, abandoned, later] = [
+							ticket("cancelled", "user:a"),
+							ticket("abandoned", "user:b"),
+							ticket("later", "user:c"),
+						];
+						yield* registerAll([service], declaration, [cancelled, abandoned]);
+						yield* service.cancel(declaration, cancelled);
+						expect(yield* call(() => client.hkeys(state.tickets))).toEqual(["abandoned"]);
+						yield* ageTicket(client, state, "abandoned", 121_000);
+
+						yield* service.register(declaration, later);
+
+						expect(yield* call(() => client.hkeys(state.tickets))).toEqual(["later"]);
+						expect(yield* call(() => client.lrange(state.interactiveTenants, 0, -1))).toEqual([
+							"user%3Ac",
+						]);
+						expect(yield* service.poll(declaration, abandoned)).toEqual({ status: "unknown" });
+					}),
+				),
+			testTimeout,
+		);
+
+		test.effect(
+			"cleans more than one scan of stale tickets boundedly and retries",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { state, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+						yield* registerAll(
+							[service],
+							declaration,
+							range(40).map((n) => ticket(`stale-${n}`, "user:a")),
+						);
+						const changed = { ...declaration, hash: "declaration-v2" };
+						const caller = ticket("caller", "user:b");
+						yield* service.register(changed, caller);
+
+						const statuses = [];
+						const counts = [];
+						for (let attempt = 0; attempt < 4; attempt += 1) {
+							statuses.push((yield* service.poll(changed, caller)).status);
+							counts.push(yield* ticketCount(client, state.tickets));
+						}
+
+						expect(statuses).toEqual(["retry", "retry", "granted", "granted"]);
+						expect(counts).toEqual([25, 9, 1, 1]);
+					}),
+				),
+			testTimeout,
+		);
+
+		test.effect(
+			"caps an honoured Retry-After at one hour",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const { declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
+
+						assertExitFails(
+							yield* Effect.exit(
+								service.block(declaration, PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs + 1),
+							),
+							new ProviderHttpAdmissionCorruptState({
+								message: "Provider HTTP admission block delay is invalid",
+							}),
+						);
+						const blocked = yield* service.block(
+							declaration,
+							PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs,
+						);
+						expect(
+							blocked.status === "blocked" && blocked.blockedUntilMs - blocked.observedAtMs,
+						).toBe(PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs);
+					}),
+				),
+			testTimeout,
 		);
 
 		test.effect(
@@ -560,59 +610,71 @@ layer(Layer.provideMerge(testRedisServiceLayer, BunCrypto.layerSecureRandom), {
 						expect(claimedAt).toBeGreaterThanOrEqual(Math.max(anchor + 400, blockedUntil));
 					}),
 				),
+			testTimeout,
 		);
 
-		test.effect("refuses registration at the policy and system tenant limits without writing", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const service = yield* makeProviderHttpAdmission();
-					const system = yield* usePolicy();
-					yield* registerAll(
-						[service],
-						system.declaration,
-						range(PROVIDER_HTTP_TICKET_LIMITS.systemTenant).map((n) => ticket(`s-${n}`, "system")),
-					);
-					const systemBefore = yield* snapshot(system.client, system.keys);
-					expect(
-						yield* service.register(system.declaration, ticket("s-over", "system")),
-					).toMatchObject({ status: "overloaded" });
-					expect(yield* snapshot(system.client, system.keys)).toEqual(systemBefore);
+		test.effect(
+			"refuses registration at the policy and system tenant limits without writing",
+			() =>
+				Effect.scoped(
+					Effect.gen(function* () {
+						const service = yield* makeProviderHttpAdmission();
+						const system = yield* usePolicy();
+						yield* registerAll(
+							[service],
+							system.declaration,
+							range(PROVIDER_HTTP_TICKET_LIMITS.systemTenant).map((n) =>
+								ticket(`s-${n}`, "system"),
+							),
+						);
+						const systemBefore = yield* snapshot(system.client, system.keys);
+						expect(
+							yield* service.register(system.declaration, ticket("s-over", "system")),
+						).toMatchObject({ status: "overloaded" });
+						expect(yield* snapshot(system.client, system.keys)).toEqual(systemBefore);
 
-					const full = yield* usePolicy();
-					const perTenant = PROVIDER_HTTP_TICKET_LIMITS.tenant;
-					yield* registerAll(
-						[service],
-						full.declaration,
-						range(PROVIDER_HTTP_TICKET_LIMITS.policy).map((n) =>
-							ticket(`p-${n}`, `user:${Math.floor(n / perTenant)}`),
+						const full = yield* usePolicy();
+						const perTenant = PROVIDER_HTTP_TICKET_LIMITS.tenant;
+						yield* registerAll(
+							[service],
+							full.declaration,
+							range(PROVIDER_HTTP_TICKET_LIMITS.policy).map((n) =>
+								ticket(`p-${n}`, `user:${Math.floor(n / perTenant)}`),
+							),
+						);
+						const fullBefore = yield* snapshot(full.client, full.keys);
+						expect(
+							yield* service.register(full.declaration, ticket("p-over", "user:other")),
+						).toMatchObject({ status: "overloaded" });
+						expect(yield* snapshot(full.client, full.keys)).toEqual(fullBefore);
+						expect(yield* ticketCount(full.client, full.state.tickets)).toBe(
+							PROVIDER_HTTP_TICKET_LIMITS.policy,
+						);
+					}),
+				),
+			testTimeout,
+		);
+
+		test.effect(
+			"reports an unreachable Redis as unavailable",
+			() =>
+				Effect.gen(function* () {
+					const offline = new Redis(testRedisUrl(), {
+						lazyConnect: true,
+						enableOfflineQueue: false,
+					});
+					const service = yield* makeProviderHttpAdmission().pipe(
+						Effect.provideService(RedisService, makeRedisService({ client: offline })),
+					);
+					const error = yield* Effect.flip(
+						service.register(
+							{ requests: 1, intervalMs: 1_000, key: "unreachable", hash: "declaration-v1" },
+							ticket("t", "user:a"),
 						),
 					);
-					const fullBefore = yield* snapshot(full.client, full.keys);
-					expect(
-						yield* service.register(full.declaration, ticket("p-over", "user:other")),
-					).toMatchObject({ status: "overloaded" });
-					expect(yield* snapshot(full.client, full.keys)).toEqual(fullBefore);
-					expect(yield* ticketCount(full.client, full.state.tickets)).toBe(
-						PROVIDER_HTTP_TICKET_LIMITS.policy,
-					);
+					expect(error).toBeInstanceOf(ProviderHttpAdmissionUnavailable);
 				}),
-			),
-		);
-
-		test.effect("reports an unreachable Redis as unavailable", () =>
-			Effect.gen(function* () {
-				const offline = new Redis(testRedisUrl(), { lazyConnect: true, enableOfflineQueue: false });
-				const service = yield* makeProviderHttpAdmission().pipe(
-					Effect.provideService(RedisService, makeRedisService({ client: offline })),
-				);
-				const error = yield* Effect.flip(
-					service.register(
-						{ requests: 1, intervalMs: 1_000, key: "unreachable", hash: "declaration-v1" },
-						ticket("t", "user:a"),
-					),
-				);
-				expect(error).toBeInstanceOf(ProviderHttpAdmissionUnavailable);
-			}),
+			testTimeout,
 		);
 	});
 });
@@ -634,23 +696,26 @@ const invalidResponses = [
 ];
 
 layer(Layer.empty)((test) => {
-	test.effect("strictly validates Lua replies", () =>
-		Effect.gen(function* () {
-			for (const { message, response } of invalidResponses) {
-				const client = partialFake<RedisService["Service"]["client"]>({
-					eval: () => Promise.resolve(response),
-				});
-				const service = yield* makeProviderHttpAdmission().pipe(
-					Effect.provideService(RedisService, makeRedisService({ client })),
-				);
-				const exit = yield* Effect.exit(
-					service.poll(
-						{ requests: 1, key: "replies", intervalMs: 1_000, hash: "declaration-v1" },
-						ticket("t", "user:a"),
-					),
-				);
-				assertExitFails(exit, new ProviderHttpAdmissionCorruptState({ message }));
-			}
-		}),
+	test.effect(
+		"strictly validates Lua replies",
+		() =>
+			Effect.gen(function* () {
+				for (const { message, response } of invalidResponses) {
+					const client = partialFake<RedisService["Service"]["client"]>({
+						eval: () => Promise.resolve(response),
+					});
+					const service = yield* makeProviderHttpAdmission().pipe(
+						Effect.provideService(RedisService, makeRedisService({ client })),
+					);
+					const exit = yield* Effect.exit(
+						service.poll(
+							{ requests: 1, key: "replies", intervalMs: 1_000, hash: "declaration-v1" },
+							ticket("t", "user:a"),
+						),
+					);
+					assertExitFails(exit, new ProviderHttpAdmissionCorruptState({ message }));
+				}
+			}),
+		testTimeout,
 	);
 });

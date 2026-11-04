@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
-import { describe, expect, it } from "vitest";
 
 import { companyRecipes } from "./company-recipes";
 

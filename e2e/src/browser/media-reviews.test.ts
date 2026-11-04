@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -70,6 +71,6 @@ it.live("creates, edits and deletes a rating-only review from Movie detail", () 
 			(yield* listEventsForEntity(client, movie.id, undefined, 100)).map(
 				(event) => event.eventSchemaSlug,
 			),
-		).toEqual(["add-to-media-library"]);
+		).toEqual([EventSchemaSlug.make("add-to-media-library")]);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

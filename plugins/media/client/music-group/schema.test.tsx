@@ -1,6 +1,7 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { getByRole } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { musicGroupRecipes } from "../../shared/music-group-recipes";
 import {

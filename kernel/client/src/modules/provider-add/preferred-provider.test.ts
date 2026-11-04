@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import { selectPreferredProvider } from "#/modules/provider-add/preferred-provider";
 import type { ProviderSearchSummary } from "#/modules/provider-add/service";

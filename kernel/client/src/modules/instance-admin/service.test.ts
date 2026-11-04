@@ -1,8 +1,11 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Layer, Ref, Result } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -183,142 +186,159 @@ const instanceAdminLayer = () =>
 
 describe("Instance Admin service", () => {
 	layer(instanceAdminLayer())((test) => {
-		test.effect("uses each session's admin origin and token for cursor reads and writes", () => {
-			return Effect.gen(function* () {
-				const sessions = yield* InstanceAdminSessionService;
-				const api = yield* FakeInstanceAdminApi;
-				const sessionId = yield* sessions.create(origin, "admin-secret");
-				const service = yield* InstanceAdminService;
+		test.effect(
+			"uses each session's admin origin and token for cursor reads and writes",
+			() => {
+				return Effect.gen(function* () {
+					const sessions = yield* InstanceAdminSessionService;
+					const api = yield* FakeInstanceAdminApi;
+					const sessionId = yield* sessions.create(origin, "admin-secret");
+					const service = yield* InstanceAdminService;
 
-				const users = yield* service.listUsers(sessionId, "reader", undefined, 25);
-				expect(users).toMatchObject({ total: 1, items: [{ email: "reader@example.com" }] });
-				expect((yield* service.listUsers(sessionId, "reader", "cursor-2", 25)).total).toBe(1);
-				expect(yield* service.getMigrationReport(sessionId, "report-cursor")).toMatchObject({
-					items: [],
-					pageInfo: { nextCursor: null },
-				});
-				expect(yield* service.resetUserPassword(sessionId, "user-1")).toEqual({
-					email: resetResult.email,
-					resetUrl: resetResult.resetUrl,
-				});
-				expect(yield* service.setUserDisabled(sessionId, "user-1", true)).toMatchObject({
-					id: "user-1",
-				});
-				expect((yield* service.deleteUser(sessionId, "user-1")).status).toBe("completed");
+					const users = yield* service.listUsers(sessionId, "reader", undefined, 25);
+					expect(users).toMatchObject({ total: 1, items: [{ email: "reader@example.com" }] });
+					expect((yield* service.listUsers(sessionId, "reader", "cursor-2", 25)).total).toBe(1);
+					expect(yield* service.getMigrationReport(sessionId, "report-cursor")).toMatchObject({
+						items: [],
+						pageInfo: { nextCursor: null },
+					});
+					expect(yield* service.resetUserPassword(sessionId, "user-1")).toEqual({
+						email: resetResult.email,
+						resetUrl: resetResult.resetUrl,
+					});
+					expect(yield* service.setUserDisabled(sessionId, "user-1", true)).toMatchObject({
+						id: "user-1",
+					});
+					expect((yield* service.deleteUser(sessionId, "user-1")).status).toBe("completed");
 
-				expect((yield* api.calls)[6]?.document?.queries.operation).toMatchObject({
-					from: { table: "userLifecycleOperation" },
+					expect((yield* api.calls)[6]?.document?.queries.operation).toMatchObject({
+						from: { table: "userLifecycleOperation" },
+					});
+					const otherSessionId = yield* sessions.create(otherOrigin, "other-secret");
+					expect((yield* service.listUsers(otherSessionId, "", undefined, 50)).total).toBe(1);
+					const calls = yield* api.calls;
+					expect(
+						calls.map(({ token, origin: requestedOrigin }) => ({ token, origin: requestedOrigin })),
+					).toEqual([
+						...Array.from({ length: 7 }, () => ({ origin, token: "admin-secret" })),
+						{ origin: otherOrigin, token: "other-secret" },
+					]);
+					expect(calls[0]?.document?.queries.users).toMatchObject({
+						output: { pagination: { limit: 25 } },
+					});
+					expect(calls[1]?.document?.queries.users).toMatchObject({
+						output: { pagination: { limit: 25, after: "cursor-2" } },
+					});
+					expect(calls[2]?.document?.queries.entries).toMatchObject({
+						output: { pagination: { limit: 50, after: "report-cursor" } },
+					});
+					expect(calls.slice(3, 7).map(({ name, request }) => ({ name, request }))).toEqual([
+						{ name: "resetUserPassword", request: { params: { userId: "user-1" } } },
+						{
+							name: "setUserDisabled",
+							request: { payload: { disabled: true }, params: { userId: "user-1" } },
+						},
+						{ name: "deleteUser", request: { params: { userId: "user-1" } } },
+						{ name: "query", request: undefined },
+					]);
 				});
-				const otherSessionId = yield* sessions.create(otherOrigin, "other-secret");
-				expect((yield* service.listUsers(otherSessionId, "", undefined, 50)).total).toBe(1);
-				const calls = yield* api.calls;
-				expect(
-					calls.map(({ token, origin: requestedOrigin }) => ({ token, origin: requestedOrigin })),
-				).toEqual([
-					...Array.from({ length: 7 }, () => ({ origin, token: "admin-secret" })),
-					{ origin: otherOrigin, token: "other-secret" },
-				]);
-				expect(calls[0]?.document?.queries.users).toMatchObject({
-					output: { pagination: { limit: 25 } },
-				});
-				expect(calls[1]?.document?.queries.users).toMatchObject({
-					output: { pagination: { limit: 25, after: "cursor-2" } },
-				});
-				expect(calls[2]?.document?.queries.entries).toMatchObject({
-					output: { pagination: { limit: 50, after: "report-cursor" } },
-				});
-				expect(calls.slice(3, 7).map(({ name, request }) => ({ name, request }))).toEqual([
-					{ name: "resetUserPassword", request: { params: { userId: "user-1" } } },
-					{
-						name: "setUserDisabled",
-						request: { payload: { disabled: true }, params: { userId: "user-1" } },
-					},
-					{ name: "deleteUser", request: { params: { userId: "user-1" } } },
-					{ name: "query", request: undefined },
-				]);
-			});
-		});
+			},
+			testTimeout,
+		);
 	});
 
 	layer(instanceAdminLayer())((test) => {
-		test.effect("starts impersonation with the session credentials and authorization", () =>
-			Effect.gen(function* () {
-				const sessions = yield* InstanceAdminSessionService;
-				const sessionId = yield* sessions.create(origin, "admin-secret");
-				const service = yield* InstanceAdminService;
-				const api = yield* FakeInstanceAdminApi;
+		test.effect(
+			"starts impersonation with the session credentials and authorization",
+			() =>
+				Effect.gen(function* () {
+					const sessions = yield* InstanceAdminSessionService;
+					const sessionId = yield* sessions.create(origin, "admin-secret");
+					const service = yield* InstanceAdminService;
+					const api = yield* FakeInstanceAdminApi;
 
-				expect(yield* service.startUserImpersonation(sessionId, "user-1", authorization)).toEqual({
-					ticket: "handoff-ticket",
-					expiresAt: 1_800_000_000_000,
-				});
-				expect(yield* api.calls).toEqual([
-					{
+					expect(yield* service.startUserImpersonation(sessionId, "user-1", authorization)).toEqual(
+						{ ticket: "handoff-ticket", expiresAt: 1_800_000_000_000 },
+					);
+					expect(yield* api.calls).toEqual([
+						{
+							origin,
+							token: "admin-secret",
+							name: "startUserImpersonation",
+							request: { payload: authorization, params: { userId: "user-1" } },
+						},
+					]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(instanceAdminLayer())((test) => {
+		test.effect(
+			"passes server log cursors and limits through the session API",
+			() =>
+				Effect.gen(function* () {
+					const sessions = yield* InstanceAdminSessionService;
+					const sessionId = yield* sessions.create(origin, "admin-secret");
+					const service = yield* InstanceAdminService;
+					const api = yield* FakeInstanceAdminApi;
+
+					expect((yield* service.listLogs(sessionId, undefined, 25)).files).toEqual([]);
+					expect((yield* service.listLogs(sessionId, "log-cursor", 25)).pageInfo.nextCursor).toBe(
+						null,
+					);
+					expect((yield* api.calls).map(({ name, request }) => ({ name, request }))).toEqual([
+						{ name: "listLogs", request: { limit: 25, after: undefined } },
+						{ name: "listLogs", request: { limit: 25, after: "log-cursor" } },
+					]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(instanceAdminLayer())((test) => {
+		test.effect(
+			"polls reset operations through the admin recipe and returns the result",
+			() => {
+				return Effect.gen(function* () {
+					const api = yield* FakeInstanceAdminApi;
+					const sessionId = yield* (yield* InstanceAdminSessionService).create(
 						origin,
-						token: "admin-secret",
-						name: "startUserImpersonation",
-						request: { payload: authorization, params: { userId: "user-1" } },
-					},
-				]);
-			}),
-		);
-	});
+						"admin-secret",
+					);
+					const service = yield* InstanceAdminService;
+					const fiber = yield* Effect.forkChild(service.resetUser(sessionId, "user-1"));
 
-	layer(instanceAdminLayer())((test) => {
-		test.effect("passes server log cursors and limits through the session API", () =>
-			Effect.gen(function* () {
-				const sessions = yield* InstanceAdminSessionService;
-				const sessionId = yield* sessions.create(origin, "admin-secret");
-				const service = yield* InstanceAdminService;
-				const api = yield* FakeInstanceAdminApi;
+					yield* TestClock.adjust("2 seconds");
 
-				expect((yield* service.listLogs(sessionId, undefined, 25)).files).toEqual([]);
-				expect((yield* service.listLogs(sessionId, "log-cursor", 25)).pageInfo.nextCursor).toBe(
-					null,
-				);
-				expect((yield* api.calls).map(({ name, request }) => ({ name, request }))).toEqual([
-					{ name: "listLogs", request: { limit: 25, after: undefined } },
-					{ name: "listLogs", request: { limit: 25, after: "log-cursor" } },
-				]);
-			}),
-		);
-	});
-
-	layer(instanceAdminLayer())((test) => {
-		test.effect("polls reset operations through the admin recipe and returns the result", () => {
-			return Effect.gen(function* () {
-				const api = yield* FakeInstanceAdminApi;
-				const sessionId = yield* (yield* InstanceAdminSessionService).create(
-					origin,
-					"admin-secret",
-				);
-				const service = yield* InstanceAdminService;
-				const fiber = yield* Effect.forkChild(service.resetUser(sessionId, "user-1"));
-
-				yield* TestClock.adjust("2 seconds");
-
-				expect(yield* Fiber.join(fiber)).toEqual(resetResult);
-				expect(yield* api.lifecyclePolls).toBe(1);
-				const calls = yield* api.calls;
-				expect(calls.map(({ name }) => name)).toEqual(["resetUser", "query"]);
-				expect(calls[1]?.document?.queries.operation).toMatchObject({
-					from: { table: "userLifecycleOperation" },
+					expect(yield* Fiber.join(fiber)).toEqual(resetResult);
+					expect(yield* api.lifecyclePolls).toBe(1);
+					const calls = yield* api.calls;
+					expect(calls.map(({ name }) => name)).toEqual(["resetUser", "query"]);
+					expect(calls[1]?.document?.queries.operation).toMatchObject({
+						from: { table: "userLifecycleOperation" },
+					});
 				});
-			});
-		});
+			},
+			testTimeout,
+		);
 	});
 
 	layer(instanceAdminLayer())((test) => {
-		test.effect("fails before impersonation transport when the session is missing", () => {
-			return Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				const error = yield* Effect.flip(
-					service.startUserImpersonation("missing-session", "user-1", authorization),
-				);
+		test.effect(
+			"fails before impersonation transport when the session is missing",
+			() => {
+				return Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					const error = yield* Effect.flip(
+						service.startUserImpersonation("missing-session", "user-1", authorization),
+					);
 
-				expect(error).toEqual(new InstanceAdminSessionNotFound({ sessionId: "missing-session" }));
-				expect(yield* (yield* FakeInstanceAdminApi).calls).toEqual([]);
-			});
-		});
+					expect(error).toEqual(new InstanceAdminSessionNotFound({ sessionId: "missing-session" }));
+					expect(yield* (yield* FakeInstanceAdminApi).calls).toEqual([]);
+				});
+			},
+			testTimeout,
+		);
 	});
 });

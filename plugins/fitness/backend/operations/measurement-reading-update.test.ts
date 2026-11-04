@@ -1,9 +1,12 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import { EventId } from "@ryot-app/contract/schema/brands";
 import type { CreateEventItem, UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import {
 	executeMeasurementRyotql,
@@ -148,137 +151,147 @@ describe("measurement reading update operation", () => {
 					},
 				]);
 			}),
+		testTimeout,
 	);
 
-	it.live("updates kept values and time, removes cleared values, and adds new metrics", () =>
-		Effect.gen(function* () {
-			const writes = emptyWrites();
+	it.live(
+		"updates kept values and time, removes cleared values, and adds new metrics",
+		() =>
+			Effect.gen(function* () {
+				const writes = emptyWrites();
 
-			expect(
-				yield* runSandboxTestScript(
-					updateDefinition,
-					{
-						occurredAt,
-						comment: "Fasted",
-						entryId: "entry-1",
-						values: [{ value: 0, metricId: "weight" }],
-					},
-					recordingHost(writes),
-					execution,
-				),
-			).toEqual({ count: 2 });
-			expect(writes).toEqual({
-				creates: [],
-				deletes: [["reading-2"]],
-				updates: [
-					[
-						{
-							eventId: "reading-1",
-							patch: { occurredAt, properties: { remove: [], set: { value: 0 } } },
-						},
-					],
-				],
-			});
-
-			const added = emptyWrites();
-			expect(
-				yield* runSandboxTestScript(
-					updateDefinition,
-					{
-						occurredAt,
-						entryId: "entry-2",
-						values: [
-							{ value: 71, metricId: "weight" },
-							{ value: 80, metricId: "waist" },
-						],
-					},
-					recordingHost(added),
-					execution,
-				),
-			).toEqual({ count: 2 });
-			expect(added).toEqual({
-				deletes: [],
-				updates: [
-					[
-						{
-							eventId: "reading-3",
-							patch: { occurredAt, properties: { remove: [], set: { value: 71 } } },
-						},
-					],
-				],
-				creates: [
-					[
+				expect(
+					yield* runSandboxTestScript(
+						updateDefinition,
 						{
 							occurredAt,
-							entityId: "waist",
-							properties: { value: 80 },
-							sessionEntityId: "entry-2",
-							eventSchemaSlug: "measurement-reading",
+							comment: "Fasted",
+							entryId: "entry-1",
+							values: [{ value: 0, metricId: "weight" }],
 						},
-					],
-				],
-			});
-		}),
-	);
-
-	it.live("rejects foreign readings or metrics before writing anything", () =>
-		Effect.gen(function* () {
-			const writes = emptyWrites();
-			const host = recordingHost(writes);
-
-			const foreignReading = yield* Effect.flip(
-				runSandboxTestScript(
-					updateDefinition,
-					{ occurredAt, entryId: "fake-reading", values: [{ value: 70, metricId: "weight" }] },
-					host,
-					execution,
-				),
-			);
-			expect(foreignReading).toBeInstanceOf(MeasurementEntryNotFoundError);
-			const foreignMetric = yield* Effect.flip(
-				runSandboxTestScript(
-					updateDefinition,
-					{
-						occurredAt,
-						entryId: "entry-1",
-						values: [
-							{ value: 70, metricId: "weight" },
-							{ value: 1, metricId: "exercise-1" },
+						recordingHost(writes),
+						execution,
+					),
+				).toEqual({ count: 2 });
+				expect(writes).toEqual({
+					creates: [],
+					deletes: [["reading-2"]],
+					updates: [
+						[
+							{
+								eventId: "reading-1",
+								patch: { occurredAt, properties: { remove: [], set: { value: 0 } } },
+							},
 						],
-					},
-					host,
-					execution,
-				),
-			);
-			expect(foreignMetric).toBeInstanceOf(MeasurementMetricNotFoundError);
+					],
+				});
 
-			expect(writes).toEqual(emptyWrites());
-		}),
+				const added = emptyWrites();
+				expect(
+					yield* runSandboxTestScript(
+						updateDefinition,
+						{
+							occurredAt,
+							entryId: "entry-2",
+							values: [
+								{ value: 71, metricId: "weight" },
+								{ value: 80, metricId: "waist" },
+							],
+						},
+						recordingHost(added),
+						execution,
+					),
+				).toEqual({ count: 2 });
+				expect(added).toEqual({
+					deletes: [],
+					updates: [
+						[
+							{
+								eventId: "reading-3",
+								patch: { occurredAt, properties: { remove: [], set: { value: 71 } } },
+							},
+						],
+					],
+					creates: [
+						[
+							{
+								occurredAt,
+								entityId: "waist",
+								properties: { value: 80 },
+								sessionEntityId: "entry-2",
+								eventSchemaSlug: "measurement-reading",
+							},
+						],
+					],
+				});
+			}),
+		testTimeout,
 	);
 
-	it.live("writes no events when the entry compare-and-set fails", () =>
-		Effect.gen(function* () {
-			const writes = emptyWrites();
-			const host = defineSandboxTestHost(manifest, {
-				executeRyotql: executeMeasurementRyotql,
-				updateUserEntity: () => Effect.die("stale entry"),
-				deleteEvents: (ids) => Effect.sync(() => ({ count: writes.deletes.push(ids) })),
-				updateEvents: (items) => Effect.sync(() => ({ count: writes.updates.push(items) })),
-				createEvents: (items) =>
-					Effect.sync(() => ({ outcomes: [], count: writes.creates.push(items) })),
-			});
+	it.live(
+		"rejects foreign readings or metrics before writing anything",
+		() =>
+			Effect.gen(function* () {
+				const writes = emptyWrites();
+				const host = recordingHost(writes);
 
-			const exit = yield* Effect.exit(
-				runSandboxTestScript(
-					updateDefinition,
-					{ occurredAt, entryId: "entry-1", values: [{ value: 0, metricId: "weight" }] },
-					host,
-					execution,
-				),
-			);
+				const foreignReading = yield* Effect.flip(
+					runSandboxTestScript(
+						updateDefinition,
+						{ occurredAt, entryId: "fake-reading", values: [{ value: 70, metricId: "weight" }] },
+						host,
+						execution,
+					),
+				);
+				expect(foreignReading).toBeInstanceOf(MeasurementEntryNotFoundError);
+				const foreignMetric = yield* Effect.flip(
+					runSandboxTestScript(
+						updateDefinition,
+						{
+							occurredAt,
+							entryId: "entry-1",
+							values: [
+								{ value: 70, metricId: "weight" },
+								{ value: 1, metricId: "exercise-1" },
+							],
+						},
+						host,
+						execution,
+					),
+				);
+				expect(foreignMetric).toBeInstanceOf(MeasurementMetricNotFoundError);
 
-			expect(exit._tag).toBe("Failure");
-			expect(writes).toEqual(emptyWrites());
-		}),
+				expect(writes).toEqual(emptyWrites());
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"writes no events when the entry compare-and-set fails",
+		() =>
+			Effect.gen(function* () {
+				const writes = emptyWrites();
+				const host = defineSandboxTestHost(manifest, {
+					executeRyotql: executeMeasurementRyotql,
+					updateUserEntity: () => Effect.die("stale entry"),
+					deleteEvents: (ids) => Effect.sync(() => ({ count: writes.deletes.push(ids) })),
+					updateEvents: (items) => Effect.sync(() => ({ count: writes.updates.push(items) })),
+					createEvents: (items) =>
+						Effect.sync(() => ({ outcomes: [], count: writes.creates.push(items) })),
+				});
+
+				const exit = yield* Effect.exit(
+					runSandboxTestScript(
+						updateDefinition,
+						{ occurredAt, entryId: "entry-1", values: [{ value: 0, metricId: "weight" }] },
+						host,
+						execution,
+					),
+				);
+
+				expect(exit._tag).toBe("Failure");
+				expect(writes).toEqual(emptyWrites());
+			}),
+		testTimeout,
 	);
 });

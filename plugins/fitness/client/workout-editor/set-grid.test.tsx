@@ -1,6 +1,9 @@
-import { afterEach, assert, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { assert } from "@ryot-app/testing/assert";
 import { fireEvent, screen } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 

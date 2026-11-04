@@ -1,10 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
 	definitionOwner,
 	identityTupleKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { buildHttpRateLimitLookups } from "./http-rate-limits";
 

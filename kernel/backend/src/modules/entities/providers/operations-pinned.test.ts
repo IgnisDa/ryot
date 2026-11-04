@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -8,7 +9,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -218,7 +222,9 @@ for (const scope of ["system", "user"] as const) {
 							const script = yield* reads.findRevisionScript(installed.revisionId, slug);
 							assert(script);
 							expect(recorded[index]?.scriptId).toBe(script.id);
-							expect(recorded[index]?.pluginRevision?.revisionId).toBe(installed.revisionId);
+							expect(recorded[index]?.pluginRevision?.revisionId).toBe<unknown>(
+								installed.revisionId,
+							);
 						}
 						assertExitFails(
 							yield* Effect.exit(
@@ -268,6 +274,7 @@ for (const scope of ["system", "user"] as const) {
 						Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 					);
 				}),
+			testTimeout,
 		);
 	});
 }

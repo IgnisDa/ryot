@@ -1,10 +1,14 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/plugin-client-contract";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { parseClientImageManifest } from "./image-artifacts";
@@ -41,32 +45,38 @@ const manifest = {
 	],
 };
 
-it.effect("loads image-owned bytes and shipped plugin hashes independently", () =>
-	Effect.gen(function* () {
-		const image = yield* parseClientImageManifest(manifest);
-		expect(image.imageArtifactsByHash.get(runtimeHash)?.files[0]?.contents).toEqual(
-			new Uint8Array([1]),
-		);
-		expect(image.imageArtifactsByHash.has(shippedHash)).toBe(false);
-		expect(image.publicArtifactHashes.has(shippedHash)).toBe(true);
-		expect(image.renderers.get("Cards")?.artifact.hash).toBe(rendererHash);
-	}),
+it.effect(
+	"loads image-owned bytes and shipped plugin hashes independently",
+	() =>
+		Effect.gen(function* () {
+			const image = yield* parseClientImageManifest(manifest);
+			expect(image.imageArtifactsByHash.get(runtimeHash)?.files[0]?.contents).toEqual(
+				new Uint8Array([1]),
+			);
+			expect(image.imageArtifactsByHash.has(shippedHash)).toBe(false);
+			expect(image.publicArtifactHashes.has(shippedHash)).toBe(true);
+			expect(image.renderers.get("Cards")?.artifact.hash).toBe(rendererHash);
+		}),
+	testTimeout,
 );
 
-it.effect("rejects different bytes under the same image hash", () =>
-	Effect.gen(function* () {
-		const [renderer] = manifest.renderers;
-		assert(renderer);
-		const conflict = {
-			...manifest,
-			renderers: [
-				{
-					...renderer,
-					artifact: artifact(runtimeHash, [file("module.js", 2), file("module.css", 3)]),
-				},
-			],
-		};
-		const failure = yield* Effect.flip(parseClientImageManifest(conflict));
-		expect(failure.message).toContain("collision");
-	}),
+it.effect(
+	"rejects different bytes under the same image hash",
+	() =>
+		Effect.gen(function* () {
+			const [renderer] = manifest.renderers;
+			assert(renderer);
+			const conflict = {
+				...manifest,
+				renderers: [
+					{
+						...renderer,
+						artifact: artifact(runtimeHash, [file("module.js", 2), file("module.css", 3)]),
+					},
+				],
+			};
+			const failure = yield* Effect.flip(parseClientImageManifest(conflict));
+			expect(failure.message).toContain("collision");
+		}),
+	testTimeout,
 );

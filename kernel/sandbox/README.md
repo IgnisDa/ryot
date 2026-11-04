@@ -96,8 +96,10 @@ Compiler memory is sampled proportional set size in the Linux production image, 
 
 ## Daemon
 
-The backend spawns one sidecar per trust tier × snapshot tier with an empty environment and the
-protocol socket on descriptor 3:
+The backend uses `Bun.spawn` for one sidecar per trust tier × snapshot tier with an empty environment
+and the protocol socket on descriptor 3. `Bun.connect` owns the parent descriptor; the frame writer
+handles partial writes and resumes on drain. Disposal shuts down the write half, waits for process
+exit, and closes the socket. The command is:
 
 ```
 ryot-sandboxd --generation <n> --snapshots <dir> --tier core|data|full [--trust user|system]

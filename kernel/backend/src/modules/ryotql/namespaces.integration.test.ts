@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	builtinSavedViewId,
 	definitionKey,
@@ -27,7 +28,10 @@ import {
 	schemaOwnerJoin,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq as dbEq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
@@ -291,7 +295,7 @@ layer(databaseLayer)((test) => {
 						.from(tables.userSavedViewEffective)
 						.where(dbEq(tables.userSavedViewEffective.slug, "all-bottles")),
 				);
-				expect(views).toEqual(
+				expect(views).toEqual<unknown>(
 					arrayContaining([
 						{
 							pluginId: a.pluginId,
@@ -323,6 +327,7 @@ layer(databaseLayer)((test) => {
 					builtinSavedViewId(unicodeUser, definitionOwner(null), "collections"),
 				);
 			}),
+		testTimeout,
 	);
 });
 
@@ -429,6 +434,7 @@ layer(databaseLayer)((test) => {
 					);
 				}
 			}),
+		testTimeout,
 	);
 });
 
@@ -495,6 +501,7 @@ layer(databaseLayer)((test) => {
 					),
 				).toMatchObject({ reason: { code: "invalid-cursor" } });
 			}),
+		testTimeout,
 	);
 });
 
@@ -629,6 +636,7 @@ layer(databaseLayer)((test) => {
 					items: [{ entity: "bottle", owner: a.pluginId }],
 				});
 			}),
+		testTimeout,
 	);
 });
 
@@ -706,26 +714,30 @@ layer(databaseLayer)((test) => {
 						undefined,
 						context,
 					);
-					expect(user.data["nameOnly"]).toMatchObject({
-						items: arrayContaining([{ name: `old ${label}` }, { name: `current ${label}` }]),
-					});
+					expect(user.data["nameOnly"]).toEqual<unknown>(
+						objectContaining({
+							items: arrayContaining([{ name: `old ${label}` }, { name: `current ${label}` }]),
+						}),
+					);
 					const complete = user.data["complete"];
 					assert(complete?.type === "rows");
 					expect(complete.items).toHaveLength(2);
-					expect(user.data["complete"]).toMatchObject({
-						items: arrayContaining([
-							objectContaining({
-								name: `old ${label}`,
-								pluginId: own.pluginId,
-								pluginRevisionId: own.revisionId,
-							}),
-							objectContaining({
-								name: `current ${label}`,
-								pluginId: foreign.pluginId,
-								pluginRevisionId: currentForeign.revisionId,
-							}),
-						]),
-					});
+					expect(user.data["complete"]).toEqual<unknown>(
+						objectContaining({
+							items: arrayContaining([
+								objectContaining({
+									name: `old ${label}`,
+									pluginId: own.pluginId,
+									pluginRevisionId: own.revisionId,
+								}),
+								objectContaining({
+									name: `current ${label}`,
+									pluginId: foreign.pluginId,
+									pluginRevisionId: currentForeign.revisionId,
+								}),
+							]),
+						}),
+					);
 					const plugin = yield* service.executeForPlugin(
 						{
 							...context,
@@ -747,12 +759,14 @@ layer(databaseLayer)((test) => {
 						expect(plugin.data["complete"]).toMatchObject({
 							items: [{ userWritePolicy: "source-owner" }],
 						});
-						expect(user.data["complete"]).toMatchObject({
-							items: arrayContaining([
-								objectContaining({ pluginId: own.pluginId, userWritePolicy: "source-owner" }),
-								objectContaining({ userWritePolicy: null, pluginId: foreign.pluginId }),
-							]),
-						});
+						expect(user.data["complete"]).toEqual<unknown>(
+							objectContaining({
+								items: arrayContaining([
+									objectContaining({ pluginId: own.pluginId, userWritePolicy: "source-owner" }),
+									objectContaining({ userWritePolicy: null, pluginId: foreign.pluginId }),
+								]),
+							}),
+						);
 					}
 				}
 				const snapshot = yield* definitions.getSnapshotForContext(context, owner);
@@ -771,6 +785,7 @@ layer(databaseLayer)((test) => {
 					]?.name,
 				).toBe("old signal");
 			}),
+		testTimeout,
 	);
 });
 
@@ -851,7 +866,7 @@ layer(databaseLayer)((test) => {
 					context,
 				)).data["definitions"];
 				assert(pinned?.type === "rows");
-				expect(pinned.items).toEqual(
+				expect(pinned.items).toEqual<unknown>(
 					arrayContaining([
 						{ name: "Fixture", owner: a.pluginId, revision: a.revisionId },
 						{ owner: b.pluginId, name: "Current bottle", revision: anyOf(String) },
@@ -932,5 +947,6 @@ layer(databaseLayer)((test) => {
 					),
 				).toMatchObject({ reason: { issue: "unavailable", code: "unresolved-query-owner" } });
 			}),
+		testTimeout,
 	);
 });

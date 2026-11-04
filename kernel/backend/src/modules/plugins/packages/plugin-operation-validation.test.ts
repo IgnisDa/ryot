@@ -1,6 +1,9 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
-import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
 import { validatePluginExecutableScripts, validatePluginManifestReferences } from "./validation";
@@ -28,42 +31,50 @@ const operationManifest = () => {
 	};
 };
 
-it.effect("rejects duplicate operation slugs and unknown driver references", () => {
-	const cases = [
-		(manifest: ReturnType<typeof operationManifest>) => {
-			const operation = manifest.operations[0];
-			assert(operation);
-			return { ...manifest, operations: [...manifest.operations, { ...operation }] };
-		},
-		(manifest: ReturnType<typeof operationManifest>) => {
-			const operation = manifest.operations[0];
-			assert(operation);
-			return { ...manifest, operations: [{ ...operation, scriptSlug: "missing-script" }] };
-		},
-	];
+it.effect(
+	"rejects duplicate operation slugs and unknown driver references",
+	() => {
+		const cases = [
+			(manifest: ReturnType<typeof operationManifest>) => {
+				const operation = manifest.operations[0];
+				assert(operation);
+				return { ...manifest, operations: [...manifest.operations, { ...operation }] };
+			},
+			(manifest: ReturnType<typeof operationManifest>) => {
+				const operation = manifest.operations[0];
+				assert(operation);
+				return { ...manifest, operations: [{ ...operation, scriptSlug: "missing-script" }] };
+			},
+		];
 
-	return Effect.forEach(cases, (mutate) => {
-		const manifest = mutate(operationManifest());
-		return Effect.gen(function* () {
-			const exit = yield* Effect.exit(validatePluginManifestReferences(manifest));
-			expect(Exit.isFailure(exit)).toBe(true);
+		return Effect.forEach(cases, (mutate) => {
+			const manifest = mutate(operationManifest());
+			return Effect.gen(function* () {
+				const exit = yield* Effect.exit(validatePluginManifestReferences(manifest));
+				expect(Exit.isFailure(exit)).toBe(true);
+			});
 		});
-	});
-});
+	},
+	testTimeout,
+);
 
-it.effect("requires operation declarations to reference operation scripts", () => {
-	const manifest = operationManifest();
-	const normalized = {
-		manifest,
-		scripts: [{ slug: "operation.fixture", metadata: { kind: "automation" as const } }],
-	};
+it.effect(
+	"requires operation declarations to reference operation scripts",
+	() => {
+		const manifest = operationManifest();
+		const normalized = {
+			manifest,
+			scripts: [{ slug: "operation.fixture", metadata: { kind: "automation" as const } }],
+		};
 
-	return Effect.gen(function* () {
-		const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
-		assert(Exit.isFailure(exit));
-		const failure = Cause.findErrorOption(exit.cause);
-		assert(Option.isSome(failure));
-		expect(failure.value._tag).toBe("PluginValidationError");
-		expect(failure.value.issues.join("; ")).toContain("must be an operation script");
-	});
-});
+		return Effect.gen(function* () {
+			const exit = yield* Effect.exit(validatePluginExecutableScripts(normalized));
+			assert(Exit.isFailure(exit));
+			const failure = Cause.findErrorOption(exit.cause);
+			assert(Option.isSome(failure));
+			expect(failure.value._tag).toBe("PluginValidationError");
+			expect(failure.value.issues.join("; ")).toContain("must be an operation script");
+		});
+	},
+	testTimeout,
+);

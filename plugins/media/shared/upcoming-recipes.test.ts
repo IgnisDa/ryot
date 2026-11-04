@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { describe, expect, it } from "vitest";
 
 import { upcomingRecipe } from "./upcoming-recipes";
 
@@ -71,7 +72,7 @@ describe("upcoming recipe", () => {
 			},
 		});
 
-		expect(Result.getOrThrow(decoded)).toEqual([
+		expect(Result.getOrThrow(decoded)).toEqual<unknown>([
 			{
 				total: 2,
 				entity: identity("show-1", "show"),

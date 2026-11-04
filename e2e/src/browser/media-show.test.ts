@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -59,7 +60,7 @@ it.live("marks the next episode watched from the header without a reload", () =>
 			.waitFor({ state: "visible" });
 
 		const complete = yield* waitForEventWithSchema(client, seeded.episodeId(1, 2), "complete");
-		expect(complete.eventSchemaSlug).toBe("complete");
+		expect(complete.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
@@ -82,7 +83,7 @@ it.live("marks an episode watched from its details", () =>
 		yield* details.getByText("Watched", { exact: true }).waitFor({ state: "visible" });
 
 		const complete = yield* waitForEventWithSchema(client, seeded.episodeId(1, 3), "complete");
-		expect(complete.eventSchemaSlug).toBe("complete");
+		expect(complete.eventSchemaSlug).toBe(EventSchemaSlug.make("complete"));
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

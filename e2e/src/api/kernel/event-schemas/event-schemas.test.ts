@@ -1,3 +1,4 @@
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
@@ -22,13 +23,13 @@ describe("GET /event-schemas", () => {
 			const eventSchemas = yield* listEventSchemas(client, mediaSchema.reference);
 
 			expect(sortBy(eventSchemas.map((schema) => schema.slug))).toEqual([
-				"add-to-media-library",
-				"backlog",
-				"complete",
-				"dropped",
-				"on_hold",
-				"progress",
-				"review",
+				EventSchemaSlug.make("add-to-media-library"),
+				EventSchemaSlug.make("backlog"),
+				EventSchemaSlug.make("complete"),
+				EventSchemaSlug.make("dropped"),
+				EventSchemaSlug.make("on_hold"),
+				EventSchemaSlug.make("progress"),
+				EventSchemaSlug.make("review"),
 			]);
 			expect(eventSchemas.some((schema) => schema.slug === "read")).toBe(false);
 		}),
@@ -42,9 +43,9 @@ describe("GET /event-schemas", () => {
 			const eventSchemas = yield* listEventSchemas(client, exerciseSchema.reference);
 
 			expect(eventSchemas.map((schema) => schema.slug)).toEqual([
-				"review",
-				"workout-exercise",
-				"workout-set",
+				EventSchemaSlug.make("review"),
+				EventSchemaSlug.make("workout-exercise"),
+				EventSchemaSlug.make("workout-set"),
 			]);
 			const workoutSetSchema = eventSchemas.find((schema) => schema.slug === "workout-set");
 			assertPresent(workoutSetSchema, "Missing built-in workout-set schema for exercise");
@@ -142,9 +143,9 @@ describe("GET /event-schemas", () => {
 			const eventSchemas = yield* listEventSchemas(client, collectionSchema.reference);
 
 			expect(eventSchemas.map((schema) => schema.slug)).toEqual([
-				"add-entity-to-collection",
-				"remove-entity-from-collection",
-				"review",
+				EventSchemaSlug.make("add-entity-to-collection"),
+				EventSchemaSlug.make("remove-entity-from-collection"),
+				EventSchemaSlug.make("review"),
 			]);
 			const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 			assertPresent(reviewSchema, "Missing built-in review schema for collection");

@@ -1,7 +1,8 @@
+import { describe, expect, it } from "bun:test";
+
 import { IntegrationId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
 import { makeSubjectRunInput } from "#modules/scripts/authorization/principal.test-support";
@@ -74,8 +75,8 @@ describe("script execution context", () => {
 		const input = Effect.runSync(
 			requireSandboxCapabilityInput(makeSubjectRunInput(subject), "getCurrentIntegration"),
 		);
-		expect(sandboxRunUserId(input)).toBe("user_1");
-		expect(sandboxRunIntegrationId(input)).toBe("integration_1");
+		expect(sandboxRunUserId(input)).toBe<unknown>("user_1");
+		expect(sandboxRunIntegrationId(input)).toBe<unknown>("integration_1");
 		expect(sandboxRunUserId(makeSubjectRunInput(automationRunSubject("after", null)))).toBeNull();
 	});
 });

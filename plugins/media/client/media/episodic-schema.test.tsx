@@ -1,4 +1,4 @@
-import { describe } from "vitest";
+import { describe } from "bun:test";
 
 import { episodicEpisodeRow } from "../../tests/client/episodic/episodes-fixture";
 import { episodicFixtureSchema } from "../../tests/client/episodic/schema-fixture";

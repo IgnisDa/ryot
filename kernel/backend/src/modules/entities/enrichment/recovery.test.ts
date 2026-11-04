@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationExecutionId,
@@ -9,6 +10,8 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -232,82 +235,91 @@ const harness = Effect.fnUntraced(function* (input: {
 });
 
 layer(mutationAdmissionTestLayer)((it) => {
-	it.effect("settles collected workflows from their tombstones without reusing expired IDs", () =>
-		Effect.gen(function* () {
-			const h = yield* harness({
-				rows: [request("collected-success"), request("collected-failure")],
-				expired: new Map([
-					["collected-failure", "failed"],
-					["collected-success", "succeeded"],
-				]),
-			});
-			yield* h.reconcile();
-			expect(h.rows.get("collected-success")?.state).toBe("succeeded");
-			expect(h.rows.get("collected-failure")?.state).toBe("failed");
-			expect(h.executions).toEqual([]);
-			expect(h.polls).toEqual([]);
-		}),
+	it.effect(
+		"settles collected workflows from their tombstones without reusing expired IDs",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness({
+					rows: [request("collected-success"), request("collected-failure")],
+					expired: new Map([
+						["collected-failure", "failed"],
+						["collected-success", "succeeded"],
+					]),
+				});
+				yield* h.reconcile();
+				expect(h.rows.get("collected-success")?.state).toBe("succeeded");
+				expect(h.rows.get("collected-failure")?.state).toBe("failed");
+				expect(h.executions).toEqual([]);
+				expect(h.polls).toEqual([]);
+			}),
+		testTimeout,
 	);
-	it.effect("keeps suspended public workflows active without releasing or redispatching them", () =>
-		Effect.gen(function* () {
-			const h = yield* harness({
-				outcomes: new Map([
-					["population-suspended", new Workflow.Suspended()],
-					["translation-suspended", new Workflow.Suspended()],
-				]),
-				rows: [
-					request("population-suspended", { state: "running" }),
-					request("translation-suspended", {
-						level: null,
-						language: "es",
-						state: "retrying",
-						operation: "translation",
-						workflowName: TranslateEntityWorkflow._tag,
-					}),
-				],
-			});
-			yield* h.reconcile();
-			expect(h.rows.get("population-suspended")?.state).toBe("running");
-			expect(h.rows.get("translation-suspended")?.state).toBe("retrying");
-			expect(h.observed).toEqual(["population-suspended", "translation-suspended"]);
-			expect(h.executions).toEqual([]);
-			expect(h.updates).toEqual([]);
-			expect(h.releases).toEqual([]);
-			expect(h.events).toEqual(["prune"]);
-		}),
+	it.effect(
+		"keeps suspended public workflows active without releasing or redispatching them",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness({
+					outcomes: new Map([
+						["population-suspended", new Workflow.Suspended()],
+						["translation-suspended", new Workflow.Suspended()],
+					]),
+					rows: [
+						request("population-suspended", { state: "running" }),
+						request("translation-suspended", {
+							level: null,
+							language: "es",
+							state: "retrying",
+							operation: "translation",
+							workflowName: TranslateEntityWorkflow._tag,
+						}),
+					],
+				});
+				yield* h.reconcile();
+				expect(h.rows.get("population-suspended")?.state).toBe("running");
+				expect(h.rows.get("translation-suspended")?.state).toBe("retrying");
+				expect(h.observed).toEqual(["population-suspended", "translation-suspended"]);
+				expect(h.executions).toEqual([]);
+				expect(h.updates).toEqual([]);
+				expect(h.releases).toEqual([]);
+				expect(h.events).toEqual(["prune"]);
+			}),
+		testTimeout,
 	);
 
-	it.effect("recovers missing roots with the stored payload, public ID and exact script pin", () =>
-		Effect.gen(function* () {
-			const population = request("population-root");
-			const translation = request("translation-root", {
-				level: null,
-				language: "es",
-				requesterUserId: userId,
-				operation: "translation",
-				requesterGeneration: account.token,
-				workflowName: TranslateEntityWorkflow._tag,
-				payload: translationPayload("translation-root"),
-			});
-			const h = yield* harness({ rows: [population, translation] });
-			yield* h.reconcile();
-			expect(h.polls).toEqual([
-				{ id: population.id, workflow: ProviderEntityPopulationWorkflow._tag },
-				{ id: translation.id, workflow: TranslateEntityWorkflow._tag },
-			]);
-			expect(h.executions).toEqual([
-				{
-					workflow: population.workflowName,
-					options: { discard: true, executionId: population.id, payload: population.payload },
-				},
-				{
-					workflow: translation.workflowName,
-					options: { discard: true, executionId: translation.id, payload: translation.payload },
-				},
-			]);
-			expect(h.updates).toEqual([]);
-			expect(h.releases).toEqual([]);
-		}),
+	it.effect(
+		"recovers missing roots with the stored payload, public ID and exact script pin",
+		() =>
+			Effect.gen(function* () {
+				const population = request("population-root");
+				const translation = request("translation-root", {
+					level: null,
+					language: "es",
+					requesterUserId: userId,
+					operation: "translation",
+					requesterGeneration: account.token,
+					workflowName: TranslateEntityWorkflow._tag,
+					payload: translationPayload("translation-root"),
+				});
+				const h = yield* harness({ rows: [population, translation] });
+				yield* h.reconcile();
+				expect(h.polls).toEqual([
+					{ id: population.id, workflow: ProviderEntityPopulationWorkflow._tag },
+					{ id: translation.id, workflow: TranslateEntityWorkflow._tag },
+				]);
+				expect(h.executions).toEqual([
+					{
+						workflow: population.workflowName,
+						options: { discard: true, executionId: population.id, payload: population.payload },
+					},
+					{
+						workflow: translation.workflowName,
+						options: { discard: true, executionId: translation.id, payload: translation.payload },
+					},
+				]);
+				expect(h.updates).toEqual([]);
+				expect(h.releases).toEqual([]);
+			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -336,6 +348,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				]);
 				expect(h.releases).toEqual([]);
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -370,6 +383,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				yield* h.reconcile();
 				expect(h.released).toEqual(["success", "failure", "interrupted", "unknown"]);
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -408,6 +422,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				expect(h.polls).toEqual([]);
 				expect(h.releases).toEqual([]);
 			}),
+		testTimeout,
 	);
 
 	it.effect(
@@ -435,5 +450,6 @@ layer(mutationAdmissionTestLayer)((it) => {
 				expect(h.releases).toHaveLength(2);
 				expect(h.polls).toEqual([]);
 			}),
+		testTimeout,
 	);
 });

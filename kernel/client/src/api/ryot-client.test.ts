@@ -1,4 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import {
@@ -22,6 +23,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime, Result } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -156,145 +160,165 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
-	it.live("exposes the external-link capability on kernel clients", () => {
-		const calls: unknown[] = [];
-		const runtime = makeRuntime(new Error("unused"));
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme, (request) =>
-				Effect.sync(() => {
-					calls.push(request);
-					return { outcome: "success" };
-				}),
+	it.live(
+		"exposes the external-link capability on kernel clients",
+		() => {
+			const calls: unknown[] = [];
+			const runtime = makeRuntime(new Error("unused"));
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme, (request) =>
+					Effect.sync(() => {
+						calls.push(request);
+						return { outcome: "success" };
+					}),
+				);
+				expect(yield* client.links.open({ url: "https://example.test/path" })).toEqual({
+					outcome: "success",
+				});
+				expect(calls).toEqual([{ url: "https://example.test/path" }]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+	it.live(
+		"routes semantic collection mutations through the scoped collections port",
+		() => {
+			const calls: unknown[] = [];
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeEntityWatchService(),
+					makeRyotQLApi(),
+					makeUploadsApi(),
+					makeCollectionsApi({
+						create: (receivedScope, request) => {
+							calls.push({ request, method: "create", scope: receivedScope });
+							return Effect.succeed(collection);
+						},
+						createMembership: (receivedScope, request) => {
+							calls.push({ request, scope: receivedScope, method: "createMembership" });
+							return Effect.succeed(membership);
+						},
+						deleteMembership: (receivedScope, request) => {
+							calls.push({ request, scope: receivedScope, method: "deleteMembership" });
+							return Effect.succeed(membership);
+						},
+						reorderMembership: (receivedScope, request) => {
+							calls.push({ request, scope: receivedScope, method: "reorderMembership" });
+							return Effect.succeed(reorderResponse);
+						},
+					}),
+				),
 			);
-			expect(yield* client.links.open({ url: "https://example.test/path" })).toEqual({
-				outcome: "success",
-			});
-			expect(calls).toEqual([{ url: "https://example.test/path" }]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
-	it.live("routes semantic collection mutations through the scoped collections port", () => {
-		const calls: unknown[] = [];
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeEntityWatchService(),
-				makeRyotQLApi(),
-				makeUploadsApi(),
-				makeCollectionsApi({
-					create: (receivedScope, request) => {
-						calls.push({ request, method: "create", scope: receivedScope });
-						return Effect.succeed(collection);
-					},
-					createMembership: (receivedScope, request) => {
-						calls.push({ request, scope: receivedScope, method: "createMembership" });
-						return Effect.succeed(membership);
-					},
-					deleteMembership: (receivedScope, request) => {
-						calls.push({ request, scope: receivedScope, method: "deleteMembership" });
-						return Effect.succeed(membership);
-					},
-					reorderMembership: (receivedScope, request) => {
-						calls.push({ request, scope: receivedScope, method: "reorderMembership" });
-						return Effect.succeed(reorderResponse);
-					},
-				}),
-			),
-		);
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* client.collections.create({ name: "Favorites" })).toEqual(collection);
-			expect(
-				yield* client.collections.upsertMembership({
-					entityId: "entity-1",
-					collectionId: "collection-1",
-				}),
-			).toEqual(membership);
-			expect(
-				yield* client.collections.removeMembership({
-					entityId: "entity-1",
-					collectionId: "collection-1",
-				}),
-			).toEqual(membership);
-			expect(yield* client.collections.reorderMembership(reorderInput)).toEqual(reorderResponse);
-			expect(calls).toEqual([
-				{ scope, method: "create", request: { payload: { name: "Favorites" } } },
-				{
-					scope,
-					method: "createMembership",
-					request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
-				},
-				{
-					scope,
-					method: "deleteMembership",
-					request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
-				},
-				{ scope, method: "reorderMembership", request: { payload: reorderInput } },
-			]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
-
-	it.live("classifies collection reorder conflicts", () =>
-		Effect.gen(function* () {
-			for (const [code, reason] of [
-				["order-stale", "collection-stale"],
-				["command-identity-conflict", "collection-failed"],
-			] as const) {
-				const runtime = ManagedRuntime.make(
-					Layer.mergeAll(
-						makeEntityWatchService(),
-						makeRyotQLApi(),
-						makeUploadsApi(),
-						makeCollectionsApi({
-							reorderMembership: () => fails(new CollectionConflict({ reason: { code } })),
-						}),
-					),
-				);
-				const result = yield* Effect.result(
-					createKernelRyotClient(runtime, scope, theme).collections.reorderMembership(reorderInput),
-				).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-				expect(result).toMatchObject({ failure: { reason } });
-			}
-		}),
-	);
-
-	it.live("sanitizes declared and unexpected collection failures", () =>
-		Effect.gen(function* () {
-			for (const [failure, reason] of [
-				[
-					new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
-					"collection-failed",
-				],
-				[new TypeError("private network detail"), "transport"],
-			] as const) {
-				const runtime = ManagedRuntime.make(
-					Layer.mergeAll(
-						makeEntityWatchService(),
-						makeRyotQLApi(),
-						makeUploadsApi(),
-						makeCollectionsApi({ create: () => fails(failure) }),
-					),
-				);
+			return Effect.gen(function* () {
 				const client = createKernelRyotClient(runtime, scope, theme);
-				const result = yield* Effect.result(client.collections.create({ name: "Favorites" })).pipe(
-					Effect.ensuring(Effect.promise(() => runtime.dispose())),
-				);
-				expect(result).toMatchObject({ failure: { reason } });
-			}
-		}),
+				expect(yield* client.collections.create({ name: "Favorites" })).toEqual(collection);
+				expect(
+					yield* client.collections.upsertMembership({
+						entityId: "entity-1",
+						collectionId: "collection-1",
+					}),
+				).toEqual(membership);
+				expect(
+					yield* client.collections.removeMembership({
+						entityId: "entity-1",
+						collectionId: "collection-1",
+					}),
+				).toEqual(membership);
+				expect(yield* client.collections.reorderMembership(reorderInput)).toEqual(reorderResponse);
+				expect(calls).toEqual([
+					{ scope, method: "create", request: { payload: { name: "Favorites" } } },
+					{
+						scope,
+						method: "createMembership",
+						request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
+					},
+					{
+						scope,
+						method: "deleteMembership",
+						request: { payload: { entityId: "entity-1", collectionId: "collection-1" } },
+					},
+					{ scope, method: "reorderMembership", request: { payload: reorderInput } },
+				]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
 	);
 
-	it.live("reuses one client for equivalent API scopes and separates users", () => {
-		const runtime = makeRuntime(new Error("not used"));
-		return Effect.sync(() => {
-			// This focused runtime provides the services used by the kernel client adapter.
-			// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-			const store = createKernelRyotClientStore(runtime as ClientRuntime, theme);
-			const first = store.get(scope);
-			expect(store.get({ ...scope })).toBe(first);
-			expect(first.hostServices).toEqual({ scope, runtime });
-			expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
-			expect(store.get(scope)).not.toBe(first);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+	it.live(
+		"classifies collection reorder conflicts",
+		() =>
+			Effect.gen(function* () {
+				for (const [code, reason] of [
+					["order-stale", "collection-stale"],
+					["command-identity-conflict", "collection-failed"],
+				] as const) {
+					const runtime = ManagedRuntime.make(
+						Layer.mergeAll(
+							makeEntityWatchService(),
+							makeRyotQLApi(),
+							makeUploadsApi(),
+							makeCollectionsApi({
+								reorderMembership: () => fails(new CollectionConflict({ reason: { code } })),
+							}),
+						),
+					);
+					const result = yield* Effect.result(
+						createKernelRyotClient(runtime, scope, theme).collections.reorderMembership(
+							reorderInput,
+						),
+					).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+					expect(result).toMatchObject({ failure: { reason } });
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"sanitizes declared and unexpected collection failures",
+		() =>
+			Effect.gen(function* () {
+				for (const [failure, reason] of [
+					[
+						new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
+						"collection-failed",
+					],
+					[new TypeError("private network detail"), "transport"],
+				] as const) {
+					const runtime = ManagedRuntime.make(
+						Layer.mergeAll(
+							makeEntityWatchService(),
+							makeRyotQLApi(),
+							makeUploadsApi(),
+							makeCollectionsApi({ create: () => fails(failure) }),
+						),
+					);
+					const client = createKernelRyotClient(runtime, scope, theme);
+					const result = yield* Effect.result(
+						client.collections.create({ name: "Favorites" }),
+					).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+					expect(result).toMatchObject({ failure: { reason } });
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"reuses one client for equivalent API scopes and separates users",
+		() => {
+			const runtime = makeRuntime(new Error("not used"));
+			return Effect.sync(() => {
+				// This focused runtime provides the services used by the kernel client adapter.
+				// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+				const store = createKernelRyotClientStore(runtime as ClientRuntime, theme);
+				const first = store.get(scope);
+				expect(store.get({ ...scope })).toBe(first);
+				expect(first.hostServices).toEqual<unknown>({ scope, runtime });
+				expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
+				expect(store.get(scope)).not.toBe(first);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 
 	it.live(
 		"attaches synchronous watches by scope without acquiring a session for each client",
@@ -341,6 +365,7 @@ describe("kernel Ryot client", () => {
 				expect(updates).toEqual([{ entityId: "a", reason: "translated" }]);
 			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 		},
+		testTimeout,
 	);
 	const managedAssets = [
 		{ type: "local", key: "permanent/local.png" },
@@ -366,100 +391,125 @@ describe("kernel Ryot client", () => {
 	];
 
 	for (const failure of declaredFailures) {
-		it.live(`classifies ${failure._tag} as query-failed`, () => {
-			const runtime = makeRuntime(failure);
-			const client = createKernelRyotClient(runtime, scope, theme);
-			const query = Effect.runPromise(client.data.query(recipe));
-			return Effect.promise(() =>
-				expect(query).rejects.toMatchObject({ reason: "query-failed" }),
-			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-		});
+		it.live(
+			`classifies ${failure._tag} as query-failed`,
+			() => {
+				const runtime = makeRuntime(failure);
+				const client = createKernelRyotClient(runtime, scope, theme);
+				const query = Effect.runPromise(client.data.query(recipe));
+				return Effect.map(Effect.tryPromise(() => query).pipe(Effect.flip), ({ cause: error }) =>
+					expect(error).toMatchObject({ reason: "query-failed" }),
+				).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+			},
+			testTimeout,
+		);
 	}
 
-	it.live("classifies an unexpected failure as transport", () => {
-		const runtime = makeRuntime(new TypeError("private network detail"));
-		const client = createKernelRyotClient(runtime, scope, theme);
-		const query = Effect.runPromise(client.data.query(recipe));
-		return Effect.promise(() => expect(query).rejects.toMatchObject({ reason: "transport" })).pipe(
-			Effect.ensuring(Effect.promise(() => runtime.dispose())),
-		);
-	});
-
-	it.live("interrupts a query with the caller signal", () => {
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeEntityWatchService(),
-				makeUploadsApi(),
-				makeRyotQLApi({ execute: () => Effect.never }),
-			),
-		);
-		const controller = new AbortController();
-		const reason = new DOMException("Caller canceled", "AbortError");
-		const client = createKernelRyotClient(runtime, scope, theme);
-		const query = Effect.runPromise(client.data.query(recipe), { signal: controller.signal });
-
-		controller.abort(reason);
-
-		return Effect.promise(() => expect(query).rejects.toThrow(/interrupted/)).pipe(
-			Effect.ensuring(Effect.promise(() => runtime.dispose())),
-		);
-	});
-
-	it.live("resolves managed assets through the authenticated upload port", () => {
-		const calls: Array<{ readonly request: unknown; readonly scope: typeof scope }> = [];
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeEntityWatchService(),
-				makeRyotQLApi(),
-				makeUploadsApi({
-					resolveDownloads: (receivedScope, request) => {
-						calls.push({ request, scope: receivedScope });
-						return Effect.succeed(
-							managedAssets.map((asset, index) => ({
-								asset,
-								expiresAt: managedAssetResolutions[index]?.expiresAt ?? "",
-								downloadUrl:
-									index === 0
-										? "/uploads/local/download?key=permanent/local.png"
-										: "https://s3.example/permanent/remote.png",
-							})),
-						);
-					},
-				}),
-			),
-		);
-		return Effect.gen(function* () {
+	it.live(
+		"classifies an unexpected failure as transport",
+		() => {
+			const runtime = makeRuntime(new TypeError("private network detail"));
 			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* client.assets.resolve(managedAssets)).toEqual(managedAssetResolutions);
-			expect(calls).toEqual([{ scope, request: { payload: { assets: [...managedAssets] } } }]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+			const query = Effect.runPromise(client.data.query(recipe));
+			return Effect.map(Effect.tryPromise(() => query).pipe(Effect.flip), ({ cause: error }) =>
+				expect(error).toMatchObject({ reason: "transport" }),
+			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 
-	it.live("interrupts authenticated asset resolution on cancellation", () => {
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeEntityWatchService(),
-				makeUploadsApi({ resolveDownloads: () => Effect.never }),
-				makeRyotQLApi(),
-			),
-		);
-		const controller = new AbortController();
-		const reason = new DOMException("Caller canceled", "AbortError");
-		const client = createKernelRyotClient(runtime, scope, theme);
-		const resolution = Effect.runPromise(
-			client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
-			{ signal: controller.signal },
-		);
+	it.live(
+		"interrupts a query with the caller signal",
+		() => {
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeCollectionsApi(),
+					makeEntityWatchService(),
+					makeUploadsApi(),
+					makeRyotQLApi({ execute: () => Effect.never }),
+				),
+			);
+			const controller = new AbortController();
+			const reason = new DOMException("Caller canceled", "AbortError");
+			const client = createKernelRyotClient(runtime, scope, theme);
+			const query = Effect.runPromise(client.data.query(recipe), { signal: controller.signal });
 
-		controller.abort(reason);
+			controller.abort(reason);
 
-		return Effect.promise(() => expect(resolution).rejects.toThrow(/interrupted/)).pipe(
-			Effect.ensuring(Effect.promise(() => runtime.dispose())),
-		);
-	});
+			return Effect.map(Effect.tryPromise(() => query).pipe(Effect.flip), ({ cause: error }) => {
+				assert(error instanceof Error);
+				expect(error.message).toMatch(/interrupted/);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"resolves managed assets through the authenticated upload port",
+		() => {
+			const calls: Array<{ readonly request: unknown; readonly scope: typeof scope }> = [];
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeCollectionsApi(),
+					makeEntityWatchService(),
+					makeRyotQLApi(),
+					makeUploadsApi({
+						resolveDownloads: (receivedScope, request) => {
+							calls.push({ request, scope: receivedScope });
+							return Effect.succeed(
+								managedAssets.map((asset, index) => ({
+									asset,
+									expiresAt: managedAssetResolutions[index]?.expiresAt ?? "",
+									downloadUrl:
+										index === 0
+											? "/uploads/local/download?key=permanent/local.png"
+											: "https://s3.example/permanent/remote.png",
+								})),
+							);
+						},
+					}),
+				),
+			);
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
+				expect(yield* client.assets.resolve(managedAssets)).toEqual(managedAssetResolutions);
+				expect(calls).toEqual([{ scope, request: { payload: { assets: [...managedAssets] } } }]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"interrupts authenticated asset resolution on cancellation",
+		() => {
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeCollectionsApi(),
+					makeEntityWatchService(),
+					makeUploadsApi({ resolveDownloads: () => Effect.never }),
+					makeRyotQLApi(),
+				),
+			);
+			const controller = new AbortController();
+			const reason = new DOMException("Caller canceled", "AbortError");
+			const client = createKernelRyotClient(runtime, scope, theme);
+			const resolution = Effect.runPromise(
+				client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
+				{ signal: controller.signal },
+			);
+
+			controller.abort(reason);
+
+			return Effect.map(
+				Effect.tryPromise(() => resolution).pipe(Effect.flip),
+				({ cause: error }) => {
+					assert(error instanceof Error);
+					expect(error.message).toMatch(/interrupted/);
+				},
+			).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 
 	for (const failure of [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
@@ -467,13 +517,41 @@ describe("kernel Ryot client", () => {
 		new UploadBadRequest({ reason: { code: "asset-forbidden" } }),
 		new UploadInternalError({ reason: { code: "unexpected-error" } }),
 	]) {
-		it.live(`classifies ${failure._tag} as asset-failed`, () => {
+		it.live(
+			`classifies ${failure._tag} as asset-failed`,
+			() => {
+				const runtime = ManagedRuntime.make(
+					Layer.mergeAll(
+						makeCollectionsApi(),
+						makeEntityWatchService(),
+						makeRyotQLApi(),
+						makeUploadsApi({ resolveDownloads: () => fails(failure) }),
+					),
+				);
+				return Effect.gen(function* () {
+					const client = createKernelRyotClient(runtime, scope, theme);
+					expect(
+						yield* Effect.flip(
+							client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
+						),
+					).toMatchObject({ reason: "asset-failed" });
+				}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+			},
+			testTimeout,
+		);
+	}
+
+	it.live(
+		"classifies an unexpected asset failure as transport",
+		() => {
 			const runtime = ManagedRuntime.make(
 				Layer.mergeAll(
 					makeCollectionsApi(),
-					makeEntityWatchService(),
 					makeRyotQLApi(),
-					makeUploadsApi({ resolveDownloads: () => fails(failure) }),
+					makeEntityWatchService(),
+					makeUploadsApi({
+						resolveDownloads: () => fails(new TypeError("private network detail")),
+					}),
 				),
 			);
 			return Effect.gen(function* () {
@@ -482,204 +560,215 @@ describe("kernel Ryot client", () => {
 					yield* Effect.flip(
 						client.assets.resolve([{ type: "local", key: "permanent/local.png" }]),
 					),
-				).toMatchObject({ reason: "asset-failed" });
+				).toMatchObject({ reason: "transport" });
 			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-		});
-	}
-
-	it.live("classifies an unexpected asset failure as transport", () => {
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeRyotQLApi(),
-				makeEntityWatchService(),
-				makeUploadsApi({ resolveDownloads: () => fails(new TypeError("private network detail")) }),
-			),
-		);
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(
-				yield* Effect.flip(client.assets.resolve([{ type: "local", key: "permanent/local.png" }])),
-			).toMatchObject({ reason: "transport" });
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+		},
+		testTimeout,
+	);
 });
 
 describe("kernel temporary uploads", () => {
-	it.live("creates an intent, transfers the bytes with its headers, then completes it", () => {
-		const events: string[] = [];
-		const transfers: unknown[] = [];
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeEntityWatchService(),
-				makeRyotQLApi(),
-				makeUploadsApi({
-					createIntent: (_scope, request) => {
-						events.push(`create-intent:${request.payload.fileName}`);
-						return Effect.succeed(intent);
+	it.live(
+		"creates an intent, transfers the bytes with its headers, then completes it",
+		() => {
+			const events: string[] = [];
+			const transfers: unknown[] = [];
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeCollectionsApi(),
+					makeEntityWatchService(),
+					makeRyotQLApi(),
+					makeUploadsApi({
+						createIntent: (_scope, request) => {
+							events.push(`create-intent:${request.payload.fileName}`);
+							return Effect.succeed(intent);
+						},
+						putBytes: (_scope, transfer) => {
+							events.push(`put:${transfer.uploadUrl}`);
+							transfers.push(transfer);
+							return Effect.void;
+						},
+						completeIntent: (_scope, request) => {
+							events.push(`complete-intent:${request.params.intentId}`);
+							return Effect.succeed(uploadToken);
+						},
+					}),
+				),
+			);
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
+				expect(yield* client.uploads.uploadTemporary(uploadRequest)).toEqual(uploadToken);
+
+				expect(events).toEqual([
+					"create-intent:items.csv",
+					"put:/uploads/local/intent-1",
+					"complete-intent:intent-1",
+				]);
+				expect(transfers).toEqual([
+					{
+						source,
+						contentType: "text/csv",
+						headers: { ...intent.headers },
+						uploadUrl: "/uploads/local/intent-1",
 					},
-					putBytes: (_scope, transfer) => {
-						events.push(`put:${transfer.uploadUrl}`);
-						transfers.push(transfer);
-						return Effect.void;
-					},
-					completeIntent: (_scope, request) => {
-						events.push(`complete-intent:${request.params.intentId}`);
-						return Effect.succeed(uploadToken);
-					},
-				}),
-			),
-		);
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* client.uploads.uploadTemporary(uploadRequest)).toEqual(uploadToken);
+				]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 
-			expect(events).toEqual([
-				"create-intent:items.csv",
-				"put:/uploads/local/intent-1",
-				"complete-intent:intent-1",
-			]);
-			expect(transfers).toEqual([
-				{
-					source,
-					contentType: "text/csv",
-					headers: { ...intent.headers },
-					uploadUrl: "/uploads/local/intent-1",
-				},
-			]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
-
-	it.live("classifies a declared intent failure as operation-failed and skips the transfer", () => {
-		const events: string[] = [];
-		const runtime = makeUploadsRuntime(events, {
-			completeIntent: Effect.succeed(uploadToken),
-			createIntent: fails(
-				new UploadBadRequest({
-					reason: { contentType: "text/csv", code: "unsupported-file-type" },
-				}),
-			),
-		});
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
-				reason: "operation-failed",
-			});
-
-			expect(events).toEqual(["create-intent:items.csv"]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
-
-	it.live("classifies an unexpected intent failure as transport", () => {
-		const events: string[] = [];
-		const runtime = makeUploadsRuntime(events, {
-			completeIntent: Effect.succeed(uploadToken),
-			createIntent: fails(new TypeError("private network detail")),
-		});
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
-				reason: "transport",
-			});
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
-
-	it.live("classifies a rejected byte transfer and never completes the intent", () =>
-		Effect.gen(function* () {
-			const rejected: string[] = [];
-			const rejectedRuntime = makeUploadsRuntime(rejected, {
-				putBytes: fails(403),
-				createIntent: Effect.succeed(intent),
+	it.live(
+		"classifies a declared intent failure as operation-failed and skips the transfer",
+		() => {
+			const events: string[] = [];
+			const runtime = makeUploadsRuntime(events, {
 				completeIntent: Effect.succeed(uploadToken),
+				createIntent: fails(
+					new UploadBadRequest({
+						reason: { contentType: "text/csv", code: "unsupported-file-type" },
+					}),
+				),
 			});
-			yield* Effect.gen(function* () {
-				const client = createKernelRyotClient(rejectedRuntime, scope, theme);
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
 				expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
 					reason: "operation-failed",
 				});
-				expect(rejected).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
-			}).pipe(Effect.ensuring(Effect.promise(() => rejectedRuntime.dispose())));
 
-			const offline: string[] = [];
-			const offlineRuntime = makeUploadsRuntime(offline, {
-				createIntent: Effect.succeed(intent),
+				expect(events).toEqual(["create-intent:items.csv"]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"classifies an unexpected intent failure as transport",
+		() => {
+			const events: string[] = [];
+			const runtime = makeUploadsRuntime(events, {
 				completeIntent: Effect.succeed(uploadToken),
-				putBytes: fails(new TypeError("Failed to fetch")),
+				createIntent: fails(new TypeError("private network detail")),
 			});
-			yield* Effect.gen(function* () {
-				const client = createKernelRyotClient(offlineRuntime, scope, theme);
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
 				expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
 					reason: "transport",
 				});
-				expect(offline).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
-			}).pipe(Effect.ensuring(Effect.promise(() => offlineRuntime.dispose())));
-		}),
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
 	);
 
-	it.live("classifies a failed completion after the bytes are transferred", () => {
-		const events: string[] = [];
-		const runtime = makeUploadsRuntime(events, {
-			createIntent: Effect.succeed(intent),
-			completeIntent: fails(new UploadInternalError({ reason: { code: "unexpected-error" } })),
-		});
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
-				reason: "operation-failed",
-			});
+	it.live(
+		"classifies a rejected byte transfer and never completes the intent",
+		() =>
+			Effect.gen(function* () {
+				const rejected: string[] = [];
+				const rejectedRuntime = makeUploadsRuntime(rejected, {
+					putBytes: fails(403),
+					createIntent: Effect.succeed(intent),
+					completeIntent: Effect.succeed(uploadToken),
+				});
+				yield* Effect.gen(function* () {
+					const client = createKernelRyotClient(rejectedRuntime, scope, theme);
+					expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+						reason: "operation-failed",
+					});
+					expect(rejected).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
+				}).pipe(Effect.ensuring(Effect.promise(() => rejectedRuntime.dispose())));
 
-			expect(events).toEqual([
-				"create-intent:items.csv",
-				"put:/uploads/local/intent-1",
-				"complete-intent:intent-1",
-			]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+				const offline: string[] = [];
+				const offlineRuntime = makeUploadsRuntime(offline, {
+					createIntent: Effect.succeed(intent),
+					completeIntent: Effect.succeed(uploadToken),
+					putBytes: fails(new TypeError("Failed to fetch")),
+				});
+				yield* Effect.gen(function* () {
+					const client = createKernelRyotClient(offlineRuntime, scope, theme);
+					expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+						reason: "transport",
+					});
+					expect(offline).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
+				}).pipe(Effect.ensuring(Effect.promise(() => offlineRuntime.dispose())));
+			}),
+		testTimeout,
+	);
 
-	it.live("rejects a completion that resolves to a managed asset instead of a token", () => {
-		const events: string[] = [];
-		const runtime = makeUploadsRuntime(events, {
-			createIntent: Effect.succeed(intent),
-			completeIntent: Effect.succeed({ type: "local", key: "assets/items.csv" }),
-		});
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
-				reason: "malformed-result",
+	it.live(
+		"classifies a failed completion after the bytes are transferred",
+		() => {
+			const events: string[] = [];
+			const runtime = makeUploadsRuntime(events, {
+				createIntent: Effect.succeed(intent),
+				completeIntent: fails(new UploadInternalError({ reason: { code: "unexpected-error" } })),
 			});
-			expect(events).toEqual([
-				"create-intent:items.csv",
-				"put:/uploads/local/intent-1",
-				"complete-intent:intent-1",
-			]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
+				expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+					reason: "operation-failed",
+				});
+
+				expect(events).toEqual([
+					"create-intent:items.csv",
+					"put:/uploads/local/intent-1",
+					"complete-intent:intent-1",
+				]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
+
+	it.live(
+		"rejects a completion that resolves to a managed asset instead of a token",
+		() => {
+			const events: string[] = [];
+			const runtime = makeUploadsRuntime(events, {
+				createIntent: Effect.succeed(intent),
+				completeIntent: Effect.succeed({ type: "local", key: "assets/items.csv" }),
+			});
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
+				expect(yield* Effect.flip(client.uploads.uploadTemporary(uploadRequest))).toMatchObject({
+					reason: "malformed-result",
+				});
+				expect(events).toEqual([
+					"create-intent:items.csv",
+					"put:/uploads/local/intent-1",
+					"complete-intent:intent-1",
+				]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 });
 
 describe("kernel permanent uploads", () => {
-	it.live("returns a managed locator through the uploads API", () => {
-		const events: unknown[] = [];
-		const asset = { type: "local" as const, key: "permanent/items.csv" };
-		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(
-				makeCollectionsApi(),
-				makeEntityWatchService(),
-				makeRyotQLApi(),
-				makeUploadsApi({
-					putBytes: () => Effect.void,
-					completeIntent: () => Effect.succeed(asset),
-					createIntent: (_scope, request) => {
-						events.push({ kind: request.payload.kind, name: request.payload.fileName });
-						return Effect.succeed(intent);
-					},
-				}),
-			),
-		);
-		return Effect.gen(function* () {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			expect(yield* client.uploads.uploadPermanent(uploadRequest)).toEqual(asset);
-			expect(events).toEqual([{ kind: "permanent", name: "items.csv" }]);
-		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
-	});
+	it.live(
+		"returns a managed locator through the uploads API",
+		() => {
+			const events: unknown[] = [];
+			const asset = { type: "local" as const, key: "permanent/items.csv" };
+			const runtime = ManagedRuntime.make(
+				Layer.mergeAll(
+					makeCollectionsApi(),
+					makeEntityWatchService(),
+					makeRyotQLApi(),
+					makeUploadsApi({
+						putBytes: () => Effect.void,
+						completeIntent: () => Effect.succeed(asset),
+						createIntent: (_scope, request) => {
+							events.push({ kind: request.payload.kind, name: request.payload.fileName });
+							return Effect.succeed(intent);
+						},
+					}),
+				),
+			);
+			return Effect.gen(function* () {
+				const client = createKernelRyotClient(runtime, scope, theme);
+				expect(yield* client.uploads.uploadPermanent(uploadRequest)).toEqual(asset);
+				expect(events).toEqual([{ kind: "permanent", name: "items.csv" }]);
+			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+		},
+		testTimeout,
+	);
 });

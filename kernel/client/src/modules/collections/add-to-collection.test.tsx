@@ -1,9 +1,12 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { AddToCollection } from "./add-to-collection";
@@ -115,73 +118,78 @@ const mountManager = (
 	};
 };
 
-it.live("adds, edits, and removes membership details without closing the manager", () =>
-	Effect.gen(function* () {
-		const view = mountManager();
-		try {
-			yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Collections for Example item" }),
-			);
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
-			);
-			const notes = yield* Effect.promise(() => screen.findByRole("textbox", { name: /Notes/ }));
-			fireEvent.change(notes, { target: { value: "First note" } });
-			fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
-			expect(view.outcomes).toEqual([]);
-			expect(view.requests).toEqual([
-				{
-					action: "upsert-membership",
-					input: {
-						entityId: "entity-1",
-						mode: "add-if-absent",
-						collectionId: "collection-1",
-						properties: { notes: "First note" },
+it.live(
+	"adds, edits, and removes membership details without closing the manager",
+	() =>
+		Effect.gen(function* () {
+			const view = mountManager();
+			try {
+				yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Collections for Example item" }),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
+				);
+				const notes = yield* Effect.promise(() => screen.findByRole("textbox", { name: /Notes/ }));
+				fireEvent.change(notes, { target: { value: "First note" } });
+				fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
+				expect(view.outcomes).toEqual([]);
+				expect(view.requests).toEqual([
+					{
+						action: "upsert-membership",
+						input: {
+							entityId: "entity-1",
+							mode: "add-if-absent",
+							collectionId: "collection-1",
+							properties: { notes: "First note" },
+						},
 					},
-				},
-			]);
-			fireEvent.click(screen.getByRole("button", { name: /Favourites\s*Added/ }));
-			const editNotes = yield* Effect.promise(() =>
-				screen.findByRole("textbox", { name: /Notes/ }),
-			);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(editNotes).toHaveProperty("value", "First note")),
-			);
-			fireEvent.change(editNotes, { target: { value: "Updated note" } });
-			fireEvent.click(screen.getByRole("button", { name: "Save details" }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
-			expect(view.outcomes).toEqual([]);
-			fireEvent.click(screen.getByRole("button", { name: /Favourites\s*Added/ }));
-			const remove = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Remove from collection" }),
-			);
-			fireEvent.click(remove);
-			const confirmation = screen.getByRole("dialog", { name: "Remove from Favourites?" });
-			expect(confirmation.textContent).toContain("The item stays in your library");
-			fireEvent.click(within(confirmation).getByRole("button", { name: "Remove from collection" }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" }));
-			expect(view.outcomes).toEqual([]);
-			expect(view.requests.slice(1)).toEqual([
-				{
-					action: "upsert-membership",
-					input: {
-						entityId: "entity-1",
-						collectionId: "collection-1",
-						properties: { notes: "Updated note" },
+				]);
+				fireEvent.click(screen.getByRole("button", { name: /Favourites\s*Added/ }));
+				const editNotes = yield* Effect.promise(() =>
+					screen.findByRole("textbox", { name: /Notes/ }),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(editNotes).toHaveProperty("value", "First note")),
+				);
+				fireEvent.change(editNotes, { target: { value: "Updated note" } });
+				fireEvent.click(screen.getByRole("button", { name: "Save details" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
+				expect(view.outcomes).toEqual([]);
+				fireEvent.click(screen.getByRole("button", { name: /Favourites\s*Added/ }));
+				const remove = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Remove from collection" }),
+				);
+				fireEvent.click(remove);
+				const confirmation = screen.getByRole("dialog", { name: "Remove from Favourites?" });
+				expect(confirmation.textContent).toContain("The item stays in your library");
+				fireEvent.click(
+					within(confirmation).getByRole("button", { name: "Remove from collection" }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" }));
+				expect(view.outcomes).toEqual([]);
+				expect(view.requests.slice(1)).toEqual([
+					{
+						action: "upsert-membership",
+						input: {
+							entityId: "entity-1",
+							collectionId: "collection-1",
+							properties: { notes: "Updated note" },
+						},
 					},
-				},
-				{
-					action: "remove-membership",
-					input: { entityId: "entity-1", collectionId: "collection-1" },
-				},
-			]);
-			fireEvent.click(screen.getByRole("button", { name: "Done" }));
-			expect(view.outcomes).toEqual(["removed"]);
-		} finally {
-			yield* Effect.promise(view.disposeView);
-		}
-	}),
+					{
+						action: "remove-membership",
+						input: { entityId: "entity-1", collectionId: "collection-1" },
+					},
+				]);
+				fireEvent.click(screen.getByRole("button", { name: "Done" }));
+				expect(view.outcomes).toEqual(["removed"]);
+			} finally {
+				yield* Effect.promise(view.disposeView);
+			}
+		}),
+	testTimeout,
 );
 
 it.live(
@@ -206,74 +214,81 @@ it.live(
 				yield* Effect.promise(view.disposeView);
 			}
 		}),
+	testTimeout,
 );
 
-it.live("keeps membership inputs after a failed save and reports the change only on Done", () =>
-	Effect.gen(function* () {
-		const view = mountManager({ failFirstSave: true });
-		try {
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
-			);
-			const notes = yield* Effect.promise(() => screen.findByRole("textbox", { name: /Notes/ }));
-			fireEvent.change(notes, { target: { value: "Keep this note" } });
-			fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
-			yield* Effect.promise(() => screen.findByText("The item could not be added. Try again."));
-			expect(notes.getAttribute("value")).toBe("Keep this note");
-			expect(view.outcomes).toEqual([]);
-			fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
-			fireEvent.click(screen.getByRole("button", { name: "Done" }));
-			expect(view.outcomes).toEqual(["saved"]);
-		} finally {
-			yield* Effect.promise(view.disposeView);
-		}
-	}),
+it.live(
+	"keeps membership inputs after a failed save and reports the change only on Done",
+	() =>
+		Effect.gen(function* () {
+			const view = mountManager({ failFirstSave: true });
+			try {
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
+				);
+				const notes = yield* Effect.promise(() => screen.findByRole("textbox", { name: /Notes/ }));
+				fireEvent.change(notes, { target: { value: "Keep this note" } });
+				fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
+				yield* Effect.promise(() => screen.findByText("The item could not be added. Try again."));
+				expect(notes.getAttribute("value")).toBe("Keep this note");
+				expect(view.outcomes).toEqual([]);
+				fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
+				fireEvent.click(screen.getByRole("button", { name: "Done" }));
+				expect(view.outcomes).toEqual(["saved"]);
+			} finally {
+				yield* Effect.promise(view.disposeView);
+			}
+		}),
+	testTimeout,
 );
 
-it.live("adds and removes members of a collection without member fields", () =>
-	Effect.gen(function* () {
-		const view = mountManager({ membershipFields: [] });
-		try {
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
-			);
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Add to collection" })),
-			);
-			fireEvent.click(
-				yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ })),
-			);
-			const dialog = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Favourites" }),
-			);
-			expect(dialog.textContent).toContain("This item is in this collection.");
-			expect(within(dialog).queryByRole("button", { name: "Save details" })).toBeNull();
-			fireEvent.click(within(dialog).getByRole("button", { name: "Remove from collection" }));
-			fireEvent.click(
-				within(screen.getByRole("dialog", { name: "Remove from Favourites?" })).getByRole(
-					"button",
-					{ name: "Remove from collection" },
-				),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" }));
-			expect(view.requests).toEqual([
-				{
-					action: "upsert-membership",
-					input: {
-						properties: {},
-						entityId: "entity-1",
-						mode: "add-if-absent",
-						collectionId: "collection-1",
+it.live(
+	"adds and removes members of a collection without member fields",
+	() =>
+		Effect.gen(function* () {
+			const view = mountManager({ membershipFields: [] });
+			try {
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" })),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Add to collection" })),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ })),
+				);
+				const dialog = yield* Effect.promise(() =>
+					screen.findByRole("dialog", { name: "Favourites" }),
+				);
+				expect(dialog.textContent).toContain("This item is in this collection.");
+				expect(within(dialog).queryByRole("button", { name: "Save details" })).toBeNull();
+				fireEvent.click(within(dialog).getByRole("button", { name: "Remove from collection" }));
+				fireEvent.click(
+					within(screen.getByRole("dialog", { name: "Remove from Favourites?" })).getByRole(
+						"button",
+						{ name: "Remove from collection" },
+					),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Favourites" }));
+				expect(view.requests).toEqual([
+					{
+						action: "upsert-membership",
+						input: {
+							properties: {},
+							entityId: "entity-1",
+							mode: "add-if-absent",
+							collectionId: "collection-1",
+						},
 					},
-				},
-				{
-					action: "remove-membership",
-					input: { entityId: "entity-1", collectionId: "collection-1" },
-				},
-			]);
-		} finally {
-			yield* Effect.promise(view.disposeView);
-		}
-	}),
+					{
+						action: "remove-membership",
+						input: { entityId: "entity-1", collectionId: "collection-1" },
+					},
+				]);
+			} finally {
+				yield* Effect.promise(view.disposeView);
+			}
+		}),
+	testTimeout,
 );

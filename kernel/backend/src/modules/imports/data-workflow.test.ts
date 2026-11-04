@@ -1,4 +1,5 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type {
 	IngestionBatch,
 	IngestionOutcome,
@@ -10,7 +11,10 @@ import {
 	IntegrationId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -278,6 +282,7 @@ it.effect(
 			]);
 			expect(test.projections[1]).toEqual(test.projections[0]);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -299,6 +304,7 @@ it.effect(
 				},
 			]);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -456,10 +462,11 @@ it.effect(
 			expect(segments[0]?.startingCounters.processedItems).toBe(1);
 			expect(segments[1]?.startingCounters.processedItems).toBe(51);
 			expect(segments[1]?.entityIds).toEqual({ "entity-0": "id:entity-0" });
-			expect(segments[1]?.entitySchemasByKey).toEqual({
+			expect(segments[1]?.entitySchemasByKey).toEqual<unknown>({
 				"entity-50": { slug: "record", owner: { kind: "kernel" } },
 			});
 			expect(sealed).toBe(true);
 			expect(outcomes.get("data-plan:0:unknown")?.result).toBe("unsuccessful");
 		}),
+	testTimeout,
 );

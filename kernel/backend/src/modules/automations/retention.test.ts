@@ -1,9 +1,11 @@
-import { expect, layer } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
-import { describe } from "vitest";
 
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
@@ -290,6 +292,7 @@ describe("AutomationRetention", () => {
 						}),
 					);
 				}),
+			testTimeout,
 		);
 	});
 });

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { describe, expect, it } from "vitest";
 
 import {
 	availableCatalogEntries,

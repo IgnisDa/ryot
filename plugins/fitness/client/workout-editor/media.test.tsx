@@ -1,4 +1,5 @@
-import { afterEach, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
@@ -6,7 +7,9 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { act } from "react";
 
 import { WorkoutEditorDraftSchema } from "../../shared/workout-editor-draft";
@@ -109,4 +112,5 @@ it.live(
 			expect(uploads[1]).toEqual({ file: video, kind: "videos" });
 			page.dispose();
 		}),
+	testTimeout,
 );

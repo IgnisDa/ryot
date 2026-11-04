@@ -1,4 +1,5 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import {
@@ -12,7 +13,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Fiber, Metric } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -75,7 +78,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		);
 
 		expect(result).toEqual(entity);
-		expect(calls).toEqual([
+		expect(calls).toEqual<unknown>([
 			objectContaining({
 				name: "ProviderEntityPopulationWorkflow",
 				options: objectContaining({
@@ -175,106 +178,122 @@ const importWithEntryEvent = (
 };
 
 layer(mutationAdmissionTestLayer)((it) => {
-	it.effect("records the requested entry event once the import completes", () => {
-		const executionId = "entry-event-import";
-		const { run, calls, entity, userId } = importWithEntryEvent(executionId, { failure: null });
-		return Effect.gen(function* () {
-			expect(yield* run).toEqual(entity);
-			expect(calls.map(({ name }) => name)).toEqual([
-				"ProviderEntityPopulationWorkflow",
-				"provider-import-completion",
-				"EventCreateWorkflow",
-			]);
-			expect(calls[2]?.options).toMatchObject({
-				payload: {
-					userId,
-					payload: [{ properties: {}, entityId: entity.id, eventSchemaSlug: "planned" }],
-					command: {
-						writeContext: null,
-						causation: { executionId },
-						itemIdentity: stableStringify([`provider-import:${executionId}`, "entry-event"]),
+	it.effect(
+		"records the requested entry event once the import completes",
+		() => {
+			const executionId = "entry-event-import";
+			const { run, calls, entity, userId } = importWithEntryEvent(executionId, { failure: null });
+			return Effect.gen(function* () {
+				expect(yield* run).toEqual(entity);
+				expect(calls.map(({ name }) => name)).toEqual([
+					"ProviderEntityPopulationWorkflow",
+					"provider-import-completion",
+					"EventCreateWorkflow",
+				]);
+				expect(calls[2]?.options).toMatchObject({
+					payload: {
+						userId,
+						payload: [{ properties: {}, entityId: entity.id, eventSchemaSlug: "planned" }],
+						command: {
+							writeContext: null,
+							causation: { executionId },
+							itemIdentity: stableStringify([`provider-import:${executionId}`, "entry-event"]),
+						},
 					},
-				},
+				});
 			});
-		});
-	});
-
-	it.effect("fails the import at the entry-event stage when the event is refused", () => {
-		const { run } = importWithEntryEvent("refused-entry-event", {
-			failure: { index: 0, reason: { code: "invalid-properties" } },
-		});
-		return Effect.gen(function* () {
-			expect(yield* Effect.flip(run)).toMatchObject({
-				stage: "entry-event",
-				message: "invalid-properties",
-			});
-		});
-	});
-
-	it.effect("runs provider-import completion after provider population", () =>
-		importWithoutMembership("unrelated-fixture"),
+		},
+		testTimeout,
 	);
 
-	it.effect("imports a sample entity without example membership work", () =>
-		importWithoutMembership("routine"),
+	it.effect(
+		"fails the import at the entry-event stage when the event is refused",
+		() => {
+			const { run } = importWithEntryEvent("refused-entry-event", {
+				failure: { index: 0, reason: { code: "invalid-properties" } },
+			});
+			return Effect.gen(function* () {
+				expect(yield* Effect.flip(run)).toMatchObject({
+					stage: "entry-event",
+					message: "invalid-properties",
+				});
+			});
+		},
+		testTimeout,
 	);
 
-	it.effect("fails the import when provider-import completion fails", () => {
-		const executionId = "failed-import";
-		const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
-		const entity = {
-			properties: {},
-			name: "Fixture",
-			externalId: "external-1",
-			id: EntityId.make("fixture-1"),
-			entitySchemaPluginId: pluginId,
-			createdAt: "2026-01-01T00:00:00.000Z",
-			updatedAt: "2026-01-01T00:00:00.000Z",
-			populatedAt: "2026-01-01T00:00:00.000Z",
-			providerId: SandboxProviderId.make("provider-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
-		};
+	it.effect(
+		"runs provider-import completion after provider population",
+		() => importWithoutMembership("unrelated-fixture"),
+		testTimeout,
+	);
 
-		return Effect.gen(function* () {
-			const userId = UserId.make("user-1");
-			const error = yield* Effect.flip(
-				runEntityImportWorkflow(
-					{
-						pluginId,
+	it.effect(
+		"imports a sample entity without example membership work",
+		() => importWithoutMembership("routine"),
+		testTimeout,
+	);
+
+	it.effect(
+		"fails the import when provider-import completion fails",
+		() => {
+			const executionId = "failed-import";
+			const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+			const entity = {
+				properties: {},
+				name: "Fixture",
+				externalId: "external-1",
+				id: EntityId.make("fixture-1"),
+				entitySchemaPluginId: pluginId,
+				createdAt: "2026-01-01T00:00:00.000Z",
+				updatedAt: "2026-01-01T00:00:00.000Z",
+				populatedAt: "2026-01-01T00:00:00.000Z",
+				providerId: SandboxProviderId.make("provider-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
+			};
+
+			return Effect.gen(function* () {
+				const userId = UserId.make("user-1");
+				const error = yield* Effect.flip(
+					runEntityImportWorkflow(
+						{
+							pluginId,
+							executionId,
+							externalId: "external-1",
+							entityScope: { userId, type: "global" },
+							command: importCommand(executionId, userId),
+							providerId: SandboxProviderId.make("provider-1"),
+							entitySchemaSlug: EntitySchemaSlug.make("record"),
+						},
 						executionId,
-						externalId: "external-1",
-						entityScope: { userId, type: "global" },
-						command: importCommand(executionId, userId),
-						providerId: SandboxProviderId.make("provider-1"),
-						entitySchemaSlug: EntitySchemaSlug.make("record"),
-					},
-					executionId,
-				),
-			);
-			expect(error).toBeInstanceOf(EntityImportError);
-			expect(error).toMatchObject({
-				message: "membership hook failed",
-				stage: "provider-import-automation",
-			});
-		}).pipe(
-			Effect.provideService(
-				WorkflowEngine,
-				makeWorkflowActivityEngine(instance, { execute: () => Effect.succeed(entity) }),
-			),
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.provideService(EntityImportWorkflowOperations, {
-				processSandbox: () => Effect.die("unused"),
-				processRelatedPage: () => Effect.die("unused"),
-				requireRelatedScript: () => Effect.die("unused"),
-				processProviderResolve: () => Effect.die("unused"),
-				preRegisterProviderImport: () => Effect.die("unused"),
-				completeProviderEntityImport: () =>
-					Effect.fail(
-						new SandboxRunError({ kind: "script-failure", message: "membership hook failed" }),
 					),
-			}),
-		);
-	});
+				);
+				expect(error).toBeInstanceOf(EntityImportError);
+				expect(error).toMatchObject({
+					message: "membership hook failed",
+					stage: "provider-import-automation",
+				});
+			}).pipe(
+				Effect.provideService(
+					WorkflowEngine,
+					makeWorkflowActivityEngine(instance, { execute: () => Effect.succeed(entity) }),
+				),
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(EntityImportWorkflowOperations, {
+					processSandbox: () => Effect.die("unused"),
+					processRelatedPage: () => Effect.die("unused"),
+					requireRelatedScript: () => Effect.die("unused"),
+					processProviderResolve: () => Effect.die("unused"),
+					preRegisterProviderImport: () => Effect.die("unused"),
+					completeProviderEntityImport: () =>
+						Effect.fail(
+							new SandboxRunError({ kind: "script-failure", message: "membership hook failed" }),
+						),
+				}),
+			);
+		},
+		testTimeout,
+	);
 
 	it.effect(
 		"records a suspended body and its replay as separate attempts without growing the gauge",
@@ -345,7 +364,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 					({ id }) => id === "ryot.provider_import.phase_attempt_duration",
 				);
 				expect(phases).toHaveLength(3);
-				expect(phases).toEqual(
+				expect(phases).toEqual<unknown>(
 					arrayContaining([
 						objectContaining({
 							state: objectContaining({ count: 1 }),
@@ -366,5 +385,6 @@ layer(mutationAdmissionTestLayer)((it) => {
 				);
 			}).pipe(Effect.provideService(Metric.MetricRegistry, new Map()));
 		},
+		testTimeout,
 	);
 });

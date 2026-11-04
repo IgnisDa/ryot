@@ -1,6 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
@@ -126,73 +129,93 @@ const settledPath = (router: ReturnType<typeof mountCallback>["router"]) =>
 	);
 
 describe("OAuth callback", () => {
-	it.live("exchanges the code against the expected web client and drops callback parameters", () =>
-		Effect.gen(function* () {
-			const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
-				destination: "/settings",
-			});
-			const location = yield* Effect.promise(() => settledPath(router));
-			expect(exchanges).toEqual([
-				{
-					code: "code-1",
-					state: "state",
-					origin: window.location.origin,
-					redirectUri: `${window.location.origin}/auth/callback`,
-					clientIds: ["ryot-web", "ryot-demo-web", "ryot-impersonation-web"],
-				},
-			]);
-			expect(location.pathname).toBe("/settings");
-			expect(location.searchStr).toBe("");
-		}),
+	it.live(
+		"exchanges the code against the expected web client and drops callback parameters",
+		() =>
+			Effect.gen(function* () {
+				const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
+					destination: "/settings",
+				});
+				const location = yield* Effect.promise(() => settledPath(router));
+				expect(exchanges).toEqual([
+					{
+						code: "code-1",
+						state: "state",
+						origin: window.location.origin,
+						redirectUri: `${window.location.origin}/auth/callback`,
+						clientIds: ["ryot-web", "ryot-demo-web", "ryot-impersonation-web"],
+					},
+				]);
+				expect(location.pathname).toBe("/settings");
+				expect(location.searchStr).toBe("");
+			}),
+		testTimeout,
 	);
 
-	it.live("rejects replayed or unknown state", () =>
-		Effect.gen(function* () {
-			const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
-			yield* Effect.promise(() => screen.findByText("Could not complete sign-in"));
-			expect(router.state.location.pathname).toBe("/auth/callback");
-		}),
+	it.live(
+		"rejects replayed or unknown state",
+		() =>
+			Effect.gen(function* () {
+				const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
+				yield* Effect.promise(() => screen.findByText("Could not complete sign-in"));
+				expect(router.state.location.pathname).toBe("/auth/callback");
+			}),
+		testTimeout,
 	);
 
-	it.live("permits only the native client and registered redirect on native", () =>
-		Effect.gen(function* () {
-			const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
-				native: true,
-			});
-			yield* Effect.promise(() => settledPath(router));
-			expect(exchanges).toEqual([
-				{
-					code: "code-1",
-					state: "state",
-					origin: server,
-					redirectUri: "io.ryot.app:/auth/callback",
-					clientIds: ["ryot-native", "ryot-impersonation-native"],
-				},
-			]);
-		}),
+	it.live(
+		"permits only the native client and registered redirect on native",
+		() =>
+			Effect.gen(function* () {
+				const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
+					native: true,
+				});
+				yield* Effect.promise(() => settledPath(router));
+				expect(exchanges).toEqual([
+					{
+						code: "code-1",
+						state: "state",
+						origin: server,
+						redirectUri: "io.ryot.app:/auth/callback",
+						clientIds: ["ryot-native", "ryot-impersonation-native"],
+					},
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("consumes an authorization error by state", () =>
-		Effect.gen(function* () {
-			const { rejected } = mountCallback("/auth/callback?error=access_denied&state=state");
-			yield* Effect.promise(() => screen.findByText("Could not complete sign-in"));
-			expect(rejected).toEqual(["state"]);
-		}),
+	it.live(
+		"consumes an authorization error by state",
+		() =>
+			Effect.gen(function* () {
+				const { rejected } = mountCallback("/auth/callback?error=access_denied&state=state");
+				yield* Effect.promise(() => screen.findByText("Could not complete sign-in"));
+				expect(rejected).toEqual(["state"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("replaces the callback history entry", () =>
-		Effect.gen(function* () {
-			const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
-			yield* Effect.promise(() => settledPath(router));
-			expect(router.history.length).toBe(2);
-		}),
+	it.live(
+		"replaces the callback history entry",
+		() =>
+			Effect.gen(function* () {
+				const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
+				yield* Effect.promise(() => settledPath(router));
+				expect(router.history.length).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("clears local OAuth tokens after a marked impersonation logout callback", () =>
-		Effect.gen(function* () {
-			const { cleared } = mountCallback("/auth/logout/callback?state=impersonation");
-			yield* Effect.promise(() => waitFor(() => expect(cleared).toEqual([window.location.origin])));
-			expect(cleared).toEqual([window.location.origin]);
-		}),
+	it.live(
+		"clears local OAuth tokens after a marked impersonation logout callback",
+		() =>
+			Effect.gen(function* () {
+				const { cleared } = mountCallback("/auth/logout/callback?state=impersonation");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(cleared).toEqual([window.location.origin])),
+				);
+				expect(cleared).toEqual([window.location.origin]);
+			}),
+		testTimeout,
 	);
 });

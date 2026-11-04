@@ -1,4 +1,5 @@
-import { anyOf } from "@ryot-app/testing/matchers";
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
 
 import {
@@ -42,8 +43,8 @@ describe("POST /events with global entities", () => {
 			const events = yield* waitForEventCount(client, entity.id, 2);
 			expect(events).toHaveLength(2);
 			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug)).toEqual([
-				"add-to-media-library",
-				"backlog",
+				EventSchemaSlug.make("add-to-media-library"),
+				EventSchemaSlug.make("backlog"),
 			]);
 		}),
 	);
@@ -65,24 +66,33 @@ describe("POST /events with global entities", () => {
 					],
 				}),
 			);
-			expect(yield* waitForCreateEvents(client, result)).toMatchObject({
-				count: 2,
-				failure: { index: 1, reason: { code: "invalid-properties" } },
-				outcomes: [
-					{ index: 0, status: "written", eventId: anyOf(String) },
-					{ index: 1, status: "failed", reason: { code: "invalid-properties" } },
-					{ index: 2, status: "written", eventId: anyOf(String) },
-				],
-			});
+			expect(yield* waitForCreateEvents(client, result)).toEqual<unknown>(
+				objectContaining({
+					count: 2,
+					failure: objectContaining({
+						index: 1,
+						reason: objectContaining({ code: "invalid-properties" }),
+					}),
+					outcomes: [
+						objectContaining({ index: 0, status: "written", eventId: anyOf(String) }),
+						objectContaining({
+							index: 1,
+							status: "failed",
+							reason: objectContaining({ code: "invalid-properties" }),
+						}),
+						objectContaining({ index: 2, status: "written", eventId: anyOf(String) }),
+					],
+				}),
+			);
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(1);
 			const events = yield* waitForEventCount(client, entity.id, 3);
 			expect(events.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-				"add-to-media-library",
-				"backlog",
-				"backlog",
+				EventSchemaSlug.make("add-to-media-library"),
+				EventSchemaSlug.make("backlog"),
+				EventSchemaSlug.make("backlog"),
 			]);
 		}),
 	);

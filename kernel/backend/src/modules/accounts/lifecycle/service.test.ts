@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -112,21 +115,24 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("returns one active operation without repeating completed access revocation", () =>
-		Effect.gen(function* () {
-			const service = yield* UserLifecycleService;
-			const operations = yield* Effect.all(
-				[service.deleteUser(userId), service.deleteUser(userId)],
-				{ concurrency: "unbounded" },
-			);
-			const fake = yield* FakeLifecycleDependencies;
-			expect(operations).toEqual([{ operationId: operation.id }, { operationId: operation.id }]);
-			expect(yield* fake.calls).toEqual([]);
-			expect(yield* fake.executionIds).toEqual([
-				"user-lifecycle-operation-1-0",
-				"user-lifecycle-operation-1-0",
-			]);
-		}),
+	test.effect(
+		"returns one active operation without repeating completed access revocation",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserLifecycleService;
+				const operations = yield* Effect.all(
+					[service.deleteUser(userId), service.deleteUser(userId)],
+					{ concurrency: "unbounded" },
+				);
+				const fake = yield* FakeLifecycleDependencies;
+				expect(operations).toEqual([{ operationId: operation.id }, { operationId: operation.id }]);
+				expect(yield* fake.calls).toEqual([]);
+				expect(yield* fake.executionIds).toEqual([
+					"user-lifecycle-operation-1-0",
+					"user-lifecycle-operation-1-0",
+				]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -165,21 +171,24 @@ layer(
 			}),
 	}),
 )((test) => {
-	test.effect("revokes access once and clears persisted API-key cache lookup metadata", () =>
-		Effect.gen(function* () {
-			const service = yield* UserLifecycleService;
-			yield* service.deleteUser(userId);
-			yield* service.deleteUser(userId);
-			expect(yield* (yield* FakeLifecycleDependencies).calls).toEqual([
-				"disable",
-				"sessions",
-				"oauth",
-				"keys:key-1",
-				"reset-links",
-				"record",
-			]);
-			expect(revokedOperation.metadata.apiKeys).toEqual([]);
-		}),
+	test.effect(
+		"revokes access once and clears persisted API-key cache lookup metadata",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserLifecycleService;
+				yield* service.deleteUser(userId);
+				yield* service.deleteUser(userId);
+				expect(yield* (yield* FakeLifecycleDependencies).calls).toEqual([
+					"disable",
+					"sessions",
+					"oauth",
+					"keys:key-1",
+					"reset-links",
+					"record",
+				]);
+				expect(revokedOperation.metadata.apiKeys).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -205,6 +214,7 @@ layer(
 				});
 				expect(prepared.operation.status).toBe("pending");
 			}),
+		testTimeout,
 	);
 });
 
@@ -243,5 +253,6 @@ layer(
 					"user-lifecycle-operation-1-1",
 				]);
 			}),
+		testTimeout,
 	);
 });

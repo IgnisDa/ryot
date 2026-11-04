@@ -340,7 +340,7 @@ describe("private plugins", () => {
 				"Updated private plugin was not found",
 			);
 			expect(after).toEqual(before);
-			expect(updated).toEqual({
+			expect(updated).toEqual<unknown>({
 				id: requireRyotQLText(after, "installationId"),
 				pluginId: requireRyotQLText(after, "pluginId"),
 			});

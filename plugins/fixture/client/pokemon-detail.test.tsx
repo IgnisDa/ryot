@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
@@ -7,7 +8,9 @@ import {
 	mountPluginPage,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { fixturePageContext } from "../tests/client/page-context";
@@ -23,42 +26,45 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 describe("Pokemon detail page", () => {
 	afterEach(disposePluginBridges);
 
-	it.live("queries the entity from the live same-document location", () =>
-		Effect.gen(function* () {
-			const page = mountPluginPage(PokemonDetailPage, {
-				location: entityLocation("pokemon-1", "pokemon"),
-				page: fixturePageContext(
-					entityPageContext({
-						pluginId: "fixture",
-						entityId: "pokemon-1",
-						entitySchemaSlug: "pokemon",
-						exportName: "pokemon-detail",
-					}),
-				),
-			});
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(1)),
-			);
-
-			page.navigate(entityLocation("pokemon-2", "pokemon"), { index: 1, key: "pokemon-2" });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(2)),
-			);
-
-			expect(
-				page.queryRequests("pokemon").map((request) => request.document.queries.pokemon),
-			).toEqual(
-				["pokemon-1", "pokemon-2"].map((entityId): unknown =>
-					objectContaining({
-						where: objectContaining({
-							predicates: arrayContaining([
-								objectContaining({ right: { type: "literal", value: entityId } }),
-							]),
+	it.live(
+		"queries the entity from the live same-document location",
+		() =>
+			Effect.gen(function* () {
+				const page = mountPluginPage(PokemonDetailPage, {
+					location: entityLocation("pokemon-1", "pokemon"),
+					page: fixturePageContext(
+						entityPageContext({
+							pluginId: "fixture",
+							entityId: "pokemon-1",
+							entitySchemaSlug: "pokemon",
+							exportName: "pokemon-detail",
 						}),
-					}),
-				),
-			);
-		}),
+					),
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(1)),
+				);
+
+				page.navigate(entityLocation("pokemon-2", "pokemon"), { index: 1, key: "pokemon-2" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(2)),
+				);
+
+				expect(
+					page.queryRequests("pokemon").map((request) => request.document.queries.pokemon),
+				).toEqual<unknown>(
+					["pokemon-1", "pokemon-2"].map((entityId): unknown =>
+						objectContaining({
+							where: objectContaining({
+								predicates: arrayContaining([
+									objectContaining({ right: { type: "literal", value: entityId } }),
+								]),
+							}),
+						}),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("decodes fixture-owned Pokemon data", () => {

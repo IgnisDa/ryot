@@ -57,7 +57,7 @@
 		"./testing/effect": "./src/testing/effect.ts"
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ./test.ts",
 		"build": "bun run tooling/kernel-scripts.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
@@ -92,21 +92,20 @@
 		"ioredis": "5.11.1",
 		"nodemailer": "8.0.10",
 		"pg": "8.21.0",
-		"react": "19.2.4",
+		"react": "19.2.6",
 		"rotating-file-stream": "3.2.10"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.1.0",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@testcontainers/postgresql": "11.14.0",
 		"@types/ioredis": "5.0.0",
 		"@types/nodemailer": "8.0.0",
 		"@types/pg": "8.20.0",
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"bun-types": "1.4.4",
 		"dotenv": "17.3.1",
 		"drizzle-kit": "1.0.0-rc.5-ab785fc",
-		"testcontainers": "11.14.0",
-		"vitest": "4.1.9"
+		"testcontainers": "11.14.0"
 	}
 }

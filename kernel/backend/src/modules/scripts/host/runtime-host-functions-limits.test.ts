@@ -1,8 +1,10 @@
+import { describe, expect, it } from "bun:test";
+
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { assert } from "@ryot-app/testing/assert";
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import { assert, describe, expect, it } from "vitest";
 
 import { applySandboxHttpRequestInit, readSandboxHttpResponseText } from "./runtime-host-functions";
 
@@ -23,7 +25,7 @@ describe("sandbox HTTP response limits", () => {
 				);
 
 				expect(secure).toBe(secureRequestInit);
-				expect(insecure).toEqual({ tls: { rejectUnauthorized: false } });
+				expect(insecure).toEqual<unknown>({ tls: { rejectUnauthorized: false } });
 			}),
 		));
 

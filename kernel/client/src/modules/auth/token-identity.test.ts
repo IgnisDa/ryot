@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { makeStoredTokenSet } from "#/modules/auth/oauth-storage.test-support";
 import {

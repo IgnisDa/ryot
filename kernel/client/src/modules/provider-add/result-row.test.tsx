@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
 
 import { ProviderSearchResultRow } from "#/modules/provider-add/result-row";
 

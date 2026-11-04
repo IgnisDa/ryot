@@ -1,10 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Clock, DateTime, Deferred, Effect, Layer, ManagedRuntime } from "effect";
 
 import type { AccountApi } from "#/api/account";
@@ -157,43 +160,49 @@ const mountImpersonationView = (
 	);
 
 describe("authenticated route gate", () => {
-	it.live("releases the committed authenticated layout when logout redirects to auth", () =>
-		Effect.gen(function* () {
-			let session: SettledAuthSession = authenticated;
-			const view = mountView(
-				"/settings",
-				undefined,
-				undefined,
-				makeAuthStub({ settledSession: () => Effect.sync(() => session) }),
-			);
-			yield* Effect.gen(function* () {
+	it.live(
+		"releases the committed authenticated layout when logout redirects to auth",
+		() =>
+			Effect.gen(function* () {
+				let session: SettledAuthSession = authenticated;
+				const view = mountView(
+					"/settings",
+					undefined,
+					undefined,
+					makeAuthStub({ settledSession: () => Effect.sync(() => session) }),
+				);
+				yield* Effect.gen(function* () {
+					yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+					expect(view.interestEvents).toEqual(["acquire"]);
+					session = { ...authenticated, user: { ...authenticated.user, name: "Updated profile" } };
+					yield* Effect.promise(() => view.router.invalidate());
+					expect(view.interestEvents).toEqual(["acquire"]);
+					session = unauthenticated;
+					yield* Effect.promise(() => view.router.invalidate());
+					yield* Effect.promise(() =>
+						waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(view.interestEvents).toEqual(["acquire", "release"])),
+					);
+					view.unmount();
+				}).pipe(Effect.ensuring(view.runtime.disposeEffect));
+			}),
+		testTimeout,
+	);
+	it.live(
+		"owns one interest session across loader revalidation and releases it on unmount",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings");
 				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 				expect(view.interestEvents).toEqual(["acquire"]);
-				session = { ...authenticated, user: { ...authenticated.user, name: "Updated profile" } };
 				yield* Effect.promise(() => view.router.invalidate());
 				expect(view.interestEvents).toEqual(["acquire"]);
-				session = unauthenticated;
-				yield* Effect.promise(() => view.router.invalidate());
-				yield* Effect.promise(() =>
-					waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
-				);
-				yield* Effect.promise(() =>
-					waitFor(() => expect(view.interestEvents).toEqual(["acquire", "release"])),
-				);
 				view.unmount();
-			}).pipe(Effect.ensuring(view.runtime.disposeEffect));
-		}),
-	);
-	it.live("owns one interest session across loader revalidation and releases it on unmount", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings");
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
-			expect(view.interestEvents).toEqual(["acquire"]);
-			yield* Effect.promise(() => view.router.invalidate());
-			expect(view.interestEvents).toEqual(["acquire"]);
-			view.unmount();
-			expect(view.interestEvents).toEqual(["acquire", "release"]);
-		}),
+				expect(view.interestEvents).toEqual(["acquire", "release"]);
+			}),
+		testTimeout,
 	);
 	it.live.each([
 		"/",
@@ -201,151 +210,175 @@ describe("authenticated route gate", () => {
 		"/settings",
 		"/settings/preferences",
 		"/settings/account",
-	])("redirects an unauthenticated visitor from %s to /auth", (path) =>
-		Effect.gen(function* () {
-			const view = mountView(path, undefined, undefined, makeAuthStub({}, unauthenticated));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
-			);
-			expect(view.router.state.location.search.redirect).toBe(path);
-		}),
+	])(
+		"redirects an unauthenticated visitor from %s to /auth",
+		(path) =>
+			Effect.gen(function* () {
+				const view = mountView(path, undefined, undefined, makeAuthStub({}, unauthenticated));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
+				);
+				expect(view.router.state.location.search.redirect).toBe(path);
+			}),
+		testTimeout,
 	);
 });
 
 describe("settings navigation", () => {
-	it.live("shows the impersonated identity and stops through OAuth sign-out", () =>
-		Effect.gen(function* () {
-			const signOuts: string[] = [];
-			const clears: string[] = [];
-			const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
-			mountImpersonationView(
-				expiresAt,
-				(origin) => Effect.sync(() => signOuts.push(origin)).pipe(Effect.as(true)),
-				clears,
-			);
-			const banner = yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
+	it.live(
+		"shows the impersonated identity and stops through OAuth sign-out",
+		() =>
+			Effect.gen(function* () {
+				const signOuts: string[] = [];
+				const clears: string[] = [];
+				const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
+				mountImpersonationView(
+					expiresAt,
+					(origin) => Effect.sync(() => signOuts.push(origin)).pipe(Effect.as(true)),
+					clears,
+				);
+				const banner = yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
 
-			expect(banner.textContent).toContain("Test User");
-			expect(banner.textContent).toContain("user@ryot.example");
-			expect(banner.textContent).toContain(
-				new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "medium" }).format(
-					DateTime.toDate(DateTime.makeUnsafe(expiresAt)),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
-			yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
-			expect(clears).toEqual([]);
-		}),
+				expect(banner.textContent).toContain("Test User");
+				expect(banner.textContent).toContain("user@ryot.example");
+				expect(banner.textContent).toContain(
+					new Intl.DateTimeFormat(undefined, { timeStyle: "short", dateStyle: "medium" }).format(
+						DateTime.toDate(DateTime.makeUnsafe(expiresAt)),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
+				yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
+				expect(clears).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps the banner and reports when server logout cannot open", () =>
-		Effect.gen(function* () {
-			const clears: string[] = [];
-			const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
-			mountImpersonationView(expiresAt, () => Effect.succeed(false), clears);
-			yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
+	it.live(
+		"keeps the banner and reports when server logout cannot open",
+		() =>
+			Effect.gen(function* () {
+				const clears: string[] = [];
+				const expiresAt = (yield* Clock.currentTimeMillis) + 60 * 60 * 1000;
+				mountImpersonationView(expiresAt, () => Effect.succeed(false), clears);
+				yield* Effect.promise(() => screen.findByTestId("impersonation-banner"));
 
-			fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
-			const error = yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(error.textContent).toBe("Could not open the server logout page. Please try again.");
-			expect(screen.getByTestId("impersonation-banner")).toBeTruthy();
-			expect(clears).toEqual([]);
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Stop impersonating" }));
+				const error = yield* Effect.promise(() => screen.findByRole("alert"));
+				expect(error.textContent).toBe("Could not open the server logout page. Please try again.");
+				expect(screen.getByTestId("impersonation-banner")).toBeTruthy();
+				expect(clears).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("marks the active section on the desktop settings sidebar", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/preferences");
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
-			const preferences = within(sidebar).getByRole("link", { name: "Preferences" });
-			const account = within(sidebar).getByRole("link", { name: "Account" });
+	it.live(
+		"marks the active section on the desktop settings sidebar",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings/preferences");
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+				const preferences = within(sidebar).getByRole("link", { name: "Preferences" });
+				const account = within(sidebar).getByRole("link", { name: "Account" });
 
-			expect(preferences.getAttribute("aria-current")).toBe("page");
-			expect(preferences.getAttribute("class")).toContain("bg-nav-indicator");
-			expect(account.getAttribute("aria-current")).toBeNull();
+				expect(preferences.getAttribute("aria-current")).toBe("page");
+				expect(preferences.getAttribute("class")).toContain("bg-nav-indicator");
+				expect(account.getAttribute("aria-current")).toBeNull();
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/settings/account" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/account")),
-			);
-			const accountAfterNavigate = within(screen.getByTestId("settings-sidebar")).getByRole(
-				"link",
-				{ name: "Account" },
-			);
-			expect(accountAfterNavigate.getAttribute("aria-current")).toBe("page");
-			expect(accountAfterNavigate.getAttribute("class")).toContain("bg-nav-indicator");
-		}),
+				yield* Effect.promise(() => view.router.navigate({ href: "/settings/account" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/account")),
+				);
+				const accountAfterNavigate = within(screen.getByTestId("settings-sidebar")).getByRole(
+					"link",
+					{ name: "Account" },
+				);
+				expect(accountAfterNavigate.getAttribute("aria-current")).toBe("page");
+				expect(accountAfterNavigate.getAttribute("class")).toContain("bg-nav-indicator");
+			}),
+		testTimeout,
 	);
 
-	it.live("groups the sections with server-wide sections last", () =>
-		Effect.gen(function* () {
-			mountView("/settings/preferences");
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
-			const labels = (group: string) =>
-				within(within(sidebar).getByRole("group", { name: group }))
-					.getAllByRole("link")
-					.map((link) => link.textContent);
+	it.live(
+		"groups the sections with server-wide sections last",
+		() =>
+			Effect.gen(function* () {
+				mountView("/settings/preferences");
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+				const labels = (group: string) =>
+					within(within(sidebar).getByRole("group", { name: group }))
+						.getAllByRole("link")
+						.map((link) => link.textContent);
 
-			expect(labels("You")).toEqual([
-				"Preferences",
-				"Plugin preferences",
-				"Plugins",
-				"Account",
-				"Reminders",
-			]);
-			expect(labels("Server")).toEqual(["Administration", "About"]);
-		}),
+				expect(labels("You")).toEqual([
+					"Preferences",
+					"Plugin preferences",
+					"Plugins",
+					"Account",
+					"Reminders",
+				]);
+				expect(labels("Server")).toEqual(["Administration", "About"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("navigates with replace when selecting a section from the desktop sidebar", () =>
-		Effect.gen(function* () {
-			const view = mountView(["/p/test/plugin-1", "/settings/preferences"]);
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+	it.live(
+		"navigates with replace when selecting a section from the desktop sidebar",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView(["/p/test/plugin-1", "/settings/preferences"]);
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
 
-			fireEvent.click(within(sidebar).getByRole("link", { name: "Account" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/account")),
-			);
+				fireEvent.click(within(sidebar).getByRole("link", { name: "Account" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/account")),
+				);
 
-			view.router.history.back();
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
-			);
-		}),
+				view.router.history.back();
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps an unmatched settings path inside the settings layout", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/account/security");
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+	it.live(
+		"keeps an unmatched settings path inside the settings layout",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings/account/security");
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
 
-			expect(view.router.state.location.pathname).toBe("/settings/account/security");
-			expect(screen.getByRole("status").textContent).toBe("This page does not exist.");
-			expect(screen.queryByTitle("fixture plugin")).toBeNull();
-			expect(
-				within(sidebar).getByRole("link", { name: "Account" }).getAttribute("aria-current"),
-			).toBe("page");
-		}),
+				expect(view.router.state.location.pathname).toBe("/settings/account/security");
+				expect(screen.getByRole("status").textContent).toBe("This page does not exist.");
+				expect(screen.queryByTitle("fixture plugin")).toBeNull();
+				expect(
+					within(sidebar).getByRole("link", { name: "Account" }).getAttribute("aria-current"),
+				).toBe("page");
+			}),
+		testTimeout,
 	);
 
-	it.live("renders the mobile settings index with disclosure rows and pushes on selection", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings");
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
-			const sections = screen.getByTestId("settings-index-sections");
-			const preferences = within(sections).getByRole("link", { name: "Preferences" });
-			expect(preferences.querySelector('[data-app-icon="chevron-right"]')).not.toBeNull();
+	it.live(
+		"renders the mobile settings index with disclosure rows and pushes on selection",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings");
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+				const sections = screen.getByTestId("settings-index-sections");
+				const preferences = within(sections).getByRole("link", { name: "Preferences" });
+				expect(preferences.querySelector('[data-app-icon="chevron-right"]')).not.toBeNull();
 
-			fireEvent.click(preferences);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/preferences")),
-			);
+				fireEvent.click(preferences);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/preferences")),
+				);
 
-			view.router.history.back();
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings")),
-			);
-		}),
+				view.router.history.back();
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings")),
+				);
+			}),
+		testTimeout,
 	);
 
 	it.live(
@@ -359,32 +392,40 @@ describe("settings navigation", () => {
 				);
 			}).pipe(Effect.ensuring(Effect.sync(restore)));
 		},
+		testTimeout,
 	);
 
-	it.live("frames a compact settings route with its own bar and no drawer", () =>
-		Effect.gen(function* () {
-			mountView("/settings/preferences");
-			yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
-			expect(screen.getByTestId("screen-frame-bar")).toBeTruthy();
-			expect(screen.getByRole("button", { name: "Go back" })).toBeTruthy();
-			expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
-			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-		}),
+	it.live(
+		"frames a compact settings route with its own bar and no drawer",
+		() =>
+			Effect.gen(function* () {
+				mountView("/settings/preferences");
+				yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+				expect(screen.getByTestId("screen-frame-bar")).toBeTruthy();
+				expect(screen.getByRole("button", { name: "Go back" })).toBeTruthy();
+				expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
+				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("frames a desktop settings page with the title in content and no back control", () => {
-		const restore = stubDesktopMatchMedia();
-		return Effect.gen(function* () {
-			mountView("/settings/account");
-			const heading = yield* Effect.promise(() =>
-				screen.findByRole("heading", { level: 1, name: "Account" }),
-			);
+	it.live(
+		"frames a desktop settings page with the title in content and no back control",
+		() => {
+			const restore = stubDesktopMatchMedia();
+			return Effect.gen(function* () {
+				mountView("/settings/account");
+				const heading = yield* Effect.promise(() =>
+					screen.findByRole("heading", { level: 1, name: "Account" }),
+				);
 
-			expect(screen.queryByTestId("screen-frame-bar")).toBeNull();
-			expect(heading.closest('[data-testid="screen-frame-bar"]')).toBeNull();
-			expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
-		}).pipe(Effect.ensuring(Effect.sync(restore)));
-	});
+				expect(screen.queryByTestId("screen-frame-bar")).toBeNull();
+				expect(heading.closest('[data-testid="screen-frame-bar"]')).toBeNull();
+				expect(screen.queryByRole("button", { name: "Go back" })).toBeNull();
+			}).pipe(Effect.ensuring(Effect.sync(restore)));
+		},
+		testTimeout,
+	);
 
 	it.live(
 		"returns to the previous entry when back is used after navigating into a detail route",
@@ -404,536 +445,614 @@ describe("settings navigation", () => {
 					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings")),
 				);
 			}),
+		testTimeout,
 	);
 
-	it.live("replaces to /settings on direct entry to a detail route", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/preferences");
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
+	it.live(
+		"replaces to /settings on direct entry to a detail route",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings/preferences");
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings")),
-			);
-			expect(view.router.history.canGoBack()).toBe(false);
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/settings")),
+				);
+				expect(view.router.history.canGoBack()).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("replaces to the remembered workspace route on direct entry to /settings", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings", "plugin-1");
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+	it.live(
+		"replaces to the remembered workspace route on direct entry to /settings",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings", "plugin-1");
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
-			);
-			expect(view.router.history.canGoBack()).toBe(false);
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
+				);
+				expect(view.router.history.canGoBack()).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("falls back to a workspace chosen during the current shell lifetime", () =>
-		Effect.gen(function* () {
-			const recorder = makeWorkspaceRecorder();
-			const entries: PluginClientCatalog = [
-				catalog[0],
-				{
-					...catalog[0],
-					sortOrder: 1,
-					name: "Journal",
-					installationId: "installation-2",
-					pluginId: PluginId.make("plugin-2"),
-					packageId: PluginPackageId.make("test/plugin-2"),
-				},
-			];
-			const view = mountView(
-				"/p/test/plugin-1",
-				"plugin-1",
-				entries,
-				undefined,
-				undefined,
-				makeStorageStub("plugin-1", recorder),
-			);
-			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
+	it.live(
+		"falls back to a workspace chosen during the current shell lifetime",
+		() =>
+			Effect.gen(function* () {
+				const recorder = makeWorkspaceRecorder();
+				const entries: PluginClientCatalog = [
+					catalog[0],
+					{
+						...catalog[0],
+						sortOrder: 1,
+						name: "Journal",
+						installationId: "installation-2",
+						pluginId: PluginId.make("plugin-2"),
+						packageId: PluginPackageId.make("test/plugin-2"),
+					},
+				];
+				const view = mountView(
+					"/p/test/plugin-1",
+					"plugin-1",
+					entries,
+					undefined,
+					undefined,
+					makeStorageStub("plugin-1", recorder),
+				);
+				yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 
-			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
-			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(recorder.setCalls).toEqual([
-						{ slug: "plugin-2", scope: { serverUrl: server, userId: authenticated.user.id } },
-					]),
-				),
-			);
-			yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/settings" }));
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+				fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+				fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(recorder.setCalls).toEqual([
+							{ slug: "plugin-2", scope: { serverUrl: server, userId: authenticated.user.id } },
+						]),
+					),
+				);
+				yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/settings" }));
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
-			);
-			expect(view.router.history.canGoBack()).toBe(false);
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
+				);
+				expect(view.router.history.canGoBack()).toBe(false);
+			}),
+		testTimeout,
 	);
 
-	it.live("does not adopt a workspace reached only by its direct route", () =>
-		Effect.gen(function* () {
-			const recorder = makeWorkspaceRecorder();
-			const entries: PluginClientCatalog = [
-				catalog[0],
-				{
-					...catalog[0],
-					sortOrder: 1,
-					name: "Journal",
-					installationId: "installation-2",
-					pluginId: PluginId.make("plugin-2"),
-					packageId: PluginPackageId.make("test/plugin-2"),
-				},
-			];
-			const view = mountView(
-				"/p/test/plugin-1",
-				"plugin-1",
-				entries,
-				undefined,
-				undefined,
-				makeStorageStub("plugin-1", recorder),
-			);
-			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
+	it.live(
+		"does not adopt a workspace reached only by its direct route",
+		() =>
+			Effect.gen(function* () {
+				const recorder = makeWorkspaceRecorder();
+				const entries: PluginClientCatalog = [
+					catalog[0],
+					{
+						...catalog[0],
+						sortOrder: 1,
+						name: "Journal",
+						installationId: "installation-2",
+						pluginId: PluginId.make("plugin-2"),
+						packageId: PluginPackageId.make("test/plugin-2"),
+					},
+				];
+				const view = mountView(
+					"/p/test/plugin-1",
+					"plugin-1",
+					entries,
+					undefined,
+					undefined,
+					makeStorageStub("plugin-1", recorder),
+				);
+				yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 
-			yield* Effect.promise(() =>
-				view.router.navigate({ replace: true, href: "/p/test/plugin-2" }),
-			);
-			yield* Effect.promise(() => screen.findByTitle("Journal plugin"));
-			expect(recorder.setCalls).toEqual([]);
+				yield* Effect.promise(() =>
+					view.router.navigate({ replace: true, href: "/p/test/plugin-2" }),
+				);
+				yield* Effect.promise(() => screen.findByTitle("Journal plugin"));
+				expect(recorder.setCalls).toEqual([]);
 
-			yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/settings" }));
-			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
+				yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/settings" }));
+				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
-			);
-		}),
+				fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 describe("account settings", () => {
-	it.live("keeps demo account actions and information available", () =>
-		Effect.gen(function* () {
-			const demo = { ...authenticated, accessClass: "demo" as const };
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({}, demo),
-				undefined,
-				undefined,
-				undefined,
-				makeOAuthRouteStubs({}, {}, { isNative: true }),
-			);
+	it.live(
+		"keeps demo account actions and information available",
+		() =>
+			Effect.gen(function* () {
+				const demo = { ...authenticated, accessClass: "demo" as const };
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({}, demo),
+					undefined,
+					undefined,
+					undefined,
+					makeOAuthRouteStubs({}, {}, { isNative: true }),
+				);
 
-			const avatar = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "New avatar" }),
-			);
-			expect(avatar.hasAttribute("disabled")).toBe(false);
-			expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
-		}),
+				const avatar = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "New avatar" }),
+				);
+				expect(avatar.hasAttribute("disabled")).toBe(false);
+				expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(
+					false,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("retries a failed account identity query", () =>
-		Effect.gen(function* () {
-			let sessionReads = 0;
-			let retry = false;
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({
-					settledSession: () => {
-						sessionReads++;
-						return sessionReads > 1 && !retry
-							? Effect.die("account unavailable")
-							: Effect.succeed(authenticated);
-					},
-				}),
-			);
-
-			yield* Effect.promise(() => screen.findByText("Could not load your account."));
-			retry = true;
-			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-			expect(sessionReads).toBeGreaterThan(2);
-		}),
-	);
-
-	it.live("renders the current identity: name, email, and user ID", () =>
-		Effect.gen(function* () {
-			mountView("/settings/account");
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
-			expect(profile).not.toBeNull();
-			expect(profile?.textContent).toContain("Test User");
-			expect(profile?.textContent).toContain("user@ryot.example");
-			expect(profile?.textContent).toContain("ID: user-1");
-			expect(profile?.textContent).not.toContain("https://ryot.example");
-		}),
-	);
-
-	it.live("keeps server-wide sections off the account page", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeOAuthRouteStubs({}, {}, { isNative: true }),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			expect(screen.queryByRole("heading", { name: "Server administration" })).toBeNull();
-			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
-			expect(screen.queryByRole("heading", { name: "Version" })).toBeNull();
-		}),
-	);
-	it.live("hides two-factor management from accounts without a password", () =>
-		Effect.gen(function* () {
-			mountView("/settings/account");
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
-		}),
-	);
-
-	it.live("hides two-factor management from the shared demo", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeUserSettingsQueries(undefined, () => ({ enabled: true, available: true })),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
-		}),
-	);
-
-	it.live("links web users to the hosted two-factor page with the current status", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeUserSettingsQueries(undefined, () => ({ enabled: true, available: true })),
-			);
-
-			const heading = yield* Effect.promise(() =>
-				screen.findByRole("heading", { name: "Two-factor authentication" }),
-			);
-			const section = heading.closest("section");
-			if (section === null) {
-				throw new Error("Two-factor heading must be inside a section");
-			}
-			yield* Effect.promise(() => within(section).findByText("On"));
-			expect(within(section).getByRole("link", { name: "Manage" }).getAttribute("href")).toBe(
-				"/oauth/two-factor?from=settings",
-			);
-		}),
-	);
-
-	it.live("opens the hosted two-factor page natively and refreshes the status when it closes", () =>
-		Effect.gen(function* () {
-			const opened: string[] = [];
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeOAuthRouteStubs(
-					{},
-					{
-						openTwoFactorManagement: (origin) =>
-							Effect.sync(() => {
-								opened.push(origin);
-							}),
-					},
-					{ isNative: true },
-				),
-				makeUserSettingsQueries(undefined, () => ({ available: true, enabled: opened.length > 0 })),
-			);
-
-			yield* Effect.promise(() => screen.findByText("Off"));
-			fireEvent.click(screen.getByRole("button", { name: "Manage" }));
-
-			yield* Effect.promise(() => screen.findByText("On"));
-			expect(opened).toEqual([server]);
-		}),
-	);
-
-	it.live("generates a new avatar and forces the session to refresh", () =>
-		Effect.gen(function* () {
-			const refreshes: boolean[] = [];
-			let avatar: null | string = null;
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({
-					settledSession: (_origin, forceRefresh = false) =>
-						Effect.sync(() => {
-							refreshes.push(forceRefresh);
-							return { ...authenticated, user: { ...authenticated.user, image: avatar } };
-						}),
-				}),
-				undefined,
-				undefined,
-				makeUserSettingsStub({
-					refreshAvatar: () =>
-						Effect.sync(() => {
-							avatar = "https://ryot.example/avatar.png";
-						}),
-				}),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-			const readsBeforeGenerate = refreshes.filter((forceRefresh) => !forceRefresh).length;
-
-			fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
-
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					expect(refreshes).toContain(true);
-					expect(refreshes.filter((forceRefresh) => !forceRefresh).length).toBeGreaterThan(
-						readsBeforeGenerate,
-					);
-				}),
-			);
-			expect(screen.getByRole("img", { name: "Test User's avatar" }).getAttribute("src")).toBe(
-				"https://ryot.example/avatar.png",
-			);
-		}),
-	);
-
-	it.live("disables the avatar action while it is pending", () =>
-		Effect.gen(function* () {
-			const gate = Deferred.makeUnsafe<void>();
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeUserSettingsStub({ refreshAvatar: () => Deferred.await(gate) }),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
-
-			const pending = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Generating..." }),
-			);
-			expect(pending.hasAttribute("disabled")).toBe(true);
-			yield* Deferred.succeed(gate, undefined);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-		}),
-	);
-
-	it.live("reports a failed avatar generation and leaves the action available", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeUserSettingsStub({ refreshAvatar: () => Effect.die("avatar generation failed") }),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
-
-			yield* Effect.promise(() => screen.findByText("Could not generate a new avatar. Try again."));
-			expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(
-				false,
-			);
-		}),
-	);
-
-	it.live("keeps the account visible if refreshing the session after avatar generation fails", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({
-					settledSession: (_origin, forceRefresh = false) =>
-						forceRefresh ? Effect.die("session refresh failed") : Effect.succeed(authenticated),
-				}),
-				undefined,
-				undefined,
-				makeUserSettingsStub({ refreshAvatar: () => Effect.void }),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
-
-			fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
-
-			yield* Effect.promise(() => screen.findByText("Could not generate a new avatar. Try again."));
-			const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
-			expect(profile?.textContent).toContain("user@ryot.example");
-			expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(
-				false,
-			);
-		}),
-	);
-
-	it.live("disables sign out while it is pending and navigates to /auth on success", () =>
-		Effect.gen(function* () {
-			const gate = Deferred.makeUnsafe<boolean>();
-			const view = mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({ signOut: () => Deferred.await(gate) }),
-			);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
-
-			fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-			const pending = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Signing out..." }),
-			);
-			expect(pending.hasAttribute("disabled")).toBe(true);
-
-			yield* Deferred.succeed(gate, false);
-			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
-			);
-		}),
-	);
-
-	it.live("stays put and renders a stable failure message when sign out fails", () =>
-		Effect.gen(function* () {
-			const view = mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({ signOut: () => Effect.die("sign out failed") }),
-			);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
-
-			fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
-
-			yield* Effect.promise(() => screen.findByText("Could not sign out."));
-			expect(view.router.state.location.pathname).toBe("/settings/account");
-			expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
-		}),
-	);
-
-	it.live("leaves navigation to an external logout without refreshing account data", () =>
-		Effect.gen(function* () {
-			const signOuts: string[] = [];
-			let sessionReads = 0;
-			const view = mountView(
-				"/settings/account",
-				undefined,
-				undefined,
-				makeAuthStub({
-					signOut: (origin) =>
-						Effect.sync(() => {
-							signOuts.push(origin);
-							return true;
-						}),
-					settledSession: () =>
-						Effect.sync(() => {
+	it.live(
+		"retries a failed account identity query",
+		() =>
+			Effect.gen(function* () {
+				let sessionReads = 0;
+				let retry = false;
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({
+						settledSession: () => {
 							sessionReads++;
-							return authenticated;
-						}),
-				}),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Sign out" }));
-			const readsBeforeSignOut = sessionReads;
+							return sessionReads > 1 && !retry
+								? Effect.die("account unavailable")
+								: Effect.succeed(authenticated);
+						},
+					}),
+				);
 
-			fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+				yield* Effect.promise(() => screen.findByText("Could not load your account."));
+				retry = true;
+				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-			yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Sign out" }));
-			expect(view.router.state.location.pathname).toBe("/settings/account");
-			expect(sessionReads).toBe(readsBeforeSignOut);
-		}),
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+				expect(sessionReads).toBeGreaterThan(2);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"renders the current identity: name, email, and user ID",
+		() =>
+			Effect.gen(function* () {
+				mountView("/settings/account");
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
+				expect(profile).not.toBeNull();
+				expect(profile?.textContent).toContain("Test User");
+				expect(profile?.textContent).toContain("user@ryot.example");
+				expect(profile?.textContent).toContain("ID: user-1");
+				expect(profile?.textContent).not.toContain("https://ryot.example");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps server-wide sections off the account page",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeOAuthRouteStubs({}, {}, { isNative: true }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				expect(screen.queryByRole("heading", { name: "Server administration" })).toBeNull();
+				expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+				expect(screen.queryByRole("heading", { name: "Version" })).toBeNull();
+			}),
+		testTimeout,
+	);
+	it.live(
+		"hides two-factor management from accounts without a password",
+		() =>
+			Effect.gen(function* () {
+				mountView("/settings/account");
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"hides two-factor management from the shared demo",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeUserSettingsQueries(undefined, () => ({ enabled: true, available: true })),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				expect(screen.queryByRole("heading", { name: "Two-factor authentication" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"links web users to the hosted two-factor page with the current status",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeUserSettingsQueries(undefined, () => ({ enabled: true, available: true })),
+				);
+
+				const heading = yield* Effect.promise(() =>
+					screen.findByRole("heading", { name: "Two-factor authentication" }),
+				);
+				const section = heading.closest("section");
+				if (section === null) {
+					throw new Error("Two-factor heading must be inside a section");
+				}
+				yield* Effect.promise(() => within(section).findByText("On"));
+				expect(within(section).getByRole("link", { name: "Manage" }).getAttribute("href")).toBe(
+					"/oauth/two-factor?from=settings",
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"opens the hosted two-factor page natively and refreshes the status when it closes",
+		() =>
+			Effect.gen(function* () {
+				const opened: string[] = [];
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeOAuthRouteStubs(
+						{},
+						{
+							openTwoFactorManagement: (origin) =>
+								Effect.sync(() => {
+									opened.push(origin);
+								}),
+						},
+						{ isNative: true },
+					),
+					makeUserSettingsQueries(undefined, () => ({
+						available: true,
+						enabled: opened.length > 0,
+					})),
+				);
+
+				yield* Effect.promise(() => screen.findByText("Off"));
+				fireEvent.click(screen.getByRole("button", { name: "Manage" }));
+
+				yield* Effect.promise(() => screen.findByText("On"));
+				expect(opened).toEqual([server]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"generates a new avatar and forces the session to refresh",
+		() =>
+			Effect.gen(function* () {
+				const refreshes: boolean[] = [];
+				let avatar: null | string = null;
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({
+						settledSession: (_origin, forceRefresh = false) =>
+							Effect.sync(() => {
+								refreshes.push(forceRefresh);
+								return { ...authenticated, user: { ...authenticated.user, image: avatar } };
+							}),
+					}),
+					undefined,
+					undefined,
+					makeUserSettingsStub({
+						refreshAvatar: () =>
+							Effect.sync(() => {
+								avatar = "https://ryot.example/avatar.png";
+							}),
+					}),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+				const readsBeforeGenerate = refreshes.filter((forceRefresh) => !forceRefresh).length;
+
+				fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						expect(refreshes).toContain(true);
+						expect(refreshes.filter((forceRefresh) => !forceRefresh).length).toBeGreaterThan(
+							readsBeforeGenerate,
+						);
+					}),
+				);
+				expect(screen.getByRole("img", { name: "Test User's avatar" }).getAttribute("src")).toBe(
+					"https://ryot.example/avatar.png",
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"disables the avatar action while it is pending",
+		() =>
+			Effect.gen(function* () {
+				const gate = Deferred.makeUnsafe<void>();
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeUserSettingsStub({ refreshAvatar: () => Deferred.await(gate) }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+				const pending = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Generating..." }),
+				);
+				expect(pending.hasAttribute("disabled")).toBe(true);
+				yield* Deferred.succeed(gate, undefined);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"reports a failed avatar generation and leaves the action available",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeUserSettingsStub({ refreshAvatar: () => Effect.die("avatar generation failed") }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+				yield* Effect.promise(() =>
+					screen.findByText("Could not generate a new avatar. Try again."),
+				);
+				expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(
+					false,
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"keeps the account visible if refreshing the session after avatar generation fails",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({
+						settledSession: (_origin, forceRefresh = false) =>
+							forceRefresh ? Effect.die("session refresh failed") : Effect.succeed(authenticated),
+					}),
+					undefined,
+					undefined,
+					makeUserSettingsStub({ refreshAvatar: () => Effect.void }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
+
+				fireEvent.click(screen.getByRole("button", { name: "New avatar" }));
+
+				yield* Effect.promise(() =>
+					screen.findByText("Could not generate a new avatar. Try again."),
+				);
+				const profile = screen.getByRole("heading", { name: "Profile" }).closest("section");
+				expect(profile?.textContent).toContain("user@ryot.example");
+				expect(screen.getByRole("button", { name: "New avatar" }).hasAttribute("disabled")).toBe(
+					false,
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"disables sign out while it is pending and navigates to /auth on success",
+		() =>
+			Effect.gen(function* () {
+				const gate = Deferred.makeUnsafe<boolean>();
+				const view = mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({ signOut: () => Deferred.await(gate) }),
+				);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
+
+				fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+				const pending = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Signing out..." }),
+				);
+				expect(pending.hasAttribute("disabled")).toBe(true);
+
+				yield* Deferred.succeed(gate, false);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"stays put and renders a stable failure message when sign out fails",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({ signOut: () => Effect.die("sign out failed") }),
+				);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
+
+				fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+				yield* Effect.promise(() => screen.findByText("Could not sign out."));
+				expect(view.router.state.location.pathname).toBe("/settings/account");
+				expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(
+					false,
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"leaves navigation to an external logout without refreshing account data",
+		() =>
+			Effect.gen(function* () {
+				const signOuts: string[] = [];
+				let sessionReads = 0;
+				const view = mountView(
+					"/settings/account",
+					undefined,
+					undefined,
+					makeAuthStub({
+						signOut: (origin) =>
+							Effect.sync(() => {
+								signOuts.push(origin);
+								return true;
+							}),
+						settledSession: () =>
+							Effect.sync(() => {
+								sessionReads++;
+								return authenticated;
+							}),
+					}),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Sign out" }));
+				const readsBeforeSignOut = sessionReads;
+
+				fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+				yield* Effect.promise(() => waitFor(() => expect(signOuts).toEqual([server])));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Sign out" }));
+				expect(view.router.state.location.pathname).toBe("/settings/account");
+				expect(sessionReads).toBe(readsBeforeSignOut);
+			}),
+		testTimeout,
 	);
 });
 
 describe("administration settings", () => {
-	it.live("opens standalone Instance Admin from the server administration card", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/administration");
-			const administration = yield* Effect.promise(() =>
-				screen.findByRole("heading", { name: "Server administration" }),
-			);
-			const section = administration.closest("section");
-			if (section === null) {
-				throw new Error("Server administration heading must be inside a section");
-			}
-			expect(section.textContent).toContain("Requires an admin access token");
+	it.live(
+		"opens standalone Instance Admin from the server administration card",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings/administration");
+				const administration = yield* Effect.promise(() =>
+					screen.findByRole("heading", { name: "Server administration" }),
+				);
+				const section = administration.closest("section");
+				if (section === null) {
+					throw new Error("Server administration heading must be inside a section");
+				}
+				expect(section.textContent).toContain("Requires an admin access token");
 
-			fireEvent.click(within(section).getByRole("link", { name: /Instance Admin/ }));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
-			expect(view.router.state.location.pathname).toBe("/instance-admin/users");
-			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-			expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		}),
+				fireEvent.click(within(section).getByRole("link", { name: /Instance Admin/ }));
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Instance Admin" }));
+				expect(view.router.state.location.pathname).toBe("/instance-admin/users");
+				expect(screen.queryByTestId("authenticated-shell")).toBeNull();
+				expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+				expect(screen.queryByTitle("fixture plugin")).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
 describe("about settings", () => {
-	it.live("names the connected server on native and points at sign out to change it", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/about",
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				undefined,
-				makeOAuthRouteStubs({}, {}, { isNative: true }),
-			);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+	it.live(
+		"names the connected server on native and points at sign out to change it",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/about",
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					undefined,
+					makeOAuthRouteStubs({}, {}, { isNative: true }),
+				);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
 
-			const section = screen.getByRole("heading", { name: "Server" }).closest("section");
-			expect(section?.textContent).toContain("https://ryot.example");
-			expect(section?.textContent).toContain(
-				"To connect this device to a different server, sign out from Account.",
-			);
-		}),
+				const section = screen.getByRole("heading", { name: "Server" }).closest("section");
+				expect(section?.textContent).toContain("https://ryot.example");
+				expect(section?.textContent).toContain(
+					"To connect this device to a different server, sign out from Account.",
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("hides the server section on web, where the origin cannot be changed", () =>
-		Effect.gen(function* () {
-			mountView("/settings/about");
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+	it.live(
+		"hides the server section on web, where the origin cannot be changed",
+		() =>
+			Effect.gen(function* () {
+				mountView("/settings/about");
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
 
-			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
-		}),
+				expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
@@ -955,340 +1074,401 @@ const mountPreferences = (
 	);
 
 describe("preferences settings", () => {
-	it.live("keeps local appearance usable and makes demo server preferences read-only", () =>
-		Effect.gen(function* () {
-			let saves = 0;
-			mountPreferences(
-				makeUserSettingsStub({
-					updatePreferences: () =>
-						Effect.sync(() => {
-							saves++;
-						}),
-				}),
-				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-			);
+	it.live(
+		"keeps local appearance usable and makes demo server preferences read-only",
+		() =>
+			Effect.gen(function* () {
+				let saves = 0;
+				mountPreferences(
+					makeUserSettingsStub({
+						updatePreferences: () =>
+							Effect.sync(() => {
+								saves++;
+							}),
+					}),
+					makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+				);
 
-			yield* Effect.promise(() =>
-				screen.findByText("This operation is unavailable while using the shared demo account."),
-			);
-			expect(
-				screen
-					.getByRole("button", { name: "Entity language: Provider default" })
-					.hasAttribute("disabled"),
-			).toBe(true);
-			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
-				true,
-			);
-			const appearance = within(
-				screen.getByRole("radiogroup", { name: "Appearance" }),
-			).getAllByRole("radio")[0];
-			expect(appearance.hasAttribute("disabled")).toBe(false);
-			expect(saves).toBe(0);
-		}),
+				yield* Effect.promise(() =>
+					screen.findByText("This operation is unavailable while using the shared demo account."),
+				);
+				expect(
+					screen
+						.getByRole("button", { name: "Entity language: Provider default" })
+						.hasAttribute("disabled"),
+				).toBe(true);
+				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+					true,
+				);
+				const appearance = within(
+					screen.getByRole("radiogroup", { name: "Appearance" }),
+				).getAllByRole("radio")[0];
+				expect(appearance.hasAttribute("disabled")).toBe(false);
+				expect(saves).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.live("renders appearance beside the server-backed preferences", () =>
-		Effect.gen(function* () {
-			mountPreferences();
-			yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Entity language: Provider default" }),
-			);
+	it.live(
+		"renders appearance beside the server-backed preferences",
+		() =>
+			Effect.gen(function* () {
+				mountPreferences();
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Entity language: Provider default" }),
+				);
 
-			expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
-			expect(screen.getByRole("heading", { name: "Language and reporting" })).not.toBeNull();
-			expect(
-				screen.getByText(
-					"Choose the entity language and account reporting time zone. Translation availability depends on the provider.",
-				),
-			).not.toBeNull();
-			expect(screen.queryByRole("switch")).toBeNull();
-			expect(
-				screen.getByRole("button", { name: "Entity language: Provider default" }),
-			).not.toBeNull();
-		}),
+				expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
+				expect(screen.getByRole("heading", { name: "Language and reporting" })).not.toBeNull();
+				expect(
+					screen.getByText(
+						"Choose the entity language and account reporting time zone. Translation availability depends on the provider.",
+					),
+				).not.toBeNull();
+				expect(screen.queryByRole("switch")).toBeNull();
+				expect(
+					screen.getByRole("button", { name: "Entity language: Provider default" }),
+				).not.toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("submits only the changed preferences and reports the save", () =>
-		Effect.gen(function* () {
-			const saved: UserPreferencesPatch[] = [];
-			let settingsReads = 0;
-			let current = userSettings;
-			const view = mountPreferences(
-				makeUserSettingsStub({
-					updatePreferences: (_scope, request) =>
-						Effect.sync(() => {
-							saved.push(request.payload);
-							current = { ...current, preferences: { ...current.preferences, ...request.payload } };
-						}),
-				}),
-				undefined,
-				makeUserSettingsQueries(() => {
-					settingsReads++;
-					return current;
-				}),
-			);
-			const submit = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Save changes" }),
-			);
-			expect(submit.hasAttribute("disabled")).toBe(true);
+	it.live(
+		"submits only the changed preferences and reports the save",
+		() =>
+			Effect.gen(function* () {
+				const saved: UserPreferencesPatch[] = [];
+				let settingsReads = 0;
+				let current = userSettings;
+				const view = mountPreferences(
+					makeUserSettingsStub({
+						updatePreferences: (_scope, request) =>
+							Effect.sync(() => {
+								saved.push(request.payload);
+								current = {
+									...current,
+									preferences: { ...current.preferences, ...request.payload },
+								};
+							}),
+					}),
+					undefined,
+					makeUserSettingsQueries(() => {
+						settingsReads++;
+						return current;
+					}),
+				);
+				const submit = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Save changes" }),
+				);
+				expect(submit.hasAttribute("disabled")).toBe(true);
 
-			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-			expect(submit.hasAttribute("disabled")).toBe(false);
-			fireEvent.click(submit);
+				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				expect(submit.hasAttribute("disabled")).toBe(false);
+				fireEvent.click(submit);
 
-			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-			yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-			expect(saved).toEqual([{ language: "es" }]);
-			expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
-			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
-				true,
-			);
-		}),
+				yield* Effect.promise(() => screen.findByText("Preferences saved."));
+				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
+				expect(saved).toEqual([{ language: "es" }]);
+				expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
+				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+					true,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("validates and saves the account reporting timezone without changing language", () =>
-		Effect.gen(function* () {
-			const saved: UserPreferencesPatch[] = [];
-			mountPreferences(
-				makeUserSettingsStub({
-					updatePreferences: (_scope, request) =>
-						Effect.sync(() => {
-							saved.push(request.payload);
-						}),
-				}),
-			);
-			const input = yield* Effect.promise(() =>
-				screen.findByRole("textbox", { name: "Reporting time zone" }),
-			);
-			fireEvent.change(input, { target: { value: "+05:30" } });
-			yield* Effect.promise(() => screen.findByText("Enter a valid IANA time zone."));
-			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
-				true,
-			);
-			fireEvent.change(input, { target: { value: "Asia/Kolkata" } });
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(
-						screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled"),
-					).toBe(false),
-				),
-			);
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-			expect(saved).toEqual([{ reportingTimeZone: "Asia/Kolkata" }]);
-		}),
+	it.live(
+		"validates and saves the account reporting timezone without changing language",
+		() =>
+			Effect.gen(function* () {
+				const saved: UserPreferencesPatch[] = [];
+				mountPreferences(
+					makeUserSettingsStub({
+						updatePreferences: (_scope, request) =>
+							Effect.sync(() => {
+								saved.push(request.payload);
+							}),
+					}),
+				);
+				const input = yield* Effect.promise(() =>
+					screen.findByRole("textbox", { name: "Reporting time zone" }),
+				);
+				fireEvent.change(input, { target: { value: "+05:30" } });
+				yield* Effect.promise(() => screen.findByText("Enter a valid IANA time zone."));
+				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+					true,
+				);
+				fireEvent.change(input, { target: { value: "Asia/Kolkata" } });
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(
+							screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled"),
+						).toBe(false),
+					),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				yield* Effect.promise(() => screen.findByText("Preferences saved."));
+				expect(saved).toEqual<unknown>([{ reportingTimeZone: "Asia/Kolkata" }]);
+			}),
+		testTimeout,
 	);
 
-	it.live("submits a custom entity language code", () =>
-		Effect.gen(function* () {
-			const saved: UserPreferencesPatch[] = [];
-			const view = mountPreferences(
-				makeUserSettingsStub({
-					updatePreferences: (_scope, request) =>
-						Effect.sync(() => {
-							saved.push(request.payload);
-						}),
-				}),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
+	it.live(
+		"submits a custom entity language code",
+		() =>
+			Effect.gen(function* () {
+				const saved: UserPreferencesPatch[] = [];
+				const view = mountPreferences(
+					makeUserSettingsStub({
+						updatePreferences: (_scope, request) =>
+							Effect.sync(() => {
+								saved.push(request.payload);
+							}),
+					}),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Other language..." }));
-			fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
-				target: { value: "sv" },
-			});
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Other language..." }));
+				fireEvent.change(screen.getByRole("textbox", { name: "Custom entity language code" }), {
+					target: { value: "sv" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-			expect(saved).toEqual([{ language: "sv" }]);
-			expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
-		}),
+				yield* Effect.promise(() => screen.findByText("Preferences saved."));
+				expect(saved).toEqual([{ language: "sv" }]);
+				expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("disables preference controls while a save is pending", () =>
-		Effect.gen(function* () {
-			const gate = Deferred.makeUnsafe<void>();
-			mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+	it.live(
+		"disables preference controls while a save is pending",
+		() =>
+			Effect.gen(function* () {
+				const gate = Deferred.makeUnsafe<void>();
+				mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
+				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-			const savingButton = yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Saving..." }),
-			);
-			expect(savingButton.hasAttribute("disabled")).toBe(true);
-			expect(
-				screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
-			).toBe(true);
+				const savingButton = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Saving..." }),
+				);
+				expect(savingButton.hasAttribute("disabled")).toBe(true);
+				expect(
+					screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
+				).toBe(true);
 
-			yield* Deferred.succeed(gate, undefined);
-			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-		}),
+				yield* Deferred.succeed(gate, undefined);
+				yield* Effect.promise(() => screen.findByText("Preferences saved."));
+			}),
+		testTimeout,
 	);
 
-	it.live("does not reconnect when an entity language save fails", () =>
-		Effect.gen(function* () {
-			const view = mountPreferences(
-				makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
-			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
-			expect(view.interestEvents).toEqual(["acquire"]);
-		}),
+	it.live(
+		"does not reconnect when an entity language save fails",
+		() =>
+			Effect.gen(function* () {
+				const view = mountPreferences(
+					makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
+				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
+				expect(view.interestEvents).toEqual(["acquire"]);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps the edit available and explains a failed save", () =>
-		Effect.gen(function* () {
-			mountPreferences(
-				makeUserSettingsStub({ updatePreferences: () => Effect.die("preference update failed") }),
-			);
-			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
+	it.live(
+		"keeps the edit available and explains a failed save",
+		() =>
+			Effect.gen(function* () {
+				mountPreferences(
+					makeUserSettingsStub({ updatePreferences: () => Effect.die("preference update failed") }),
+				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
-			expect(
-				screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
-			).toBe(false);
-			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
-				false,
-			);
-		}),
+				yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
+				expect(
+					screen.getByRole("button", { name: "Entity language: Spanish" }).hasAttribute("disabled"),
+				).toBe(false);
+				expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+					false,
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps preferences visible when their mutation refresh fails", () =>
-		Effect.gen(function* () {
-			let settingsReads = 0;
-			mountPreferences(
-				makeUserSettingsStub({ updatePreferences: () => Effect.void }),
-				undefined,
-				makeUserSettingsQueries(() => {
-					settingsReads++;
-					if (settingsReads > 1) {
-						throw new Error("settings refresh failed");
-					}
-					return userSettings;
-				}),
-			);
-			yield* Effect.promise(() =>
-				screen.findByRole("button", { name: "Entity language: Provider default" }),
-			);
+	it.live(
+		"keeps preferences visible when their mutation refresh fails",
+		() =>
+			Effect.gen(function* () {
+				let settingsReads = 0;
+				mountPreferences(
+					makeUserSettingsStub({ updatePreferences: () => Effect.void }),
+					undefined,
+					makeUserSettingsQueries(() => {
+						settingsReads++;
+						if (settingsReads > 1) {
+							throw new Error("settings refresh failed");
+						}
+						return userSettings;
+					}),
+				);
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Entity language: Provider default" }),
+				);
 
-			fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
-			fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
-			const language = screen.getByRole("button", { name: "Entity language: Spanish" });
-			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+				fireEvent.click(screen.getByRole("button", { name: "Entity language: Provider default" }));
+				fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+				const language = screen.getByRole("button", { name: "Entity language: Spanish" });
+				fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-			yield* Effect.promise(() => screen.findByText("Preferences saved."));
-			yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
-			expect(screen.getByRole("button", { name: "Entity language: Spanish" })).toBe(language);
-			expect(
-				screen.queryByText("Could not load your settings. Check the server and try again."),
-			).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByText("Preferences saved."));
+				yield* Effect.promise(() => waitFor(() => expect(settingsReads).toBe(2)));
+				expect(screen.getByRole("button", { name: "Entity language: Spanish" })).toBe(language);
+				expect(
+					screen.queryByText("Could not load your settings. Check the server and try again."),
+				).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps appearance usable when the settings request fails", () =>
-		Effect.gen(function* () {
-			mountPreferences(
-				makeUserSettingsStub(),
-				AuthStub,
-				makeUserSettingsQueries(() => {
-					throw new Error("settings unavailable");
-				}),
-			);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
+	it.live(
+		"keeps appearance usable when the settings request fails",
+		() =>
+			Effect.gen(function* () {
+				mountPreferences(
+					makeUserSettingsStub(),
+					AuthStub,
+					makeUserSettingsQueries(() => {
+						throw new Error("settings unavailable");
+					}),
+				);
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
 
-			expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
-			yield* Effect.promise(() =>
-				screen.findByText("Could not load your settings. Check the server and try again."),
-			);
-		}),
+				expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
+				yield* Effect.promise(() =>
+					screen.findByText("Could not load your settings. Check the server and try again."),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 describe("pro instance badge", () => {
-	it.live("crowns the sidebar account avatar when the server key is validated", () =>
-		Effect.gen(function* () {
-			mountView("/settings/preferences", undefined, undefined, undefined, makePublicApiStub(true));
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
+	it.live(
+		"crowns the sidebar account avatar when the server key is validated",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/preferences",
+					undefined,
+					undefined,
+					undefined,
+					makePublicApiStub(true),
+				);
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
 
-			expect(within(sidebar).getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
-		}),
+				expect(within(sidebar).getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("leaves the sidebar account avatar plain when the server key is not validated", () =>
-		Effect.gen(function* () {
-			mountView("/settings/preferences");
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
+	it.live(
+		"leaves the sidebar account avatar plain when the server key is not validated",
+		() =>
+			Effect.gen(function* () {
+				mountView("/settings/preferences");
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
 
-			expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
-		}),
+				expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("falls back to the community badge when the system config cannot be read", () =>
-		Effect.gen(function* () {
-			mountView(
-				"/settings/preferences",
-				undefined,
-				undefined,
-				undefined,
-				Layer.succeed(PublicApi, {
-					checkHealth: () => Effect.void,
-					getSystemConfig: () => Effect.fail(new PublicApiError({ cause: "offline" })),
-				}),
-			);
-			const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
+	it.live(
+		"falls back to the community badge when the system config cannot be read",
+		() =>
+			Effect.gen(function* () {
+				mountView(
+					"/settings/preferences",
+					undefined,
+					undefined,
+					undefined,
+					Layer.succeed(PublicApi, {
+						checkHealth: () => Effect.void,
+						getSystemConfig: () => Effect.fail(new PublicApiError({ cause: "offline" })),
+					}),
+				);
+				const sidebar = yield* Effect.promise(() => screen.findByTestId("desktop-sidebar"));
 
-			expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
-			expect(screen.getByRole("heading", { name: "Preferences" })).not.toBeNull();
-		}),
+				expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
+				expect(screen.getByRole("heading", { name: "Preferences" })).not.toBeNull();
+			}),
+		testTimeout,
 	);
 });
 
 const mainContents = () => document.querySelectorAll("#main-content");
 
 describe("document title and skip-link target", () => {
-	it.live("titles a literal kernel route and gives the skip link a single target", () =>
-		Effect.gen(function* () {
-			mountView("/", null, []);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "No workspaces enabled" }));
+	it.live(
+		"titles a literal kernel route and gives the skip link a single target",
+		() =>
+			Effect.gen(function* () {
+				mountView("/", null, []);
+				yield* Effect.promise(() =>
+					screen.findByRole("heading", { name: "No workspaces enabled" }),
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.title).toBe("No workspaces — Ryot")),
-			);
-			expect(mainContents()).toHaveLength(1);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.title).toBe("No workspaces — Ryot")),
+				);
+				expect(mainContents()).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
-	it.live("titles an AuthStatus branch from the shared frame", () =>
-		Effect.gen(function* () {
-			mountView("/auth", undefined, undefined, makeAuthStub({}, unauthenticated));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Opening sign-in" }));
+	it.live(
+		"titles an AuthStatus branch from the shared frame",
+		() =>
+			Effect.gen(function* () {
+				mountView("/auth", undefined, undefined, makeAuthStub({}, unauthenticated));
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Opening sign-in" }));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(document.title).toBe("Opening sign-in — Ryot")),
-			);
-			expect(mainContents()).toHaveLength(1);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.title).toBe("Opening sign-in — Ryot")),
+				);
+				expect(mainContents()).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 
-	it.live("retitles when navigating between routes", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/preferences");
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
-			yield* Effect.promise(() => waitFor(() => expect(document.title).toBe("Preferences — Ryot")));
+	it.live(
+		"retitles when navigating between routes",
+		() =>
+			Effect.gen(function* () {
+				const view = mountView("/settings/preferences");
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Preferences" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(document.title).toBe("Preferences — Ryot")),
+				);
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/settings/account" }));
-			yield* Effect.promise(() => waitFor(() => expect(document.title).toBe("Account — Ryot")));
-			expect(mainContents()).toHaveLength(1);
-		}),
+				yield* Effect.promise(() => view.router.navigate({ href: "/settings/account" }));
+				yield* Effect.promise(() => waitFor(() => expect(document.title).toBe("Account — Ryot")));
+				expect(mainContents()).toHaveLength(1);
+			}),
+		testTimeout,
 	);
 });

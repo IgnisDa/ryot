@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, describe, expect } from "bun:test";
+
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -14,7 +15,9 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Match } from "effect";
 import { act, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -36,10 +39,6 @@ import {
 	usePluginSearch,
 } from "./routing";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./store";
-
-(
-	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT = true;
 
 let mountCount = 0;
 let entityMountCount = 0;
@@ -344,22 +343,25 @@ afterEach(() => {
 });
 
 describe("PluginRouter", () => {
-	it.live("opens explicit routes without treating an undeclared root as home", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({
-				notFound: NotFound,
-				routes: [{ path: "/items/new", component: NewItemRoute }],
-			});
-			const container = renderRouter(channel);
-			act(() => channel.send("/items/new"));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("New item")),
-			);
-			act(() => channel.send("/"));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Fixture page not found.")),
-			);
-		}),
+	it.live(
+		"opens explicit routes without treating an undeclared root as home",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({
+					notFound: NotFound,
+					routes: [{ path: "/items/new", component: NewItemRoute }],
+				});
+				const container = renderRouter(channel);
+				act(() => channel.send("/items/new"));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("New item")),
+				);
+				act(() => channel.send("/"));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Fixture page not found.")),
+				);
+			}),
+		testTimeout,
 	);
 	it.live(
 		"withdraws retained-screen interest and waits for running refresh before pop catch-up",
@@ -422,6 +424,7 @@ describe("PluginRouter", () => {
 				yield* Effect.promise(() => channel.clock.advance(250));
 				expect(pending).toHaveLength(2);
 			}),
+		testTimeout,
 	);
 
 	it("renders nothing before the first location message", () => {
@@ -429,242 +432,289 @@ describe("PluginRouter", () => {
 		expect(container.textContent).toBe("");
 	});
 
-	it.live("renders a location that arrived before the router mounted", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({
-				home: { component: Home },
-				routes: [{ component: ItemRoute, path: "/items/$itemId" }],
-			});
-			channel.send("/items/item-9");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(channel.store.getSnapshot().entry).toBeDefined()),
-			);
+	it.live(
+		"renders a location that arrived before the router mounted",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({
+					home: { component: Home },
+					routes: [{ component: ItemRoute, path: "/items/$itemId" }],
+				});
+				channel.send("/items/item-9");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(channel.store.getSnapshot().entry).toBeDefined()),
+				);
 
-			const container = renderRouter(channel);
+				const container = renderRouter(channel);
 
-			expect(container.textContent).toContain("Item item-9");
-		}),
+				expect(container.textContent).toContain("Item item-9");
+			}),
+		testTimeout,
 	);
 
-	it.live("matches a route with a parameter, URL-decoding the segment", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/items/hello%20world");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item hello world")),
-			);
-		}),
-	);
-
-	it.live("matches a static route before an overlapping dynamic route", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({
-				home: { component: Home },
-				routes: [
+	it.live(
+		"matches a route with a parameter, URL-decoding the segment",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
 					{ component: ItemRoute, path: "/items/$itemId" },
-					{ path: "/items/new", component: NewItemRoute },
-				],
-			});
-			const container = renderRouter(channel);
-			act(() => channel.send("/items/new"));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("New item")),
-			);
-			expect(container.textContent).not.toContain("Item new");
-		}),
+				]);
+				sendLocation("/items/hello%20world");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item hello world")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("passes through a param segment that is not valid percent-encoding", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/items/%zz");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item %zz")),
-			);
-		}),
+	it.live(
+		"matches a static route before an overlapping dynamic route",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({
+					home: { component: Home },
+					routes: [
+						{ component: ItemRoute, path: "/items/$itemId" },
+						{ path: "/items/new", component: NewItemRoute },
+					],
+				});
+				const container = renderRouter(channel);
+				act(() => channel.send("/items/new"));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("New item")),
+				);
+				expect(container.textContent).not.toContain("Item new");
+			}),
+		testTimeout,
 	);
 
-	it.live("renders the default not-found state for an unmatched path", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/does-not-exist");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Page not found")),
-			);
-		}),
+	it.live(
+		"passes through a param segment that is not valid percent-encoding",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/items/%zz");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item %zz")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("renders a plugin not-found component for an unmatched path", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount(
-				[{ component: ItemRoute, path: "/items/$itemId" }],
-				NotFound,
-			);
-			sendLocation("/does-not-exist");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Fixture page not found.")),
-			);
-		}),
+	it.live(
+		"renders the default not-found state for an unmatched path",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/does-not-exist");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Page not found")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("decodes search values through usePluginSearch", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount();
-			sendLocation("/", "tab=stats");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Tab stats")),
-			);
-		}),
+	it.live(
+		"renders a plugin not-found component for an unmatched path",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount(
+					[{ component: ItemRoute, path: "/items/$itemId" }],
+					NotFound,
+				);
+				sendLocation("/does-not-exist");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Fixture page not found.")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("renders one stable unavailable component for unregistered entity locations", () =>
-		Effect.gen(function* () {
-			const { store, container, sendEntityLocation } = mount([
-				{ component: ItemRoute, path: "/items/$itemId" },
-			]);
-			sendEntityLocation("entity-1", "fixture-sample");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
-			);
-			const component = store.getSnapshot().screens[0]?.element.type;
-
-			sendEntityLocation("entity-2", "fixture-sample", { index: 0, key: "k0" });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
-			);
-
-			expect(store.getSnapshot().screens[0]?.element.type).toBe(component);
-			expect(store.getSnapshot().screens[0]?.params).toEqual({});
-		}),
+	it.live(
+		"decodes search values through usePluginSearch",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount();
+				sendLocation("/", "tab=stats");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Tab stats")),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("selects a registered entity renderer and passes its location props", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({
-				home: { component: Home },
-				entities: { "fixture-sample": { component: EntityRenderer } },
-			});
-			const container = renderRouter(channel);
+	it.live(
+		"renders one stable unavailable component for unregistered entity locations",
+		() =>
+			Effect.gen(function* () {
+				const { store, container, sendEntityLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendEntityLocation("entity-1", "fixture-sample");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
+				);
+				const component = store.getSnapshot().screens[0]?.element.type;
 
-			act(() => channel.sendEntity("sample-1", "fixture-sample"));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:0")),
-			);
+				sendEntityLocation("entity-2", "fixture-sample", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
+				);
 
-			expect(channel.store.getSnapshot().screens[0]?.element.type).toBe(EntityRenderer);
-			expect(channel.store.getSnapshot().screens[0]?.params).toEqual({});
-		}),
+				expect(store.getSnapshot().screens[0]?.element.type).toBe(component);
+				expect(store.getSnapshot().screens[0]?.params).toEqual({});
+			}),
+		testTimeout,
 	);
 
-	it.live("uses the unavailable renderer for an unrelated entity schema", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({
-				home: { component: Home },
-				entities: { "fixture-sample": { component: EntityRenderer } },
-			});
-			const container = renderRouter(channel);
+	it.live(
+		"selects a registered entity renderer and passes its location props",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({
+					home: { component: Home },
+					entities: { "fixture-sample": { component: EntityRenderer } },
+				});
+				const container = renderRouter(channel);
 
-			act(() => channel.sendEntity("show-1", "fixture-show"));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
-			);
+				act(() => channel.sendEntity("sample-1", "fixture-sample"));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:0")),
+				);
 
-			expect(channel.store.getSnapshot().screens[0]?.element.type).not.toBe(EntityRenderer);
-		}),
+				expect(channel.store.getSnapshot().screens[0]?.element.type).toBe(EntityRenderer);
+				expect(channel.store.getSnapshot().screens[0]?.params).toEqual({});
+			}),
+		testTimeout,
 	);
 
-	it.live("retains the registered renderer state across a pop without a wrapper remount", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({
-				home: { component: Home },
-				entities: { "fixture-sample": { component: EntityRenderer } },
-			});
-			const container = renderRouter(channel);
+	it.live(
+		"uses the unavailable renderer for an unrelated entity schema",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({
+					home: { component: Home },
+					entities: { "fixture-sample": { component: EntityRenderer } },
+				});
+				const container = renderRouter(channel);
 
-			act(() => channel.sendEntity("sample-1", "fixture-sample", { index: 0, key: "sample-1" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:0")),
-			);
-			const increment = container.querySelector("button");
-			if (!increment) {
-				throw new Error("expected an entity renderer button");
-			}
-			void act(() => increment.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:1")),
-			);
+				act(() => channel.sendEntity("show-1", "fixture-show"));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable")),
+				);
 
-			act(() => channel.sendEntity("sample-2", "fixture-sample", { index: 1, key: "sample-2" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("sample-2:fixture-sample:0")),
-			);
-			expect(entityMountCount).toBe(2);
-
-			act(() => channel.sendEntity("sample-1", "fixture-sample", { index: 0, key: "sample-1" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:1")),
-			);
-
-			expect(entityMountCount).toBe(2);
-			expect(channel.store.getSnapshot().screens.at(-1)?.element.type).toBe(EntityRenderer);
-		}),
+				expect(channel.store.getSnapshot().screens[0]?.element.type).not.toBe(EntityRenderer);
+			}),
+		testTimeout,
 	);
 
-	it.live("exposes an entity location and its search through routing hooks", () =>
-		Effect.gen(function* () {
-			const channel = openChannel(undefined, () => ({ params: {}, element: <LocationProbe /> }));
-			const container = renderRouter(channel);
+	it.live(
+		"retains the registered renderer state across a pop without a wrapper remount",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({
+					home: { component: Home },
+					entities: { "fixture-sample": { component: EntityRenderer } },
+				});
+				const container = renderRouter(channel);
 
-			channel.sendEntity("entity-1", "fixture-sample", { search: "dialog=details" });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toBe("entity:dialog=details")),
-			);
+				act(() => channel.sendEntity("sample-1", "fixture-sample", { index: 0, key: "sample-1" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:0")),
+				);
+				const increment = container.querySelector("button");
+				if (!increment) {
+					throw new Error("expected an entity renderer button");
+				}
+				void act(() => increment.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:1")),
+				);
 
-			expect(observedLocation).toEqual({
-				kind: "entity",
-				entityId: "entity-1",
-				search: "dialog=details",
-				entitySchemaSlug: "fixture-sample",
-			});
-			expect(observedParams).toEqual({});
-			expect(observedSearch?.toString()).toBe("dialog=details");
-		}),
+				act(() => channel.sendEntity("sample-2", "fixture-sample", { index: 1, key: "sample-2" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("sample-2:fixture-sample:0")),
+				);
+				expect(entityMountCount).toBe(2);
+
+				act(() => channel.sendEntity("sample-1", "fixture-sample", { index: 0, key: "sample-1" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("sample-1:fixture-sample:1")),
+				);
+
+				expect(entityMountCount).toBe(2);
+				expect(channel.store.getSnapshot().screens.at(-1)?.element.type).toBe(EntityRenderer);
+			}),
+		testTimeout,
 	);
 
-	it.live("posts an exact PluginBridgeNavigate message on PluginLink click", () =>
-		Effect.gen(function* () {
-			const { messages, container, sendLocation } = mount();
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelector("a")).not.toBeNull()),
-			);
+	it.live(
+		"exposes an entity location and its search through routing hooks",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel(undefined, () => ({ params: {}, element: <LocationProbe /> }));
+				const container = renderRouter(channel);
 
-			const link = container.querySelector("a");
-			if (!link) {
-				throw new Error("expected a rendered plugin link");
-			}
-			expect(link.getAttribute("href")).toBe("/p/test/fixture/items/item-1?tab=stats");
-			act(() => {
-				link.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
-			});
+				channel.sendEntity("entity-1", "fixture-sample", { search: "dialog=details" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toBe("entity:dialog=details")),
+				);
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toEqual([
-						{
-							mode: "push",
-							type: "navigate",
-							target: {
-								search: "tab=stats",
-								kind: "plugin-route",
-								path: "/items/item-1",
-								packageId: PluginPackageId.make(packageId),
-							},
-						} satisfies PluginBridgeNavigate,
-					]),
-				),
-			);
-		}),
+				expect(observedLocation).toEqual<unknown>({
+					kind: "entity",
+					entityId: "entity-1",
+					search: "dialog=details",
+					entitySchemaSlug: "fixture-sample",
+				});
+				expect(observedParams).toEqual({});
+				expect(observedSearch?.toString()).toBe("dialog=details");
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"posts an exact PluginBridgeNavigate message on PluginLink click",
+		() =>
+			Effect.gen(function* () {
+				const { messages, container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("a")).not.toBeNull()),
+				);
+
+				const link = container.querySelector("a");
+				if (!link) {
+					throw new Error("expected a rendered plugin link");
+				}
+				expect(link.getAttribute("href")).toBe("/p/test/fixture/items/item-1?tab=stats");
+				act(() => {
+					link.dispatchEvent(
+						new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }),
+					);
+				});
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toEqual([
+							{
+								mode: "push",
+								type: "navigate",
+								target: {
+									search: "tab=stats",
+									kind: "plugin-route",
+									path: "/items/item-1",
+									packageId: PluginPackageId.make(packageId),
+								},
+							} satisfies PluginBridgeNavigate,
+						]),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
 	it("derives an encoded entity href and dispatches an entity target", () => {
@@ -799,397 +849,453 @@ describe("PluginRouter", () => {
 		expect(channel.messages).toEqual([]);
 	});
 
-	it.live("prevents native navigation on modifier and auxiliary clicks", () =>
-		Effect.gen(function* () {
-			const { messages, container, sendLocation } = mount();
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelector("a")).not.toBeNull()),
-			);
+	it.live(
+		"prevents native navigation on modifier and auxiliary clicks",
+		() =>
+			Effect.gen(function* () {
+				const { messages, container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("a")).not.toBeNull()),
+				);
 
-			const link = container.querySelector("a");
-			if (!link) {
-				throw new Error("expected a rendered plugin link");
-			}
-			const modified = new MouseEvent("click", {
-				button: 0,
-				bubbles: true,
-				ctrlKey: true,
-				cancelable: true,
-			});
-			const auxiliary = new MouseEvent("auxclick", { button: 1, bubbles: true, cancelable: true });
-			void act(() => link.dispatchEvent(modified));
-			void act(() => link.dispatchEvent(auxiliary));
+				const link = container.querySelector("a");
+				if (!link) {
+					throw new Error("expected a rendered plugin link");
+				}
+				const modified = new MouseEvent("click", {
+					button: 0,
+					bubbles: true,
+					ctrlKey: true,
+					cancelable: true,
+				});
+				const auxiliary = new MouseEvent("auxclick", {
+					button: 1,
+					bubbles: true,
+					cancelable: true,
+				});
+				void act(() => link.dispatchEvent(modified));
+				void act(() => link.dispatchEvent(auxiliary));
 
-			yield* waitForMessagePortMacrotask;
-			expect(modified.defaultPrevented).toBe(true);
-			expect(auxiliary.defaultPrevented).toBe(true);
-			expect(messages).toEqual([]);
-		}),
+				yield* waitForMessagePortMacrotask;
+				expect(modified.defaultPrevented).toBe(true);
+				expect(auxiliary.defaultPrevented).toBe(true);
+				expect(messages).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("posts push and replace navigate messages from the client", () =>
-		Effect.gen(function* () {
-			const { messages, container, sendLocation } = mount();
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
+	it.live(
+		"posts push and replace navigate messages from the client",
+		() =>
+			Effect.gen(function* () {
+				const { messages, container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
 
-			const [, pushButton, replaceButton] = container.querySelectorAll("button");
-			if (!pushButton || !replaceButton) {
-				throw new Error("expected navigation buttons");
-			}
+				const [, pushButton, replaceButton] = container.querySelectorAll("button");
+				if (!pushButton || !replaceButton) {
+					throw new Error("expected navigation buttons");
+				}
 
-			void act(() => pushButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-			void act(() => replaceButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+				void act(() => pushButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+				void act(() => replaceButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
 
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(messages).toEqual([
-						{
-							mode: "push",
-							type: "navigate",
-							target: {
-								search: "",
-								kind: "plugin-route",
-								path: "/items/item-2",
-								packageId: PluginPackageId.make(packageId),
-							},
-						} satisfies PluginBridgeNavigate,
-						{
-							mode: "replace",
-							type: "navigate",
-							target: {
-								path: "/",
-								search: "",
-								kind: "plugin-route",
-								packageId: PluginPackageId.make(packageId),
-							},
-						} satisfies PluginBridgeNavigate,
-					]),
-				),
-			);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(messages).toEqual([
+							{
+								mode: "push",
+								type: "navigate",
+								target: {
+									search: "",
+									kind: "plugin-route",
+									path: "/items/item-2",
+									packageId: PluginPackageId.make(packageId),
+								},
+							} satisfies PluginBridgeNavigate,
+							{
+								mode: "replace",
+								type: "navigate",
+								target: {
+									path: "/",
+									search: "",
+									kind: "plugin-route",
+									packageId: PluginPackageId.make(packageId),
+								},
+							} satisfies PluginBridgeNavigate,
+						]),
+					),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("preserves focus and state when the active entry key is unchanged", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount();
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
-			expect(mountCount).toBe(1);
+	it.live(
+		"preserves focus and state when the active entry key is unchanged",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				expect(mountCount).toBe(1);
 
-			const greetButton = container.querySelector("button");
-			if (!greetButton) {
-				throw new Error("expected a greet button");
-			}
-			void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 1 times.")),
-			);
-			greetButton.focus();
+				const greetButton = container.querySelector("button");
+				if (!greetButton) {
+					throw new Error("expected a greet button");
+				}
+				void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 1 times.")),
+				);
+				greetButton.focus();
 
-			sendLocation("/", "tab=stats", { index: 0, key: "k0" });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Tab stats")),
-			);
-			expect(container.textContent).toContain("Greeted 1 times.");
-			expect(mountCount).toBe(1);
-			expect(document.activeElement).toBe(greetButton);
-		}),
+				sendLocation("/", "tab=stats", { index: 0, key: "k0" });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Tab stats")),
+				);
+				expect(container.textContent).toContain("Greeted 1 times.");
+				expect(mountCount).toBe(1);
+				expect(document.activeElement).toBe(greetButton);
+			}),
+		testTimeout,
 	);
 
-	it.live("remounts the active screen for an ordinary same-index history replacement", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount();
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
-			const greetButton = container.querySelector("button");
-			if (!greetButton) {
-				throw new Error("expected a greet button");
-			}
-			void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 1 times.")),
-			);
+	it.live(
+		"remounts the active screen for an ordinary same-index history replacement",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				const greetButton = container.querySelector("button");
+				if (!greetButton) {
+					throw new Error("expected a greet button");
+				}
+				void act(() => greetButton.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 1 times.")),
+				);
 
-			sendLocation("/", "tab=stats", { index: 0, key: "k0-replaced" });
+				sendLocation("/", "tab=stats", { index: 0, key: "k0-replaced" });
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
-			expect(mountCount).toBe(2);
-		}),
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				expect(mountCount).toBe(2);
+			}),
+		testTimeout,
 	);
 
-	it.live("moves focus to the route container only when the active entry changes", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount();
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
+	it.live(
+		"moves focus to the route container only when the active entry changes",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount();
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
 
-			const routeContainer = container.querySelector('[tabindex="-1"]');
-			const greetButton = container.querySelector("button");
-			if (!greetButton || !(routeContainer instanceof HTMLElement)) {
-				throw new Error("expected a route container and a greet button");
-			}
-			greetButton.focus();
-			expect(document.hasFocus()).toBe(true);
-			expect(document.activeElement).not.toBe(routeContainer);
+				const routeContainer = container.querySelector('[tabindex="-1"]');
+				const greetButton = container.querySelector("button");
+				if (!greetButton || !(routeContainer instanceof HTMLElement)) {
+					throw new Error("expected a route container and a greet button");
+				}
+				greetButton.focus();
+				expect(document.hasFocus()).toBe(true);
+				expect(document.activeElement).not.toBe(routeContainer);
 
-			sendLocation("/", "tab=stats", { index: 1, key: "k1" });
-			yield* Effect.promise(() =>
-				waitFor(() => {
-					const activeRouteContainer = [
-						...container.querySelectorAll<HTMLElement>('[tabindex="-1"]'),
-					].at(-1);
-					expect(document.activeElement).toBe(activeRouteContainer);
-				}),
-			);
-		}),
+				sendLocation("/", "tab=stats", { index: 1, key: "k1" });
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						const activeRouteContainer = [
+							...container.querySelectorAll<HTMLElement>('[tabindex="-1"]'),
+						].at(-1);
+						expect(document.activeElement).toBe<unknown>(activeRouteContainer);
+					}),
+				);
+			}),
+		testTimeout,
 	);
 
-	it.live("retains the previous screen across a pop, without remounting it", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
-			expect(mountCount).toBe(1);
+	it.live(
+		"retains the previous screen across a pop, without remounting it",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				expect(mountCount).toBe(1);
 
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).not.toContain("Item item-1")),
-			);
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).not.toContain("Item item-1")),
+				);
 
-			expect(container.textContent).toContain("Greeted 0 times.");
-			expect(mountCount).toBe(1);
-		}),
+				expect(container.textContent).toContain("Greeted 0 times.");
+				expect(mountCount).toBe(1);
+			}),
+		testTimeout,
 	);
 
-	it.live("paints the retained screen instead of hiding it while a compact pop settles", () =>
-		Effect.gen(function* () {
-			const { setEdge, container, sendLocation } = mount([
-				{ component: ItemRoute, path: "/items/$itemId" },
-			]);
-			setEdge({ compact: true, edgeBack: true });
-			sendLocation("/");
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+	it.live(
+		"paints the retained screen instead of hiding it while a compact pop settles",
+		() =>
+			Effect.gen(function* () {
+				const { setEdge, container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				setEdge({ compact: true, edgeBack: true });
+				sendLocation("/");
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).not.toContain("Item item-1")),
-			);
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).not.toContain("Item item-1")),
+				);
 
-			const screens = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
-			expect(screens).toHaveLength(1);
-			expect(screens[0]?.style.visibility).toBe("visible");
-			expect(screens[0]?.style.transform).toBe("");
-		}),
+				const screens = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
+				expect(screens).toHaveLength(1);
+				expect(screens[0]?.style.visibility).toBe("visible");
+				expect(screens[0]?.style.transform).toBe("");
+			}),
+		testTimeout,
 	);
 
-	it.live("swaps without retaining a leaving screen when the viewport is not compact", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+	it.live(
+		"swaps without retaining a leaving screen when the viewport is not compact",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
-			);
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
+				);
 
-			expect(container.textContent).toContain("Greeted 0 times.");
-			expect(mountCount).toBe(1);
-		}),
+				expect(container.textContent).toContain("Greeted 0 times.");
+				expect(mountCount).toBe(1);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps a retained screen mounted and inert beneath the top screen", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
+	it.live(
+		"keeps a retained screen mounted and inert beneath the top screen",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
 
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			const screens = container.querySelectorAll('[tabindex="-1"]');
-			expect(screens).toHaveLength(2);
-			expect(screens[0]?.getAttribute("aria-hidden")).toBe("true");
-			expect(screens[1]?.getAttribute("aria-hidden")).toBeNull();
-		}),
+				const screens = container.querySelectorAll('[tabindex="-1"]');
+				expect(screens).toHaveLength(2);
+				expect(screens[0]?.getAttribute("aria-hidden")).toBe("true");
+				expect(screens[1]?.getAttribute("aria-hidden")).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("renders no back edge until the kernel hands the plugin the edge", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/");
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+	it.live(
+		"renders no back edge until the kernel hands the plugin the edge",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/");
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
-		}),
+				expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps the visible leading intent independent from back-edge ownership", () =>
-		Effect.gen(function* () {
-			const channel = openChannel({ home: { component: FramedHome } });
-			channel.setEdge({ compact: true, edgeBack: false, leading: "back" });
-			const container = renderRouter(channel);
-			act(() => channel.send("/"));
+	it.live(
+		"keeps the visible leading intent independent from back-edge ownership",
+		() =>
+			Effect.gen(function* () {
+				const channel = openChannel({ home: { component: FramedHome } });
+				channel.setEdge({ compact: true, edgeBack: false, leading: "back" });
+				const container = renderRouter(channel);
+				act(() => channel.send("/"));
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelector('[aria-label="Go back"]')).not.toBeNull()),
-			);
-			expect(container.querySelector('[aria-label="Open navigation"]')).toBeNull();
-			expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector('[aria-label="Go back"]')).not.toBeNull()),
+				);
+				expect(container.querySelector('[aria-label="Open navigation"]')).toBeNull();
+				expect(container.querySelector('[data-plugin-edge="back"]')).toBeNull();
 
-			act(() => channel.setEdge({ compact: true, edgeBack: true, leading: "drawer" }));
-			yield* Effect.promise(() =>
-				waitFor(() =>
-					expect(container.querySelector('[aria-label="Open navigation"]')).not.toBeNull(),
-				),
-			);
-			expect(container.querySelector('[aria-label="Go back"]')).toBeNull();
-			expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
+				act(() => channel.setEdge({ compact: true, edgeBack: true, leading: "drawer" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(container.querySelector('[aria-label="Open navigation"]')).not.toBeNull(),
+					),
+				);
+				expect(container.querySelector('[aria-label="Go back"]')).toBeNull();
+				expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
 
-			act(() => channel.setEdge({ compact: true, edgeBack: true, leading: "none" }));
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelector("button")).toBeNull()),
-			);
-			expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
-		}),
+				act(() => channel.setEdge({ compact: true, edgeBack: true, leading: "none" }));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelector("button")).toBeNull()),
+				);
+				expect(container.querySelector('[data-plugin-edge="back"]')).not.toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("posts one navigate-back when an edge drag passes the commit threshold", () =>
-		Effect.gen(function* () {
-			const { setEdge, messages, container, sendLocation } = mount([
-				{ component: ItemRoute, path: "/items/$itemId" },
-			]);
-			sendLocation("/");
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
-			setEdge({ compact: true, edgeBack: true });
+	it.live(
+		"posts one navigate-back when an edge drag passes the commit threshold",
+		() =>
+			Effect.gen(function* () {
+				const { setEdge, messages, container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/");
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
+				setEdge({ compact: true, edgeBack: true });
 
-			const edge = container.querySelector('[data-plugin-edge="back"]');
-			const root = container.firstElementChild;
-			if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
-				throw new Error("expected a plugin edge strip inside a router root");
-			}
-			Object.defineProperty(root, "clientWidth", { value: 300, configurable: true });
+				const edge = container.querySelector('[data-plugin-edge="back"]');
+				const root = container.firstElementChild;
+				if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
+					throw new Error("expected a plugin edge strip inside a router root");
+				}
+				Object.defineProperty(root, "clientWidth", { value: 300, configurable: true });
 
-			act(() => {
-				edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
-				edge.dispatchEvent(pointer("pointermove", 160, DRAG_END));
-				edge.dispatchEvent(pointer("pointerup", 160, DRAG_END));
-			});
+				act(() => {
+					edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
+					edge.dispatchEvent(pointer("pointermove", 160, DRAG_END));
+					edge.dispatchEvent(pointer("pointerup", 160, DRAG_END));
+				});
 
-			const committing = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
-			expect(committing).toHaveLength(2);
-			for (const screen of committing) {
-				expect(screen.style.visibility).toBe("visible");
-			}
+				const committing = container.querySelectorAll<HTMLElement>('[tabindex="-1"]');
+				expect(committing).toHaveLength(2);
+				for (const screen of committing) {
+					expect(screen.style.visibility).toBe("visible");
+				}
 
-			yield* Effect.promise(() =>
-				waitFor(() => expect(messages).toEqual([{ type: "navigate-back" }])),
-			);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(messages).toEqual([{ type: "navigate-back" }])),
+				);
 
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
-			);
-			expect(container.textContent).not.toContain("Item item-1");
-		}),
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
+				);
+				expect(container.textContent).not.toContain("Item item-1");
+			}),
+		testTimeout,
 	);
 
-	it.live("posts nothing when an edge drag is released below the commit threshold", () =>
-		Effect.gen(function* () {
-			const { setEdge, messages, container, sendLocation } = mount([
-				{ component: ItemRoute, path: "/items/$itemId" },
-			]);
-			sendLocation("/");
-			sendLocation("/items/item-1");
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
-			setEdge({ compact: true, edgeBack: true });
+	it.live(
+		"posts nothing when an edge drag is released below the commit threshold",
+		() =>
+			Effect.gen(function* () {
+				const { setEdge, messages, container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/");
+				sendLocation("/items/item-1");
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
+				setEdge({ compact: true, edgeBack: true });
 
-			const edge = container.querySelector('[data-plugin-edge="back"]');
-			const root = container.firstElementChild;
-			if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
-				throw new Error("expected a plugin edge strip inside a router root");
-			}
-			Object.defineProperty(root, "clientWidth", { value: 300, configurable: true });
+				const edge = container.querySelector('[data-plugin-edge="back"]');
+				const root = container.firstElementChild;
+				if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
+					throw new Error("expected a plugin edge strip inside a router root");
+				}
+				Object.defineProperty(root, "clientWidth", { value: 300, configurable: true });
 
-			act(() => {
-				edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
-				edge.dispatchEvent(pointer("pointermove", 30, DRAG_END));
-				edge.dispatchEvent(pointer("pointerup", 30, DRAG_END));
-			});
+				act(() => {
+					edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
+					edge.dispatchEvent(pointer("pointermove", 30, DRAG_END));
+					edge.dispatchEvent(pointer("pointerup", 30, DRAG_END));
+				});
 
-			yield* waitForMessagePortMacrotask;
-			expect(messages).toEqual([]);
-		}),
+				yield* waitForMessagePortMacrotask;
+				expect(messages).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	it.live("keeps exactly one screen per history entry across back and forward", () =>
-		Effect.gen(function* () {
-			const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
-			);
+	it.live(
+		"keeps exactly one screen per history entry across back and forward",
+		() =>
+			Effect.gen(function* () {
+				const { container, sendLocation } = mount([
+					{ component: ItemRoute, path: "/items/$itemId" },
+				]);
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Greeted 0 times.")),
+				);
 
-			sendLocation("/items/item-1", "", { index: 1 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+				sendLocation("/items/item-1", "", { index: 1 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
-			);
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
+				);
 
-			sendLocation("/items/item-1", "", { index: 1 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.textContent).toContain("Item item-1")),
-			);
+				sendLocation("/items/item-1", "", { index: 1 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.textContent).toContain("Item item-1")),
+				);
 
-			sendLocation("/", "", { index: 0 });
-			yield* Effect.promise(() =>
-				waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
-			);
-			expect(mountCount).toBe(1);
-		}),
+				sendLocation("/", "", { index: 0 });
+				yield* Effect.promise(() =>
+					waitFor(() => expect(container.querySelectorAll('[tabindex="-1"]')).toHaveLength(1)),
+				);
+				expect(mountCount).toBe(1);
+			}),
+		testTimeout,
 	);
 });

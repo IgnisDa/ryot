@@ -1,6 +1,7 @@
+import { afterEach, describe, expect, it } from "bun:test";
+
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { objectContaining } from "@ryot-app/testing/matchers";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { animeRecipes } from "../../shared/anime-recipes";
 import {
@@ -101,7 +102,7 @@ afterEach(() => {
 
 describe("anime schema", () => {
 	it("lists the next episode and episode count facts and drops the unrecorded ones", () => {
-		expect(animeSummaryFacts(animeSummary())).toEqual([
+		expect(animeSummaryFacts(animeSummary())).toEqual<unknown>([
 			objectContaining({ icon: "clock", label: "Next episode" }),
 			{ icon: "tv", inline: true, label: "Episodes", value: "24 episodes" },
 		]);

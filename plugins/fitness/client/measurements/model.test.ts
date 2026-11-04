@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { describe, expect, it } from "vitest";
 
 import { buildMetricRows, smoothRuns, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
@@ -193,7 +194,9 @@ describe("sortMetricRows", () => {
 		["az", ["Body fat", "Waist", "Weight"]],
 		["changed", ["Weight", "Body fat", "Waist"]],
 	] as const)("orders by %s", (sort, expected) => {
-		expect(sortMetricRows(rows, sort).map(({ summary: { name } }) => name)).toEqual(expected);
+		expect(sortMetricRows(rows, sort).map(({ summary: { name } }) => name)).toEqual<unknown>(
+			expected,
+		);
 	});
 });
 

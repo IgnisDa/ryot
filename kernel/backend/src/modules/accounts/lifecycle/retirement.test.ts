@@ -1,5 +1,8 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -115,13 +118,17 @@ layer(
 				expect((yield* runRetirement(ownerWorkflow._tag, calls))._tag).toBe("Success");
 				expect(calls).toEqual(["interrupt", "delete", "complete"]);
 			}),
+		testTimeout,
 	);
 
-	test.effect("fails closed for a retained owner absent from the injected catalogue", () =>
-		Effect.gen(function* () {
-			const calls: Array<string> = [];
-			expect((yield* runRetirement("UnknownOwnerWorkflow", calls))._tag).toBe("Failure");
-			expect(calls).toEqual([]);
-		}),
+	test.effect(
+		"fails closed for a retained owner absent from the injected catalogue",
+		() =>
+			Effect.gen(function* () {
+				const calls: Array<string> = [];
+				expect((yield* runRetirement("UnknownOwnerWorkflow", calls))._tag).toBe("Failure");
+				expect(calls).toEqual([]);
+			}),
+		testTimeout,
 	);
 });

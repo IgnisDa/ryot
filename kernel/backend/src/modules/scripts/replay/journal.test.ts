@@ -1,7 +1,10 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
@@ -35,99 +38,122 @@ const readProjectedJournal = Effect.fnUntraced(function* (
 });
 
 layer(testRedisServiceLayer)((test) => {
-	test.effect("appends write-once entries idempotently and refreshes the projection ttl", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const executionId = testExecutionId("append");
-			const journal = [entry(0, 1), entry(1, 2)];
+	test.effect(
+		"appends write-once entries idempotently and refreshes the projection ttl",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const executionId = testExecutionId("append");
+				const journal = [entry(0, 1), entry(1, 2)];
 
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
-			const projected = yield* Effect.promise(() => redis.client.hgetall(journalKey(executionId)));
-			yield* Effect.promise(() => redis.client.expire(journalKey(executionId), 10));
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
+				const projected = yield* Effect.promise(() =>
+					redis.client.hgetall(journalKey(executionId)),
+				);
+				yield* Effect.promise(() => redis.client.expire(journalKey(executionId), 10));
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 
-			expect(new Set(Object.keys(projected))).toEqual(new Set(["m:0", "m:1", "c:0:0", "c:1:0"]));
-			expect(yield* Effect.promise(() => redis.client.hgetall(journalKey(executionId)))).toEqual(
-				projected,
-			);
-			expect(
-				yield* Effect.promise(() => redis.client.ttl(journalKey(executionId))),
-			).toBeGreaterThan(10);
-		}),
+				expect(new Set(Object.keys(projected))).toEqual(new Set(["m:0", "m:1", "c:0:0", "c:1:0"]));
+				expect(yield* Effect.promise(() => redis.client.hgetall(journalKey(executionId)))).toEqual(
+					projected,
+				);
+				expect(
+					yield* Effect.promise(() => redis.client.ttl(journalKey(executionId))),
+				).toBeGreaterThan(10);
+			}),
+		testTimeout,
 	);
 
-	test.effect("writes nothing for an empty suffix", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const executionId = testExecutionId("empty");
+	test.effect(
+		"writes nothing for an empty suffix",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const executionId = testExecutionId("empty");
 
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, []);
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, []);
 
-			expect(yield* Effect.promise(() => redis.client.exists(journalKey(executionId)))).toBe(0);
-		}),
+				expect(yield* Effect.promise(() => redis.client.exists(journalKey(executionId)))).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	test.effect("keeps a longer journal when an older activation re-appends a prefix", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const executionId = testExecutionId("prefix");
-			const journal = [entry(0, 1), entry(1, 2), entry(2, 3)];
+	test.effect(
+		"keeps a longer journal when an older activation re-appends a prefix",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const executionId = testExecutionId("prefix");
+				const journal = [entry(0, 1), entry(1, 2), entry(2, 3)];
 
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal.slice(0, 2));
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal.slice(0, 2));
 
-			expect(yield* readProjectedJournal(redis, executionId, 3)).toEqual(journal);
-		}),
+				expect(yield* readProjectedJournal(redis, executionId, 3)).toEqual(journal);
+			}),
+		testTimeout,
 	);
 
-	test.effect("surfaces a differing re-append as an infrastructure failure naming the index", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const executionId = testExecutionId("diverge");
+	test.effect(
+		"surfaces a differing re-append as an infrastructure failure naming the index",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const executionId = testExecutionId("diverge");
 
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [entry(0, 1), entry(1, 2)]);
-			const error = yield* Effect.flip(
-				appendWorkflowJournalWithRedis(redis, executionId, 1, [entry(1, 99)]),
-			);
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [entry(0, 1), entry(1, 2)]);
+				const error = yield* Effect.flip(
+					appendWorkflowJournalWithRedis(redis, executionId, 1, [entry(1, 99)]),
+				);
 
-			expect(error).toBeInstanceOf(SandboxRunError);
-			expect(error).toMatchObject({ kind: "infrastructure" });
-			expect(error.message).toContain("journal[1]");
-		}),
+				expect(error).toBeInstanceOf(SandboxRunError);
+				expect(error).toMatchObject({ kind: "infrastructure" });
+				expect(error.message).toContain("journal[1]");
+			}),
+		testTimeout,
 	);
 
-	test.effect("reads exactly the requested journal length and ignores later entries", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const executionId = testExecutionId("exact");
-			const journal = [entry(0, 1), entry(1, 2), entry(2, 3)];
+	test.effect(
+		"reads exactly the requested journal length and ignores later entries",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const executionId = testExecutionId("exact");
+				const journal = [entry(0, 1), entry(1, 2), entry(2, 3)];
 
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 
-			expect(yield* readProjectedJournal(redis, executionId, 2)).toEqual(journal.slice(0, 2));
-		}),
+				expect(yield* readProjectedJournal(redis, executionId, 2)).toEqual(journal.slice(0, 2));
+			}),
+		testTimeout,
 	);
 
-	test.effect("reads an empty journal that was never projected", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
+	test.effect(
+		"reads an empty journal that was never projected",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
 
-			expect(yield* readProjectedJournal(redis, testExecutionId("none"), 0)).toEqual([]);
-		}),
+				expect(yield* readProjectedJournal(redis, testExecutionId("none"), 0)).toEqual([]);
+			}),
+		testTimeout,
 	);
 
-	test.effect("reports a lost entry as a missing projection", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const executionId = testExecutionId("lost");
+	test.effect(
+		"reports a lost entry as a missing projection",
+		() =>
+			Effect.gen(function* () {
+				const redis = yield* RedisService;
+				const executionId = testExecutionId("lost");
 
-			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [entry(0, 1), entry(1, 2)]);
-			expect(yield* readProjectedJournal(redis, executionId, 2)).toHaveLength(2);
+				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [entry(0, 1), entry(1, 2)]);
+				expect(yield* readProjectedJournal(redis, executionId, 2)).toHaveLength(2);
 
-			yield* Effect.promise(() => redis.client.hdel(journalKey(executionId), "m:1"));
+				yield* Effect.promise(() => redis.client.hdel(journalKey(executionId), "m:1"));
 
-			expect(yield* readProjectedJournal(redis, executionId, 2)).toBeNull();
-			expect(yield* readProjectedJournal(redis, testExecutionId("never-written"), 1)).toBeNull();
-		}),
+				expect(yield* readProjectedJournal(redis, executionId, 2)).toBeNull();
+				expect(yield* readProjectedJournal(redis, testExecutionId("never-written"), 1)).toBeNull();
+			}),
+		testTimeout,
 	);
 });

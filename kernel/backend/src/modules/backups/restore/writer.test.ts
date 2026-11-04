@@ -1,5 +1,6 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto, BunFileSystem } from "@effect/platform-bun";
-import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { badRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
@@ -30,10 +31,13 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { count, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
@@ -162,6 +166,7 @@ it.effect(
 			).pipe(Effect.flip);
 			expect(invalidValue._tag).toBe("BadRequest");
 		}),
+	testTimeout,
 );
 
 it("preserves needs-configuration health when the secret was already absent", () => {
@@ -216,6 +221,7 @@ it.effect(
 			const error = yield* resolveRequiredPluginIds(required, installed).pipe(Effect.flip);
 			expect(error).toMatchObject({ packageId, requiredVersion: "1.0.0" });
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -267,6 +273,7 @@ it.effect(
 				(yield* resolveRequiredPluginIds(required, [incompatible]).pipe(Effect.flip)).packageId,
 			).toBe(packageId);
 		}),
+	testTimeout,
 );
 
 it("preserves exported quarantine and hidden intent even when no system conflict remains", () => {
@@ -391,28 +398,31 @@ it("restores integrations with OAuth connection settings disabled", () => {
 	).toBe(false);
 });
 
-it.effect("rejects a crafted provider dependency whose schema belongs to another plugin", () =>
-	assertDependencySchemaOwnership(
-		{
-			properties: {},
-			id: "global-id",
-			name: "Crafted",
-			translations: [],
-			kind: "snapshot",
-			populatedAt: null,
-			externalId: "external-id",
-			entitySchemaSlug: "foreign-schema",
-			createdAt: "2026-08-23T12:00:00.000Z",
-			updatedAt: "2026-08-23T12:00:00.000Z",
-			entitySchemaPluginKey: "provider-owner",
-			provider: { providerSlug: "provider", pluginKey: "provider-owner" },
-			identity: { kind: "provider", providerSlug: "provider", pluginKey: "provider-owner" },
-		},
-		"foreign-owner",
-	).pipe(
-		Effect.flip,
-		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("not owned"))),
-	),
+it.effect(
+	"rejects a crafted provider dependency whose schema belongs to another plugin",
+	() =>
+		assertDependencySchemaOwnership(
+			{
+				properties: {},
+				id: "global-id",
+				name: "Crafted",
+				translations: [],
+				kind: "snapshot",
+				populatedAt: null,
+				externalId: "external-id",
+				entitySchemaSlug: "foreign-schema",
+				createdAt: "2026-08-23T12:00:00.000Z",
+				updatedAt: "2026-08-23T12:00:00.000Z",
+				entitySchemaPluginKey: "provider-owner",
+				provider: { providerSlug: "provider", pluginKey: "provider-owner" },
+				identity: { kind: "provider", providerSlug: "provider", pluginKey: "provider-owner" },
+			},
+			"foreign-owner",
+		).pipe(
+			Effect.flip,
+			Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("not owned"))),
+		),
+	testTimeout,
 );
 
 const provenanceEntity = table("entity", "owner-entity");
@@ -637,104 +647,107 @@ const provenanceEvent = (eventSchemaPluginKey: null | string = "owner-key"): Arc
 	orderCreatedAt: "2026-08-23T12:00:00.000Z",
 });
 
-it.effect("preflights all qualified schema provenance including streamed events", () =>
-	Effect.gen(function* () {
-		const pluginIds = new Map([
-			["owner-key", "owner-id"],
-			["foreign-key", "foreign-id"],
-		]);
-		const cases = [
-			{
-				event: provenanceEvent(),
-				name: "plugin-owned entity with null key",
-				records: provenanceRecords({ entityKey: null }),
-			},
-			{
-				event: provenanceEvent(),
-				name: "plugin-owned relationship with null key",
-				records: provenanceRecords({ relationshipKey: null }),
-			},
-			{
-				event: provenanceEvent(),
-				name: "plugin-owned builtin view with null key",
-				records: provenanceRecords({ viewKey: null, builtinView: true }),
-			},
-			{
-				event: provenanceEvent(),
-				name: "plugin-owned subscription with null key",
-				records: provenanceRecords({ subscriptionKey: null }),
-			},
-			{
-				records: provenanceRecords(),
-				event: provenanceEvent(null),
-				name: "plugin-owned event with null key",
-			},
-			{
-				event: provenanceEvent(),
-				records: provenanceRecords(),
-				name: "kernel entity with plugin key",
-				definitions: {
-					...provenanceDefinitions,
-					entitySchemas: { "owner-entity": { ...provenanceEntityDefinition, pluginId: null } },
+it.effect(
+	"preflights all qualified schema provenance including streamed events",
+	() =>
+		Effect.gen(function* () {
+			const pluginIds = new Map([
+				["owner-key", "owner-id"],
+				["foreign-key", "foreign-id"],
+			]);
+			const cases = [
+				{
+					event: provenanceEvent(),
+					name: "plugin-owned entity with null key",
+					records: provenanceRecords({ entityKey: null }),
 				},
-			},
-			{
-				name: "entity",
-				event: provenanceEvent(),
-				records: provenanceRecords({ entityKey: "foreign-key" }),
-			},
-			{
-				event: provenanceEvent(),
-				name: "unmanaged dependency",
-				records: provenanceRecords({ dependencyKey: "foreign-key" }),
-			},
-			{
-				name: "relationship",
-				event: provenanceEvent(),
-				records: provenanceRecords({ relationshipKey: "foreign-key" }),
-			},
-			{
-				name: "subscription",
-				event: provenanceEvent(),
-				records: provenanceRecords({ subscriptionKey: "foreign-key" }),
-			},
-			{ name: "event", records: provenanceRecords(), event: provenanceEvent("foreign-key") },
-			{
-				name: "undeclared event key",
-				records: provenanceRecords(),
-				event: provenanceEvent("undeclared-key"),
-			},
-			{
-				event: provenanceEvent(),
-				name: "calendar source with a foreign owner",
-				records: provenanceRecords({ calendarSourceKey: "foreign-key" }),
-			},
-			{
-				event: provenanceEvent(),
-				name: "calendar source with an unmapped key",
-				records: provenanceRecords({ calendarSourceKey: "unmapped-key" }),
-			},
-		] as const;
-		for (const testCase of cases) {
-			const error = yield* preflightProvenance(
-				testCase.records,
-				{ count: 1, sha256: "", read: () => Stream.make(testCase.event) },
+				{
+					event: provenanceEvent(),
+					name: "plugin-owned relationship with null key",
+					records: provenanceRecords({ relationshipKey: null }),
+				},
+				{
+					event: provenanceEvent(),
+					name: "plugin-owned builtin view with null key",
+					records: provenanceRecords({ viewKey: null, builtinView: true }),
+				},
+				{
+					event: provenanceEvent(),
+					name: "plugin-owned subscription with null key",
+					records: provenanceRecords({ subscriptionKey: null }),
+				},
+				{
+					records: provenanceRecords(),
+					event: provenanceEvent(null),
+					name: "plugin-owned event with null key",
+				},
+				{
+					event: provenanceEvent(),
+					records: provenanceRecords(),
+					name: "kernel entity with plugin key",
+					definitions: {
+						...provenanceDefinitions,
+						entitySchemas: { "owner-entity": { ...provenanceEntityDefinition, pluginId: null } },
+					},
+				},
+				{
+					name: "entity",
+					event: provenanceEvent(),
+					records: provenanceRecords({ entityKey: "foreign-key" }),
+				},
+				{
+					event: provenanceEvent(),
+					name: "unmanaged dependency",
+					records: provenanceRecords({ dependencyKey: "foreign-key" }),
+				},
+				{
+					name: "relationship",
+					event: provenanceEvent(),
+					records: provenanceRecords({ relationshipKey: "foreign-key" }),
+				},
+				{
+					name: "subscription",
+					event: provenanceEvent(),
+					records: provenanceRecords({ subscriptionKey: "foreign-key" }),
+				},
+				{ name: "event", records: provenanceRecords(), event: provenanceEvent("foreign-key") },
+				{
+					name: "undeclared event key",
+					records: provenanceRecords(),
+					event: provenanceEvent("undeclared-key"),
+				},
+				{
+					event: provenanceEvent(),
+					name: "calendar source with a foreign owner",
+					records: provenanceRecords({ calendarSourceKey: "foreign-key" }),
+				},
+				{
+					event: provenanceEvent(),
+					name: "calendar source with an unmapped key",
+					records: provenanceRecords({ calendarSourceKey: "unmapped-key" }),
+				},
+			] as const;
+			for (const testCase of cases) {
+				const error = yield* preflightProvenance(
+					testCase.records,
+					{ count: 1, sha256: "", read: () => Stream.make(testCase.event) },
+					pluginIds,
+					"definitions" in testCase ? testCase.definitions : provenanceDefinitions,
+					[],
+				).pipe(Effect.flip);
+				expect(error.message, testCase.name).toMatch(
+					/wrong plugin owner|unmapped plugin key|unavailable/,
+				);
+			}
+			yield* preflightProvenance(
+				provenanceRecords({ calendarSourceKey: "owner-key" }),
+				{ count: 1, sha256: "", read: () => Stream.make(provenanceEvent()) },
 				pluginIds,
-				"definitions" in testCase ? testCase.definitions : provenanceDefinitions,
+				provenanceDefinitions,
 				[],
-			).pipe(Effect.flip);
-			expect(error.message, testCase.name).toMatch(
-				/wrong plugin owner|unmapped plugin key|unavailable/,
 			);
-		}
-		yield* preflightProvenance(
-			provenanceRecords({ calendarSourceKey: "owner-key" }),
-			{ count: 1, sha256: "", read: () => Stream.make(provenanceEvent()) },
-			pluginIds,
-			provenanceDefinitions,
-			[],
-		);
-	}),
+		}),
+	testTimeout,
 );
 
 it("does not apply archived translations to an existing global entity", () => {
@@ -752,98 +765,104 @@ it("does not apply archived translations to an existing global entity", () => {
 	expect(selectTranslationsForRestore(true, translations)).toBe(translations);
 });
 
-it.effect("rejects user entities with system-provider provenance during preflight", () =>
-	Effect.gen(function* () {
-		const source = revisionPackage("shared", "v1", "bottle");
-		const packageId = source.manifest.metadata.packageId;
-		const key = pluginPackageKey({ packageId, scope: "system" });
-		const entity = provenanceRecords().entities[0];
-		assert(entity);
-		const records: ArchiveRecords = {
-			...provenanceRecords(),
-			savedViews: [],
-			relationships: [],
-			entityDependencies: [],
-			notificationSubscriptions: [],
-			entities: [
-				{
-					...entity,
-					externalId: "external",
-					entitySchemaSlug: "bottle",
-					entitySchemaPluginKey: key,
-					properties: { kind: "one", name: "Private" },
-					provider: { pluginKey: key, providerSlug: "shared-provider" },
-				},
-			],
-		};
-		const definitions = buildDefinitionSnapshot(
-			mergeManifestDefinitions(
-				{
-					savedViews: [],
-					entitySchemas: [],
-					signalSchemas: [],
-					calendarSources: [],
-					relationshipSchemas: [],
-				},
-				[{ id: "system-owner", manifest: source.manifest }],
-			),
-		);
-		const exit = yield* Effect.exit(
-			preflightProvenance(
-				records,
-				{ count: 0, sha256: "", read: () => Stream.empty },
-				new Map([[key, "system-owner"]]),
-				definitions,
-				[
+it.effect(
+	"rejects user entities with system-provider provenance during preflight",
+	() =>
+		Effect.gen(function* () {
+			const source = revisionPackage("shared", "v1", "bottle");
+			const packageId = source.manifest.metadata.packageId;
+			const key = pluginPackageKey({ packageId, scope: "system" });
+			const entity = provenanceRecords().entities[0];
+			assert(entity);
+			const records: ArchiveRecords = {
+				...provenanceRecords(),
+				savedViews: [],
+				relationships: [],
+				entityDependencies: [],
+				notificationSubscriptions: [],
+				entities: [
 					{
-						packageId,
-						version: "v1",
-						contentHash: source.contentHash,
-						definitionContract: archivePluginDefinitionContract(source.manifest),
+						...entity,
+						externalId: "external",
+						entitySchemaSlug: "bottle",
+						entitySchemaPluginKey: key,
+						properties: { kind: "one", name: "Private" },
+						provider: { pluginKey: key, providerSlug: "shared-provider" },
 					},
 				],
-			),
-		);
-		assertExitFails(exit, badRequest("Backup user entity cannot use a system provider"));
-	}),
+			};
+			const definitions = buildDefinitionSnapshot(
+				mergeManifestDefinitions(
+					{
+						savedViews: [],
+						entitySchemas: [],
+						signalSchemas: [],
+						calendarSources: [],
+						relationshipSchemas: [],
+					},
+					[{ id: "system-owner", manifest: source.manifest }],
+				),
+			);
+			const exit = yield* Effect.exit(
+				preflightProvenance(
+					records,
+					{ count: 0, sha256: "", read: () => Stream.empty },
+					new Map([[key, "system-owner"]]),
+					definitions,
+					[
+						{
+							packageId,
+							version: "v1",
+							contentHash: source.contentHash,
+							definitionContract: archivePluginDefinitionContract(source.manifest),
+						},
+					],
+				),
+			);
+			assertExitFails(exit, badRequest("Backup user entity cannot use a system provider"));
+		}),
+	testTimeout,
 );
 
-it.effect("rejects private-owned global snapshots during preflight", () =>
-	Effect.gen(function* () {
-		const packageValue = revisionPackage("whiskey", "v1", "bottle");
-		const packageId = packageValue.manifest.metadata.packageId;
-		const key = pluginPackageKey({ packageId, scope: "user" });
-		const dependency = provenanceRecords().entityDependencies[0];
-		assert(dependency);
-		const records: ArchiveRecords = {
-			...provenanceRecords(),
-			entities: [],
-			savedViews: [],
-			relationships: [],
-			notificationSubscriptions: [],
-			entityDependencies: [
-				{ ...dependency, entitySchemaSlug: "bottle", entitySchemaPluginKey: key },
-			],
-			privatePlugins: [
-				{
-					key,
-					packageId,
-					version: "v1",
-					compiledScripts: [],
-					contentHash: "a".repeat(64),
-					manifest: packageValue.manifest,
-				},
-			],
-		};
-		const error = yield* preflightProvenance(
-			records,
-			{ count: 0, sha256: "", read: () => Stream.empty },
-			new Map([[key, "private-owner"]]),
-			provenanceDefinitions,
-			[],
-		).pipe(Effect.flip);
-		expect(error.message).toContain("private entity cannot request global scope");
-	}),
+it.effect(
+	"rejects private-owned global snapshots during preflight",
+	() =>
+		Effect.gen(function* () {
+			const packageValue = revisionPackage("whiskey", "v1", "bottle");
+			const packageId = packageValue.manifest.metadata.packageId;
+			const key = pluginPackageKey({ packageId, scope: "user" });
+			const dependency = provenanceRecords().entityDependencies[0];
+			assert(dependency);
+			const records: ArchiveRecords = {
+				...provenanceRecords(),
+				entities: [],
+				savedViews: [],
+				relationships: [],
+				notificationSubscriptions: [],
+				entityDependencies: [
+					{ ...dependency, entitySchemaSlug: "bottle", entitySchemaPluginKey: key },
+				],
+				privatePlugins: [
+					{
+						key,
+						packageId,
+						version: "v1",
+						compiledScripts: [],
+						contentHash: "a".repeat(64),
+						manifest: packageValue.manifest,
+					},
+				],
+			};
+			const error = yield* preflightProvenance(
+				records,
+				{ count: 0, sha256: "", read: () => Stream.empty },
+				new Map([[key, "private-owner"]]),
+				provenanceDefinitions,
+				[],
+			).pipe(Effect.flip);
+			expect(error.message).toContain("private entity cannot request global scope");
+		}),
+	testTimeout,
 );
 
 it.effect(
@@ -881,18 +900,24 @@ it.effect(
 			).pipe(Effect.flip);
 			expect(sourceError.reason).toMatchObject({ code: "settings-incompatible" });
 		}),
+	testTimeout,
 );
 
-it.effect("rejects unavailable plugin renderers through the canonical rule", () =>
-	validateSavedViewDefinition(
-		{ kind: "plugin", exportName: "page", pluginId: "plugin-id" },
-		{},
-		provenanceQuery,
-		null,
-	).pipe(
-		Effect.flip,
-		Effect.tap((error) => Effect.sync(() => expect(error.reason.code).toBe("renderer-not-found"))),
-	),
+it.effect(
+	"rejects unavailable plugin renderers through the canonical rule",
+	() =>
+		validateSavedViewDefinition(
+			{ kind: "plugin", exportName: "page", pluginId: "plugin-id" },
+			{},
+			provenanceQuery,
+			null,
+		).pipe(
+			Effect.flip,
+			Effect.tap((error) =>
+				Effect.sync(() => expect(error.reason.code).toBe("renderer-not-found")),
+			),
+		),
+	testTimeout,
 );
 
 type RestoreEntityInput = Parameters<BackupRestorePersistence["Service"]["restoreEntity"]>[0];
@@ -1075,223 +1100,250 @@ const targetBootstrapEntity = (
 	overrides: Parameters<typeof bootstrapEntity>[1] = {},
 ) => ({ ...bootstrapEntity(id, overrides), provider: null, entitySchemaPluginId });
 
-it.effect("maps bootstrap entities by schema and plugin ownership", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* resolveBootstrapEntityMappings(
-				[
-					bootstrapEntity("archived-bootstrap"),
-					bootstrapEntity("unrelated-bootstrap", {
-						properties: {},
-						name: "Another entity",
-						entitySchemaPluginKey: null,
-						entitySchemaSlug: "another-schema",
-					}),
-				],
-				[targetBootstrapEntity("target-bootstrap", "target-plugin-id")],
-				new Map([["plugin-key", "target-plugin-id"]]),
-			),
-		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
-	}),
+it.effect(
+	"maps bootstrap entities by schema and plugin ownership",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				yield* resolveBootstrapEntityMappings(
+					[
+						bootstrapEntity("archived-bootstrap"),
+						bootstrapEntity("unrelated-bootstrap", {
+							properties: {},
+							name: "Another entity",
+							entitySchemaPluginKey: null,
+							entitySchemaSlug: "another-schema",
+						}),
+					],
+					[targetBootstrapEntity("target-bootstrap", "target-plugin-id")],
+					new Map([["plugin-key", "target-plugin-id"]]),
+				),
+			).toEqual<unknown>(new Map([["archived-bootstrap", "target-bootstrap"]]));
+		}),
+	testTimeout,
 );
 
-it.effect("does not map provider-backed or externally identified rows", () =>
-	Effect.gen(function* () {
-		expect(
-			yield* resolveBootstrapEntityMappings(
-				[
-					bootstrapEntity("archived-bootstrap"),
-					bootstrapEntity("archived-other-plugin", { entitySchemaPluginKey: "other-key" }),
-					bootstrapEntity("archived-provenanced", { externalId: "external" }),
-				],
-				[
-					targetBootstrapEntity("target-bootstrap", "target-plugin-id"),
-					targetBootstrapEntity("target-other-plugin", "other-plugin-id"),
-					targetBootstrapEntity("target-provenanced", "target-plugin-id", {
-						externalId: "external",
-					}),
-				],
-				new Map([
-					["plugin-key", "target-plugin-id"],
-					["other-key", "other-archive-plugin-id"],
-				]),
-			),
-		).toEqual(new Map([["archived-bootstrap", "target-bootstrap"]]));
-	}),
+it.effect(
+	"does not map provider-backed or externally identified rows",
+	() =>
+		Effect.gen(function* () {
+			expect(
+				yield* resolveBootstrapEntityMappings(
+					[
+						bootstrapEntity("archived-bootstrap"),
+						bootstrapEntity("archived-other-plugin", { entitySchemaPluginKey: "other-key" }),
+						bootstrapEntity("archived-provenanced", { externalId: "external" }),
+					],
+					[
+						targetBootstrapEntity("target-bootstrap", "target-plugin-id"),
+						targetBootstrapEntity("target-other-plugin", "other-plugin-id"),
+						targetBootstrapEntity("target-provenanced", "target-plugin-id", {
+							externalId: "external",
+						}),
+					],
+					new Map([
+						["plugin-key", "target-plugin-id"],
+						["other-key", "other-archive-plugin-id"],
+					]),
+				),
+			).toEqual<unknown>(new Map([["archived-bootstrap", "target-bootstrap"]]));
+		}),
+	testTimeout,
 );
 
-it.effect("restores unmatched archived bootstrap entities", () =>
-	resolveBootstrapEntityMappings(
-		[bootstrapEntity("archived")],
-		[],
-		new Map([["plugin-key", "plugin-id"]]),
-	).pipe(Effect.map((mappings) => expect(mappings).toEqual(new Map()))),
+it.effect(
+	"restores unmatched archived bootstrap entities",
+	() =>
+		resolveBootstrapEntityMappings(
+			[bootstrapEntity("archived")],
+			[],
+			new Map([["plugin-key", "plugin-id"]]),
+		).pipe(Effect.map((mappings) => expect(mappings).toEqual(new Map()))),
+	testTimeout,
 );
 
-it.effect("rejects ambiguous bootstrap identities", () =>
-	resolveBootstrapEntityMappings(
-		[bootstrapEntity("archived")],
-		[targetBootstrapEntity("first", "plugin-id"), targetBootstrapEntity("second", "plugin-id")],
-		new Map([["plugin-key", "plugin-id"]]),
-	).pipe(
-		Effect.flip,
-		Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
-	),
+it.effect(
+	"rejects ambiguous bootstrap identities",
+	() =>
+		resolveBootstrapEntityMappings(
+			[bootstrapEntity("archived")],
+			[targetBootstrapEntity("first", "plugin-id"), targetBootstrapEntity("second", "plugin-id")],
+			new Map([["plugin-key", "plugin-id"]]),
+		).pipe(
+			Effect.flip,
+			Effect.tap((error) => Effect.sync(() => expect(error.message).toContain("ambiguous"))),
+		),
+	testTimeout,
 );
 
 layer(restoreWriterLayer())((test) => {
-	test.effect("restores an archived entity without origin metadata", () =>
-		Effect.gen(function* () {
-			yield* restoreArchivedEvents([]);
-			const [restored] = yield* (yield* FakeRestorePersistence).restoredEntities;
-			expect(restored?.id).not.toBe("archived-bootstrap");
-			expect(restored).not.toHaveProperty("origin");
-		}),
+	test.effect(
+		"restores an archived entity without origin metadata",
+		() =>
+			Effect.gen(function* () {
+				yield* restoreArchivedEvents([]);
+				const [restored] = yield* (yield* FakeRestorePersistence).restoredEntities;
+				expect(restored?.id).not.toBe("archived-bootstrap");
+				expect(restored).not.toHaveProperty("origin");
+			}),
+		testTimeout,
 	);
 });
 
 layer(restoreWriterLayer())((test) => {
-	test.effect("restores nested source facts while remapping required occurrence references", () =>
-		Effect.gen(function* () {
-			const propertiesSchema: AppSchema = {
-				fields: {
-					sourceRun: { type: "string", label: "Source run", description: "Source identity" },
-					calendarDate: { type: "date", label: "Date", description: "Recorded calendar date" },
-					basis: {
-						type: "object",
-						label: "Basis",
-						description: "Frozen source quantity",
-						properties: {
-							unit: { label: "Unit", type: "string", description: "Recorded unit" },
-							total: { type: "number", label: "Total", description: "Recorded total" },
-						},
-					},
-					groups: {
-						type: "array",
-						label: "Groups",
-						description: "Ordered occurrence evidence",
-						items: {
+	test.effect(
+		"restores nested source facts while remapping required occurrence references",
+		() =>
+			Effect.gen(function* () {
+				const propertiesSchema: AppSchema = {
+					fields: {
+						sourceRun: { type: "string", label: "Source run", description: "Source identity" },
+						calendarDate: { type: "date", label: "Date", description: "Recorded calendar date" },
+						basis: {
 							type: "object",
-							label: "Group",
-							description: "Retained group",
+							label: "Basis",
+							description: "Frozen source quantity",
 							properties: {
-								note: { label: "Note", type: "string", description: "Opaque source text" },
-								entityIds: {
-									type: "array",
-									label: "References",
-									description: "Retained identities",
-									items: {
-										type: "string",
-										label: "Reference",
-										description: "Retained entity",
-										reference: { required: true, kind: "entity-id" },
+								unit: { label: "Unit", type: "string", description: "Recorded unit" },
+								total: { type: "number", label: "Total", description: "Recorded total" },
+							},
+						},
+						groups: {
+							type: "array",
+							label: "Groups",
+							description: "Ordered occurrence evidence",
+							items: {
+								type: "object",
+								label: "Group",
+								description: "Retained group",
+								properties: {
+									note: { label: "Note", type: "string", description: "Opaque source text" },
+									entityIds: {
+										type: "array",
+										label: "References",
+										description: "Retained identities",
+										items: {
+											type: "string",
+											label: "Reference",
+											description: "Retained entity",
+											reference: { required: true, kind: "entity-id" },
+										},
 									},
 								},
 							},
 						},
 					},
-				},
-			};
-			const properties = {
-				calendarDate: "2026-02-03",
-				sourceRun: "source-run-untouched",
-				basis: { total: 12.5, unit: "units" },
-				groups: [
-					{ note: "archived-bootstrap", entityIds: ["archived-bootstrap", "archived-bootstrap"] },
-					{ note: "empty", entityIds: [] },
-				],
-			};
-			yield* restoreArchivedEvents(
-				[{ ...archivedEvent("source-event"), properties, sessionEntityId: "archived-bootstrap" }],
-				propertiesSchema,
-			);
-			const persistence = yield* FakeRestorePersistence;
-			const [entity] = yield* persistence.restoredEntities;
-			assert(entity?.id);
-			const [event] = yield* persistence.restoredEvents;
-			const timestamp = DateTime.toDate(DateTime.makeUnsafe("2026-08-23T12:00:00.000Z"));
-			expect(event).toEqual({
-				userId: "user-id",
-				id: anyOf(String),
-				entityId: entity.id,
-				createdAt: timestamp,
-				updatedAt: timestamp,
-				occurredAt: timestamp,
-				orderKey: "source-event",
-				eventSchemaSlug: "review",
-				eventSchemaPluginId: null,
-				orderCreatedAt: timestamp,
-				sessionEntityId: entity.id,
-				properties: {
+				};
+				const properties = {
 					calendarDate: "2026-02-03",
 					sourceRun: "source-run-untouched",
 					basis: { total: 12.5, unit: "units" },
 					groups: [
-						{ note: "archived-bootstrap", entityIds: [entity.id, entity.id] },
+						{ note: "archived-bootstrap", entityIds: ["archived-bootstrap", "archived-bootstrap"] },
 						{ note: "empty", entityIds: [] },
 					],
-				},
-			});
-			expect(event?.id).not.toBe("source-event");
-			expect(entity.id).not.toBe("archived-bootstrap");
-		}),
+				};
+				yield* restoreArchivedEvents(
+					[{ ...archivedEvent("source-event"), properties, sessionEntityId: "archived-bootstrap" }],
+					propertiesSchema,
+				);
+				const persistence = yield* FakeRestorePersistence;
+				const [entity] = yield* persistence.restoredEntities;
+				assert(entity?.id);
+				const [event] = yield* persistence.restoredEvents;
+				const timestamp = DateTime.toDate(DateTime.makeUnsafe("2026-08-23T12:00:00.000Z"));
+				expect(event).toEqual<unknown>({
+					userId: "user-id",
+					id: anyOf(String),
+					entityId: entity.id,
+					createdAt: timestamp,
+					updatedAt: timestamp,
+					occurredAt: timestamp,
+					orderKey: "source-event",
+					eventSchemaSlug: "review",
+					eventSchemaPluginId: null,
+					orderCreatedAt: timestamp,
+					sessionEntityId: entity.id,
+					properties: {
+						calendarDate: "2026-02-03",
+						sourceRun: "source-run-untouched",
+						basis: { total: 12.5, unit: "units" },
+						groups: [
+							{ note: "archived-bootstrap", entityIds: [entity.id, entity.id] },
+							{ note: "empty", entityIds: [] },
+						],
+					},
+				});
+				expect(event?.id).not.toBe("source-event");
+				expect(entity.id).not.toBe("archived-bootstrap");
+			}),
+		testTimeout,
 	);
 });
 
 layer(restoreWriterLayer())((test) => {
-	test.effect("rejects an unmapped required nested entity before inserting archived events", () =>
-		Effect.gen(function* () {
-			const error = yield* restoreArchivedEvents(
-				[{ ...archivedEvent("source-event"), properties: { references: ["missing-entity"] } }],
-				{
-					fields: {
-						references: {
-							type: "array",
-							label: "References",
-							description: "Retained entity identities",
-							items: {
-								type: "string",
-								label: "Reference",
-								description: "Retained entity",
-								reference: { required: true, kind: "entity-id" },
+	test.effect(
+		"rejects an unmapped required nested entity before inserting archived events",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* restoreArchivedEvents(
+					[{ ...archivedEvent("source-event"), properties: { references: ["missing-entity"] } }],
+					{
+						fields: {
+							references: {
+								type: "array",
+								label: "References",
+								description: "Retained entity identities",
+								items: {
+									type: "string",
+									label: "Reference",
+									description: "Retained entity",
+									reference: { required: true, kind: "entity-id" },
+								},
 							},
 						},
 					},
-				},
-			).pipe(Effect.flip);
-			expect(error).toMatchObject({
-				_tag: "BackupArchiveError",
-				reason: "missing_reference_mapping",
-			});
-			expect(yield* (yield* FakeRestorePersistence).restoredEvents).toEqual([]);
-		}),
+				).pipe(Effect.flip);
+				expect(error).toMatchObject({
+					_tag: "BackupArchiveError",
+					reason: "missing_reference_mapping",
+				});
+				expect(yield* (yield* FakeRestorePersistence).restoredEvents).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
 layer(restoreWriterLayer())((test) => {
-	test.effect("restores archived events in bounded batches", () =>
-		Effect.gen(function* () {
-			const events = Array.from({ length: RESTORE_EVENT_BATCH_SIZE + 3 }, (_, index) =>
-				archivedEvent(`event-${index.toString().padStart(5, "0")}`),
-			);
-			yield* restoreArchivedEvents(events);
-			const batchSizes = yield* (yield* FakeRestorePersistence).eventBatchSizes;
-			expect(batchSizes.reduce((total, size) => total + size, 0)).toBe(events.length);
-			expect(batchSizes.every((size) => size <= RESTORE_EVENT_BATCH_SIZE)).toBe(true);
-		}),
+	test.effect(
+		"restores archived events in bounded batches",
+		() =>
+			Effect.gen(function* () {
+				const events = Array.from({ length: RESTORE_EVENT_BATCH_SIZE + 3 }, (_, index) =>
+					archivedEvent(`event-${index.toString().padStart(5, "0")}`),
+				);
+				yield* restoreArchivedEvents(events);
+				const batchSizes = yield* (yield* FakeRestorePersistence).eventBatchSizes;
+				expect(batchSizes.reduce((total, size) => total + size, 0)).toBe(events.length);
+				expect(batchSizes.every((size) => size <= RESTORE_EVENT_BATCH_SIZE)).toBe(true);
+			}),
+		testTimeout,
 	);
 });
 
 layer(restoreWriterLayer({ eventInsertFails: true }))((test) => {
-	test.effect("reports a duplicate archived event id through the primary key insert", () =>
-		Effect.gen(function* () {
-			const error = yield* restoreArchivedEvents([archivedEvent("event-1")]).pipe(Effect.flip);
-			expect(error).toMatchObject({
-				path: "events.ndjson",
-				_tag: "BackupArchiveError",
-				reason: "duplicate_record_id",
-			});
-		}),
+	test.effect(
+		"reports a duplicate archived event id through the primary key insert",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* restoreArchivedEvents([archivedEvent("event-1")]).pipe(Effect.flip);
+				expect(error).toMatchObject({
+					path: "events.ndjson",
+					_tag: "BackupArchiveError",
+					reason: "duplicate_record_id",
+				});
+			}),
+		testTimeout,
 	);
 });
 
@@ -1304,54 +1356,60 @@ describe("account backup restore in PostgreSQL", () => {
 			Layer.provideMerge(revisionDatabaseLayer),
 		),
 	)((test) => {
-		test.effect("rolls back historical profile and saved-view writes together", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const persistence = yield* BackupRestorePersistence;
-				const userId = UserId.make("recipient");
-				yield* session
-					.transaction(
-						Effect.gen(function* () {
-							expect(
-								yield* persistence.restorePortableProfile(userId, {
-									image: null,
-									name: "Archived",
-									preferences: {
-										language: null,
-										reportingTimeZone: UTC,
-										disableIntegrations: false,
-									},
-								}),
-							).toBe(true);
-							expect(
-								yield* persistence.restoreCustomView({
-									userId,
-									icon: "view",
-									settings: {},
-									sortOrder: 0,
-									isHidden: false,
-									dataSources: null,
-									id: "archived-view",
-									slug: "archived-view",
-									name: "Archived view",
-									createdAt: archivedTimestamp,
-									updatedAt: archivedTimestamp,
-									renderer: { kind: "kernel", name: "entity-browser" },
-								}),
-							).toBeTruthy();
-							return yield* new DbError({ message: "Abort restore" });
-						}),
-					)
-					.pipe(Effect.flip);
-				const [profile] = yield* session.run((db) =>
-					db.select({ name: tables.user.name }).from(tables.user).where(eq(tables.user.id, userId)),
-				);
-				expect(profile?.name).toBe("Recipient");
-				const views = yield* session.run((db) =>
-					db.select().from(tables.savedView).where(eq(tables.savedView.id, "archived-view")),
-				);
-				expect(views).toEqual([]);
-			}),
+		test.effect(
+			"rolls back historical profile and saved-view writes together",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const persistence = yield* BackupRestorePersistence;
+					const userId = UserId.make("recipient");
+					yield* session
+						.transaction(
+							Effect.gen(function* () {
+								expect(
+									yield* persistence.restorePortableProfile(userId, {
+										image: null,
+										name: "Archived",
+										preferences: {
+											language: null,
+											reportingTimeZone: UTC,
+											disableIntegrations: false,
+										},
+									}),
+								).toBe(true);
+								expect(
+									yield* persistence.restoreCustomView({
+										userId,
+										icon: "view",
+										settings: {},
+										sortOrder: 0,
+										isHidden: false,
+										dataSources: null,
+										id: "archived-view",
+										slug: "archived-view",
+										name: "Archived view",
+										createdAt: archivedTimestamp,
+										updatedAt: archivedTimestamp,
+										renderer: { kind: "kernel", name: "entity-browser" },
+									}),
+								).toBeTruthy();
+								return yield* new DbError({ message: "Abort restore" });
+							}),
+						)
+						.pipe(Effect.flip);
+					const [profile] = yield* session.run((db) =>
+						db
+							.select({ name: tables.user.name })
+							.from(tables.user)
+							.where(eq(tables.user.id, userId)),
+					);
+					expect(profile?.name).toBe("Recipient");
+					const views = yield* session.run((db) =>
+						db.select().from(tables.savedView).where(eq(tables.savedView.id, "archived-view")),
+					);
+					expect(views).toEqual([]);
+				}),
+			testTimeout,
 		);
 	});
 
@@ -1618,108 +1676,112 @@ describe("account backup restore in PostgreSQL", () => {
 						expect(row?.count).toBe(0);
 					}
 				}),
+			testTimeout,
 		);
-		test.effect("does not overwrite a shared system entity from a user backup snapshot", () =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const plugins = yield* PluginRepository;
-				const writer = yield* BackupRestoreWriter;
-				const entities = yield* EntitiesRepository;
-				const persistence = yield* BackupRestorePersistence;
-				const base = revisionPackage("shared", "v1", "bottle");
-				const normalized = normalizePluginPackage(
-					yield* normalizePluginSource({
-						manifest: base.manifest,
-						compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
-							entry,
-							format: compiledFormat,
-							javascript: compiledCode,
-						})),
-					}),
-				);
-				const packageId = normalized.manifest.metadata.packageId;
-				const id = yield* session.transaction(
-					plugins.persist(normalized, { ownerId: null, scope: "system" }),
-				);
-				const provider = yield* plugins.resolveProviderBySlugs({
-					pluginId: id,
-					providerSlug: "shared-provider",
-				});
-				assert(provider);
-				const globalId = yield* session.transaction(
-					persistence.restoreEntity({
-						userId: null,
-						name: "Shared",
-						id: yield* randomUuid,
-						providerId: provider.id,
-						entitySchemaPluginId: id,
-						entitySchemaSlug: "bottle",
-						createdAt: archivedTimestamp,
-						updatedAt: archivedTimestamp,
-						externalId: "shared-external",
-						properties: { kind: "one", name: "Shared" },
-					}),
-				);
-				const before = yield* entities.listGlobalEntitiesByIdsForBackup([globalId]);
-				const key = pluginPackageKey({ packageId, scope: "system" });
-				const records: ArchiveRecords = {
-					...provenanceRecords(),
-					entities: [],
-					savedViews: [],
-					relationships: [],
-					notificationSubscriptions: [],
-					entityDependencies: [
-						{
-							translations: [],
-							kind: "snapshot",
-							populatedAt: null,
-							id: "archived-shared",
+		test.effect(
+			"does not overwrite a shared system entity from a user backup snapshot",
+			() =>
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const plugins = yield* PluginRepository;
+					const writer = yield* BackupRestoreWriter;
+					const entities = yield* EntitiesRepository;
+					const persistence = yield* BackupRestorePersistence;
+					const base = revisionPackage("shared", "v1", "bottle");
+					const normalized = normalizePluginPackage(
+						yield* normalizePluginSource({
+							manifest: base.manifest,
+							compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
+								entry,
+								format: compiledFormat,
+								javascript: compiledCode,
+							})),
+						}),
+					);
+					const packageId = normalized.manifest.metadata.packageId;
+					const id = yield* session.transaction(
+						plugins.persist(normalized, { ownerId: null, scope: "system" }),
+					);
+					const provider = yield* plugins.resolveProviderBySlugs({
+						pluginId: id,
+						providerSlug: "shared-provider",
+					});
+					assert(provider);
+					const globalId = yield* session.transaction(
+						persistence.restoreEntity({
+							userId: null,
+							name: "Shared",
+							id: yield* randomUuid,
+							providerId: provider.id,
+							entitySchemaPluginId: id,
 							entitySchemaSlug: "bottle",
-							entitySchemaPluginKey: key,
-							name: "Untrusted overwrite",
+							createdAt: archivedTimestamp,
+							updatedAt: archivedTimestamp,
 							externalId: "shared-external",
-							createdAt: archivedTimestamp.toISOString(),
-							updatedAt: archivedTimestamp.toISOString(),
-							properties: { kind: "one", name: "Untrusted overwrite" },
-							provider: { pluginKey: key, providerSlug: "shared-provider" },
-							identity: { pluginKey: key, kind: "provider", providerSlug: "shared-provider" },
-						},
-					],
-				};
-				const definitions = buildDefinitionSnapshot(
-					mergeManifestDefinitions(
+							properties: { kind: "one", name: "Shared" },
+						}),
+					);
+					const before = yield* entities.listGlobalEntitiesByIdsForBackup([globalId]);
+					const key = pluginPackageKey({ packageId, scope: "system" });
+					const records: ArchiveRecords = {
+						...provenanceRecords(),
+						entities: [],
+						savedViews: [],
+						relationships: [],
+						notificationSubscriptions: [],
+						entityDependencies: [
+							{
+								translations: [],
+								kind: "snapshot",
+								populatedAt: null,
+								id: "archived-shared",
+								entitySchemaSlug: "bottle",
+								entitySchemaPluginKey: key,
+								name: "Untrusted overwrite",
+								externalId: "shared-external",
+								createdAt: archivedTimestamp.toISOString(),
+								updatedAt: archivedTimestamp.toISOString(),
+								properties: { kind: "one", name: "Untrusted overwrite" },
+								provider: { pluginKey: key, providerSlug: "shared-provider" },
+								identity: { pluginKey: key, kind: "provider", providerSlug: "shared-provider" },
+							},
+						],
+					};
+					const definitions = buildDefinitionSnapshot(
+						mergeManifestDefinitions(
+							{
+								savedViews: [],
+								entitySchemas: [],
+								signalSchemas: [],
+								calendarSources: [],
+								relationshipSchemas: [],
+							},
+							[{ id, manifest: normalized.manifest }],
+						),
+					);
+					const required = [
 						{
-							savedViews: [],
-							entitySchemas: [],
-							signalSchemas: [],
-							calendarSources: [],
-							relationshipSchemas: [],
+							packageId,
+							version: "v1",
+							slug: "shared",
+							contentHash: normalized.contentHash,
+							definitionContract: archivePluginDefinitionContract(normalized.manifest),
 						},
-						[{ id, manifest: normalized.manifest }],
-					),
-				);
-				const required = [
-					{
-						packageId,
-						version: "v1",
-						slug: "shared",
-						contentHash: normalized.contentHash,
-						definitionContract: archivePluginDefinitionContract(normalized.manifest),
-					},
-				];
-				const mapped = yield* writer.assertRequiredPlugins(required);
-				const events = { count: 0, sha256: "", read: () => Stream.empty };
-				yield* writer.preflight(records, events, mapped, definitions, required);
-				yield* restoreFixtureRecords(
-					UserId.make("recipient"),
-					records,
-					new Map(),
-					events,
-					mapped,
-					definitions,
-				);
-				expect(yield* entities.listGlobalEntitiesByIdsForBackup([globalId])).toEqual(before);
-			}),
+					];
+					const mapped = yield* writer.assertRequiredPlugins(required);
+					const events = { count: 0, sha256: "", read: () => Stream.empty };
+					yield* writer.preflight(records, events, mapped, definitions, required);
+					yield* restoreFixtureRecords(
+						UserId.make("recipient"),
+						records,
+						new Map(),
+						events,
+						mapped,
+						definitions,
+					);
+					expect(yield* entities.listGlobalEntitiesByIdsForBackup([globalId])).toEqual(before);
+				}),
+			testTimeout,
 		);
 	});
 	for (const mode of [
@@ -2144,7 +2206,7 @@ describe("account backup restore in PostgreSQL", () => {
 								.from(tables.calendarSourceOverride)
 								.where(eq(tables.calendarSourceOverride.userId, destinationUser)),
 						);
-						expect(restoredCalendarOverrides).toEqual([
+						expect(restoredCalendarOverrides).toEqual<unknown>([
 							{ isHidden: true, slug: "bottle-dates", pluginId: ids.get(firstKey) },
 						]);
 						expect(restoredCalendarOverrides[0]?.pluginId).not.toBe(firstSource.sourceId);
@@ -2153,8 +2215,8 @@ describe("account backup restore in PostgreSQL", () => {
 						);
 						expect(restoredEntities).toHaveLength(2);
 						for (const row of restoredEntities) {
-							expect([...ids.values()]).toContain(row.entitySchemaPluginId);
-							expect(row.provider?.pluginId).toBe(row.entitySchemaPluginId);
+							expect([...ids.values()]).toContain<unknown>(row.entitySchemaPluginId);
+							expect(row.provider?.pluginId).toBe<unknown>(row.entitySchemaPluginId);
 							expect(sources.map(({ entityId }) => entityId)).not.toContain(row.id);
 						}
 						const restoredViews = yield* (yield* SavedViewsRepository).listForBackup(
@@ -2183,7 +2245,7 @@ describe("account backup restore in PostgreSQL", () => {
 									destinationUser,
 									destinationId ?? "",
 								);
-								expect(view.pluginInstallationId).toBe(
+								expect(view.pluginInstallationId).toBe<unknown>(
 									view.slug.endsWith("-unassociated") ? null : installation?.id,
 								);
 								if (!view.slug.endsWith("-extra") && !view.slug.endsWith("-unassociated")) {
@@ -2343,6 +2405,7 @@ describe("account backup restore in PostgreSQL", () => {
 							expect(yield* plugins.findActiveSystemPluginById(systemId)).toEqual(systemBefore);
 						}
 					}).pipe(Effect.scoped),
+				testTimeout,
 			);
 		});
 	}
@@ -2506,104 +2569,116 @@ const restoreAssetRecords = (records: ArchiveRecords) =>
 const assetForbidden = new BackupBadRequest({ reason: { code: "asset-forbidden" } });
 
 layer(assetRestoreLayer("user-id"))((test) => {
-	test.effect("rejects a restored global dependency that carries a managed asset", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* restoreAssetRecords(
-					assetRecords({
-						entityDependencies: [assetDependency({ title: "Shared", image: archivedAsset })],
-					}),
-				),
-				assetForbidden,
-			);
-		}),
+	test.effect(
+		"rejects a restored global dependency that carries a managed asset",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* restoreAssetRecords(
+						assetRecords({
+							entityDependencies: [assetDependency({ title: "Shared", image: archivedAsset })],
+						}),
+					),
+					assetForbidden,
+				);
+			}),
+		testTimeout,
 	);
 
-	test.effect("rejects a restored global-dependency translation that carries a managed asset", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* restoreAssetRecords(
-					assetRecords({
-						entityDependencies: [
-							assetDependency({ title: "Shared" }, [
-								{
-									language: "es",
-									populatedAt: null,
-									name: "Compartido",
-									properties: { image: archivedAsset },
-									createdAt: "2026-08-23T12:00:00.000Z",
-									updatedAt: "2026-08-23T12:00:00.000Z",
-								},
-							]),
-						],
-					}),
-				),
-				assetForbidden,
-			);
-		}),
+	test.effect(
+		"rejects a restored global-dependency translation that carries a managed asset",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* restoreAssetRecords(
+						assetRecords({
+							entityDependencies: [
+								assetDependency({ title: "Shared" }, [
+									{
+										language: "es",
+										populatedAt: null,
+										name: "Compartido",
+										properties: { image: archivedAsset },
+										createdAt: "2026-08-23T12:00:00.000Z",
+										updatedAt: "2026-08-23T12:00:00.000Z",
+									},
+								]),
+							],
+						}),
+					),
+					assetForbidden,
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(assetRestoreLayer("user-id"))((test) => {
-	test.effect("rejects a restored custom view rendered by the kernel calendar", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* restoreAssetRecords(
-					assetRecords({
-						savedViews: [
-							{
-								sortOrder: 0,
-								settings: {},
-								kind: "custom",
-								isHidden: false,
-								pluginKey: null,
-								icon: "calendar",
-								isBuiltin: false,
-								dataSources: null,
-								id: "calendar-copy",
-								name: "Calendar copy",
-								slug: "calendar-copy",
-								createdAt: "2026-08-23T12:00:00.000Z",
-								updatedAt: "2026-08-23T12:00:00.000Z",
-								renderer: { kind: "kernel", name: "calendar" },
-							},
-						],
-					}),
-				),
-				badRequest("Backup saved view definition is invalid"),
-			);
-		}),
+	test.effect(
+		"rejects a restored custom view rendered by the kernel calendar",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* restoreAssetRecords(
+						assetRecords({
+							savedViews: [
+								{
+									sortOrder: 0,
+									settings: {},
+									kind: "custom",
+									isHidden: false,
+									pluginKey: null,
+									icon: "calendar",
+									isBuiltin: false,
+									dataSources: null,
+									id: "calendar-copy",
+									name: "Calendar copy",
+									slug: "calendar-copy",
+									createdAt: "2026-08-23T12:00:00.000Z",
+									updatedAt: "2026-08-23T12:00:00.000Z",
+									renderer: { kind: "kernel", name: "calendar" },
+								},
+							],
+						}),
+					),
+					badRequest("Backup saved view definition is invalid"),
+				);
+			}),
+		testTimeout,
 	);
 });
 
 layer(assetRestoreLayer("foreign-owner"))((test) => {
-	test.effect("rejects a restored saved view whose settings reference a foreign asset", () =>
-		Effect.gen(function* () {
-			assertExitFails(
-				yield* restoreAssetRecords(
-					assetRecords({
-						savedViews: [
-							{
-								icon: "box",
-								sortOrder: 0,
-								kind: "custom",
-								isHidden: false,
-								pluginKey: null,
-								isBuiltin: false,
-								id: "asset-view",
-								dataSources: null,
-								slug: "asset-view",
-								name: "Asset view",
-								settings: { image: archivedAsset },
-								createdAt: "2026-08-23T12:00:00.000Z",
-								updatedAt: "2026-08-23T12:00:00.000Z",
-								renderer: { kind: "plugin", exportName: "summary", pluginKey: assetPluginKey },
-							},
-						],
-					}),
-				),
-				assetForbidden,
-			);
-		}),
+	test.effect(
+		"rejects a restored saved view whose settings reference a foreign asset",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* restoreAssetRecords(
+						assetRecords({
+							savedViews: [
+								{
+									icon: "box",
+									sortOrder: 0,
+									kind: "custom",
+									isHidden: false,
+									pluginKey: null,
+									isBuiltin: false,
+									id: "asset-view",
+									dataSources: null,
+									slug: "asset-view",
+									name: "Asset view",
+									settings: { image: archivedAsset },
+									createdAt: "2026-08-23T12:00:00.000Z",
+									updatedAt: "2026-08-23T12:00:00.000Z",
+									renderer: { kind: "plugin", exportName: "summary", pluginKey: assetPluginKey },
+								},
+							],
+						}),
+					),
+					assetForbidden,
+				);
+			}),
+		testTimeout,
 	);
 });

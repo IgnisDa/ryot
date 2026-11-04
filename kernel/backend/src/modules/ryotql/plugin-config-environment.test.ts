@@ -1,6 +1,9 @@
-import { expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -19,18 +22,25 @@ const cases = [
 const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
 layer(isolatedDatabaseLayer("plugin_config_environment_test"))((test) => {
-	test.effect("derives the same plugin config environment keys in SQL and TypeScript", () =>
-		Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			for (const [packageId, key] of cases) {
-				const rows = yield* session.run((db) =>
-					db.execute<{ key: string }>(
-						sql.raw(`select ${pluginConfigEnvironmentKeySql(quote(packageId), quote(key))} as key`),
-						"objects",
-					),
-				);
-				expect(rows[0]?.key).toBe(pluginConfigEnvironmentKey(PluginPackageId.make(packageId), key));
-			}
-		}),
+	test.effect(
+		"derives the same plugin config environment keys in SQL and TypeScript",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				for (const [packageId, key] of cases) {
+					const rows = yield* session.run((db) =>
+						db.execute<{ key: string }>(
+							sql.raw(
+								`select ${pluginConfigEnvironmentKeySql(quote(packageId), quote(key))} as key`,
+							),
+							"objects",
+						),
+					);
+					expect(rows[0]?.key).toBe(
+						pluginConfigEnvironmentKey(PluginPackageId.make(packageId), key),
+					);
+				}
+			}),
+		testTimeout,
 	);
 });

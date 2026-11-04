@@ -1,11 +1,15 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntitySchemaSlug,
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -295,7 +299,7 @@ layer(populationDatabaseLayer())((test) => {
 					expect(leaf.relatedPopulatedAt).toEqual(leaf.populatedAt);
 					return { targetEntityId: leaf.id, sourceEntityId: child.id };
 				});
-				expect(yield* relationships("part-part")).toEqual(
+				expect(yield* relationships("part-part")).toEqual<unknown>(
 					arrayContaining(expectedEdges.map((edge): unknown => objectContaining(edge))),
 				);
 				expect(yield* relationships("part-part")).toHaveLength(3);
@@ -320,7 +324,7 @@ layer(populationDatabaseLayer())((test) => {
 				const fresh = yield* entity("new");
 				assert(fresh?.populatedAt);
 				expect(fresh.relatedPopulatedAt).toEqual(fresh.populatedAt);
-				expect(yield* relationships("part-part")).toEqual(
+				expect(yield* relationships("part-part")).toEqual<unknown>(
 					arrayContaining(expectedEdges.map((edge): unknown => objectContaining(edge))),
 				);
 				expect(yield* relationships("part-part")).toHaveLength(3);
@@ -331,6 +335,7 @@ layer(populationDatabaseLayer())((test) => {
 					expect(refreshed?.relatedPopulatedAt).toEqual(child.relatedPopulatedAt);
 				}
 			}),
+		testTimeout,
 	);
 });
 
@@ -404,6 +409,7 @@ layer(populationDatabaseLayer())((test) => {
 				);
 				expect((yield* entity("part"))?.properties).toEqual({ title: "Refreshed part" });
 			}),
+		testTimeout,
 	);
 });
 
@@ -439,39 +445,43 @@ layer(populationDatabaseLayer())((test) => {
 				expect(stored?.relatedPopulatedAt).toEqual(DateTime.toDateUtc(DateTime.makeUnsafe(fullAt)));
 				expect((yield* entity("part"))?.properties).toEqual({ title: "Base part" });
 			}),
+		testTimeout,
 	);
 });
 
 layer(populationDatabaseLayer())((test) => {
-	test.effect("keeps populated_at when a full upgrade fails after its root upsert", () =>
-		Effect.gen(function* () {
-			const { entity, populate, relationships } = yield* setup;
-			yield* populate({
-				level: "base",
-				executionId: "levels-base",
-				details: given(details({ title: "Base", partTitle: "Base part" })),
-			});
-			const base = yield* entity("root");
-			assert(base?.populatedAt);
+	test.effect(
+		"keeps populated_at when a full upgrade fails after its root upsert",
+		() =>
+			Effect.gen(function* () {
+				const { entity, populate, relationships } = yield* setup;
+				yield* populate({
+					level: "base",
+					executionId: "levels-base",
+					details: given(details({ title: "Base", partTitle: "Base part" })),
+				});
+				const base = yield* entity("root");
+				assert(base?.populatedAt);
 
-			const exit = yield* Effect.exit(
-				populate({
-					level: "full",
-					executionId: "levels-failing-full",
-					details: given(
-						details({ title: "Full", partTitle: "Part", relationshipSchemaSlug: "missing" }),
-					),
-				}),
-			);
+				const exit = yield* Effect.exit(
+					populate({
+						level: "full",
+						executionId: "levels-failing-full",
+						details: given(
+							details({ title: "Full", partTitle: "Part", relationshipSchemaSlug: "missing" }),
+						),
+					}),
+				);
 
-			expect(Exit.isFailure(exit)).toBe(true);
+				expect(Exit.isFailure(exit)).toBe(true);
 
-			expect(yield* entity("root")).toMatchObject({
-				relatedPopulatedAt: null,
-				populatedAt: base.populatedAt,
-			});
-			expect(yield* relationships("credits")).toEqual([]);
-		}),
+				expect(yield* entity("root")).toMatchObject({
+					relatedPopulatedAt: null,
+					populatedAt: base.populatedAt,
+				});
+				expect(yield* relationships("credits")).toEqual([]);
+			}),
+		testTimeout,
 	);
 });
 
@@ -529,5 +539,6 @@ layer(populationDatabaseLayer())((test) => {
 				expect(observed.every((value) => value !== null)).toBe(true);
 				expect(yield* entity("root")).toMatchObject({ relatedPopulatedAt: null });
 			}),
+		testTimeout,
 	);
 });

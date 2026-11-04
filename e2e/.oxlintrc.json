@@ -10,15 +10,11 @@
 					{
 						"paths": [
 							{
-								"name": "vitest",
+								"name": "bun:test",
 								"message": "Import the runner surface from ~/support/effect-test."
 							},
 							{
-								"name": "bun:test",
-								"message": "bun:test is removed; import from ~/support/effect-test."
-							},
-							{
-								"name": "@effect/vitest",
+								"name": "@voila.dev/effect-bun-test",
 								"message": "Import the runner surface from ~/support/effect-test."
 							}
 						]

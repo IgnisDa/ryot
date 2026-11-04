@@ -1,4 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { fixtureManifest } from "../test-support";
@@ -23,95 +26,109 @@ const importSource = {
 	},
 };
 
-it.effect("accepts top-level upload properties in import input schemas", () =>
-	Effect.gen(function* () {
-		const manifest = fixtureManifest();
-		yield* validateImportSourceInputSchemas({ ...manifest, importSources: [importSource] });
-		expect(true).toBe(true);
-	}),
+it.effect(
+	"accepts top-level upload properties in import input schemas",
+	() =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			yield* validateImportSourceInputSchemas({ ...manifest, importSources: [importSource] });
+			expect(true).toBe(true);
+		}),
+	testTimeout,
 );
 
-it.effect("formats import input schema definition issues", () =>
-	Effect.gen(function* () {
-		const manifest = fixtureManifest();
-		const error = yield* Effect.flip(
-			validateImportSourceInputSchemas({
-				...manifest,
-				importSources: [
-					{
-						...importSource,
-						inputSchema: {
-							...importSource.inputSchema,
-							rules: [
-								{
-									path: ["missing"],
-									kind: "validation" as const,
-									validation: { required: true as const },
-									when: { path: ["uploadToken"], operator: "exists" as const },
+it.effect(
+	"formats import input schema definition issues",
+	() =>
+		Effect.gen(function* () {
+			const manifest = fixtureManifest();
+			const error = yield* Effect.flip(
+				validateImportSourceInputSchemas({
+					...manifest,
+					importSources: [
+						{
+							...importSource,
+							inputSchema: {
+								...importSource.inputSchema,
+								rules: [
+									{
+										path: ["missing"],
+										kind: "validation" as const,
+										validation: { required: true as const },
+										when: { path: ["uploadToken"], operator: "exists" as const },
+									},
+								],
+							},
+						},
+					],
+				}),
+			);
+			expect(error.issues.join("; ")).toContain(
+				"Import source fixture in plugin test/fixture has an invalid inputSchema",
+			);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects import fields reserved by the runtime",
+	() =>
+		Effect.gen(function* () {
+			for (const field of [
+				"source",
+				"integrationId",
+				"integrationContext",
+				"integrationScriptSlug",
+			]) {
+				const manifest = fixtureManifest();
+				const error = yield* Effect.flip(
+					validateImportSourceInputSchemas({
+						...manifest,
+						importSources: [
+							{
+								...importSource,
+								inputSchema: {
+									unknownKeys: "strict",
+									fields: {
+										[field]: { type: "string", label: "Reserved", description: "Reserved" },
+									},
 								},
-							],
-						},
-					},
-				],
-			}),
-		);
-		expect(error.issues.join("; ")).toContain(
-			"Import source fixture in plugin test/fixture has an invalid inputSchema",
-		);
-	}),
+							},
+						],
+					}),
+				);
+				expect(error.issues).toContain(
+					`Import source fixture in plugin test/fixture declares reserved input field: ${field}`,
+				);
+			}
+		}),
+	testTimeout,
 );
 
-it.effect("rejects import fields reserved by the runtime", () =>
-	Effect.gen(function* () {
-		for (const field of [
-			"source",
-			"integrationId",
-			"integrationContext",
-			"integrationScriptSlug",
-		]) {
-			const manifest = fixtureManifest();
-			const error = yield* Effect.flip(
-				validateImportSourceInputSchemas({
-					...manifest,
-					importSources: [
-						{
-							...importSource,
-							inputSchema: {
-								unknownKeys: "strict",
-								fields: { [field]: { type: "string", label: "Reserved", description: "Reserved" } },
+it.effect(
+	"rejects upload-token fields without upload format",
+	() =>
+		Effect.gen(function* () {
+			for (const field of ["uploadToken", "historyUploadToken"]) {
+				const manifest = fixtureManifest();
+				const error = yield* Effect.flip(
+					validateImportSourceInputSchemas({
+						...manifest,
+						importSources: [
+							{
+								...importSource,
+								inputSchema: {
+									unknownKeys: "strict",
+									fields: { [field]: { type: "string", label: "Token", description: "Token" } },
+								},
 							},
-						},
-					],
-				}),
-			);
-			expect(error.issues).toContain(
-				`Import source fixture in plugin test/fixture declares reserved input field: ${field}`,
-			);
-		}
-	}),
-);
-
-it.effect("rejects upload-token fields without upload format", () =>
-	Effect.gen(function* () {
-		for (const field of ["uploadToken", "historyUploadToken"]) {
-			const manifest = fixtureManifest();
-			const error = yield* Effect.flip(
-				validateImportSourceInputSchemas({
-					...manifest,
-					importSources: [
-						{
-							...importSource,
-							inputSchema: {
-								unknownKeys: "strict",
-								fields: { [field]: { type: "string", label: "Token", description: "Token" } },
-							},
-						},
-					],
-				}),
-			);
-			expect(error.issues).toContain(
-				`Import source fixture in plugin test/fixture declares upload token field without upload format: ${field}`,
-			);
-		}
-	}),
+						],
+					}),
+				);
+				expect(error.issues).toContain(
+					`Import source fixture in plugin test/fixture declares upload token field without upload format: ${field}`,
+				);
+			}
+		}),
+	testTimeout,
 );

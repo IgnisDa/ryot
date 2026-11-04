@@ -1,4 +1,5 @@
-import { expect, it, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
@@ -10,6 +11,8 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Option, Ref } from "effect";
 
 import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
@@ -26,7 +29,7 @@ const now = new Date("2026-08-31T12:00:00.000Z");
 
 it("builds the exact first-party clients and API resource", () => {
 	const records = internalOAuthRecords("https://ryot.example", now, true);
-	expect(records.clients).toEqual([
+	expect(records.clients).toEqual<unknown>([
 		objectContaining({
 			disabled: false,
 			requirePKCE: true,
@@ -136,7 +139,9 @@ it("builds the exact first-party clients and API resource", () => {
 
 it("disables the demo web client when no demo account is configured", () => {
 	const records = internalOAuthRecords("https://ryot.example", now, false);
-	expect(records.clients.find(({ clientId }) => clientId === OAUTH_DEMO_WEB_CLIENT_ID)).toEqual(
+	expect(
+		records.clients.find(({ clientId }) => clientId === OAUTH_DEMO_WEB_CLIENT_ID),
+	).toEqual<unknown>(
 		objectContaining({
 			disabled: true,
 			requirePKCE: true,
@@ -234,46 +239,49 @@ const reprovisioningLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(Layer.merge(databaseLayer, fakeAuthRepositoryLayer)));
 
 layer(reprovisioningLayer)((test) => {
-	test.effect("reprovisions the same records and updates origin-owned values", () =>
-		Effect.gen(function* () {
-			const repository = yield* FakeAuthRepository;
-			const first = yield* FirstOriginProvisioning;
-			const second = yield* SecondOriginProvisioning;
-			yield* first.provision();
-			expect((yield* repository.clients).get(OAUTH_DEMO_WEB_CLIENT_ID)?.disabled).toBe(false);
-			yield* first.provision();
-			yield* second.provision();
-			const clients = yield* repository.clients;
-			const resources = yield* repository.resources;
-			expect(clients).toHaveLength(5);
-			expect(resources).toHaveLength(1);
-			expect(yield* repository.links).toHaveLength(5);
-			expect(clients.get(OAUTH_WEB_CLIENT_ID)?.redirectUris).toEqual([
-				"https://second.example/auth/callback",
-			]);
-			expect(clients.get(OAUTH_NATIVE_CLIENT_ID)?.redirectUris).toEqual([
-				...OAUTH_NATIVE_CALLBACK_URIS,
-			]);
-			expect(clients.get(OAUTH_IMPERSONATION_WEB_CLIENT_ID)).toEqual(
-				objectContaining({
-					requirePKCE: true,
-					skipConsent: true,
-					scopes: [...OAUTH_SCOPES],
-					redirectUris: ["https://second.example/auth/callback"],
-					postLogoutRedirectUris: ["https://second.example/auth/logout/callback"],
-				}),
-			);
-			expect(clients.get(OAUTH_IMPERSONATION_NATIVE_CLIENT_ID)).toEqual(
-				objectContaining({
-					requirePKCE: true,
-					skipConsent: true,
-					scopes: [...OAUTH_SCOPES],
-					redirectUris: [...OAUTH_NATIVE_CALLBACK_URIS],
-					postLogoutRedirectUris: [...OAUTH_NATIVE_LOGOUT_CALLBACK_URIS],
-				}),
-			);
-			expect(clients.get(OAUTH_DEMO_WEB_CLIENT_ID)?.disabled).toBe(true);
-			expect(resources.get("ryot-api")?.identifier).toBe("https://second.example/api");
-		}),
+	test.effect(
+		"reprovisions the same records and updates origin-owned values",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* FakeAuthRepository;
+				const first = yield* FirstOriginProvisioning;
+				const second = yield* SecondOriginProvisioning;
+				yield* first.provision();
+				expect((yield* repository.clients).get(OAUTH_DEMO_WEB_CLIENT_ID)?.disabled).toBe(false);
+				yield* first.provision();
+				yield* second.provision();
+				const clients = yield* repository.clients;
+				const resources = yield* repository.resources;
+				expect(clients).toHaveLength(5);
+				expect(resources).toHaveLength(1);
+				expect(yield* repository.links).toHaveLength(5);
+				expect(clients.get(OAUTH_WEB_CLIENT_ID)?.redirectUris).toEqual([
+					"https://second.example/auth/callback",
+				]);
+				expect(clients.get(OAUTH_NATIVE_CLIENT_ID)?.redirectUris).toEqual([
+					...OAUTH_NATIVE_CALLBACK_URIS,
+				]);
+				expect(clients.get(OAUTH_IMPERSONATION_WEB_CLIENT_ID)).toEqual<unknown>(
+					objectContaining({
+						requirePKCE: true,
+						skipConsent: true,
+						scopes: [...OAUTH_SCOPES],
+						redirectUris: ["https://second.example/auth/callback"],
+						postLogoutRedirectUris: ["https://second.example/auth/logout/callback"],
+					}),
+				);
+				expect(clients.get(OAUTH_IMPERSONATION_NATIVE_CLIENT_ID)).toEqual<unknown>(
+					objectContaining({
+						requirePKCE: true,
+						skipConsent: true,
+						scopes: [...OAUTH_SCOPES],
+						redirectUris: [...OAUTH_NATIVE_CALLBACK_URIS],
+						postLogoutRedirectUris: [...OAUTH_NATIVE_LOGOUT_CALLBACK_URIS],
+					}),
+				);
+				expect(clients.get(OAUTH_DEMO_WEB_CLIENT_ID)?.disabled).toBe(true);
+				expect(resources.get("ryot-api")?.identifier).toBe("https://second.example/api");
+			}),
+		testTimeout,
 	);
 });

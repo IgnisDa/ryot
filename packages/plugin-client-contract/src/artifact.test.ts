@@ -1,6 +1,7 @@
+import { expect, it } from "bun:test";
+
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { expect, it } from "vitest";
 
 import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,

@@ -1,10 +1,11 @@
+import { describe, expect, it } from "bun:test";
+
 import {
 	limitSandboxCompilationDiagnostics,
 	pluginBackendCompilerDiagnostic,
 } from "@ryot-app/plugin-backend-compiler/diagnostics";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import { stringContaining } from "@ryot-app/testing/matchers";
-import { describe, expect, it } from "vitest";
+import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 
 import {
 	chargeSandboxHostCall,
@@ -63,19 +64,23 @@ describe("sandbox limits", () => {
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.total; index += 1) {
 			expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toBeNull();
 		}
-		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toMatchObject({
-			message: stringContaining("1000 host calls"),
-			reason: { code: "execution-limit", operation: "getCachedValue" },
-		});
+		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toEqual<unknown>(
+			objectContaining({
+				message: stringContaining("1000 host calls"),
+				reason: objectContaining({ code: "execution-limit", operation: "getCachedValue" }),
+			}),
+		);
 
 		const httpBudget = { http: 0, total: 0, userSettingsWrites: 0 };
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.http; index += 1) {
 			expect(consumeSandboxHostCall(httpBudget, "httpCall")).toBeNull();
 		}
-		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toMatchObject({
-			message: stringContaining("50 httpCall calls"),
-			reason: { operation: "httpCall", code: "execution-limit" },
-		});
+		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toEqual<unknown>(
+			objectContaining({
+				message: stringContaining("50 httpCall calls"),
+				reason: objectContaining({ operation: "httpCall", code: "execution-limit" }),
+			}),
+		);
 
 		const settingsBudget = { http: 0, total: 0, userSettingsWrites: 0 };
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.userSettingsWrites; index += 1) {

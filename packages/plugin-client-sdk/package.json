@@ -53,7 +53,7 @@
 		}
 	},
 	"scripts": {
-		"test": "bun --bun run vitest run",
+		"test": "bun ../../packages/testing/src/run-client-tests.ts",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -68,14 +68,13 @@
 		"react-dom": "19.2.6"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "10.4.1",
 		"@types/react": "19.2.15",
 		"@types/react-dom": "19.2.3",
+		"@voila.dev/effect-bun-test": "4.0.4",
 		"bun-types": "1.4.4",
 		"jsdom": "30.0.1",
-		"vite": "8.0.14",
-		"vitest": "4.1.9"
+		"vite": "8.0.14"
 	}
 }

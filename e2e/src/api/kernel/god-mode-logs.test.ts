@@ -63,7 +63,7 @@ describe("Server log API", () => {
 			);
 			const nextCursor = firstPage.pageInfo.nextCursor;
 			assert(nextCursor);
-			expect(firstPage.pageInfo).toEqual({
+			expect(firstPage.pageInfo).toEqual<unknown>({
 				limit: 1,
 				hasMore: true,
 				nextCursor: firstPage.files[0]?.name,

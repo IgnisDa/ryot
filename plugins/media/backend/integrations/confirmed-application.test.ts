@@ -1,7 +1,11 @@
-import { afterEach, assert, expect, it } from "@effect/vitest";
+import { afterEach, expect } from "bun:test";
+
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
 
 import {
@@ -158,6 +162,7 @@ it.effect(
 			yield* runSandboxTestScript(spotify, {}, host, execution);
 			expect(yield* fs.records()).toHaveLength(2);
 		}),
+	testTimeout,
 );
 
 it.effect(
@@ -291,7 +296,9 @@ it.effect(
 				factory,
 			);
 			expect(yield* collect("2026-01-01T23:55:00Z")).toEqual([]);
-			expect([...saved.values()]).toEqual(Array(4).fill(Date.parse("2026-01-02T00:00:00Z")));
+			expect([...saved.values()]).toEqual<unknown>(
+				Array(4).fill(Date.parse("2026-01-02T00:00:00Z")),
+			);
 			historyDay = "January 2, 2026";
 			expect(
 				(yield* collect("2026-01-02T12:00:00Z")).map(
@@ -306,4 +313,5 @@ it.effect(
 				),
 			).toEqual([35, 35]);
 		}),
+	testTimeout,
 );

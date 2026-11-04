@@ -1,8 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
 import { EventId } from "@ryot-app/contract/schema/brands";
 import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it } from "@voila.dev/effect-bun-test";
 
 import { ExerciseNoteCreateInput } from "../../shared/exercise-note-operations";
 import createDefinition, { manifest as createManifest } from "./exercise-note-create.sandbox";
@@ -114,143 +117,167 @@ const foreignEventIds = [
 ];
 
 describe("exercise note operations", () => {
-	it.live("creates one review on an exercise with only note properties", () =>
-		Effect.gen(function* () {
-			const hosts = recordingHosts();
+	it.live(
+		"creates one review on an exercise with only note properties",
+		() =>
+			Effect.gen(function* () {
+				const hosts = recordingHosts();
 
-			expect(
-				yield* runSandboxTestScript(
-					createDefinition,
-					{ rating: 80, exerciseId: "exercise-1", text: "  Keep elbows tucked  " },
-					hosts.create,
-					execution,
-				),
-			).toEqual({ count: 1 });
-			yield* runSandboxTestScript(
-				createDefinition,
-				{ text: "No rating", exerciseId: "exercise-1" },
-				hosts.create,
-				execution,
-			);
-
-			expect(hosts.creates).toEqual([
-				[
-					{
-						entityId: "exercise-1",
-						eventSchemaSlug: "review",
-						properties: { rating: 80, text: "Keep elbows tucked" },
-					},
-				],
-				[{ entityId: "exercise-1", eventSchemaSlug: "review", properties: { text: "No rating" } }],
-			]);
-		}),
-	);
-
-	it.live("rejects creating a note on a non-exercise or missing entity without writing", () =>
-		Effect.gen(function* () {
-			const hosts = recordingHosts();
-
-			for (const exerciseId of ["movie-1", "collection-1", "missing", "foreign-exercise"]) {
-				const failure = yield* Effect.flip(
-					runSandboxTestScript(
+				expect(
+					yield* runSandboxTestScript(
 						createDefinition,
-						{ exerciseId, text: "Note" },
+						{ rating: 80, exerciseId: "exercise-1", text: "  Keep elbows tucked  " },
 						hosts.create,
 						execution,
 					),
+				).toEqual({ count: 1 });
+				yield* runSandboxTestScript(
+					createDefinition,
+					{ text: "No rating", exerciseId: "exercise-1" },
+					hosts.create,
+					execution,
 				);
-				expect(failure).toBeInstanceOf(ExerciseNoteNotFoundError);
-			}
-			expect(hosts.creates).toEqual([]);
-		}),
+
+				expect(hosts.creates).toEqual([
+					[
+						{
+							entityId: "exercise-1",
+							eventSchemaSlug: "review",
+							properties: { rating: 80, text: "Keep elbows tucked" },
+						},
+					],
+					[
+						{
+							entityId: "exercise-1",
+							eventSchemaSlug: "review",
+							properties: { text: "No rating" },
+						},
+					],
+				]);
+			}),
+		testTimeout,
 	);
 
-	it.live("rejects updating or deleting anything but an exercise review without writing", () =>
-		Effect.gen(function* () {
-			const hosts = recordingHosts();
+	it.live(
+		"rejects creating a note on a non-exercise or missing entity without writing",
+		() =>
+			Effect.gen(function* () {
+				const hosts = recordingHosts();
 
-			for (const noteId of foreignEventIds) {
-				const updateFailure = yield* Effect.flip(
-					runSandboxTestScript(
-						updateDefinition,
-						{ noteId, rating: 20, text: "Changed" },
-						hosts.update,
+				for (const exerciseId of ["movie-1", "collection-1", "missing", "foreign-exercise"]) {
+					const failure = yield* Effect.flip(
+						runSandboxTestScript(
+							createDefinition,
+							{ exerciseId, text: "Note" },
+							hosts.create,
+							execution,
+						),
+					);
+					expect(failure).toBeInstanceOf(ExerciseNoteNotFoundError);
+				}
+				expect(hosts.creates).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"rejects updating or deleting anything but an exercise review without writing",
+		() =>
+			Effect.gen(function* () {
+				const hosts = recordingHosts();
+
+				for (const noteId of foreignEventIds) {
+					const updateFailure = yield* Effect.flip(
+						runSandboxTestScript(
+							updateDefinition,
+							{ noteId, rating: 20, text: "Changed" },
+							hosts.update,
+							execution,
+						),
+					);
+					expect(updateFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
+					const deleteFailure = yield* Effect.flip(
+						runSandboxTestScript(deleteDefinition, { noteId }, hosts.delete, execution),
+					);
+					expect(deleteFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
+				}
+				expect(hosts.updates).toEqual([]);
+				expect(hosts.deletes).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"patches only note properties and removes a cleared rating",
+		() =>
+			Effect.gen(function* () {
+				const hosts = recordingHosts();
+
+				yield* runSandboxTestScript(
+					updateDefinition,
+					{ rating: 60, noteId: "note-1", text: " Heavier " },
+					hosts.update,
+					execution,
+				);
+				yield* runSandboxTestScript(
+					updateDefinition,
+					{ rating: null, text: "Cleared", noteId: "note-1" },
+					hosts.update,
+					execution,
+				);
+
+				expect(hosts.updates).toEqual([
+					[
+						{
+							eventId: "note-1",
+							patch: { properties: { remove: [], set: { rating: 60, text: "Heavier" } } },
+						},
+					],
+					[
+						{
+							eventId: "note-1",
+							patch: { properties: { remove: ["rating"], set: { text: "Cleared" } } },
+						},
+					],
+				]);
+				for (const [item] of hosts.updates) {
+					expect(Object.keys(item?.patch ?? {})).toEqual(["properties"]);
+				}
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"deletes an exercise review by its id",
+		() =>
+			Effect.gen(function* () {
+				const hosts = recordingHosts();
+
+				expect(
+					yield* runSandboxTestScript(
+						deleteDefinition,
+						{ noteId: "note-1" },
+						hosts.delete,
 						execution,
 					),
-				);
-				expect(updateFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
-				const deleteFailure = yield* Effect.flip(
-					runSandboxTestScript(deleteDefinition, { noteId }, hosts.delete, execution),
-				);
-				expect(deleteFailure).toBeInstanceOf(ExerciseNoteNotFoundError);
-			}
-			expect(hosts.updates).toEqual([]);
-			expect(hosts.deletes).toEqual([]);
-		}),
+				).toEqual({ count: 1 });
+				expect(hosts.deletes).toEqual([["note-1"]]);
+			}),
+		testTimeout,
 	);
 
-	it.live("patches only note properties and removes a cleared rating", () =>
-		Effect.gen(function* () {
-			const hosts = recordingHosts();
-
-			yield* runSandboxTestScript(
-				updateDefinition,
-				{ rating: 60, noteId: "note-1", text: " Heavier " },
-				hosts.update,
-				execution,
-			);
-			yield* runSandboxTestScript(
-				updateDefinition,
-				{ rating: null, text: "Cleared", noteId: "note-1" },
-				hosts.update,
-				execution,
-			);
-
-			expect(hosts.updates).toEqual([
-				[
-					{
-						eventId: "note-1",
-						patch: { properties: { remove: [], set: { rating: 60, text: "Heavier" } } },
-					},
-				],
-				[
-					{
-						eventId: "note-1",
-						patch: { properties: { remove: ["rating"], set: { text: "Cleared" } } },
-					},
-				],
-			]);
-			for (const [item] of hosts.updates) {
-				expect(Object.keys(item?.patch ?? {})).toEqual(["properties"]);
-			}
-		}),
-	);
-
-	it.live("deletes an exercise review by its id", () =>
-		Effect.gen(function* () {
-			const hosts = recordingHosts();
-
-			expect(
-				yield* runSandboxTestScript(
-					deleteDefinition,
-					{ noteId: "note-1" },
-					hosts.delete,
-					execution,
-				),
-			).toEqual({ count: 1 });
-			expect(hosts.deletes).toEqual([["note-1"]]);
-		}),
-	);
-
-	it.effect("rejects blank and oversized note text", () =>
-		Effect.gen(function* () {
-			const decode = Schema.decodeUnknownEffect(ExerciseNoteCreateInput);
-			yield* Effect.flip(decode({ text: "   ", exerciseId: "exercise-1" }));
-			yield* Effect.flip(decode({ text: "a".repeat(2001), exerciseId: "exercise-1" }));
-			yield* Effect.flip(decode({ rating: 101, text: "Note", exerciseId: "exercise-1" }));
-			expect(
-				(yield* decode({ exerciseId: "exercise-1", text: ` ${"a".repeat(2000)} ` })).text,
-			).toHaveLength(2000);
-		}),
+	it.effect(
+		"rejects blank and oversized note text",
+		() =>
+			Effect.gen(function* () {
+				const decode = Schema.decodeUnknownEffect(ExerciseNoteCreateInput);
+				yield* Effect.flip(decode({ text: "   ", exerciseId: "exercise-1" }));
+				yield* Effect.flip(decode({ text: "a".repeat(2001), exerciseId: "exercise-1" }));
+				yield* Effect.flip(decode({ rating: 101, text: "Note", exerciseId: "exercise-1" }));
+				expect(
+					(yield* decode({ exerciseId: "exercise-1", text: ` ${"a".repeat(2000)} ` })).text,
+				).toHaveLength(2000);
+			}),
+		testTimeout,
 	);
 });

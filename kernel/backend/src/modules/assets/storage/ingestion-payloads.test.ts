@@ -1,6 +1,9 @@
+import { expect } from "bun:test";
+
 import { BunCrypto, BunServices } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer } from "effect";
 
 import { ingestionTestScope } from "#modules/imports/ingestion.test-support";
@@ -79,5 +82,6 @@ layer(Layer.provideMerge(BunServices.layer, BunCrypto.layerSecureRandom))((test)
 					);
 				}).pipe(Effect.provideContext(restarted));
 			}),
+		testTimeout,
 	);
 });

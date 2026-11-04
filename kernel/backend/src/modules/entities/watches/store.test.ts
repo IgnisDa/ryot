@@ -1,5 +1,6 @@
+import { describe, expect } from "bun:test";
+
 import { BunCrypto } from "@effect/platform-bun";
-import { expect, it, layer } from "@effect/vitest";
 import {
 	MAX_FOREGROUND_ENTITY_IDS,
 	MAX_INTEREST_ENTITY_IDS,
@@ -7,8 +8,9 @@ import {
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
+import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { it, layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
-import { describe } from "vitest";
 
 import {
 	ENTITY_WATCH_PROGRESSION_LEASE_SECONDS,
@@ -131,6 +133,7 @@ layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom), { excludeTest
 						expect(yield* tokens).toEqual({ a: "watching:f" });
 					}),
 				),
+			testTimeout,
 		);
 
 		test.effect(
@@ -171,159 +174,172 @@ layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom), { excludeTest
 						expect(yield* tokens).toEqual({});
 					}),
 				),
+			testTimeout,
 		);
 
-		test.effect("stores priority in membership tokens and returns it with pending interest", () =>
-			withSession(["a", "b"], ({ store, tokens, sessionId }) =>
-				Effect.gen(function* () {
-					const applied = yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						foregroundIds: ["b"],
-						entityIds: ["a", "b"],
-					});
-					expect(applied).toEqual({
-						revision: 1,
-						status: "applied",
-						pending: arrayContaining([
-							{ revision: 1, entityId: "a", priority: "visible" },
-							{ revision: 1, entityId: "b", priority: "foreground" },
-						]),
-					});
-					expect(yield* tokens).toEqual({ a: "pending:1:v", b: "pending:1:f" });
-					expect(
-						yield* store.markReconciled({
+		test.effect(
+			"stores priority in membership tokens and returns it with pending interest",
+			() =>
+				withSession(["a", "b"], ({ store, tokens, sessionId }) =>
+					Effect.gen(function* () {
+						const applied = yield* store.replaceInterest({
 							sessionId,
-							pending: [
-								{ revision: 1, entityId: "a", priority: "foreground" },
+							revision: 1,
+							foregroundIds: ["b"],
+							entityIds: ["a", "b"],
+						});
+						expect(applied).toEqual<unknown>({
+							revision: 1,
+							status: "applied",
+							pending: arrayContaining([
+								{ revision: 1, entityId: "a", priority: "visible" },
 								{ revision: 1, entityId: "b", priority: "foreground" },
-							],
-						}),
-					).toEqual(["b"]);
-					expect(yield* tokens).toEqual({ b: "watching:f", a: "pending:1:v" });
-					expect(
-						yield* store.removePending({
+							]),
+						});
+						expect(yield* tokens).toEqual({ a: "pending:1:v", b: "pending:1:f" });
+						expect(
+							yield* store.markReconciled({
+								sessionId,
+								pending: [
+									{ revision: 1, entityId: "a", priority: "foreground" },
+									{ revision: 1, entityId: "b", priority: "foreground" },
+								],
+							}),
+						).toEqual(["b"]);
+						expect(yield* tokens).toEqual({ b: "watching:f", a: "pending:1:v" });
+						expect(
+							yield* store.removePending({
+								sessionId,
+								pending: [{ revision: 1, entityId: "a", priority: "visible" }],
+							}),
+						).toEqual(["a"]);
+						expect(yield* tokens).toEqual({ b: "watching:f" });
+					}),
+				),
+			testTimeout,
+		);
+
+		test.effect(
+			"re-pends a promotion and demotes a watching entity without reconciliation",
+			() =>
+				withSession(["a", "b"], ({ store, tokens, sessionId }) =>
+					Effect.gen(function* () {
+						yield* store.replaceInterest({
 							sessionId,
-							pending: [{ revision: 1, entityId: "a", priority: "visible" }],
-						}),
-					).toEqual(["a"]);
-					expect(yield* tokens).toEqual({ b: "watching:f" });
-				}),
-			),
-		);
-
-		test.effect("re-pends a promotion and demotes a watching entity without reconciliation", () =>
-			withSession(["a", "b"], ({ store, tokens, sessionId }) =>
-				Effect.gen(function* () {
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						foregroundIds: ["b"],
-						entityIds: ["a", "b"],
-					});
-					yield* store.markReconciled({
-						sessionId,
-						pending: [
-							{ revision: 1, entityId: "a", priority: "visible" },
-							{ revision: 1, entityId: "b", priority: "foreground" },
-						],
-					});
-
-					const updated = yield* store.replaceInterest({
-						sessionId,
-						revision: 2,
-						foregroundIds: ["a"],
-						entityIds: ["a", "b"],
-					});
-
-					expect(updated).toEqual({
-						revision: 2,
-						status: "applied",
-						pending: [{ revision: 2, entityId: "a", priority: "foreground" }],
-					});
-					expect(yield* tokens).toEqual({ b: "watching:v", a: "pending:2:f" });
-					const replaced = yield* store.replaceInterest({
-						sessionId,
-						revision: 3,
-						foregroundIds: ["b"],
-						entityIds: ["a", "b"],
-					});
-					expect(replaced).toEqual({
-						revision: 3,
-						status: "applied",
-						pending: arrayContaining([
-							{ revision: 3, entityId: "a", priority: "visible" },
-							{ revision: 3, entityId: "b", priority: "foreground" },
-						]),
-					});
-				}),
-			),
-		);
-
-		test.effect("bumps the revision when a promotion is demoted before reconciliation", () =>
-			withSession(["a"], ({ store, tokens, sessionId }) =>
-				Effect.gen(function* () {
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						entityIds: ["a"],
-						foregroundIds: [],
-					});
-					const replace = (revision: number, foregroundIds: readonly string[]) =>
-						store.replaceInterest({ revision, sessionId, foregroundIds, entityIds: ["a"] });
-					yield* replace(2, ["a"]);
-					expect(yield* replace(3, [])).toEqual({
-						revision: 3,
-						status: "applied",
-						pending: [{ revision: 3, entityId: "a", priority: "visible" }],
-					});
-					expect(
+							revision: 1,
+							foregroundIds: ["b"],
+							entityIds: ["a", "b"],
+						});
 						yield* store.markReconciled({
 							sessionId,
 							pending: [
 								{ revision: 1, entityId: "a", priority: "visible" },
-								{ revision: 2, entityId: "a", priority: "foreground" },
+								{ revision: 1, entityId: "b", priority: "foreground" },
 							],
-						}),
-					).toEqual([]);
-					expect(
-						yield* store.markReconciled({
+						});
+
+						const updated = yield* store.replaceInterest({
 							sessionId,
-							pending: [{ revision: 3, entityId: "a", priority: "visible" }],
-						}),
-					).toEqual(["a"]);
-					expect(yield* tokens).toEqual({ a: "watching:v" });
-				}),
-			),
+							revision: 2,
+							foregroundIds: ["a"],
+							entityIds: ["a", "b"],
+						});
+
+						expect(updated).toEqual({
+							revision: 2,
+							status: "applied",
+							pending: [{ revision: 2, entityId: "a", priority: "foreground" }],
+						});
+						expect(yield* tokens).toEqual({ b: "watching:v", a: "pending:2:f" });
+						const replaced = yield* store.replaceInterest({
+							sessionId,
+							revision: 3,
+							foregroundIds: ["b"],
+							entityIds: ["a", "b"],
+						});
+						expect(replaced).toEqual<unknown>({
+							revision: 3,
+							status: "applied",
+							pending: arrayContaining([
+								{ revision: 3, entityId: "a", priority: "visible" },
+								{ revision: 3, entityId: "b", priority: "foreground" },
+							]),
+						});
+					}),
+				),
+			testTimeout,
 		);
 
-		test.effect("keeps priority when marking pending and lists only watching sessions", () =>
-			withSession(["a", "b"], ({ store, tokens, sessionId }) =>
-				Effect.gen(function* () {
-					yield* store.replaceInterest({
-						sessionId,
-						revision: 1,
-						foregroundIds: ["a"],
-						entityIds: ["a", "b"],
-					});
-					expect(yield* store.listWatchingSessions("a")).toEqual([]);
-					yield* store.markReconciled({
-						sessionId,
-						pending: [
-							{ revision: 1, entityId: "a", priority: "foreground" },
-							{ revision: 1, entityId: "b", priority: "visible" },
-						],
-					});
-					expect(yield* store.listWatchingSessions("a")).toEqual([sessionId]);
-					expect(yield* store.listWatchingSessions("b")).toEqual([sessionId]);
+		test.effect(
+			"bumps the revision when a promotion is demoted before reconciliation",
+			() =>
+				withSession(["a"], ({ store, tokens, sessionId }) =>
+					Effect.gen(function* () {
+						yield* store.replaceInterest({
+							sessionId,
+							revision: 1,
+							entityIds: ["a"],
+							foregroundIds: [],
+						});
+						const replace = (revision: number, foregroundIds: readonly string[]) =>
+							store.replaceInterest({ revision, sessionId, foregroundIds, entityIds: ["a"] });
+						yield* replace(2, ["a"]);
+						expect(yield* replace(3, [])).toEqual({
+							revision: 3,
+							status: "applied",
+							pending: [{ revision: 3, entityId: "a", priority: "visible" }],
+						});
+						expect(
+							yield* store.markReconciled({
+								sessionId,
+								pending: [
+									{ revision: 1, entityId: "a", priority: "visible" },
+									{ revision: 2, entityId: "a", priority: "foreground" },
+								],
+							}),
+						).toEqual([]);
+						expect(
+							yield* store.markReconciled({
+								sessionId,
+								pending: [{ revision: 3, entityId: "a", priority: "visible" }],
+							}),
+						).toEqual(["a"]);
+						expect(yield* tokens).toEqual({ a: "watching:v" });
+					}),
+				),
+			testTimeout,
+		);
 
-					yield* store.markPending({ entityId: "a", sessionIds: [sessionId] });
-					yield* store.markPending({ entityId: "b", sessionIds: [sessionId] });
+		test.effect(
+			"keeps priority when marking pending and lists only watching sessions",
+			() =>
+				withSession(["a", "b"], ({ store, tokens, sessionId }) =>
+					Effect.gen(function* () {
+						yield* store.replaceInterest({
+							sessionId,
+							revision: 1,
+							foregroundIds: ["a"],
+							entityIds: ["a", "b"],
+						});
+						expect(yield* store.listWatchingSessions("a")).toEqual([]);
+						yield* store.markReconciled({
+							sessionId,
+							pending: [
+								{ revision: 1, entityId: "a", priority: "foreground" },
+								{ revision: 1, entityId: "b", priority: "visible" },
+							],
+						});
+						expect(yield* store.listWatchingSessions("a")).toEqual([sessionId]);
+						expect(yield* store.listWatchingSessions("b")).toEqual([sessionId]);
 
-					expect(yield* tokens).toEqual({ a: "pending:1:f", b: "pending:1:v" });
-					expect(yield* store.listWatchingSessions("a")).toEqual([]);
-				}),
-			),
+						yield* store.markPending({ entityId: "a", sessionIds: [sessionId] });
+						yield* store.markPending({ entityId: "b", sessionIds: [sessionId] });
+
+						expect(yield* tokens).toEqual({ a: "pending:1:f", b: "pending:1:v" });
+						expect(yield* store.listWatchingSessions("a")).toEqual([]);
+					}),
+				),
+			testTimeout,
 		);
 	},
 );

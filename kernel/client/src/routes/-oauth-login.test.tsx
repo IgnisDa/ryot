@@ -1,6 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect } from "bun:test";
+
+import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
@@ -96,42 +99,56 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 };
 
 describe("Hosted OAuth login", () => {
-	it.live("shows a configured frontend mismatch without starting authentication", () =>
-		Effect.gen(function* () {
-			const mounted = mountLogin(
-				systemConfig("https://configured.example", { oidcEnabled: true, localAuthDisabled: true }),
-			);
+	it.live(
+		"shows a configured frontend mismatch without starting authentication",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountLogin(
+					systemConfig("https://configured.example", {
+						oidcEnabled: true,
+						localAuthDisabled: true,
+					}),
+				);
 
-			yield* Effect.promise(() => screen.findByText("Server configuration mismatch"));
-			expect(
-				screen.getByText(
-					"This server is configured for https://configured.example. Open that address to sign in.",
-				),
-			).not.toBeNull();
-			expect(mounted.authCallCount()).toBe(0);
-		}),
+				yield* Effect.promise(() => screen.findByText("Server configuration mismatch"));
+				expect(
+					screen.getByText(
+						"This server is configured for https://configured.example. Open that address to sign in.",
+					),
+				).not.toBeNull();
+				expect(mounted.authCallCount()).toBe(0);
+			}),
+		testTimeout,
 	);
 
-	it.live("uses the browser origin as a fixed server", () =>
-		Effect.gen(function* () {
-			const mounted = mountLogin(
-				systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
-			);
+	it.live(
+		"uses the browser origin as a fixed server",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountLogin(
+					systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
+				);
 
-			yield* Effect.promise(() => screen.findByText(`Server: ${window.location.hostname}`));
-			expect(mounted.requestedOrigins).toEqual([window.location.origin]);
-			expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByText(`Server: ${window.location.hostname}`));
+				expect(mounted.requestedOrigins).toEqual([window.location.origin]);
+				expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
+			}),
+		testTimeout,
 	);
 
-	it.live("shows an unavailable state when no authentication method is configured", () =>
-		Effect.gen(function* () {
-			mountLogin(
-				systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),
-			);
+	it.live(
+		"shows an unavailable state when no authentication method is configured",
+		() =>
+			Effect.gen(function* () {
+				mountLogin(
+					systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),
+				);
 
-			yield* Effect.promise(() => screen.findByText("Authentication unavailable"));
-			expect(screen.getByText("This server has no browser sign-in method enabled.")).not.toBeNull();
-		}),
+				yield* Effect.promise(() => screen.findByText("Authentication unavailable"));
+				expect(
+					screen.getByText("This server has no browser sign-in method enabled."),
+				).not.toBeNull();
+			}),
+		testTimeout,
 	);
 });

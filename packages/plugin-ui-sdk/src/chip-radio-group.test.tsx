@@ -1,6 +1,7 @@
+import { describe, expect, it } from "bun:test";
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
 
 import { ChipRadioGroup } from "./chip-radio-group";
 

@@ -1,5 +1,6 @@
+import { describe, expect, it } from "bun:test";
+
 import { Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { navigationRecipe } from "./navigation";
 import { requireRowsQuery, rowsResult } from "./test-utils";
@@ -47,7 +48,7 @@ describe("navigation recipe", () => {
 	});
 
 	it("decodes plain values and applies navigation defaults", () => {
-		expect(Result.getOrThrow(navigationRecipe().decode(response))).toEqual({
+		expect(Result.getOrThrow(navigationRecipe().decode(response))).toEqual<unknown>({
 			collections: [
 				{
 					sortOrder: 0,
