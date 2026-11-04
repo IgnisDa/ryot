@@ -977,3 +977,10 @@ output, then prune, clear and the finished checkpoint. `media-progress-fanout-20
 
 `hc3`, the media event files with `analytics-recipes` under the Bun runner: 61 of 62 passed. The 60-subject liveness
 test still timed out; the overlapping-chains test passed in 159 s and the multi-page snapshot in 78 s.
+
+## Run `probesH5` (prune and clear follow progress writes)
+
+After progress writes, a history-correction step continues into prune and clear, stopping before it reads a record
+it already changed, so a movie commits once. `media-progress-fanout-20` against `probesH4`: user commands 40 to 20,
+statements 25,179 to 20,438, settle time 17.7 s to 14.5 s, API CPU 14.7 s to 12.4 s. `hc4`, the media event files
+with `analytics-recipes`: 62 of 62 passed, the 60-subject liveness test in 164 s.

@@ -356,6 +356,7 @@ it.effect.each([
 							}),
 						]),
 					),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -400,12 +401,14 @@ it.effect(
 					reply("events", [source()]),
 					reply("records", []),
 					reply("blockers", [{ explicit: false, sameTime: false }]),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
 			expect(yield* test.saved()).toMatchObject({
 				step: 6,
-				phase: "prune",
+				phase: "done",
 				runKey: "newer-run",
 				requestKey: "newer-request",
 			});
@@ -462,6 +465,8 @@ it.effect.each(["suppressed", "overridden"] as const)(
 					reply("records", [record(occurrence({ status, frozen: true }))]),
 					reply("blockers", [{ explicit: false, sameTime: false }]),
 					reply("event", []),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -487,6 +492,8 @@ it.effect(
 					reply("records", [record(occurrence({ total: 12, frozen: true }))]),
 					reply("blockers", [{ explicit: false, sameTime: false }]),
 					reply("event", []),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -526,6 +533,8 @@ it.effect(
 					reply("records", [record(occurrence())]),
 					reply("blockers", [{ explicit: false, sameTime: false }]),
 					reply("event", []),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -639,6 +648,8 @@ it.effect(
 					reply("events", [source()]),
 					reply("records", []),
 					reply("blockers", [{ explicit: false, sameTime: false }]),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -653,9 +664,32 @@ it.effect(
 				itemIdentity: "complete:subject:run:5:0",
 				properties: { completionSilent: false, completionKey: "subject:run:5:0" },
 			});
-			expect(yield* test.saved()).toMatchObject({ step: 6, phase: "prune" });
+			expect(yield* test.saved()).toMatchObject({ step: 6, phase: "done" });
 		}),
 	testTimeout,
+);
+
+it.effect("stops before pruning an occurrence the step already replaced", () =>
+	Effect.gen(function* () {
+		const row = record(occurrence({ frozen: true, runKey: "run", status: "active" }));
+		const test = harness({
+			responses: [
+				reply("events", [source()]),
+				reply("records", [row]),
+				reply("blockers", [{ explicit: false, sameTime: false }]),
+				reply("event", []),
+				reply("records", [row]),
+			],
+		});
+		yield* test.run();
+		expect(test.commands).toHaveLength(1);
+		expect(
+			test.commands[0]?.events.changes.filter(
+				(change) => change.itemIdentity === "replace:occurrence",
+			),
+		).toHaveLength(1);
+		expect(yield* test.saved()).toMatchObject({ step: 6, phase: "prune" });
+	}),
 );
 
 it.effect(
@@ -868,6 +902,7 @@ it.effect(
 						reply("events", [source({ id, properties: { progressPercent: 50 } })], next),
 						reply("records", []),
 						reply("blockers", [{ explicit: false, sameTime: false }]),
+						...(next === null ? [reply("records", []), reply("records", [])] : []),
 					],
 				});
 				yield* test.run();
@@ -879,7 +914,7 @@ it.effect(
 				}
 			}
 			expect(writes).toBe(3_000);
-			expect(state).toMatchObject({ step: 3_005, phase: "prune" });
+			expect(state).toMatchObject({ step: 3_005, phase: "done" });
 			expect(state).not.toHaveProperty("after");
 			expect(largestCommand).toBeLessThan(4_000);
 		}),

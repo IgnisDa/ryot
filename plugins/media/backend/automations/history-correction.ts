@@ -238,6 +238,10 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 		removeOutput,
 		sourceWrites: () => sourceWrites,
 		isEmpty: () => creates.length === 0 && changes.length === 0,
+		changed: (id: string) =>
+			changes.some((change) =>
+				change.kind === "delete" ? change.eventId === id : change.item.eventId === id,
+			),
 	};
 };
 
@@ -252,6 +256,10 @@ const chainablePhases = new Set<HistoryCorrection["phase"]>([
 	"progress",
 	"dependencies",
 ]);
+
+// Phases that may follow a write in the same step: they read no record the step's earlier phases changed except
+// the ones they check for, so the step stops before reading a record it already changed.
+const afterWrites = new Set<HistoryCorrection["phase"]>(["prune", "clear"]);
 
 const positive = (value: JsonValue | undefined) =>
 	typeof value === "number" && value > 0 ? value : 0;
@@ -428,6 +436,9 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						}
 					: {}),
 			});
+			if (page.items.some((row) => write.changed(row.id))) {
+				break;
+			}
 			for (const row of page.items) {
 				if (phase === "audit" && row.properties.status === "active") {
 					const output = yield* actual(row.properties.key);
@@ -886,6 +897,9 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 			}
 		} else if (state.phase === "clear") {
 			const page = yield* records(HistoryCoverage, "history-coverage");
+			if (page.items.some((row) => write.changed(row.id))) {
+				break;
+			}
 			for (const row of page.items) {
 				write.remove(row);
 			}
@@ -899,7 +913,10 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		} else {
 			return yield* new MediaSandboxError({ message: "History correction phase is invalid" });
 		}
-		advancing = write.isEmpty() && chainablePhases.has(state.phase) && !visited.has(state.phase);
+		advancing =
+			(write.isEmpty() || afterWrites.has(state.phase)) &&
+			chainablePhases.has(state.phase) &&
+			!visited.has(state.phase);
 	}
 	state.step += 1;
 	state.workKey = input.workKey;
