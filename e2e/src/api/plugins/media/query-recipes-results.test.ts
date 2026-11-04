@@ -41,6 +41,7 @@ import {
 	waitForLibrarySummary,
 } from "~/fixtures/plugins/media";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
+import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -869,7 +870,7 @@ describe("Media RyotQL query recipe results", () => {
 
 	it.live("derives podcast in-progress and completed state from episode and podcast events", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client, userId } = yield* createAuthenticatedClient();
 			const seeded = yield* seedPodcastFixture(client, 2);
 			yield* insertLibraryMembership(client, { mediaEntityId: seeded.podcast.id });
 			const firstEpisode = seeded.episodes[0];
@@ -887,6 +888,7 @@ describe("Media RyotQL query recipe results", () => {
 			] as const;
 			const assertPodcastState = (expectedState: (typeof lifecycleStates)[number]) =>
 				Effect.gen(function* () {
+					yield* settledHistoryCorrection(client, userId);
 					yield* waitForEventProjections(client);
 					yield* waitForLibrarySummary(client, seeded.podcast.id);
 					const responses = yield* Effect.all(
