@@ -557,44 +557,51 @@ const bootstrappedPackage = (slug: string, bootstrapSlugs: Array<string>) => {
 };
 
 layer(layerFor([systemInstallation("seeded")]))((test) => {
-	test.effect("ensures declared entities in the kernel's name without running a script", () =>
-		Effect.gen(function* () {
-			const marks: Array<
-				Parameters<PluginInstallationRepository["Service"]["completeSystemInitialization"]>[0]
-			> = [];
-			const repository = yield* PluginInstallationRepository;
-			const dispatcher = yield* makePluginUserBootstrapDispatcher(() =>
-				Effect.die("No bootstrap script should run"),
-			).pipe(
-				Effect.provideService(PluginInstallationRepository, {
-					...repository,
-					completeSystemInitialization: (input) =>
-						Effect.sync(() => {
-							marks.push(input);
-							return true;
-						}),
-				}),
-			);
-			const userId = UserId.make("user-1");
-			const accountGeneration = { userId, token: "test-account-generation" };
-			ensuredEntities.length = 0;
-			expect(yield* dispatcher.dispatchAll(userId, accountGeneration)).toEqual(["plan:library"]);
-			expect(ensuredEntities).toEqual<unknown>([
-				{
-					userId,
-					installedAt,
-					accountGeneration,
-					entrySlug: "library",
-					pluginId: "seeded-id",
-					installationId: "seeded-installation",
-					entities: [{ properties: {}, name: "Library", entitySchemaSlug: "library" }],
-					executionId: userBootstrapExecutionId(userId, "seeded-id", "library", accountGeneration),
-				},
-			]);
-			expect(marks).toEqual<unknown>([
-				{ userId, activationId: "seeded-id-activation", installationId: "seeded-installation" },
-			]);
-		}),
+	test.effect(
+		"ensures declared entities in the kernel's name without running a script",
+		() =>
+			Effect.gen(function* () {
+				const marks: Array<
+					Parameters<PluginInstallationRepository["Service"]["completeSystemInitialization"]>[0]
+				> = [];
+				const repository = yield* PluginInstallationRepository;
+				const dispatcher = yield* makePluginUserBootstrapDispatcher(() =>
+					Effect.die("No bootstrap script should run"),
+				).pipe(
+					Effect.provideService(PluginInstallationRepository, {
+						...repository,
+						completeSystemInitialization: (input) =>
+							Effect.sync(() => {
+								marks.push(input);
+								return true;
+							}),
+					}),
+				);
+				const userId = UserId.make("user-1");
+				const accountGeneration = { userId, token: "test-account-generation" };
+				ensuredEntities.length = 0;
+				expect(yield* dispatcher.dispatchAll(userId, accountGeneration)).toEqual(["plan:library"]);
+				expect(ensuredEntities).toEqual<unknown>([
+					{
+						userId,
+						installedAt,
+						accountGeneration,
+						entrySlug: "library",
+						pluginId: "seeded-id",
+						installationId: "seeded-installation",
+						entities: [{ properties: {}, name: "Library", entitySchemaSlug: "library" }],
+						executionId: userBootstrapExecutionId(
+							userId,
+							"seeded-id",
+							"library",
+							accountGeneration,
+						),
+					},
+				]);
+				expect(marks).toEqual<unknown>([
+					{ userId, activationId: "seeded-id-activation", installationId: "seeded-installation" },
+				]);
+			}),
 		testTimeout,
 	);
 });

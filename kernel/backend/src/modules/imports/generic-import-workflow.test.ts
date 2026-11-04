@@ -299,8 +299,8 @@ it.effect(
 					],
 				},
 				false,
-			ingestionTestSource.pluginRevision,
-			["collection"],
+				ingestionTestSource.pluginRevision,
+				["collection"],
 			);
 			expect(result.first.confirmed).toEqual([]);
 			expect(result.first.summary).toEqual([
@@ -345,8 +345,12 @@ it.effect(
 					],
 				},
 				false,
-			{ ...ingestionTestSource.pluginRevision, scope: "user", ownerId: ingestionTestScope.userId },
-			["collection"],
+				{
+					...ingestionTestSource.pluginRevision,
+					scope: "user",
+					ownerId: ingestionTestScope.userId,
+				},
+				["collection"],
 			);
 			expect(result.first.confirmed).toEqual([]);
 			expect(result.first.summary).toEqual([

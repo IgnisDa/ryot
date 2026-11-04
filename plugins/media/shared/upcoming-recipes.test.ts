@@ -161,6 +161,6 @@ describe("upcoming recipe", () => {
 				total,
 				occurrences.map(({ key }) => key),
 			]),
-		).toEqual([["show-1", 1, ["episode-3"]]]);
+		).toEqual<unknown>([["show-1", 1, ["episode-3"]]]);
 	});
 });

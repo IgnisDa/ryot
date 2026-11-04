@@ -515,11 +515,11 @@ layer(populatedCreates.layer)((test) => {
 					properties: {},
 					populatedAt: "2026-07-21T00:00:00.000Z",
 				});
-			expect(yield* populatedCreates.recorded).toMatchObject([
-				{
-					lifecycle: { itemIdentity: '["test-support:create-global-entity","create"]' },
-					populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-07-21T00:00:00.000Z")),
-				},
+				expect(yield* populatedCreates.recorded).toMatchObject([
+					{
+						lifecycle: { itemIdentity: '["test-support:create-global-entity","create"]' },
+						populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-07-21T00:00:00.000Z")),
+					},
 				]);
 			}),
 		testTimeout,

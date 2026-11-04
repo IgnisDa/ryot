@@ -305,9 +305,9 @@ it.effect(
 				{
 					slug: "initialize-workspace",
 					description: "Initialize the user's fitness workspace",
-				entities: [
-					{ properties: {}, name: "Fitness Library", entitySchemaSlug: "fitness-library" },
-				],
+					entities: [
+						{ properties: {}, name: "Fitness Library", entitySchemaSlug: "fitness-library" },
+					],
 				},
 			]);
 			expect(fitnessPlugin.providers).toEqual([

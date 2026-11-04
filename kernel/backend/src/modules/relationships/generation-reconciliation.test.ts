@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
-import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { asc, eq } from "drizzle-orm";

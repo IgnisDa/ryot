@@ -402,14 +402,14 @@ describe("home sections", () => {
 					["library"],
 					["flat.items", "podcast.items", "show.items"],
 					["flat.items", "podcast.items", "show.items"],
-				[
-					"titles.anime",
-					"titles.podcastTotals",
-					"titles.podcasts",
-					"titles.releases",
-					"titles.showTotals",
-					"titles.shows",
-				],
+					[
+						"titles.anime",
+						"titles.podcastTotals",
+						"titles.podcasts",
+						"titles.releases",
+						"titles.showTotals",
+						"titles.shows",
+					],
 				]);
 				expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
 					"600px 0px",

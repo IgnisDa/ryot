@@ -178,70 +178,74 @@ layer(makeServiceLayer())((test) => {
 		testTimeout,
 	);
 
-	test.effect("picks the page before running aggregates only its fields read", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const subject = table("entity", "subject");
-			const source = table("event", "source");
-			const sourceScope = { where: eq(column(source, "entityId"), column(subject, "id")) };
-			yield* service.executeForUser("user-1", null, "plugin", {
-				queries: {
-					ranking: rows(subject, {
-						orderBy: [ascending(column(subject, "name"))],
-						fields: [field("events", count(source, sourceScope))],
-					}),
-				},
-			});
-			const statements = yield* (yield* RecordedStatements).statements;
-			const statement = statements.find((value) => value.includes('"ryotqlPage"'));
-			assert(statement);
-			const [page, outer] = statement.split('FROM "ryotqlPage"');
-			assert(page && outer);
-			expect(page).not.toContain("CROSS JOIN LATERAL");
-			expect(outer).toContain("CROSS JOIN LATERAL");
-		}),
+	test.effect(
+		"picks the page before running aggregates only its fields read",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const subject = table("entity", "subject");
+				const source = table("event", "source");
+				const sourceScope = { where: eq(column(source, "entityId"), column(subject, "id")) };
+				yield* service.executeForUser("user-1", null, "plugin", {
+					queries: {
+						ranking: rows(subject, {
+							orderBy: [ascending(column(subject, "name"))],
+							fields: [field("events", count(source, sourceScope))],
+						}),
+					},
+				});
+				const statements = yield* (yield* RecordedStatements).statements;
+				const statement = statements.find((value) => value.includes('"ryotqlPage"'));
+				assert(statement);
+				const [page, outer] = statement.split('FROM "ryotqlPage"');
+				assert(page && outer);
+				expect(page).not.toContain("CROSS JOIN LATERAL");
+				expect(outer).toContain("CROSS JOIN LATERAL");
+			}),
 		testTimeout,
 	);
 
-	test.effect("starts from the date only when a query closes an occursAt range", () =>
-		Effect.gen(function* () {
-			const entity = table("entity", "entity");
-			const occursAt = column(entity, "occursAt");
-			const from = castDate(literal("2026-09-01"));
-			const until = castDate(literal("2026-09-08"));
-			const service = yield* RyotQLService;
-			const orderBy = [ascending(occursAt)];
-			yield* service.executeForUser("user-1", null, "plugin", {
-				queries: {
-					open: rows(entity, {
-						orderBy,
-						where: gte(occursAt, from),
-						fields: [field("id", column(entity, "id"))],
-					}),
-				},
-			});
-			const recorded = yield* RecordedStatements;
-			expect((yield* recorded.statements).join()).not.toContain("join_collapse_limit");
+	test.effect(
+		"starts from the date only when a query closes an occursAt range",
+		() =>
+			Effect.gen(function* () {
+				const entity = table("entity", "entity");
+				const occursAt = column(entity, "occursAt");
+				const from = castDate(literal("2026-09-01"));
+				const until = castDate(literal("2026-09-08"));
+				const service = yield* RyotQLService;
+				const orderBy = [ascending(occursAt)];
+				yield* service.executeForUser("user-1", null, "plugin", {
+					queries: {
+						open: rows(entity, {
+							orderBy,
+							where: gte(occursAt, from),
+							fields: [field("id", column(entity, "id"))],
+						}),
+					},
+				});
+				const recorded = yield* RecordedStatements;
+				expect((yield* recorded.statements).join()).not.toContain("join_collapse_limit");
 
-			yield* service.executeForUser("user-1", null, "plugin", {
-				queries: {
-					closed: rows(entity, {
-						orderBy,
-						fields: [field("id", column(entity, "id"))],
-						where: and(gte(occursAt, from), lte(occursAt, until)),
-					}),
-				},
-			});
-			const statements = yield* recorded.statements;
-			const forced = statements.findIndex((value) => value.includes("join_collapse_limit = 1"));
-			const reset = statements.findIndex((value) =>
-				value.includes("join_collapse_limit TO DEFAULT"),
-			);
-			const query = statements.findLastIndex((value) => value.includes("occurs_at"));
-			expect(forced).toBeGreaterThanOrEqual(0);
-			expect(forced).toBeLessThan(query);
-			expect(reset).toBeGreaterThan(query);
-		}),
+				yield* service.executeForUser("user-1", null, "plugin", {
+					queries: {
+						closed: rows(entity, {
+							orderBy,
+							fields: [field("id", column(entity, "id"))],
+							where: and(gte(occursAt, from), lte(occursAt, until)),
+						}),
+					},
+				});
+				const statements = yield* recorded.statements;
+				const forced = statements.findIndex((value) => value.includes("join_collapse_limit = 1"));
+				const reset = statements.findIndex((value) =>
+					value.includes("join_collapse_limit TO DEFAULT"),
+				);
+				const query = statements.findLastIndex((value) => value.includes("occurs_at"));
+				expect(forced).toBeGreaterThanOrEqual(0);
+				expect(forced).toBeLessThan(query);
+				expect(reset).toBeGreaterThan(query);
+			}),
 		testTimeout,
 	);
 
@@ -425,7 +429,7 @@ layer(makeServiceLayer())((test) => {
 				const statements = yield* (yield* RecordedStatements).statements;
 				expect(statements[0]).toBe("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 				expect(statements[1]).toContain("set_config('statement_timeout'");
-			expect(statements[1]).toContain("set_config('jit', 'off', true)");
+				expect(statements[1]).toContain("set_config('jit', 'off', true)");
 				expect(statements.slice(2)).toHaveLength(2);
 				expect(statements[2]).toMatch(/"user_id" = \$\d+ OR "user_id" IS NULL/);
 				expect(statements[2]).not.toContain("COUNT(*)");

@@ -559,7 +559,7 @@ it.effect(
 				progress: ReadonlyArray<SandboxInlineProgress>;
 			}> = [];
 			const dispatcher = SandboxDurableHostDispatcher.of({
-			write: () => Effect.die("unused"),
+				write: () => Effect.die("unused"),
 				settleInline: () => Effect.die("unused"),
 				dispatch: () =>
 					Deferred.succeed(dispatchStarted, undefined).pipe(Effect.andThen(Effect.never)),
@@ -787,30 +787,32 @@ it.effect(
 	testTimeout,
 );
 
-it.effect("reads a settled replay's stored result instead of replaying it again", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		yield* h.fresh().body;
-		const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
-		assert(queued !== undefined);
-		h.slots.set(
-			queued,
-			Exit.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				harvest: null,
-				pendingInline: [],
-				status: "completed",
-				value: { requests, journalLength: 0, state: "pending" },
-			}),
-		);
-		h.state.blocked = false;
-		const result = yield* h.fresh().body;
-		assert(result._tag === "Complete");
-		expect(yield* result.exit).toBe("done");
-		expect(h.replays).toEqual([`${executionId}-replay-0`, `${executionId}-replay-1`]);
-	}),
+it.effect(
+	"reads a settled replay's stored result instead of replaying it again",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			yield* h.fresh().body;
+			const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+			assert(queued !== undefined);
+			h.slots.set(
+				queued,
+				Exit.succeed({
+					logs: [],
+					inline: [],
+					error: null,
+					harvest: null,
+					pendingInline: [],
+					status: "completed",
+					value: { requests, journalLength: 0, state: "pending" },
+				}),
+			);
+			h.state.blocked = false;
+			const result = yield* h.fresh().body;
+			assert(result._tag === "Complete");
+			expect(yield* result.exit).toBe("done");
+			expect(h.replays).toEqual([`${executionId}-replay-0`, `${executionId}-replay-1`]);
+		}),
 	testTimeout,
 );
 
@@ -855,33 +857,35 @@ it.effect("logs a step's output once when the workflow resumes on its stored res
 	}),
 );
 
-it.effect("replays a settled step again while its result holds recovery state to clear", () =>
-	Effect.gen(function* () {
-		const h = makeHarness();
-		yield* h.fresh().body;
-		const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
-		assert(queued !== undefined);
-		h.slots.set(
-			queued,
-			Exit.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				harvest: null,
-				pendingInline: [],
-				status: "completed",
-				value: { requests, journalLength: 0, state: "pending" },
-				recovery: { instance: "user/core", pinHash: "a".repeat(64), executionId: "recovered" },
-			}),
-		);
-		h.state.blocked = false;
-		yield* h.fresh().body;
-		expect(h.replays).toEqual([
-			`${executionId}-replay-0`,
-			`${executionId}-replay-0`,
-			`${executionId}-replay-1`,
-		]);
-	}),
+it.effect(
+	"replays a settled step again while its result holds recovery state to clear",
+	() =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			yield* h.fresh().body;
+			const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+			assert(queued !== undefined);
+			h.slots.set(
+				queued,
+				Exit.succeed({
+					logs: [],
+					inline: [],
+					error: null,
+					harvest: null,
+					pendingInline: [],
+					status: "completed",
+					value: { requests, journalLength: 0, state: "pending" },
+					recovery: { instance: "user/core", pinHash: "a".repeat(64), executionId: "recovered" },
+				}),
+			);
+			h.state.blocked = false;
+			yield* h.fresh().body;
+			expect(h.replays).toEqual([
+				`${executionId}-replay-0`,
+				`${executionId}-replay-0`,
+				`${executionId}-replay-1`,
+			]);
+		}),
 	testTimeout,
 );
 

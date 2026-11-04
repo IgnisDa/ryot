@@ -570,10 +570,10 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 					expect(pin?.pluginRevision).not.toBeNull();
 
 					yield* database.respondWith(workflowRows(replacedRoot));
-				expect(
-					(yield* repository.getSchemaScope(pin?.pluginRevision?.revisionId ?? ""))
-						.entitySchemaSlugs,
-				).toEqual(["original-entity"]);
+					expect(
+						(yield* repository.getSchemaScope(pin?.pluginRevision?.revisionId ?? ""))
+							.entitySchemaSlugs,
+					).toEqual(["original-entity"]);
 
 					expect(
 						yield* repository.resolveWorkflowCallScript(pin?.pluginRevision ?? null, {
@@ -582,7 +582,11 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 							kind: "child",
 							args: { input: {}, workflowSlug: "child" },
 						}),
-					).toEqual<unknown>({ kind: "workflow", contentHash: "child-v1", scriptId: "child-v1-id" });
+					).toEqual<unknown>({
+						kind: "workflow",
+						contentHash: "child-v1",
+						scriptId: "child-v1-id",
+					});
 					const condition = (yield* database.conditions).find(isChildTarget);
 					if (condition === undefined) {
 						throw new Error("Expected workflow target condition");
@@ -607,7 +611,7 @@ layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowR
 					).toMatchObject({
 						scriptId: "child-v1-id",
 						contentHash: "child-v1",
-					pluginRevision: { scriptsDigest: rootScriptsDigest },
+						pluginRevision: { scriptsDigest: rootScriptsDigest },
 					});
 				}),
 			testTimeout,

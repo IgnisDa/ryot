@@ -55,12 +55,15 @@ it("keeps lifecycle executions distinct for each installation and activation", (
 
 type ScriptPinLookupArguments = Parameters<SandboxRepository["Service"]["getScriptPin"]>;
 
-type HealthUpdate = Parameters<PluginInstallationRepository["Service"]["updateHealth"]>[0];
 type WorkflowRegistration = Parameters<
 	SandboxWorkflowReferenceRepository["Service"]["registerInTransaction"]
 >[0];
 type ResolvedBootstrap = Effect.Success<
 	ReturnType<PluginRuntimeResolver["Service"]["resolveInstallationBootstrap"]>
+>;
+type HealthUpdate = Omit<
+	Parameters<PluginInstallationRepository["Service"]["updateHealthForActivation"]>[0],
+	"activationId"
 >;
 type Execution = Pick<
 	Parameters<ScriptExecutionService["Service"]["executeScript"]>[0],
@@ -450,36 +453,42 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("ensures declared entities as a durable step before later script entries", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeInstallationWorkflow;
-			ensuredEntities.length = 0;
-			yield* runWorkflow;
-			expect(yield* fake.order).toEqual([
-				"ensure:library",
-				"dispatch:plan:library",
-				"health:ready",
-				"invalidate",
-			]);
-			expect(ensuredEntities).toEqual<unknown>([
-				{
-					userId,
-					installedAt,
-					installationId,
-					entrySlug: "library",
-					pluginId: "plugin-1",
-					entities: [libraryEntity],
-					accountGeneration: objectContaining({ userId }),
-					executionId: pluginInstallationBootstrapExecutionId(
+	test.effect(
+		"ensures declared entities as a durable step before later script entries",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationWorkflow;
+				ensuredEntities.length = 0;
+				yield* runWorkflow;
+				expect(yield* fake.order).toEqual([
+					"ensure:library",
+					"dispatch:plan:library",
+					"health:ready",
+					"invalidate",
+				]);
+				expect(ensuredEntities).toEqual<unknown>([
+					{
+						userId,
+						installedAt,
 						installationId,
-						activationId,
-						"library",
-					),
-				},
-			]);
-			expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual<unknown>(["first-id"]);
-			expect((yield* fake.registrations).map(({ scriptId }) => scriptId)).toEqual<unknown>(["first-id"]);
-		}),
+						entrySlug: "library",
+						pluginId: "plugin-1",
+						entities: [libraryEntity],
+						accountGeneration: objectContaining({ userId }),
+						executionId: pluginInstallationBootstrapExecutionId(
+							installationId,
+							activationId,
+							"library",
+						),
+					},
+				]);
+				expect((yield* fake.executions).map(({ scriptId }) => scriptId)).toEqual<unknown>([
+					"first-id",
+				]);
+				expect((yield* fake.registrations).map(({ scriptId }) => scriptId)).toEqual<unknown>([
+					"first-id",
+				]);
+			}),
 		testTimeout,
 	);
 });

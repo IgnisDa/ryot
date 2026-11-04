@@ -344,15 +344,15 @@ layer(childOwnerDispatchLayer)((test) => {
 						options: { executionId: "sandbox-parent-host-service-1" },
 					},
 				]);
-			expect(
-				yield* dispatcher.write(notification, {
-					principal,
-					executionId,
-					lane: payload.lane,
-					context: payload.input,
-					startedAt: payload.startedAt,
-				}),
-			).toEqual({ value: null, state: "success" });
+				expect(
+					yield* dispatcher.write(notification, {
+						principal,
+						executionId,
+						lane: payload.lane,
+						context: payload.input,
+						startedAt: payload.startedAt,
+					}),
+				).toEqual({ value: null, state: "success" });
 				expect(yield* (yield* RecordedNotificationMessages).messages).toEqual([
 					{
 						message: "Ready",
@@ -374,7 +374,7 @@ class RecordedInlineWrites extends Context.Service<
 ) {}
 
 const signalCreated = {
-	state: "success",
+	state: "success" as const,
 	value: { wasCreated: true, triggerId: "signal-trigger-1" },
 };
 
@@ -2147,7 +2147,7 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const harness = yield* LifecycleDispatchHarness;
-			const result = yield* runLifecycleWrite({
+				const result = yield* runLifecycleWrite({
 					args: [[batch, batch]],
 					capability: "changeUserRelationships",
 				});
@@ -2222,7 +2222,7 @@ layer(
 					providerId: SandboxProviderId.make("provider-1"),
 					metadata: { ...lifecycleScript.metadata, kind: "script" as const },
 				};
-			const result = yield* runLifecycleWrite({
+				const result = yield* runLifecycleWrite({
 					args: [[]],
 					principal: providerPrincipal,
 					capability: "upsertGlobalEntities",

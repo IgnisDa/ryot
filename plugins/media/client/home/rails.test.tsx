@@ -378,9 +378,9 @@ describe("UpcomingRail", () => {
 					shows: [upcomingShow(3, [upcomingEpisode("episode-1", "2026-09-26", 2, 10)])],
 					releases: [{ ...mediaIdentity("movie-1", "Dune", "movie"), publishDate: "2026-10-05" }],
 					podcasts: [
-					upcomingEpisodic(mediaIdentity("podcast-1", "Hardcore History", "podcast"), 1, [
-						upcomingEpisode("podcast-ep", "2026-09-28", null, 71),
-					]),
+						upcomingEpisodic(mediaIdentity("podcast-1", "Hardcore History", "podcast"), 1, [
+							upcomingEpisode("podcast-ep", "2026-09-28", null, 71),
+						]),
 					],
 				});
 				const view = mountRyotClient(noopAdapter, null);

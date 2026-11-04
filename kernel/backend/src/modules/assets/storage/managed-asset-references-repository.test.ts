@@ -558,127 +558,259 @@ layer(testLayer)((test) => {
 	);
 });
 
-layer(testLayer)(
-	(test) => {
-		test.effect(
-			"encrypted configurations follow declared object and array schema paths only",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const references = yield* ManagedAssetReferencesRepository;
-					const ownerUserId = UserId.make(yield* randomUuid);
-					const otherUserId = UserId.make(yield* randomUuid);
-					const locator = yield* insertManagedAsset(ownerUserId);
-					yield* insertManagedAsset(otherUserId);
-					const schema: AppSchema = {
-						unknownKeys: "strict",
-						fields: {
-							'escaped"\\.[]': {
-								type: "array",
-								label: "Array",
-								description: "Array",
-								items: {
-									type: "object",
-									label: "Object",
-									description: "Object",
-									properties: { image: managedAssetProperty },
-								},
+layer(testLayer)((test) => {
+	test.effect(
+		"encrypted configurations follow declared object and array schema paths only",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const references = yield* ManagedAssetReferencesRepository;
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const otherUserId = UserId.make(yield* randomUuid);
+				const locator = yield* insertManagedAsset(ownerUserId);
+				yield* insertManagedAsset(otherUserId);
+				const schema: AppSchema = {
+					unknownKeys: "strict",
+					fields: {
+						'escaped"\\.[]': {
+							type: "array",
+							label: "Array",
+							description: "Array",
+							items: {
+								type: "object",
+								label: "Object",
+								description: "Object",
+								properties: { image: managedAssetProperty },
 							},
 						},
-					};
-					const packageValue = revisionPackage(`encrypted-${yield* randomUuid}`);
-					const { revisionId, installation } = yield* installRevisionPackage(
-						{ ...packageValue, manifest: { ...packageValue.manifest, configSchema: schema } },
-						ownerUserId,
+					},
+				};
+				const packageValue = revisionPackage(`encrypted-${yield* randomUuid}`);
+				const { revisionId, installation } = yield* installRevisionPackage(
+					{ ...packageValue, manifest: { ...packageValue.manifest, configSchema: schema } },
+					ownerUserId,
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ activeConfigRevisionId: null })
+						.where(eq(tables.pluginInstallation.id, installation.id)),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginConfigRevision)
+						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
+						.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+				yield* insertEncryptedConfig(revisionId, otherUserId);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+				const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginConfigRevision)
+						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
+						.where(eq(tables.pluginConfigRevision.id, configId)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ activeConfigRevisionId: configId })
+						.where(eq(tables.pluginInstallation.id, installation.id)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"missing active schemas retain assets while pruned archived payloads do not",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const references = yield* ManagedAssetReferencesRepository;
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const locator = yield* insertManagedAsset(ownerUserId);
+				const { pluginId, revisionId, installation } = yield* installRevisionPackage(
+					revisionPackage(`missing-${yield* randomUuid}`),
+					ownerUserId,
+				);
+				const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ activeConfigRevisionId: configId })
+						.where(eq(tables.pluginInstallation.id, installation.id)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+				yield* session.run((db) =>
+					db
+						.update(tables.plugin)
+						.set({ status: "inactive", activeRevisionId: null })
+						.where(eq(tables.plugin.id, pluginId)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"shared encrypted configurations conservatively retain assets",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const references = yield* ManagedAssetReferencesRepository;
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const locator = yield* insertManagedAsset(ownerUserId);
+				const packageValue = revisionPackage(`shared-encrypted-${yield* randomUuid}`);
+				const { revisionId, installation } = yield* installRevisionPackage(
+					{
+						...packageValue,
+						manifest: {
+							...packageValue.manifest,
+							configSchema: {
+								...packageValue.manifest.configSchema,
+								fields: { image: managedAssetProperty },
+							},
+						},
+					},
+					ownerUserId,
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ activeConfigRevisionId: null })
+						.where(eq(tables.pluginInstallation.id, installation.id)),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginConfigRevision)
+						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
+						.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+				yield* insertEncryptedConfig(revisionId, null);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginConfigRevision)
+						.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
+						.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
+				);
+				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"schema retention ignores malformed nodes and non-schema asset markers",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const references = yield* ManagedAssetReferencesRepository;
+				const ownerUserId = UserId.make(yield* randomUuid);
+				const locator = yield* insertManagedAsset(ownerUserId);
+				const { pluginId, revisionId, installation } = yield* installRevisionPackage(
+					revisionPackage(`schema-${yield* randomUuid}`),
+					ownerUserId,
+				);
+				const [revision] = yield* session.run((db) =>
+					db.select().from(tables.pluginRevision).where(eq(tables.pluginRevision.id, revisionId)),
+				);
+				assert(revision);
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ activeConfigRevisionId: null })
+						.where(eq(tables.pluginInstallation.id, installation.id)),
+				);
+				const cases: ReadonlyArray<readonly [JsonValue, boolean]> = [
+					[null, false],
+					[false, false],
+					[42, false],
+					[[], false],
+					[{ fields: null }, false],
+					[{ fields: [managedAssetProperty] }, false],
+					[{ fields: { array: [], broken: null, scalar: "text" } }, false],
+					[
+						{ fields: { image: { ...managedAssetProperty, validation: { asset: "true" } } } },
+						false,
+					],
+					[{ fields: { image: { type: "string", validation: { asset: true } } } }, false],
+					[
+						{
+							fields: { image: { type: "object", properties: null, items: managedAssetProperty } },
+						},
+						false,
+					],
+					[
+						{
+							fields: {
+								image: { items: null, type: "array", properties: { image: managedAssetProperty } },
+							},
+						},
+						false,
+					],
+					[
+						{
+							fields: {
+								image: { type: "array", items: { type: "array", items: managedAssetProperty } },
+							},
+						},
+						true,
+					],
+					[{ fields: { image: managedAssetProperty } }, true],
+				];
+				for (const [schema, assetBearing] of cases) {
+					const id = yield* randomUuid;
+					yield* session.transaction(
+						Effect.gen(function* () {
+							const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+								schema,
+							);
+							const configSchema = sql`${encoded}::jsonb`;
+							yield* session.run((db) =>
+								db
+									.insert(tables.pluginRevision)
+									.values({ ...revision, id, configSchema, contentHash: id }),
+							);
+							yield* session.run((db) =>
+								db.insert(tables.pluginRevisionManifest).values({
+									pluginRevisionId: id,
+									manifest: sql`(select jsonb_set(${tables.pluginRevisionManifest.manifest}, '{configSchema}', ${configSchema})
+								from ${tables.pluginRevisionManifest}
+								where ${tables.pluginRevisionManifest.pluginRevisionId} = ${revisionId})`,
+								}),
+							);
+						}),
 					);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginInstallation)
-							.set({ activeConfigRevisionId: null })
-							.where(eq(tables.pluginInstallation.id, installation.id)),
+					const configId = yield* insertEncryptedConfig(id, ownerUserId);
+					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(
+						assetBearing ? [locator] : [],
 					);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginConfigRevision)
-							.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
-							.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
-					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
-					yield* insertEncryptedConfig(revisionId, otherUserId);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
-					const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 					yield* session.run((db) =>
 						db
 							.update(tables.pluginConfigRevision)
 							.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
 							.where(eq(tables.pluginConfigRevision.id, configId)),
 					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginInstallation)
-							.set({ activeConfigRevisionId: configId })
-							.where(eq(tables.pluginInstallation.id, installation.id)),
-					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
-				}),
-			testTimeout,
-		);
-
-		test.effect(
-			"missing active schemas retain assets while pruned archived payloads do not",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const references = yield* ManagedAssetReferencesRepository;
-					const ownerUserId = UserId.make(yield* randomUuid);
-					const locator = yield* insertManagedAsset(ownerUserId);
-					const { pluginId, revisionId, installation } = yield* installRevisionPackage(
-						revisionPackage(`missing-${yield* randomUuid}`),
-						ownerUserId,
-					);
-					const configId = yield* insertEncryptedConfig(revisionId, ownerUserId);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginInstallation)
-							.set({ activeConfigRevisionId: configId })
-							.where(eq(tables.pluginInstallation.id, installation.id)),
-					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 					yield* session.run((db) =>
 						db
 							.update(tables.plugin)
-							.set({ status: "inactive", activeRevisionId: null })
+							.set({ activeRevisionId: id })
 							.where(eq(tables.plugin.id, pluginId)),
 					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
-				}),
-			testTimeout,
-		);
-
-		test.effect(
-			"shared encrypted configurations conservatively retain assets",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const references = yield* ManagedAssetReferencesRepository;
-					const ownerUserId = UserId.make(yield* randomUuid);
-					const locator = yield* insertManagedAsset(ownerUserId);
-					const packageValue = revisionPackage(`shared-encrypted-${yield* randomUuid}`);
-					const { revisionId, installation } = yield* installRevisionPackage(
-						{
-							...packageValue,
-							manifest: {
-								...packageValue.manifest,
-								configSchema: {
-									...packageValue.manifest.configSchema,
-									fields: { image: managedAssetProperty },
-								},
-							},
-						},
-						ownerUserId,
+					yield* session.run((db) =>
+						db
+							.update(tables.pluginInstallation)
+							.set({ activeConfigRevisionId: configId })
+							.where(eq(tables.pluginInstallation.id, installation.id)),
+					);
+					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(
+						schema === null || assetBearing ? [locator] : [],
 					);
 					yield* session.run((db) =>
 						db
@@ -686,151 +818,11 @@ layer(testLayer)(
 							.set({ activeConfigRevisionId: null })
 							.where(eq(tables.pluginInstallation.id, installation.id)),
 					);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginConfigRevision)
-							.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
-							.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
-					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
-					yield* insertEncryptedConfig(revisionId, null);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginConfigRevision)
-							.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
-							.where(eq(tables.pluginConfigRevision.pluginRevisionId, revisionId)),
-					);
-					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
-				}),
-			testTimeout,
-		);
-
-		test.effect(
-			"schema retention ignores malformed nodes and non-schema asset markers",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const references = yield* ManagedAssetReferencesRepository;
-					const ownerUserId = UserId.make(yield* randomUuid);
-					const locator = yield* insertManagedAsset(ownerUserId);
-					const { pluginId, revisionId, installation } = yield* installRevisionPackage(
-						revisionPackage(`schema-${yield* randomUuid}`),
-						ownerUserId,
-					);
-					const [revision] = yield* session.run((db) =>
-						db.select().from(tables.pluginRevision).where(eq(tables.pluginRevision.id, revisionId)),
-					);
-					assert(revision);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginInstallation)
-							.set({ activeConfigRevisionId: null })
-							.where(eq(tables.pluginInstallation.id, installation.id)),
-					);
-					const cases: ReadonlyArray<readonly [JsonValue, boolean]> = [
-						[null, false],
-						[false, false],
-						[42, false],
-						[[], false],
-						[{ fields: null }, false],
-						[{ fields: [managedAssetProperty] }, false],
-						[{ fields: { array: [], broken: null, scalar: "text" } }, false],
-						[
-							{ fields: { image: { ...managedAssetProperty, validation: { asset: "true" } } } },
-							false,
-						],
-						[{ fields: { image: { type: "string", validation: { asset: true } } } }, false],
-						[
-							{
-								fields: {
-									image: { type: "object", properties: null, items: managedAssetProperty },
-								},
-							},
-							false,
-						],
-						[
-							{
-								fields: {
-									image: {
-										items: null,
-										type: "array",
-										properties: { image: managedAssetProperty },
-									},
-								},
-							},
-							false,
-						],
-						[
-							{
-								fields: {
-									image: { type: "array", items: { type: "array", items: managedAssetProperty } },
-								},
-							},
-							true,
-						],
-						[{ fields: { image: managedAssetProperty } }, true],
-					];
-					for (const [schema, assetBearing] of cases) {
-						const id = yield* randomUuid;
-						yield* session.transaction(
-							Effect.gen(function* () {
-								const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-									schema,
-								);
-								const configSchema = sql`${encoded}::jsonb`;
-								yield* session.run((db) =>
-									db
-										.insert(tables.pluginRevision)
-										.values({ ...revision, id, configSchema, contentHash: id }),
-								);
-								yield* session.run((db) =>
-									db.insert(tables.pluginRevisionManifest).values({
-										pluginRevisionId: id,
-										manifest: sql`(select jsonb_set(${tables.pluginRevisionManifest.manifest}, '{configSchema}', ${configSchema})
-								from ${tables.pluginRevisionManifest}
-								where ${tables.pluginRevisionManifest.pluginRevisionId} = ${revisionId})`,
-									}),
-								);
-							}),
-						);
-						const configId = yield* insertEncryptedConfig(id, ownerUserId);
-						expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(
-							assetBearing ? [locator] : [],
-						);
-						yield* session.run((db) =>
-							db
-								.update(tables.pluginConfigRevision)
-								.set({ encryptedPayload: null, payloadPrunedAt: new Date() })
-								.where(eq(tables.pluginConfigRevision.id, configId)),
-						);
-						yield* session.run((db) =>
-							db
-								.update(tables.plugin)
-								.set({ activeRevisionId: id })
-								.where(eq(tables.plugin.id, pluginId)),
-						);
-						yield* session.run((db) =>
-							db
-								.update(tables.pluginInstallation)
-								.set({ activeConfigRevisionId: configId })
-								.where(eq(tables.pluginInstallation.id, installation.id)),
-						);
-						expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(
-							schema === null || assetBearing ? [locator] : [],
-						);
-						yield* session.run((db) =>
-							db
-								.update(tables.pluginInstallation)
-								.set({ activeConfigRevisionId: null })
-								.where(eq(tables.pluginInstallation.id, installation.id)),
-						);
-					}
-				}),
-			testTimeout,
-		);
-	},
-);
+				}
+			}),
+		testTimeout,
+	);
+});
 
 layer(testLayer)((test) => {
 	test.effect(

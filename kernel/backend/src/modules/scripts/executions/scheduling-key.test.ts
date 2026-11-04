@@ -94,20 +94,35 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			expect(yield* keyOf(userSubject, userPlugin, "interactive")).toEqual({
-			urgency: "fresh",
+				urgency: "fresh",
 				plugin: "plugin-1",
 				lane: "interactive",
 				tenant: "user:user-1",
 			});
 			expect(
 				yield* keyOf(automationSubject("user-1", userPlugin), userPlugin, "background"),
-			).toEqual({ urgency: "fresh", lane: "background", plugin: "plugin-1", tenant: "user:user-1" });
+			).toEqual({
+				urgency: "fresh",
+				lane: "background",
+				plugin: "plugin-1",
+				tenant: "user:user-1",
+			});
 			expect(
 				yield* keyOf(automationSubject("user-1", systemPlugin), systemPlugin, "background"),
-			).toEqual({ urgency: "fresh", lane: "background", tenant: "user:user-1", plugin: "system-plugin" });
+			).toEqual({
+				urgency: "fresh",
+				lane: "background",
+				tenant: "user:user-1",
+				plugin: "system-plugin",
+			});
 			expect(
 				yield* keyOf(automationSubject(null, systemPlugin), systemPlugin, "background"),
-			).toEqual({ urgency: "fresh", tenant: "system", lane: "background", plugin: "system-plugin" });
+			).toEqual({
+				urgency: "fresh",
+				tenant: "system",
+				lane: "background",
+				plugin: "system-plugin",
+			});
 			expect(yield* keyOf({ type: "system" }, systemPlugin, "background")).toEqual({
 				urgency: "fresh",
 				tenant: "system",
@@ -115,13 +130,13 @@ it.effect(
 				plugin: "system-plugin",
 			});
 			expect(yield* keyOf(userSubject, null, "interactive")).toEqual({
-			urgency: "fresh",
+				urgency: "fresh",
 				plugin: "kernel",
 				lane: "interactive",
 				tenant: "user:user-1",
 			});
 			expect(yield* keyOf({ type: "system" }, null, "background", true)).toEqual({
-			urgency: "fresh",
+				urgency: "fresh",
 				tenant: "system",
 				plugin: "kernel",
 				lane: "background",

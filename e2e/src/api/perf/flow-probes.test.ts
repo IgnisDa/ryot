@@ -332,8 +332,8 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 						c.events.create({
 							payload: movies.map((movie) => ({
 								properties: { progressPercent: 100 },
-								entityId: EntityId.make(movie.entityId),
 								occurredAt: "2026-01-01T12:00:00.000Z",
+								entityId: EntityId.make(movie.entityId),
 								eventSchemaSlug: EventSchemaSlug.make(movie.progressEventSchemaSlug),
 							})),
 						}),

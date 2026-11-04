@@ -75,7 +75,7 @@ layer(hostLayer)((test) => {
 					userBootstrapScriptSlugs: [],
 					configRevisionId: admittedPin,
 					revisionId: installed.revisionId,
-				scriptsDigest: emptyScriptsDigest,
+					scriptsDigest: emptyScriptsDigest,
 					configSchema: plugin.manifest.configSchema,
 					packageId: plugin.manifest.metadata.packageId,
 				});

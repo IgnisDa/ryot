@@ -64,7 +64,7 @@ layer(BunServices.layer)((test) => {
 				]);
 
 				expect(sandboxService).toMatch(
-				/dispatchAdmittedWorkflow\(\s*engine,\s*ScriptExecutionWorkflow,/,
+					/dispatchAdmittedWorkflow\(\s*engine,\s*ScriptExecutionWorkflow,/,
 				);
 				expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 				expect(automationRunWorkflow).toContain("ScriptExecutionService");
@@ -73,7 +73,7 @@ layer(BunServices.layer)((test) => {
 				);
 				expect(sandboxWorkflow).toContain("ScriptExecutionWorkflow");
 				expect(entityImportWorkflow).toMatch(
-				/dispatchAdmittedWorkflow\(\s*engine,\s*ProviderEntityPopulationWorkflow,/,
+					/dispatchAdmittedWorkflow\(\s*engine,\s*ProviderEntityPopulationWorkflow,/,
 				);
 			}),
 		testTimeout,
@@ -125,7 +125,7 @@ layer(BunServices.layer)((test) => {
 				expect(collectionsService).not.toContain("EventCreateWorkflow");
 				expect(
 					collectionsMembershipWorkflow.match(
-					/dispatchAdmittedWorkflow\(\s*engine,\s*EventCreateWorkflow,/g,
+						/dispatchAdmittedWorkflow\(\s*engine,\s*EventCreateWorkflow,/g,
 					)?.length ?? 0,
 				).toBe(1);
 			}),
@@ -150,7 +150,7 @@ layer(BunServices.layer)((test) => {
 				expect(populationWorkflow).toContain("stamp-root-populated-at");
 				expect(populationWorkflow).toContain("publish-primary-entity");
 				expect(populationWorkflow).toMatch(
-				/dispatchAdmittedWorkflow\(\s*engine,\s*ProviderRelatedPagesWorkflow,/,
+					/dispatchAdmittedWorkflow\(\s*engine,\s*ProviderRelatedPagesWorkflow,/,
 				);
 
 				expect(trigger).toContain("ProviderEntityPopulationWorkflow");

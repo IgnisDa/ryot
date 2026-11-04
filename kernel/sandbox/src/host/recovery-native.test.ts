@@ -598,7 +598,7 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 								}),
 							).toEqual({ recoveries: 3, suspended: false });
 							expect(committedDispatches).toBe(1);
-							assert.isDefined(result.recovery);
+							assert(result.recovery);
 							yield* reconstructed.completeRecovery(result.recovery);
 							expect(
 								yield* Effect.promise(() =>
@@ -713,7 +713,7 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 					}
 					for (const result of completed) {
 						expect(result).toMatchObject({ success: true, value: "healthy" });
-						assert.isDefined(result.recovery);
+						assert(result.recovery);
 						expect(yield* store.read(result.recovery)).toEqual({ recoveries: 1, suspended: false });
 						yield* supervisor.completeRecovery(result.recovery);
 					}

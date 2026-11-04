@@ -1830,7 +1830,7 @@ describe("executeRyotql", () => {
 						...runInput({ type: "system" }),
 						principal: {
 							...runInput({ type: "system" }).principal,
-						pluginRevision: systemPluginRevision,
+							pluginRevision: systemPluginRevision,
 							metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
 						},
 					});
@@ -2299,7 +2299,7 @@ describe("mergeUserEntityData", () => {
 							accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 						},
 						["mergeUserEntityData"],
-					{ pluginRevision: workspacePluginRevision },
+						{ pluginRevision: workspacePluginRevision },
 					);
 					expect(
 						yield* functions.mergeUserEntityData(input, {
@@ -2330,7 +2330,7 @@ describe("mergeUserEntityData", () => {
 						userId: UserId.make("trusted-user"),
 						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 					} as const;
-				const pinned = workspacePluginRevision;
+					const pinned = workspacePluginRevision;
 					for (const principal of [
 						runInput(subject, [], { pluginRevision: pinned }).principal,
 						runInput({ type: "system" }, ["mergeUserEntityData"], { pluginRevision: pinned })
@@ -2413,7 +2413,7 @@ describe("clearUserEntityData", () => {
 					const input = runInput(
 						{ userId, type: "user", accountGeneration: testAccountGeneration(userId) },
 						["clearUserEntityData"],
-					{ pluginRevision: workspacePluginRevision },
+						{ pluginRevision: workspacePluginRevision },
 					);
 					const submittedAt = DateTime.formatIso(yield* DateTime.now);
 					expect(
@@ -2449,7 +2449,7 @@ describe("clearUserEntityData", () => {
 						userId: UserId.make("trusted-user"),
 						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
 					} as const;
-				const pinned = workspacePluginRevision;
+					const pinned = workspacePluginRevision;
 					for (const principal of [
 						runInput(subject, [], { pluginRevision: pinned }).principal,
 						runInput({ type: "system" }, ["clearUserEntityData"], { pluginRevision: pinned })
@@ -2611,7 +2611,7 @@ describe("ensureUserEntities", () => {
 				Effect.gen(function* () {
 					const result = yield* runEnsureUserEntities({
 						caller: true,
-					outsidePinnedScope: true,
+						outsidePinnedScope: true,
 						subject: {
 							type: "user",
 							userId: UserId.make("user-1"),

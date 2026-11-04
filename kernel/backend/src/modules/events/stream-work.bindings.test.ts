@@ -390,12 +390,12 @@ layer(streamWorkTestLayer)((test) => {
 		"pages binding declarations past declarations that stay unrecorded",
 		() =>
 			Effect.gen(function* () {
-			const session = yield* DatabaseSession;
+				const session = yield* DatabaseSession;
 				const streams = yield* EventStreamRepository;
-			const { key } = yield* seedRetainedTargets("binding-pages", 0);
-			yield* session.transaction(
-				streams.ensureStreams([key, { ...key, eventSchemaSlug: summarySchemaSlug }]),
-			);
+				const { key } = yield* seedRetainedTargets("binding-pages", 0);
+				yield* session.transaction(
+					streams.ensureStreams([key, { ...key, eventSchemaSlug: summarySchemaSlug }]),
+				);
 				const [first] = yield* streams.bindingDeclarations({ limit: 1 });
 				assert(first);
 				const [second] = yield* streams.bindingDeclarations({ limit: 1, after: first });

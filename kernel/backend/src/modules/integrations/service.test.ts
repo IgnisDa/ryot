@@ -566,7 +566,7 @@ describe("installation availability", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toBeUndefined();
+					expect(yield* service.prepareYankRuns(null)).toBeUndefined();
 				}),
 			testTimeout,
 		);
@@ -641,7 +641,7 @@ describe("prepareYankRuns", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toBeUndefined();
+					expect(yield* service.prepareYankRuns(null)).toBeUndefined();
 					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
 						source: "theta",
 						integrationId: yankIntegration.id,
@@ -658,7 +658,7 @@ describe("prepareYankRuns", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toBeUndefined();
+					expect(yield* service.prepareYankRuns(null)).toBeUndefined();
 				}),
 			testTimeout,
 		);
@@ -670,8 +670,8 @@ describe("prepareYankRuns", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* IntegrationsService;
-				expect(yield* service.prepareYankRuns(null)).toBeUndefined();
-				expect(yield* service.prepareYankRuns(null)).toBeUndefined();
+					expect(yield* service.prepareYankRuns(null)).toBeUndefined();
+					expect(yield* service.prepareYankRuns(null)).toBeUndefined();
 					expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual(
 						Array.from({ length: 2 }, () => ({
 							method: "evaluateIntegration",
@@ -694,7 +694,7 @@ describe("prepareYankRuns", () => {
 			"waits without admitting when the executable is unavailable",
 			() =>
 				Effect.gen(function* () {
-				expect(yield* (yield* IntegrationsService).prepareYankRuns(null)).toBeUndefined();
+					expect(yield* (yield* IntegrationsService).prepareYankRuns(null)).toBeUndefined();
 				}),
 			testTimeout,
 		);

@@ -288,10 +288,10 @@ describe("immutable plugin revisions", () => {
 					for (const statement of [
 						...immutableRevisionStatements,
 						...userPluginStateStatements,
-					...entityOccursAtStatements,
+						...entityOccursAtStatements,
 						...immutableRevisionStatements,
 						...userPluginStateStatements,
-					...entityOccursAtStatements,
+						...entityOccursAtStatements,
 					]) {
 						yield* session.run((db) => db.execute(sql.raw(statement)));
 					}
@@ -308,8 +308,8 @@ describe("immutable plugin revisions", () => {
 					);
 					expect(triggers.map(({ name }) => name)).toEqual([
 						"collection_order_changed",
-					"ryot_entity_occurs_at",
-					"ryot_entity_occurs_at_revision",
+						"ryot_entity_occurs_at",
+						"ryot_entity_occurs_at_revision",
 						"ryot_plugin_revision_immutable",
 						"ryot_plugin_revision_manifest_immutable",
 						"ryot_plugin_revision_manifest_truncate",
