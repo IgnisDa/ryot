@@ -1,4 +1,4 @@
-import type { Hotkey } from "@tanstack/react-hotkeys";
+import type { HotkeyChord } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useRef } from "react";
 
@@ -10,12 +10,12 @@ type SearchFieldProps = {
 	readonly label: string;
 	readonly value: string;
 	readonly icon: ReactNode;
-	readonly shortcut?: Hotkey;
 	readonly className?: string;
 	readonly autoFocus?: boolean;
 	readonly clearIcon: ReactNode;
 	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
+	readonly shortcut?: HotkeyChord;
 	readonly onChange: (value: string) => void;
 	readonly inputRef?: RefObject<null | HTMLInputElement>;
 };

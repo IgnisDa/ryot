@@ -68,7 +68,7 @@ layer(testLayer)((test) => {
 					),
 				);
 				assert(Exit.isFailure(rollbackExit));
-				expect(Cause.squash(rollbackExit.cause)).toMatchObject({ cause: rollbackFailure });
+				expect(Cause.squash(rollbackExit.cause)).toBe(rollbackFailure);
 				expect(yield* session.isTransactionActive).toBe(false);
 				expect(
 					yield* Effect.promise(() =>

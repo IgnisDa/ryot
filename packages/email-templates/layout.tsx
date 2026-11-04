@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
 	Body,
 	Container,
@@ -10,8 +11,7 @@ import {
 	Preview,
 	Section,
 	Tailwind,
-} from "@react-email/components";
-import type { ReactNode } from "react";
+} from "react-email";
 
 type LayoutProps = { headingText: string; children: ReactNode };
 

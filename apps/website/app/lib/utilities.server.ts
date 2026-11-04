@@ -1,6 +1,6 @@
 import { parseWithZod } from "@conform-to/zod/v4";
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
-import { render } from "@react-email/components";
+import { render } from "@react-email/render";
 import dayjs, { type Dayjs } from "dayjs";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { Effect } from "effect";

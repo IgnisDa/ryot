@@ -207,7 +207,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 				const { user, server, mailbox, password } = credentials.value;
 				const [{ render }, { default: GenericEmail }] = yield* Effect.promise(() =>
 					Promise.all([
-						import("@react-email/components"),
+						import("@react-email/render"),
 						import("@ryot-app/email-templates/emails/generic"),
 					]),
 				);

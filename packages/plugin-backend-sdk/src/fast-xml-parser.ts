@@ -2,17 +2,8 @@ import {
 	COMMON_HTML as COMMON_HTML_ENTITIES,
 	CURRENCY as CURRENCY_ENTITIES,
 	EntityDecoder as EntityDecoderClass,
-	type EntityDecoderOptions as EntitiesDecoderOptions,
 } from "@nodable/entities";
-import {
-	type EntityDecoderOptions as XMLEntityDecoder,
-	XMLParser as XMLParserClass,
-} from "fast-xml-parser";
-
-// The package exports EntityDecoder by name at runtime but only types it as a default export.
-declare module "@nodable/entities" {
-	export const EntityDecoder: new (options?: EntitiesDecoderOptions) => XMLEntityDecoder;
-}
+import { XMLParser as XMLParserClass } from "fast-xml-parser";
 
 export type * from "fast-xml-parser";
 export const XMLParser: typeof XMLParserClass = XMLParserClass;

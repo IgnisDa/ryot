@@ -50,8 +50,8 @@ export { QueryStatus, type QueryStatusProps } from "./query-status";
 export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
 export { DestructiveConfirmation } from "./destructive-confirmation";
 export { revealOffset, useFocusedFieldVisibility } from "./focused-field";
-export type { Hotkey, RegisterableHotkey } from "@tanstack/react-hotkeys";
 export { useShortcut, OverlayScope, OverlayBackProvider } from "./shortcut";
+export type { HotkeyChord, RegisterableHotkey } from "@tanstack/react-hotkeys";
 export type { ActivityTone, ActivityAction, ActivityTrayEntry } from "./activity-tray";
 export { Field, Radio, Checkbox, TextArea, CellInput, TextField, FieldMessage } from "./text-field";
 export {

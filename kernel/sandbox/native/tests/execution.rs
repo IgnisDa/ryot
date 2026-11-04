@@ -604,7 +604,7 @@ fn imports_outside_the_tier_are_rejected_at_resolution() {
         (Tier::Core, "@ryot-app/plugin-backend-sdk/markdown"),
         (Tier::Core, "@ryot-app/plugin-backend-sdk/youtubei"),
         (Tier::Data, "@ryot-app/plugin-backend-sdk/youtubei"),
-        (Tier::Core, "ryot-runtime:/youtubei-17.2.0.mjs"),
+        (Tier::Core, "ryot-runtime:/youtubei-18.3.0.mjs"),
     ] {
         let source =
             format!("import * as module from {specifier:?};\nexport default () => typeof module;");

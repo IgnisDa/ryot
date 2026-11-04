@@ -1,12 +1,16 @@
-import { detectPlatform, type Hotkey, useDefaultHotkeysOptions } from "@tanstack/react-hotkeys";
+import {
+	detectPlatform,
+	type HotkeyChord,
+	useDefaultHotkeysOptions,
+} from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 
 import { AppIcon } from "./icon";
 
 type ShortcutHintProps = {
-	readonly shortcut: Hotkey;
 	readonly onAccent?: boolean;
 	readonly className?: string;
+	readonly shortcut: HotkeyChord;
 };
 
 export function ShortcutHint({ shortcut, onAccent, className }: ShortcutHintProps) {

@@ -9,7 +9,7 @@ import {
 	type PluginLeadingIntent,
 	type PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
-import { type Hotkey, MotionScrollRoot, useShortcut } from "@ryot-app/plugin-ui-sdk";
+import { type HotkeyChord, MotionScrollRoot, useShortcut } from "@ryot-app/plugin-ui-sdk";
 import { Effect, Fiber, Match, Result, Schema } from "effect";
 import {
 	type AnchorHTMLAttributes,
@@ -122,7 +122,7 @@ export function usePluginTitle(title: null | string) {
 }
 
 export function usePageShortcut(
-	shortcut: Hotkey,
+	shortcut: HotkeyChord,
 	press: () => void,
 	options: { readonly enabled?: boolean } = {},
 ) {
