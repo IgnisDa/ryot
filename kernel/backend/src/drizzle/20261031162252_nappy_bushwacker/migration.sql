@@ -5,7 +5,6 @@ CREATE TABLE "account" (
 	"access_token" text,
 	"refresh_token" text,
 	"id" text PRIMARY KEY,
-	"issuer" text NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
 	"access_token_expires_at" timestamp(3) with time zone,

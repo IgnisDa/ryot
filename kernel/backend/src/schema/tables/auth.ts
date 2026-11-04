@@ -85,7 +85,6 @@ export const account = snakeCase.table(
 		accessToken: text(),
 		refreshToken: text(),
 		id: text().primaryKey(),
-		issuer: text().notNull(),
 		accountId: text().notNull(),
 		providerId: text().notNull(),
 		accessTokenExpiresAt: timestamptz(),

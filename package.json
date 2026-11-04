@@ -24,7 +24,7 @@
 		"oxlint": "1.91.0",
 		"oxlint-tsgolint": "7.0.2005",
 		"tsconfig-moon": "1.4.2",
-		"turbo": "2.10.12"
+		"turbo": "2.11.10"
 	},
 	"packageManager": "bun@1.4.4",
 	"patchedDependencies": {

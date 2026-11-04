@@ -56,7 +56,7 @@
 		"@types/ioredis": "5.0.0",
 		"@voila.dev/effect-bun-test": "4.0.4",
 		"bun-types": "1.4.4",
-		"dotenv": "17.3.1",
+		"dotenv": "18.0.9",
 		"testcontainers": "11.14.0"
 	}
 }

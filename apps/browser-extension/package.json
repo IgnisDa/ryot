@@ -20,7 +20,7 @@
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
 		"tailwindcss": "4.3.4",
-		"ts-pattern": "5.9.0"
+		"ts-pattern": "5.9.2"
 	},
 	"devDependencies": {
 		"@types/react": "19.3.0",

@@ -1,4 +1,3 @@
-import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import {
 	InstanceAdminInternalFailure,
 	InstanceAdminNotFound,
@@ -67,7 +66,6 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 						providerId: "oidc",
 						id: yield* random.uuidV4(),
 						accountId: input.oidcIssuerId,
-						issuer: createOAuthAccountIssuer("oidc"),
 					});
 				}
 

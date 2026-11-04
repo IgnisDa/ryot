@@ -1,5 +1,3 @@
-import { createOAuthAccountIssuer } from "@better-auth/core/db";
-
 import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildReportSql,
@@ -10,7 +8,6 @@ import {
 
 const legacyEmailRegex = quoteSqlString("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$");
 const legacyOidcAccountIdPrefix = quoteSqlString("legacy-oidc-account:");
-const legacyOidcAccountIssuer = quoteSqlString(createOAuthAccountIssuer("oidc"));
 
 export const buildLegacyUserLibraryMigrationSql = (
 	libraryEntitySchema: QualifiedSchema,
@@ -177,7 +174,6 @@ BEGIN
 	INSERT INTO "account" (
 		"id",
 		"user_id",
-		"issuer",
 		"account_id",
 		"provider_id",
 		"password",
@@ -193,7 +189,6 @@ BEGIN
 	SELECT
 		md5(${legacyOidcAccountIdPrefix} || oidc_users.id),
 		oidc_users.id,
-		${legacyOidcAccountIssuer},
 		oidc_users.legacy_oidc_subject,
 		'oidc',
 		NULL,
@@ -219,7 +214,6 @@ BEGIN
 			FROM "account" a
 			WHERE a."id" = md5(${legacyOidcAccountIdPrefix} || ou.id)
 				AND a."user_id" = ou.id
-				AND a."issuer" = ${legacyOidcAccountIssuer}
 				AND a."account_id" = btrim(ou."oidc_issuer_id")
 				AND a."provider_id" = 'oidc'
 				AND a."password" IS NULL

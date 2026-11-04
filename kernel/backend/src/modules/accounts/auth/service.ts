@@ -1,5 +1,4 @@
 import { apiKey } from "@better-auth/api-key";
-import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { oauthProvider } from "@better-auth/oauth-provider";
 import { redisStorage } from "@better-auth/redis-storage";
 import {
@@ -370,7 +369,6 @@ const makeAuthInstance = (args: {
 									providerId: "oidc",
 									clientId: oidc.value.clientId,
 									scopes: ["openid", "email", "profile"],
-									accountIssuer: createOAuthAccountIssuer("oidc"),
 									disableSignUp: !args.config.users.allowRegistration,
 									clientSecret: Redacted.value(oidc.value.clientSecret),
 									discoveryUrl: `${oidc.value.issuerUrl.replace(/\/$/, "")}/.well-known/openid-configuration`,
@@ -909,6 +907,12 @@ export class AuthService extends Context.Service<AuthService>()(
 					const credential = credentialFromHeaders(headers);
 					return credential ? authenticate(credential) : Effect.fail(authenticationRequired());
 				},
+				linkAuthAccount: (account: {
+					id: string;
+					userId: string;
+					accountId: string;
+					providerId: string;
+				}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
 				createAuthUser: (user: AuthUserInput) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.createUser(
@@ -916,13 +920,6 @@ export class AuthService extends Context.Service<AuthService>()(
 							{ method: "admin" },
 						),
 					),
-				linkAuthAccount: (account: {
-					id: string;
-					userId: string;
-					issuer: string;
-					accountId: string;
-					providerId: string;
-				}) => withInternalAdapter(({ internalAdapter }) => internalAdapter.linkAccount(account)),
 				updateAuthUserDisabled: (
 					userId: UserId,
 					data: { updatedAt: Date; disabledAt: Date | null },

@@ -1,4 +1,3 @@
-import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
@@ -302,11 +301,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				providerId: string;
 			}) {
 				const id = generateId();
-				const issuer =
-					input.providerId === "credential"
-						? createLocalAccountIssuer(input.providerId)
-						: createOAuthAccountIssuer(input.providerId);
-				yield* auth.linkAuthAccount({ id, issuer, ...input });
+				yield* auth.linkAuthAccount({ id, ...input });
 				return { id };
 			});
 

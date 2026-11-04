@@ -1,4 +1,3 @@
-import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import {
 	type UserLifecycleOperationFailure,
@@ -198,7 +197,6 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 							accountId: oidc.accountId,
 							id: metadata.recreatedAccountId,
 							userId: operation.operation.userId,
-							issuer: createOAuthAccountIssuer("oidc"),
 						});
 					}
 

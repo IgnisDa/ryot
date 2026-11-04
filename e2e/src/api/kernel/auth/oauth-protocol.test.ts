@@ -132,9 +132,9 @@ describe("OAuth protocol enforcement", () => {
 
 			const response = yield* exchangeCode(pending, code, yield* randomUuid);
 
-			expect(response.status).toBe(401);
+			expect(response.status).toBe(400);
 			expect(yield* Effect.promise(() => response.json())).toMatchObject({
-				error: "invalid_request",
+				error: "invalid_grant",
 				error_description: "code verification failed",
 			});
 		}),

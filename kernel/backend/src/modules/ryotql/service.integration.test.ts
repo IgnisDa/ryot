@@ -321,7 +321,6 @@ const seedCatalog = Effect.gen(function* () {
 				].map(({ userId, providerId }) => ({
 					userId,
 					providerId,
-					issuer: "issuer",
 					updatedAt: occurredAt,
 					id: `${userId}-${providerId}`,
 					accountId: `${userId}-${providerId}`,
