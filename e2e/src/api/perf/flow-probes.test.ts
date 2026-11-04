@@ -320,6 +320,25 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
 				}
+				// History correction fans out per subject, as in the 60-subject liveness test.
+				const movies = yield* Effect.forEach(
+					Array.from({ length: 20 }),
+					() => createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "movie" }),
+					{ concurrency: 4 },
+				);
+				yield* probe(
+					"media-progress-fanout-20",
+					client.call((c) =>
+						c.events.create({
+							payload: movies.map((movie) => ({
+								properties: { progressPercent: 100 },
+								entityId: EntityId.make(movie.entityId),
+								occurredAt: "2026-01-01T12:00:00.000Z",
+								eventSchemaSlug: EventSchemaSlug.make(movie.progressEventSchemaSlug),
+							})),
+						}),
+					),
+				);
 				// `measurement-reading` matches no hook, has no projection and belongs to no batch-hook
 				// candidate, so these flows measure the write path alone.
 				const { entityId: metricId } = yield* createMeasurementMetric(client, {

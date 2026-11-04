@@ -19,6 +19,7 @@ Three separate causes, each needing its own fix:
 ## Proposal
 
 **A. A declared, indexed date on entities.**
+
 - An entity schema can name one of its date properties, such as `occursAtProperty: "publishDate"`.
 - A trigger copies the value to a new `entity.occurs_at` column in the same write, indexed on
   `(entity_schema_slug, occurs_at)`, and RyotQL exposes it like any physical column. A trigger, because backup

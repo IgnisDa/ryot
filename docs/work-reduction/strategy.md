@@ -83,14 +83,14 @@ needs it.
 Each slice is measured before and after with the flow probes and, at milestones, the full suite.
 Product behavior and the e2e suite stay green at every step.
 
-| # | Slice | Expected effect | Size |
-| --- | --- | --- | --- |
-| 1 | Scope the plugin-ingestion lock (per package / owner) | Removes the largest cross-test stall; fewer suite-only timeouts | S |
-| 2 | Lean PostgreSQL workflow engine replacing Effect Cluster; delete `cluster_*` tables, the fence trigger and the reply root lock | Removes 34–41% of statements and the per-step message/reply/fence overhead in every flow; removes idle background traffic (≈11 transactions/s) | L |
-| 3 | Remove workflow layers from hot paths: event create (incl. a zero-policy policy batch), entity commands, user commands, entity preparation, per-call host-service workflows | Event create from ≈2,400 statements toward a few hundred; signup and bootstrap shrink with it | L |
-| 4 | Run-once sandbox executions: host calls answered inline with a journal append; nested runs borrow the blocked parent's concurrency; replay only on recovery | Removes ≈3.4× script replays per hook; caller latency toward sandbox time plus a few transactions | L |
-| 5 | Duplicate checks: account admission, catalog locks, batch bookkeeping, owner registration once per transaction | Lower constant factor everywhere | M |
-| 6 | Pool and lane sizing re-derived; operational gates re-measured | Gates within budget | S |
+| #   | Slice                                                                                                                                                                       | Expected effect                                                                                                                                | Size |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| 1   | Scope the plugin-ingestion lock (per package / owner)                                                                                                                       | Removes the largest cross-test stall; fewer suite-only timeouts                                                                                | S    |
+| 2   | Lean PostgreSQL workflow engine replacing Effect Cluster; delete `cluster_*` tables, the fence trigger and the reply root lock                                              | Removes 34–41% of statements and the per-step message/reply/fence overhead in every flow; removes idle background traffic (≈11 transactions/s) | L    |
+| 3   | Remove workflow layers from hot paths: event create (incl. a zero-policy policy batch), entity commands, user commands, entity preparation, per-call host-service workflows | Event create from ≈2,400 statements toward a few hundred; signup and bootstrap shrink with it                                                  | L    |
+| 4   | Run-once sandbox executions: host calls answered inline with a journal append; nested runs borrow the blocked parent's concurrency; replay only on recovery                 | Removes ≈3.4× script replays per hook; caller latency toward sandbox time plus a few transactions                                              | L    |
+| 5   | Duplicate checks: account admission, catalog locks, batch bookkeeping, owner registration once per transaction                                                              | Lower constant factor everywhere                                                                                                               | M    |
+| 6   | Pool and lane sizing re-derived; operational gates re-measured                                                                                                              | Gates within budget                                                                                                                            | S    |
 
 Slice 3 after slice 2 (`probes4`): with the lean engine a child workflow layer costs about five
 statements, so removing wrappers alone saves little. Per-flow statement counts point at constant
@@ -112,6 +112,7 @@ The event-create HTTP path keeps its workflow. Its API returns a pollable operat
 outlives 35 s, so the work must survive the request.
 
 Order rationale:
+
 - 1 is cheap and tests whether coupling, not raw cost, causes the suite-only failures.
 - 2 lowers the cost of every durable step at once and keeps all 33 workflows and their tests
   unchanged, so behavior risk sits in one new component. It is also what 3 and 4 build on.

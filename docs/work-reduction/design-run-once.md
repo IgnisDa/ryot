@@ -11,8 +11,7 @@ A script that writes runs at least twice:
 2. The workflow settles the request as a child workflow or activity and journals the result.
 3. The script runs again from the start. It replays the journal and continues.
 
-An event create starts 5 scripts that take 9 sandbox runs between them; a review starts 13 that take
-25. Each replay costs:
+An event create starts 5 scripts that take 9 sandbox runs between them; a review starts 13 that take 25. Each replay costs:
 
 - a sandbox run: queue round trip, admission, isolate, protocol frames;
 - an `observe-sandbox-workflow-replay` activity;
@@ -37,7 +36,7 @@ A run that waits on an inline write keeps its isolate. The write can start polic
 example the before-stage hooks of an event create, and those need isolates of their own.
 
 - The sidecar sizes isolate memory for `G` runs (`maximumActive: G`, `isolateMemoryBytes:
-  G × …`).
+G × …`).
 - Both backend gates count a parked run: the queue capacity and the admission concurrency.
 - With the default `G = 2`, two parked parents leave nothing for their nested policies. They would
   stall until the 30 s settlement bound and only then defer.

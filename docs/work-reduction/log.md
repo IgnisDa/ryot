@@ -40,14 +40,14 @@
   - 1.54 M statements and 1,156 s of database execution; 34% of the statements hit `cluster_*`.
   - Database time under load goes mostly to waiting on locks:
 
-    | Statement | Calls | Exec time |
-    | --- | ---: | ---: |
-    | `pg_advisory_xact_lock_shared(hashtext($))` | 74 k | 295 s |
-    | Reply-path `FOR UPDATE` of the root `workflow_execution` (`lockRequestRoot`) | 58 k | 172 s |
-    | `cluster_messages` insert, including the fence trigger | 76 k | 104 s |
-    | Storage poll (`UPDATE cluster_messages … last_read`) | 39 k | 90 s |
-    | Fence trigger's root `expired_at` lookup | 39 k | 79 s |
-    | `pg_advisory_xact_lock` (exclusive) | 11 k | 34 s |
+    | Statement                                                                    | Calls | Exec time |
+    | ---------------------------------------------------------------------------- | ----: | --------: |
+    | `pg_advisory_xact_lock_shared(hashtext($))`                                  |  74 k |     295 s |
+    | Reply-path `FOR UPDATE` of the root `workflow_execution` (`lockRequestRoot`) |  58 k |     172 s |
+    | `cluster_messages` insert, including the fence trigger                       |  76 k |     104 s |
+    | Storage poll (`UPDATE cluster_messages … last_read`)                         |  39 k |      90 s |
+    | Fence trigger's root `expired_at` lookup                                     |  39 k |      79 s |
+    | `pg_advisory_xact_lock` (exclusive)                                          |  11 k |      34 s |
 
   - The shared lock is mostly the global `ryot-plugin-ingestion` key
     (`modules/plugins/packages/ingestion-fence.ts`). Sixteen sites take it shared: planning, sandbox
@@ -98,6 +98,7 @@
   not stall during these tests: the engine completes 750–1,170 workflow executions per minute, about
   2,700 per test. They are slow because of the sheer number of operations, which is what slices 3–4
   remove.
+
 - `baseliv`: `history-correction-liveness` alone on the pre-engine baseline (`f3c8ce8f77`), with
   provider configuration. 4 of 5 fail at 180 s; the fifth passes in 27 s. The timeouts therefore
   predate slice 2, which turned one of them into a pass.
@@ -125,6 +126,7 @@
 
   So the 18 executions of an event create cost under 20 ms of its roughly 1 s of API CPU. What
   remains is the work inside them, not the engine.
+
 - `full3`, the whole suite after principal slimming (`1760dc4d7a`), ended at 27 minutes with 407
   tests reported, 15 of them failed:
   - The kernel ran out of memory and killed a sandbox daemon, its intended first victim. systemd's
@@ -503,4 +505,11 @@
   statement each, and `LifecyclePlanner.planChanges` admits stream work, projection inputs and memberships once
   for the chunk. 50 events fell from 1,616 statements to 488 and the workout save from 9,642 to 4,354, 5.2 s to
   2.9 s (`probesB10`).
-
+- `full19`, the whole suite at `815599d624`: 43 min, 945 passed, 6 failed. Five are history correction at the 180 s
+  timeout, the rankings test included; the workout editor browser failure passed alone (`wk1`), as did the
+  liveness file (`liv20`).
+- Step 9's second move was tried for `service-workflow` writes and `createEvents` and reverted: statements stayed
+  flat and history correction regressed (`design-scripts-once.md`).
+- `probesH1`: a movie's history correction is four user commands, about 1,870 statements and 1.2 s. Each user
+  command still runs `UserCommandWorkflow`, an entity preparation workflow and a `PolicyBatchWorkflow`, so step 8's
+  direct path for user commands is the next lever for step 10.

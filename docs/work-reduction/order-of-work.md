@@ -10,6 +10,7 @@ at a busy week, because a dump's date windows empty out as it ages. "Flow probes
 ## Phase 0: make the checks repeatable
 
 **0. Library check and baseline triage.**
+
 - Keep the temporary `legacy2` reads and plan capture as a script that restores a dump into disposable
   containers. They stay out of the e2e suite, and dumps stay local.
 - Run `collection-detail` and `entity-reminders` several times to see whether they are flaky or real, and fix
@@ -20,14 +21,14 @@ at a busy week, because a dump's date windows empty out as it ages. "Flow probes
 
 These fix what real users hit now, and do not depend on the write redesign.
 
-| Step | Change | Evidence | Check on `tmp/file2.sql` |
-| --- | --- | --- | --- |
-| **1. JIT off for reads** | `jit=off` in the RyotQL transaction, next to `statement_timeout` | `legacy2`: 3 of 3 page loads killed with JIT on, 0 of 3 off | No kill in 3 page loads at 1 GB |
-| **2. Compute the page first** | RyotQL filters, sorts and limits first, then computes display fields for the page's rows only | `legacy3`: 607,521 episode visits for 21 rows; the name sort needs 2,708 | Default view and stored-value sorts under 1 s |
-| **3. Store what lists sort on** | Dropped: `a4`–`a6` have those sorts under 1 s without it | `timesCompleted` also depends on asynchronous stream contributions, so storing it would need a new kernel trigger | |
-| **4. One gate per query** | The plugin and installation check runs once, not per row. Decide after step 5: flat rails are at 135 ms | `legacy3`: flat rail does 29,460 projection and installation lookups for 1 row | Flat rails under 100 ms |
-| **5. Indexed dates** | Upcoming and calendar start from an indexed date, not by parsing every episode | `a5`, `a6`: `upcoming` fails at 30 s; prototype in `probes.md` | Each under 500 ms on both dates |
-| **6. Memory and background load** | Trace the background query that slows reads, then bound concurrent reads if still needed | `upcoming`: 4.5 s alone, 20–28 s beside it | Whole home page under 2 s, no kill at 1 GB under background load |
+| Step                              | Change                                                                                                  | Evidence                                                                                                          | Check on `tmp/file2.sql`                                         |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **1. JIT off for reads**          | `jit=off` in the RyotQL transaction, next to `statement_timeout`                                        | `legacy2`: 3 of 3 page loads killed with JIT on, 0 of 3 off                                                       | No kill in 3 page loads at 1 GB                                  |
+| **2. Compute the page first**     | RyotQL filters, sorts and limits first, then computes display fields for the page's rows only           | `legacy3`: 607,521 episode visits for 21 rows; the name sort needs 2,708                                          | Default view and stored-value sorts under 1 s                    |
+| **3. Store what lists sort on**   | Dropped: `a4`–`a6` have those sorts under 1 s without it                                                | `timesCompleted` also depends on asynchronous stream contributions, so storing it would need a new kernel trigger |                                                                  |
+| **4. One gate per query**         | The plugin and installation check runs once, not per row. Decide after step 5: flat rails are at 135 ms | `legacy3`: flat rail does 29,460 projection and installation lookups for 1 row                                    | Flat rails under 100 ms                                          |
+| **5. Indexed dates**              | Upcoming and calendar start from an indexed date, not by parsing every episode                          | `a5`, `a6`: `upcoming` fails at 30 s; prototype in `probes.md`                                                    | Each under 500 ms on both dates                                  |
+| **6. Memory and background load** | Trace the background query that slows reads, then bound concurrent reads if still needed                | `upcoming`: 4.5 s alone, 20–28 s beside it                                                                        | Whole home page under 2 s, no kill at 1 GB under background load |
 
 Step 5 is described in [`design-indexed-date.md`](design-indexed-date.md). Its check is met in `a7`–`a9`. So is
 step 6's whole-page check, without tracing the background query, so that trace and any read limit wait until a

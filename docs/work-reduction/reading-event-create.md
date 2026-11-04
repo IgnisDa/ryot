@@ -32,10 +32,10 @@ group validation) → dispatch (no-op) → activity `seal-event-batch` (≈10 st
 
 ## Estimated totals
 
-| Scenario | DB round trips | Workflows | Activities | Cluster rows |
-| --- | --- | --- | --- | --- |
-| No hooks, no projection | 150–200 | 2 | 7 | ≈18 |
-| One async after-hook + one projection | 400–550 | 6 | 20–22 | 60–70, plus 2 suspend/resume body replays, 2 sandbox runs |
+| Scenario                              | DB round trips | Workflows | Activities | Cluster rows                                              |
+| ------------------------------------- | -------------- | --------- | ---------- | --------------------------------------------------------- |
+| No hooks, no projection               | 150–200        | 2         | 7          | ≈18                                                       |
+| One async after-hook + one projection | 400–550        | 6         | 20–22      | 60–70, plus 2 suspend/resume body replays, 2 sandbox runs |
 
 Four `mutation_receipt` rows (owner, batch decision, item, operation) and two `workflow_execution` rows
 per no-hook create.

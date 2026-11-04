@@ -8,13 +8,13 @@ Status: move 1 built (`probesB4`); move 2 built in step 9; move 5 built for even
 `probesB3`, one event whose schema matches no hook: 136 statements, 28 transactions, 2 workflows. The event row
 itself is 4 of them. Grouped by what they serve (the 122 statements of the probe's top list):
 
-| Group | Statements | Source |
-| --- | ---: | --- |
-| Locks and authority | 61 | Account, plugin and installation checks per transaction, advisory locks, and foreign-key checks for workflow and receipt rows |
-| Workflow engine | 25 | `EventCreateWorkflow` and `PolicyBatchWorkflow`: executions, steps, runner leases |
-| Definitions | 18 | Event and entity schema reads, repeated per transaction |
-| Receipts | 10 | Operation, batch and item receipts, plus batch evidence written and then deleted |
-| Event and entity rows | 4 | The write itself |
+| Group                 | Statements | Source                                                                                                                        |
+| --------------------- | ---------: | ----------------------------------------------------------------------------------------------------------------------------- |
+| Locks and authority   |         61 | Account, plugin and installation checks per transaction, advisory locks, and foreign-key checks for workflow and receipt rows |
+| Workflow engine       |         25 | `EventCreateWorkflow` and `PolicyBatchWorkflow`: executions, steps, runner leases                                             |
+| Definitions           |         18 | Event and entity schema reads, repeated per transaction                                                                       |
+| Receipts              |         10 | Operation, batch and item receipts, plus batch evidence written and then deleted                                              |
+| Event and entity rows |          4 | The write itself                                                                                                              |
 
 `EventCreateWorkflow` runs five transactions for it: admit the batch, prepare, plan policies inside a child
 `PolicyBatchWorkflow`, commit, seal the batch, record the operation receipt. Each one re-reads the account and

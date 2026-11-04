@@ -9,12 +9,12 @@ Status: bootstrap entities, membership rules and projection inputs built; dirty-
 itself costs what a no-hook event does, 148 statements and 2 workflows. The rest is four hooks, each a run, a
 script and durable host calls:
 
-| Hook | Script does | Replaced by |
-| --- | --- | --- |
-| `ensure-media-library-membership-on-events` | Upserts `in-media-library` from the title to the user's library | Membership rule |
-| `record-media-library-membership-event` | Writes `add-to-media-library` for a new membership | Membership rule |
-| `library-summary-refresh` | Maps events and new memberships to titles, then requests projections | Projection inputs |
-| `reconcile-history` | Maps events to subjects, then requests user work per subject | Dirty-subject work |
+| Hook                                        | Script does                                                          | Replaced by        |
+| ------------------------------------------- | -------------------------------------------------------------------- | ------------------ |
+| `ensure-media-library-membership-on-events` | Upserts `in-media-library` from the title to the user's library      | Membership rule    |
+| `record-media-library-membership-event`     | Writes `add-to-media-library` for a new membership                   | Membership rule    |
+| `library-summary-refresh`                   | Maps events and new memberships to titles, then requests projections | Projection inputs  |
+| `reconcile-history`                         | Maps events to subjects, then requests user work per subject         | Dirty-subject work |
 
 The new membership's relationship and event match the last two hooks again, which is most of the 19 workflows.
 
@@ -86,12 +86,14 @@ steps 8 and 9 replace, so it lands with step 10. The proposal stands:
 A plugin declares user work keyed by subject, run once per subject however many writes mark it:
 
 ```ts
-subjectWork: [{
-  slug: "history-correction",
-  scriptSlug: "...",
-  events: [...eventSchemaSlugs],
-  subject: "session-or-entity",
-}]
+subjectWork: [
+  {
+    slug: "history-correction",
+    scriptSlug: "...",
+    events: [...eventSchemaSlugs],
+    subject: "session-or-entity",
+  },
+];
 ```
 
 The commit upserts one row per user, plugin and subject, and a worker runs the script for each dirty subject,

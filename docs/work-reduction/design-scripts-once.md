@@ -7,12 +7,12 @@ direct policy calls folded in. Builds on [`design-run-once.md`](design-run-once.
 
 After step 8's first move, the kernel's own write path is small next to what scripts start (`probesB4`):
 
-| Flow | Statements | Workflows | Script executions | Sandbox runs | Host-call workflows | Automation runs |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Event, no hooks | 95 | 0 | 0 | 0 | 0 | 0 |
-| Event, `backlog` | 582 | 11 | 3 | 3 | 2 | 1 |
-| Review operation | 1,223 | 24 | 7 | 11 | 5 | 4 |
-| Workout editor save, 10 × 15 | 9,920 | 59 | 13 | 22 | 16 | 11 |
+| Flow                         | Statements | Workflows | Script executions | Sandbox runs | Host-call workflows | Automation runs |
+| ---------------------------- | ---------: | --------: | ----------------: | -----------: | ------------------: | --------------: |
+| Event, no hooks              |         95 |         0 |                 0 |            0 |                   0 |               0 |
+| Event, `backlog`             |        582 |        11 |                 3 |            3 |                   2 |               1 |
+| Review operation             |      1,223 |        24 |                 7 |           11 |                   5 |               4 |
+| Workout editor save, 10 × 15 |      9,920 |        59 |                13 |           22 |                  16 |              11 |
 
 Step 8's remaining moves trim a constant per kernel write. The workflows above multiply those writes, so they come
 first.
@@ -53,6 +53,14 @@ The queue worker's own execution path already reserves an admission lease from `
    After move 1 (`probesB8`), the 10 × 15 workout save's 51 workflows are 7 after-hook runs, 4 policy batches and
    10 relationship preparations, 16 host-call workflows, and 9 script executions. The host-call workflows and
    replays are what this move removes.
+   Tried and reverted (`probesW1`, `sx1`): inline `service-workflow` writes and `createEvents` ran directly,
+   outside any workflow instance, with a 5 s bound before deferring. Host-call workflows fell from 16 to 5 in the
+   workout save, but statements stayed flat (4,354 to 4,479), since each host-call workflow costs about 15. Without
+   a parent instance, a write whose command workflow suspends on a policy keeps polling while the parked isolate
+   holds its lease, so a history-correction commit, which writes `complete` events that match the consumption
+   policy, held a lease for up to 5 s. History correction regressed: a concurrent-parents test that passed in
+   `full19` timed out. Removing the wrapper needs suspension to return at once, as a child of the script workflow
+   does, without the services seeing that workflow as theirs; until then the wrapper stays.
 3. **One job table.** `automation_run`, `background_work` and the projection work rows become one job model with
    attempts, deadlines and a coalescing key, drained by a worker loop. Scripts with external effects keep the durable
    engine.

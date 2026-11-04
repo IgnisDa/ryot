@@ -13,16 +13,16 @@ unless noted.
 
 ## Per item
 
-| Layer | Workflows | Sandbox runs | Activities |
-| --- | --- | --- | --- |
-| Chunk parent share | 1/K | ≈1/4 (one replay per 4 children) | replay observation + queue deferreds; each replay re-reads the whole journal (O(K²)) |
-| `EntityImportWorkflow` | 1 | – | plan completion, deadline, settle, 35 s durable hook clock |
-| `ProviderEntityPopulationWorkflow` | 1 | – | ensure request, claim × (1+k) with k durable 1 s sleeps, started/running/succeeded |
-| `ProviderEntityPopulationAttemptWorkflow` | 1 | – | 7 (definitions, existing, validate, upsert, attach, stamp, publish) |
-| Details `ScriptExecutionWorkflow` | 1 | 1 | pin, observe, release |
-| Required hook `ensure-media-library-membership` | 2 | 2 | claim/prepare/finalize + script activities; `changeUserRelationships` ends the isolate |
-| Required hook `record-media-library-membership-event` | 2–3 | 2 | ≈7 + event create |
-| Async `library-summary-refresh` | 2–3 | 2 | ≈7, then serialized relationship-projection background work |
+| Layer                                                 | Workflows | Sandbox runs                     | Activities                                                                             |
+| ----------------------------------------------------- | --------- | -------------------------------- | -------------------------------------------------------------------------------------- |
+| Chunk parent share                                    | 1/K       | ≈1/4 (one replay per 4 children) | replay observation + queue deferreds; each replay re-reads the whole journal (O(K²))   |
+| `EntityImportWorkflow`                                | 1         | –                                | plan completion, deadline, settle, 35 s durable hook clock                             |
+| `ProviderEntityPopulationWorkflow`                    | 1         | –                                | ensure request, claim × (1+k) with k durable 1 s sleeps, started/running/succeeded     |
+| `ProviderEntityPopulationAttemptWorkflow`             | 1         | –                                | 7 (definitions, existing, validate, upsert, attach, stamp, publish)                    |
+| Details `ScriptExecutionWorkflow`                     | 1         | 1                                | pin, observe, release                                                                  |
+| Required hook `ensure-media-library-membership`       | 2         | 2                                | claim/prepare/finalize + script activities; `changeUserRelationships` ends the isolate |
+| Required hook `record-media-library-membership-event` | 2–3       | 2                                | ≈7 + event create                                                                      |
+| Async `library-summary-refresh`                       | 2–3       | 2                                | ≈7, then serialized relationship-projection background work                            |
 
 Total ≈9–12 workflows, 5–7 sandbox runs, 35–45 activities, 25–35 application transactions per item,
 plus ≈3 cluster storage statements per activity. Parents re-run their bodies from the top on every
@@ -30,14 +30,14 @@ child resume, replaying journal entries and repeating in-body transactions.
 
 ## Serializing limits
 
-| Limit | Value | Where |
-| --- | --- | --- |
+| Limit                                                     | Value                                                                              | Where                                                   |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Application DB pool (all kernel work and cluster storage) | `4 + G` = 9 in e2e; the rest of `DATABASE_POOL_MAX=100` is reserved for host calls | `platform/db/postgres.ts`, `platform/config/service.ts` |
-| Sandbox concurrency G / background lane | 5 / `floor(G/2)` = 2 in e2e | `config/definition.ts`, `scripts/executions/queues.ts` |
-| Running population owners | 8 per install | `entities/enrichment/repository.ts` |
-| Population admission | one install-wide exclusive advisory lock per ensure and per claim poll | same |
-| Script pin | plugin ingestion shared lock | `plugins/packages/ingestion-fence.ts` |
-| Required hooks | 8 concurrent, 35 s deadline each | `automations/execution.ts` |
+| Sandbox concurrency G / background lane                   | 5 / `floor(G/2)` = 2 in e2e                                                        | `config/definition.ts`, `scripts/executions/queues.ts`  |
+| Running population owners                                 | 8 per install                                                                      | `entities/enrichment/repository.ts`                     |
+| Population admission                                      | one install-wide exclusive advisory lock per ensure and per claim poll             | same                                                    |
+| Script pin                                                | plugin ingestion shared lock                                                       | `plugins/packages/ingestion-fence.ts`                   |
+| Required hooks                                            | 8 concurrent, 35 s deadline each                                                   | `automations/execution.ts`                              |
 
 ## Timers
 

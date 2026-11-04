@@ -56,13 +56,13 @@ against a large library, because the e2e suite's tiny libraries cannot catch the
 
 Removing the five hook families from `76a8cff917` ([`probes.md`](probes.md), `full12` and `full13`):
 
-| Measure | Baseline | Hooks removed |
-| --- | ---: | ---: |
-| `POST /events`, mean under load | 2,378 ms | 658 ms |
-| `POST /entities`, mean under load | 370 ms | 80 ms |
-| Statements | 2.84 M | 1.47 M |
-| Machine CPU | about 10,500 s | about 8,300 s |
-| Suite, projected | 50 min | 26–38 min |
+| Measure                           |       Baseline | Hooks removed |
+| --------------------------------- | -------------: | ------------: |
+| `POST /events`, mean under load   |       2,378 ms |        658 ms |
+| `POST /entities`, mean under load |         370 ms |         80 ms |
+| Statements                        |         2.84 M |        1.47 M |
+| Machine CPU                       | about 10,500 s | about 8,300 s |
+| Suite, projected                  |         50 min |     26–38 min |
 
 - **The cascade is the largest single server cost, and removing it is not enough.** The earlier estimate
   of 20–30 minutes after moves 2–4 now sits at the optimistic end, and the 20-minute target needs work
@@ -77,23 +77,23 @@ Removing the five hook families from `76a8cff917` ([`probes.md`](probes.md), `fu
 
 ## What the last round showed
 
-| Finding | Evidence |
-| --- | --- |
+| Finding                                                 | Evidence                                                                                                                       |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | The engine was replaced; the shape of the work was not. | Workflows per backlog create: 18 in `probes5`, about 23 in `probes11`, because every script write gained a host-call workflow. |
-| The engine is no longer the cost. | 18 executions cost under 20 ms of about 1 s of CPU in the micro-benchmark. |
-| Statement count stopped predicting CPU. | Slice 3a cut statements 12–18% and moved neither CPU nor latency. |
-| Domain writes are a rounding error. | `full11`, shared database: about 0.5% of 3.33 M statements, for about 9,000 domain rows. |
+| The engine is no longer the cost.                       | 18 executions cost under 20 ms of about 1 s of CPU in the micro-benchmark.                                                     |
+| Statement count stopped predicting CPU.                 | Slice 3a cut statements 12–18% and moved neither CPU nor latency.                                                              |
+| Domain writes are a rounding error.                     | `full11`, shared database: about 0.5% of 3.33 M statements, for about 9,000 domain rows.                                       |
 
 ## The decomposition that was missing
 
 `probes11` added a write that matches no hook ([`probes.md`](probes.md)), which separates the
 kernel's write path from the plugin's cascade:
 
-| Flow | Caller | Statements | API CPU | Workflows | Scripts |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| One event, no hooks | 179 ms | 148 | 130 ms | 2 | 0 |
-| One event, `backlog` | 610 ms | 1,006 | 740 ms | 23 | 6 |
-| Signup | 704 ms | 452 | 610 ms | 5 | 2 |
+| Flow                 | Caller | Statements | API CPU | Workflows | Scripts |
+| -------------------- | -----: | ---------: | ------: | --------: | ------: |
+| One event, no hooks  | 179 ms |        148 |  130 ms |         2 |       0 |
+| One event, `backlog` | 610 ms |      1,006 |  740 ms |        23 |       6 |
+| Signup               | 704 ms |        452 |  610 ms |         5 |       2 |
 
 So for one media event:
 
@@ -107,14 +107,14 @@ So for one media event:
 Most hook runs carry no domain logic that needs a script. Each is durable plumbing around a small
 decision:
 
-| Script | What it does | Needs a sandbox run? |
-| --- | --- | --- |
-| `library-summary-refresh` | Maps changed events to title IDs, then requests a projection | No: the projection could declare its inputs, as event projections do |
-| `reconcile-media-history` | Maps changed events to subjects, then requests user work | Mostly no: a dirty-subject declaration covers the common case |
-| `ensure-media-library-membership` | Upserts one relationship to the user's library | No: a rule |
-| `record-media-library-membership-event` | Writes one event for a new membership | No: part of the same rule |
-| `bootstrap.*` | One `ensureUserEntities` call each | No: declared entities |
-| Before policies (5) | Read-only checks and patches before commit | Sandbox yes, durability no: nothing to recover |
+| Script                                  | What it does                                                 | Needs a sandbox run?                                                 |
+| --------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------- |
+| `library-summary-refresh`               | Maps changed events to title IDs, then requests a projection | No: the projection could declare its inputs, as event projections do |
+| `reconcile-media-history`               | Maps changed events to subjects, then requests user work     | Mostly no: a dirty-subject declaration covers the common case        |
+| `ensure-media-library-membership`       | Upserts one relationship to the user's library               | No: a rule                                                           |
+| `record-media-library-membership-event` | Writes one event for a new membership                        | No: part of the same rule                                            |
+| `bootstrap.*`                           | One `ensureUserEntities` call each                           | No: declared entities                                                |
+| Before policies (5)                     | Read-only checks and patches before commit                   | Sandbox yes, durability no: nothing to recover                       |
 
 The computation itself is often already declarative: `librarySummarySourceRecipe` is a RyotQL recipe,
 so the summary is a stored query result, reached through a hook, a job and a script.
@@ -139,6 +139,7 @@ Each move is measured with the flow probes and, at milestones, the full suite. E
 
    Scripts stay for logic that needs them, and for private plugins. Removes every after hook from a
    backlog create and every script from signup.
+
 3. **Commands are a function call and one transaction.**
    - Policies call the sandbox directly from the request, with no `PolicyBatchWorkflow`, queue hop or
      journal.
@@ -173,12 +174,12 @@ Each move is measured with the flow probes and, at milestones, the full suite. E
 
 ## Expected effect (estimates)
 
-| Measure | Today | After moves 2–4 |
-| --- | ---: | ---: |
-| Backlog event create, caller | 610 ms | 80–150 ms |
-| Backlog event create, API CPU | 740 ms | 50–100 ms |
-| Signup, caller | 704 ms | 100–150 ms |
-| Whole suite on the 4-vCPU VM | 50 min | 25–35 min |
+| Measure                       |  Today | After moves 2–4 |
+| ----------------------------- | -----: | --------------: |
+| Backlog event create, caller  | 610 ms |       80–150 ms |
+| Backlog event create, API CPU | 740 ms |       50–100 ms |
+| Signup, caller                | 704 ms |      100–150 ms |
+| Whole suite on the 4-vCPU VM  | 50 min |       25–35 min |
 
 The suite figure is lowered from 20–30 minutes. The spike projects 26–38 minutes from the cascade alone,
 moves 3 and 4 add some, and the rest of the target depends on moves 6 and 7, which are not sized yet.
