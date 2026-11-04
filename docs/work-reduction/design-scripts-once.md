@@ -48,6 +48,16 @@ The queue worker's own execution path already reserves an admission lease from `
    a crash, the next run reads the journal and skips completed calls, so replay happens only for recovery. Writes
    that start policies now settle too, because policies no longer need queue slots. `SandboxDurableHostServiceWorkflow`
    remains only for calls that truly wait: durable sleeps, child script workflows and external deliveries.
+   Measured after move 1 (`probesB6`), the 10 × 15 workout save's 59 workflows are 11 automation runs, 4 policy
+   batches and 10 relationship preparations started by script writes, 16 host-call workflows, and 13 script
+   executions taking 22 sandbox runs. Most of it is policies that script writes start, so the move starts there.
+   A parked isolate releases its CPU slot but keeps its admission lease, and global concurrency defaults to 2:
+   a write that waited for a nested policy run while its parent is parked could deadlock against another parked
+   parent. That is why today a write that needs a policy suspends and the parent run ends. The first slice
+   therefore adds a reservation that never waits: a policy inside a script write runs directly only when a lease
+   is free at once, as a journaled activity in the write's workflow, and otherwise takes today's path. A direct
+   attempt claimed by a process that died is left to the reconciler's stale-claim handling, which the slice must
+   cover before it lands.
 3. **One job table.** `automation_run`, `background_work` and the projection work rows become one job model with
    attempts, deadlines and a coalescing key, drained by a worker loop. Scripts with external effects keep the durable
    engine.
