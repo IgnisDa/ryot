@@ -1,4 +1,5 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	ascending,
@@ -12,6 +13,8 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";

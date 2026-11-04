@@ -1,5 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import type { PluginMembership } from "@ryot-app/contract/modules/plugins/manifest";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Exit } from "effect";
 
 import { fixtureManifest } from "../test-support";

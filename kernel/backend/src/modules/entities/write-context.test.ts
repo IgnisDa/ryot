@@ -1,6 +1,9 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { assert } from "@ryot-app/testing/assert";
+import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 

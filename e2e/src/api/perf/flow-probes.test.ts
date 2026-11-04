@@ -12,6 +12,11 @@ import { Duration, Effect, FileSystem, Schema } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { invokeOperation } from "~/fixtures/kernel/operations";
+import {
+	installPrivatePlugin,
+	PRIVATE_PLUGIN_CONFIG_KEY,
+	PRIVATE_PLUGIN_SECRET_KEY,
+} from "~/fixtures/kernel/private-plugin";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import {
 	createExerciseEntityFixture,
@@ -323,6 +328,13 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
 				}
+				// A private plugin upload and install, settled until the installation leaves `installing`.
+				yield* repeat("plugin-install-private", 3, () =>
+					installPrivatePlugin({
+						client,
+						config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha", [PRIVATE_PLUGIN_SECRET_KEY]: "token" },
+					}),
+				);
 				// One ended show with every episode logged at once, as in the overlapping-chains liveness test.
 				const show = yield* seedShow(client, {
 					properties: { productionStatus: "Ended" },

@@ -1,8 +1,10 @@
+import { expect } from "bun:test";
+
 import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
-import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
+import { layer } from "@voila.dev/effect-bun-test";
 import {
 	Cause,
 	Duration,

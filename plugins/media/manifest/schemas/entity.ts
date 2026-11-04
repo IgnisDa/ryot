@@ -346,6 +346,11 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 				...consumedOnField,
 				timeSpent: timeSpentField,
 				startedOn: startedOnField,
+				completionKey: {
+					type: "string" as const,
+					label: "Automatic completion identity",
+					description: "Key of the completion occurrence that derived this record",
+				},
 				completionSilent: {
 					type: "boolean" as const,
 					label: "Silent history correction",
@@ -356,11 +361,6 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 					type: "boolean" as const,
 					description:
 						"Whether the completion date is unknown; occurredAt is the real completion time otherwise",
-				},
-				completionKey: {
-					type: "string" as const,
-					label: "Automatic completion identity",
-					description: "Key of the completion occurrence that derived this record",
 				},
 			},
 		}),

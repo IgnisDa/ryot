@@ -1,4 +1,7 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect } from "bun:test";
+
+import { assert } from "@ryot-app/testing/assert";
+import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 

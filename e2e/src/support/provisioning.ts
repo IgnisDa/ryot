@@ -2,6 +2,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 import { CreateBucketCommand, PutBucketCorsCommand, S3Client } from "@aws-sdk/client-s3";
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	startPostgresContainer,
 	stopPostgresContainer,
@@ -194,7 +195,10 @@ const waitForHealthCheck = (
 // Under memory pressure the kernel kills a server one file owns before the backend every file shares.
 const preferForOutOfMemoryKill = (pid: number) =>
 	process.platform === "linux"
-		? Effect.tryPromise(() => Bun.write(`/proc/${pid}/oom_score_adj`, "500")).pipe(Effect.ignore)
+		? Effect.tryPromise({
+				catch: unknownToMessage,
+				try: () => Bun.write(`/proc/${pid}/oom_score_adj`, "500"),
+			}).pipe(Effect.ignore)
 		: Effect.void;
 
 export const startApiProcess = Effect.fn("startApiProcess")(function* (

@@ -6,10 +6,6 @@ import { SecureRandom } from "effect/crypto";
 import { Reactivity } from "effect/reactivity";
 
 import { DatabaseSession } from "#platform/db/session";
-import {
-	runWorkflowMessageMigrations,
-	workflowMessageFenceStatements,
-} from "#platform/db/workflow-message-fence";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
 
 export const testDatabaseRunVariable = "RYOT_TEST_DATABASE";
@@ -127,12 +123,6 @@ const migrateTestDatabase = Layer.effectDiscard(
 		const database = yield* DatabaseSession;
 		yield* database.run((db) =>
 			applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
-		);
-		yield* runWorkflowMessageMigrations;
-		yield* database.run((db) =>
-			applyBaselineMigration(workflowMessageFenceStatements, (statement) =>
-				db.execute(sql.raw(statement)),
-			),
 		);
 	}),
 );

@@ -1,3 +1,4 @@
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import { resolveReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -81,7 +82,8 @@ const log = (row: unknown) =>
 const admin = <S extends Schema.Top>(schema: S, text: string) =>
 	Effect.acquireUseRelease(
 		Effect.sync(() => new Bun.SQL(DATABASE_URL, { max: 1 })),
-		(connection) => Effect.tryPromise(() => connection.unsafe(text)),
+		(connection) =>
+			Effect.tryPromise({ catch: unknownToMessage, try: () => connection.unsafe(text) }),
 		(connection) => Effect.promise(() => connection.close()),
 	).pipe(
 		Effect.retry({ times: 60, schedule: Schedule.spaced("2 seconds") }),

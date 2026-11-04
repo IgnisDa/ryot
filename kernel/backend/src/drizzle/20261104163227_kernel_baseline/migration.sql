@@ -334,9 +334,9 @@ CREATE TABLE "definition_relationship_schema" (
 	"id" text PRIMARY KEY,
 	"source_entity_schema_slug" text,
 	"target_entity_schema_slug" text,
-	"projection" jsonb,
 	"properties_schema" jsonb NOT NULL,
 	"retention" text,
+	"projection" jsonb,
 	"user_write_policy" text,
 	"plugin_revision_id" text,
 	CONSTRAINT "definition_relationship_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
@@ -1033,6 +1033,7 @@ CREATE TABLE "plugin_revision" (
 	"client_config_schema" jsonb NOT NULL,
 	"hooks" jsonb NOT NULL,
 	"crons" jsonb NOT NULL,
+	"memberships" jsonb,
 	"scripts" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"workflows" jsonb NOT NULL,
