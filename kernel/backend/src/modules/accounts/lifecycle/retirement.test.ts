@@ -17,8 +17,8 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { makeWorkflowEngine } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
+import { UserLifecycleJobOperations, UserLifecycleJobOperationsLive } from "./job";
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleWorkflowOperations, UserLifecycleWorkflowOperationsLive } from "./workflow";
 
 const ownerWorkflow = Workflow.make("InjectedOwnerWorkflow", {
 	error: Schema.Never,
@@ -35,7 +35,6 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 		Effect.Success<ReturnType<UserLifecycleRepository["Service"]["getInternalById"]>>
 	> = {
 		accessRevokedAt,
-		workflowAttempt: 0,
 		databaseCleanupCompletedAt: null,
 		operation: {
 			failure: null,
@@ -74,7 +73,7 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 			}),
 	});
 	const context = yield* Layer.build(
-		UserLifecycleWorkflowOperationsLive.pipe(
+		UserLifecycleJobOperationsLive.pipe(
 			Layer.provide(ingestionRetirementTestLayer),
 			Layer.provide(
 				Layer.mergeAll(
@@ -109,7 +108,7 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 			),
 		),
 	);
-	return yield* Effect.flatMap(UserLifecycleWorkflowOperations, (operations) =>
+	return yield* Effect.flatMap(UserLifecycleJobOperations, (operations) =>
 		operations
 			.cleanupObjects("operation")
 			.pipe(Effect.andThen(operations.deleteDatabaseUser("operation"))),

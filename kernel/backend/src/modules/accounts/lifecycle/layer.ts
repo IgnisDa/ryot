@@ -5,15 +5,15 @@ import { UserBootstrapLive } from "#modules/accounts/provisioning/layer";
 import { ObjectStorageServiceLive } from "#modules/assets/layer";
 import { IngestionExecutionLive } from "#modules/imports/layer";
 
+import { UserLifecycleJobLive, UserLifecycleJobOperationsLive } from "./job";
 import { UserLifecycleRepository } from "./repository";
 import { UserLifecycleService } from "./service";
-import { UserLifecycleWorkflowOperationsLive } from "./workflow";
 
 export const UserLifecycleServiceLive = UserLifecycleService.layer.pipe(
 	Layer.provide(Layer.merge(AuthServiceLive, UserLifecycleRepository.layer)),
 );
 
-export const UserLifecycleWorkflowOperationsProvidedLive = UserLifecycleWorkflowOperationsLive.pipe(
+const UserLifecycleJobOperationsProvidedLive = UserLifecycleJobOperationsLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			AuthServiceLive,
@@ -23,4 +23,8 @@ export const UserLifecycleWorkflowOperationsProvidedLive = UserLifecycleWorkflow
 			IngestionExecutionLive,
 		),
 	),
+);
+
+export const UserLifecycleJobProvidedLive = UserLifecycleJobLive.pipe(
+	Layer.provide(Layer.merge(UserLifecycleJobOperationsProvidedLive, UserLifecycleServiceLive)),
 );

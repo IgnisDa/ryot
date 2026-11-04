@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "a2c781bb-216d-49a9-9197-d66b9918bcfe",
+	"id": "ec9c17ee-3aac-46b7-b08a-52b76a44537d",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -19877,19 +19877,6 @@
 			"notNull": false,
 			"dimensions": 0,
 			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "user_lifecycle_operation",
-			"name": "workflow_attempt",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"

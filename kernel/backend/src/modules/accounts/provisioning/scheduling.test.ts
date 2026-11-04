@@ -7,12 +7,11 @@ import { Context, Effect, Layer, Option, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
 import {
-	UserLifecycleWorkflow,
-	UserLifecycleWorkflowOperations,
-	UserLifecycleWorkflowOperationsLive,
-} from "#modules/accounts/lifecycle/workflow";
+	UserLifecycleJobOperations,
+	UserLifecycleJobOperationsLive,
+} from "#modules/accounts/lifecycle/job";
+import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
@@ -73,7 +72,7 @@ const recordingSchedulingLayer = Layer.unwrap(
 					return input.executionId;
 				}),
 		});
-		return Layer.merge(UserBootstrapScheduling.layer, UserLifecycleWorkflowOperationsLive).pipe(
+		return Layer.merge(UserBootstrapScheduling.layer, UserLifecycleJobOperationsLive).pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					Layer.mock(UserBootstrap)({}),
@@ -127,16 +126,9 @@ layer(recordingSchedulingLayer.pipe(Layer.provideMerge(mutationAdmissionTestLaye
 		() =>
 			Effect.gen(function* () {
 				const scheduling = yield* UserBootstrapScheduling;
-				const lifecycle = yield* UserLifecycleWorkflowOperations;
+				const lifecycle = yield* UserLifecycleJobOperations;
 				yield* scheduling.schedule(userId);
-				yield* lifecycle
-					.bootstrapResetUser(userId)
-					.pipe(
-						Effect.provideService(
-							WorkflowInstance,
-							WorkflowInstance.initial(UserLifecycleWorkflow, "reset-owner"),
-						),
-					);
+				yield* lifecycle.bootstrapResetUser(userId);
 
 				const options = yield* (yield* RecordedSchedules).options;
 				expect(options).toEqual([

@@ -4,10 +4,10 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
+import { JobQueue } from "#platform/jobs/queue";
+import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
 
 import { UserLifecycleRepository } from "./repository";
 import { UserLifecycleService } from "./service";
@@ -41,7 +41,6 @@ const metadata = {
 };
 const prepared = {
 	operation,
-	workflowAttempt: 0,
 	databaseCleanupCompletedAt: null,
 	metadata: { ...metadata, apiKeys: [] },
 	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
@@ -54,12 +53,11 @@ class FakeLifecycleDependencies extends Context.Service<
 	FakeLifecycleDependencies,
 	{
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
-		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
+		readonly queuedKeys: Effect.Effect<ReadonlyArray<string>>;
 	}
 >()("@ryot-app/kernel-backend/modules/accounts/lifecycle/service.test/FakeLifecycleDependencies") {}
 
 const lifecycleServiceLayer = (options: {
-	readonly execute?: Effect.Effect<void, string>;
 	readonly repository: (
 		record: (call: string) => Effect.Effect<void>,
 	) => Effect.Effect<RepositoryMock>;
@@ -67,7 +65,7 @@ const lifecycleServiceLayer = (options: {
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
-			const executionIds = yield* Ref.make<ReadonlyArray<string>>([]);
+			const queuedKeys = yield* Ref.make<ReadonlyArray<string>>([]);
 			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
 			const repository = yield* options.repository(record);
 			return UserLifecycleService.layer.pipe(
@@ -86,17 +84,19 @@ const lifecycleServiceLayer = (options: {
 								record(`keys:${apiKeys.map(({ id }) => id).join(",")}`).pipe(Effect.as(undefined)),
 						}),
 						Layer.succeed(
-							WorkflowEngine,
-							makeWorkflowEngine({
-								execute: (_workflow, executeOptions) =>
-									Ref.update(executionIds, (all) => [...all, executeOptions.executionId]).pipe(
-										Effect.andThen(options.execute ?? Effect.void),
-									),
+							JobQueue,
+							JobQueue.of({
+								pruneFailed: () => Effect.void,
+								enqueue: (kind, _payload, enqueueOptions = {}) =>
+									Ref.update(queuedKeys, (all) => [
+										...all,
+										`${kind.name}:${enqueueOptions.key ?? ""}`,
+									]).pipe(Effect.as(true)),
 							}),
 						),
 						Layer.succeed(FakeLifecycleDependencies, {
 							calls: Ref.get(calls),
-							executionIds: Ref.get(executionIds),
+							queuedKeys: Ref.get(queuedKeys),
 						}),
 					),
 				),
@@ -127,9 +127,9 @@ layer(
 				const fake = yield* FakeLifecycleDependencies;
 				expect(operations).toEqual([{ operationId: operation.id }, { operationId: operation.id }]);
 				expect(yield* fake.calls).toEqual([]);
-				expect(yield* fake.executionIds).toEqual([
-					"user-lifecycle-operation-1-0",
-					"user-lifecycle-operation-1-0",
+				expect(yield* fake.queuedKeys).toEqual([
+					"user-lifecycle:operation-1",
+					"user-lifecycle:operation-1",
 				]);
 			}),
 		testTimeout,
@@ -192,32 +192,6 @@ layer(
 	);
 });
 
-layer(
-	lifecycleServiceLayer({
-		execute: Effect.fail("redis unavailable"),
-		repository: () =>
-			Effect.succeed({
-				getInternalById: () => Effect.succeed(prepared),
-				loadPreparationForUpdate: () =>
-					Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
-			}),
-	}),
-)((test) => {
-	test.effect(
-		"returns an internal failure and leaves a pending operation retryable when dispatch fails",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* UserLifecycleService;
-				expect(yield* service.deleteUser(userId).pipe(Effect.flip)).toMatchObject({
-					_tag: "InstanceAdminInternalFailure",
-					reason: { code: "lifecycle-dispatch-failed" },
-				});
-				expect(prepared.operation.status).toBe("pending");
-			}),
-		testTimeout,
-	);
-});
-
 const failed = {
 	...prepared,
 	operation: {
@@ -228,7 +202,6 @@ const failed = {
 };
 const retried = {
 	...failed,
-	workflowAttempt: 1,
 	operation: { ...failed.operation, finishedAt: null, status: "pending" as const },
 };
 
@@ -244,13 +217,13 @@ layer(
 	}),
 )((test) => {
 	test.effect(
-		"reactivates and redispatches the same failed operation with a new deterministic attempt",
+		"reactivates and requeues the same failed operation",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* UserLifecycleService;
 				expect(yield* service.deleteUser(userId)).toEqual({ operationId: retried.operation.id });
-				expect(yield* (yield* FakeLifecycleDependencies).executionIds).toEqual([
-					"user-lifecycle-operation-1-1",
+				expect(yield* (yield* FakeLifecycleDependencies).queuedKeys).toEqual([
+					"user-lifecycle:operation-1",
 				]);
 			}),
 		testTimeout,

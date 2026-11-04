@@ -7,7 +7,7 @@ import type {
 	UserResetResult,
 } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, notExists, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, notExists, or } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ImportsRepository } from "#modules/imports/repository";
@@ -62,7 +62,6 @@ const toInternal = (row: OperationRow) =>
 	Effect.map(decodeMetadata(row.metadata), (metadata) => ({
 		metadata,
 		operation: toOperation(row),
-		workflowAttempt: row.workflowAttempt,
 		accessRevokedAt: row.accessRevokedAt,
 		databaseCleanupCompletedAt: row.databaseCleanupCompletedAt,
 	}));
@@ -390,11 +389,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				const [row] = yield* database.run((db) =>
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
-						.set({
-							finishedAt: null,
-							status: "pending",
-							workflowAttempt: sql`${lifecycleSchema.userLifecycleOperation.workflowAttempt} + 1`,
-						})
+						.set({ finishedAt: null, status: "pending" })
 						.where(
 							and(
 								eq(lifecycleSchema.userLifecycleOperation.id, operationId),
@@ -404,20 +399,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						.returning(),
 				);
 				return row ? yield* toInternal(row) : null;
-			});
-
-			const listPending = Effect.fn("UserLifecycleRepository.listPending")(function* (
-				limit: number,
-			) {
-				const rows = yield* database.run((db) =>
-					db
-						.select()
-						.from(lifecycleSchema.userLifecycleOperation)
-						.where(eq(lifecycleSchema.userLifecycleOperation.status, "pending"))
-						.orderBy(lifecycleSchema.userLifecycleOperation.createdAt)
-						.limit(limit),
-				);
-				return yield* Effect.forEach(rows, toInternal);
 			});
 
 			const claimAccessRevocation = Effect.fn("UserLifecycleRepository.claimAccessRevocation")(
@@ -618,7 +599,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				userExists,
 				markFailed,
 				markRunning,
-				listPending,
 				markCompleted,
 				deleteUserData,
 				getInternalById,

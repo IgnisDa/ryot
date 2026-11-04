@@ -7,10 +7,9 @@ import { WorkflowEngineLive } from "#boot/workflow-engine";
 import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import {
+	UserLifecycleJobProvidedLive,
 	UserLifecycleServiceLive,
-	UserLifecycleWorkflowOperationsProvidedLive,
 } from "#modules/accounts/lifecycle/layer";
-import { UserLifecycleWorkflowDefinitionsLive } from "#modules/accounts/lifecycle/workflow";
 import { UserSettingsServiceLive } from "#modules/accounts/preferences/layer";
 import {
 	UserBootstrapLive,
@@ -370,7 +369,6 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ExportBackupWorkflowDefinitionsLive,
 	IngestionCaptureWorkflowDefinitionsProvidedLive,
 	RestoreBackupWorkflowDefinitionsLive,
-	UserLifecycleWorkflowDefinitionsLive,
 	UserBootstrapWorkflowDefinitionsLive,
 	PluginInstallationWorkflowDefinitionsLive,
 	Layer.provide(
@@ -399,7 +397,13 @@ const RuntimeSchedulersLive = Layer.mergeAll(
 
 // Handlers register before the worker starts claiming.
 const RuntimeJobsLive = JobWorkerLive.pipe(
-	Layer.provide(Layer.mergeAll(FrequentCronJobLive, NotificationDeliveryJobProvidedLive)),
+	Layer.provide(
+		Layer.mergeAll(
+			FrequentCronJobLive,
+			NotificationDeliveryJobProvidedLive,
+			UserLifecycleJobProvidedLive,
+		),
+	),
 );
 
 const RuntimeWorkLive = Layer.merge(RuntimeWorkflowDefinitionsLive, RuntimeJobsLive);
@@ -457,7 +461,6 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 		Layer.merge(ScriptExecutionServiceLive, PluginRuntimeResolverLive),
 	),
 	BackupWorkflowOperationsLive,
-	UserLifecycleWorkflowOperationsProvidedLive.pipe(Layer.provide(AdmittedWorkflowCatalogueLive)),
 	Layer.provide(UserBootstrapWorkflowOperationsLive, UserBootstrapLive),
 	PluginInstallationWorkflowOperationsProvidedLive,
 ).pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive));

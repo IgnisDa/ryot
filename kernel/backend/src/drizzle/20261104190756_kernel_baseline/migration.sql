@@ -1328,7 +1328,6 @@ CREATE TABLE "user_lifecycle_operation" (
 	"access_revocation_started_at" timestamp(3) with time zone,
 	"database_cleanup_completed_at" timestamp(3) with time zone,
 	"reset_result" jsonb,
-	"workflow_attempt" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"failure" jsonb,
 	"kind" text NOT NULL,

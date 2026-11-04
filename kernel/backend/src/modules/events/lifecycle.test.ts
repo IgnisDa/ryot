@@ -36,14 +36,13 @@ import {
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
 import { AuthService } from "#modules/accounts/auth/service";
+import {
+	runUserLifecycleJob,
+	UserLifecycleJobOperations,
+	UserLifecycleJobOperationsLive,
+} from "#modules/accounts/lifecycle/job";
 import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
 import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
-import {
-	runUserLifecycleWorkflow,
-	UserLifecycleWorkflow,
-	UserLifecycleWorkflowOperations,
-	UserLifecycleWorkflowOperationsLive,
-} from "#modules/accounts/lifecycle/workflow";
 import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
@@ -70,6 +69,7 @@ import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
@@ -1666,10 +1666,6 @@ describe("Event lifecycle PostgreSQL", () => {
 										}),
 									)
 								: Effect.gen(function* () {
-										if (workflow._tag === UserLifecycleWorkflow._tag) {
-											expect(options.discard).toBe(true);
-											return options.executionId;
-										}
 										if (workflow._tag === UserBootstrapWorkflow._tag) {
 											return undefined;
 										}
@@ -1753,7 +1749,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const lifecycle = yield* UserLifecycleService.make.pipe(
 						Effect.provideService(AuthService, auth),
 						Effect.provideService(UserLifecycleRepository, repository),
-						Effect.provideService(WorkflowEngine, recordingEngine),
+						Effect.provideService(JobQueue, yield* JobQueue.make),
 					);
 					const { operationId } = yield* lifecycle.resetUser(userId);
 					expect(yield* receipts.peek(identity, Schema.Unknown).pipe(Effect.flip)).toMatchObject({
@@ -1767,7 +1763,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					);
 					const operations = Context.get(
 						yield* Layer.build(
-							UserLifecycleWorkflowOperationsLive.pipe(Layer.provide(ingestionRetirementTestLayer)),
+							UserLifecycleJobOperationsLive.pipe(Layer.provide(ingestionRetirementTestLayer)),
 						).pipe(
 							Effect.provideService(
 								AdmittedWorkflowCatalogue,
@@ -1788,15 +1784,12 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(ObjectStorageService, storage),
 							Effect.provideService(WorkflowEngine, recordingEngine),
 						),
-						UserLifecycleWorkflowOperations,
+						UserLifecycleJobOperations,
 					);
-					yield* runUserLifecycleWorkflow({ operationId }, `user-lifecycle-${operationId}-0`).pipe(
-						Effect.provideService(UserLifecycleWorkflowOperations, operations),
+					yield* runUserLifecycleJob({ operationId }, { attempt: 1, id: "lifecycle-job" }).pipe(
+						Effect.provideService(UserLifecycleJobOperations, operations),
+						Effect.provideService(UserLifecycleService, lifecycle),
 						Effect.provideService(WorkflowEngine, recordingEngine),
-						Effect.provideService(
-							WorkflowInstance,
-							WorkflowInstance.initial(UserLifecycleWorkflow, `user-lifecycle-${operationId}-0`),
-						),
 					);
 					expect(yield* Ref.get(retired)).toEqual([ownerExecutionId]);
 					expect((yield* repository.getInternalById(operationId))?.operation.status).toBe(

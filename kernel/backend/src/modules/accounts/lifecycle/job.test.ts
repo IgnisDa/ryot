@@ -9,7 +9,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
 import { Context, Duration, Effect, Layer, Ref } from "effect";
 import type { SecureRandom } from "effect/crypto";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
@@ -19,42 +19,35 @@ import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestio
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { testPgClientLayer } from "#testing/database";
-import {
-	databaseLayer,
-	makeWorkflowActivityEngine,
-	workflowAccountsTestLayer,
-} from "#testing/effect";
+import { databaseLayer, workflowAccountsTestLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { UserLifecycleRepository } from "./repository";
 import {
-	runUserLifecycleWorkflow,
-	UserLifecycleWorkflow,
-	UserLifecycleWorkflowOperations,
-	UserLifecycleWorkflowOperationsLive,
-} from "./workflow";
+	runUserLifecycleJob,
+	UserLifecycleJobOperations,
+	UserLifecycleJobOperationsLive,
+} from "./job";
+import { UserLifecycleRepository } from "./repository";
+import { UserLifecycleJob, UserLifecycleService } from "./service";
 
 const userId = UserId.make("user-1");
+const payload = { operationId: "operation-1" };
 
 type OperationRecorder = {
 	readonly record: (call: string) => Effect.Effect<void>;
 	readonly recordFailure: (failure: unknown) => Effect.Effect<void>;
 };
 
-class RecordedWorkflowOperations extends Context.Service<
-	RecordedWorkflowOperations,
+class RecordedJobOperations extends Context.Service<
+	RecordedJobOperations,
 	{
 		readonly calls: Effect.Effect<ReadonlyArray<string>>;
 		readonly failures: Effect.Effect<ReadonlyArray<unknown>>;
 	}
->()(
-	"@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedWorkflowOperations",
-) {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/job.test/RecordedJobOperations") {}
 
 const scriptedOperationsLayer = (
-	operations: (
-		recorder: OperationRecorder,
-	) => Effect.Effect<UserLifecycleWorkflowOperations["Service"]>,
+	operations: (recorder: OperationRecorder) => Effect.Effect<UserLifecycleJobOperations["Service"]>,
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -64,12 +57,17 @@ const scriptedOperationsLayer = (
 				record: (call) => Ref.update(calls, (all) => [...all, call]),
 				recordFailure: (failure) => Ref.update(failures, (all) => [...all, failure]),
 			});
-			const instance = WorkflowInstance.initial(UserLifecycleWorkflow, "operation-1");
 			return Layer.mergeAll(
-				Layer.succeed(WorkflowInstance, instance),
-				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-				Layer.mock(UserLifecycleWorkflowOperations, scripted),
-				Layer.succeed(RecordedWorkflowOperations, {
+				Layer.mock(UserLifecycleService)({
+					ensureAccessRevoked: () =>
+						Effect.succeed(
+							partialFake<
+								Effect.Success<ReturnType<UserLifecycleService["Service"]["ensureAccessRevoked"]>>
+							>({}),
+						),
+				}),
+				Layer.mock(UserLifecycleJobOperations, scripted),
+				Layer.succeed(RecordedJobOperations, {
 					calls: Ref.get(calls),
 					failures: Ref.get(failures),
 				}),
@@ -95,8 +93,8 @@ layer(
 		"deletes database ownership only after physical cleanup",
 		() =>
 			Effect.gen(function* () {
-				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-				expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+				yield* runUserLifecycleJob(payload, { attempt: 1, id: "job-1" });
+				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
 					"begin",
 					"objects",
 					"database",
@@ -131,11 +129,13 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"retries partial object cleanup before deleting the user",
+		"fails an attempt whose cleanup failed and resumes it on the next attempt",
 		() =>
 			Effect.gen(function* () {
-				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-				expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+				const first = yield* Effect.exit(runUserLifecycleJob(payload, { attempt: 1, id: "job-1" }));
+				expect(first._tag).toBe("Failure");
+				yield* runUserLifecycleJob(payload, { attempt: 2, id: "job-1" });
+				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
 					"objects-1",
 					"objects-2",
 					"database",
@@ -161,11 +161,14 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"persists a safe stage failure instead of the internal cause",
+		"persists a safe stage failure on the last attempt instead of the internal cause",
 		() =>
 			Effect.gen(function* () {
-				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-				const persisted = (yield* (yield* RecordedWorkflowOperations).failures).at(-1);
+				const early = yield* Effect.exit(runUserLifecycleJob(payload, { attempt: 1, id: "job-1" }));
+				expect(early._tag).toBe("Failure");
+				expect(yield* (yield* RecordedJobOperations).failures).toEqual([]);
+				yield* runUserLifecycleJob(payload, { id: "job-1", attempt: UserLifecycleJob.maxAttempts });
+				const persisted = (yield* (yield* RecordedJobOperations).failures).at(-1);
 				expect(persisted).toEqual({ code: "operation-start-failed" });
 				expect(persisted).not.toHaveProperty("message");
 			}),
@@ -196,8 +199,8 @@ layer(
 		"recreates the same reset identity after cleanup",
 		() =>
 			Effect.gen(function* () {
-				yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-				expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+				yield* runUserLifecycleJob(payload, { attempt: 1, id: "job-1" });
+				expect(yield* (yield* RecordedJobOperations).calls).toEqual([
 					"objects",
 					"database",
 					"recreate",
@@ -215,7 +218,7 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	readonly overrides: Layer.Layer<R, never, DatabaseSession | SecureRandom.SecureRandom>;
 }) =>
 	Layer.provideMerge(
-		UserLifecycleWorkflowOperationsLive.pipe(
+		UserLifecycleJobOperationsLive.pipe(
 			Layer.provide(ingestionRetirementTestLayer),
 			Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
 			Layer.provide(workflowAccountsTestLayer),
@@ -227,7 +230,6 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	);
 
 const deleteOperation = {
-	workflowAttempt: 0,
 	databaseCleanupCompletedAt: null,
 	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	operation: {
@@ -264,7 +266,7 @@ const deleteOperation = {
 class RecordedObjectDeletions extends Context.Service<
 	RecordedObjectDeletions,
 	{ readonly deleted: Effect.Effect<ReadonlyArray<string>> }
->()("@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedObjectDeletions") {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/job.test/RecordedObjectDeletions") {}
 
 const flakyObjectStorageLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -306,7 +308,7 @@ layer(
 		"retains all locators across a partial deletion retry and accepts missing objects",
 		() =>
 			Effect.gen(function* () {
-				const operations = yield* UserLifecycleWorkflowOperations;
+				const operations = yield* UserLifecycleJobOperations;
 				expect((yield* Effect.exit(operations.cleanupObjects("operation-1")))._tag).toBe("Failure");
 				yield* operations.cleanupObjects("operation-1");
 				expect(yield* (yield* RecordedObjectDeletions).deleted).toEqual([
@@ -321,7 +323,6 @@ layer(
 });
 
 const resetOperation = {
-	workflowAttempt: 0,
 	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
 	operation: {
@@ -355,7 +356,7 @@ const resetOperation = {
 class RecordedResetIdentity extends Context.Service<
 	RecordedResetIdentity,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
->()("@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedResetIdentity") {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/job.test/RecordedResetIdentity") {}
 
 const resetIdentityLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -420,7 +421,7 @@ layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentity
 							sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
 						),
 					);
-					const operations = yield* UserLifecycleWorkflowOperations;
+					const operations = yield* UserLifecycleJobOperations;
 					expect(yield* operations.recreateResetUser("operation-1")).toBe(userId);
 					expect(yield* operations.finishResetUser("operation-1")).toEqual({
 						userId,
@@ -442,9 +443,7 @@ layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentity
 class RecordedCompletionTransaction extends Context.Service<
 	RecordedCompletionTransaction,
 	{ readonly usedTransaction: Effect.Effect<boolean> }
->()(
-	"@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow.test/RecordedCompletionTransaction",
-) {}
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/job.test/RecordedCompletionTransaction") {}
 
 const transactionProbeLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -471,7 +470,7 @@ layer(liveOperationsLayer({ database: databaseLayer, overrides: transactionProbe
 			"uses one database transaction for reset enablement and completion",
 			() =>
 				Effect.gen(function* () {
-					const operations = yield* UserLifecycleWorkflowOperations;
+					const operations = yield* UserLifecycleJobOperations;
 					yield* operations.complete("operation-1", {
 						userId,
 						email: "user@example.com",

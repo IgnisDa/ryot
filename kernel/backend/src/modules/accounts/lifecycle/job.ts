@@ -1,15 +1,14 @@
-import { InternalError, internalError } from "@ryot-app/contract/errors";
-import {
-	type UserLifecycleOperationFailure,
-	type UserLifecycleOperationKind,
+import type { InternalError } from "@ryot-app/contract/errors";
+import { internalError } from "@ryot-app/contract/errors";
+import type {
+	UserLifecycleOperationFailure,
+	UserLifecycleOperationKind,
 	UserResetResult,
 } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
-import { UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Layer, Result, Schema } from "effect";
-import { Activity, Workflow } from "effect/workflow";
+import type { UserId } from "@ryot-app/contract/schema/brands";
+import { Cause, Context, DateTime, Effect, Layer, Option, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import type { DurableSchema } from "#boot/workflow-engine";
 import { AuthService } from "#modules/accounts/auth/service";
 import { userBootstrapWorkflowExecutionId } from "#modules/accounts/provisioning/scheduling";
 import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
@@ -18,30 +17,15 @@ import { IngestionExecution } from "#modules/imports/execution-service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
+import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { interruptExecutionAndWait } from "#platform/workflow/interruption";
-import {
-	asIndependentWorkflowRoot,
-	implementWorkflow,
-	makeActivity,
-} from "#platform/workflow/scope";
 
 import { UserLifecycleRepository } from "./repository";
+import { UserLifecycleJob, UserLifecycleService } from "./service";
 
-const UserLifecycleWorkflowPayload = Schema.Struct({ operationId: Schema.String });
-type UserLifecycleWorkflowPayload = typeof UserLifecycleWorkflowPayload.Type;
-
-const WorkflowOperationKind = Schema.NullOr(Schema.Literals(["delete", "reset"]));
-
-export const UserLifecycleWorkflow = Workflow.make("UserLifecycleWorkflow", {
-	success: Schema.Void satisfies DurableSchema,
-	error: InternalError satisfies DurableSchema,
-	idempotencyKey: ({ operationId }) => operationId,
-	payload: UserLifecycleWorkflowPayload satisfies DurableSchema,
-});
-
-type UserLifecycleWorkflowOperationsValue = {
+type UserLifecycleJobOperationsValue = {
 	bootstrapResetUser: (userId: UserId) => Effect.Effect<void, InternalError>;
 	cleanupObjects: (operationId: string) => Effect.Effect<void, InternalError>;
 	deleteDatabaseUser: (operationId: string) => Effect.Effect<void, InternalError>;
@@ -58,12 +42,10 @@ type UserLifecycleWorkflowOperationsValue = {
 	) => Effect.Effect<void, InternalError>;
 };
 
-export class UserLifecycleWorkflowOperations extends Context.Service<
-	UserLifecycleWorkflowOperations,
-	UserLifecycleWorkflowOperationsValue
->()(
-	"@ryot-app/kernel-backend/modules/accounts/lifecycle/workflow/UserLifecycleWorkflowOperations",
-) {}
+export class UserLifecycleJobOperations extends Context.Service<
+	UserLifecycleJobOperations,
+	UserLifecycleJobOperationsValue
+>()("@ryot-app/kernel-backend/modules/accounts/lifecycle/job/UserLifecycleJobOperations") {}
 
 const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 	effect.pipe(
@@ -74,8 +56,8 @@ const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 		Effect.mapError(() => internalError(message)),
 	);
 
-export const UserLifecycleWorkflowOperationsLive = Layer.effect(
-	UserLifecycleWorkflowOperations,
+export const UserLifecycleJobOperationsLive = Layer.effect(
+	UserLifecycleJobOperations,
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const database = yield* DatabaseSession;
@@ -207,7 +189,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 					return yield* dispatchAdmittedWorkflow(engine, UserBootstrapWorkflow, accountGeneration, {
 						executionId,
 						payload: { userId, accountGeneration },
-					}).pipe(Effect.asVoid, asIndependentWorkflowRoot);
+					}).pipe(Effect.asVoid);
 				}),
 				"Reset user bootstrap failed",
 			);
@@ -244,121 +226,75 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 			recreateResetUser,
 			bootstrapResetUser,
 			deleteDatabaseUser,
-		} satisfies UserLifecycleWorkflowOperationsValue;
+		} satisfies UserLifecycleJobOperationsValue;
 	}),
 );
 
-export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
-	function* (payload: UserLifecycleWorkflowPayload, executionId: string) {
-		yield* Effect.annotateCurrentSpan({ executionId, operationId: payload.operationId });
-		const operations = yield* UserLifecycleWorkflowOperations;
-		const started = yield* makeActivity({
-			name: "begin-user-lifecycle",
-			error: InternalError satisfies DurableSchema,
-			execute: operations.begin(payload.operationId),
-			success: WorkflowOperationKind satisfies DurableSchema,
-		}).pipe(Activity.retry({ times: 3 }), Effect.result);
-		if (Result.isFailure(started)) {
-			yield* makeActivity({
-				name: "fail-unstarted-user-lifecycle",
-				error: InternalError satisfies DurableSchema,
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, { code: "operation-start-failed" }),
-			}).pipe(Activity.retry({ times: 3 }));
+// Each step is idempotent, so a retried job resumes where the last attempt stopped. Only the last
+// attempt records a failure, after which the operation can be requested again.
+export const runUserLifecycleJob = Effect.fn("UserLifecycleJob")(function* (
+	payload: typeof UserLifecycleJob.payload.Type,
+	job: JobContext,
+) {
+	yield* Effect.annotateCurrentSpan({ jobId: job.id, operationId: payload.operationId });
+	const operations = yield* UserLifecycleJobOperations;
+	const service = yield* UserLifecycleService;
+	const step = Effect.fnUntraced(function* <A, E>(
+		effect: Effect.Effect<A, E>,
+		code: UserLifecycleOperationFailure["code"],
+	) {
+		const result = yield* Effect.result(effect);
+		if (Result.isSuccess(result)) {
+			return Option.some(result.success);
+		}
+		if (job.attempt < UserLifecycleJob.maxAttempts) {
+			return yield* Effect.fail(result.failure);
+		}
+		yield* operations.fail(payload.operationId, { code });
+		return Option.none<A>();
+	});
+
+	const revoked = yield* step(
+		service.ensureAccessRevoked(payload.operationId),
+		"operation-start-failed",
+	);
+	if (Option.isNone(revoked)) {
+		return;
+	}
+	const started = yield* step(operations.begin(payload.operationId), "operation-start-failed");
+	if (Option.isNone(started) || started.value === null) {
+		return;
+	}
+	const cleaned = yield* step(
+		operations.cleanupObjects(payload.operationId),
+		"object-cleanup-failed",
+	);
+	if (Option.isNone(cleaned)) {
+		return;
+	}
+	const deleted = yield* step(
+		operations.deleteDatabaseUser(payload.operationId),
+		"database-cleanup-failed",
+	);
+	if (Option.isNone(deleted)) {
+		return;
+	}
+	let resetResult: null | UserResetResult = null;
+	if (started.value === "reset") {
+		const finished = yield* step(
+			Effect.gen(function* () {
+				const userId = yield* operations.recreateResetUser(payload.operationId);
+				yield* operations.bootstrapResetUser(userId);
+				return yield* operations.finishResetUser(payload.operationId);
+			}),
+			"reset-user-recreation-failed",
+		);
+		if (Option.isNone(finished)) {
 			return;
 		}
-		if (started.success === null) {
-			return;
-		}
+		resetResult = finished.value;
+	}
+	yield* step(operations.complete(payload.operationId, resetResult), "operation-completion-failed");
+});
 
-		const cleaned = yield* makeActivity({
-			name: "cleanup-user-lifecycle-objects",
-			error: InternalError satisfies DurableSchema,
-			success: Schema.Void satisfies DurableSchema,
-			execute: operations.cleanupObjects(payload.operationId),
-		}).pipe(Activity.retry({ times: 5 }), Effect.result);
-		if (Result.isFailure(cleaned)) {
-			yield* makeActivity({
-				name: "fail-user-lifecycle-object-cleanup",
-				error: InternalError satisfies DurableSchema,
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, { code: "object-cleanup-failed" }),
-			}).pipe(Activity.retry({ times: 3 }));
-			return;
-		}
-
-		const deleted = yield* makeActivity({
-			name: "delete-user-lifecycle-database-user",
-			error: InternalError satisfies DurableSchema,
-			success: Schema.Void satisfies DurableSchema,
-			execute: operations.deleteDatabaseUser(payload.operationId),
-		}).pipe(Activity.retry({ times: 5 }), Effect.result);
-		if (Result.isFailure(deleted)) {
-			yield* makeActivity({
-				name: "fail-user-lifecycle-database-cleanup",
-				error: InternalError satisfies DurableSchema,
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, { code: "database-cleanup-failed" }),
-			}).pipe(Activity.retry({ times: 3 }));
-			return;
-		}
-
-		let resetResult: null | UserResetResult = null;
-		if (started.success === "reset") {
-			const recreated = yield* makeActivity({
-				name: "recreate-reset-user",
-				success: UserId satisfies DurableSchema,
-				error: InternalError satisfies DurableSchema,
-				execute: operations.recreateResetUser(payload.operationId),
-			}).pipe(Activity.retry({ times: 5 }), Effect.result);
-			if (Result.isFailure(recreated)) {
-				yield* makeActivity({
-					name: "fail-reset-user-recreation",
-					error: InternalError satisfies DurableSchema,
-					success: Schema.Void satisfies DurableSchema,
-					execute: operations.fail(payload.operationId, { code: "reset-user-recreation-failed" }),
-				}).pipe(Activity.retry({ times: 3 }));
-				return;
-			}
-			yield* operations.bootstrapResetUser(recreated.success);
-			const finished = yield* makeActivity({
-				name: "finish-reset-user",
-				error: InternalError satisfies DurableSchema,
-				success: UserResetResult satisfies DurableSchema,
-				execute: operations.finishResetUser(payload.operationId),
-			}).pipe(Activity.retry({ times: 5 }), Effect.result);
-			if (Result.isFailure(finished)) {
-				yield* makeActivity({
-					name: "fail-reset-user-completion",
-					error: InternalError satisfies DurableSchema,
-					success: Schema.Void satisfies DurableSchema,
-					execute: operations.fail(payload.operationId, { code: "reset-user-recreation-failed" }),
-				}).pipe(Activity.retry({ times: 3 }));
-				return;
-			}
-			resetResult = finished.success;
-		}
-
-		const completed = yield* makeActivity({
-			name: "complete-user-lifecycle",
-			error: InternalError satisfies DurableSchema,
-			success: Schema.Void satisfies DurableSchema,
-			execute: operations.complete(payload.operationId, resetResult),
-		}).pipe(Activity.retry({ times: 5 }), Effect.result);
-		if (Result.isFailure(completed)) {
-			yield* makeActivity({
-				name: "fail-user-lifecycle-completion",
-				error: InternalError satisfies DurableSchema,
-				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, { code: "operation-completion-failed" }),
-			}).pipe(Activity.retry({ times: 3 }));
-		}
-	},
-	(effect, _payload, executionId) =>
-		Effect.annotateLogs(effect, { executionId, workflow: "UserLifecycleWorkflow" }),
-);
-
-export const UserLifecycleWorkflowDefinitionsLive = implementWorkflow(
-	UserLifecycleWorkflow,
-	runUserLifecycleWorkflow,
-);
+export const UserLifecycleJobLive = registerJobHandler(UserLifecycleJob, runUserLifecycleJob);

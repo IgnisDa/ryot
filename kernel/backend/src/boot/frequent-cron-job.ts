@@ -1,8 +1,6 @@
 import { DateTime, Effect } from "effect";
 import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { userLifecycleFrequentTask } from "#modules/accounts/lifecycle/frequent-task";
-import type { UserLifecycleService } from "#modules/accounts/lifecycle/service";
 import { userBootstrapFrequentTask } from "#modules/accounts/provisioning/frequent-task";
 import type { UserBootstrapScheduling } from "#modules/accounts/provisioning/scheduling";
 import { managedAssetsFrequentTask, uploadsFrequentTask } from "#modules/assets/frequent-task";
@@ -50,7 +48,6 @@ const frequentCronTasks: ReadonlyArray<
 		| MutationReceipts
 		| AutomationRetention
 		| UploadIntentsService
-		| UserLifecycleService
 		| EntityGraphCollector
 		| SignalScheduleWorker
 		| ManagedAssetCollector
@@ -175,7 +172,6 @@ const frequentCronTasks: ReadonlyArray<
 	managedAssetsFrequentTask,
 	entityGraphFrequentTask,
 	userBootstrapFrequentTask,
-	userLifecycleFrequentTask,
 	pluginCatalogFrequentTask,
 	pluginInstallationFrequentTask,
 ];

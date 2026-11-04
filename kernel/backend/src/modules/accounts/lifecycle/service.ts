@@ -5,26 +5,28 @@ import {
 } from "@ryot-app/contract/modules/instance-admin/contract";
 import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
+import { Cause, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { AppConfig } from "#platform/config/service";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 
 import { classifyAuthState } from "./auth-state";
 import { UserLifecycleRepository } from "./repository";
-import { UserLifecycleWorkflow } from "./workflow";
 
 const ACCESS_REVOCATION_CLAIM_TIMEOUT_MS = 60_000;
 
 const accessRevocationStaleBefore = (now: Date) =>
 	new Date(now.getTime() - ACCESS_REVOCATION_CLAIM_TIMEOUT_MS);
 
-const executionIdFor = (operationId: string, workflowAttempt: number) =>
-	`user-lifecycle-${operationId}-${workflowAttempt}`;
+export const UserLifecycleJob = makeJobKind("user-lifecycle", {
+	concurrency: 2,
+	lease: Duration.minutes(10),
+	payload: Schema.Struct({ operationId: Schema.String }),
+});
 
 export class UserLifecycleService extends Context.Service<UserLifecycleService>()(
 	"@ryot-app/kernel-backend/modules/accounts/lifecycle/service/UserLifecycleService",
@@ -34,7 +36,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 			const auth = yield* AuthService;
 			const config = yield* AppConfig;
 			const database = yield* DatabaseSession;
-			const engine = yield* WorkflowEngine;
+			const jobs = yield* JobQueue;
 			const repository = yield* UserLifecycleRepository;
 			const revokeClaimedAccess = Effect.fnUntraced(function* (
 				operationId: string,
@@ -116,28 +118,6 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				);
 			});
 
-			const dispatch = Effect.fn("UserLifecycleService.dispatch")(function* (operation: {
-				workflowAttempt: number;
-				operation: { id: string };
-			}) {
-				const dispatched = yield* engine
-					.execute(UserLifecycleWorkflow, {
-						discard: true,
-						payload: { operationId: operation.operation.id },
-						executionId: executionIdFor(operation.operation.id, operation.workflowAttempt),
-					})
-					.pipe(Effect.result);
-				if (Result.isFailure(dispatched)) {
-					yield* Effect.logError("user lifecycle workflow enqueue failed", dispatched.failure).pipe(
-						Effect.annotateLogs({ operationId: operation.operation.id }),
-					);
-					return yield* new InstanceAdminInternalFailure({
-						reason: { code: "lifecycle-dispatch-failed" },
-					});
-				}
-				return undefined;
-			});
-
 			const request = Effect.fn("UserLifecycleService.request")(function* (
 				userId: UserId,
 				kind: UserLifecycleOperationKind,
@@ -187,47 +167,33 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 										recreatedAccountId: yield* random.uuidV4(),
 									},
 								});
-							}),
+							}).pipe(
+								Effect.tap((operation) =>
+									jobs.enqueue(
+										UserLifecycleJob,
+										{ operationId: operation.operation.id },
+										{ key: operation.operation.id },
+									),
+								),
+							),
 						)
 						.pipe(
-							Effect.catchTag(
-								"DatabaseSessionStateError",
-								() =>
+							Effect.catchTags({
+								SchemaError: Effect.die,
+								DatabaseSessionStateError: () =>
 									new InstanceAdminInternalFailure({
 										reason: { code: "lifecycle-state-conflict" },
 									}),
-							),
+							}),
 						),
 				);
 
-				const ready = yield* ensureAccessRevoked(prepared.operation.id);
-				yield* dispatch(ready);
+				yield* ensureAccessRevoked(prepared.operation.id);
 				return { operationId: prepared.operation.id };
 			});
 
-			const reconcilePending = Effect.fn("UserLifecycleService.reconcilePending")(function* (
-				limit: number,
-			) {
-				const pending = yield* repository.listPending(limit);
-				yield* Effect.forEach(
-					pending,
-					(operation) =>
-						ensureAccessRevoked(operation.operation.id).pipe(
-							Effect.flatMap(dispatch),
-							Effect.catchCauseIf(
-								(cause) => !Cause.hasInterruptsOnly(cause),
-								(cause) =>
-									Effect.logError("pending user lifecycle reconciliation failed", cause).pipe(
-										Effect.annotateLogs({ operationId: operation.operation.id }),
-									),
-							),
-						),
-					{ discard: true },
-				);
-			});
-
 			return {
-				reconcilePending,
+				ensureAccessRevoked,
 				resetUser: (userId: UserId) => request(userId, "reset"),
 				deleteUser: (userId: UserId) => request(userId, "delete"),
 			};
