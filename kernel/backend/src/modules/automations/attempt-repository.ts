@@ -309,6 +309,36 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						}),
 					),
 				);
+			// Undoes a first-attempt claim that never ran to completion, so the run is queued again for its workflow.
+			const releaseFirstClaim = (runId: AutomationRunId) =>
+				atomic(
+					session,
+					session.run((db) =>
+						Effect.gen(function* () {
+							const run = yield* lockRun(session, runId);
+							if (run.status !== "running" || run.attemptCount !== 1) {
+								return;
+							}
+							const released = yield* db
+								.delete(table)
+								.where(
+									and(
+										eq(table.runId, runId),
+										eq(table.attemptNumber, 1),
+										eq(table.status, "running"),
+									),
+								)
+								.returning({ id: table.id });
+							if (released.length === 0) {
+								return;
+							}
+							yield* db
+								.update(automationRun)
+								.set({ attemptCount: 0, startedAt: null, status: "queued" })
+								.where(eq(automationRun.id, runId));
+						}),
+					),
+				);
 			const finalizeAttempt = (input: FinalizeAutomationAttempt, now: Date) =>
 				atomic(
 					session,
@@ -432,7 +462,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						.returning({ id: table.id });
 				});
 			});
-			return { findAttempt, pruneArtifacts, finalizeAttempt, claimNextAttempt };
+			return { findAttempt, pruneArtifacts, finalizeAttempt, claimNextAttempt, releaseFirstClaim };
 		}),
 	},
 ) {

@@ -51,6 +51,7 @@ import {
 	LifecyclePersistenceError,
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
+import { DirectPolicies } from "#modules/automations/lifecycle/policy-batch";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
@@ -2054,5 +2055,11 @@ export class EventsService extends Context.Service<EventsService>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(EventMutations.layer));
+	// Built separately: a shared layer value is memoized, so the first build would fix both variants' policies.
+	static readonly layerWithDirectPolicies = Layer.effect(this, this.make).pipe(
+		Layer.provide(EventMutations.layer),
+	);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(Layer.merge(EventMutations.layer, DirectPolicies.unavailable)),
+	);
 }

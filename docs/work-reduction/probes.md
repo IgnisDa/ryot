@@ -861,3 +861,30 @@ transaction without a workflow. Medians against `probesB3`.
 The 50-event batch keeps its per-item cost, about 32 statements an item, which move 5 targets. Workouts and the
 review operation create events through sandbox operations, not this path, and are unchanged within noise.
 
+## Run `probesB6` (direct policies for HTTP event creates)
+
+Flow probes on the VM with step 9's first move. The probes gained `event-create-complete`, a `complete` event, which
+Media's consumption policy matches. `probesB5` ran before the routes received the direct-policy events service and
+is discarded. Medians against `probesB4`; the `complete` row's first line is a focused run before the wiring fix, when
+every such create still took `EventCreateWorkflow`.
+
+| Flow | Run | Caller | Statements | DB exec | API CPU | Workflows |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Event, `complete` | before | 1,109 ms | 1,375 | — | — | 26 |
+| | `probesB6` | 790 ms | 1,178 | 255 ms | 860 ms | 21 |
+| Workout, one set | `probesB4` | 1,289 ms | 815 | 259 ms | 785 ms | 11 |
+| | `probesB6` | 988 ms | 598 | 218 ms | 610 ms | 5 |
+| Review operation | `probesB4` | 1,226 ms | 1,223 | 320 ms | 950 ms | 24 |
+| | `probesB6` | 1,276 ms | 1,224 | 362 ms | 1,030 ms | 24 |
+| Workout editor save, 10 × 15 | `probesB4` | 5,914 ms | 9,920 | 1,467 ms | 4,000 ms | 59 |
+| | `probesB6` | 5,874 ms | 9,937 | 1,380 ms | 3,960 ms | 59 |
+
+The `complete` create no longer starts `EventCreateWorkflow` and runs its policy without a run or script workflow;
+the policy and run workflows left in that flow come from the consumption hook's own writes. Reviews and the
+workout editor save write through scripts, which keep the workflow path until move 2.
+
+The first runs with the path active failed 1 to 3 of 77 tests under load and hung one: the inline host defers a
+batch when its lane cannot reserve it, and the direct run reported that as a failure, after which the fallback
+found the policy failed or still claimed. Deferred runs now release their claim and hand the policy to the
+workflow; the 13 policy e2e files then passed 3 runs of 3.
+

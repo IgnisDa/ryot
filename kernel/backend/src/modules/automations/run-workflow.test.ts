@@ -29,6 +29,7 @@ import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { DirectScriptDeferred } from "#modules/scripts/executions/workflow";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";
@@ -38,6 +39,7 @@ import {
 	AutomationRunWorkflowOperations,
 	classifyAutomationSandboxError,
 	prepareAutomationInvocation,
+	runAutomationAttemptDirect,
 	runAutomationRunWorkflow,
 } from "./run-workflow-live";
 
@@ -252,10 +254,13 @@ type HarnessOptions = {
 	readonly run?: AutomationRun;
 	readonly trigger?: AutomationTrigger;
 	readonly failFirstFinalize?: boolean;
-	readonly overrides?: Partial<Pick<Operations, "claim" | "prepare" | "runSandbox">>;
+	readonly overrides?: Partial<
+		Pick<Operations, "claim" | "prepare" | "runSandbox" | "runSandboxDirect">
+	>;
 };
 
 type HarnessState = {
+	readonly releases: number;
 	readonly finalizeCalls: number;
 	readonly options: HarnessOptions;
 	readonly attempt: AutomationRunAttempt;
@@ -265,6 +270,7 @@ type HarnessState = {
 
 const initialState = (options: HarnessOptions): HarnessState => ({
 	options,
+	releases: 0,
 	outcomes: [],
 	children: [],
 	finalizeCalls: 0,
@@ -274,6 +280,7 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 class RunWorkflowHarness extends Context.Service<
 	RunWorkflowHarness,
 	{
+		readonly releases: Effect.Effect<number>;
 		readonly children: Effect.Effect<ReadonlyArray<string>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
 		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
@@ -291,11 +298,19 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				trigger: options.trigger ?? trigger,
 			}));
 			const operations = AutomationRunWorkflowOperations.of({
+				releaseFirstClaim: () =>
+					Ref.update(state, (snapshot) => ({ ...snapshot, releases: snapshot.releases + 1 })),
+				runSandboxDirect: (input) =>
+					Effect.flatMap(selected, ({ overrides }) =>
+						overrides.runSandboxDirect
+							? overrides.runSandboxDirect(input)
+							: operations.runSandbox(input),
+					),
 				claim: (input) =>
 					Effect.flatMap(current, ({ options, attempt }) =>
 						options.overrides?.claim
 							? options.overrides.claim(input)
-							: Effect.succeed({ attempt, stage: (options.run ?? run).stage }),
+							: Effect.succeed({ attempt, claimed: true, stage: (options.run ?? run).stage }),
 					),
 				prepare: (input) =>
 					Effect.flatMap(selected, (chosen) =>
@@ -351,6 +366,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				Context.add(RunWorkflowHarness, {
 					outcomes: Effect.map(current, ({ outcomes }) => outcomes),
 					children: Effect.map(current, ({ children }) => children),
+					releases: Effect.map(current, ({ releases }) => releases),
 					reset: (options) => Ref.set(state, initialState(options)),
 				}),
 			);
@@ -782,8 +798,8 @@ layer(harnessLayer())((test) => {
 layer(
 	harnessLayer({
 		overrides: {
-			claim: () => Effect.succeed({ attempt: null, stage: "after" }),
 			runSandbox: () => Effect.die("Terminalized claims must not run a sandbox"),
+			claim: () => Effect.succeed({ attempt: null, claimed: false, stage: "after" }),
 			prepare: () => Effect.die("Terminalized claims must not prepare an invocation"),
 		},
 	}),
@@ -856,6 +872,57 @@ layer(
 				expect(yield* execute()).toEqual(result);
 			}),
 		testTimeout,
+	);
+});
+
+layer(
+	harnessLayer({
+		run: beforeRun,
+		trigger: requestTrigger,
+		overrides: {
+			runSandbox: () =>
+				Effect.succeed({
+					logs: [],
+					error: null,
+					status: "completed" as const,
+					value: {
+						items: [
+							{
+								itemIdentity: requestTrigger.id,
+								decision: { action: "reject", reason: "Rule declined" },
+							},
+						],
+					},
+				}),
+		},
+	}),
+)((test) => {
+	test.effect(
+		"runs a direct policy attempt without a workflow and replays its settled output",
+		() =>
+			Effect.gen(function* () {
+				const harness = yield* RunWorkflowHarness;
+				const result = yield* runAutomationAttemptDirect(payload);
+				expect(result.policyOutput).toEqual({ action: "reject", reason: "Rule declined" });
+				expect(result.attempt?.status).toBe("succeeded");
+				expect(yield* runAutomationAttemptDirect(payload)).toEqual(result);
+				expect(yield* harness.outcomes).toHaveLength(1);
+			}),
+	);
+
+	test.effect("releases a deferred direct attempt without finalizing it", () =>
+		Effect.gen(function* () {
+			const harness = yield* RunWorkflowHarness;
+			yield* harness.reset({
+				run: beforeRun,
+				trigger: requestTrigger,
+				overrides: { runSandboxDirect: () => Effect.fail(new DirectScriptDeferred()) },
+			});
+			const error = yield* Effect.flip(runAutomationAttemptDirect(payload));
+			expect(error._tag).toBe("DirectScriptDeferred");
+			expect(yield* harness.releases).toBe(1);
+			expect(yield* harness.outcomes).toHaveLength(0);
+		}),
 	);
 });
 

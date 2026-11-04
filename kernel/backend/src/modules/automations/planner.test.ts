@@ -40,6 +40,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
@@ -2490,7 +2491,9 @@ describe("automation preparation", () => {
 		Layer.mergeAll(
 			plannerLayer(),
 			AutomationRunWorkflowOperationsServiceLive.pipe(
-				Layer.provide(Layer.mock(ScriptExecutionService)({})),
+				Layer.provide(
+					Layer.merge(Layer.mock(ScriptExecutionService)({}), Layer.mock(DirectScriptExecutor)({})),
+				),
 			),
 		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
 	)("planner harness", (test) => {

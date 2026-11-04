@@ -1,6 +1,6 @@
 # Design: scripts run once (step 9)
 
-Status: proposed. Step 9 of [`order-of-work.md`](order-of-work.md), taken before step 8's moves 3–5, with step 8's
+Status: move 1 built for HTTP event creates (`probesB6`); moves 2 and 3 proposed. Step 9 of [`order-of-work.md`](order-of-work.md), taken before step 8's moves 3–5, with step 8's
 direct policy calls folded in. Builds on [`design-run-once.md`](design-run-once.md), whose steps 1 and 2 are in.
 
 ## Why now
@@ -39,6 +39,10 @@ The queue worker's own execution path already reserves an admission lease from `
    `AutomationRunWorkflow`, `ScriptExecutionWorkflow`, queue hop or journal. The attempt rows stay, so logs and
    failures read as today. `PolicyBatchWorkflow` becomes a plain function, and step 8's direct create widens to
    creates that match policies.
+   Built: `DirectPolicies` runs them for HTTP event creates. A run that reaches a host call only the replay loop
+   settles, which the inline host defers routinely under load, releases its claim and runs that policy through
+   `AutomationRunWorkflow`. Policies started from script writes and entity commands still take the workflow until
+   move 2 and step 8's command moves.
 2. **Writes settle in the run.** A script's write runs in its own transaction from the queue worker and appends one
    journal row in that transaction, keyed by the host-call index, and the script continues in the same isolate. On
    a crash, the next run reads the journal and skips completed calls, so replay happens only for recovery. Writes

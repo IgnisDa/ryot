@@ -40,6 +40,7 @@ import {
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
 import { SandboxExecutionResult } from "./result";
+import type { DirectScriptExecutor } from "./workflow";
 import {
 	executeScriptExecutionWorkflow,
 	SandboxWorkflowPinning,
@@ -84,6 +85,55 @@ const toSandboxRunResult = Effect.fnUntraced(function* (
 		onSuccess: ({ status: _status, harvest: _harvest, ...completed }) => completed,
 	});
 });
+
+export type ScriptExecutionInput = {
+	input: unknown;
+	lane: ExecutionLane;
+	executionId: string;
+	scriptId: SandboxScriptId;
+	grants?: SandboxExecutionGrants;
+	subject: SandboxExecutionSubject;
+	pluginRevision?: ScriptPluginRevision;
+	initialization?: ScriptInstallationInitialization;
+};
+
+const scriptExecutionPayload = Effect.fnUntraced(function* (input: ScriptExecutionInput) {
+	const contextError = sandboxContextError(input.input);
+	if (contextError) {
+		return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
+	}
+	const scriptInput = yield* Schema.decodeUnknownEffect(jsonValueSchema)(input.input).pipe(
+		Effect.mapError(
+			() =>
+				new SandboxRunError({
+					kind: "invalid-input",
+					message: "Sandbox script input must be JSON",
+				}),
+		),
+	);
+	return {
+		lane: input.lane,
+		input: scriptInput,
+		subject: input.subject,
+		scriptId: input.scriptId,
+		executionId: input.executionId,
+		resolutionMode: "exact" as const,
+		resultMode: "execution" as const,
+		...(input.grants ? { grants: input.grants } : {}),
+		...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
+		...(input.initialization ? { initialization: input.initialization } : {}),
+	};
+});
+
+/** Runs a script once without a workflow; see `DirectScriptExecutor` for which scripts may. */
+export const executeScriptDirectly = (
+	executor: DirectScriptExecutor["Service"],
+	input: ScriptExecutionInput,
+) =>
+	scriptExecutionPayload(input).pipe(
+		Effect.flatMap((payload) => executor.execute(payload, input.executionId)),
+		Effect.catchTag("SandboxRunError", (error) => Effect.succeed(sandboxExecutionFailure(error))),
+	);
 
 export class ScriptExecutionService extends Context.Service<ScriptExecutionService>()(
 	"@ryot-app/kernel-backend/modules/scripts/executions/service/ScriptExecutionService",
@@ -270,46 +320,16 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 				},
 			);
 
-			const executeScript = Effect.fn("ScriptExecutionService.executeScript")(function* (input: {
-				input: unknown;
-				lane: ExecutionLane;
-				executionId: string;
-				scriptId: SandboxScriptId;
-				grants?: SandboxExecutionGrants;
-				subject: SandboxExecutionSubject;
-				pluginRevision?: ScriptPluginRevision;
-				initialization?: ScriptInstallationInitialization;
-			}) {
-				return yield* Effect.gen(function* () {
-					const contextError = sandboxContextError(input.input);
-					if (contextError) {
-						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
-					}
-					const scriptInput = yield* Schema.decodeUnknownEffect(jsonValueSchema)(input.input).pipe(
-						Effect.mapError(
-							() =>
-								new SandboxRunError({
-									kind: "invalid-input",
-									message: "Sandbox script input must be JSON",
-								}),
+			const executeScript = Effect.fn("ScriptExecutionService.executeScript")(function* (
+				input: ScriptExecutionInput,
+			) {
+				return yield* scriptExecutionPayload(input).pipe(
+					Effect.flatMap((payload) =>
+						executeScriptExecutionWorkflow(payload).pipe(
+							Effect.provideService(WorkflowEngine, engine),
+							Effect.provideService(DatabaseSession, database),
 						),
-					);
-					return yield* executeScriptExecutionWorkflow({
-						lane: input.lane,
-						input: scriptInput,
-						subject: input.subject,
-						resolutionMode: "exact",
-						resultMode: "execution",
-						scriptId: input.scriptId,
-						executionId: input.executionId,
-						...(input.grants ? { grants: input.grants } : {}),
-						...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
-						...(input.initialization ? { initialization: input.initialization } : {}),
-					}).pipe(
-						Effect.provideService(WorkflowEngine, engine),
-						Effect.provideService(DatabaseSession, database),
-					);
-				}).pipe(
+					),
 					Effect.catchTag("SandboxRunError", (error) =>
 						Effect.succeed(sandboxExecutionFailure(error)),
 					),

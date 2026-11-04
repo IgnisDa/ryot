@@ -439,6 +439,34 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 	});
 
 	layer(attemptDatabaseLayer)((test) => {
+		test.effect("releases a running first claim back to queued and leaves a finalized one", () =>
+			Effect.gen(function* () {
+				yield* seed("before");
+				const repo = yield* AutomationAttemptRepository;
+				yield* (yield* DatabaseSession).run((db) =>
+					Effect.gen(function* () {
+						yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
+						yield* repo.releaseFirstClaim(runId);
+						expect(yield* db.select().from(automationRunAttempt)).toHaveLength(0);
+						const [queued] = yield* db.select().from(automationRun);
+						expect(queued).toMatchObject({ attemptCount: 0, startedAt: null, status: "queued" });
+						expect(yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 })).toMatchObject({
+							claimed: true,
+							attempt: { status: "running" },
+						});
+						yield* repo.finalizeAttempt(failure, now);
+						yield* repo.releaseFirstClaim(runId);
+						const [failed] = yield* db.select().from(automationRun);
+						expect(failed).toMatchObject({ attemptCount: 1, status: "failed" });
+						expect(yield* db.select().from(automationRunAttempt)).toHaveLength(1);
+					}),
+				);
+			}),
+			testTimeout,
+		);
+	});
+
+	layer(attemptDatabaseLayer)((test) => {
 		test.effect(
 			"keeps before policy infrastructure failures terminal with one attempt",
 			() =>

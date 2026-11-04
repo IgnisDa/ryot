@@ -9,9 +9,10 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Effect, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
+import { runAutomationAttemptDirect } from "#modules/automations/run-workflow-live";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -119,7 +120,6 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 ) {
 	const execution = yield* LifecycleExecution;
 	const session = yield* DatabaseSession;
-	const entities = yield* EntitiesRepository;
 	const plan = yield* makeActivity({
 		name: "plan",
 		success: Plan,
@@ -144,6 +144,31 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 			),
 		);
 	}
+	return yield* applyPolicies(input, plan, execution.executeBatchPolicy, (name, execute) =>
+		makeActivity({ name, execute, error: Failure, success: PolicyBatchResult }),
+	);
+});
+
+type PolicyBatchPlan = typeof Plan.Type;
+type PolicyBatchFailure = typeof Failure.Type;
+type BatchPolicyInput = Parameters<LifecycleExecution["Service"]["executeBatchPolicy"]>[0];
+type BatchPolicyOutput = Effect.Success<
+	ReturnType<LifecycleExecution["Service"]["executeBatchPolicy"]>
+>;
+
+/** Runs a planned batch's policies in order and applies their decisions; `step` makes each application durable. */
+const applyPolicies = Effect.fnUntraced(function* <R1, R2>(
+	input: typeof PolicyBatchPayload.Type,
+	plan: PolicyBatchPlan,
+	executePolicy: (
+		policy: BatchPolicyInput,
+	) => Effect.Effect<BatchPolicyOutput, AutomationPolicyExecutionError, R1>,
+	step: (
+		name: string,
+		execute: Effect.Effect<PolicyBatchResult, PolicyBatchFailure>,
+	) => Effect.Effect<PolicyBatchResult, PolicyBatchFailure, R2>,
+) {
+	const entities = yield* EntitiesRepository;
 	let result = unchangedPolicyBatch(input, plan.trigger?.id ?? null);
 	const propertiesSchemaOf = (item: typeof PolicyBatchItem.Type) => {
 		const schema = input.propertiesSchemas[item.schemaKey];
@@ -161,7 +186,7 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 		);
 	});
 	for (const policy of ordered) {
-		const output = yield* execution.executeBatchPolicy({
+		const output = yield* executePolicy({
 			runId: policy.runId,
 			acceptedReferences: result.references,
 			acceptedBatchPatches: Object.fromEntries(
@@ -172,11 +197,9 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 				.map((item) => item.itemIdentity),
 		});
 		const previous = result;
-		result = yield* makeActivity({
-			error: Failure,
-			success: PolicyBatchResult,
-			name: `apply-${policy.runId}`,
-			execute: Effect.gen(function* () {
+		result = yield* step(
+			`apply-${policy.runId}`,
+			Effect.gen(function* () {
 				const run = plan.runs.find((candidate) => candidate.id === policy.runId);
 				if (!run) {
 					return yield* new DbError({ message: "Policy batch run is unavailable" });
@@ -274,14 +297,12 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 				);
 				return { ...previous, items, references };
 			}),
-		});
+		);
 	}
 	const previous = result;
-	return yield* makeActivity({
-		error: DbError,
-		success: PolicyBatchResult,
-		name: "validate-final-drafts",
-		execute: Effect.gen(function* () {
+	return yield* step(
+		"validate-final-drafts",
+		Effect.gen(function* () {
 			const items = yield* Effect.forEach(previous.items, (item) =>
 				Effect.gen(function* () {
 					if (
@@ -303,8 +324,90 @@ export const runPolicyBatchWorkflow = Effect.fn("PolicyBatchWorkflow")(function*
 			);
 			return { ...previous, items };
 		}),
-	});
+	);
 });
+
+const executeDirectPolicy =
+	(execution: LifecycleExecution["Service"]) => (policy: BatchPolicyInput) =>
+		runAutomationAttemptDirect({ ...policy, attemptNumber: 1, acceptedPatches: [] }).pipe(
+			Effect.flatMap((result) =>
+				result.attempt?.status === "succeeded" &&
+				result.policyOutput !== null &&
+				"items" in result.policyOutput
+					? Effect.succeed(result.policyOutput)
+					: Effect.fail(
+							new AutomationPolicyExecutionError({
+								runId: policy.runId,
+								code: "policy-execution-failed",
+							}),
+						),
+			),
+			Effect.catchTags({
+				DirectScriptDeferred: () => execution.executeBatchPolicy(policy),
+				DbError: () =>
+					Effect.fail(
+						new AutomationPolicyExecutionError({
+							runId: policy.runId,
+							code: "policy-execution-failed",
+						}),
+					),
+			}),
+		);
+
+/**
+ * Runs a planned batch's policies in the caller's fiber, each as a direct attempt, for a command whose source write
+ * has not begun; a failure leaves the remaining queued policies skipped.
+ */
+export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
+	input: typeof PolicyBatchPayload.Type,
+	plan: PolicyBatchPlan,
+) {
+	const execution = yield* LifecycleExecution;
+	return yield* applyPolicies(
+		input,
+		plan,
+		executeDirectPolicy(execution),
+		(_name, execute) => execute,
+	).pipe(
+		Effect.onError(() =>
+			plan.trigger === null
+				? Effect.void
+				: execution
+						.skipQueuedPolicies({ triggerId: plan.trigger.id })
+						.pipe(Effect.catchCause((cause) => Effect.logError("Policy batch skip failed", cause))),
+		),
+	);
+});
+
+/** Runs policy batches directly where boot provides the direct sandbox; `run` is null elsewhere. */
+export class DirectPolicies extends Context.Service<
+	DirectPolicies,
+	{
+		readonly run:
+			| null
+			| ((
+					input: typeof PolicyBatchPayload.Type,
+					plan: PolicyBatchPlan,
+			  ) => Effect.Effect<
+					PolicyBatchResult,
+					Effect.Error<ReturnType<typeof runPolicyBatchDirect>>
+			  >);
+	}
+>()("@ryot-app/kernel-backend/modules/automations/lifecycle/policy-batch/DirectPolicies") {
+	static readonly unavailable = Layer.succeed(this, { run: null });
+
+	static readonly layer = Layer.effect(
+		this,
+		Effect.gen(function* () {
+			const context =
+				yield* Effect.context<Effect.Services<ReturnType<typeof runPolicyBatchDirect>>>();
+			return {
+				run: (input: typeof PolicyBatchPayload.Type, plan: PolicyBatchPlan) =>
+					runPolicyBatchDirect(input, plan).pipe(Effect.provideContext(context)),
+			};
+		}),
+	);
+}
 
 export const PolicyBatchWorkflowLive = implementWorkflow(
 	PolicyBatchWorkflow,

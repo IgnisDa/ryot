@@ -486,4 +486,11 @@
 - Step 8 started with `design-one-transaction.md`. Its first move sends an HTTP create of up to 50 events that
   matches no policy through one transaction and no workflow, falling back to `EventCreateWorkflow` otherwise; a
   no-hook event fell from 137 statements and 2 workflows to 95 and none (`probesB4`).
+- Step 9 went ahead of step 8's remaining moves (`design-scripts-once.md`): after move 1 the heavy flows are
+  dominated by script workflows, not the kernel write path.
+- Step 9's first move landed for HTTP event creates. Policies run once in the request with no run or script
+  workflow, and the direct create widened to creates that match policies. Under load the inline host defers host
+  calls, which first surfaced as policy failures and a hung test; a deferred direct attempt now releases its claim
+  and runs through the workflow. A `complete` event fell from 1,375 statements to 1,178 and a one-set workout from
+  11 workflows to 5 (`probesB6`).
 

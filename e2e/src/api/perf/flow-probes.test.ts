@@ -303,6 +303,20 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 						}),
 					),
 				);
+				// Media's consumption policy runs on `complete`, so this create measures a direct policy run.
+				yield* repeat("event-create-complete", FLOW_PROBE_FOCUS || 5, () =>
+					client.call((c) =>
+						c.events.create({
+							payload: [
+								{
+									properties: {},
+									entityId: EntityId.make(entityId),
+									eventSchemaSlug: EventSchemaSlug.make("complete"),
+								},
+							],
+						}),
+					),
+				);
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
 				}

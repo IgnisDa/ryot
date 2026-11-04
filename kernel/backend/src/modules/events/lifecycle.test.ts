@@ -55,6 +55,7 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
+	DirectPolicies,
 	PolicyBatchPayload,
 	PolicyBatchWorkflow,
 	runPolicyBatchWorkflow,
@@ -1016,6 +1017,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const currentPlanner = yield* LifecyclePlanner;
 					const failingService = yield* EventsService.make.pipe(
 					Effect.provideServiceEffect(EventMutations, EventMutations.make),
+					Effect.provideService(DirectPolicies, { run: null }),
 						Effect.provideService(LifecyclePlanner, {
 							...currentPlanner,
 						plan: (input) => failChanges(input.trigger, currentPlanner.plan(input)),
@@ -1333,6 +1335,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					yield* seed(rejectedId);
 					const rejectingService = yield* EventsService.make.pipe(
 					Effect.provideServiceEffect(EventMutations, EventMutations.make),
+					Effect.provideService(DirectPolicies, { run: null }),
 						Effect.provideService(
 							LifecyclePlanner,
 							withLifecycleBatchPlanning({
@@ -1397,6 +1400,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					}
 					const racingService = yield* EventsService.make.pipe(
 					Effect.provideServiceEffect(EventMutations, EventMutations.make),
+					Effect.provideService(DirectPolicies, { run: null }),
 						Effect.provideService(
 							LifecyclePlanner,
 							withLifecycleBatchPlanning({
@@ -1692,6 +1696,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					});
 					const events = yield* EventsService.make.pipe(
 						Effect.provideServiceEffect(EventMutations, EventMutations.make),
+						Effect.provideService(DirectPolicies, { run: null }),
 						Effect.provideService(WorkflowEngine, recordingEngine),
 						Effect.provideService(LifecycleExecution, gatedExecution),
 					);

@@ -1,3 +1,4 @@
+import { DbError } from "@ryot-app/contract/errors";
 import type {
 	AutomationHookIdentity,
 	AutomationWarning,
@@ -16,6 +17,7 @@ import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecycleDispatchPlan, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
+	DirectPolicies,
 	planPolicyBatch,
 	type PolicyBatchResult,
 	PolicyBatchWorkflow,
@@ -207,66 +209,146 @@ const createResult = (
 };
 
 /**
- * Creates up to one chunk of events in one transaction when no policy matches, returning none when the create
- * needs `EventCreateWorkflow`; nothing it wrote survives a decline.
+ * Creates up to one chunk of events without `EventCreateWorkflow`: in one transaction when no policy matches, or
+ * around directly run policies when `DirectPolicies` is provided. Returns none when the create needs the workflow;
+ * a decline leaves nothing the workflow would not find again under the same command identity.
  */
 export const makeDirectEventCreate = Effect.gen(function* () {
 	const receipts = yield* MutationReceipts.make;
 	const execution = yield* LifecycleExecution;
 	const mutations = yield* EventMutations;
 	const planner = yield* LifecyclePlanner;
+	const { run: runPolicies } = yield* DirectPolicies;
 	return Effect.fn("EventCreate.direct")(function* (payload: EventCreateWorkflowPayload) {
 		if (payload.payload.length > chunkSize) {
 			return Option.none();
 		}
 		const batch = eventCreateBatchInput(payload);
 		const identity = operationReceiptOf(payload, batch);
-		const written = yield* mutations
+		const { indexOf } = chunkOf(payload, 0);
+		const record = Effect.fnUntraced(function* (
+			prepared: PreparedEventChanges,
+			outcomes: ReadonlyArray<EventCreateItemOutcome>,
+			written: typeof CommittedChunk.Type,
+		) {
+			const dispatch = [...written.dispatch, ...(yield* planner.planBatch(batch))];
+			const result = createResult(
+				[
+					...prepared.failures.map(({ reason, itemIdentity }) => ({
+						reason,
+						status: "failed" as const,
+						index: indexOf(itemIdentity),
+					})),
+					...outcomes,
+					...writtenOutcomes(written, indexOf),
+				],
+				[],
+			);
+			yield* receipts.insert({ result, dispatch, identity });
+			return { result, dispatch, replayed: false, kind: "written" as const };
+		});
+		const commit = Effect.fnUntraced(function* (
+			prepared: PreparedEventChanges,
+			validated: PolicyBatchResult,
+		) {
+			const policy = policyOutcomes(validated, indexOf);
+			const written =
+				policy.accepted.size === 0
+					? { results: [], dispatch: [] }
+					: yield* persistChunk(mutations, payload, {
+							batch,
+							prepared,
+							first: 0,
+							validated,
+							accepted: policy.accepted,
+						});
+			return yield* record(prepared, policy.outcomes, written);
+		});
+		// Fails what the policies left, or every prepared item without a policy result, as the workflow does.
+		const fail = (
+			prepared: PreparedEventChanges,
+			validated: null | PolicyBatchResult,
+			reason: EventCreateFailureReason,
+		) => {
+			const policy = validated === null ? null : policyOutcomes(validated, indexOf);
+			const failed = (policy?.accepted ?? prepared.items.map((item) => item.change.itemIdentity))
+				.values()
+				.map((itemIdentity) => ({
+					reason,
+					status: "failed" as const,
+					index: indexOf(itemIdentity),
+				}));
+			return mutations
+				.transaction(
+					record(prepared, [...(policy?.outcomes ?? []), ...failed], { results: [], dispatch: [] }),
+				)
+				.pipe(
+					Effect.catchIf(
+						(error) => error._tag !== "DbError" && error._tag !== "DatabaseSessionStateError",
+						() => new DbError({ message: "Event creation failed" }),
+					),
+				);
+		};
+		const started = yield* mutations
 			.transaction(
 				Effect.gen(function* () {
 					const replay = yield* receipts.peek(identity, CreateEventsResponse);
 					if (replay) {
-						return { replayed: true, result: replay.result, dispatch: replay.dispatch };
+						return {
+							replayed: true,
+							result: replay.result,
+							kind: "written" as const,
+							dispatch: replay.dispatch,
+						};
 					}
 					yield* planner.prepareBatch({ ...batch, scopes: [payload.userId] });
-					const { indexOf } = chunkOf(payload, 0);
 					const prepared = yield* prepareChunk(mutations, payload, 0);
-					const policies = policyBatchOf(payload, prepared, 0, new Map());
-					const plan = yield* planPolicyBatch(policies).pipe(
+					const policyBatch = policyBatchOf(payload, prepared, 0, new Map());
+					const plan = yield* planPolicyBatch(policyBatch).pipe(
 						Effect.provideService(LifecyclePlanner, planner),
 					);
-					if (plan.trigger !== null) {
+					if (plan.trigger === null) {
+						return yield* commit(prepared, unchangedPolicyBatch(policyBatch, null));
+					}
+					if (plan.trigger.blockedReason || runPolicies === null) {
 						return yield* new DirectCreateDeclined();
 					}
-					const validated = unchangedPolicyBatch(policies, null);
-					const { accepted } = policyOutcomes(validated, indexOf);
-					const committed =
-						accepted.size === 0
-							? { results: [], dispatch: [] }
-							: yield* persistChunk(mutations, payload, {
-									batch,
-									prepared,
-									accepted,
-									first: 0,
-									validated,
-								});
-					const dispatch = [...committed.dispatch, ...(yield* planner.planBatch(batch))];
-					const result = createResult(
-						[
-							...prepared.failures.map(({ reason, itemIdentity }) => ({
-								reason,
-								status: "failed" as const,
-								index: indexOf(itemIdentity),
-							})),
-							...writtenOutcomes(committed, indexOf),
-						],
-						[],
-					);
-					yield* receipts.insert({ result, dispatch, identity });
-					return { result, dispatch, replayed: false };
+					return { plan, prepared, policyBatch, runPolicies, kind: "policies" as const };
 				}),
 			)
 			.pipe(Effect.orElseSucceed(() => null));
+		const written =
+			started === null || started.kind === "written"
+				? started
+				: yield* started.runPolicies(started.policyBatch, started.plan).pipe(
+						Effect.flatMap((validated) =>
+							mutations.transaction(commit(started.prepared, validated)).pipe(
+								Effect.catchIf(
+									(error) => error._tag !== "DbError" && error._tag !== "DatabaseSessionStateError",
+									(error) =>
+										fail(started.prepared, validated, {
+											code:
+												error._tag === "EventBadRequest" && error.reason.code === "asset-forbidden"
+													? "asset-forbidden"
+													: "mutation-conflict",
+										}),
+								),
+							),
+						),
+						Effect.catchTags({
+							PolicyBatchBlocked: (error) =>
+								fail(started.prepared, null, {
+									triggerId: error.triggerId,
+									code: "automation-limit-reached",
+								}),
+							AutomationPolicyExecutionError: (error) =>
+								fail(started.prepared, null, {
+									runId: error.runId,
+									code: "policy-execution-failed",
+								}),
+						}),
+						Effect.catchTag("DatabaseSessionStateError", Effect.die),
+					);
 		if (written === null) {
 			return Option.none();
 		}

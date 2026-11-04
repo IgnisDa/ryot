@@ -35,6 +35,7 @@ import {
 	PolicyBatchWorkflowProvidedLive,
 	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
+import { DirectPolicies } from "#modules/automations/lifecycle/policy-batch";
 import { AutomationRunWorkflowDefinitionsLive } from "#modules/automations/run-workflow-live";
 import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackgroundWorkWorkflowLive } from "#modules/background-work/workflow";
@@ -73,11 +74,12 @@ import {
 	ProviderEntitySearchServiceLive,
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 } from "#modules/entities/providers/layer";
+import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { InterestServicesLive } from "#modules/entities/watches/layer";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
-	EventsServiceLive,
+	EventsServiceWithDirectPoliciesLive,
 	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
@@ -149,9 +151,11 @@ import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/au
 import { BackgroundWorkExecutorLive } from "#modules/scripts/executions/background-work";
 import { ProjectionBindingsLive } from "#modules/scripts/executions/projection-bindings";
 import { SandboxExecutionQueueStoreLive } from "#modules/scripts/executions/queues";
+import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
 import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxWorkflowPinningLive, ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { ExecutableArtifacts } from "#modules/scripts/registry/executable-artifacts";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { SignalScheduleWorkerLive } from "#modules/signal-schedules/layer";
@@ -224,6 +228,40 @@ const StagedRuntimeSandboxExecutorLive = RuntimeSandboxExecutorLive.pipe(
 	Layer.provide(IngestionArtifactStagingProvidedLive),
 );
 
+const SandboxWorkflowDependenciesLive = Layer.mergeAll(
+	SandboxRepository.layer,
+	SandboxWorkflowPinningLive,
+	SandboxWorkflowReferenceRepository.layer,
+	KernelWorkflowReferencesLive.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				ImportsRepository.layer,
+				IngestionCaptures.layer,
+				IntegrationsRepository.layer,
+				PluginRuntimeResolverLive,
+				SandboxRepository.layer,
+				SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),
+			),
+		),
+	),
+);
+
+const AutomationRunOperationsLive = Layer.provide(
+	AutomationRunWorkflowOperationsServiceLive,
+	Layer.merge(
+		ScriptExecutionServiceLive,
+		DirectScriptExecutor.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(
+					SandboxWorkflowDependenciesLive,
+					ExecutableArtifacts.layer,
+					SandboxDurableHostServicesLive,
+				),
+			),
+		),
+	),
+);
+
 const ServicesLive = Layer.mergeAll(
 	AuthServiceLive,
 	BackupServicesLive,
@@ -233,7 +271,7 @@ const ServicesLive = Layer.mergeAll(
 	EntityEditorServiceLive,
 	EntityImportServiceLive,
 	EntityEnrichmentServiceLive,
-	EventsServiceLive,
+	EventsServiceWithDirectPoliciesLive,
 	EventStreamWorkServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 	RelationshipProjectionServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 	InstanceAdminServiceLive,
@@ -286,6 +324,15 @@ const ServicesLive = Layer.mergeAll(
 ).pipe(
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
+	// Every events service built here, including the ones other services build, runs policies directly.
+	Layer.provide(
+		DirectPolicies.layer.pipe(
+			Layer.provide(
+				Layer.mergeAll(AutomationRunOperationsLive, EntitiesRepositoryLive, LifecycleServicesLive),
+			),
+			Layer.provide(StagedRuntimeSandboxExecutorLive),
+		),
+	),
 	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive.pipe(Layer.provide(ProjectionBindingsLive))),
 );
 
@@ -333,26 +380,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 			IntegrationsRepository.layer,
 		),
 	),
-	Layer.provide(
-		SandboxWorkflowDefinitionsLive,
-		Layer.mergeAll(
-			SandboxRepository.layer,
-			SandboxWorkflowPinningLive,
-			SandboxWorkflowReferenceRepository.layer,
-			KernelWorkflowReferencesLive.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						ImportsRepository.layer,
-						IngestionCaptures.layer,
-						IntegrationsRepository.layer,
-						PluginRuntimeResolverLive,
-						SandboxRepository.layer,
-						SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),
-					),
-				),
-			),
-		),
-	),
+	Layer.provide(SandboxWorkflowDefinitionsLive, SandboxWorkflowDependenciesLive),
 	Layer.merge(
 		TranslateEntityWorkflowDefinitionsLive,
 		TranslateEntityAttemptWorkflowDefinitionsLive,
@@ -413,7 +441,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 	SandboxDurableHostServicesLive,
 	CollectionMembershipWorkflowOperationsLive,
-	Layer.provide(AutomationRunWorkflowOperationsServiceLive, ScriptExecutionServiceLive),
+	AutomationRunOperationsLive,
 	EntityImportWorkflowOperationsProvidedLive,
 	Layer.provide(
 		TranslateEntityWorkflowOperationsLive,

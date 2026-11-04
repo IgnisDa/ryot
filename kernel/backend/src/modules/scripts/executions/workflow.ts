@@ -56,6 +56,7 @@ import {
 	SandboxWorkflowReferenceRepository,
 } from "../registry/workflow-references";
 import {
+	executeSandboxExecution,
 	processSandboxExecutionQueue,
 	type SandboxExecutionQueuePayload,
 	type SandboxExecutionResolutionMode,
@@ -1072,6 +1073,112 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 		}),
 	);
 });
+
+/**
+ * Runs a script once in the caller's fiber, with no workflow, journal or queue hop. Only for scripts that have
+ * nothing to recover, such as read-only policies: a run that makes a durable call fails instead of parking.
+ */
+const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
+	payload: ScriptExecutionWorkflowPayloadValue,
+	executionId: string,
+) {
+	const startedAt = yield* sandboxStartedAt;
+	const pinning = yield* SandboxWorkflowPinning;
+	const artifacts = yield* ExecutionFileStore;
+	const references = yield* SandboxWorkflowReferenceRepository;
+	const dispatcher = yield* SandboxDurableHostDispatcher;
+	const { principal } = yield* pinning
+		.establish(payload, executionId)
+		.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
+	yield* artifacts
+		.retain(artifactOwnerOf(payload, executionId), executionId)
+		.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
+	const release = Effect.gen(function* () {
+		yield* artifacts.release(artifactOwnerOf(payload, executionId), executionId);
+		if (principal.pluginRevision) {
+			yield* references.release(executionId);
+		}
+	}).pipe(Effect.catchCause((cause) => Effect.logWarning("Direct script release failed", cause)));
+	return yield* Effect.gen(function* () {
+		const replay = yield* executeSandboxExecution({
+			startedAt,
+			principal,
+			journalLength: 0,
+			lane: payload.lane,
+			context: payload.input,
+			workflowExecutionId: executionId,
+			executionId: `${executionId}-replay-0`,
+			...(payload.grants ? { grants: payload.grants } : {}),
+		});
+		if (replay.pendingInline.length > 0) {
+			yield* dispatcher.cancelInline(executionId, replay.pendingInline);
+			return yield* new DirectScriptDeferred();
+		}
+		if (replay.error) {
+			return toSandboxExecutionResult(replay, null, replay.error);
+		}
+		const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
+			replay.value,
+		).pipe(
+			Effect.mapError((error) =>
+				sandboxFailure("script-failure", `Replay envelope is invalid: ${unknownToMessage(error)}`),
+			),
+		);
+		const observed = yield* validateWorkflowReplayEnvelope(envelope, [], replay.inline);
+		if (observed.state === "pending") {
+			return yield* new DirectScriptDeferred();
+		}
+		if (observed.state === "failed") {
+			return toSandboxExecutionResult(replay, null, {
+				phase: "execute",
+				kind: observed.kind,
+				message: observed.error,
+				...(observed.data === undefined ? {} : { data: observed.data }),
+			});
+		}
+		return toSandboxExecutionResult(
+			replay,
+			replay.harvest && isObjectRecord(observed.output)
+				? withHarvestedChunks(observed.output, replay.harvest.chunkHandles)
+				: observed.output,
+		);
+	}).pipe(Effect.scoped, Effect.ensuring(release));
+});
+
+/** A direct run reached a host call that settles only in `ScriptExecutionWorkflow`'s replay loop. */
+export class DirectScriptDeferred extends Schema.TaggedError<
+	DirectScriptDeferred,
+	{ readonly brand: unique symbol }
+>()("DirectScriptDeferred", {}) {}
+
+export class DirectScriptExecutor extends Context.Service<
+	DirectScriptExecutor,
+	{
+		readonly execute: (
+			payload: ScriptExecutionWorkflowPayloadValue,
+			executionId: string,
+		) => Effect.Effect<SandboxExecutionResult, SandboxRunError | DirectScriptDeferred>;
+	}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/workflow/DirectScriptExecutor") {
+	static readonly layer = Layer.effect(
+		this,
+		Effect.gen(function* () {
+			const context =
+				yield* Effect.context<Effect.Services<ReturnType<typeof executeScriptDirect>>>();
+			return {
+				execute: (payload: ScriptExecutionWorkflowPayloadValue, executionId: string) =>
+					executeScriptDirect(payload, executionId).pipe(
+						Effect.provideContext(context),
+						Effect.catchIf(
+							(error) =>
+								!(error instanceof SandboxRunError || error instanceof DirectScriptDeferred),
+							(error) => Effect.fail(rethrowSandboxFailure("infrastructure")(error)),
+						),
+					),
+			};
+		}),
+	);
+}
 
 export const runScriptExecutionWorkflow = Effect.fn("ScriptExecutionWorkflow")(function* (
 	payload: ScriptExecutionWorkflowPayloadValue,
