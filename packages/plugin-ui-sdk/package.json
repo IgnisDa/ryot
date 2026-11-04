@@ -52,7 +52,6 @@
 		"@tanstack/charts": "0.18.0",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-hotkeys": "0.10.0",
-		"@types/hast": "3.0.4",
 		"@types/mdast": "4.0.4",
 		"clsx": "2.1.1",
 		"effect": "4.1.0",

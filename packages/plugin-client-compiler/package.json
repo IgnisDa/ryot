@@ -34,14 +34,10 @@
 		"@ryot-app/typescript-compiler": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
 		"@tailwindcss/vite": "4.3.0",
-		"@tanstack/hotkeys": "0.8.0",
-		"@tanstack/react-hotkeys": "0.10.0",
-		"@tanstack/store": "0.11.1",
 		"@types/react": "19.2.15",
 		"@types/react-dom": "19.2.3",
 		"clsx": "2.1.1",
 		"effect": "4.1.0",
-		"lucide-react": "1.37.0",
 		"postcss": "8.5.26",
 		"postcss-value-parser": "4.2.0",
 		"react": "19.2.6",
@@ -53,10 +49,7 @@
 	"devDependencies": {
 		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
-		"@testing-library/dom": "10.4.1",
-		"@types/jsdom": "30.0.0",
 		"bun-types": "1.4.4",
-		"jsdom": "30.0.1",
 		"vitest": "4.1.9"
 	}
 }

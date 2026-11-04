@@ -80,7 +80,6 @@
 		"@ryot-app/plugin-backend-compiler": "workspace:*",
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
-		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
@@ -94,7 +93,6 @@
 		"nodemailer": "8.0.10",
 		"pg": "8.21.0",
 		"react": "19.2.4",
-		"react-dom": "19.2.4",
 		"rotating-file-stream": "3.2.10"
 	},
 	"devDependencies": {

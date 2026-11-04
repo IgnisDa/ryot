@@ -114,7 +114,6 @@
 		"@effect/vitest": "4.1.0",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
-		"@ryot-app/plugin-backend-compiler": "workspace:*",
 		"@ryot-app/plugin-client-compiler": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",
