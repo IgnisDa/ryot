@@ -21,9 +21,9 @@
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"@oxc-project/types": "0.132.0",
+		"@oxc-project/types": "0.156.0",
 		"effect": "4.1.0",
-		"rolldown": "1.0.2",
+		"rolldown": "1.2.16",
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {

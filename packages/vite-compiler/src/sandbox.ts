@@ -211,6 +211,7 @@ const sandboxConfig = ({
 		lib: { entry, formats: ["es"], fileName: () => outputFile },
 		rolldownOptions: {
 			preserveEntrySignatures: "strict",
+			experimental: { attachDebugInfo: "none" },
 			external: (specifier: string) => approvedExternalSpecifiers.has(specifier),
 			output: {
 				format: "es",

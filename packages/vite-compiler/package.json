@@ -16,7 +16,7 @@
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
 		"effect": "4.1.0",
-		"vite": "8.0.14"
+		"vite": "8.3.5"
 	},
 	"devDependencies": {
 		"@effect/platform-bun": "4.1.0",

@@ -14,12 +14,12 @@
 		"@ryot-app/media-plugin": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"@tailwindcss/vite": "4.1.18",
+		"@tailwindcss/vite": "4.3.4",
 		"effect": "4.1.0",
 		"lucide-react": "0.563.0",
 		"react": "19.2.6",
 		"react-dom": "19.2.6",
-		"tailwindcss": "4.1.18",
+		"tailwindcss": "4.3.4",
 		"ts-pattern": "5.9.0"
 	},
 	"devDependencies": {
@@ -28,6 +28,6 @@
 		"@wxt-dev/auto-icons": "1.1.0",
 		"@wxt-dev/module-react": "1.1.5",
 		"vite-tsconfig-paths": "6.1.1",
-		"wxt": "0.20.17"
+		"wxt": "0.21.5"
 	}
 }

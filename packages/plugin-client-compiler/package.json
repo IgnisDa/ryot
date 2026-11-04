@@ -33,18 +33,18 @@
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
-		"@tailwindcss/vite": "4.3.0",
+		"@tailwindcss/vite": "4.3.4",
 		"@types/react": "19.2.15",
 		"@types/react-dom": "19.2.3",
 		"clsx": "2.1.1",
 		"effect": "4.1.0",
-		"postcss": "8.5.26",
+		"postcss": "8.5.32",
 		"postcss-value-parser": "4.2.0",
 		"react": "19.2.6",
 		"react-dom": "19.2.6",
-		"tailwindcss": "4.3.0",
+		"tailwindcss": "4.3.4",
 		"typescript": "7.0.2",
-		"vite": "8.0.14"
+		"vite": "8.3.5"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",

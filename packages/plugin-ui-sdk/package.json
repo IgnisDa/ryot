@@ -75,6 +75,6 @@
 		"@voila.dev/effect-bun-test": "4.0.4",
 		"axe-core": "4.13.0",
 		"jsdom": "30.0.1",
-		"vite": "8.0.14"
+		"vite": "8.3.5"
 	}
 }

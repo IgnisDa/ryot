@@ -204,7 +204,7 @@ export default defineContentScript({
 				return;
 			}
 
-			const delay = RETRY_INTERVALS[retryAttempts] || 20000;
+			const delay = RETRY_INTERVALS[retryAttempts] ?? 20000;
 			retryAttempts++;
 
 			logger.debug(`Scheduling retry attempt ${retryAttempts} in ${delay}ms`);

@@ -26,7 +26,7 @@
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/email-templates": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"@tailwindcss/vite": "4.3.0",
+		"@tailwindcss/vite": "4.3.4",
 		"@tanstack/react-query": "5.100.14",
 		"@tanstack/react-query-devtools": "5.100.14",
 		"@unkey/api": "2.3.5",
@@ -67,8 +67,8 @@
 		"remark-frontmatter": "5.0.0",
 		"remark-mdx-frontmatter": "5.2.0",
 		"rollup": "4.50.0",
-		"tailwindcss": "4.3.0",
-		"vite": "8.0.14"
+		"tailwindcss": "4.3.4",
+		"vite": "8.3.5"
 	},
 	"installConfig": {
 		"hoistingLimits": "workspaces"
