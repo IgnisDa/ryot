@@ -24,7 +24,6 @@ import {
 import { ProcessGenericImportChunksWorkflow } from "#modules/imports/generic-import-workflow";
 import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
-import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxDurableHostServiceWorkflow } from "#modules/scripts/host/durable-dispatcher";
@@ -52,7 +51,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessGenericImportChunksWorkflow,
 		ProcessIngestionCaptureWorkflow,
 		ProcessIntegrationRunWorkflow,
-		IntegrationSyncWorkflow,
 		ScriptExecutionWorkflow,
 		BackgroundWorkWorkflow,
 		SandboxDurableHostServiceWorkflow,

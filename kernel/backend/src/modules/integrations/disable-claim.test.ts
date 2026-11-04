@@ -15,6 +15,7 @@ import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#testing/effect";
 
@@ -54,6 +55,7 @@ const makeLayer = (
 				Layer.mock(ImportsService, {}),
 				Layer.mock(OAuthConnectionsService, {}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				JobQueue.layer.pipe(Layer.provide(databaseLayer)),
 				Layer.unwrap(
 					Effect.gen(function* () {
 						const calls = yield* Ref.make<ReadonlyArray<string>>([]);

@@ -43,6 +43,7 @@ import {
 } from "#modules/plugins/catalog/readiness-service";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import type { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";
 import {
 	makeWorkflowEngine,
@@ -216,6 +217,20 @@ const makeServiceLayer = (options: {
 							mockReadiness(dependencies.readiness ?? {}),
 							mockRepository(dependencies.repository ?? {}),
 							Layer.succeed(WorkflowEngine, makeWorkflowEngine(dependencies.engine)),
+							Layer.succeed(
+								JobQueue,
+								JobQueue.of({
+									pruneFailed: () => Effect.void,
+									enqueue: (kind, payload, enqueueOptions) =>
+										Ref.update(calls, (all) => [
+											...all,
+											{
+												method: "enqueue",
+												input: { payload, kind: kind.name, options: enqueueOptions },
+											},
+										]).pipe(Effect.as(true)),
+								}),
+							),
 						);
 					}),
 				),
@@ -1097,11 +1112,7 @@ describe("syncAll", () => {
 	layer(
 		makeServiceLayer({
 			proKey: false,
-			dependencies: ({ record }) => ({
-				engine: {
-					execute: (_workflow, options) =>
-						record("execute", options).pipe(Effect.as(options.executionId)),
-				},
+			dependencies: () => ({
 				catalog: {
 					findForUser: () => Effect.succeed(null),
 					findOwnedForUser: () => Effect.succeed(null),
@@ -1111,7 +1122,7 @@ describe("syncAll", () => {
 		}),
 	)((test) => {
 		test.effect(
-			"dispatches a user-scoped integration sync",
+			"queues a user-scoped integration sync",
 			() =>
 				Effect.gen(function* () {
 					const userId = UserId.make("sync-user");
@@ -1121,10 +1132,13 @@ describe("syncAll", () => {
 					});
 
 					expect(result.executionId).toMatch(/^integration-sync-/);
-					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toMatchObject({
-						discard: true,
-						executionId: result.executionId,
-						payload: { userId, executionId: result.executionId },
+					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)).toEqual({
+						method: "enqueue",
+						input: {
+							payload: { userId },
+							kind: "integration-sync",
+							options: { userId, id: result.executionId },
+						},
 					});
 				}),
 			testTimeout,

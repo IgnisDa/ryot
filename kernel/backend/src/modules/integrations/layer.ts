@@ -23,7 +23,7 @@ import { IntegrationIngestion } from "./ingestion";
 import { IntegrationOperationScopeResolverLive } from "./operation-scope-resolver-live";
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
-import { IntegrationSyncWorkflowDefinitionsLive } from "./sync-workflow-live";
+import { IntegrationSyncJobLive } from "./sync-job-live";
 
 export const IntegrationIngestionLive = IntegrationIngestion.layer.pipe(
 	Layer.provide(
@@ -61,5 +61,6 @@ export const IntegrationsServiceLive = IntegrationsService.layer.pipe(
 export const IntegrationOperationScopeResolverProvidedLive =
 	IntegrationOperationScopeResolverLive.pipe(Layer.provide(IntegrationsRepository.layer));
 
-export const IntegrationSyncWorkflowDefinitionsProvidedLive =
-	IntegrationSyncWorkflowDefinitionsLive.pipe(Layer.provide(IntegrationsServiceLive));
+export const IntegrationSyncJobProvidedLive = IntegrationSyncJobLive.pipe(
+	Layer.provide(IntegrationsServiceLive),
+);

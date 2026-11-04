@@ -49,13 +49,14 @@ import {
 } from "#modules/plugins/catalog/integration-providers";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";
 
 import { IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import type { IntegrationSyncRun } from "./jobs";
 import { type IntegrationRecord, IntegrationsRepository } from "./repository";
-import { IntegrationSyncWorkflow } from "./sync-workflow";
+import { IntegrationSyncJob } from "./sync-job";
 
 const defaultExtraSettings = {
 	disableOnContinuousErrors: false,
@@ -135,6 +136,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const proKey = yield* ProKeyService;
+			const jobs = yield* JobQueue;
 			const engine = yield* WorkflowEngine;
 			const receipts = yield* MutationReceipts.make;
 			const importsService = yield* ImportsService;
@@ -661,12 +663,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			) {
 				const userId = accountGeneration.userId;
 				const executionId = `integration-sync-${generateId()}`;
-				const started = yield* dispatchAdmittedWorkflow(
-					engine,
-					IntegrationSyncWorkflow,
-					accountGeneration,
-					{ executionId, discard: true, payload: { userId, executionId, accountGeneration } },
-				).pipe(Effect.result);
+				const started = yield* jobs
+					.enqueue(IntegrationSyncJob, { userId }, { userId, id: executionId })
+					.pipe(Effect.result);
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration sync enqueue failed", started.failure).pipe(
 						Effect.annotateLogs({ userId, executionId }),

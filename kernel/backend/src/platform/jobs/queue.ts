@@ -37,6 +37,7 @@ export const makeJobKind = <Payload extends JobPayloadSchema>(
 });
 
 export type EnqueueOptions = {
+	readonly id?: string;
 	readonly key?: string;
 	readonly runAt?: Date;
 	readonly userId?: string;
@@ -66,11 +67,11 @@ export class JobQueue extends Context.Service<JobQueue>()(
 							kind: kind.name,
 							status: "queued",
 							payload: encoded,
-							id: crypto.randomUUID(),
 							key: options.key ?? null,
 							maxAttempts: kind.maxAttempts,
 							userId: options.userId ?? null,
 							priority: options.priority ?? 0,
+							id: options.id ?? crypto.randomUUID(),
 							...(options.runAt === undefined ? {} : { runAt: options.runAt }),
 						})
 						.onConflictDoNothing({

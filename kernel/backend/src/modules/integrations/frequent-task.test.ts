@@ -1,56 +1,55 @@
 import { expect } from "bun:test";
 
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { layer } from "@voila.dev/effect-bun-test";
+import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { makeWorkflowEngine } from "#testing/effect";
+import { JobQueue } from "#platform/jobs/queue";
 
 import { integrationsFrequentTask } from "./frequent-task";
 
-layer(mutationAdmissionTestLayer)((test) => {
-	test.effect(
-		"dispatches the sync workflow with a tick-derived execution id",
-		() => {
-			const captured: Array<Parameters<WorkflowEngine["Service"]["execute"]>[1]> = [];
-			const engine = makeWorkflowEngine({
-				execute: (_workflow, options) => {
-					captured.push(options);
-					return Effect.succeed(options.executionId);
-				},
-			});
-
-			return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
-				Effect.provideService(WorkflowEngine, engine),
-				Effect.map(() => {
-					expect(captured).toMatchObject([
-						{
-							discard: true,
-							executionId: "exec-int-integrations-sync",
-							payload: { userId: null, executionId: "exec-int-integrations-sync" },
-						},
-					]);
-				}),
+it.effect(
+	"queues one coalesced sync for every user",
+	() =>
+		Effect.gen(function* () {
+			const queued: unknown[] = [];
+			yield* integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
+				Effect.provideService(
+					JobQueue,
+					JobQueue.of({
+						pruneFailed: () => Effect.void,
+						enqueue: (kind, payload, options) =>
+							Effect.sync(() => {
+								queued.push({ payload, options, kind: kind.name });
+								return true;
+							}),
+					}),
+				),
 			);
-		},
-		testTimeout,
-	);
+			expect(queued).toEqual([
+				{ options: { key: "all" }, kind: "integration-sync", payload: { userId: null } },
+			]);
+		}),
+	testTimeout,
+);
 
-	test.effect(
-		"swallows an enqueue failure so the cron tick keeps running",
-		() => {
-			const engine = makeWorkflowEngine({ execute: () => Effect.die("enqueue boom") });
-
-			return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
-				Effect.provideService(WorkflowEngine, engine),
-				Effect.exit,
-				Effect.map((exit) => {
-					expect(exit._tag).toBe("Success");
-				}),
-			);
-		},
-		testTimeout,
-	);
-});
+it.effect(
+	"swallows an enqueue failure so the cron tick keeps running",
+	() =>
+		Effect.gen(function* () {
+			const exit = yield* integrationsFrequentTask
+				.run({ executionId: "exec-int" })
+				.pipe(
+					Effect.provideService(
+						JobQueue,
+						JobQueue.of({
+							pruneFailed: () => Effect.void,
+							enqueue: () => Effect.die("enqueue boom"),
+						}),
+					),
+					Effect.exit,
+				);
+			expect(exit._tag).toBe("Success");
+		}),
+	testTimeout,
+);

@@ -46,6 +46,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { SystemPlugins } from "#modules/plugins/packages/system";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";
 import { RedisService } from "#platform/redis";
 import { HmacSigner } from "#platform/storage/hmac-signer";
@@ -125,6 +126,7 @@ const roundTripLayer = Layer.mergeAll(
 				Layer.mock(ImportsService)({}),
 				Layer.mock(DataImportAdmission)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+				JobQueue.layer,
 				mockProKey(true),
 			),
 		),

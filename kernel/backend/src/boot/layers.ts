@@ -99,7 +99,7 @@ import { InstanceAdminServiceLive } from "#modules/instance-admin/layer";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
 import {
 	IntegrationsServiceLive,
-	IntegrationSyncWorkflowDefinitionsProvidedLive,
+	IntegrationSyncJobProvidedLive,
 } from "#modules/integrations/layer";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -357,7 +357,6 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	BackgroundWorkWorkflowLive.pipe(
 		Layer.provide(Layer.merge(BackgroundWorkExecutorLive, ProjectionFinalizerLive)),
 	),
-	IntegrationSyncWorkflowDefinitionsProvidedLive,
 	ImportWorkflowDefinitionsLive,
 	CancelImportRunWorkflowDefinitionsLive.pipe(
 		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
@@ -399,6 +398,7 @@ const RuntimeJobsLive = JobWorkerLive.pipe(
 			NotificationDeliveryJobProvidedLive,
 			UserLifecycleJobProvidedLive,
 			BackupJobsLive,
+			IntegrationSyncJobProvidedLive,
 		),
 	),
 );

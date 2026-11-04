@@ -56,6 +56,7 @@ import {
 	revisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { LocalStorageService } from "#platform/storage/local-storage";
@@ -168,6 +169,7 @@ const serviceLayer = (isProKeyValidated = true) =>
 					Layer.mock(DataImportAdmission)({}),
 					Layer.mock(ImportsService)({}),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
+					JobQueue.layer,
 					Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),
 				),
 			),

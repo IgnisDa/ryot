@@ -4,19 +4,18 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/br
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Exit, Layer, Ref } from "effect";
-import { Workflow } from "effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { Context, Effect, Layer, Ref } from "effect";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
-import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import type { IntegrationSyncRun } from "./jobs";
 import { IntegrationsService } from "./service";
-import { IntegrationSyncWorkflow } from "./sync-workflow";
-import { runIntegrationSyncWorkflow } from "./sync-workflow-live";
+import { runIntegrationSyncJob } from "./sync-job-live";
 
-const payload = { userId: null, accountGeneration: null, executionId: "integrations-sync-run" };
+const payload = { userId: null };
+const job = { attempt: 1, id: "integration-sync-job" };
 const cutoff = "2026-10-24T12:00:00.000Z";
 
 const run = (input: {
@@ -38,10 +37,9 @@ class FakeIntegrationSync extends Context.Service<
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
 		readonly preparedFor: Effect.Effect<ReadonlyArray<null | UserId>>;
 	}
->()("@ryot-app/kernel-backend/modules/integrations/sync-workflow-live.test/FakeIntegrationSync") {}
+>()("@ryot-app/kernel-backend/modules/integrations/sync-job-live.test/FakeIntegrationSync") {}
 
 const makeSyncLayer = (options: {
-	journal?: boolean;
 	recovery?: ReadonlyArray<IntegrationSyncRun>;
 	prepare?: IntegrationsService["Service"]["prepareYankRuns"];
 	page?: IntegrationsService["Service"]["prepareRecoveryRuns"];
@@ -49,60 +47,38 @@ const makeSyncLayer = (options: {
 	execute?: (options: ExecuteOptions) => Effect.Effect<unknown>;
 	cutoff?: IntegrationsService["Service"]["captureRecoveryCutoff"];
 }) =>
-	Layer.mergeAll(
-		workflowAccountsTestLayer,
-		Layer.unwrap(
-			Effect.gen(function* () {
-				const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
-				const preparedFor = yield* Ref.make<ReadonlyArray<null | UserId>>([]);
-				const instance = WorkflowInstance.initial(IntegrationSyncWorkflow, payload.executionId);
-				const execute = options.execute ?? (() => Effect.void);
-				const journal = new Map<string, Workflow.Complete<unknown, unknown>>();
-				const engine = makeWorkflowEngine({
-					execute: (_workflow, executeOptions) =>
-						Ref.update(executions, (all) => [...all, executeOptions]).pipe(
-							Effect.andThen(execute(executeOptions)),
-						),
-					activityExecute: (activity) =>
-						Effect.gen(function* () {
-							const stored = journal.get(activity.name);
-							if (stored) {
-								return stored;
-							}
-							const exit = yield* Effect.exit(
-								activity.execute.pipe(
-									Effect.provideService(WorkflowEngine, engine),
-									Effect.provideService(WorkflowInstance, instance),
-								),
-							);
-							const complete = new Workflow.Complete({ exit });
-							if (options.journal && Exit.isSuccess(exit)) {
-								journal.set(activity.name, complete);
-							}
-							return complete;
-						}),
-				});
-				return Layer.mergeAll(
-					Layer.succeed(FakeIntegrationSync, {
-						executions: Ref.get(executions),
-						preparedFor: Ref.get(preparedFor),
-					}),
-					Layer.succeed(WorkflowInstance, instance),
-					Layer.succeed(WorkflowEngine, engine),
-					Layer.mock(IntegrationsService)({
-						releaseRecoveryRun: options.release ?? (() => Effect.succeed(true)),
-						captureRecoveryCutoff: options.cutoff ?? (() => Effect.succeed(cutoff)),
-						prepareRecoveryRuns:
-							options.page ??
-							(() => Effect.succeed({ next: null, runs: [...(options.recovery ?? [])] })),
-						prepareYankRuns: (userId) =>
-							Ref.update(preparedFor, (all) => [...all, userId]).pipe(
-								Effect.andThen(options.prepare?.(userId) ?? Effect.void),
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
+			const preparedFor = yield* Ref.make<ReadonlyArray<null | UserId>>([]);
+			const execute = options.execute ?? (() => Effect.void);
+			return Layer.mergeAll(
+				Layer.succeed(FakeIntegrationSync, {
+					executions: Ref.get(executions),
+					preparedFor: Ref.get(preparedFor),
+				}),
+				Layer.succeed(
+					WorkflowEngine,
+					makeWorkflowEngine({
+						execute: (_workflow, executeOptions) =>
+							Ref.update(executions, (all) => [...all, executeOptions]).pipe(
+								Effect.andThen(execute(executeOptions)),
 							),
 					}),
-				);
-			}),
-		),
+				),
+				Layer.mock(IntegrationsService)({
+					releaseRecoveryRun: options.release ?? (() => Effect.succeed(true)),
+					captureRecoveryCutoff: options.cutoff ?? (() => Effect.succeed(cutoff)),
+					prepareRecoveryRuns:
+						options.page ??
+						(() => Effect.succeed({ next: null, runs: [...(options.recovery ?? [])] })),
+					prepareYankRuns: (userId) =>
+						Ref.update(preparedFor, (all) => [...all, userId]).pipe(
+							Effect.andThen(options.prepare?.(userId) ?? Effect.void),
+						),
+				}),
+			);
+		}),
 	);
 
 const runs = [
@@ -116,10 +92,7 @@ layer(makeSyncLayer({}))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const userId = UserId.make("user-1");
-				yield* runIntegrationSyncWorkflow(
-					{ ...payload, userId, accountGeneration: { userId, token: "test-account-generation" } },
-					payload.executionId,
-				);
+				yield* runIntegrationSyncJob({ userId }, job);
 
 				expect(yield* (yield* FakeIntegrationSync).preparedFor).toEqual([userId]);
 			}),
@@ -171,7 +144,7 @@ layer(
 		"passes more than 100 unreleasable owners to reach ready and cancelling tails with a fixed finite snapshot",
 		() =>
 			Effect.gen(function* () {
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				yield* runIntegrationSyncJob(payload, job);
 				expect(fairnessCalls).toHaveLength(2);
 				expect(fairnessCalls[1]?.before).toBe(fairnessCalls[0]?.before);
 				expect(fairnessCalls[1]?.after?.id).toBe<unknown>("blocked-099");
@@ -192,7 +165,7 @@ layer(makeSyncLayer({ recovery: runs, execute: (options) => Effect.succeed(optio
 			"dispatches a process run for every eligible integration from the body",
 			() =>
 				Effect.gen(function* () {
-					yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+					yield* runIntegrationSyncJob(payload, job);
 
 					expect(yield* (yield* FakeIntegrationSync).executions).toMatchObject([
 						{
@@ -241,7 +214,7 @@ layer(
 		"swallows a run dispatch failure and continues to the remaining runs",
 		() =>
 			Effect.gen(function* () {
-				const exit = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
+				const exit = yield* Effect.exit(runIntegrationSyncJob(payload, job));
 				expect(exit._tag).toBe("Success");
 				expect(
 					(yield* (yield* FakeIntegrationSync).executions).map(({ executionId }) => executionId),
@@ -290,7 +263,7 @@ layer(
 		"discovers committed yank runs only through the post-admission snapshot",
 		() =>
 			Effect.gen(function* () {
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				yield* runIntegrationSyncJob(payload, job);
 				expect(admissionOrder).toEqual(["admission", "cutoff", "scan"]);
 				expect(
 					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
@@ -305,7 +278,6 @@ let admissionAttempts = 0;
 let partialCutoffs = 0;
 layer(
 	makeSyncLayer({
-		journal: true,
 		page: () => Effect.sync(() => ({ next: null, runs: [...partialAdmissions] })),
 		cutoff: () =>
 			Effect.sync(() => {
@@ -331,70 +303,17 @@ layer(
 		"recovers earlier committed owners after partial admission fails and retries",
 		() =>
 			Effect.gen(function* () {
-				const first = yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId));
+				const first = yield* Effect.exit(runIntegrationSyncJob(payload, job));
 				expect(first._tag).toBe("Failure");
 				expect(partialAdmissions.map((owner) => owner.runId)).toEqual<unknown>(["run-1"]);
 				expect(partialCutoffs).toBe(0);
 				expect(yield* (yield* FakeIntegrationSync).executions).toEqual([]);
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				yield* runIntegrationSyncJob(payload, job);
 				expect(admissionAttempts).toBe(2);
 				expect(partialCutoffs).toBe(1);
 				expect(
 					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
 				).toEqual(["run-1", "run-2"]);
-			}),
-		testTimeout,
-	);
-});
-
-let replayAdmissions = 0;
-let replayCutoffs = 0;
-let replayPages = 0;
-layer(
-	makeSyncLayer({
-		journal: true,
-		prepare: () =>
-			Effect.sync(() => {
-				replayAdmissions++;
-			}),
-		cutoff: () =>
-			Effect.gen(function* () {
-				replayCutoffs++;
-				if (replayCutoffs === 1) {
-					return yield* Effect.die("lost cutoff response");
-				}
-				return cutoff;
-			}),
-		page: (input) =>
-			Effect.gen(function* () {
-				replayPages++;
-				expect(input.before).toBe(cutoff);
-				if (replayPages === 1) {
-					return yield* Effect.die("interrupted before first page");
-				}
-				return { next: null, runs: [...runs] };
-			}),
-	}),
-)((test) => {
-	test.effect(
-		"replays admission and the captured cutoff across both snapshot boundaries",
-		() =>
-			Effect.gen(function* () {
-				expect(
-					(yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId)))._tag,
-				).toBe("Failure");
-				expect(replayPages).toBe(0);
-				expect(
-					(yield* Effect.exit(runIntegrationSyncWorkflow(payload, payload.executionId)))._tag,
-				).toBe("Failure");
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
-				expect(replayAdmissions).toBe(1);
-				expect(replayCutoffs).toBe(2);
-				expect(replayPages).toBe(2);
-				expect(
-					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
-				).toEqual(["run-1", "run-2", "run-1", "run-2"]);
 			}),
 		testTimeout,
 	);
@@ -411,7 +330,7 @@ layer(
 		"continues past a failed release without dispatching that owner",
 		() =>
 			Effect.gen(function* () {
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				yield* runIntegrationSyncJob(payload, job);
 				expect(
 					(yield* (yield* FakeIntegrationSync).executions).map((owner) => owner.executionId),
 				).toEqual(["run-2"]);
@@ -427,7 +346,7 @@ layer(
 		"dispatches a released recovery owner once using its original execution identity",
 		() =>
 			Effect.gen(function* () {
-				yield* runIntegrationSyncWorkflow(payload, payload.executionId);
+				yield* runIntegrationSyncJob(payload, job);
 				expect(
 					(yield* (yield* FakeIntegrationSync).executions).map(({ executionId }) => executionId),
 				).toEqual(["run-1"]);
