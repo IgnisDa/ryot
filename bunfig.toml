@@ -1,3 +1,6 @@
+[install]
+exact = true
+
 [fmt]
 useTabs = true
 printWidth = 100

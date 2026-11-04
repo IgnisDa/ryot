@@ -56,13 +56,13 @@
 		"@types/mdast": "4.0.4",
 		"clsx": "2.1.1",
 		"effect": "4.1.0",
-		"lucide-react": "^1.37.0",
+		"lucide-react": "1.37.0",
 		"mdast-util-directive": "3.1.1",
 		"mdast-util-from-markdown": "2.1.0",
 		"micromark-extension-directive": "4.0.0",
-		"motion": "^13.1.1",
-		"react": "^19.2.0",
-		"react-dom": "^19.2.0",
+		"motion": "13.1.1",
+		"react": "19.2.6",
+		"react-dom": "19.2.6",
 		"react-markdown": "10.1.0",
 		"remark-directive": "4.0.0"
 	},
@@ -70,12 +70,12 @@
 		"@effect/platform-bun": "4.1.0",
 		"@effect/vitest": "4.1.0",
 		"@ryot-app/testing": "workspace:*",
-		"@testing-library/react": "^16.3.3",
-		"@types/react": "^19.2.0",
-		"@types/react-dom": "^19.2.0",
-		"jsdom": "^30.0.1",
-		"vite": "^8.0.0",
+		"@testing-library/react": "16.3.3",
+		"@types/react": "19.2.15",
+		"@types/react-dom": "19.2.3",
+		"jsdom": "30.0.1",
+		"vite": "8.0.14",
 		"vitest": "4.1.9",
-		"vitest-axe": "^0.1.0"
+		"vitest-axe": "0.1.0"
 	}
 }

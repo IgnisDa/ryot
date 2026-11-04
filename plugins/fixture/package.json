@@ -26,14 +26,14 @@
 		"@ryot-app/plugin-client-sdk": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
-		"@testing-library/dom": "^10.4.1",
-		"@types/react": "^19.2.0",
-		"@types/react-dom": "^19.2.0",
+		"@testing-library/dom": "10.4.1",
+		"@types/react": "19.2.15",
+		"@types/react-dom": "19.2.3",
 		"clsx": "2.1.1",
 		"effect": "4.1.0",
-		"jsdom": "^30.0.1",
-		"react": "^19.2.0",
-		"react-dom": "^19.2.0",
+		"jsdom": "30.0.1",
+		"react": "19.2.6",
+		"react-dom": "19.2.6",
 		"vitest": "4.1.9"
 	}
 }

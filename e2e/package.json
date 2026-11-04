@@ -32,7 +32,7 @@
 		"dotenv": "17.3.1",
 		"effect": "4.1.0",
 		"effect-playwright": "0.8.0",
-		"fflate": "^0.8.3",
+		"fflate": "0.8.3",
 		"get-port": "7.2.0",
 		"oauth2-mock-server": "9.1.0",
 		"playwright": "1.62.1",
