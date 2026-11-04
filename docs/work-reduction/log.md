@@ -513,3 +513,10 @@
 - `probesH1`: a movie's history correction is four user commands, about 1,870 statements and 1.2 s. Each user
   command still runs `UserCommandWorkflow`, an entity preparation workflow and a `PolicyBatchWorkflow`, so step 8's
   direct path for user commands is the next lever for step 10.
+- Step 10's history-correction steps, in five commits: a restart runs its first phase in the same step; completion
+  occurrences carry a key fixed at creation, so a new one commits with its output; prune and clear follow progress
+  writes; coverage moves on to the next source after a pass that writes nothing; and a first correction with
+  nothing to correct commits nothing. 20 movies went from 80 user commands, 37,320 statements and 24 s to settle to
+  20, 20,287 and 15 s; one 70-episode show from 218, 77,873 and 55 s to 78, 46,286 and 34 s. `completionKey` is a
+  plain string now, since it no longer names an event, so backups restore it. `full22` passed every
+  history-correction test under full load.

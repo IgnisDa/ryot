@@ -1018,3 +1018,14 @@ The reconcile hook also requests a correction for each episode entity, and each 
 checkpoint reads as settled. `media-show-70-episodes`: user commands 148 to 78, statements 61,863 to 46,286, settle
 36 s to 34 s. `event-create-complete` (one movie `complete`) no longer runs a user command: 1,151 statements to 960.
 `cv2`: 63 of 63 passed, the 60-subject liveness test in 144 s and overlapping chains in 127 s.
+
+## Run `full22` (whole suite after the history-correction steps)
+
+Whole suite on the VM at `2ab36a647c`: 43 min, 947 passed, 4 failed, 13 skipped. Every history-correction
+liveness test and `analytics-recipes` passed under full load, the first full run where they all did.
+
+- **`entity-user-data`**, clearing a global entity's user state, deleted 2 events where the test expected 3: the
+  third was the `done` checkpoint a no-op first correction used to commit. The expectation is now 2.
+- **Load-sensitive, passing alone (`bk1`):** `media-book`'s Activity tab still showing "No activity yet",
+  `entity-reminders`' `Malformed value`, and `sidecar-recovery`'s mid-import generation count, which also failed in
+  `full21`.
