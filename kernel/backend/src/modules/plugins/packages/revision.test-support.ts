@@ -29,7 +29,7 @@ export const makeRevisionDatabaseLayer = (poolMax = 1) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const name = `revision_test_${(yield* randomUuid).replaceAll("-", "")}`;
-			const databaseUrl = new URL(testDatabaseUrl());
+			const databaseUrl = new URL(yield* testDatabaseUrl);
 			const options = databaseUrl.searchParams.get("options");
 			databaseUrl.searchParams.set(
 				"options",

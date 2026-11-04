@@ -95,7 +95,7 @@ layer(revisionDatabaseLayer)((test) => {
 						throw new Error("Missing test schema");
 					}
 					const openConnection = Effect.gen(function* () {
-						const client = new Client({ connectionString: testDatabaseUrl() });
+						const client = new Client({ connectionString: yield* testDatabaseUrl });
 						yield* Effect.tryPromise(() => client.connect());
 						return client;
 					});

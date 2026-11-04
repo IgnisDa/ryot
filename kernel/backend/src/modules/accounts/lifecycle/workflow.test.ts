@@ -1,14 +1,13 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
-import { PgClient } from "@effect/sql-pg";
 import { BadRequest, internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
-import { Context, Effect, Layer, Redacted, Ref } from "effect";
+import { Context, Duration, Effect, Layer, Ref } from "effect";
 import type { SecureRandom } from "effect/crypto";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -19,7 +18,7 @@ import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue
 import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
-import { testDatabaseUrl } from "#testing/database";
+import { testPgClientLayer } from "#testing/database";
 import { databaseLayer, makeWorkflowActivityEngine } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -395,13 +394,7 @@ const resetIdentityLayer = Layer.unwrap(
 );
 
 const singleConnection = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-	Layer.provideMerge(
-		Layer.unwrap(
-			Effect.sync(() =>
-				PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) }),
-			),
-		),
-	),
+	Layer.provideMerge(testPgClientLayer({ maxConnections: 1, idleTimeout: Duration.infinity })),
 );
 
 layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentityLayer }))(

@@ -13,12 +13,12 @@ const bootstrapCompletedAt = new Date("2026-09-28T00:00:00.000Z");
 
 const makeAuth = () =>
 	betterAuth({
-		database: memoryAdapter({}),
 		rateLimit: { enabled: false },
 		baseURL: "http://localhost:3000",
 		emailAndPassword: { enabled: true },
 		plugins: [userInitializationPlugin()],
 		secret: "initialization-test-secret-with-at-least-32-characters",
+		database: memoryAdapter({ user: [], session: [], account: [], verification: [] }),
 		user: {
 			additionalFields: { bootstrapCompletedAt: { type: "date", input: false, required: false } },
 		},

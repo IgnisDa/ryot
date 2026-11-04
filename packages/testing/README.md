@@ -26,7 +26,9 @@ Callable narrowing assertions use `@ryot-app/testing/assert`. Plain tuple-based 
 
 `runTests` owns the child runner in an Effect Scope. Backend, sandbox, and e2e setup runs in the
 parent process so isolated test files cannot stop shared infrastructure. Test failures propagate
-after scoped teardown. Worker processes inherit provisioned database and Redis URLs.
+after scoped teardown. Worker processes inherit provisioned database and Redis URLs. `testWorkers`
+resolves the worker count the same way Bun does (the last `--parallel`, else the caller's default)
+so setup can size shared infrastructure before the runner starts.
 
 The runner publishes the native timeout as `RYOT_TEST_TIMEOUT`. Effect tests pass `testTimeout`
 from `@ryot-app/testing/test-timeout` as their explicit registration budget. The community runner

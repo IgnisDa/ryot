@@ -239,7 +239,7 @@ const mutationState = Effect.gen(function* () {
 
 describe("Relationship set-based mutation pipeline", () => {
 	for (const scope of ["user", "global"] as const) {
-		layer(relationshipDatabaseLayer())((test) => {
+		layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 			test.effect(
 				`replays an already prepared ${scope} aggregate without changing item results or evidence`,
 				() =>
@@ -391,7 +391,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		});
 	}
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"commits and replays empty and no-op aggregates without hook history",
 			() =>
@@ -446,7 +446,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"keeps a concurrent ensure from overwriting existing relationship metadata",
 			() =>
@@ -482,7 +482,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"keeps write-check statements constant in every relationship writing transaction",
 			() =>
@@ -546,7 +546,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"rejects an entity deleted between plan and commit on every path",
 			() =>
@@ -634,7 +634,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"rejects another user's private entity on every path",
 			() =>
@@ -683,7 +683,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"keeps a missing relationship schema typed in prepared mutations",
 			() =>
@@ -711,7 +711,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"detects a selector match committed between plan and commit",
 			() =>
@@ -756,29 +756,32 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer({ mutableRelationshipSchema: true }))((test) => {
-		test.effect(
-			"rejects a relationship schema change between plan and commit",
-			() =>
-				Effect.gen(function* () {
-					const catalog = yield* RelationshipFixture;
-					const session = yield* DatabaseSession;
-					const service = yield* RelationshipsService;
-					const prepared = yield* service.prepareUserCreate(baseInput, command("schema-change"));
-					assert(prepared);
-					yield* catalog.updateRelationshipSchema;
-					expect(
-						yield* session
-							.transaction(service.persistPreparedUserCreate(prepared))
-							.pipe(Effect.flip),
-					).toEqual(concurrentChange);
-					expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
+	layer(relationshipDatabaseLayer({ mutableRelationshipSchema: true }))(
+		"relationship pipeline harness",
+		(test) => {
+			test.effect(
+				"rejects a relationship schema change between plan and commit",
+				() =>
+					Effect.gen(function* () {
+						const catalog = yield* RelationshipFixture;
+						const session = yield* DatabaseSession;
+						const service = yield* RelationshipsService;
+						const prepared = yield* service.prepareUserCreate(baseInput, command("schema-change"));
+						assert(prepared);
+						yield* catalog.updateRelationshipSchema;
+						expect(
+							yield* session
+								.transaction(service.persistPreparedUserCreate(prepared))
+								.pipe(Effect.flip),
+						).toEqual(concurrentChange);
+						expect(yield* session.run((db) => db.select().from(tables.relationship))).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"rejects a plugin revision change between plan and commit",
 			() =>
@@ -829,7 +832,7 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer())((test) => {
+	layer(relationshipDatabaseLayer())("relationship pipeline harness", (test) => {
 		test.effect(
 			"rejects policy-transformed properties invalid under the pinned schema",
 			() =>
@@ -858,39 +861,46 @@ describe("Relationship set-based mutation pipeline", () => {
 		);
 	});
 
-	layer(relationshipDatabaseLayer({ holdLocks: /hashtextextended/ }))((test) => {
-		test.effect(
-			"serializes overlapping relationship batches without deadlocks",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const service = yield* RelationshipsService;
-					const log = yield* StatementLog;
-					const targets = yield* insertEntities([
-						"overlap-1",
-						"overlap-2",
-						"overlap-3",
-						"overlap-4",
-					]);
-					yield* Effect.all(
-						[
-							service.changeUser(userId, overlappingBatch(targets, 1), command("overlap-forward")),
-							service.changeUser(
-								userId,
-								overlappingBatch(targets.toReversed(), 2),
-								command("overlap-reverse"),
-							),
-						],
-						{ concurrency: "unbounded" },
-					);
-					expect(yield* log.errorCodes).not.toContain("40P01");
-					const rows = yield* session.run((db) => db.select().from(tables.relationship));
-					expect(rows.map(({ targetEntityId }) => targetEntityId).sort()).toEqual(
-						[...targets].sort(),
-					);
-					expect(new Set(rows.map(({ properties }) => JSON.stringify(properties))).size).toBe(1);
-				}),
-			testTimeout,
-		);
-	});
+	layer(relationshipDatabaseLayer({ holdLocks: /hashtextextended/ }))(
+		"relationship pipeline harness",
+		(test) => {
+			test.effect(
+				"serializes overlapping relationship batches without deadlocks",
+				() =>
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						const service = yield* RelationshipsService;
+						const log = yield* StatementLog;
+						const targets = yield* insertEntities([
+							"overlap-1",
+							"overlap-2",
+							"overlap-3",
+							"overlap-4",
+						]);
+						yield* Effect.all(
+							[
+								service.changeUser(
+									userId,
+									overlappingBatch(targets, 1),
+									command("overlap-forward"),
+								),
+								service.changeUser(
+									userId,
+									overlappingBatch(targets.toReversed(), 2),
+									command("overlap-reverse"),
+								),
+							],
+							{ concurrency: "unbounded" },
+						);
+						expect(yield* log.errorCodes).not.toContain("40P01");
+						const rows = yield* session.run((db) => db.select().from(tables.relationship));
+						expect(rows.map(({ targetEntityId }) => targetEntityId).sort()).toEqual(
+							[...targets].sort(),
+						);
+						expect(new Set(rows.map(({ properties }) => JSON.stringify(properties))).size).toBe(1);
+					}),
+				testTimeout,
+			);
+		},
+	);
 });

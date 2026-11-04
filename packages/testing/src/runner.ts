@@ -9,6 +9,24 @@ class TestRunError extends Schema.TaggedError<TestRunError, { readonly brand: un
 
 const parentEnvironment = { ...Bun.env };
 
+const TestWorkers = Schema.NumberFromString.check(Schema.isInt(), Schema.isGreaterThan(0));
+
+export const testWorkers = Effect.fn(function* (
+	fallback: number,
+	args: ReadonlyArray<string> = process.argv.slice(2),
+) {
+	const argument = args.findLast(
+		(value) => value === "--parallel" || value.startsWith("--parallel="),
+	);
+	if (argument === undefined) {
+		return fallback;
+	}
+	if (argument === "--parallel") {
+		return navigator.hardwareConcurrency;
+	}
+	return yield* Schema.decodeEffect(TestWorkers)(argument.slice("--parallel=".length));
+});
+
 export const runTests = Effect.fn(function* (
 	options: {
 		workers?: number;

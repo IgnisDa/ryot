@@ -324,238 +324,91 @@ const eventPolicyTrigger = (pluginId: null | string, id = "event-policy") =>
 	});
 
 describe("LifecyclePlanner PostgreSQL", () => {
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"materializes shared recipient hooks once, queued at planning time, with ordered identities, pins and redaction",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const source = revisionPackage();
-					const [hook] = source.manifest.hooks;
-					assert(hook);
-					const installed = yield* installRevisionPackage({
-						...source,
-						manifest: {
-							...source.manifest,
-							hooks: [
-								hook,
-								...["z-last", "a-first", "m-middle"].map((slug) =>
-									Object.assign({}, hook, { slug }),
-								),
-							],
-							signalSchemas: source.manifest.signalSchemas.map((signal) =>
-								Object.assign({}, signal, {
-									propertiesSchema: {
-										fields: {
-											visible: { type: "string", label: "Visible", description: "Public field" },
-											secret: {
-												secret: true,
-												type: "string",
-												label: "Secret",
-												description: "Private field",
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"materializes shared recipient hooks once, queued at planning time, with ordered identities, pins and redaction",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const source = revisionPackage();
+						const [hook] = source.manifest.hooks;
+						assert(hook);
+						const installed = yield* installRevisionPackage({
+							...source,
+							manifest: {
+								...source.manifest,
+								hooks: [
+									hook,
+									...["z-last", "a-first", "m-middle"].map((slug) =>
+										Object.assign({}, hook, { slug }),
+									),
+								],
+								signalSchemas: source.manifest.signalSchemas.map((signal) =>
+									Object.assign({}, signal, {
+										propertiesSchema: {
+											fields: {
+												visible: { type: "string", label: "Visible", description: "Public field" },
+												secret: {
+													secret: true,
+													type: "string",
+													label: "Secret",
+													description: "Private field",
+												},
 											},
 										},
-									},
-								}),
-							),
-						},
-					});
-					yield* (yield* PluginInstallationRepository).upsertState({
-						config: {},
-						sortOrder: 0,
-						health: "ready",
-						isHidden: false,
-						userId: recipient,
-						pluginId: installed.pluginId,
-					});
-					yield* session.run((db) =>
-						db
-							.insert(tables.notificationSubscription)
-							.values(
-								[owner, recipient].map((userId) => ({
-									userId,
-									signalSchemaSlug: "fixture.signal",
-									signalSchemaPluginId: installed.pluginId,
-								})),
-							),
-					);
-					const base = triggerFixture("set-planning", PluginId.make(installed.pluginId));
-					assert(base.payload?.resource === "signal");
-					const trigger = {
-						...base,
-						payload: { ...base.payload, properties: { visible: "kept", secret: "hidden" } },
-					};
-					const spans: Tracer.Span[] = [];
-					const plannedAt = DateTime.formatIso(yield* DateTime.now);
-					const planned = yield* nested(
-						planner.plan({ trigger, recipients: [recipient, owner, recipient] }),
-					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
-					const statements = recordedStatements(spans);
-					expect(statements.filter((text) => text.includes('from "sandbox_script"'))).toHaveLength(
-						1,
-					);
-					expect(statements.filter((text) => text.includes('from "plugin_revision"'))).toHaveLength(
-						1,
-					);
-					expect(
-						statements.filter((text) => text.startsWith('insert into "automation_run"')),
-					).toHaveLength(1);
-					expect(
-						statements.filter(
-							(text) => text.includes('from "automation_run"') && !text.includes("count("),
-						),
-					).toHaveLength(1);
-					const catalogs = yield* session.run((db) => db.select().from(tables.userPlugin));
-					const scripts = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.sandboxScript)
-							.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
-					);
-					const script = scripts.find(({ slug }) => slug === "fixture.automation");
-					assert(script);
-					const expected = ["a-first", "fixture.notify", "m-middle", "z-last"].flatMap((slug) =>
-						[owner, recipient].map((executionUserId) => ({
-							hookSlug: slug,
-							executionUserId,
-							sandboxScriptId: script.id,
-							scriptContentHash: script.contentHash,
-							pluginRevisionId: installed.revisionId,
-							pluginConfigRevisionId: catalogs.find(
-								(catalog) =>
-									catalog.userId === executionUserId && catalog.pluginId === installed.pluginId,
-							)?.configRevisionId,
-							id: lifecycleRunId({
-								executionUserId,
-								triggerId: trigger.id,
-								hookSlug: AutomationHookSlug.make(slug),
-								pluginId: PluginId.make(installed.pluginId),
-							}),
-						})),
-					);
-					expect(planned.runs).toHaveLength(expected.length);
-					expect(planned.runs).toMatchObject(expected);
-					expect(plannedAt).not.toBe(trigger.createdAt);
-					expect(new Set(planned.runs.map(({ queuedAt }) => queuedAt))).toEqual(
-						new Set([plannedAt]),
-					);
-					const rows = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.automationRun)
-							.where(eq(tables.automationRun.triggerId, trigger.id)),
-					);
-					for (const row of rows) {
-						expect(row.historyPayload).toEqual<unknown>({
-							...trigger.payload,
-							properties: { visible: "kept" },
+									}),
+								),
+							},
 						});
-						expect(row.historyPayloadTruncated).toBe(false);
-					}
-					expect(yield* nested(planner.plan({ trigger, recipients: [recipient] }))).toEqual({
-						...planned,
-						wasCreated: false,
-					});
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"ignores unselected missing artifacts and rolls back when a selected artifact is absent",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const installed = yield* installRevisionPackage(hookPackage());
-					yield* session.run((db) =>
-						db.delete(tables.sandboxScript).where(eq(tables.sandboxScript.slug, "fixture.policy")),
-					);
-					const accepted = yield* nested(
-						planner.plan({
-							trigger: yield* entityTrigger(installed.pluginId, "unselected-missing"),
-						}),
-					);
-					expect(accepted.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
-						"fixture.changed",
-					]);
-					const failed = yield* nested(
-						Effect.gen(function* () {
-							yield* session.run((db) =>
-								db
-									.update(tables.user)
-									.set({ name: "must roll back" })
-									.where(eq(tables.user.id, owner)),
-							);
-							return yield* planner.plan({
-								trigger: yield* entityTrigger(installed.pluginId, "selected-missing", "request"),
-							});
-						}),
-					).pipe(Effect.exit);
-					assertExitFails(
-						failed,
-						new DbError({
-							message: `Missing automation script ${installed.pluginId}/fixture.z-first`,
-						}),
-					);
-					expect(
+						yield* (yield* PluginInstallationRepository).upsertState({
+							config: {},
+							sortOrder: 0,
+							health: "ready",
+							isHidden: false,
+							userId: recipient,
+							pluginId: installed.pluginId,
+						});
 						yield* session.run((db) =>
 							db
-								.select({ name: tables.user.name })
-								.from(tables.user)
-								.where(eq(tables.user.id, owner)),
-						),
-					).toEqual([{ name: "Owner" }]);
-					expect(
-						yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.automationTrigger)
-								.where(eq(tables.automationTrigger.id, "selected-missing")),
-						),
-					).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"keys shared batch script metadata by revision and reuses it only within the transaction",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const first = yield* installRevisionPackage(
-						afterHookPackage("v1", { frequency: "batch" }, testPluginPackageId()),
-					);
-					const second = yield* installRevisionPackage(
-						afterHookPackage("v2", { frequency: "batch" }, testPluginPackageId()),
-					);
-					const resolver = yield* AutomationPlannerResolver.make;
-					const spans: Tracer.Span[] = [];
-					const pins = yield* nested(
-						Effect.gen(function* () {
-							yield* resolver.lockCatalog([owner]);
-							const selected = yield* resolver.resolveBatchCandidates({
-								userId: owner,
-								source: "api",
-								resource: "entity",
-							});
-							expect(
-								yield* resolver.resolveBatchCandidates({
-									userId: owner,
-									source: "api",
-									resource: "entity",
-								}),
-							).toEqual(selected);
-							return selected;
-						}),
-					).pipe(Effect.withTracer(makeRecordingTracer(spans)));
-					expect(
-						recordedStatements(spans).filter((text) => text.includes('from "sandbox_script"')),
-					).toHaveLength(1);
-					expect(pins).toHaveLength(2);
-					for (const installed of [first, second]) {
+								.insert(tables.notificationSubscription)
+								.values(
+									[owner, recipient].map((userId) => ({
+										userId,
+										signalSchemaSlug: "fixture.signal",
+										signalSchemaPluginId: installed.pluginId,
+									})),
+								),
+						);
+						const base = triggerFixture("set-planning", PluginId.make(installed.pluginId));
+						assert(base.payload?.resource === "signal");
+						const trigger = {
+							...base,
+							payload: { ...base.payload, properties: { visible: "kept", secret: "hidden" } },
+						};
+						const spans: Tracer.Span[] = [];
+						const plannedAt = DateTime.formatIso(yield* DateTime.now);
+						const planned = yield* nested(
+							planner.plan({ trigger, recipients: [recipient, owner, recipient] }),
+						).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+						const statements = recordedStatements(spans);
+						expect(
+							statements.filter((text) => text.includes('from "sandbox_script"')),
+						).toHaveLength(1);
+						expect(
+							statements.filter((text) => text.includes('from "plugin_revision"')),
+						).toHaveLength(1);
+						expect(
+							statements.filter((text) => text.startsWith('insert into "automation_run"')),
+						).toHaveLength(1);
+						expect(
+							statements.filter(
+								(text) => text.includes('from "automation_run"') && !text.includes("count("),
+							),
+						).toHaveLength(1);
+						const catalogs = yield* session.run((db) => db.select().from(tables.userPlugin));
 						const scripts = yield* session.run((db) =>
 							db
 								.select()
@@ -564,168 +417,336 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						);
 						const script = scripts.find(({ slug }) => slug === "fixture.automation");
 						assert(script);
-						expect(
-							pins.find(({ references }) => references.pluginId === installed.pluginId),
-						).toMatchObject({
-							references: { sandboxScriptId: script.id, pluginRevisionId: installed.revisionId },
-							payload: { scriptSlug: "fixture.automation", scriptContentHash: script.contentHash },
+						const expected = ["a-first", "fixture.notify", "m-middle", "z-last"].flatMap((slug) =>
+							[owner, recipient].map((executionUserId) => ({
+								hookSlug: slug,
+								executionUserId,
+								sandboxScriptId: script.id,
+								scriptContentHash: script.contentHash,
+								pluginRevisionId: installed.revisionId,
+								pluginConfigRevisionId: catalogs.find(
+									(catalog) =>
+										catalog.userId === executionUserId && catalog.pluginId === installed.pluginId,
+								)?.configRevisionId,
+								id: lifecycleRunId({
+									executionUserId,
+									triggerId: trigger.id,
+									hookSlug: AutomationHookSlug.make(slug),
+									pluginId: PluginId.make(installed.pluginId),
+								}),
+							})),
+						);
+						expect(planned.runs).toHaveLength(expected.length);
+						expect(planned.runs).toMatchObject(expected);
+						expect(plannedAt).not.toBe(trigger.createdAt);
+						expect(new Set(planned.runs.map(({ queuedAt }) => queuedAt))).toEqual(
+							new Set([plannedAt]),
+						);
+						const rows = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.automationRun)
+								.where(eq(tables.automationRun.triggerId, trigger.id)),
+						);
+						for (const row of rows) {
+							expect(row.historyPayload).toEqual<unknown>({
+								...trigger.payload,
+								properties: { visible: "kept" },
+							});
+							expect(row.historyPayloadTruncated).toBe(false);
+						}
+						expect(yield* nested(planner.plan({ trigger, recipients: [recipient] }))).toEqual({
+							...planned,
+							wasCreated: false,
 						});
-					}
-					const fresh: Tracer.Span[] = [];
-					yield* nested(
-						resolver.resolveBatchCandidates({ userId: owner, source: "api", resource: "entity" }),
-					).pipe(Effect.withTracer(makeRecordingTracer(fresh)));
-					expect(
-						recordedStatements(fresh).filter((text) => text.includes('from "sandbox_script"')),
-					).toHaveLength(1);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"pins explicit kernel collection observers without admitting foreign before policies or same-name plugin events",
-			() =>
-				Effect.gen(function* () {
-					const source = hookPackage();
-					const [entity] = source.manifest.entitySchemas;
-					assert(entity);
-					const target = {
-						resource: "event",
-						operation: "create",
-						owner: { kind: "kernel" },
-						entitySchemaSlug: "collection",
-						eventSchemaSlug: "add-entity-to-collection",
-					} as const;
-					const { owner: _owner, ...localTarget } = target;
-					const candidate = {
-						...source,
-						manifest: {
-							...source.manifest,
-							entitySchemas: [
-								...source.manifest.entitySchemas,
-								{
-									...entity,
-									slug: "collection",
-									eventSchemas: [
-										{
-											name: "Local collection add",
-											slug: target.eventSchemaSlug,
-											propertiesSchema: { fields: {} },
-										},
-									],
-								},
-							],
-							hooks: [
-								...source.manifest.hooks,
-								{
-									targets: [target],
-									name: "Kernel observer",
-									stage: "after" as const,
-									delivery: "async" as const,
-									frequency: "batch" as const,
-									executionScope: "user" as const,
-									scriptSlug: "fixture.automation",
-									slug: "fixture.collection-observer",
-								},
-								{
-									name: "Local policy",
-									targets: [localTarget],
-									stage: "before" as const,
-									scriptSlug: "fixture.policy",
-									slug: "fixture.collection-policy",
-								},
-							],
-						},
-					};
-					const installed = yield* installRevisionPackage({
-						...candidate,
-						manifest: yield* Schema.decodeEffect(PluginManifest)(candidate.manifest),
-					});
-					const planner = yield* LifecyclePlanner;
-					const makePayload = Effect.fnUntraced(function* (pluginId: null | string) {
-						const change = yield* eventChange(pluginId, "collection-item", target.eventSchemaSlug);
-						assert(change.operation === "create");
-						return { ...change, after: { ...change.after, entitySchemaSlug: "collection" } };
-					});
-					const kernelPayload = yield* makePayload(null);
-					const request = yield* Schema.decodeEffect(AutomationTrigger)({
-						...triggerFixture("kernel-request"),
-						scopeUserId: owner,
-						kind: { resource: "event", category: "request", operation: "create" },
-						payload: {
-							resource: "event",
-							category: "request",
-							operation: "create",
-							draft: {
-								properties: {},
-								sessionEntityId: null,
-								entityId: "collection",
-								eventSchemaPluginId: null,
-								entitySchemaPluginId: null,
-								entitySchemaSlug: "collection",
-								eventSchemaSlug: target.eventSchemaSlug,
-								occurredAt: kernelPayload.after.occurredAt,
-							},
-						},
-					});
-					expect((yield* planner.plan({ trigger: request })).runs).toEqual([]);
-					const batch = yield* Schema.decodeEffect(AutomationTrigger)({
-						...triggerFixture("kernel-batch"),
-						scopeUserId: owner,
-						kind: { resource: "event", category: "change", operation: "batch" },
-						payload: {
-							resource: "event",
-							category: "change",
-							operation: "batch",
-							items: [kernelPayload],
-						},
-					});
-					const planned = yield* planner.plan({ trigger: batch });
-					expect(planned.runs).toMatchObject([
-						{
-							pluginId: installed.pluginId,
-							pluginRevisionId: installed.revisionId,
-							hookSlug: "fixture.collection-observer",
-						},
-					]);
-					const pluginBatch = yield* Schema.decodeEffect(AutomationTrigger)({
-						...batch,
-						id: "plugin-batch",
-						payload: {
-							resource: "event",
-							category: "change",
-							operation: "batch",
-							items: [yield* makePayload(installed.pluginId)],
-						},
-					});
-					expect((yield* planner.plan({ trigger: pluginBatch })).runs).toEqual([]);
-					const revised = {
-						...hookPackage("v2", candidate.manifest.metadata.packageId),
-						manifest: {
-							...candidate.manifest,
-							metadata: { ...candidate.manifest.metadata, version: "v2" },
-							hooks: candidate.manifest.hooks.filter(
-								(hook) => hook.slug !== "fixture.collection-observer",
-							),
-						},
-					};
-					yield* installRevisionPackage(revised);
-					expect(yield* planner.plan({ trigger: batch })).toEqual({
-						...planned,
-						wasCreated: false,
-					});
-					expect(
-						(yield* nested(
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"ignores unselected missing artifacts and rolls back when a selected artifact is absent",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const installed = yield* installRevisionPackage(hookPackage());
+						yield* session.run((db) =>
+							db
+								.delete(tables.sandboxScript)
+								.where(eq(tables.sandboxScript.slug, "fixture.policy")),
+						);
+						const accepted = yield* nested(
 							planner.plan({
-								trigger: { ...batch, id: AutomationTriggerId.make("fresh-kernel-batch") },
+								trigger: yield* entityTrigger(installed.pluginId, "unselected-missing"),
 							}),
-						)).runs,
-					).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
+						);
+						expect(accepted.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
+							"fixture.changed",
+						]);
+						const failed = yield* nested(
+							Effect.gen(function* () {
+								yield* session.run((db) =>
+									db
+										.update(tables.user)
+										.set({ name: "must roll back" })
+										.where(eq(tables.user.id, owner)),
+								);
+								return yield* planner.plan({
+									trigger: yield* entityTrigger(installed.pluginId, "selected-missing", "request"),
+								});
+							}),
+						).pipe(Effect.exit);
+						assertExitFails(
+							failed,
+							new DbError({
+								message: `Missing automation script ${installed.pluginId}/fixture.z-first`,
+							}),
+						);
+						expect(
+							yield* session.run((db) =>
+								db
+									.select({ name: tables.user.name })
+									.from(tables.user)
+									.where(eq(tables.user.id, owner)),
+							),
+						).toEqual([{ name: "Owner" }]);
+						expect(
+							yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.automationTrigger)
+									.where(eq(tables.automationTrigger.id, "selected-missing")),
+							),
+						).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"keys shared batch script metadata by revision and reuses it only within the transaction",
+				() =>
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						const first = yield* installRevisionPackage(
+							afterHookPackage("v1", { frequency: "batch" }, testPluginPackageId()),
+						);
+						const second = yield* installRevisionPackage(
+							afterHookPackage("v2", { frequency: "batch" }, testPluginPackageId()),
+						);
+						const resolver = yield* AutomationPlannerResolver.make;
+						const spans: Tracer.Span[] = [];
+						const pins = yield* nested(
+							Effect.gen(function* () {
+								yield* resolver.lockCatalog([owner]);
+								const selected = yield* resolver.resolveBatchCandidates({
+									userId: owner,
+									source: "api",
+									resource: "entity",
+								});
+								expect(
+									yield* resolver.resolveBatchCandidates({
+										userId: owner,
+										source: "api",
+										resource: "entity",
+									}),
+								).toEqual(selected);
+								return selected;
+							}),
+						).pipe(Effect.withTracer(makeRecordingTracer(spans)));
+						expect(
+							recordedStatements(spans).filter((text) => text.includes('from "sandbox_script"')),
+						).toHaveLength(1);
+						expect(pins).toHaveLength(2);
+						for (const installed of [first, second]) {
+							const scripts = yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.sandboxScript)
+									.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
+							);
+							const script = scripts.find(({ slug }) => slug === "fixture.automation");
+							assert(script);
+							expect(
+								pins.find(({ references }) => references.pluginId === installed.pluginId),
+							).toMatchObject({
+								references: { sandboxScriptId: script.id, pluginRevisionId: installed.revisionId },
+								payload: {
+									scriptSlug: "fixture.automation",
+									scriptContentHash: script.contentHash,
+								},
+							});
+						}
+						const fresh: Tracer.Span[] = [];
+						yield* nested(
+							resolver.resolveBatchCandidates({ userId: owner, source: "api", resource: "entity" }),
+						).pipe(Effect.withTracer(makeRecordingTracer(fresh)));
+						expect(
+							recordedStatements(fresh).filter((text) => text.includes('from "sandbox_script"')),
+						).toHaveLength(1);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"pins explicit kernel collection observers without admitting foreign before policies or same-name plugin events",
+				() =>
+					Effect.gen(function* () {
+						const source = hookPackage();
+						const [entity] = source.manifest.entitySchemas;
+						assert(entity);
+						const target = {
+							resource: "event",
+							operation: "create",
+							owner: { kind: "kernel" },
+							entitySchemaSlug: "collection",
+							eventSchemaSlug: "add-entity-to-collection",
+						} as const;
+						const { owner: _owner, ...localTarget } = target;
+						const candidate = {
+							...source,
+							manifest: {
+								...source.manifest,
+								entitySchemas: [
+									...source.manifest.entitySchemas,
+									{
+										...entity,
+										slug: "collection",
+										eventSchemas: [
+											{
+												name: "Local collection add",
+												slug: target.eventSchemaSlug,
+												propertiesSchema: { fields: {} },
+											},
+										],
+									},
+								],
+								hooks: [
+									...source.manifest.hooks,
+									{
+										targets: [target],
+										name: "Kernel observer",
+										stage: "after" as const,
+										delivery: "async" as const,
+										frequency: "batch" as const,
+										executionScope: "user" as const,
+										scriptSlug: "fixture.automation",
+										slug: "fixture.collection-observer",
+									},
+									{
+										name: "Local policy",
+										targets: [localTarget],
+										stage: "before" as const,
+										scriptSlug: "fixture.policy",
+										slug: "fixture.collection-policy",
+									},
+								],
+							},
+						};
+						const installed = yield* installRevisionPackage({
+							...candidate,
+							manifest: yield* Schema.decodeEffect(PluginManifest)(candidate.manifest),
+						});
+						const planner = yield* LifecyclePlanner;
+						const makePayload = Effect.fnUntraced(function* (pluginId: null | string) {
+							const change = yield* eventChange(
+								pluginId,
+								"collection-item",
+								target.eventSchemaSlug,
+							);
+							assert(change.operation === "create");
+							return { ...change, after: { ...change.after, entitySchemaSlug: "collection" } };
+						});
+						const kernelPayload = yield* makePayload(null);
+						const request = yield* Schema.decodeEffect(AutomationTrigger)({
+							...triggerFixture("kernel-request"),
+							scopeUserId: owner,
+							kind: { resource: "event", category: "request", operation: "create" },
+							payload: {
+								resource: "event",
+								category: "request",
+								operation: "create",
+								draft: {
+									properties: {},
+									sessionEntityId: null,
+									entityId: "collection",
+									eventSchemaPluginId: null,
+									entitySchemaPluginId: null,
+									entitySchemaSlug: "collection",
+									eventSchemaSlug: target.eventSchemaSlug,
+									occurredAt: kernelPayload.after.occurredAt,
+								},
+							},
+						});
+						expect((yield* planner.plan({ trigger: request })).runs).toEqual([]);
+						const batch = yield* Schema.decodeEffect(AutomationTrigger)({
+							...triggerFixture("kernel-batch"),
+							scopeUserId: owner,
+							kind: { resource: "event", category: "change", operation: "batch" },
+							payload: {
+								resource: "event",
+								category: "change",
+								operation: "batch",
+								items: [kernelPayload],
+							},
+						});
+						const planned = yield* planner.plan({ trigger: batch });
+						expect(planned.runs).toMatchObject([
+							{
+								pluginId: installed.pluginId,
+								pluginRevisionId: installed.revisionId,
+								hookSlug: "fixture.collection-observer",
+							},
+						]);
+						const pluginBatch = yield* Schema.decodeEffect(AutomationTrigger)({
+							...batch,
+							id: "plugin-batch",
+							payload: {
+								resource: "event",
+								category: "change",
+								operation: "batch",
+								items: [yield* makePayload(installed.pluginId)],
+							},
+						});
+						expect((yield* planner.plan({ trigger: pluginBatch })).runs).toEqual([]);
+						const revised = {
+							...hookPackage("v2", candidate.manifest.metadata.packageId),
+							manifest: {
+								...candidate.manifest,
+								metadata: { ...candidate.manifest.metadata, version: "v2" },
+								hooks: candidate.manifest.hooks.filter(
+									(hook) => hook.slug !== "fixture.collection-observer",
+								),
+							},
+						};
+						yield* installRevisionPackage(revised);
+						expect(yield* planner.plan({ trigger: batch })).toEqual({
+							...planned,
+							wasCreated: false,
+						});
+						expect(
+							(yield* nested(
+								planner.plan({
+									trigger: { ...batch, id: AutomationTriggerId.make("fresh-kernel-batch") },
+								}),
+							)).runs,
+						).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 	layer(
 		LifecyclePlannerLive.pipe(
 			Layer.provide(noLifecycleWorkLayer),
@@ -743,7 +764,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			Layer.provide(makeAppConfigLayer()),
 			Layer.provideMerge(revisionDatabaseLayer),
 		),
-	)((test) => {
+	)("planner harness", (test) => {
 		test.effect(
 			"uses the resolver supplied at planner construction",
 			() =>
@@ -771,321 +792,335 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		);
 	});
 
-	layer(plannerLayer(1).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"omits all-excluded requests without spending automation budget",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const installed = yield* installRevisionPackage(
-						eventPolicyPackage("v1", 7, "once-per-subject"),
-					);
-					const exclusions = ["fixture.a-second", "fixture.z-first"].map((hookSlug) => ({
-						pluginId: PluginId.make(installed.pluginId),
-						hookSlug: AutomationHookSlug.make(hookSlug),
-					}));
-					const [a, z] = exclusions;
-					assert(a && z);
-					const trigger = yield* eventPolicyTrigger(installed.pluginId, "all-excluded");
-					const result = yield* planner.plan({
-						trigger,
-						excludedOncePerSubjectPolicies: [z, a, z],
-					});
-					expect(result).toEqual({
-						runs: [],
-						policies: [],
-						trigger: null,
-						_tag: "NoHooks",
-						wasCreated: false,
-						backgroundJobIds: [],
-					});
-					const [stored] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.automationTrigger)
-							.where(eq(tables.automationTrigger.id, trigger.id)),
-					);
-					expect(stored).toBeUndefined();
-					expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
-					expect(
-						yield* planner.plan({ trigger, excludedOncePerSubjectPolicies: [a, z, a] }),
-					).toEqual(result);
-					yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
-					expect(
-						(yield* nested(planner.plan({ trigger, excludedOncePerSubjectPolicies: exclusions })))
-							.runs,
-					).toHaveLength(2);
-					const accepted = yield* planner.plan({
-						trigger: yield* entityTrigger(installed.pluginId, "remaining-budget"),
-					});
-					expect(accepted.runs).toHaveLength(1);
-					assert(accepted.trigger);
-					expect(accepted.trigger.blockedReason).toBeNull();
-					expect(
-						(yield* session.run((db) => db.select().from(tables.automationRun)))
-							.map(({ triggerId }) => triggerId)
-							.sort(),
-					).toEqual(["all-excluded", "all-excluded", "remaining-budget"]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(plannerLayer(3).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"excludes only matching once-per-subject policies before budget counting and keeps item policies queued",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const value = eventPolicyPackage("v1", 7, "item");
-					const mixed = {
-						...value,
-						manifest: {
-							...value.manifest,
-							hooks: value.manifest.hooks.map((hook) =>
-								hook.stage === "before" && hook.slug === "fixture.z-first"
-									? Object.assign(hook, { batchFrequency: "once-per-subject" as const })
-									: hook,
-							),
-						},
-					};
-					const installed = yield* installRevisionPackage(mixed);
-					const first = yield* planner.plan({
-						trigger: yield* eventPolicyTrigger(installed.pluginId, "first-subject-event"),
-					});
-					expect(first.runs).toHaveLength(2);
-					const exclusions = first.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug }));
-					const trigger = yield* eventPolicyTrigger(installed.pluginId, "second-subject-event");
-					const second = yield* planner.plan({
-						trigger,
-						excludedOncePerSubjectPolicies: exclusions,
-					});
-					assert(second.trigger);
-					expect(second.trigger.blockedReason).toBeNull();
-					expect(
-						second.runs.map(({ status, hookSlug }) => ({ status, hookSlug })),
-					).toEqual<unknown>([{ status: "queued", hookSlug: "fixture.a-second" }]);
-					expect(second.policies).toEqual<unknown>([
-						{ position: 7, batchFrequency: "item", runId: second.runs[0]?.id },
-					]);
-					const persisted = yield* session.run((db) => db.select().from(tables.automationRun));
-					expect(persisted).toHaveLength(3);
-					expect(
-						persisted
-							.filter(({ triggerId }) => triggerId === trigger.id)
-							.map(({ hookSlug }) => hookSlug),
-					).toEqual(["fixture.a-second"]);
-					yield* installRevisionPackage(eventPolicyPackage("v2", 99, "once-per-subject"));
-					expect(
-						yield* planner.plan({
-							trigger,
-							excludedOncePerSubjectPolicies: [...exclusions].toReversed(),
-						}),
-					).toEqual({ ...second, wasCreated: false });
-					expect(yield* planner.plan({ trigger }).pipe(Effect.flip)).toMatchObject({
-						_tag: "DbError",
-					});
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"ignores exclusions for non-event policies, after hooks, and policies with omitted frequency",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const installed = yield* installRevisionPackage(hookPackage());
-					const exclusions = ["fixture.a-second", "fixture.z-first", "fixture.changed"].map(
-						(hookSlug) => ({
+	layer(plannerLayer(1).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"omits all-excluded requests without spending automation budget",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const installed = yield* installRevisionPackage(
+							eventPolicyPackage("v1", 7, "once-per-subject"),
+						);
+						const exclusions = ["fixture.a-second", "fixture.z-first"].map((hookSlug) => ({
 							pluginId: PluginId.make(installed.pluginId),
 							hookSlug: AutomationHookSlug.make(hookSlug),
-						}),
-					);
-					const entity = yield* entityTrigger(installed.pluginId, "entity-request", "request");
-					const before = yield* planner.plan({
-						trigger: entity,
-						excludedOncePerSubjectPolicies: exclusions,
-					});
-					expect(before.runs).toHaveLength(2);
-					expect(before.trigger).toEqual(entity);
-					const after = yield* planner.plan({
-						excludedOncePerSubjectPolicies: exclusions,
-						trigger: yield* entityTrigger(installed.pluginId, "entity-change"),
-					});
-					expect(after.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>(["fixture.changed"]);
-					const value = eventPolicyPackage("v2", 7, "item");
-					yield* installRevisionPackage({
-						...value,
-						manifest: {
-							...value.manifest,
-							hooks: value.manifest.hooks.map((hook) => {
-								if (hook.stage !== "before") {
-									return hook;
-								}
-								const { batchFrequency: _frequency, ...withoutFrequency } = hook;
-								return withoutFrequency;
-							}),
-						},
-					});
-					const defaultItems = yield* nested(
-						planner.plan({
-							excludedOncePerSubjectPolicies: exclusions,
-							trigger: yield* eventPolicyTrigger(installed.pluginId, "default-items"),
-						}),
-					);
-					expect(defaultItems.runs).toHaveLength(2);
-					expect(defaultItems.policies).toEqual<unknown>([
-						{ position: 7, runId: defaultItems.runs[0]?.id },
-						{ position: 7, runId: defaultItems.runs[1]?.id },
-					]);
-				}),
-			testTimeout,
-		);
-	});
+						}));
+						const [a, z] = exclusions;
+						assert(a && z);
+						const trigger = yield* eventPolicyTrigger(installed.pluginId, "all-excluded");
+						const result = yield* planner.plan({
+							trigger,
+							excludedOncePerSubjectPolicies: [z, a, z],
+						});
+						expect(result).toEqual({
+							runs: [],
+							policies: [],
+							trigger: null,
+							_tag: "NoHooks",
+							wasCreated: false,
+							backgroundJobIds: [],
+						});
+						const [stored] = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.automationTrigger)
+								.where(eq(tables.automationTrigger.id, trigger.id)),
+						);
+						expect(stored).toBeUndefined();
+						expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
+						expect(
+							yield* planner.plan({ trigger, excludedOncePerSubjectPolicies: [a, z, a] }),
+						).toEqual(result);
+						yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
+						expect(
+							(yield* nested(planner.plan({ trigger, excludedOncePerSubjectPolicies: exclusions })))
+								.runs,
+						).toHaveLength(2);
+						const accepted = yield* planner.plan({
+							trigger: yield* entityTrigger(installed.pluginId, "remaining-budget"),
+						});
+						expect(accepted.runs).toHaveLength(1);
+						assert(accepted.trigger);
+						expect(accepted.trigger.blockedReason).toBeNull();
+						expect(
+							(yield* session.run((db) => db.select().from(tables.automationRun)))
+								.map(({ triggerId }) => triggerId)
+								.sort(),
+						).toEqual(["all-excluded", "all-excluded", "remaining-budget"]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"matches event schema pairs, relationship deletes and provider completion, with one run for overlapping targets",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const value = revisionPackage();
-					const target = {
-						resource: "event" as const,
-						eventSchemaSlug: "changed",
-						operation: "create" as const,
-						entitySchemaSlug: "fixture-entity",
-					};
-					const installed = yield* installRevisionPackage({
-						...value,
-						manifest: {
-							...value.manifest,
-							hooks: [
-								...value.manifest.hooks,
-								{
-									name: "Facts",
-									stage: "after",
-									delivery: "async",
-									slug: "fixture.facts",
-									scriptSlug: "fixture.automation",
-									retry: { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 },
-									targets: [
-										target,
-										target,
-										{
-											operation: "delete",
-											resource: "relationship",
-											relationshipSchemaSlug: "fixture-link",
-										},
-										{
-											operation: "complete",
-											resource: "provider-entity-import",
-											entitySchemaSlug: "fixture-entity",
-										},
-									],
+	layer(plannerLayer(3).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"excludes only matching once-per-subject policies before budget counting and keeps item policies queued",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const value = eventPolicyPackage("v1", 7, "item");
+						const mixed = {
+							...value,
+							manifest: {
+								...value.manifest,
+								hooks: value.manifest.hooks.map((hook) =>
+									hook.stage === "before" && hook.slug === "fixture.z-first"
+										? Object.assign(hook, { batchFrequency: "once-per-subject" as const })
+										: hook,
+								),
+							},
+						};
+						const installed = yield* installRevisionPackage(mixed);
+						const first = yield* planner.plan({
+							trigger: yield* eventPolicyTrigger(installed.pluginId, "first-subject-event"),
+						});
+						expect(first.runs).toHaveLength(2);
+						const exclusions = first.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug }));
+						const trigger = yield* eventPolicyTrigger(installed.pluginId, "second-subject-event");
+						const second = yield* planner.plan({
+							trigger,
+							excludedOncePerSubjectPolicies: exclusions,
+						});
+						assert(second.trigger);
+						expect(second.trigger.blockedReason).toBeNull();
+						expect(
+							second.runs.map(({ status, hookSlug }) => ({ status, hookSlug })),
+						).toEqual<unknown>([{ status: "queued", hookSlug: "fixture.a-second" }]);
+						expect(second.policies).toEqual<unknown>([
+							{ position: 7, batchFrequency: "item", runId: second.runs[0]?.id },
+						]);
+						const persisted = yield* session.run((db) => db.select().from(tables.automationRun));
+						expect(persisted).toHaveLength(3);
+						expect(
+							persisted
+								.filter(({ triggerId }) => triggerId === trigger.id)
+								.map(({ hookSlug }) => hookSlug),
+						).toEqual(["fixture.a-second"]);
+						yield* installRevisionPackage(eventPolicyPackage("v2", 99, "once-per-subject"));
+						expect(
+							yield* planner.plan({
+								trigger,
+								excludedOncePerSubjectPolicies: [...exclusions].toReversed(),
+							}),
+						).toEqual({ ...second, wasCreated: false });
+						expect(yield* planner.plan({ trigger }).pipe(Effect.flip)).toMatchObject({
+							_tag: "DbError",
+						});
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"ignores exclusions for non-event policies, after hooks, and policies with omitted frequency",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const installed = yield* installRevisionPackage(hookPackage());
+						const exclusions = ["fixture.a-second", "fixture.z-first", "fixture.changed"].map(
+							(hookSlug) => ({
+								pluginId: PluginId.make(installed.pluginId),
+								hookSlug: AutomationHookSlug.make(hookSlug),
+							}),
+						);
+						const entity = yield* entityTrigger(installed.pluginId, "entity-request", "request");
+						const before = yield* planner.plan({
+							trigger: entity,
+							excludedOncePerSubjectPolicies: exclusions,
+						});
+						expect(before.runs).toHaveLength(2);
+						expect(before.trigger).toEqual(entity);
+						const after = yield* planner.plan({
+							excludedOncePerSubjectPolicies: exclusions,
+							trigger: yield* entityTrigger(installed.pluginId, "entity-change"),
+						});
+						expect(after.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
+							"fixture.changed",
+						]);
+						const value = eventPolicyPackage("v2", 7, "item");
+						yield* installRevisionPackage({
+							...value,
+							manifest: {
+								...value.manifest,
+								hooks: value.manifest.hooks.map((hook) => {
+									if (hook.stage !== "before") {
+										return hook;
+									}
+									const { batchFrequency: _frequency, ...withoutFrequency } = hook;
+									return withoutFrequency;
+								}),
+							},
+						});
+						const defaultItems = yield* nested(
+							planner.plan({
+								excludedOncePerSubjectPolicies: exclusions,
+								trigger: yield* eventPolicyTrigger(installed.pluginId, "default-items"),
+							}),
+						);
+						expect(defaultItems.runs).toHaveLength(2);
+						expect(defaultItems.policies).toEqual<unknown>([
+							{ position: 7, runId: defaultItems.runs[0]?.id },
+							{ position: 7, runId: defaultItems.runs[1]?.id },
+						]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"matches event schema pairs, relationship deletes and provider completion, with one run for overlapping targets",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const value = revisionPackage();
+						const target = {
+							resource: "event" as const,
+							eventSchemaSlug: "changed",
+							operation: "create" as const,
+							entitySchemaSlug: "fixture-entity",
+						};
+						const installed = yield* installRevisionPackage({
+							...value,
+							manifest: {
+								...value.manifest,
+								hooks: [
+									...value.manifest.hooks,
+									{
+										name: "Facts",
+										stage: "after",
+										delivery: "async",
+										slug: "fixture.facts",
+										scriptSlug: "fixture.automation",
+										retry: { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 },
+										targets: [
+											target,
+											target,
+											{
+												operation: "delete",
+												resource: "relationship",
+												relationshipSchemaSlug: "fixture-link",
+											},
+											{
+												operation: "complete",
+												resource: "provider-entity-import",
+												entitySchemaSlug: "fixture-entity",
+											},
+										],
+									},
+								],
+							},
+						});
+						const timestamp = "2026-09-15T00:00:00.000Z";
+						for (const payload of [
+							{
+								resource: "event",
+								category: "change",
+								operation: "create",
+								after: {
+									id: "event",
+									properties: {},
+									entityId: "entity",
+									createdAt: timestamp,
+									updatedAt: timestamp,
+									sessionEntityId: null,
+									occurredAt: timestamp,
+									eventSchemaSlug: "changed",
+									entitySchemaSlug: "fixture-entity",
+									eventSchemaPluginId: installed.pluginId,
+									entitySchemaPluginId: installed.pluginId,
 								},
-							],
-						},
-					});
-					const timestamp = "2026-09-15T00:00:00.000Z";
-					for (const payload of [
-						{
-							resource: "event",
-							category: "change",
-							operation: "create",
-							after: {
-								id: "event",
-								properties: {},
+							},
+							{
+								category: "change",
+								operation: "delete",
+								resource: "relationship",
+								before: {
+									properties: {},
+									id: "relationship",
+									createdAt: timestamp,
+									updatedAt: timestamp,
+									sourceEntityId: "source",
+									targetEntityId: "target",
+									relationshipSchemaSlug: "fixture-link",
+									relationshipSchemaPluginId: installed.pluginId,
+								},
+							},
+							{
+								userId: owner,
+								category: "change",
 								entityId: "entity",
-								createdAt: timestamp,
-								updatedAt: timestamp,
-								sessionEntityId: null,
-								occurredAt: timestamp,
-								eventSchemaSlug: "changed",
+								operation: "complete",
+								externalId: "external",
+								providerId: "provider",
+								resource: "provider-entity-import",
 								entitySchemaSlug: "fixture-entity",
-								eventSchemaPluginId: installed.pluginId,
 								entitySchemaPluginId: installed.pluginId,
 							},
-						},
-						{
-							category: "change",
-							operation: "delete",
-							resource: "relationship",
-							before: {
-								properties: {},
-								id: "relationship",
-								createdAt: timestamp,
-								updatedAt: timestamp,
-								sourceEntityId: "source",
-								targetEntityId: "target",
-								relationshipSchemaSlug: "fixture-link",
-								relationshipSchemaPluginId: installed.pluginId,
-							},
-						},
-						{
-							userId: owner,
-							category: "change",
-							entityId: "entity",
-							operation: "complete",
-							externalId: "external",
-							providerId: "provider",
-							resource: "provider-entity-import",
-							entitySchemaSlug: "fixture-entity",
-							entitySchemaPluginId: installed.pluginId,
-						},
-					] as const) {
-						const trigger = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
-							...triggerFixture(payload.resource),
-							payload,
-							scopeUserId: owner,
-							kind: {
-								category: payload.category,
-								resource: payload.resource,
-								operation: payload.operation,
-							},
-						});
-						const planned = yield* planner.plan({ trigger });
-						expect(planned.runs).toHaveLength(1);
-						expect(planned.trigger).toEqual(trigger);
-						expect(planned.policies).toEqual([]);
-						expect(planned.runs[0]).toMatchObject({
-							delivery: "async",
-							hookSlug: "fixture.facts",
-							retryPolicy: { maxAttempts: 3 },
-						});
-						if (payload.resource === "event") {
-							const mismatch = yield* Schema.decodeEffect(AutomationTrigger)({
-								...trigger,
-								id: "mismatch-event",
-								payload: {
-									...payload,
-									after: { ...payload.after, eventSchemaSlug: "another-event" },
+						] as const) {
+							const trigger = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
+								...triggerFixture(payload.resource),
+								payload,
+								scopeUserId: owner,
+								kind: {
+									category: payload.category,
+									resource: payload.resource,
+									operation: payload.operation,
 								},
 							});
-							expect(yield* planner.plan({ trigger: mismatch })).toEqual({
-								runs: [],
-								policies: [],
-								trigger: null,
-								_tag: "NoHooks",
-								wasCreated: false,
-								backgroundJobIds: [],
+							const planned = yield* planner.plan({ trigger });
+							expect(planned.runs).toHaveLength(1);
+							expect(planned.trigger).toEqual(trigger);
+							expect(planned.policies).toEqual([]);
+							expect(planned.runs[0]).toMatchObject({
+								delivery: "async",
+								hookSlug: "fixture.facts",
+								retryPolicy: { maxAttempts: 3 },
 							});
+							if (payload.resource === "event") {
+								const mismatch = yield* Schema.decodeEffect(AutomationTrigger)({
+									...trigger,
+									id: "mismatch-event",
+									payload: {
+										...payload,
+										after: { ...payload.after, eventSchemaSlug: "another-event" },
+									},
+								});
+								expect(yield* planner.plan({ trigger: mismatch })).toEqual({
+									runs: [],
+									policies: [],
+									trigger: null,
+									_tag: "NoHooks",
+									wasCreated: false,
+									backgroundJobIds: [],
+								});
+							}
 						}
-					}
-				}),
-			testTimeout,
-		);
-	});
+					}),
+				testTimeout,
+			);
+		},
+	);
 
 	layer(
 		Layer.merge(plannerLayer(1), largerBudgetPlannerLayer).pipe(
 			Layer.provideMerge(revisionDatabaseLayer),
 		),
-	)((test) => {
+	)("planner harness", (test) => {
 		test.effect(
 			"stores at most 100 distinct omitted hooks and accepts no partial runs",
 			() =>
@@ -1154,376 +1189,393 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		);
 	});
 
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"returns pinned event policy batch declarations without requiring domain manifest reads",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const installed = yield* installRevisionPackage(
-						eventPolicyPackage("v1", 7, "once-per-subject"),
-					);
-					const trigger = yield* eventPolicyTrigger(installed.pluginId);
-					const first = yield* planner.plan({ trigger });
-					expect(first.trigger).toEqual<unknown>({
-						...trigger,
-						payload: { ...trigger.payload, excludedOncePerSubjectPolicies: [] },
-					});
-					expect(first.policies).toEqual<unknown>([
-						{ position: 7, runId: first.runs[0]?.id, batchFrequency: "once-per-subject" },
-						{ position: 7, runId: first.runs[1]?.id, batchFrequency: "once-per-subject" },
-					]);
-					expect(first.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
-						"fixture.a-second",
-						"fixture.z-first",
-					]);
-					const second = yield* planner.plan({
-						trigger: { ...trigger, id: AutomationTriggerId.make("second-event-policy") },
-					});
-					expect(second.policies.map(({ batchFrequency }) => batchFrequency)).toEqual([
-						"once-per-subject",
-						"once-per-subject",
-					]);
-					expect(second.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug }))).toEqual(
-						first.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug })),
-					);
-					yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
-					expect(yield* planner.plan({ trigger })).toEqual({ ...first, wasCreated: false });
-					const fresh = yield* nested(
-						planner.plan({
-							trigger: { ...trigger, id: AutomationTriggerId.make("new-event-policy") },
-						}),
-					);
-					expect(
-						fresh.policies.map(({ position, batchFrequency }) => ({ position, batchFrequency })),
-					).toEqual<unknown>([
-						{ position: 99, batchFrequency: "item" },
-						{ position: 99, batchFrequency: "item" },
-					]);
-				}),
-			testTimeout,
-		);
-	});
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"returns pinned event policy batch declarations without requiring domain manifest reads",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const installed = yield* installRevisionPackage(
+							eventPolicyPackage("v1", 7, "once-per-subject"),
+						);
+						const trigger = yield* eventPolicyTrigger(installed.pluginId);
+						const first = yield* planner.plan({ trigger });
+						expect(first.trigger).toEqual<unknown>({
+							...trigger,
+							payload: { ...trigger.payload, excludedOncePerSubjectPolicies: [] },
+						});
+						expect(first.policies).toEqual<unknown>([
+							{ position: 7, runId: first.runs[0]?.id, batchFrequency: "once-per-subject" },
+							{ position: 7, runId: first.runs[1]?.id, batchFrequency: "once-per-subject" },
+						]);
+						expect(first.runs.map(({ hookSlug }) => hookSlug)).toEqual<unknown>([
+							"fixture.a-second",
+							"fixture.z-first",
+						]);
+						const second = yield* planner.plan({
+							trigger: { ...trigger, id: AutomationTriggerId.make("second-event-policy") },
+						});
+						expect(second.policies.map(({ batchFrequency }) => batchFrequency)).toEqual([
+							"once-per-subject",
+							"once-per-subject",
+						]);
+						expect(second.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug }))).toEqual(
+							first.runs.map(({ pluginId, hookSlug }) => ({ pluginId, hookSlug })),
+						);
+						yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
+						expect(yield* planner.plan({ trigger })).toEqual({ ...first, wasCreated: false });
+						const fresh = yield* nested(
+							planner.plan({
+								trigger: { ...trigger, id: AutomationTriggerId.make("new-event-policy") },
+							}),
+						);
+						expect(
+							fresh.policies.map(({ position, batchFrequency }) => ({ position, batchFrequency })),
+						).toEqual<unknown>([
+							{ position: 99, batchFrequency: "item" },
+							{ position: 99, batchFrequency: "item" },
+						]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"matches snapshots and stages, orders policies, snapshots delivery/retry and preserves pins on replay after upgrade",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const installed = yield* installRevisionPackage(hookPackage());
-					const policies = yield* planner.plan({
-						trigger: yield* entityTrigger(installed.pluginId, "request", "request"),
-					});
-					expect(
-						policies.runs.map(({ hookSlug, delivery, retryPolicy }) => ({
-							hookSlug,
-							delivery,
-							retryPolicy,
-						})),
-					).toEqual<unknown>([
-						{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.z-first" },
-						{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.a-second" },
-					]);
-					expect(policies.policies).toEqual<unknown>([
-						{ position: -1, runId: policies.runs[0]?.id },
-						{ position: 1000, runId: policies.runs[1]?.id },
-					]);
-					for (const operation of ["create", "update", "delete"] as const) {
-						const planned = yield* planner.plan({
-							trigger: yield* entityTrigger(installed.pluginId, operation, "change", operation),
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"matches snapshots and stages, orders policies, snapshots delivery/retry and preserves pins on replay after upgrade",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const installed = yield* installRevisionPackage(hookPackage());
+						const policies = yield* planner.plan({
+							trigger: yield* entityTrigger(installed.pluginId, "request", "request"),
 						});
-						expect(planned.runs).toHaveLength(1);
-						expect(planned.runs[0]).toMatchObject({
-							delivery: "required",
-							executionUserId: owner,
-							pluginId: installed.pluginId,
-							pluginRevisionId: installed.revisionId,
-							retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
-							artifactsExpireAt: "2026-09-22T00:00:00.000Z",
+						expect(
+							policies.runs.map(({ hookSlug, delivery, retryPolicy }) => ({
+								hookSlug,
+								delivery,
+								retryPolicy,
+							})),
+						).toEqual<unknown>([
+							{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.z-first" },
+							{ retryPolicy: null, delivery: "policy", hookSlug: "fixture.a-second" },
+						]);
+						expect(policies.policies).toEqual<unknown>([
+							{ position: -1, runId: policies.runs[0]?.id },
+							{ position: 1000, runId: policies.runs[1]?.id },
+						]);
+						for (const operation of ["create", "update", "delete"] as const) {
+							const planned = yield* planner.plan({
+								trigger: yield* entityTrigger(installed.pluginId, operation, "change", operation),
+							});
+							expect(planned.runs).toHaveLength(1);
+							expect(planned.runs[0]).toMatchObject({
+								delivery: "required",
+								executionUserId: owner,
+								pluginId: installed.pluginId,
+								pluginRevisionId: installed.revisionId,
+								retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
+								artifactsExpireAt: "2026-09-22T00:00:00.000Z",
+							});
+							assert(planned.runs[0]);
+							expect(planned.runs[0].id).toBe(lifecycleRunId(planned.runs[0]));
+						}
+						const original = yield* planner.plan({
+							trigger: yield* entityTrigger(installed.pluginId, "create"),
 						});
-						assert(planned.runs[0]);
-						expect(planned.runs[0].id).toBe(lifecycleRunId(planned.runs[0]));
-					}
-					const original = yield* planner.plan({
-						trigger: yield* entityTrigger(installed.pluginId, "create"),
-					});
-					yield* installRevisionPackage(hookPackage("v2"));
-					expect(
-						yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "create") }),
-					).toEqual({ ...original, wasCreated: false });
-					const next = yield* nested(
-						planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "new") }),
-					);
-					expect(next.runs[0]?.pluginRevisionId).not.toBe(original.runs[0]?.pluginRevisionId);
-					expect(next.runs[0]?.sandboxScriptId).not.toBe(original.runs[0]?.sandboxScriptId);
-					expect(next.runs[0]?.pluginConfigRevisionId).not.toBe(
-						original.runs[0]?.pluginConfigRevisionId,
-					);
-					const filtered = yield* entityTrigger(installed.pluginId, "filtered");
-					expect(
-						yield* planner.plan({
-							trigger: { ...filtered, causation: { ...filtered.causation, source: "bootstrap" } },
-						}),
-					).toEqual({
-						runs: [],
-						policies: [],
-						trigger: null,
-						_tag: "NoHooks",
-						wasCreated: false,
-						backgroundJobIds: [],
-					});
-					expect(
-						yield* session.run((db) =>
+						yield* installRevisionPackage(hookPackage("v2"));
+						expect(
+							yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "create") }),
+						).toEqual({ ...original, wasCreated: false });
+						const next = yield* nested(
+							planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "new") }),
+						);
+						expect(next.runs[0]?.pluginRevisionId).not.toBe(original.runs[0]?.pluginRevisionId);
+						expect(next.runs[0]?.sandboxScriptId).not.toBe(original.runs[0]?.sandboxScriptId);
+						expect(next.runs[0]?.pluginConfigRevisionId).not.toBe(
+							original.runs[0]?.pluginConfigRevisionId,
+						);
+						const filtered = yield* entityTrigger(installed.pluginId, "filtered");
+						expect(
+							yield* planner.plan({
+								trigger: { ...filtered, causation: { ...filtered.causation, source: "bootstrap" } },
+							}),
+						).toEqual({
+							runs: [],
+							policies: [],
+							trigger: null,
+							_tag: "NoHooks",
+							wasCreated: false,
+							backgroundJobIds: [],
+						});
+						expect(
+							yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.automationTrigger)
+									.where(eq(tables.automationTrigger.id, "filtered")),
+							),
+						).toHaveLength(0);
+						expect(
+							yield* planner
+								.plan({
+									trigger: {
+										...(yield* entityTrigger(installed.pluginId, "create")),
+										occurredAt: "2026-09-16T00:00:00.000Z",
+									},
+								})
+								.pipe(Effect.flip),
+						).toMatchObject({ _tag: "DbError" });
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"filters hidden, unready, tombstoned, wrong-scope and mismatched configuration without activating config",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const installed = yield* installRevisionPackage(hookPackage(), owner);
+						const ready = yield* planner.plan({
+							trigger: yield* entityTrigger(installed.pluginId, "ready"),
+						});
+						expect(ready.runs).toHaveLength(1);
+						const activeConfigRevisionId = ready.runs[0]?.pluginConfigRevisionId;
+						assert(activeConfigRevisionId);
+						expect(
+							yield* planner.plan({
+								trigger: {
+									...(yield* entityTrigger(installed.pluginId, "other")),
+									scopeUserId: recipient,
+								},
+							}),
+						).toMatchObject({ runs: [], policies: [] });
+						expect(
+							yield* planner.plan({
+								trigger: {
+									...(yield* entityTrigger(installed.pluginId, "global")),
+									scopeUserId: null,
+								},
+							}),
+						).toMatchObject({ runs: [], policies: [] });
+						for (const [id, state] of [
+							["hidden", { isHidden: true }],
+							["unready", { isHidden: false, health: "needs-configuration" as const }],
+							[
+								"tombstone",
+								{
+									health: "ready" as const,
+									uninstalledAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:00Z")),
+								},
+							],
+							["no-config", { uninstalledAt: null, activeConfigRevisionId: null }],
+						] as const) {
+							yield* session.run((db) =>
+								db
+									.update(tables.pluginInstallation)
+									.set(state)
+									.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+							);
+							expect(
+								yield* nested(
+									planner.plan({ trigger: yield* entityTrigger(installed.pluginId, id) }),
+								),
+							).toMatchObject({ runs: [], policies: [] });
+						}
+						const configs = yield* session.run((db) =>
+							db.select().from(tables.pluginConfigRevision),
+						);
+						expect(configs).toHaveLength(1);
+						const [state] = yield* session.run((db) =>
 							db
 								.select()
-								.from(tables.automationTrigger)
-								.where(eq(tables.automationTrigger.id, "filtered")),
-						),
-					).toHaveLength(0);
-					expect(
-						yield* planner
-							.plan({
-								trigger: {
-									...(yield* entityTrigger(installed.pluginId, "create")),
-									occurredAt: "2026-09-16T00:00:00.000Z",
-								},
-							})
-							.pipe(Effect.flip),
-					).toMatchObject({ _tag: "DbError" });
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"filters hidden, unready, tombstoned, wrong-scope and mismatched configuration without activating config",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const installed = yield* installRevisionPackage(hookPackage(), owner);
-					const ready = yield* planner.plan({
-						trigger: yield* entityTrigger(installed.pluginId, "ready"),
-					});
-					expect(ready.runs).toHaveLength(1);
-					const activeConfigRevisionId = ready.runs[0]?.pluginConfigRevisionId;
-					assert(activeConfigRevisionId);
-					expect(
-						yield* planner.plan({
-							trigger: {
-								...(yield* entityTrigger(installed.pluginId, "other")),
-								scopeUserId: recipient,
-							},
-						}),
-					).toMatchObject({ runs: [], policies: [] });
-					expect(
-						yield* planner.plan({
-							trigger: {
-								...(yield* entityTrigger(installed.pluginId, "global")),
-								scopeUserId: null,
-							},
-						}),
-					).toMatchObject({ runs: [], policies: [] });
-					for (const [id, state] of [
-						["hidden", { isHidden: true }],
-						["unready", { isHidden: false, health: "needs-configuration" as const }],
-						[
-							"tombstone",
-							{
-								health: "ready" as const,
-								uninstalledAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:00Z")),
-							},
-						],
-						["no-config", { uninstalledAt: null, activeConfigRevisionId: null }],
-					] as const) {
+								.from(tables.pluginInstallation)
+								.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+						);
+						expect(state?.activeConfigRevisionId).toBeNull();
+						yield* installRevisionPackage(hookPackage("v2"), owner);
 						yield* session.run((db) =>
 							db
 								.update(tables.pluginInstallation)
-								.set(state)
+								.set({ activeConfigRevisionId })
 								.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 						);
 						expect(
 							yield* nested(
-								planner.plan({ trigger: yield* entityTrigger(installed.pluginId, id) }),
+								planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "mismatch") }),
 							),
 						).toMatchObject({ runs: [], policies: [] });
-					}
-					const configs = yield* session.run((db) => db.select().from(tables.pluginConfigRevision));
-					expect(configs).toHaveLength(1);
-					const [state] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.pluginInstallation)
-							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
-					);
-					expect(state?.activeConfigRevisionId).toBeNull();
-					yield* installRevisionPackage(hookPackage("v2"), owner);
-					yield* session.run((db) =>
-						db
-							.update(tables.pluginInstallation)
-							.set({ activeConfigRevisionId })
-							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
-					);
-					expect(
-						yield* nested(
-							planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "mismatch") }),
-						),
-					).toMatchObject({ runs: [], policies: [] });
-					expect(
-						yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "ready") }),
-					).toEqual({ ...ready, wasCreated: false });
-				}),
-			testTimeout,
-		);
-	});
+						expect(
+							yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "ready") }),
+						).toEqual({ ...ready, wasCreated: false });
+					}),
+				testTimeout,
+			);
+		},
+	);
 
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"plans notifications once per preferred hook/user, deduplicates actor and verifies recipient replay",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const installations = yield* PluginInstallationRepository;
-					const installed = yield* installRevisionPackage(revisionPackage());
-					yield* installations.upsertState({
-						config: {},
-						sortOrder: 0,
-						health: "ready",
-						isHidden: false,
-						userId: recipient,
-						pluginId: installed.pluginId,
-					});
-					yield* session.run((db) =>
-						db
-							.insert(tables.notificationSubscription)
-							.values(
-								[owner, recipient].map((userId) => ({
-									userId,
-									signalSchemaSlug: "fixture.signal",
-									signalSchemaPluginId: installed.pluginId,
-								})),
-							),
-					);
-					const trigger = triggerFixture("trigger-test", PluginId.make(installed.pluginId));
-					const planned = yield* planner.plan({
-						trigger,
-						recipients: [recipient, owner, recipient],
-					});
-					expect(planned.runs.map(({ executionUserId }) => executionUserId)).toEqual([
-						owner,
-						recipient,
-					]);
-					expect(new Set(planned.runs.map(({ id }) => id)).size).toBe(2);
-					yield* session.run((db) =>
-						db.update(tables.notificationSubscription).set({ isActive: false }),
-					);
-					expect(planned.wasCreated).toBe(true);
-					expect(yield* planner.plan({ trigger, recipients: [owner, recipient] })).toEqual({
-						...planned,
-						wasCreated: false,
-					});
-					expect(
-						yield* planner.plan({
-							recipients: [recipient],
-							trigger: triggerFixture("inactive", PluginId.make(installed.pluginId)),
-						}),
-					).toMatchObject({ runs: [], policies: [] });
-					expect(yield* planner.plan({ trigger, recipients: [] })).toEqual({
-						...planned,
-						wasCreated: false,
-					});
-					expect(
-						(yield* session.run((db) =>
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"plans notifications once per preferred hook/user, deduplicates actor and verifies recipient replay",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const installations = yield* PluginInstallationRepository;
+						const installed = yield* installRevisionPackage(revisionPackage());
+						yield* installations.upsertState({
+							config: {},
+							sortOrder: 0,
+							health: "ready",
+							isHidden: false,
+							userId: recipient,
+							pluginId: installed.pluginId,
+						});
+						yield* session.run((db) =>
 							db
-								.select()
-								.from(tables.automationTriggerRecipient)
-								.where(eq(tables.automationTriggerRecipient.triggerId, trigger.id)),
-						))
-							.map(({ userId }) => userId)
-							.sort(),
-					).toEqual([owner, recipient]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"pins source-zero notification to the current kernel hash, including a revert to old code",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const plugins = yield* PluginRepository;
-					const session = yield* DatabaseSession;
-					yield* seedKernelDefinitions();
-					const script = {
-						source: "v1",
-						name: "Notify",
-						compiledFormat: 1,
-						compiledCode: "v1",
-						contentHash: "kernel-v1",
-						slug: "automation.notification",
-						metadata: {
-							name: "Notify",
-							...emptySandboxExecutionMetadata,
-							kind: "automation" as const,
-							slug: "automation.notification",
-							automationType: "automation" as const,
-							inputProjection: { signal: { properties: ["providerName"] } },
-						},
-					};
-					yield* plugins.persistKernelScript(script);
-					yield* plugins.persistKernelScript({
-						...script,
-						source: "v2",
-						compiledCode: "v2",
-						contentHash: "kernel-v2",
-					});
-					yield* plugins.persistKernelScript(script);
-					yield* session.run((db) =>
-						db
-							.insert(tables.notificationSubscription)
-							.values({
-								userId: owner,
-								signalSchemaPluginId: null,
-								signalSchemaSlug: "integration.disabled",
+								.insert(tables.notificationSubscription)
+								.values(
+									[owner, recipient].map((userId) => ({
+										userId,
+										signalSchemaSlug: "fixture.signal",
+										signalSchemaPluginId: installed.pluginId,
+									})),
+								),
+						);
+						const trigger = triggerFixture("trigger-test", PluginId.make(installed.pluginId));
+						const planned = yield* planner.plan({
+							trigger,
+							recipients: [recipient, owner, recipient],
+						});
+						expect(planned.runs.map(({ executionUserId }) => executionUserId)).toEqual([
+							owner,
+							recipient,
+						]);
+						expect(new Set(planned.runs.map(({ id }) => id)).size).toBe(2);
+						yield* session.run((db) =>
+							db.update(tables.notificationSubscription).set({ isActive: false }),
+						);
+						expect(planned.wasCreated).toBe(true);
+						expect(yield* planner.plan({ trigger, recipients: [owner, recipient] })).toEqual({
+							...planned,
+							wasCreated: false,
+						});
+						expect(
+							yield* planner.plan({
+								recipients: [recipient],
+								trigger: triggerFixture("inactive", PluginId.make(installed.pluginId)),
 							}),
-					);
-					const trigger = triggerFixture("kernel");
-					assert(trigger.payload?.resource === "signal");
-					const planned = yield* planner.plan({
-						trigger: yield* Schema.decodeEffect(AutomationTrigger)({
-							...trigger,
-							payload: {
-								...trigger.payload,
-								signalSchemaPluginId: null,
-								signalSchemaSlug: "integration.disabled",
+						).toMatchObject({ runs: [], policies: [] });
+						expect(yield* planner.plan({ trigger, recipients: [] })).toEqual({
+							...planned,
+							wasCreated: false,
+						});
+						expect(
+							(yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.automationTriggerRecipient)
+									.where(eq(tables.automationTriggerRecipient.triggerId, trigger.id)),
+							))
+								.map(({ userId }) => userId)
+								.sort(),
+						).toEqual([owner, recipient]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"pins source-zero notification to the current kernel hash, including a revert to old code",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const plugins = yield* PluginRepository;
+						const session = yield* DatabaseSession;
+						yield* seedKernelDefinitions();
+						const script = {
+							source: "v1",
+							name: "Notify",
+							compiledFormat: 1,
+							compiledCode: "v1",
+							contentHash: "kernel-v1",
+							slug: "automation.notification",
+							metadata: {
+								name: "Notify",
+								...emptySandboxExecutionMetadata,
+								kind: "automation" as const,
+								slug: "automation.notification",
+								automationType: "automation" as const,
+								inputProjection: { signal: { properties: ["providerName"] } },
 							},
-						}),
-					});
-					expect(planned.runs).toHaveLength(1);
-					expect(planned.runs[0]).toMatchObject({
-						pluginId: null,
-						pluginRevisionId: null,
-						executionUserId: owner,
-						pluginConfigRevisionId: null,
-						scriptContentHash: "kernel-v1",
-						hookSlug: "automation.notification",
-					});
-				}),
-			testTimeout,
-		);
-	});
+						};
+						yield* plugins.persistKernelScript(script);
+						yield* plugins.persistKernelScript({
+							...script,
+							source: "v2",
+							compiledCode: "v2",
+							contentHash: "kernel-v2",
+						});
+						yield* plugins.persistKernelScript(script);
+						yield* session.run((db) =>
+							db
+								.insert(tables.notificationSubscription)
+								.values({
+									userId: owner,
+									signalSchemaPluginId: null,
+									signalSchemaSlug: "integration.disabled",
+								}),
+						);
+						const trigger = triggerFixture("kernel");
+						assert(trigger.payload?.resource === "signal");
+						const planned = yield* planner.plan({
+							trigger: yield* Schema.decodeEffect(AutomationTrigger)({
+								...trigger,
+								payload: {
+									...trigger.payload,
+									signalSchemaPluginId: null,
+									signalSchemaSlug: "integration.disabled",
+								},
+							}),
+						});
+						expect(planned.runs).toHaveLength(1);
+						expect(planned.runs[0]).toMatchObject({
+							pluginId: null,
+							pluginRevisionId: null,
+							executionUserId: owner,
+							pluginConfigRevisionId: null,
+							scriptContentHash: "kernel-v1",
+							hookSlug: "automation.notification",
+						});
+					}),
+				testTimeout,
+			);
+		},
+	);
 
 	layer(
 		Layer.merge(plannerLayer(2), AutomationTriggerRepository.layer).pipe(
 			Layer.provideMerge(revisionDatabaseLayer),
 		),
-	)((test) => {
+	)("planner harness", (test) => {
 		test.effect(
 			"blocks whole fan-outs and depth, preserves blocked replay, and rolls source writes back on planning failure",
 			() =>
@@ -1593,779 +1645,822 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			testTimeout,
 		);
 	});
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"plans an after hook only for the execution scope it declares",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const installed = yield* installRevisionPackage(
-						afterHookPackage("v1", { executionScope: "user" }),
-					);
-					const globalTrigger = (id: string) =>
-						Effect.map(entityTrigger(installed.pluginId, id), (trigger) => ({
-							...trigger,
-							scopeUserId: null,
-						}));
-					expect(
-						(yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "user-a") }))
-							.runs,
-					).toHaveLength(1);
-					expect((yield* planner.plan({ trigger: yield* globalTrigger("global-a") })).runs).toEqual(
-						[],
-					);
-					yield* installRevisionPackage(afterHookPackage("v2", { executionScope: "global" }));
-					expect(
-						(yield* nested(
-							planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "user-b") }),
-						)).runs,
-					).toEqual([]);
-					expect(
-						(yield* nested(planner.plan({ trigger: yield* globalTrigger("global-b") }))).runs,
-					).toHaveLength(1);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"matches item hooks to item triggers and batch hooks to batch triggers",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const installed = yield* installRevisionPackage(hookPackage());
-					const items = [
-						entityChange(installed.pluginId, "entity-1"),
-						entityChange(installed.pluginId, "entity-2"),
-					];
-					expect(
-						(yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "item") }))
-							.runs,
-					).toHaveLength(1);
-					expect(
-						(yield* planner.plan({ trigger: yield* entityBatchTrigger("batch", items) })).runs,
-					).toEqual([]);
-					yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }));
-					expect(
-						(yield* nested(
-							planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "item-2") }),
-						)).runs,
-					).toEqual([]);
-					expect(
-						(yield* nested(planner.plan({ trigger: yield* entityBatchTrigger("batch-2", items) })))
-							.runs,
-					).toHaveLength(1);
-					expect(
-						(yield* nested(
-							planner.plan({
-								trigger: yield* entityBatchTrigger("batch-partial", [
-									entityChange(installed.pluginId, "other", "absent-entity"),
-									entityChange(installed.pluginId, "entity-3"),
-								]),
-							}),
-						)).runs,
-					).toHaveLength(1);
-					expect(
-						(yield* nested(
-							planner.plan({
-								trigger: yield* entityBatchTrigger("batch-none", [
-									entityChange(installed.pluginId, "other", "absent-entity"),
-								]),
-							}),
-						)).runs,
-					).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(plannerLayer(100, 2).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"retains a pending batch hook's script and configuration through revision pruning",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const plugins = yield* PluginRepository;
-					const receipts = yield* MutationReceipts.make;
-					const source = afterHookPackage("v1", { frequency: "batch" });
-					const installed = yield* installRevisionPackage(source, owner);
-					const input = {
-						identity: ["pinned"],
-						resource: "entity" as const,
-						command: {
-							itemIdentity: "pinned",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("pinned").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-					expect(decision.hasCandidates).toBe(true);
-					const [pin] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-					);
-					const configId = pin?.pluginConfigRevisionId;
-					const scriptId = pin?.sandboxScriptId;
-					assert(pin && configId && scriptId);
-					expect(pin.pluginRevisionId).toBe(installed.revisionId);
-					expect(pin.result).toEqual<unknown>({
-						scriptSlug: "fixture.automation",
-						scriptContentHash: "fixture.automation-v1",
-						hook: source.manifest.hooks.find(({ slug }) => slug === "fixture.changed"),
-					});
-					yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }), owner);
-					const expiry = DateTime.toDateUtc(DateTime.makeUnsafe("2027-01-01T00:00:00.000Z"));
-					yield* plugins.pruneRevisionArtifacts({ limit: 100, now: expiry, retryWindowDays: 7 });
-					yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 100, now: expiry });
-					const [config] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.pluginConfigRevision)
-							.where(eq(tables.pluginConfigRevision.id, configId)),
-					);
-					const [script] = yield* session.run((db) =>
-						db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, scriptId)),
-					);
-					assert(config && script);
-					expect(config.encryptedPayload).not.toBeNull();
-					expect(script.id).toBe<unknown>(pin.sandboxScriptId);
-					expect((yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).id).toBe(
-						decision.id,
-					);
-					yield* nested(
-						Effect.gen(function* () {
-							yield* receipts.insert({
-								dispatch: [],
-								batchIndex: 0,
-								batchId: decision.id,
-								result: { id: "first" },
-								evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-									entityChange(installed.pluginId, "first"),
-								),
-								identity: mutationReceiptIdentity({
-									ownerUserId: owner,
-									scopeUserId: owner,
-									input: { id: "first" },
-									commandKind: "entity:create",
-									command: { ...input.command, itemIdentity: "pinned:item" },
-								}),
-							});
-						}),
-					);
-					const dispatch = yield* nested(planner.planBatch(input));
-					expect(dispatch).toHaveLength(1);
-					const [run] = yield* session.run((db) => db.select().from(tables.automationRun));
-					expect(run?.pluginRevisionId).toBe(installed.revisionId);
-					expect(run?.pluginConfigRevisionId).toBe(pin.pluginConfigRevisionId);
-					expect(run?.sandboxScriptId).toBe(pin.sandboxScriptId);
-					expect(run?.scriptContentHash).toBe("fixture.automation-v1");
-					expect(run?.executionUserId).toBe(owner);
-					expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.mutationReceipt))).filter(
-							({ evidence, receiptType }) => receiptType === "batch-candidate" || evidence !== null,
-						),
-					).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"replays distinct retained pins, including global execution with a user receipt owner",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const plugins = yield* PluginRepository;
-					const receipts = yield* MutationReceipts.make;
-					const packages = [
-						{
-							scopeUserId: owner,
-							executionScope: "user" as const,
-							packageId: testPluginPackageId(),
-						},
-						{
-							scopeUserId: null,
-							packageId: testPluginPackageId(),
-							executionScope: "global" as const,
-						},
-					];
-					const installed = yield* Effect.forEach(
-						packages,
-						({ packageId, scopeUserId, executionScope }) =>
-							installRevisionPackage(
-								afterHookPackage("v1", { executionScope, frequency: "batch" }, packageId),
-								scopeUserId,
-							),
-					);
-					const input: LifecycleBatchInput = {
-						resource: "entity",
-						identity: ["distinct-pins"],
-						command: {
-							itemIdentity: "distinct-pins",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("distinct-pins").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner, null] }));
-					const pins = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-					);
-					expect(pins).toHaveLength(2);
-					expect(new Set(pins.map(({ sandboxScriptId }) => sandboxScriptId)).size).toBe(2);
-					expect(
-						new Set(pins.map(({ pluginConfigRevisionId }) => pluginConfigRevisionId)).size,
-					).toBe(2);
-					for (const pin of pins) {
-						expect(pin.ownerUserId).toBe(owner);
-						expect(Object.keys(pin.result ?? {}).sort()).toEqual([
-							"hook",
-							"scriptContentHash",
-							"scriptSlug",
-						]);
-					}
-					yield* Effect.forEach(packages, ({ packageId, scopeUserId, executionScope }) =>
-						installRevisionPackage(
-							afterHookPackage("v2", { executionScope, frequency: "batch" }, packageId),
-							scopeUserId,
-						),
-					);
-					const expiry = DateTime.toDateUtc(DateTime.makeUnsafe("2027-01-01T00:00:00.000Z"));
-					yield* plugins.pruneRevisionArtifacts({ limit: 100, now: expiry, retryWindowDays: 7 });
-					yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 100, now: expiry });
-					expect(yield* nested(planner.prepareBatch({ ...input, scopes: [owner, null] }))).toEqual(
-						decision,
-					);
-					for (const [index, installation] of installed.entries()) {
-						const scopeUserId = packages[index]?.scopeUserId;
-						assert(scopeUserId !== undefined);
-						yield* nested(
-							receipts.insert({
-								dispatch: [],
-								batchIndex: index,
-								batchId: decision.id,
-								result: { id: `item-${index}` },
-								evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-									entityChange(installation.pluginId, `item-${index}`),
-								),
-								identity: mutationReceiptIdentity({
-									scopeUserId,
-									input: { index },
-									ownerUserId: owner,
-									commandKind: "entity:create",
-									command: { ...input.command, itemIdentity: `distinct-pins:${index}` },
-								}),
-							}),
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"plans an after hook only for the execution scope it declares",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const installed = yield* installRevisionPackage(
+							afterHookPackage("v1", { executionScope: "user" }),
 						);
-					}
-					const dispatch = yield* nested(planner.planBatch(input));
-					const runs = yield* session.run((db) => db.select().from(tables.automationRun));
-					expect(runs).toHaveLength(2);
-					for (const pin of pins) {
-						const run = runs.find(({ pluginId }) => pluginId === pin.pluginId);
-						expect(run).toMatchObject({
-							pluginId: pin.pluginId,
-							executionUserId: pin.scopeUserId,
-							sandboxScriptId: pin.sandboxScriptId,
-							pluginRevisionId: pin.pluginRevisionId,
-							scriptContentHash: "fixture.automation-v1",
-							pluginConfigRevisionId: pin.pluginConfigRevisionId,
-						});
-					}
-					expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"retires only the referenced user or private plugin, including user-owned global receipts",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const removedPlugin = yield* installRevisionPackage(
-						afterHookPackage(
-							"v1",
-							{ frequency: "batch", executionScope: "user" },
-							testPluginPackageId(),
-						),
-						owner,
-					);
-					const retainedPlugin = yield* installRevisionPackage(
-						afterHookPackage(
-							"v1",
-							{ frequency: "batch", executionScope: "user" },
-							testPluginPackageId(),
-						),
-						owner,
-					);
-					const recipientPlugin = yield* installRevisionPackage(
-						afterHookPackage(
-							"v1",
-							{ frequency: "batch", executionScope: "user" },
-							testPluginPackageId(),
-						),
-						recipient,
-					);
-					const globalPlugin = yield* installRevisionPackage(
-						afterHookPackage(
-							"v1",
-							{ frequency: "batch", executionScope: "global" },
-							testPluginPackageId(),
-						),
-					);
-					yield* nested(
-						planner.prepareBatch({
-							resource: "entity",
-							identity: ["retirement"],
-							scopes: [owner, recipient, null],
+						const globalTrigger = (id: string) =>
+							Effect.map(entityTrigger(installed.pluginId, id), (trigger) => ({
+								...trigger,
+								scopeUserId: null,
+							}));
+						expect(
+							(yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "user-a") }))
+								.runs,
+						).toHaveLength(1);
+						expect(
+							(yield* planner.plan({ trigger: yield* globalTrigger("global-a") })).runs,
+						).toEqual([]);
+						yield* installRevisionPackage(afterHookPackage("v2", { executionScope: "global" }));
+						expect(
+							(yield* nested(
+								planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "user-b") }),
+							)).runs,
+						).toEqual([]);
+						expect(
+							(yield* nested(planner.plan({ trigger: yield* globalTrigger("global-b") }))).runs,
+						).toHaveLength(1);
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"matches item hooks to item triggers and batch hooks to batch triggers",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const installed = yield* installRevisionPackage(hookPackage());
+						const items = [
+							entityChange(installed.pluginId, "entity-1"),
+							entityChange(installed.pluginId, "entity-2"),
+						];
+						expect(
+							(yield* planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "item") }))
+								.runs,
+						).toHaveLength(1);
+						expect(
+							(yield* planner.plan({ trigger: yield* entityBatchTrigger("batch", items) })).runs,
+						).toEqual([]);
+						yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }));
+						expect(
+							(yield* nested(
+								planner.plan({ trigger: yield* entityTrigger(installed.pluginId, "item-2") }),
+							)).runs,
+						).toEqual([]);
+						expect(
+							(yield* nested(
+								planner.plan({ trigger: yield* entityBatchTrigger("batch-2", items) }),
+							)).runs,
+						).toHaveLength(1);
+						expect(
+							(yield* nested(
+								planner.plan({
+									trigger: yield* entityBatchTrigger("batch-partial", [
+										entityChange(installed.pluginId, "other", "absent-entity"),
+										entityChange(installed.pluginId, "entity-3"),
+									]),
+								}),
+							)).runs,
+						).toHaveLength(1);
+						expect(
+							(yield* nested(
+								planner.plan({
+									trigger: yield* entityBatchTrigger("batch-none", [
+										entityChange(installed.pluginId, "other", "absent-entity"),
+									]),
+								}),
+							)).runs,
+						).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+
+	layer(plannerLayer(100, 2).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"retains a pending batch hook's script and configuration through revision pruning",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const plugins = yield* PluginRepository;
+						const receipts = yield* MutationReceipts.make;
+						const source = afterHookPackage("v1", { frequency: "batch" });
+						const installed = yield* installRevisionPackage(source, owner);
+						const input = {
+							identity: ["pinned"],
+							resource: "entity" as const,
 							command: {
-								itemIdentity: "retirement",
+								itemIdentity: "pinned",
 								occurredAt: "2026-09-15T00:00:00.000Z",
-								causation: triggerFixture("retirement").causation,
+								causation: triggerFixture("pinned").causation,
 								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
-						}),
-					);
-					const candidatePluginIds = Effect.map(
-						session.run((db) =>
+						};
+						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+						expect(decision.hasCandidates).toBe(true);
+						const [pin] = yield* session.run((db) =>
 							db
-								.select({ pluginId: tables.mutationReceipt.pluginId })
+								.select()
 								.from(tables.mutationReceipt)
 								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-						),
-						(rows) =>
-							rows.map(({ pluginId }) => pluginId).sort((a, b) => (a ?? "").localeCompare(b ?? "")),
-					);
-					expect(yield* candidatePluginIds).toEqual(
-						[
-							removedPlugin.pluginId,
-							retainedPlugin.pluginId,
-							recipientPlugin.pluginId,
-							globalPlugin.pluginId,
-						].sort((a, b) => a.localeCompare(b)),
-					);
-					yield* nested(receipts.retireUserPins(recipient, [removedPlugin.pluginId]));
-					expect(yield* candidatePluginIds).toEqual(
-						[retainedPlugin.pluginId, globalPlugin.pluginId].sort((a, b) => a.localeCompare(b)),
-					);
-					yield* nested(receipts.retireUserPins(owner, []));
-					expect(yield* candidatePluginIds).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer(100, 2).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"refuses to seal a batch whose pinned candidate was lost",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					yield* installRevisionPackage(afterHookPackage("v1", { frequency: "batch" }));
-					const input = {
-						identity: ["lost-pin"],
-						resource: "entity" as const,
-						command: {
-							itemIdentity: "lost-pin",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("unused").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					expect(
-						(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).hasCandidates,
-					).toBe(true);
-					yield* session.run((db) =>
-						db
-							.delete(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-					);
-					const failure = yield* nested(planner.planBatch(input)).pipe(Effect.flip);
-					expect(failure.message).toContain("Missing pinned batch hooks");
-					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
-						[],
-					);
-				}),
-			testTimeout,
-		);
-		test.effect(
-			"chunks receipt evidence for batch-only hooks and seals pinned runs on replay",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const installed = yield* installRevisionPackage(
-						afterHookPackage("v1", { frequency: "batch" }),
-					);
-					const input = {
-						resource: "entity" as const,
-						identity: ["children", "entity"],
-						command: {
-							itemIdentity: "population",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("unused").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					const chunked = yield* nested(
-						Effect.gen(function* () {
-							const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
-							expect(decision.hasCandidates).toBe(true);
-							for (const [index, id] of ["first", "second", "third"].entries()) {
+						);
+						const configId = pin?.pluginConfigRevisionId;
+						const scriptId = pin?.sandboxScriptId;
+						assert(pin && configId && scriptId);
+						expect(pin.pluginRevisionId).toBe(installed.revisionId);
+						expect(pin.result).toEqual<unknown>({
+							scriptSlug: "fixture.automation",
+							scriptContentHash: "fixture.automation-v1",
+							hook: source.manifest.hooks.find(({ slug }) => slug === "fixture.changed"),
+						});
+						yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }), owner);
+						const expiry = DateTime.toDateUtc(DateTime.makeUnsafe("2027-01-01T00:00:00.000Z"));
+						yield* plugins.pruneRevisionArtifacts({ limit: 100, now: expiry, retryWindowDays: 7 });
+						yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 100, now: expiry });
+						const [config] = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.pluginConfigRevision)
+								.where(eq(tables.pluginConfigRevision.id, configId)),
+						);
+						const [script] = yield* session.run((db) =>
+							db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, scriptId)),
+						);
+						assert(config && script);
+						expect(config.encryptedPayload).not.toBeNull();
+						expect(script.id).toBe<unknown>(pin.sandboxScriptId);
+						expect((yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).id).toBe(
+							decision.id,
+						);
+						yield* nested(
+							Effect.gen(function* () {
 								yield* receipts.insert({
 									dispatch: [],
-									result: { id },
+									batchIndex: 0,
+									batchId: decision.id,
+									result: { id: "first" },
+									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+										entityChange(installed.pluginId, "first"),
+									),
+									identity: mutationReceiptIdentity({
+										ownerUserId: owner,
+										scopeUserId: owner,
+										input: { id: "first" },
+										commandKind: "entity:create",
+										command: { ...input.command, itemIdentity: "pinned:item" },
+									}),
+								});
+							}),
+						);
+						const dispatch = yield* nested(planner.planBatch(input));
+						expect(dispatch).toHaveLength(1);
+						const [run] = yield* session.run((db) => db.select().from(tables.automationRun));
+						expect(run?.pluginRevisionId).toBe(installed.revisionId);
+						expect(run?.pluginConfigRevisionId).toBe(pin.pluginConfigRevisionId);
+						expect(run?.sandboxScriptId).toBe(pin.sandboxScriptId);
+						expect(run?.scriptContentHash).toBe("fixture.automation-v1");
+						expect(run?.executionUserId).toBe(owner);
+						expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
+						expect(
+							(yield* session.run((db) => db.select().from(tables.mutationReceipt))).filter(
+								({ evidence, receiptType }) =>
+									receiptType === "batch-candidate" || evidence !== null,
+							),
+						).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"replays distinct retained pins, including global execution with a user receipt owner",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const plugins = yield* PluginRepository;
+						const receipts = yield* MutationReceipts.make;
+						const packages = [
+							{
+								scopeUserId: owner,
+								executionScope: "user" as const,
+								packageId: testPluginPackageId(),
+							},
+							{
+								scopeUserId: null,
+								packageId: testPluginPackageId(),
+								executionScope: "global" as const,
+							},
+						];
+						const installed = yield* Effect.forEach(
+							packages,
+							({ packageId, scopeUserId, executionScope }) =>
+								installRevisionPackage(
+									afterHookPackage("v1", { executionScope, frequency: "batch" }, packageId),
+									scopeUserId,
+								),
+						);
+						const input: LifecycleBatchInput = {
+							resource: "entity",
+							identity: ["distinct-pins"],
+							command: {
+								itemIdentity: "distinct-pins",
+								occurredAt: "2026-09-15T00:00:00.000Z",
+								causation: triggerFixture("distinct-pins").causation,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
+							},
+						};
+						const decision = yield* nested(
+							planner.prepareBatch({ ...input, scopes: [owner, null] }),
+						);
+						const pins = yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.mutationReceipt)
+								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+						);
+						expect(pins).toHaveLength(2);
+						expect(new Set(pins.map(({ sandboxScriptId }) => sandboxScriptId)).size).toBe(2);
+						expect(
+							new Set(pins.map(({ pluginConfigRevisionId }) => pluginConfigRevisionId)).size,
+						).toBe(2);
+						for (const pin of pins) {
+							expect(pin.ownerUserId).toBe(owner);
+							expect(Object.keys(pin.result ?? {}).sort()).toEqual([
+								"hook",
+								"scriptContentHash",
+								"scriptSlug",
+							]);
+						}
+						yield* Effect.forEach(packages, ({ packageId, scopeUserId, executionScope }) =>
+							installRevisionPackage(
+								afterHookPackage("v2", { executionScope, frequency: "batch" }, packageId),
+								scopeUserId,
+							),
+						);
+						const expiry = DateTime.toDateUtc(DateTime.makeUnsafe("2027-01-01T00:00:00.000Z"));
+						yield* plugins.pruneRevisionArtifacts({ limit: 100, now: expiry, retryWindowDays: 7 });
+						yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 100, now: expiry });
+						expect(
+							yield* nested(planner.prepareBatch({ ...input, scopes: [owner, null] })),
+						).toEqual(decision);
+						for (const [index, installation] of installed.entries()) {
+							const scopeUserId = packages[index]?.scopeUserId;
+							assert(scopeUserId !== undefined);
+							yield* nested(
+								receipts.insert({
+									dispatch: [],
 									batchIndex: index,
 									batchId: decision.id,
+									result: { id: `item-${index}` },
 									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-										entityChange(installed.pluginId, id),
+										entityChange(installation.pluginId, `item-${index}`),
 									),
 									identity: mutationReceiptIdentity({
-										input: { id },
+										scopeUserId,
+										input: { index },
 										ownerUserId: owner,
-										scopeUserId: owner,
 										commandKind: "entity:create",
-										command: {
-											...input.command,
-											itemIdentity: `${input.command.itemIdentity}:${id}`,
-										},
+										command: { ...input.command, itemIdentity: `distinct-pins:${index}` },
 									}),
-								});
-							}
-							return yield* planner.planBatch(input);
-						}),
-					);
-					expect(chunked).toHaveLength(2);
-					const triggers = yield* session.run((db) =>
-						db
-							.select({
-								id: tables.automationTrigger.id,
-								payload: tables.automationTrigger.payload,
-							})
-							.from(tables.automationTrigger),
-					);
-					expect(
-						triggers
-							.flatMap(({ payload }) =>
-								payload?.operation === "batch" ? [payload.items.length] : [],
-							)
-							.sort((left, right) => left - right),
-					).toEqual([1, 2]);
-					expect(chunked.flatMap(({ runs }) => runs)).toHaveLength(2);
-					const replay = yield* nested(planner.planBatch(input));
-					expect(replay).toEqual(chunked);
-					const rows = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-					expect(
-						rows.filter((row) => row.receiptType === "batch-candidate" || row.evidence !== null),
-					).toEqual([]);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"applies a pinned hook item cap to 200 matching items without loss or duplication",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const ids = Array.from(
-						{ length: 200 },
-						(_, index) => `item-${String(index).padStart(3, "0")}`,
-					);
-					const input: LifecycleBatchInput = {
-						resource: "entity",
-						identity: ["item-records", "entity"],
-						command: {
-							itemIdentity: "item-records",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("item-records").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					const installed = yield* installRevisionPackage(
-						afterHookPackage("v1", { batchMaxItems: 50, frequency: "batch" }),
-						owner,
-					);
-					const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-					expect(decision.hasCandidates).toBe(true);
-					const [candidate] = yield* session.run((db) =>
-						db
-							.select({ result: tables.mutationReceipt.result })
-							.from(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-					);
-					expect(candidate?.result).toMatchObject({ hook: { batchMaxItems: 50 } });
-					yield* installRevisionPackage(
-						afterHookPackage("v2", { frequency: "batch", batchMaxItems: 100 }),
-						owner,
-					);
-					expect(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).toEqual(
-						decision,
-					);
-					yield* nested(
-						Effect.gen(function* () {
-							for (const [batchIndex, id] of ids.entries()) {
-								yield* receipts.insert({
-									batchIndex,
-									dispatch: [],
-									result: { id },
-									batchId: decision.id,
-									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-										entityChange(installed.pluginId, id),
-									),
-									identity: mutationReceiptIdentity({
-										input: { id },
-										ownerUserId: owner,
-										scopeUserId: owner,
-										commandKind: "entity:create",
-										command: {
-											...input.command,
-											itemIdentity: `${input.command.itemIdentity}:${id}`,
-										},
-									}),
-								});
-							}
-						}),
-					);
-
-					const dispatch = yield* nested(planner.planBatch(input));
-					const triggers = yield* session.run((db) =>
-						db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
-					);
-					const batches = triggers.flatMap(({ payload }) =>
-						payload?.category === "change" &&
-						payload.operation === "batch" &&
-						payload.resource === "entity"
-							? [payload]
-							: [],
-					);
-					expect(
-						batches.map(({ items }) => items.length).sort((left, right) => left - right),
-					).toEqual([50, 50, 50, 50]);
-					const committedIds = batches.flatMap(({ items }) =>
-						items.map((item) => (item.operation === "delete" ? item.before.id : item.after.id)),
-					);
-					expect(committedIds).toHaveLength(200);
-					expect(new Set(committedIds).size).toBe(200);
-					expect([...committedIds].sort()).toEqual<unknown>(ids);
-					expect(dispatch).toHaveLength(4);
-					expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(4);
-					expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"uses the lowest limit from matching batch hooks",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const value = afterHookPackage("v1", { batchMaxItems: 10, frequency: "batch" });
-					const capHook = value.manifest.hooks.find(({ slug }) => slug === "fixture.changed");
-					assert(capHook?.stage === "after");
-					const installed = yield* installRevisionPackage(
-						{
-							...value,
-							manifest: {
-								...value.manifest,
-								hooks: [
-									...value.manifest.hooks,
-									{
-										...capHook,
-										batchMaxItems: 4,
-										name: "Small batch",
-										slug: "fixture.small-batch",
-									},
-								],
+								}),
+							);
+						}
+						const dispatch = yield* nested(planner.planBatch(input));
+						const runs = yield* session.run((db) => db.select().from(tables.automationRun));
+						expect(runs).toHaveLength(2);
+						for (const pin of pins) {
+							const run = runs.find(({ pluginId }) => pluginId === pin.pluginId);
+							expect(run).toMatchObject({
+								pluginId: pin.pluginId,
+								executionUserId: pin.scopeUserId,
+								sandboxScriptId: pin.sandboxScriptId,
+								pluginRevisionId: pin.pluginRevisionId,
+								scriptContentHash: "fixture.automation-v1",
+								pluginConfigRevisionId: pin.pluginConfigRevisionId,
+							});
+						}
+						expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"retires only the referenced user or private plugin, including user-owned global receipts",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const receipts = yield* MutationReceipts.make;
+						const removedPlugin = yield* installRevisionPackage(
+							afterHookPackage(
+								"v1",
+								{ frequency: "batch", executionScope: "user" },
+								testPluginPackageId(),
+							),
+							owner,
+						);
+						const retainedPlugin = yield* installRevisionPackage(
+							afterHookPackage(
+								"v1",
+								{ frequency: "batch", executionScope: "user" },
+								testPluginPackageId(),
+							),
+							owner,
+						);
+						const recipientPlugin = yield* installRevisionPackage(
+							afterHookPackage(
+								"v1",
+								{ frequency: "batch", executionScope: "user" },
+								testPluginPackageId(),
+							),
+							recipient,
+						);
+						const globalPlugin = yield* installRevisionPackage(
+							afterHookPackage(
+								"v1",
+								{ frequency: "batch", executionScope: "global" },
+								testPluginPackageId(),
+							),
+						);
+						yield* nested(
+							planner.prepareBatch({
+								resource: "entity",
+								identity: ["retirement"],
+								scopes: [owner, recipient, null],
+								command: {
+									itemIdentity: "retirement",
+									occurredAt: "2026-09-15T00:00:00.000Z",
+									causation: triggerFixture("retirement").causation,
+									accountGeneration: { userId: owner, token: "test-account-generation" },
+								},
+							}),
+						);
+						const candidatePluginIds = Effect.map(
+							session.run((db) =>
+								db
+									.select({ pluginId: tables.mutationReceipt.pluginId })
+									.from(tables.mutationReceipt)
+									.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+							),
+							(rows) =>
+								rows
+									.map(({ pluginId }) => pluginId)
+									.sort((a, b) => (a ?? "").localeCompare(b ?? "")),
+						);
+						expect(yield* candidatePluginIds).toEqual(
+							[
+								removedPlugin.pluginId,
+								retainedPlugin.pluginId,
+								recipientPlugin.pluginId,
+								globalPlugin.pluginId,
+							].sort((a, b) => a.localeCompare(b)),
+						);
+						yield* nested(receipts.retireUserPins(recipient, [removedPlugin.pluginId]));
+						expect(yield* candidatePluginIds).toEqual(
+							[retainedPlugin.pluginId, globalPlugin.pluginId].sort((a, b) => a.localeCompare(b)),
+						);
+						yield* nested(receipts.retireUserPins(owner, []));
+						expect(yield* candidatePluginIds).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer(100, 2).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"refuses to seal a batch whose pinned candidate was lost",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						yield* installRevisionPackage(afterHookPackage("v1", { frequency: "batch" }));
+						const input = {
+							identity: ["lost-pin"],
+							resource: "entity" as const,
+							command: {
+								itemIdentity: "lost-pin",
+								occurredAt: "2026-09-15T00:00:00.000Z",
+								causation: triggerFixture("unused").causation,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
-						},
-						owner,
-					);
-					const input: LifecycleBatchInput = {
-						resource: "entity",
-						identity: ["mixed-limits", "entity"],
-						command: {
-							itemIdentity: "mixed-limits",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("mixed-limits").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					const ids = Array.from({ length: 11 }, (_, index) => `mixed-${index}`);
-					const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-					yield* nested(
-						Effect.gen(function* () {
-							for (const [batchIndex, id] of ids.entries()) {
-								yield* receipts.insert({
-									batchIndex,
-									dispatch: [],
-									result: { id },
-									batchId: decision.id,
-									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-										entityChange(installed.pluginId, id),
-									),
-									identity: mutationReceiptIdentity({
-										input: { id },
-										ownerUserId: owner,
-										scopeUserId: owner,
-										commandKind: "entity:create",
-										command: {
-											...input.command,
-											itemIdentity: `${input.command.itemIdentity}:${id}`,
-										},
-									}),
-								});
-							}
-						}),
-					);
-
-					const dispatch = yield* nested(planner.planBatch(input));
-					const triggers = yield* session.run((db) =>
-						db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
-					);
-					expect(
-						triggers
-							.flatMap(({ payload }) =>
-								payload?.operation === "batch" ? [payload.items.length] : [],
-							)
-							.sort((left, right) => left - right),
-					).toEqual([3, 4, 4]);
-					expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(6);
-				}),
-			testTimeout,
-		);
-	});
-	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
-		test.effect(
-			"ignores a pinned cap when its target does not match committed event items",
-			() =>
-				Effect.gen(function* () {
-					const planner = yield* LifecyclePlanner;
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const value = hookPackage("v1");
-					const [entitySchema] = value.manifest.entitySchemas;
-					assert(entitySchema);
-					const installed = yield* installRevisionPackage(
-						{
-							...value,
-							manifest: {
-								...value.manifest,
-								entitySchemas: [
-									{
-										...entitySchema,
-										eventSchemas: [
-											...entitySchema.eventSchemas,
-											{ name: "Record set", slug: "record-set", propertiesSchema: { fields: {} } },
-										],
-									},
-								],
-								hooks: [
-									...value.manifest.hooks,
-									{
-										stage: "after",
-										frequency: "batch",
-										delivery: "required",
-										name: "Fixture batch",
-										slug: "fixture.fixture-batch",
-										scriptSlug: "fixture.automation",
-										targets: [eventTarget("changed")],
-									},
-									{
-										stage: "after",
-										batchMaxItems: 50,
-										frequency: "batch",
-										name: "Record logs",
-										delivery: "required",
-										slug: "fixture.record-logs",
-										scriptSlug: "fixture.automation",
-										targets: [eventTarget("record-set")],
-									},
-								],
+						};
+						expect(
+							(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).hasCandidates,
+						).toBe(true);
+						yield* session.run((db) =>
+							db
+								.delete(tables.mutationReceipt)
+								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+						);
+						const failure = yield* nested(planner.planBatch(input)).pipe(Effect.flip);
+						expect(failure.message).toContain("Missing pinned batch hooks");
+						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+							[],
+						);
+					}),
+				testTimeout,
+			);
+			test.effect(
+				"chunks receipt evidence for batch-only hooks and seals pinned runs on replay",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const receipts = yield* MutationReceipts.make;
+						const installed = yield* installRevisionPackage(
+							afterHookPackage("v1", { frequency: "batch" }),
+						);
+						const input = {
+							resource: "entity" as const,
+							identity: ["children", "entity"],
+							command: {
+								itemIdentity: "population",
+								occurredAt: "2026-09-15T00:00:00.000Z",
+								causation: triggerFixture("unused").causation,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
-						},
-						owner,
-					);
-					const input: LifecycleBatchInput = {
-						resource: "event",
-						identity: ["fixture-only", "events"],
-						command: {
-							itemIdentity: "fixture-only",
-							occurredAt: "2026-09-15T00:00:00.000Z",
-							causation: triggerFixture("fixture-only").causation,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					};
-					const ids = Array.from({ length: 60 }, (_, index) => `fixture-${index}`);
-					const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-					const candidates = yield* session.run((db) =>
-						db
-							.select({ result: tables.mutationReceipt.result })
-							.from(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-					);
-					expect(candidates).toHaveLength(2);
-					yield* nested(
-						Effect.gen(function* () {
-							for (const [batchIndex, id] of ids.entries()) {
-								yield* receipts.insert({
-									batchIndex,
-									dispatch: [],
-									result: { id },
-									batchId: decision.id,
-									evidence: yield* Schema.decodeEffect(AutomationEventChangePayload)(
-										yield* eventChange(installed.pluginId, id),
-									),
-									identity: mutationReceiptIdentity({
-										input: { id },
-										ownerUserId: owner,
-										scopeUserId: owner,
-										commandKind: "event:create",
-										command: {
-											...input.command,
-											itemIdentity: `${input.command.itemIdentity}:${id}`,
-										},
-									}),
-								});
-							}
-						}),
-					);
+						};
+						const chunked = yield* nested(
+							Effect.gen(function* () {
+								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
+								expect(decision.hasCandidates).toBe(true);
+								for (const [index, id] of ["first", "second", "third"].entries()) {
+									yield* receipts.insert({
+										dispatch: [],
+										result: { id },
+										batchIndex: index,
+										batchId: decision.id,
+										evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+											entityChange(installed.pluginId, id),
+										),
+										identity: mutationReceiptIdentity({
+											input: { id },
+											ownerUserId: owner,
+											scopeUserId: owner,
+											commandKind: "entity:create",
+											command: {
+												...input.command,
+												itemIdentity: `${input.command.itemIdentity}:${id}`,
+											},
+										}),
+									});
+								}
+								return yield* planner.planBatch(input);
+							}),
+						);
+						expect(chunked).toHaveLength(2);
+						const triggers = yield* session.run((db) =>
+							db
+								.select({
+									id: tables.automationTrigger.id,
+									payload: tables.automationTrigger.payload,
+								})
+								.from(tables.automationTrigger),
+						);
+						expect(
+							triggers
+								.flatMap(({ payload }) =>
+									payload?.operation === "batch" ? [payload.items.length] : [],
+								)
+								.sort((left, right) => left - right),
+						).toEqual([1, 2]);
+						expect(chunked.flatMap(({ runs }) => runs)).toHaveLength(2);
+						const replay = yield* nested(planner.planBatch(input));
+						expect(replay).toEqual(chunked);
+						const rows = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+						expect(
+							rows.filter((row) => row.receiptType === "batch-candidate" || row.evidence !== null),
+						).toEqual([]);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"applies a pinned hook item cap to 200 matching items without loss or duplication",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const receipts = yield* MutationReceipts.make;
+						const ids = Array.from(
+							{ length: 200 },
+							(_, index) => `item-${String(index).padStart(3, "0")}`,
+						);
+						const input: LifecycleBatchInput = {
+							resource: "entity",
+							identity: ["item-records", "entity"],
+							command: {
+								itemIdentity: "item-records",
+								occurredAt: "2026-09-15T00:00:00.000Z",
+								causation: triggerFixture("item-records").causation,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
+							},
+						};
+						const installed = yield* installRevisionPackage(
+							afterHookPackage("v1", { batchMaxItems: 50, frequency: "batch" }),
+							owner,
+						);
+						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+						expect(decision.hasCandidates).toBe(true);
+						const [candidate] = yield* session.run((db) =>
+							db
+								.select({ result: tables.mutationReceipt.result })
+								.from(tables.mutationReceipt)
+								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+						);
+						expect(candidate?.result).toMatchObject({ hook: { batchMaxItems: 50 } });
+						yield* installRevisionPackage(
+							afterHookPackage("v2", { frequency: "batch", batchMaxItems: 100 }),
+							owner,
+						);
+						expect(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).toEqual(
+							decision,
+						);
+						yield* nested(
+							Effect.gen(function* () {
+								for (const [batchIndex, id] of ids.entries()) {
+									yield* receipts.insert({
+										batchIndex,
+										dispatch: [],
+										result: { id },
+										batchId: decision.id,
+										evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+											entityChange(installed.pluginId, id),
+										),
+										identity: mutationReceiptIdentity({
+											input: { id },
+											ownerUserId: owner,
+											scopeUserId: owner,
+											commandKind: "entity:create",
+											command: {
+												...input.command,
+												itemIdentity: `${input.command.itemIdentity}:${id}`,
+											},
+										}),
+									});
+								}
+							}),
+						);
 
-					const dispatch = yield* nested(planner.planBatch(input));
-					const triggers = yield* session.run((db) =>
-						db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
-					);
-					const batches = triggers.flatMap(({ payload }) =>
-						payload?.operation === "batch" && payload.resource === "event" ? [payload] : [],
-					);
-					expect(batches).toHaveLength(1);
-					expect(batches[0]?.items).toHaveLength(60);
-					expect(
-						dispatch.flatMap(({ runs }) => runs).map(({ hookSlug }) => hookSlug),
-					).toEqual<unknown>(["fixture.fixture-batch"]);
-				}),
-			testTimeout,
-		);
-	});
+						const dispatch = yield* nested(planner.planBatch(input));
+						const triggers = yield* session.run((db) =>
+							db
+								.select({ payload: tables.automationTrigger.payload })
+								.from(tables.automationTrigger),
+						);
+						const batches = triggers.flatMap(({ payload }) =>
+							payload?.category === "change" &&
+							payload.operation === "batch" &&
+							payload.resource === "entity"
+								? [payload]
+								: [],
+						);
+						expect(
+							batches.map(({ items }) => items.length).sort((left, right) => left - right),
+						).toEqual([50, 50, 50, 50]);
+						const committedIds = batches.flatMap(({ items }) =>
+							items.map((item) => (item.operation === "delete" ? item.before.id : item.after.id)),
+						);
+						expect(committedIds).toHaveLength(200);
+						expect(new Set(committedIds).size).toBe(200);
+						expect([...committedIds].sort()).toEqual<unknown>(ids);
+						expect(dispatch).toHaveLength(4);
+						expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(4);
+						expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"uses the lowest limit from matching batch hooks",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const receipts = yield* MutationReceipts.make;
+						const value = afterHookPackage("v1", { batchMaxItems: 10, frequency: "batch" });
+						const capHook = value.manifest.hooks.find(({ slug }) => slug === "fixture.changed");
+						assert(capHook?.stage === "after");
+						const installed = yield* installRevisionPackage(
+							{
+								...value,
+								manifest: {
+									...value.manifest,
+									hooks: [
+										...value.manifest.hooks,
+										{
+											...capHook,
+											batchMaxItems: 4,
+											name: "Small batch",
+											slug: "fixture.small-batch",
+										},
+									],
+								},
+							},
+							owner,
+						);
+						const input: LifecycleBatchInput = {
+							resource: "entity",
+							identity: ["mixed-limits", "entity"],
+							command: {
+								itemIdentity: "mixed-limits",
+								occurredAt: "2026-09-15T00:00:00.000Z",
+								causation: triggerFixture("mixed-limits").causation,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
+							},
+						};
+						const ids = Array.from({ length: 11 }, (_, index) => `mixed-${index}`);
+						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+						yield* nested(
+							Effect.gen(function* () {
+								for (const [batchIndex, id] of ids.entries()) {
+									yield* receipts.insert({
+										batchIndex,
+										dispatch: [],
+										result: { id },
+										batchId: decision.id,
+										evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+											entityChange(installed.pluginId, id),
+										),
+										identity: mutationReceiptIdentity({
+											input: { id },
+											ownerUserId: owner,
+											scopeUserId: owner,
+											commandKind: "entity:create",
+											command: {
+												...input.command,
+												itemIdentity: `${input.command.itemIdentity}:${id}`,
+											},
+										}),
+									});
+								}
+							}),
+						);
+
+						const dispatch = yield* nested(planner.planBatch(input));
+						const triggers = yield* session.run((db) =>
+							db
+								.select({ payload: tables.automationTrigger.payload })
+								.from(tables.automationTrigger),
+						);
+						expect(
+							triggers
+								.flatMap(({ payload }) =>
+									payload?.operation === "batch" ? [payload.items.length] : [],
+								)
+								.sort((left, right) => left - right),
+						).toEqual([3, 4, 4]);
+						expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(6);
+					}),
+				testTimeout,
+			);
+		},
+	);
+	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		"planner harness",
+		(test) => {
+			test.effect(
+				"ignores a pinned cap when its target does not match committed event items",
+				() =>
+					Effect.gen(function* () {
+						const planner = yield* LifecyclePlanner;
+						const session = yield* DatabaseSession;
+						const receipts = yield* MutationReceipts.make;
+						const value = hookPackage("v1");
+						const [entitySchema] = value.manifest.entitySchemas;
+						assert(entitySchema);
+						const installed = yield* installRevisionPackage(
+							{
+								...value,
+								manifest: {
+									...value.manifest,
+									entitySchemas: [
+										{
+											...entitySchema,
+											eventSchemas: [
+												...entitySchema.eventSchemas,
+												{
+													name: "Record set",
+													slug: "record-set",
+													propertiesSchema: { fields: {} },
+												},
+											],
+										},
+									],
+									hooks: [
+										...value.manifest.hooks,
+										{
+											stage: "after",
+											frequency: "batch",
+											delivery: "required",
+											name: "Fixture batch",
+											slug: "fixture.fixture-batch",
+											scriptSlug: "fixture.automation",
+											targets: [eventTarget("changed")],
+										},
+										{
+											stage: "after",
+											batchMaxItems: 50,
+											frequency: "batch",
+											name: "Record logs",
+											delivery: "required",
+											slug: "fixture.record-logs",
+											scriptSlug: "fixture.automation",
+											targets: [eventTarget("record-set")],
+										},
+									],
+								},
+							},
+							owner,
+						);
+						const input: LifecycleBatchInput = {
+							resource: "event",
+							identity: ["fixture-only", "events"],
+							command: {
+								itemIdentity: "fixture-only",
+								occurredAt: "2026-09-15T00:00:00.000Z",
+								causation: triggerFixture("fixture-only").causation,
+								accountGeneration: { userId: owner, token: "test-account-generation" },
+							},
+						};
+						const ids = Array.from({ length: 60 }, (_, index) => `fixture-${index}`);
+						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+						const candidates = yield* session.run((db) =>
+							db
+								.select({ result: tables.mutationReceipt.result })
+								.from(tables.mutationReceipt)
+								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+						);
+						expect(candidates).toHaveLength(2);
+						yield* nested(
+							Effect.gen(function* () {
+								for (const [batchIndex, id] of ids.entries()) {
+									yield* receipts.insert({
+										batchIndex,
+										dispatch: [],
+										result: { id },
+										batchId: decision.id,
+										evidence: yield* Schema.decodeEffect(AutomationEventChangePayload)(
+											yield* eventChange(installed.pluginId, id),
+										),
+										identity: mutationReceiptIdentity({
+											input: { id },
+											ownerUserId: owner,
+											scopeUserId: owner,
+											commandKind: "event:create",
+											command: {
+												...input.command,
+												itemIdentity: `${input.command.itemIdentity}:${id}`,
+											},
+										}),
+									});
+								}
+							}),
+						);
+
+						const dispatch = yield* nested(planner.planBatch(input));
+						const triggers = yield* session.run((db) =>
+							db
+								.select({ payload: tables.automationTrigger.payload })
+								.from(tables.automationTrigger),
+						);
+						const batches = triggers.flatMap(({ payload }) =>
+							payload?.operation === "batch" && payload.resource === "event" ? [payload] : [],
+						);
+						expect(batches).toHaveLength(1);
+						expect(batches[0]?.items).toHaveLength(60);
+						expect(
+							dispatch.flatMap(({ runs }) => runs).map(({ hookSlug }) => hookSlug),
+						).toEqual<unknown>(["fixture.fixture-batch"]);
+					}),
+				testTimeout,
+			);
+		},
+	);
 });
 
 const preparationPackage = (version: string) => {
@@ -2398,7 +2493,7 @@ describe("automation preparation", () => {
 				Layer.provide(Layer.mock(ScriptExecutionService)({})),
 			),
 		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
-	)((test) => {
+	)("planner harness", (test) => {
 		test.effect(
 			"prepares from the pinned hooks and scripts after a plugin update",
 			() =>

@@ -19,7 +19,7 @@ export const bob = UserId.make("bob");
 export const admissionDatabaseLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const name = `admission_test_${(yield* randomUuid).replaceAll("-", "")}`;
-		const databaseUrl = new URL(testDatabaseUrl());
+		const databaseUrl = new URL(yield* testDatabaseUrl);
 		const options = databaseUrl.searchParams.get("options");
 		databaseUrl.searchParams.set(
 			"options",

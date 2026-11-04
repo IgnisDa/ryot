@@ -1,17 +1,11 @@
 import { BunCrypto } from "@effect/platform-bun";
 import { randomUuid } from "@ryot-app/testing/random";
 import { sql } from "drizzle-orm";
-import { Context, Effect, Layer, Redacted } from "effect";
+import { Context, Effect, Layer } from "effect";
 
-import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
-import {
-	runWorkflowMessageMigrations,
-	workflowMessageFenceStatements,
-} from "#platform/db/workflow-message-fence";
-import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
-import { testDatabaseUrl } from "#testing/database";
-import { databaseLayer, makeAppConfigLayer } from "#testing/effect";
+import { testDatabaseTemplate, testDatabaseUrlFor, testPgClientLayer } from "#testing/database";
+import { databaseLayer } from "#testing/effect";
 
 export class IsolatedDatabase extends Context.Service<IsolatedDatabase, { readonly url: string }>()(
 	"@ryot-app/kernel-backend/testing/isolated-database/IsolatedDatabase",
@@ -22,36 +16,23 @@ export const isolatedDatabaseLayer = (prefix: string) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const name = `${prefix}_${(yield* randomUuid).replaceAll("-", "")}`;
+			const template = yield* testDatabaseTemplate;
 			const session = yield* DatabaseSession;
 			yield* session.run((admin) =>
-				Effect.acquireRelease(admin.execute(sql`create database ${sql.identifier(name)}`), () =>
-					admin.execute(sql`drop database ${sql.identifier(name)} with (force)`).pipe(Effect.orDie),
-				),
-			);
-			const url = new URL(`/${name}`, testDatabaseUrl()).toString();
-			const statements = yield* baselineMigrationStatements();
-			const migrated = Layer.effectDiscard(
-				Effect.gen(function* () {
-					const database = yield* DatabaseSession;
-					yield* database.run((db) =>
-						applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement))),
-					);
-					yield* runWorkflowMessageMigrations;
-					yield* database.run((db) =>
-						applyBaselineMigration(workflowMessageFenceStatements, (statement) =>
-							db.execute(sql.raw(statement)),
-						),
-					);
-				}),
-			);
-			return migrated.pipe(
-				Layer.provideMerge(
-					Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-						Layer.provideMerge(PgClientLive),
-						Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
-						Layer.fresh,
+				Effect.acquireRelease(
+					admin.execute(
+						sql`create database ${sql.identifier(name)} template ${sql.identifier(template)}`,
 					),
+					() =>
+						admin
+							.execute(sql`drop database ${sql.identifier(name)} with (force)`)
+							.pipe(Effect.orDie),
 				),
+			);
+			const url = yield* testDatabaseUrlFor(name);
+			return Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+				Layer.provideMerge(testPgClientLayer({ database: name })),
+				Layer.fresh,
 				Layer.provideMerge(Layer.succeed(IsolatedDatabase, { url })),
 			);
 		}),

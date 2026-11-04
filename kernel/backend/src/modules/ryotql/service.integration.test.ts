@@ -665,7 +665,7 @@ type Reader = "admin" | { readonly userId: string; readonly audience: RyotQLAudi
 
 const owner = { userId: "owner", audience: "kernel" } as const;
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"groups repeated local hours and calendar years in PostgreSQL",
 		() =>
@@ -717,7 +717,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"returns local calendar dates across zones and supports RyotQL operations",
 		() =>
@@ -861,7 +861,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"hides projection data and readiness when its installation is unhealthy or plugin is inactive",
 		() =>
@@ -1012,7 +1012,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"shares current private projection bindings across metrics and ranked cursor pages",
 		() =>
@@ -1228,7 +1228,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"hides relationship projections until their note and binding are current",
 		() =>
@@ -1356,7 +1356,7 @@ layer(catalogDatabaseLayer)((test) => {
 });
 const other = { userId: "other", audience: "kernel" } as const;
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"projects password availability and nullable two-factor state for the current user",
 		() =>
@@ -1386,7 +1386,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"reads owned OAuth status with query-time expiry and no credential fields",
 		() =>
@@ -1518,7 +1518,7 @@ const collectPages = (query: ReturnType<typeof rows>, reader: Reader = "admin") 
 		return items;
 	});
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"reports no projection for source events without a projection declaration",
 		() =>
@@ -1600,7 +1600,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"pages numeric primary keys with admin cursors and derives detail totals",
 		() =>
@@ -1629,7 +1629,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"pages timestamp cursors at full database precision",
 		() =>
@@ -1682,7 +1682,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"pages composite primary keys with every key column as a tie breaker",
 		() =>
@@ -1726,7 +1726,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"exposes the private installation configuration pin to admin readers",
 		() =>
@@ -1770,7 +1770,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"expands admin-only fields only for admin wildcards",
 		() =>
@@ -1793,7 +1793,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"shows users only themselves and classifies auth state for admins",
 		() =>
@@ -1826,7 +1826,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"scopes backups and saved views to their owner without artifact keys",
 		() =>
@@ -1859,7 +1859,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"withholds results above the byte budget across named queries",
 		() =>
@@ -1896,7 +1896,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"reads plugin revision metadata and redacted installation projections",
 		() =>
@@ -1937,7 +1937,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"never exposes secret config defaults through plugin or readiness reads",
 		() =>
@@ -2016,7 +2016,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"derives the effective home view from usable selections and manifest defaults",
 		() =>
@@ -2051,7 +2051,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"exposes only effective definitions to their user in every audience",
 		() =>
@@ -2095,7 +2095,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"derives import source readiness and integration provider scripts",
 		() =>
@@ -2138,7 +2138,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"exposes one user-scoped background job catalog without execution authority",
 		() =>
@@ -2244,7 +2244,7 @@ layer(catalogDatabaseLayer)((test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"never returns sandbox script bodies to admins",
 		() =>
@@ -2285,7 +2285,7 @@ const matchingIds = Effect.fn(function* (userId: string, where: Predicate) {
 
 const ids = (values: readonly string[]) => values.map((id) => ({ id }));
 
-layer(catalogDatabaseLayer)((test) => {
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
 		"matches text prefixes and substrings with literal pattern characters",
 		() =>

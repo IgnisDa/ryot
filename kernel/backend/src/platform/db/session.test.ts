@@ -7,10 +7,21 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { pgTable, text } from "drizzle-orm/pg-core";
-import { Cause, Deferred, Effect, Exit, Fiber, Layer, Pool, Redacted, Schema } from "effect";
+import {
+	Cause,
+	Deferred,
+	Duration,
+	Effect,
+	Exit,
+	Fiber,
+	Layer,
+	Pool,
+	Redacted,
+	Schema,
+} from "effect";
 import { Reactivity } from "effect/reactivity";
 
-import { testDatabaseUrl } from "#testing/database";
+import { testDatabaseUrl, testPgClientLayer } from "#testing/database";
 
 import { retryOnDeadlock } from "./errors";
 import { DatabaseConnectionLimit, DatabaseSession, DatabaseSessionStateError } from "./session";
@@ -30,11 +41,11 @@ const sessionLayer = Layer.effectDiscard(
 	}),
 ).pipe(
 	Layer.provideMerge(Layer.effect(DatabaseSession, DatabaseSession.make)),
-	Layer.provideMerge(PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) })),
+	Layer.provideMerge(testPgClientLayer({ maxConnections: 1, idleTimeout: Duration.infinity })),
 );
 
 const limitedSessionLayer = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-	Layer.provide(PgClient.layer({ maxConnections: 3, url: Redacted.make(testDatabaseUrl()) })),
+	Layer.provide(testPgClientLayer({ maxConnections: 3 })),
 );
 
 layer(limitedSessionLayer)((test) => {
@@ -49,7 +60,7 @@ layer(limitedSessionLayer)((test) => {
 						min: 0,
 						max: 1,
 						timeToLive: "60 seconds",
-						acquire: PgClient.makeClient({ url: Redacted.make(testDatabaseUrl()) }).pipe(
+						acquire: PgClient.makeClient({ url: Redacted.make(yield* testDatabaseUrl) }).pipe(
 							Effect.provideService(Reactivity.Reactivity, reactivity),
 						),
 					});

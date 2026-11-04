@@ -124,13 +124,14 @@ const makeHeadroomLayer = Layer.provideMerge(
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
-			const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
+			const databaseUrl = yield* testDatabaseUrl;
+			const admin = yield* PgClient.make({ url: Redacted.make(databaseUrl) });
 			const schemaName = `sandbox_headroom_${(yield* randomUuid).replaceAll("-", "")}`;
 			const applicationName = `ryot_sandbox_headroom_${(yield* randomUuid).replaceAll("-", "")}`;
 			yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
 				admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
 			);
-			const applicationUrl = new URL(testDatabaseUrl());
+			const applicationUrl = new URL(databaseUrl);
 			applicationUrl.searchParams.set("options", `-c search_path=${schemaName}`);
 			applicationUrl.searchParams.set("application_name", applicationName);
 			const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-headroom-" });

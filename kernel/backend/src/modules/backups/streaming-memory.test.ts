@@ -29,7 +29,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
-import { testDatabaseUrl } from "#testing/database";
+import { testFileDatabaseEnvironment } from "#testing/database";
 import { makeAppConfigLayer } from "#testing/effect";
 import { testRedisUrl } from "#testing/redis";
 
@@ -240,6 +240,7 @@ if (process.env["RYOT_BACKUP_MEMORY_CHILD"] !== "1") {
 		"exports and restores large backup data below the fixed memory limit",
 		() =>
 			Effect.gen(function* () {
+				const databaseEnvironment = yield* testFileDatabaseEnvironment;
 				const child = yield* Effect.acquireRelease(
 					Effect.sync(() =>
 						Bun.spawn(
@@ -258,7 +259,7 @@ if (process.env["RYOT_BACKUP_MEMORY_CHILD"] !== "1") {
 									...process.env,
 									RYOT_BACKUP_MEMORY_CHILD: "1",
 									TEST_REDIS_URL: testRedisUrl(),
-									TEST_DATABASE_URL: testDatabaseUrl(),
+									...databaseEnvironment,
 								},
 							},
 						),

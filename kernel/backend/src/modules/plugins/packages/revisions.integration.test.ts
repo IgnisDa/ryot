@@ -32,11 +32,14 @@ import { fixtureManifest } from "../test-support";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";
 
-const url = testDatabaseUrl();
 const timestamp = new Date("2026-09-15T00:00:00Z");
 const expiresAt = new Date("2100-01-01T00:00:00Z");
 const expiredAt = new Date(0);
-const config = makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(url) } });
+const config = Layer.unwrap(
+	Effect.map(testDatabaseUrl, (url) =>
+		makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(url) } }),
+	),
+);
 const services = Layer.mergeAll(
 	PluginRepository.layer,
 	PluginInstallationRepository.layer,

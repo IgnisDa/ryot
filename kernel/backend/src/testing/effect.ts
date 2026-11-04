@@ -21,16 +21,14 @@ import {
 	userWriteLockStatement,
 } from "#platform/db/session";
 import type { RedisService } from "#platform/redis";
-import { testDatabaseUrl } from "#testing/database";
+import { testDatabaseUrl, testPgClientLayer } from "#testing/database";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
 	: never;
 
 export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-	Layer.provideMerge(
-		Layer.unwrap(Effect.sync(() => PgClient.layer({ url: Redacted.make(testDatabaseUrl()) }))),
-	),
+	Layer.provideMerge(testPgClientLayer()),
 	Layer.provideMerge(BunCrypto.layerSecureRandom),
 );
 
@@ -97,19 +95,15 @@ export const workflowEngineTestLayer = workflowEngineMemoryLayer;
 
 // The cluster engine persists its messages in a schema private to the calling scope.
 export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
-	const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
+	const url = Redacted.make(yield* testDatabaseUrl);
+	const admin = yield* PgClient.make({ url });
 	const schemaName = `workflow_${(yield* randomUuid).replaceAll("-", "")}`;
 	yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
 		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
 	);
 	return ClusterWorkflowEngine.layer.pipe(
 		Layer.provide(SingleRunner.layer({ shardingConfig, runnerStorage: "sql" })),
-		Layer.provide(
-			PgClient.layer({
-				url: Redacted.make(testDatabaseUrl()),
-				startupParameters: { search_path: schemaName },
-			}),
-		),
+		Layer.provide(PgClient.layer({ url, startupParameters: { search_path: schemaName } })),
 		Layer.provide(Layer.merge(BunServices.layer, BunCrypto.layerDigest)),
 	);
 });

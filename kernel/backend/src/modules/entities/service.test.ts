@@ -175,6 +175,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 		Layer.unwrap(
 			Effect.gen(function* () {
 				const name = `entity_test_${(yield* randomUuid).replaceAll("-", "")}`;
+				const databaseUrl = Redacted.make(yield* testDatabaseUrl);
 				const changePlans = yield* Ref.make(0);
 				const catalogLocks = yield* Ref.make(0);
 				const policyCalls = yield* Ref.make<ReadonlyArray<string>>([]);
@@ -506,16 +507,14 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						recordingDatabaseLayer(options.recordStatements).pipe(
 							Layer.provide(
 								PgClient.layer({
-									url: Redacted.make(testDatabaseUrl()),
+									url: databaseUrl,
 									maxConnections: options.recordStatements ? 4 : 1,
 									startupParameters: { search_path: `${name}, public` },
 								}),
 							),
 						),
 					),
-					Layer.provide(
-						makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(testDatabaseUrl()) } }),
-					),
+					Layer.provide(makeAppConfigLayer({ database: { poolMax: 1, url: databaseUrl } })),
 				);
 				const schema = Layer.effectDiscard(
 					Effect.gen(function* () {
@@ -577,7 +576,7 @@ const expectInvariant = (counts: ReadonlyArray<ReturnType<typeof countStatementC
 };
 
 describe("EntitiesService committed lifecycle", () => {
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rejects stale loaded snapshots but replays a committed conditional update",
 			() =>
@@ -619,7 +618,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rejects user updates that change or omit an immutable property",
 			() =>
@@ -681,7 +680,7 @@ describe("EntitiesService committed lifecycle", () => {
 				},
 			],
 		}),
-	)((test) => {
+	)("entities service harness", (test) => {
 		test.effect(
 			"rejects a before-stage policy that removes a stored immutable property",
 			() =>
@@ -725,7 +724,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ noHooks: true }))((test) => {
+	layer(entitiesLayer({ noHooks: true }))("entities service harness", (test) => {
 		test.effect(
 			"user-owned updates reject global records",
 			() =>
@@ -752,7 +751,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ noHooks: true }))((test) => {
+	layer(entitiesLayer({ noHooks: true }))("entities service harness", (test) => {
 		test.effect(
 			"replays a no-hook create after source deletion without new history",
 			() =>
@@ -783,7 +782,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"normalizes numeric properties before persisting the entity and change snapshot",
 			() =>
@@ -806,7 +805,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ blockedRequiredChange: true }))((test) => {
+	layer(entitiesLayer({ blockedRequiredChange: true }))("entities service harness", (test) => {
 		test.effect(
 			"returns blocked required-hook warnings for normal create, update, and delete",
 			() =>
@@ -838,7 +837,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"replays exact create, update and noop results after newer writes and deletion",
 			() =>
@@ -946,7 +945,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ policies: [{ action: "allow" }] }))((test) => {
+	layer(entitiesLayer({ policies: [{ action: "allow" }] }))("entities service harness", (test) => {
 		test.effect(
 			"runs prepared policies outside the commit and keeps the recorded rows",
 			() =>
@@ -973,7 +972,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ activateSchemaOnLock: 1 }))((test) => {
+	layer(entitiesLayer({ activateSchemaOnLock: 1 }))("entities service harness", (test) => {
 		test.effect(
 			"revalidates the entity schema under the catalog lock before writing",
 			() =>
@@ -989,7 +988,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rejects invalid names, missing schemas, incomplete provenance and invalid bulk limits before planning",
 			() =>
@@ -1024,7 +1023,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ failChange: 2 }))((test) => {
+	layer(entitiesLayer({ failChange: 2 }))("entities service harness", (test) => {
 		test.effect(
 			"rolls all bulk rows and change plans back when the second plan fails",
 			() =>
@@ -1054,7 +1053,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ failChange: 3 }))((test) => {
+	layer(entitiesLayer({ failChange: 3 }))("entities service harness", (test) => {
 		test.effect(
 			"rolls a delete back with its change plan",
 			() =>
@@ -1080,7 +1079,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"deletes record-session events with item and batch lifecycle plans",
 			() =>
@@ -1155,7 +1154,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ lateEventOnDelete: true }))((test) => {
+	layer(entitiesLayer({ lateEventOnDelete: true }))("entities service harness", (test) => {
 		test.effect(
 			"rolls back a cascade when an event appears after deletion preparation",
 			() =>
@@ -1197,7 +1196,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"constrains user deletion to its owner and definition and replays its cascade",
 			() =>
@@ -1247,7 +1246,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ noHooks: true }))((test) => {
+	layer(entitiesLayer({ noHooks: true }))("entities service harness", (test) => {
 		test.effect(
 			"rejects a second kernel collection with the same trimmed name per user",
 			() =>
@@ -1295,7 +1294,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"does not allow a user-scoped delete to remove a global entity",
 			() =>
@@ -1321,7 +1320,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"deletes an event once when both entity reference roles match the batch",
 			() =>
@@ -1357,7 +1356,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"deletes events for every user of a global entity",
 			() =>
@@ -1501,7 +1500,7 @@ describe("EntitiesService committed lifecycle", () => {
 			}),
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rejects ordinary private-provider edits but permits provider corrections",
 			() =>
@@ -1569,7 +1568,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rechecks provider ownership when committing a prepared user save",
 			() =>
@@ -1617,7 +1616,7 @@ describe("EntitiesService committed lifecycle", () => {
 			policies: [{ action: "allow" }],
 			policyEntityProvenance: { providerId, entityId: EntityId.make("policy-provider-entity") },
 		}),
-	)((test) => {
+	)("entities service harness", (test) => {
 		test.effect(
 			"rechecks user-only updates after policies change provider ownership",
 			() =>
@@ -1656,7 +1655,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rejects private API entities with system-provider provenance",
 			() =>
@@ -1682,7 +1681,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 	for (const planned of [false, true]) {
-		layer(entitiesLayer())((test) => {
+		layer(entitiesLayer())("entities service harness", (test) => {
 			test.effect(
 				`rejects private system-provider entities in ${planned ? "planned" : "ordinary"} upserts`,
 				() =>
@@ -1719,7 +1718,7 @@ describe("EntitiesService committed lifecycle", () => {
 		});
 	}
 	for (const scope of ["system", "user"] as const) {
-		layer(entitiesLayer())((test) => {
+		layer(entitiesLayer())("entities service harness", (test) => {
 			test.effect(
 				`keeps custom entities private and distinct from ${scope}-provider entities`,
 				() =>
@@ -1752,7 +1751,7 @@ describe("EntitiesService committed lifecycle", () => {
 			);
 		});
 	}
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"persists provider provenance and population-only updates; existing provider create is a noop",
 			() =>
@@ -1808,7 +1807,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ warnings: [warning] }))((test) => {
+	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
 		test.effect(
 			"caps global bulk writes under lock and returns dispatched warnings",
 			() =>
@@ -1846,7 +1845,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ failChange: true }))((test) => {
+	layer(entitiesLayer({ failChange: true }))("entities service harness", (test) => {
 		test.effect(
 			"atomically rolls a no-policy source and change plan back on planning failure",
 			() =>
@@ -1870,7 +1869,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ deadlockOnce: true }))((test) => {
+	layer(entitiesLayer({ deadlockOnce: true }))("entities service harness", (test) => {
 		test.effect(
 			"retries the entire source write and change plan after a deadlock",
 			() =>
@@ -1895,7 +1894,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ warnings: [warning] }))((test) => {
+	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
 		test.effect(
 			"returns warnings after commit, replays create once and rejects conflicting command content",
 			() =>
@@ -1936,7 +1935,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"captures exact persisted update/delete snapshots and leaves noop timestamps untouched",
 			() =>
@@ -2002,7 +2001,7 @@ describe("EntitiesService committed lifecycle", () => {
 			"policy-execution-failed",
 		],
 	] as const) {
-		layer(entitiesLayer(options))((test) => {
+		layer(entitiesLayer(options))("entities service harness", (test) => {
 			test.effect(
 				`retains ${name} request without a source mutation`,
 				() =>
@@ -2040,7 +2039,7 @@ describe("EntitiesService committed lifecycle", () => {
 		entitiesLayer({
 			policies: [proposal("First", { title: "first" }), proposal("Second", { title: "second" })],
 		}),
-	)((test) => {
+	)("entities service harness", (test) => {
 		test.effect(
 			"chains transforms in order then validates the final draft",
 			() =>
@@ -2055,20 +2054,23 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ policies: [proposal("Changed", { title: "changed" })] }))((test) => {
-		test.effect(
-			"applies only the fields exposed by a strict entity patch",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					expect((yield* service.create(createInput("identity"))).entity).toMatchObject({
-						name: "Changed",
-						properties: { title: "changed" },
-					});
-				}),
-			testTimeout,
-		);
-	});
+	layer(entitiesLayer({ policies: [proposal("Changed", { title: "changed" })] }))(
+		"entities service harness",
+		(test) => {
+			test.effect(
+				"applies only the fields exposed by a strict entity patch",
+				() =>
+					Effect.gen(function* () {
+						const service = yield* EntitiesService;
+						expect((yield* service.create(createInput("identity"))).entity).toMatchObject({
+							name: "Changed",
+							properties: { title: "changed" },
+						});
+					}),
+				testTimeout,
+			);
+		},
+	);
 
 	layer(
 		entitiesLayer({
@@ -2079,7 +2081,7 @@ describe("EntitiesService committed lifecycle", () => {
 				},
 			],
 		}),
-	)((test) => {
+	)("entities service harness", (test) => {
 		test.effect(
 			"revalidates transformed properties against AppSchema",
 			() =>
@@ -2095,7 +2097,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"rejects enclosing caller transactions before request planning",
 			() =>
@@ -2114,7 +2116,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"requires an active transaction and returns committed dispatch references",
 			() =>
@@ -2181,7 +2183,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"preserves population stamps without emitting timestamp-only changes and replays the result",
 			() =>
@@ -2239,7 +2241,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"covers one batch-scoped provider write with a single batch trigger",
 			() =>
@@ -2285,7 +2287,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ policies: [{ action: "allow" }] }))((test) => {
+	layer(entitiesLayer({ policies: [{ action: "allow" }] }))("entities service harness", (test) => {
 		test.effect(
 			"persists provider writes without planning before policies",
 			() =>
@@ -2320,7 +2322,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ warnings: [warning] }))((test) => {
+	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
 		test.effect(
 			"ensures bootstrap entities with warnings and no duplicate changes",
 			() =>
@@ -2359,7 +2361,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer({ failChange: true }))((test) => {
+	layer(entitiesLayer({ failChange: true }))("entities service harness", (test) => {
 		test.effect(
 			"rolls the entire ensure batch back when its change plan fails",
 			() =>
@@ -2406,96 +2408,100 @@ describe("EntitiesService committed lifecycle", () => {
 		entitySchema: entitySchemaReference,
 	});
 
-	layer(entitiesLayer({ recordStatements: {}, extraEntitySchemas: 20 }))((test) => {
-		test.effect(
-			"issues the same checks, locks, lookups and receipt statements for 2 and 20 item commits",
-			() =>
-				Effect.gen(function* () {
-					yield* seedProvider;
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const log = yield* StatementLog;
-					const sizes = [2, 20] as const;
-					const commitCounts = <A, E, R>(write: (size: number) => Effect.Effect<A, E, R>) =>
-						Effect.forEach(sizes, (size) =>
-							write(size).pipe(
-								Effect.andThen(log.lastTransaction),
-								Effect.map(countStatementClasses),
+	layer(entitiesLayer({ recordStatements: {}, extraEntitySchemas: 20 }))(
+		"entities service harness",
+		(test) => {
+			test.effect(
+				"issues the same checks, locks, lookups and receipt statements for 2 and 20 item commits",
+				() =>
+					Effect.gen(function* () {
+						yield* seedProvider;
+						const service = yield* EntitiesService;
+						const session = yield* DatabaseSession;
+						const log = yield* StatementLog;
+						const sizes = [2, 20] as const;
+						const commitCounts = <A, E, R>(write: (size: number) => Effect.Effect<A, E, R>) =>
+							Effect.forEach(sizes, (size) =>
+								write(size).pipe(
+									Effect.andThen(log.lastTransaction),
+									Effect.map(countStatementClasses),
+								),
+							);
+						expectInvariant(
+							yield* commitCounts((size) =>
+								session.transaction(
+									service.persistPlannedProviderUpserts({
+										batch: { identity: ["children"], command: command(`provider-${size}`) },
+										items: Array.from({ length: size }, (_, index) =>
+											providerItem(`provider-${size}-${index}`, command(`provider-${size}`)),
+										),
+									}),
+								),
 							),
 						);
-					expectInvariant(
-						yield* commitCounts((size) =>
-							session.transaction(
-								service.persistPlannedProviderUpserts({
-									batch: { identity: ["children"], command: command(`provider-${size}`) },
-									items: Array.from({ length: size }, (_, index) =>
-										providerItem(`provider-${size}-${index}`, command(`provider-${size}`)),
-									),
+						expectInvariant(
+							yield* commitCounts((size) =>
+								service.upsertGlobalEntities(
+									Array.from({ length: size }, (_, index) => globalItem(`global-${size}-${index}`)),
+									providerId,
+									command(`global-${size}`),
+									{ maximumTotal: 100 },
+								),
+							),
+						);
+						expectInvariant(
+							yield* commitCounts((size) =>
+								service.ensureUserEntities(
+									owner,
+									Array.from({ length: size }, (_, index) => ({
+										name: `ensure-${index}`,
+										properties: { title: "ensured" },
+										entitySchema: {
+											owner: { kind: "kernel" as const },
+											slug: EntitySchemaSlug.make(`record-${index}`),
+										},
+									})),
+									command(`ensure-${size}`),
+								),
+							),
+						);
+						expectInvariant(
+							yield* commitCounts((size) =>
+								Effect.gen(function* () {
+									const ids = Array.from({ length: size }, (_, index) =>
+										EntityId.make(`delete-${size}-${index}`),
+									);
+									yield* session.run((db) =>
+										db
+											.insert(tables.entity)
+											.values(
+												ids.map((id) => ({
+													id,
+													name: id,
+													userId: owner,
+													entitySchemaSlug: slug,
+													properties: { title: id },
+												})),
+											),
+									);
+									const [first, ...rest] = ids;
+									assert(first);
+									const deleted = yield* service.deleteByIds(
+										[first, ...rest],
+										command(`delete-${size}`),
+									);
+									expect(deleted.deletedCount).toBe(size);
 								}),
 							),
-						),
-					);
-					expectInvariant(
-						yield* commitCounts((size) =>
-							service.upsertGlobalEntities(
-								Array.from({ length: size }, (_, index) => globalItem(`global-${size}-${index}`)),
-								providerId,
-								command(`global-${size}`),
-								{ maximumTotal: 100 },
-							),
-						),
-					);
-					expectInvariant(
-						yield* commitCounts((size) =>
-							service.ensureUserEntities(
-								owner,
-								Array.from({ length: size }, (_, index) => ({
-									name: `ensure-${index}`,
-									properties: { title: "ensured" },
-									entitySchema: {
-										owner: { kind: "kernel" as const },
-										slug: EntitySchemaSlug.make(`record-${index}`),
-									},
-								})),
-								command(`ensure-${size}`),
-							),
-						),
-					);
-					expectInvariant(
-						yield* commitCounts((size) =>
-							Effect.gen(function* () {
-								const ids = Array.from({ length: size }, (_, index) =>
-									EntityId.make(`delete-${size}-${index}`),
-								);
-								yield* session.run((db) =>
-									db
-										.insert(tables.entity)
-										.values(
-											ids.map((id) => ({
-												id,
-												name: id,
-												userId: owner,
-												entitySchemaSlug: slug,
-												properties: { title: id },
-											})),
-										),
-								);
-								const [first, ...rest] = ids;
-								assert(first);
-								const deleted = yield* service.deleteByIds(
-									[first, ...rest],
-									command(`delete-${size}`),
-								);
-								expect(deleted.deletedCount).toBe(size);
-							}),
-						),
-					);
-				}),
-			testTimeout,
-		);
-	});
+						);
+					}),
+				testTimeout,
+			);
+		},
+	);
 
 	layer(entitiesLayer({ noHooks: true, recordStatements: { holdLocks: /hashtextextended/ } }))(
+		"entities service harness",
 		(test) => {
 			test.effect(
 				"serializes single and batch provider writers on shared identities without deadlocks",
@@ -2552,7 +2558,7 @@ describe("EntitiesService committed lifecycle", () => {
 		},
 	);
 
-	layer(entitiesLayer({ activateSchemaOnLock: 3 }))((test) => {
+	layer(entitiesLayer({ activateSchemaOnLock: 3 }))("entities service harness", (test) => {
 		test.effect(
 			"rejects a global create whose entity schema changes between planning and commit",
 			() =>
@@ -2585,7 +2591,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 	});
 
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"deduplicates identical batch items and rejects conflicting duplicates before writing",
 			() =>
@@ -2672,7 +2678,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"assigns maximumTotal ordinals per provenance scope after existing rows",
 			() =>
@@ -2713,7 +2719,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"reports the first invalid provider item in input order before writing",
 			() =>
@@ -2742,7 +2748,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"records and replays provider-order results, receipt indexes, and dispatch",
 			() =>
@@ -2790,7 +2796,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer())((test) => {
+	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"matches batch rows only within each item's exact scope and owner",
 			() =>
@@ -2886,7 +2892,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ noHooks: true }))((test) => {
+	layer(entitiesLayer({ noHooks: true }))("entities service harness", (test) => {
 		test.effect(
 			"commits a provider batch larger than one statement's bind parameter budget",
 			() =>
@@ -2911,7 +2917,7 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ noHooks: true }))((test) => {
+	layer(entitiesLayer({ noHooks: true }))("entities service harness", (test) => {
 		test.effect(
 			"rejects another user's managed asset on entity create and update",
 			() =>

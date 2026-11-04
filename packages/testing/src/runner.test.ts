@@ -1,7 +1,9 @@
 import { expect, test } from "bun:test";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { Effect, FileSystem, Layer, Schema, type Scope } from "effect";
+import { Effect, Exit, FileSystem, Layer, Schema, type Scope } from "effect";
+
+import { testWorkers } from "./runner.js";
 
 const encodeString = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 
@@ -177,5 +179,15 @@ it.live("disabled default budget", () => Effect.sleep("10 millis"), testTimeout)
 				["--timeout=0"],
 			);
 			expect(disabled.exitCode, disabled.output).toBe(0);
+		}),
+	));
+
+test("resolves the worker count from the last parallel flag", () =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			expect(yield* testWorkers(4, ["--timeout=10"])).toBe(4);
+			expect(yield* testWorkers(4, ["--parallel=2", "--parallel=6"])).toBe(6);
+			expect(yield* testWorkers(4, ["--parallel"])).toBe(navigator.hardwareConcurrency);
+			expect(Exit.isFailure(yield* Effect.exit(testWorkers(4, ["--parallel=0"])))).toBe(true);
 		}),
 	));

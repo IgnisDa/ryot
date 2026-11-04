@@ -52,11 +52,9 @@ const sharedDatabaseEncryptionKeyLayer = Layer.provideMerge(
 	PluginConfigEncryptionKey.layer.pipe(
 		Layer.provideMerge(
 			Layer.unwrap(
-				Effect.sync(() =>
+				Effect.map(testDatabaseUrl, (url) =>
 					DatabaseSession.layer.pipe(
-						Layer.provide(
-							makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } }),
-						),
+						Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 					),
 				),
 			),

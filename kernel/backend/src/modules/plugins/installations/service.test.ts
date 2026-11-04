@@ -655,7 +655,7 @@ layer(
 		deleteUploadFails: true,
 		archiveBytes: writePluginArchive({ compiledScripts: [], manifest: privateManifest() }),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"claims, reads, and best-effort deletes an uploaded plugin archive",
 		() => {
@@ -683,7 +683,7 @@ layer(
 	);
 });
 
-layer(makeLayer({ claimUploadFails: true }))((test) => {
+layer(makeLayer({ claimUploadFails: true }))("plugin installation harness", (test) => {
 	test.effect(
 		"maps an unavailable upload claim without attempting cleanup",
 		() =>
@@ -702,26 +702,33 @@ layer(makeLayer({ claimUploadFails: true }))((test) => {
 	);
 });
 
-layer(makeLayer({ archiveBytes: new Uint8Array([1, 2, 3]) }))((test) => {
-	test.effect(
-		"maps an invalid archive and deletes the claimed upload",
-		() =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const exit = yield* Effect.exit(
-					service.installPrivatePlugin({ userId, config: {}, uploadToken: "corrupt" }),
-				);
-				const failure = failureOf(exit);
-				assert(failure instanceof PluginRequestError);
-				expect(failure.reason).toEqual({ issue: "malformed-zip", code: "package-archive-invalid" });
-				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ archiveBytes: new Uint8Array([1, 2, 3]) }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"maps an invalid archive and deletes the claimed upload",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const exit = yield* Effect.exit(
+						service.installPrivatePlugin({ userId, config: {}, uploadToken: "corrupt" }),
+					);
+					const failure = failureOf(exit);
+					assert(failure instanceof PluginRequestError);
+					expect(failure.reason).toEqual({
+						issue: "malformed-zip",
+						code: "package-archive-invalid",
+					});
+					expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 layer(makeLayer({ archiveBytes: new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes + 1) }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"rejects a private upload beyond archive container limits before persistence",
@@ -746,7 +753,7 @@ layer(makeLayer({ archiveBytes: new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompress
 	},
 );
 
-layer(makeLayer({ openUploadFails: true }))((test) => {
+layer(makeLayer({ openUploadFails: true }))("plugin installation harness", (test) => {
 	test.effect(
 		"maps an unavailable archive object and deletes the claimed upload",
 		() =>
@@ -765,7 +772,7 @@ layer(makeLayer({ openUploadFails: true }))((test) => {
 	);
 });
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"checks update ownership before claiming the upload",
 		() =>
@@ -806,7 +813,7 @@ layer(
 			compiledScripts: compiledScriptsFor(manyScriptsManifest, {}),
 		}),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"accepts more than 32 compiled scripts within archive container limits",
 		() => {
@@ -821,7 +828,7 @@ layer(
 	);
 });
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"rejects only the private manifest surfaces that cannot carry user subject",
 		() =>
@@ -874,7 +881,7 @@ layer(
 	makeLayer({
 		systemPlugins: [systemEntry(privateManifest({ metadata: { ...privateManifest().metadata } }))],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"reserves package UUIDs owned by active system plugins",
 		() =>
@@ -899,30 +906,33 @@ layer(
 	);
 });
 
-layer(makeLayer({ systemPackageIdAddedOnLock: privateManifest().metadata.packageId }))((test) => {
-	test.effect(
-		"rechecks system package UUID claims after install preparation",
-		() => {
-			const manifest = privateManifest();
-			return Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				const failure = failureOf(
-					yield* Effect.exit(
-						service.installPrivatePlugin({ userId, manifest, config: {}, compiledScripts: [] }),
-					),
-				);
-				assert(failure instanceof PluginRequestError);
-				expect(failure.reason).toEqual({
-					code: "reserved-system-identity",
-					packageId: manifest.metadata.packageId,
+layer(makeLayer({ systemPackageIdAddedOnLock: privateManifest().metadata.packageId }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"rechecks system package UUID claims after install preparation",
+			() => {
+				const manifest = privateManifest();
+				return Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					const failure = failureOf(
+						yield* Effect.exit(
+							service.installPrivatePlugin({ userId, manifest, config: {}, compiledScripts: [] }),
+						),
+					);
+					assert(failure instanceof PluginRequestError);
+					expect(failure.reason).toEqual({
+						code: "reserved-system-identity",
+						packageId: manifest.metadata.packageId,
+					});
+					expect(yield* fake.persisted).toEqual([]);
 				});
-				expect(yield* fake.persisted).toEqual([]);
-			});
-		},
-		testTimeout,
-	);
-});
+			},
+			testTimeout,
+		);
+	},
+);
 
 const configuredManifest = privateManifest({
 	configSchema: {
@@ -940,7 +950,7 @@ const configuredManifest = privateManifest({
 	},
 });
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"applies config defaults and persists validated config",
 		() =>
@@ -969,7 +979,7 @@ layer(makeLayer())((test) => {
 	);
 });
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"rejects config missing a required value before persisting",
 		() =>
@@ -996,7 +1006,7 @@ layer(makeLayer())((test) => {
 const privatePlugin = storedPrivatePlugin(privateManifest());
 const privateInstallation = installationRow({ pluginId: privatePlugin.id });
 
-layer(makeLayer({ privatePlugins: [privatePlugin] }))((test) => {
+layer(makeLayer({ privatePlugins: [privatePlugin] }))("plugin installation harness", (test) => {
 	test.effect(
 		"refuses a second private plugin with the same slug",
 		() =>
@@ -1034,7 +1044,7 @@ layer(
 			],
 		]),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"sets and clears a usable home view without requiring workspace placement",
 		() => {
@@ -1109,7 +1119,7 @@ layer(
 			],
 		]),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"accepts a home view backed by an advertised plugin page",
 		() => {
@@ -1151,7 +1161,7 @@ layer(
 			],
 		]),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"rejects missing, hidden, and unusable home views",
 		() =>
@@ -1189,6 +1199,7 @@ const configuredInstallation = installationRow({
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configuredInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"patches config while preserving omitted secrets and returning a safe response",
@@ -1221,7 +1232,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [privateInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"rejects an update when the installation write affects no row",
 		() =>
@@ -1252,6 +1263,7 @@ layer(
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configuredInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"applies defaults after explicit unsets and rejects removing required config",
@@ -1301,7 +1313,7 @@ layer(
 		privatePlugins: [assetConfiguredPlugin],
 		installations: [assetConfiguredInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"rejects installation settings that reference another user's managed asset",
 		() =>
@@ -1331,36 +1343,42 @@ const exampleSystemInstallation = installationRow({
 	pluginId: exampleSystemPlugin.id,
 });
 
-layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
-	test.effect(
-		"allows system controls but rejects system config changes",
-		() =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				yield* fake.loadSystemPlugin(exampleSystemPlugin);
+layer(makeLayer({ installations: [exampleSystemInstallation] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"allows system controls but rejects system config changes",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					yield* fake.loadSystemPlugin(exampleSystemPlugin);
 
-				expect(
-					yield* service.updateInstallation(userId, exampleSystemInstallation.id, {
-						sortOrder: 4,
-						isHidden: true,
-					}),
-				).toEqual<unknown>({ id: exampleSystemInstallation.id, pluginId: exampleSystemPlugin.id });
-				expect(
-					failureOf(
-						yield* Effect.exit(
-							service.updateInstallation(userId, exampleSystemInstallation.id, { config: {} }),
+					expect(
+						yield* service.updateInstallation(userId, exampleSystemInstallation.id, {
+							sortOrder: 4,
+							isHidden: true,
+						}),
+					).toEqual<unknown>({
+						id: exampleSystemInstallation.id,
+						pluginId: exampleSystemPlugin.id,
+					});
+					expect(
+						failureOf(
+							yield* Effect.exit(
+								service.updateInstallation(userId, exampleSystemInstallation.id, { config: {} }),
+							),
 						),
-					),
-				).toMatchObject({
-					_tag: "PluginConflictError",
-					reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
-				});
-				expect(yield* fake.invalidatedUsers).toEqual([userId]);
-			}),
-		testTimeout,
-	);
-});
+					).toMatchObject({
+						_tag: "PluginConflictError",
+						reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
+					});
+					expect(yield* fake.invalidatedUsers).toEqual([userId]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 layer(
 	makeLayer({
@@ -1374,7 +1392,7 @@ layer(
 			}),
 		],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"hides foreign installations and rejects enabling an unready installation",
 		() =>
@@ -1403,30 +1421,33 @@ layer(
 	);
 });
 
-layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
-	test.effect(
-		"refuses to uninstall a system plugin through the private path",
-		() =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				yield* fake.loadSystemPlugin(exampleSystemPlugin);
-				const failure = failureOf(
-					yield* Effect.exit(
-						service.uninstallPlugin(userId, exampleSystemInstallation.id, "example-activation"),
-					),
-				);
-				assert(failure instanceof PluginConflictError);
-				expect(failure.reason).toEqual<unknown>({
-					code: "system-plugin",
-					pluginId: exampleSystemPlugin.id,
-				});
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ installations: [exampleSystemInstallation] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"refuses to uninstall a system plugin through the private path",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					yield* fake.loadSystemPlugin(exampleSystemPlugin);
+					const failure = failureOf(
+						yield* Effect.exit(
+							service.uninstallPlugin(userId, exampleSystemInstallation.id, "example-activation"),
+						),
+					);
+					assert(failure instanceof PluginConflictError);
+					expect(failure.reason).toEqual<unknown>({
+						code: "system-plugin",
+						pluginId: exampleSystemPlugin.id,
+					});
+				}),
+			testTimeout,
+		);
+	},
+);
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"hides private plugins owned by another user",
 		() =>
@@ -1447,6 +1468,7 @@ layer(makeLayer())((test) => {
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"uninstalls a private plugin the caller owns",
@@ -1506,7 +1528,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [privateInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"fences a private uninstall on the exact installation being removed",
 		() =>
@@ -1535,7 +1557,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [privateInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"keeps a private plugin referenced by persisted definitions",
 		() =>
@@ -1561,7 +1583,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [privateInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"tombstones a private installation while accepted workflows retain their pins",
 		() =>
@@ -1587,7 +1609,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [privateInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"keeps a private plugin with custom views installed",
 		() =>
@@ -1664,7 +1686,7 @@ layer(
 		privatePlugins: [upgradedOperationPlugin],
 		installations: [upgradedOperationInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"updates source while retaining plugin, installation, and omitted secret config",
 		() => {
@@ -1710,6 +1732,7 @@ layer(
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configuredInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"rejects changed identity but activates an upgrade needing configuration",
@@ -1793,7 +1816,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [privateInstallation],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"retries interrupted installation cleanup before recording uninstall or removing the owner",
 		() =>
@@ -1821,6 +1844,7 @@ layer(
 });
 
 layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [unconfiguredInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"validates reconfiguration before enabling newly compatible definitions",
@@ -1858,53 +1882,56 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [unconfigur
 	},
 );
 
-layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
-	test.effect(
-		"rejects package updates for system and foreign plugins",
-		() =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				yield* fake.loadSystemPlugin(exampleSystemPlugin);
+layer(makeLayer({ installations: [exampleSystemInstallation] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"rejects package updates for system and foreign plugins",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					yield* fake.loadSystemPlugin(exampleSystemPlugin);
 
-				expect(
-					failureOf(
-						yield* Effect.exit(
-							service.updatePrivatePlugin({
-								userId,
-								compiledScripts: [],
-								manifest: exampleSystemPlugin.manifest,
-								contentHash: exampleSystemPlugin.contentHash,
-								installationId: `${exampleSystemPlugin.id}-installation`,
-							}),
+					expect(
+						failureOf(
+							yield* Effect.exit(
+								service.updatePrivatePlugin({
+									userId,
+									compiledScripts: [],
+									manifest: exampleSystemPlugin.manifest,
+									contentHash: exampleSystemPlugin.contentHash,
+									installationId: `${exampleSystemPlugin.id}-installation`,
+								}),
+							),
 						),
-					),
-				).toMatchObject({
-					_tag: "PluginConflictError",
-					reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
-				});
-				expect(
-					failureOf(
-						yield* Effect.exit(
-							service.updatePrivatePlugin({
-								userId,
-								compiledScripts: [],
-								contentHash: "unknown",
-								installationId: "foreign",
-								manifest: configuredManifest,
-							}),
+					).toMatchObject({
+						_tag: "PluginConflictError",
+						reason: { code: "system-plugin", pluginId: exampleSystemPlugin.id },
+					});
+					expect(
+						failureOf(
+							yield* Effect.exit(
+								service.updatePrivatePlugin({
+									userId,
+									compiledScripts: [],
+									contentHash: "unknown",
+									installationId: "foreign",
+									manifest: configuredManifest,
+								}),
+							),
 						),
-					),
-				).toMatchObject({
-					_tag: "PluginNotFoundError",
-					reason: { installationId: "foreign", code: "installation-not-found" },
-				});
-			}),
-		testTimeout,
-	);
-});
+					).toMatchObject({
+						_tag: "PluginNotFoundError",
+						reason: { installationId: "foreign", code: "installation-not-found" },
+					});
+				}),
+			testTimeout,
+		);
+	},
+);
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"rejects an operation referencing an undeclared script slug",
 		() => {
@@ -1942,7 +1969,7 @@ layer(makeLayer())((test) => {
 	);
 });
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"rejects duplicate operation slugs before persistence",
 		() => {
@@ -1994,7 +2021,7 @@ const operationManifest = privateManifest({
 const operationFiles = { [operationScript.entry]: bytes(operationScriptSource) };
 const operationCompiledScripts = compiledScriptsFor(operationManifest, operationFiles);
 
-layer(makeLayer())((test) => {
+layer(makeLayer())("plugin installation harness", (test) => {
 	test.effect(
 		"installs a private package in installing health and dispatches its lifecycle once",
 		() =>
@@ -2026,7 +2053,7 @@ layer(
 		dispatchFails: true,
 		pendingLifecycle: ["test/private-fixture-plugin-id-installation"],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"keeps a failed dispatch pending for reconciliation",
 		() =>
@@ -2054,6 +2081,7 @@ layer(
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"accepts user bootstrap declarations for a private package update",
@@ -2128,7 +2156,7 @@ layer(
 	makeLayer({
 		privateInstallations: [shadowedBySlug, privateInstallationRow({ pluginName: "notes" })],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"quarantines exact package identity claims without touching other private records",
 		() =>
@@ -2167,25 +2195,28 @@ const definitionConflictRow = privateInstallationRow({
 	}),
 });
 
-layer(makeLayer({ privateInstallations: [surfaceConflictRow, definitionConflictRow] }))((test) => {
-	test.effect(
-		"keeps independent same-name surfaces and definitions available",
-		() =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				yield* fake.loadSystemPlugin(
-					shippedEntry({
-						importSources: [sharedImportSource],
-						entitySchemas: fixtureManifest().entitySchemas,
-					}),
-				);
-				yield* service.reconcileSystemInstallations();
-				expect(yield* fake.healthUpdates).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ privateInstallations: [surfaceConflictRow, definitionConflictRow] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"keeps independent same-name surfaces and definitions available",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					yield* fake.loadSystemPlugin(
+						shippedEntry({
+							importSources: [sharedImportSource],
+							entitySchemas: fixtureManifest().entitySchemas,
+						}),
+					);
+					yield* service.reconcileSystemInstallations();
+					expect(yield* fake.healthUpdates).toEqual([]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 const sharedSavedView = (() => {
 	const kernelView = kernelDefinitionSource().savedViews[0];
@@ -2225,7 +2256,7 @@ layer(
 			}),
 		],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"keeps independent same-name saved views available",
 		() =>
@@ -2258,7 +2289,7 @@ layer(
 			}),
 		],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"does not recover quarantine when the conflicting system package is gone",
 		() =>
@@ -2297,7 +2328,7 @@ layer(
 			}),
 		],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"ignores independent same-name private records in every health state",
 		() =>
@@ -2314,19 +2345,22 @@ layer(
 
 const pendingLifecycle = ["installation-a", "installation-b", "installation-c"];
 
-layer(makeLayer({ pendingLifecycle, dispatchFailsFor: ["installation-b"] }))((test) => {
-	test.effect(
-		"dispatches every pending installation and keeps going after a failed dispatch",
-		() =>
-			Effect.gen(function* () {
-				const fake = yield* FakeInstallationDependencies;
-				const service = yield* PluginInstallationService;
-				yield* service.dispatchPendingInstallationLifecycle();
-				expect([...(yield* fake.dispatched)].sort()).toEqual(pendingLifecycle);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ pendingLifecycle, dispatchFailsFor: ["installation-b"] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"dispatches every pending installation and keeps going after a failed dispatch",
+			() =>
+				Effect.gen(function* () {
+					const fake = yield* FakeInstallationDependencies;
+					const service = yield* PluginInstallationService;
+					yield* service.dispatchPendingInstallationLifecycle();
+					expect([...(yield* fake.dispatched)].sort()).toEqual(pendingLifecycle);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 const incompatibleInstallation = installationRow({
 	isInitialized: true,
@@ -2337,6 +2371,7 @@ const incompatibleInstallation = installationRow({
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [incompatibleInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"clears incompatible health when a private package update succeeds",
@@ -2373,7 +2408,7 @@ layer(
 			{ ...incompatibleInstallation, incompatibilityReason: "package-identity-conflict" },
 		],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"does not clear quarantine when a client dependency is unavailable",
 		() =>
@@ -2420,7 +2455,7 @@ layer(
 		privatePlugins: [privatePlugin],
 		installations: [{ ...incompatibleInstallation, isInitialized: false }],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"recovers incomplete initialization with a fresh activation and the existing lifecycle dispatcher",
 		() =>
@@ -2462,6 +2497,7 @@ layer(
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstallation] }))(
+	"plugin installation harness",
 	(test) => {
 		test.effect(
 			"uninstalls a private plugin shadowed by a newly shipped slug",
@@ -2495,43 +2531,46 @@ const hiddenQuarantine = {
 	activeConfigRevisionId: "retained-config",
 };
 
-layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine] }))((test) => {
-	test.effect(
-		"re-enables an initialized private installation from its retained archive without reseeding",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* PluginInstallationService;
-				const fake = yield* FakeInstallationDependencies;
-				expect(
-					yield* service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
-				).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
-				expect(yield* fake.artifactReadScopes).toEqual(["root"]);
-				expect(yield* fake.updated).toEqual([
-					{
-						isHidden: false,
-						id: hiddenQuarantine.id,
-						config: hiddenQuarantine.config,
-						sortOrder: hiddenQuarantine.sortOrder,
-					},
-				]);
-				expect(yield* fake.healthUpdates).toEqual([
-					{ health: "ready", healthReason: null, id: hiddenQuarantine.id },
-				]);
-				expect(yield* fake.activationRotations).toEqual([]);
-				expect(yield* fake.lifecycleDispatches).toEqual([]);
-				expect(yield* fake.persisted).toEqual([]);
-				expect(yield* fake.invalidatedUsers).toEqual([userId]);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"re-enables an initialized private installation from its retained archive without reseeding",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginInstallationService;
+					const fake = yield* FakeInstallationDependencies;
+					expect(
+						yield* service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+					).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+					expect(yield* fake.artifactReadScopes).toEqual(["root"]);
+					expect(yield* fake.updated).toEqual([
+						{
+							isHidden: false,
+							id: hiddenQuarantine.id,
+							config: hiddenQuarantine.config,
+							sortOrder: hiddenQuarantine.sortOrder,
+						},
+					]);
+					expect(yield* fake.healthUpdates).toEqual([
+						{ health: "ready", healthReason: null, id: hiddenQuarantine.id },
+					]);
+					expect(yield* fake.activationRotations).toEqual([]);
+					expect(yield* fake.lifecycleDispatches).toEqual([]);
+					expect(yield* fake.persisted).toEqual([]);
+					expect(yield* fake.invalidatedUsers).toEqual([userId]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 layer(
 	makeLayer({
 		privatePlugins: [privatePlugin],
 		installations: [{ ...hiddenQuarantine, isInitialized: false }],
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"re-enables partial initialization under a fresh lifecycle activation while preserving local identity",
 		() =>
@@ -2577,7 +2616,7 @@ layer(
 		installations: [hiddenQuarantine],
 		reservedPackageIds: new Set([privatePlugin.packageId]),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"does not re-enable a private UUID reserved by bundled deployment configuration",
 		() =>
@@ -2611,7 +2650,7 @@ layer(
 		installations: [hiddenQuarantine],
 		systemPackageIdAddedOnLock: privatePlugin.packageId,
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"rechecks system UUID claims after retained archive validation",
 		() =>
@@ -2646,7 +2685,7 @@ for (const changed of [
 ]) {
 	layer(
 		makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], ...changed }),
-	)((test) => {
+	)("plugin installation harness", (test) => {
 		test.effect(
 			`rejects changed retained recovery proof ${Object.keys(changed).join()}`,
 			() =>
@@ -2680,7 +2719,7 @@ layer(
 			compiledScripts: [{ format: 1, javascript: "export {};", entry: "unexpected.sandbox.js" }],
 		},
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"does not clear quarantine when retained compiled artifacts disagree with the manifest",
 		() =>
@@ -2714,7 +2753,7 @@ layer(
 		installations: [configuredQuarantine],
 		reservedPackageIds: new Set([configuredPlugin.packageId]),
 	}),
-)((test) => {
+)("plugin installation harness", (test) => {
 	test.effect(
 		"allows hide and config patches without recovering a quarantined installation",
 		() =>
@@ -2744,36 +2783,39 @@ layer(
 	);
 });
 
-layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine] }))((test) => {
-	test.effect(
-		"allows a compatible initialized package update to recover without changing installation identity",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* PluginInstallationService;
-				const fake = yield* FakeInstallationDependencies;
-				const manifest = {
-					...privatePlugin.manifest,
-					metadata: { ...privatePlugin.manifest.metadata, version: "2.0.0" },
-				};
-				expect(
-					yield* service.updatePrivatePlugin({
-						userId,
-						manifest,
-						compiledScripts: [],
-						installationId: hiddenQuarantine.id,
-						contentHash: privatePlugin.contentHash,
-					}),
-				).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
-				expect((yield* fake.persisted)[0]).toMatchObject({
-					identity: { pluginId: privatePlugin.id },
-					plugin: { metadata: { version: "2.0.0", packageId: privatePlugin.packageId } },
-				});
-				expect(yield* fake.healthUpdates).toEqual([
-					{ health: "ready", healthReason: null, id: hiddenQuarantine.id },
-				]);
-				expect(yield* fake.activationRotations).toEqual([]);
-				expect(yield* fake.lifecycleDispatches).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine] }))(
+	"plugin installation harness",
+	(test) => {
+		test.effect(
+			"allows a compatible initialized package update to recover without changing installation identity",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginInstallationService;
+					const fake = yield* FakeInstallationDependencies;
+					const manifest = {
+						...privatePlugin.manifest,
+						metadata: { ...privatePlugin.manifest.metadata, version: "2.0.0" },
+					};
+					expect(
+						yield* service.updatePrivatePlugin({
+							userId,
+							manifest,
+							compiledScripts: [],
+							installationId: hiddenQuarantine.id,
+							contentHash: privatePlugin.contentHash,
+						}),
+					).toEqual<unknown>({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+					expect((yield* fake.persisted)[0]).toMatchObject({
+						identity: { pluginId: privatePlugin.id },
+						plugin: { metadata: { version: "2.0.0", packageId: privatePlugin.packageId } },
+					});
+					expect(yield* fake.healthUpdates).toEqual([
+						{ health: "ready", healthReason: null, id: hiddenQuarantine.id },
+					]);
+					expect(yield* fake.activationRotations).toEqual([]);
+					expect(yield* fake.lifecycleDispatches).toEqual([]);
+				}),
+			testTimeout,
+		);
+	},
+);
