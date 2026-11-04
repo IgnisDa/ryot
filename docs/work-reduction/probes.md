@@ -955,3 +955,11 @@ by that occurrence's ID, and a last step prunes, clears and commits the finished
 The liveness file alone (`liv20`) passed in 331 s, the 60-subject test in 99 s. Its busiest statement was the
 entity reference lock, 50 s of 135 s of statement time over 6,254 calls, at 8 ms each against 0.6 ms for the
 unlocked fan-out read: correction commits still queue on the user's library row, for roughly 45 s of the run.
+
+## Run `probesH2` (restart steps run phases)
+
+A history-correction restart now runs its first phase in the same step instead of committing only its checkpoint.
+`media-progress-fanout-20` against `probesH1`: user commands 80 to 60, host-call workflows 100 to 80, statements
+37,320 to 32,191 and settle time 24.2 s to 21.0 s. In `hc1`, the media event files with `analytics-recipes`, two
+liveness tests still timed out: the 60-subject test and the overlapping-chains test.
+

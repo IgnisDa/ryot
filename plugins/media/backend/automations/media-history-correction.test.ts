@@ -52,13 +52,28 @@ const contextReply = {
 	},
 };
 
+const replyTo = (queries: Readonly<Record<string, unknown>>) => {
+	if ("mediaLibrary" in queries) {
+		return libraryReply;
+	}
+	if ("scope" in queries) {
+		return contextReply;
+	}
+	// Phase pages always report more rows, so every step leaves the correction pending.
+	const more = {
+		items: [],
+		type: "rows" as const,
+		pageInfo: { limit: 100, hasMore: true, nextCursor: "next" },
+	};
+	return { data: Object.fromEntries(Object.keys(queries).map((name) => [name, more])) };
+};
+
 const correctionHost = (
 	commit: () => Effect.Effect<void, string>,
 	requests: Array<{ readonly key: string; readonly input: unknown; readonly reference: unknown }>,
 ) =>
 	defineSandboxTestHost(manifest, {
-		executeRyotql: (document) =>
-			Effect.succeed("mediaLibrary" in document.queries ? libraryReply : contextReply),
+		executeRyotql: (document) => Effect.succeed(replyTo(document.queries)),
 		commitUserChanges: () =>
 			commit().pipe(
 				Effect.as({ events: [], entityId: EntityId.make("library") }),

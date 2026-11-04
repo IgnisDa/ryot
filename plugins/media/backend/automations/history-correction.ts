@@ -387,10 +387,10 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		}
 		write.replace(row, { ...row.properties, status: "inactive" });
 	});
-	// A phase change that wrote nothing would commit only the checkpoint, and the next step would read
-	// the same records, so the next phase runs in this step. Each phase runs at most once per step.
+	// A phase change that wrote nothing, or a restart, would commit only the checkpoint, and the next step
+	// would read the same records, so the next phase runs in this step. Each phase runs at most once per step.
 	const visited = new Set<HistoryCorrection["phase"]>();
-	let advancing = !restart;
+	let advancing = state.phase !== "done";
 	while (advancing) {
 		visited.add(state.phase);
 		if (state.phase === "dependencies") {

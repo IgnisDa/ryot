@@ -626,8 +626,8 @@ revision and each updated record's expected revision. Background work runs one c
 time per subject, so that job is the only writer of the subject's records; the library event scope is
 not guarded and the unchanged library entity is not rewritten, so corrections for other subjects do
 not invalidate each other. Their commits still lock the library entity, so they run one at a time;
-a phase change that writes nothing therefore continues into the next audit, progress, prune, sweep,
-clear, or dependency phase in the same step instead of committing only its checkpoint. A per-subject inventory fingerprint (required and total episode counts,
+a restart or a phase change that writes nothing therefore continues into the next audit, progress,
+prune, sweep, clear, or dependency phase in the same step instead of committing only its checkpoint. A per-subject inventory fingerprint (required and total episode counts,
 the latest episode, season, and link timestamps, and the subject's update time) is stored when a
 snapshot begins and checked at the start of each later snapshot and publish step. An unfrozen
 inventory restarts capture if the fingerprint changes between pages. A change landing during the

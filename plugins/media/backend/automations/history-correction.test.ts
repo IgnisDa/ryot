@@ -76,6 +76,12 @@ const reply = (name: string, items: readonly JsonValue[], nextCursor: null | str
 	data: { [name]: rows(items, nextCursor) },
 });
 
+// An audit page whose active record lost its output: the restart step writes its suppression and stops.
+const firstAuditPage = [
+	reply("records", [record(occurrence({ frozen: true, status: "active" }))], "next-record"),
+	reply("event", []),
+];
+
 const inventoryRow = {
 	total: 60,
 	required: 58,
@@ -233,10 +239,14 @@ it.effect.each([
 				...input,
 				sourceRevision: 5,
 				state: checkpoint({ phase: "publish", requestKey: "older-request" }),
+				responses:
+					input.phase === "dependencies"
+						? [reply("children", [{ id: "child", exists: false }], "next-child")]
+						: firstAuditPage,
 			});
 			const result = yield* test.run({ force: true });
 			expect(result.pending).toBe(true);
-			expect(test.queries).toHaveLength(1);
+			expect(test.queries).toHaveLength(input.phase === "dependencies" ? 2 : 3);
 			expect(yield* test.saved()).toMatchObject({ step: 1, sourceRevision: 5, phase: input.phase });
 		}),
 	testTimeout,
@@ -249,11 +259,13 @@ it.effect(
 			const test = harness({
 				sourceRevision: 5,
 				state: checkpoint({ phase: "publish", basisId: "basis" }),
+				responses: firstAuditPage,
 			});
 			yield* test.run();
 			expect(yield* test.saved()).toMatchObject({ step: 1, phase: "audit", sourceRevision: 5 });
+			expect(test.commands).toHaveLength(1);
 			expect(test.commands[0]?.events.creates).toEqual([]);
-			expect(test.queries).toHaveLength(1);
+			expect(test.queries).toHaveLength(3);
 		}),
 	testTimeout,
 );
@@ -283,7 +295,11 @@ it.effect(
 				properties: { subjectEntityId: "child:1", correctionSubjectEntityId: "subject" },
 			});
 			expect(yield* test.saved()).toMatchObject({ after: "next-child", phase: "dependencies" });
-			const restored = harness({ missingDependencies: true, state: checkpoint({ phase: "done" }) });
+		const restored = harness({
+			missingDependencies: true,
+			state: checkpoint({ phase: "done" }),
+			responses: [reply("children", [{ id: "child", exists: false }], "next-child")],
+		});
 			yield* restored.run();
 			expect(yield* restored.saved()).toMatchObject({ phase: "dependencies" });
 		}),
@@ -361,10 +377,13 @@ it.effect(
 	"restarts pending work for a new explicit correction request",
 	() =>
 		Effect.gen(function* () {
-			const test = harness({ state: checkpoint({ phase: "sweep", requestKey: "older-request" }) });
+			const test = harness({
+				responses: firstAuditPage,
+				state: checkpoint({ phase: "sweep", requestKey: "older-request" }),
+			});
 			yield* test.run({ force: true });
 			expect(yield* test.saved()).toMatchObject({ step: 1, phase: "audit", requestKey: "request" });
-			expect(test.queries).toHaveLength(1);
+			expect(test.queries).toHaveLength(3);
 		}),
 	testTimeout,
 );
