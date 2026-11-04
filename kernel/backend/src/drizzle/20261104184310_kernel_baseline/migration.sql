@@ -665,16 +665,16 @@ CREATE TABLE "integration_auto_disable_claim" (
 );
 --> statement-breakpoint
 CREATE TABLE "job" (
-	"error" text,
 	"key" text,
-	"id" text PRIMARY KEY,
+	"error" text,
 	"kind" text NOT NULL,
+	"id" text PRIMARY KEY,
 	"locked_until" timestamp(3) with time zone,
 	"attempts" integer NOT NULL,
 	"priority" integer NOT NULL,
 	"max_attempts" integer NOT NULL,
-	"payload" jsonb NOT NULL,
 	"run_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"payload" jsonb NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"status" text NOT NULL,
@@ -762,7 +762,6 @@ CREATE TABLE "notification" (
 	"settled_at" timestamp(3) with time zone,
 	"source_key" text NOT NULL,
 	"input_digest" text NOT NULL,
-	"recover_at" timestamp(3) with time zone NOT NULL,
 	"account_generation" text NOT NULL,
 	"outcome" text,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -1507,7 +1506,6 @@ CREATE INDEX "mutation_receipt_config_idx" ON "mutation_receipt" ("plugin_config
 CREATE INDEX "mutation_receipt_script_idx" ON "mutation_receipt" ("sandbox_script_id");--> statement-breakpoint
 CREATE INDEX "mutation_receipt_recorded_at_idx" ON "mutation_receipt" ("recorded_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "notification_source_idx" ON "notification" ("user_id","account_generation","source_key");--> statement-breakpoint
-CREATE INDEX "notification_recovery_idx" ON "notification" ("state","recover_at","id");--> statement-breakpoint
 CREATE INDEX "notification_owner_idx" ON "notification" ("user_id","created_at" DESC NULLS LAST,"id");--> statement-breakpoint
 CREATE INDEX "notification_source_run_idx" ON "notification" ("source_run_id");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint

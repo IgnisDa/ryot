@@ -291,7 +291,6 @@ describe("user lifecycle persistence cleanup", () => {
 								.insert(tables.notification)
 								.values({
 									userId: owner,
-									recoverAt: now,
 									state: "admitted",
 									id: ownerNotificationId,
 									sourceKey: "lifecycle-cleanup",

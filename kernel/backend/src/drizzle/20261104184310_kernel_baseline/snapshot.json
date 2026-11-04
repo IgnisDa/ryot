@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "da079d76-4f25-4679-a992-d7982e6af31d",
+	"id": "a2c781bb-216d-49a9-9197-d66b9918bcfe",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -2805,23 +2805,6 @@
 				"n|col|public.notification.user_id",
 				"n|col|public.notification.account_generation",
 				"n|col|public.notification.source_key"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "notification", "notification_recovery_idx"],
-			"writes": [
-				"s|idx|public.notification_recovery_idx",
-				"n|idx|public.notification_recovery_idx",
-				"e|idx|public.notification_recovery_idx",
-				"n|rel|public.notification_recovery_idx"
-			],
-			"reads": [
-				"n|tbl|public.notification",
-				"n|sch|public",
-				"n|col|public.notification.state",
-				"n|col|public.notification.recover_at",
-				"n|col|public.notification.id"
 			]
 		},
 		{
@@ -13804,19 +13787,6 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "error",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "job",
 			"name": "key",
 			"type": "text",
 			"typeSchema": null,
@@ -13830,7 +13800,20 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "id",
+			"name": "error",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "job",
+			"name": "kind",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -13843,7 +13826,7 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "kind",
+			"name": "id",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -13908,12 +13891,12 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "payload",
-			"type": "jsonb",
+			"name": "run_at",
+			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": null,
+			"default": "now()",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -13921,12 +13904,12 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "run_at",
-			"type": "timestamp(3) with time zone",
+			"name": "payload",
+			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": "now()",
+			"default": null,
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -14703,19 +14686,6 @@
 			"table": "notification",
 			"name": "input_digest",
 			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "notification",
-			"name": "recover_at",
-			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -23057,35 +23027,6 @@
 				}
 			],
 			"isUnique": true,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "notification",
-			"name": "notification_recovery_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "state",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "recover_at",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
-			],
-			"isUnique": false,
 			"where": null,
 			"with": "",
 			"method": "btree",

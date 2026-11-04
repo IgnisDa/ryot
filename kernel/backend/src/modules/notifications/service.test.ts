@@ -32,7 +32,7 @@ const admissions = Layer.effectContext(
 	Effect.gen(function* () {
 		const inputs = yield* Ref.make<ReadonlyArray<NotificationAdmission>>([]);
 		return Context.make(NotificationAdmissions, {
-			recover: () => Effect.void,
+			pruneDiagnostics: () => Effect.void,
 			admit: (input) =>
 				Ref.update(inputs, (all) => [...all, input]).pipe(
 					Effect.as({ id: "admitted-notification" }),

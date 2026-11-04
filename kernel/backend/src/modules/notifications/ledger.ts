@@ -9,7 +9,6 @@ import { Schema } from "effect";
 
 export const NOTIFICATION_BATCH_SIZE = 50;
 export const NOTIFICATION_CHANNEL_LIMIT = 200;
-export const NOTIFICATION_RECOVERY_PAGE_LIMIT = 10;
 export const NOTIFICATION_ATTEMPT_TIMEOUT_MS = 15_000;
 export const NOTIFICATION_ABANDONED_AFTER_MS = 60_000;
 
@@ -22,6 +21,12 @@ export const NotificationAdmission = Schema.Struct({
 	sourceSubmittedAt: Schema.NullOr(Schema.String),
 });
 export type NotificationAdmission = typeof NotificationAdmission.Type;
+
+export const NotificationDeliveryPayload = Schema.Struct({
+	notificationId: Schema.String,
+	accountGeneration: AccountGeneration,
+});
+export type NotificationDeliveryPayload = typeof NotificationDeliveryPayload.Type;
 
 export const summarizeNotification = (
 	statuses: ReadonlyArray<NotificationChannelOutcome>,

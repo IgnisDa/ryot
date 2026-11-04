@@ -13,21 +13,23 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { user } from "#schema/tables/auth";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
+import { job } from "#schema/tables/jobs";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { NotificationAdmissions } from "./admission";
 import { deliverEnabledChannels } from "./deliver-enabled-channels";
 import { NotificationDeliveryError, NotificationDeliveryService } from "./delivery";
+import { NotificationDeliveryJob, runNotificationDelivery } from "./delivery-job";
 import { NotificationDeliveryRepository } from "./delivery-repository";
 import type { NotificationAdmission } from "./ledger";
-import { NOTIFICATION_BATCH_SIZE, NOTIFICATION_CHANNEL_LIMIT } from "./ledger";
+import { NOTIFICATION_CHANNEL_LIMIT } from "./ledger";
 import { NotificationsRepository } from "./repository";
 import { NotificationSourcePolicy } from "./source-policy";
 
@@ -64,10 +66,7 @@ const freshInput = Effect.fnUntraced(function* (sourceKey: string) {
 
 class DeliveryEvidence extends Context.Service<
 	DeliveryEvidence,
-	{
-		readonly sent: Effect.Effect<ReadonlyArray<string>>;
-		readonly dispatches: Effect.Effect<ReadonlyArray<string>>;
-	}
+	{ readonly sent: Effect.Effect<ReadonlyArray<string>> }
 >()(
 	"@ryot-app/kernel-backend/modules/notifications/deliver-enabled-channels.test/DeliveryEvidence",
 ) {}
@@ -75,7 +74,6 @@ class DeliveryEvidence extends Context.Service<
 const recordingTransports = Layer.effectContext(
 	Effect.gen(function* () {
 		const sent = yield* Ref.make<ReadonlyArray<string>>([]);
-		const dispatches = yield* Ref.make<ReadonlyArray<string>>([]);
 		const send = ({
 			channelSpecifics,
 		}: Parameters<NotificationDeliveryService["Service"]["prepare"]>[0]) =>
@@ -88,18 +86,7 @@ const recordingTransports = Layer.effectContext(
 			});
 		return Context.make(NotificationDeliveryService, {
 			prepare: (input) => Effect.succeed({ execute: send(input) }),
-		}).pipe(
-			Context.add(
-				WorkflowEngine,
-				makeWorkflowEngine({
-					execute: (_workflow, options) =>
-						Ref.update(dispatches, (all) => [...all, options.executionId]).pipe(
-							Effect.as(options.executionId),
-						),
-				}),
-			),
-			Context.add(DeliveryEvidence, { sent: Ref.get(sent), dispatches: Ref.get(dispatches) }),
-		);
+		}).pipe(Context.add(DeliveryEvidence, { sent: Ref.get(sent) }));
 	}),
 );
 
@@ -107,6 +94,7 @@ const dependencies = Layer.mergeAll(
 	NotificationDeliveryRepository.layer,
 	NotificationsRepository.layer,
 	MutationReceipts.layer,
+	JobQueue.layer,
 	Layer.succeed(NotificationSourcePolicy, { authorize: () => Effect.succeed(true) }),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 const services = NotificationAdmissions.layer.pipe(
@@ -117,32 +105,31 @@ const services = NotificationAdmissions.layer.pipe(
 
 layer(services)((test) => {
 	test.effect(
-		"recovers keyset pages without repeatedly dispatching the same pending rows",
+		"queues one delivery job for an admission with channels and none without",
 		() =>
 			Effect.gen(function* () {
-				const submission = yield* freshInput("pages");
+				const session = yield* DatabaseSession;
+				const admissions = yield* NotificationAdmissions;
+				const submission = yield* freshInput("queued");
 				yield* (yield* NotificationsRepository).createForUser({
 					isDisabled: false,
 					userId: submission.userId,
 					channelSpecifics: { kind: "ntfy", topic: "topic" },
 				});
-				const admissions = yield* NotificationAdmissions;
-				const admitted = yield* Effect.forEach(
-					Array.from({ length: NOTIFICATION_BATCH_SIZE + 1 }, (_, index) => index),
-					(index) => admissions.admit({ ...submission, sourceKey: `pages-${index}` }),
+				const admitted = yield* admissions.admit(submission);
+				yield* admissions.admit(submission);
+				const empty = yield* freshInput("unqueued");
+				yield* admissions.admit(empty);
+				const queued = yield* session.run((db) =>
+					db.select().from(job).where(eq(job.kind, NotificationDeliveryJob.name)),
 				);
-				const evidence = yield* DeliveryEvidence;
-				const before = (yield* evidence.dispatches).length;
-				yield* admissions.recover();
-				const recovered = (yield* evidence.dispatches).slice(before);
-				for (const occurrence of admitted) {
-					expect(
-						recovered.filter((id) => id.startsWith(`${occurrence.id}-recovery-`)),
-					).toHaveLength(1);
-				}
-				const dispatched = (yield* evidence.dispatches).length;
-				yield* admissions.recover();
-				expect((yield* evidence.dispatches).length).toBe(dispatched);
+				expect(
+					queued
+						.filter((row) => row.userId === submission.userId || row.userId === empty.userId)
+						.map((row) => row.payload),
+				).toEqual([
+					{ notificationId: admitted.id, accountGeneration: submission.accountGeneration },
+				]);
 			}),
 		testTimeout,
 	);
@@ -198,7 +185,6 @@ layer(services)((test) => {
 				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					executionId: "unconfigured",
 					accountGeneration: submission.accountGeneration,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryService, {
@@ -239,7 +225,6 @@ layer(services)((test) => {
 				});
 				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
 				yield* deliverEnabledChannels({
-					executionId: "partial",
 					notificationId: admitted.id,
 					accountGeneration: submission.accountGeneration,
 				});
@@ -277,7 +262,6 @@ layer(services)((test) => {
 				yield* channels.deleteForUser({ channelId: deleted.id, userId: submission.userId });
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
 				yield* deliverEnabledChannels({
-					executionId: "removed",
 					notificationId: admitted.id,
 					accountGeneration: submission.accountGeneration,
 				});
@@ -320,7 +304,6 @@ layer(services)((test) => {
 				const before = (yield* evidence.sent).length;
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					executionId: "reenabled-before-claim",
 					accountGeneration: submission.accountGeneration,
 				}).pipe(
 					Effect.provideService(NotificationsRepository, {
@@ -360,7 +343,6 @@ layer(services)((test) => {
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
 				const config = yield* AppConfig;
 				yield* deliverEnabledChannels({
-					executionId: "disabled",
 					notificationId: admitted.id,
 					accountGeneration: submission.accountGeneration,
 				}).pipe(
@@ -418,20 +400,17 @@ layer(services)((test) => {
 				yield* Effect.all(
 					[
 						deliverEnabledChannels({
-							executionId: "first",
 							notificationId: admitted.id,
 							accountGeneration: submission.accountGeneration,
 						}),
 						deliverEnabledChannels({
 							notificationId: admitted.id,
-							executionId: "concurrent-replay",
 							accountGeneration: submission.accountGeneration,
 						}),
 					],
 					{ concurrency: 2 },
 				);
 				yield* deliverEnabledChannels({
-					executionId: "replay",
 					notificationId: admitted.id,
 					accountGeneration: submission.accountGeneration,
 				});
@@ -456,7 +435,6 @@ layer(services)((test) => {
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					executionId: "persist-retry",
 					accountGeneration: submission.accountGeneration,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryRepository, {
@@ -474,42 +452,6 @@ layer(services)((test) => {
 				);
 				expect(yield* Ref.get(writes)).toBe(2);
 				expect((yield* (yield* DeliveryEvidence).sent).length - before).toBe(1);
-				expect((yield* ledger.find(admitted.id))?.outcome).toBe("accepted");
-			}),
-		testTimeout,
-	);
-	test.effect(
-		"recovers an admission committed before workflow dispatch failed",
-		() =>
-			Effect.gen(function* () {
-				const submission = yield* freshInput("lost-dispatch");
-				yield* (yield* NotificationsRepository).createForUser({
-					isDisabled: false,
-					userId: submission.userId,
-					channelSpecifics: { kind: "ntfy", topic: "topic" },
-				});
-				const disconnected = yield* NotificationAdmissions.make.pipe(
-					Effect.provideService(
-						WorkflowEngine,
-						makeWorkflowEngine({
-							execute: () => Effect.fail(new DbError({ message: "Dispatcher unavailable" })),
-						}),
-					),
-				);
-				const admitted = yield* disconnected.admit(submission);
-				const ledger = yield* NotificationDeliveryRepository;
-				expect((yield* ledger.find(admitted.id))?.state).toBe("admitted");
-				yield* (yield* NotificationAdmissions).recover();
-				expect(
-					(yield* (yield* DeliveryEvidence).dispatches).some((id) =>
-						id.startsWith(`${admitted.id}-recovery-`),
-					),
-				).toBe(true);
-				yield* deliverEnabledChannels({
-					executionId: "recovered",
-					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
-				});
 				expect((yield* ledger.find(admitted.id))?.outcome).toBe("accepted");
 			}),
 		testTimeout,
@@ -555,20 +497,21 @@ layer(services)((test) => {
 				);
 				expect(claim).not.toBeNull();
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
-				yield* deliverEnabledChannels({
-					executionId: "recovery",
-					accountGeneration: account,
-					notificationId: admitted.id,
-				});
+				assertExitFails(
+					yield* runNotificationDelivery(
+						{ accountGeneration: account, notificationId: admitted.id },
+						{ id: "job", attempt: 1 },
+					).pipe(Effect.exit),
+					new DbError({ message: "Notification has an unsettled Sending claim" }),
+				);
 				expect((yield* ledger.deliveries(admitted.id))[0]?.status).toBe("sending");
 				yield* TestClock.adjust("61 seconds");
-				yield* admissions.recover();
+				yield* runNotificationDelivery(
+					{ accountGeneration: account, notificationId: admitted.id },
+					{ id: "job", attempt: 1 },
+				);
 				expect((yield* ledger.find(admitted.id))?.outcome).toBe("unknown");
-				yield* deliverEnabledChannels({
-					accountGeneration: account,
-					notificationId: admitted.id,
-					executionId: "after-expiry",
-				});
+				yield* deliverEnabledChannels({ accountGeneration: account, notificationId: admitted.id });
 				expect((yield* (yield* DeliveryEvidence).sent).length).toBe(before);
 				yield* session.transaction(
 					ledger.finishAttempt({
@@ -650,7 +593,6 @@ layer(services)((test) => {
 						.where(eq(user.id, submission.userId)),
 				);
 				const result = yield* deliverEnabledChannels({
-					executionId: "stale",
 					notificationId: admitted.id,
 					accountGeneration: submission.accountGeneration,
 				}).pipe(Effect.exit);

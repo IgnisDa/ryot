@@ -1,20 +1,13 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 
+import { NotificationDeliveryJob } from "./delivery-job";
 import { NotificationDeliveryRepository } from "./delivery-repository";
-import {
-	NOTIFICATION_CHANNEL_LIMIT,
-	NOTIFICATION_RECOVERY_PAGE_LIMIT,
-	type NotificationAdmission,
-} from "./ledger";
-import { NotificationDeliveryWorkflow } from "./notification-delivery-workflow";
+import { NOTIFICATION_CHANNEL_LIMIT, type NotificationAdmission } from "./ledger";
 import { NotificationsRepository } from "./repository";
 import { NotificationSourcePolicy } from "./source-policy";
 
@@ -26,19 +19,8 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 			const receipts = yield* MutationReceipts;
 			const repository = yield* NotificationDeliveryRepository;
 			const channels = yield* NotificationsRepository;
-			const engine = yield* WorkflowEngine;
+			const jobs = yield* JobQueue;
 			const sources = yield* NotificationSourcePolicy;
-			const dispatch = Effect.fn("NotificationAdmissions.dispatch")(function* (
-				id: string,
-				account: AccountGeneration,
-				executionId: string,
-			) {
-				return yield* dispatchAdmittedWorkflow(engine, NotificationDeliveryWorkflow, account, {
-					executionId,
-					discard: true,
-					payload: { executionId, notificationId: id, accountGeneration: account },
-				});
-			});
 			const admit = Effect.fn("NotificationAdmissions.admit")(function* (
 				input: NotificationAdmission,
 			) {
@@ -71,51 +53,25 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 								limit: NOTIFICATION_CHANNEL_LIMIT + 1,
 							});
 							yield* repository.insert({ ...source, now, admission: input, channels: selected });
+							if (selected.length > 0) {
+								yield* jobs.enqueue(
+									NotificationDeliveryJob,
+									{ notificationId: source.id, accountGeneration: input.accountGeneration },
+									{ userId: input.userId },
+								);
+							}
 							return source.id;
 						}),
 					)
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				yield* dispatch(id, input.accountGeneration, `${id}-delivery`).pipe(
-					Effect.catchCause((cause) =>
-						Effect.logWarning("Notification admitted; dispatch deferred", cause),
-					),
-				);
+					.pipe(
+						Effect.catchTags({ SchemaError: Effect.die, DatabaseSessionStateError: Effect.die }),
+					);
 				return { id };
 			});
-			const recover = Effect.fn("NotificationAdmissions.recover")(function* () {
-				const now = yield* DateTime.nowAsDate;
-				let after: null | { id: string; recoverAt: Date } = null;
-				for (let page = 0; page < NOTIFICATION_RECOVERY_PAGE_LIMIT; page++) {
-					const rows: Effect.Success<ReturnType<typeof repository.listPending>> =
-						yield* repository.listPending(after, now);
-					if (rows.length === 0) {
-						break;
-					}
-					for (const row of rows) {
-						yield* Effect.gen(function* () {
-							const account = { token: row.accountGeneration, userId: UserId.make(row.userId) };
-							yield* session.transaction(
-								Effect.gen(function* () {
-									yield* receipts.admitAccount(account);
-									yield* repository.settle(row.id, now);
-									yield* repository.deferRecovery(row.id, now);
-								}),
-							);
-							const current = yield* repository.find(row.id);
-							if (current?.state === "admitted") {
-								yield* dispatch(row.id, account, `${row.id}-recovery-${now.getTime()}`);
-							}
-						}).pipe(
-							Effect.catchCause((cause) =>
-								Effect.logWarning("Notification recovery deferred", cause),
-							),
-						);
-					}
-					after = rows.at(-1) ?? null;
-				}
-				yield* repository.pruneDiagnostics(now);
+			const pruneDiagnostics = Effect.fn("NotificationAdmissions.pruneDiagnostics")(function* () {
+				yield* repository.pruneDiagnostics(yield* DateTime.nowAsDate);
 			});
-			return { admit, recover };
+			return { admit, pruneDiagnostics };
 		}),
 	},
 ) {

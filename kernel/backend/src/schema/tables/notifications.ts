@@ -47,7 +47,6 @@ export const notification = snakeCase.table(
 		settledAt: timestamptz(),
 		sourceKey: text().notNull(),
 		inputDigest: text().notNull(),
-		recoverAt: timestamptz().notNull(),
 		accountGeneration: text().notNull(),
 		outcome: text().$type<NotificationOutcome>(),
 		createdAt: timestamptz().defaultNow().notNull(),
@@ -64,7 +63,6 @@ export const notification = snakeCase.table(
 			table.accountGeneration,
 			table.sourceKey,
 		),
-		index("notification_recovery_idx").on(table.state, table.recoverAt, table.id),
 		index("notification_owner_idx").on(table.userId, table.createdAt.desc(), table.id),
 		index("notification_source_run_idx").on(table.sourceRunId),
 		check(

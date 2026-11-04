@@ -44,6 +44,7 @@ import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-s
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
@@ -119,7 +120,7 @@ const dependencies = SignalEmissionService.layer.pipe(
 const services = Layer.mergeAll(
 	RemindersService.layer,
 	ReminderWorker.layer,
-	NotificationAdmissions.layer,
+	NotificationAdmissions.layer.pipe(Layer.provide(JobQueue.layer)),
 	EntityUserDataService.layer,
 ).pipe(
 	Layer.provideMerge(ReminderEntityLifecycleLive),
@@ -225,7 +226,6 @@ layer(services)((test) => {
 				assertExitFails(
 					yield* deliverEnabledChannels({
 						notificationId: notification.id,
-						executionId: "retired-reminder-delivery",
 						accountGeneration: input.user.accountGeneration,
 					}).pipe(Effect.exit),
 					new DbError({ message: "Mutation command belongs to a retired account" }),
@@ -287,7 +287,6 @@ layer(services)((test) => {
 				const sends = yield* Ref.make(0);
 				const send = yield* deliverEnabledChannels({
 					notificationId: notification.id,
-					executionId: "clear-before-claim",
 					accountGeneration: input.user.accountGeneration,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryService, {
@@ -326,7 +325,6 @@ layer(services)((test) => {
 				const sends = yield* Ref.make(0);
 				const payload = {
 					notificationId: notification.id,
-					executionId: "clear-after-claim",
 					accountGeneration: input.user.accountGeneration,
 				};
 				const transport = {
@@ -716,7 +714,6 @@ layer(services)((test) => {
 				const notification = yield* (yield* NotificationAdmissions).admit(input);
 				expect((yield* repository.findForUser(user.id, created.id))?.state).toBe("processing");
 				yield* deliverEnabledChannels({
-					executionId: "delivery",
 					notificationId: notification.id,
 					accountGeneration: user.accountGeneration,
 				});
@@ -769,7 +766,6 @@ layer(services)((test) => {
 					})).sendStarted,
 				).toBe(false);
 				yield* deliverEnabledChannels({
-					executionId: "after-cancel",
 					notificationId: notification.id,
 					accountGeneration: user.accountGeneration,
 				});
@@ -828,7 +824,6 @@ layer(services)((test) => {
 					outcome: "unknown",
 				});
 				yield* deliverEnabledChannels({
-					executionId: "recovery",
 					notificationId: notification.id,
 					accountGeneration: user.accountGeneration,
 				});

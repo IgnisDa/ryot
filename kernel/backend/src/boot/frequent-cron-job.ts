@@ -111,10 +111,12 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	{
-		name: "notification-delivery-recovery",
+		name: "notification-diagnostics-retention",
 		run: () =>
-			Effect.flatMap(NotificationAdmissions, (admissions) => admissions.recover()).pipe(
-				Effect.catchCause((cause) => Effect.logWarning("Notification recovery failed", cause)),
+			Effect.flatMap(NotificationAdmissions, (admissions) => admissions.pruneDiagnostics()).pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("Notification diagnostics retention failed", cause),
+				),
 			),
 	},
 	{

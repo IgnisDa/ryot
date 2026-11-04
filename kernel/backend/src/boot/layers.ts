@@ -108,8 +108,8 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	NotificationAdmissionsLive,
+	NotificationDeliveryJobProvidedLive,
 	NotificationDeliveryServiceLive,
-	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
@@ -360,7 +360,6 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	BackgroundWorkWorkflowLive.pipe(
 		Layer.provide(Layer.merge(BackgroundWorkExecutorLive, ProjectionFinalizerLive)),
 	),
-	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	IntegrationSyncWorkflowDefinitionsProvidedLive,
 	ImportWorkflowDefinitionsLive,
 	CancelImportRunWorkflowDefinitionsLive.pipe(
@@ -399,7 +398,9 @@ const RuntimeSchedulersLive = Layer.mergeAll(
 );
 
 // Handlers register before the worker starts claiming.
-const RuntimeJobsLive = JobWorkerLive.pipe(Layer.provide(FrequentCronJobLive));
+const RuntimeJobsLive = JobWorkerLive.pipe(
+	Layer.provide(Layer.mergeAll(FrequentCronJobLive, NotificationDeliveryJobProvidedLive)),
+);
 
 const RuntimeWorkLive = Layer.merge(RuntimeWorkflowDefinitionsLive, RuntimeJobsLive);
 

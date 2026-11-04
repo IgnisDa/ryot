@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 
-const WORKFLOW_NAME = "NotificationDeliveryWorkflow";
+const JOB_SPAN_NAME = "NotificationDeliveryJob";
 
 let otlpServer: undefined | FakeHttpServer;
 let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
@@ -33,10 +33,10 @@ function findRequestSpan() {
 	);
 }
 
-function findWorkflowSpan(userId: string) {
+function findJobSpan(userId: string) {
 	return findSpan(
 		(span) =>
-			span["name"] === WORKFLOW_NAME && getStringAttribute(span["attributes"], "userId") === userId,
+			span["name"] === JOB_SPAN_NAME && getStringAttribute(span["attributes"], "userId") === userId,
 	);
 }
 
@@ -195,14 +195,14 @@ afterAll(() =>
 );
 
 describe("API observability", () => {
-	it.live("exports spans with correlatable workflow and request logs", () =>
+	it.live("exports spans with correlatable job and request logs", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient(target);
 			yield* testNotificationChannels(client);
 
 			const { span, resource } = yield* pollUntil(
-				"notification delivery workflow OTLP span",
-				Effect.sync(() => findWorkflowSpan(userId)),
+				"notification delivery job OTLP span",
+				Effect.sync(() => findJobSpan(userId)),
 			);
 			const { span: requestSpan } = yield* pollUntil(
 				"notification test request OTLP span",
@@ -222,19 +222,16 @@ describe("API observability", () => {
 				"Request trace ID is empty",
 			);
 			const spanId = requirePresent(
-				requireString(span["spanId"], "Workflow span ID is missing"),
-				"Workflow span ID is empty",
+				requireString(span["spanId"], "Job span ID is missing"),
+				"Job span ID is empty",
 			);
 			const traceId = requirePresent(
-				requireString(span["traceId"], "Workflow trace ID is missing"),
-				"Workflow trace ID is empty",
+				requireString(span["traceId"], "Job trace ID is missing"),
+				"Job trace ID is empty",
 			);
-			requirePresent(
-				getStringAttribute(span["attributes"], "executionId"),
-				"Workflow execution ID is missing",
-			);
+			requirePresent(getStringAttribute(span["attributes"], "jobId"), "Job ID is missing");
 			const logLine = yield* pollUntil(
-				"correlated workflow completion log",
+				"correlated job completion log",
 				Effect.gen(function* () {
 					const logPath = requireLogFile();
 					const logFile = Bun.file(logPath);
@@ -251,7 +248,7 @@ describe("API observability", () => {
 				}),
 			);
 			expect(logLine).toContain('message="span completed"');
-			expect(logLine).toContain(`spanName=${WORKFLOW_NAME}`);
+			expect(logLine).toContain(`spanName=${JOB_SPAN_NAME}`);
 
 			const requestLogLine = yield* pollUntil(
 				"correlated HTTP response log",

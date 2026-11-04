@@ -10,13 +10,12 @@ import { DatabaseSession } from "#platform/db/session";
 
 import { NotificationDeliveryService } from "./delivery";
 import { NotificationDeliveryRepository } from "./delivery-repository";
-import { NOTIFICATION_ATTEMPT_TIMEOUT_MS } from "./ledger";
-import type { NotificationDeliveryWorkflowPayload } from "./notification-delivery-workflow";
+import { NOTIFICATION_ATTEMPT_TIMEOUT_MS, type NotificationDeliveryPayload } from "./ledger";
 import { NotificationsRepository } from "./repository";
 import { NotificationSourcePolicy } from "./source-policy";
 
 export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
-	function* (payload: NotificationDeliveryWorkflowPayload) {
+	function* (payload: NotificationDeliveryPayload) {
 		const session = yield* DatabaseSession;
 		const receipts = yield* MutationReceipts;
 		const repository = yield* NotificationDeliveryRepository;

@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/contract/modules/notifications/schemas";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, isNotNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, lt, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -109,7 +109,6 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 						.values({
 							id: input.id,
 							createdAt: input.now,
-							recoverAt: input.now,
 							userId: input.admission.userId,
 							inputDigest: input.inputDigest,
 							request: input.admission.request,
@@ -284,41 +283,6 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 						.where(eq(notification.id, id)),
 				);
 			});
-			const deferRecovery = Effect.fn("NotificationDeliveryRepository.deferRecovery")(function* (
-				id: string,
-				now: Date,
-			) {
-				yield* requireTransaction;
-				yield* session.run((db) =>
-					db
-						.update(notification)
-						.set({ recoverAt: new Date(now.getTime() + NOTIFICATION_ABANDONED_AFTER_MS) })
-						.where(and(eq(notification.id, id), eq(notification.state, "admitted"))),
-				);
-			});
-			const listPending = (after: null | { id: string; recoverAt: Date }, now: Date) =>
-				session.run((db) =>
-					db
-						.select()
-						.from(notification)
-						.where(
-							and(
-								eq(notification.state, "admitted"),
-								sql`${notification.recoverAt} <= ${now}`,
-								after
-									? or(
-											sql`${notification.recoverAt} > ${after.recoverAt}`,
-											and(
-												eq(notification.recoverAt, after.recoverAt),
-												sql`${notification.id} > ${after.id}`,
-											),
-										)
-									: undefined,
-							),
-						)
-						.orderBy(asc(notification.recoverAt), asc(notification.id))
-						.limit(NOTIFICATION_BATCH_SIZE),
-				);
 			const pruneDiagnostics = Effect.fn("NotificationDeliveryRepository.pruneDiagnostics")(
 				function* (now: Date) {
 					const rows = yield* session.run((db) =>
@@ -382,9 +346,7 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 				revokeRun,
 				deliveries,
 				listForRun,
-				listPending,
 				lookupSource,
-				deferRecovery,
 				finishAttempt,
 				pruneDiagnostics,
 			};
