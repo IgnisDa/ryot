@@ -25,8 +25,8 @@
 	"devDependencies": {
 		"@types/react": "19.3.0",
 		"@types/react-dom": "19.3.0",
-		"@wxt-dev/auto-icons": "1.1.0",
-		"@wxt-dev/module-react": "1.1.5",
+		"@wxt-dev/auto-icons": "1.1.2",
+		"@wxt-dev/module-react": "1.2.2",
 		"vite-tsconfig-paths": "6.1.1",
 		"wxt": "0.21.5"
 	}
