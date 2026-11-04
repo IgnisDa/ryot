@@ -1,7 +1,11 @@
 import { Effect } from "effect";
 
 import { createAuthenticatedClient, pollUntil } from "~/fixtures/kernel";
-import { testNotificationChannels } from "~/fixtures/kernel/notifications";
+import {
+	createNotificationChannel,
+	startFakeAppriseServer,
+	testNotificationChannels,
+} from "~/fixtures/kernel/notifications";
 import {
 	requireArray,
 	requireObjectRecord,
@@ -15,6 +19,7 @@ import { startIsolatedHarness } from "~/support/isolated-harness";
 const JOB_SPAN_NAME = "NotificationDeliveryJob";
 
 let otlpServer: undefined | FakeHttpServer;
+let appriseServer: undefined | FakeHttpServer;
 let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
 let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 
@@ -175,6 +180,7 @@ beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
 			otlpServer = yield* startFakeHttpServer();
+			appriseServer = yield* startFakeAppriseServer;
 			harness = yield* startIsolatedHarness("Observability API", {
 				SERVER_LOG_LEVEL: "debug",
 				OTEL_EXPORTER_OTLP_ENDPOINT: otlpServer.url,
@@ -190,6 +196,7 @@ afterAll(() =>
 		Effect.gen(function* () {
 			yield* harness?.stop ?? Effect.void;
 			yield* Effect.promise(() => otlpServer?.stop() ?? Promise.resolve());
+			yield* Effect.promise(() => appriseServer?.stop() ?? Promise.resolve());
 		}),
 	),
 );
@@ -198,6 +205,10 @@ describe("API observability", () => {
 	it.live("exports spans with correlatable job and request logs", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient(target);
+			const apprise = requirePresent(appriseServer, "Apprise test server is not initialized");
+			yield* createNotificationChannel(client, {
+				channelSpecifics: { kind: "apprise", key: "observability", baseUrl: apprise.url },
+			});
 			yield* testNotificationChannels(client);
 
 			const { span, resource } = yield* pollUntil(
@@ -278,7 +289,8 @@ describe("API observability", () => {
 					findLog(
 						(log) =>
 							getLogMessage(log) === "Sent HTTP response" &&
-							getStringAttribute(log["attributes"], "userId") === userId,
+							getStringAttribute(log["attributes"], "userId") === userId &&
+							log["traceId"] === requestTraceId,
 					),
 				),
 			);
