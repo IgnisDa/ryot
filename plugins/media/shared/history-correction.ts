@@ -4,6 +4,7 @@ import { CalendarDate } from "@ryot-app/plugin-kit/schema";
 import { ConsumptionBasis } from "./consumption";
 
 export const CompletionOccurrence = Schema.Struct({
+	key: Schema.String,
 	total: Schema.Finite,
 	runKey: Schema.String,
 	frozen: Schema.Boolean,

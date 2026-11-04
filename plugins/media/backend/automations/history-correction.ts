@@ -173,7 +173,6 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 		}
 	};
 	const output = (
-		occurrence: RecordRow<CompletionOccurrence>,
 		value: CompletionOccurrence,
 		anchor: HistoryEvent,
 		actual: undefined | HistoryEvent,
@@ -182,9 +181,9 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 			return;
 		}
 		const suffix = value.rule === "progress" ? "complete" : "parent";
-		const properties = occurrenceProperties(occurrence.id, value);
+		const properties = occurrenceProperties(value.key, value);
 		if (actual) {
-			if (occurrenceMatches(occurrence.id, value, actual)) {
+			if (occurrenceMatches(value.key, value, actual)) {
 				return;
 			}
 			changes.push({
@@ -212,7 +211,7 @@ const writer = (libraryId: string, subjectEntityId: string) => {
 			creates.push({
 				properties,
 				eventSchemaSlug: "complete",
-				itemIdentity: `complete:${occurrence.id}`,
+				itemIdentity: `complete:${value.key}`,
 				entity: { kind: "existing", entityId: EntityId.make(value.entityId) },
 				...(value.sessionEntityId === undefined
 					? {}
@@ -320,6 +319,13 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 			limit: 1,
 			where: (event) => eq(column(event, "id"), literal(id)),
 		}).pipe(Effect.map((page) => page.items[0]));
+	const occurrenceByKey = (key: string) =>
+		records(CompletionOccurrence, "completion-occurrence", {
+			limit: 1,
+			where: (event) => historyPropertyIs(event, "key", key),
+		}).pipe(Effect.map((page) => page.items[0]));
+	let created = 0;
+	const newKey = () => `${input.entityId}:${state.runKey}:${state.step}:${created++}`;
 	const actual = (id: string) =>
 		executeRyotqlRecipe(host.executeRyotql, historyRecordRecipe({ occurrenceId: id }));
 	let config: undefined | EpisodicKindConfig;
@@ -381,7 +387,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 		if (row.properties.status !== "active") {
 			return;
 		}
-		const output = yield* actual(row.id);
+		const output = yield* actual(row.properties.key);
 		if (output) {
 			write.removeOutput(output);
 		}
@@ -424,10 +430,10 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 			});
 			for (const row of page.items) {
 				if (phase === "audit" && row.properties.status === "active") {
-					const output = yield* actual(row.id);
+					const output = yield* actual(row.properties.key);
 					if (!output) {
 						write.replace(row, { ...row.properties, status: "suppressed" });
-					} else if (!occurrenceMatches(row.id, row.properties, output)) {
+					} else if (!occurrenceMatches(row.properties.key, row.properties, output)) {
 						write.override(output);
 						write.replace(row, { ...row.properties, status: "overridden" });
 					}
@@ -452,7 +458,6 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				historySourceRecipe({ progressOnly: true, after: state.after, entityId: input.entityId }),
 			);
 			const source = page.items[0];
-			let advance = true;
 			if (source) {
 				const saved = yield* records(CompletionOccurrence, "completion-occurrence", {
 					limit: 1,
@@ -489,9 +494,12 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 							positive(source.properties[position.position]) >= total)) &&
 					blockers?.explicit !== true &&
 					(!positional || blockers?.sameTime !== true);
-				if (!row) {
+				const live = state.liveSourceIds.includes(source.id);
+				if (!row && !full) {
 					write.create("completion-occurrence", {
 						total,
+						silent: true,
+						key: newKey(),
 						frozen: false,
 						rule: "progress",
 						status: "inactive",
@@ -499,25 +507,37 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 						sourceEventId: source.id,
 						entityId: source.entityId,
 						subjectEntityId: input.entityId,
-						silent: !full || source.revision !== 0 || !state.liveSourceIds.includes(source.id),
 						...(source.sessionEntityId === null ? {} : { sessionEntityId: source.sessionEntityId }),
 					});
-					advance = false;
 				} else if (full) {
-					const output = yield* actual(row.id);
+					// A new occurrence is keyed before it commits, so its output commits in the same step.
+					const current: CompletionOccurrence = row?.properties ?? {
+						total,
+						key: newKey(),
+						frozen: false,
+						rule: "progress",
+						status: "inactive",
+						runKey: state.runKey,
+						sourceEventId: source.id,
+						entityId: source.entityId,
+						subjectEntityId: input.entityId,
+						silent: source.revision !== 0 || !live,
+						...(source.sessionEntityId === null ? {} : { sessionEntityId: source.sessionEntityId }),
+					};
+					const output = row ? yield* actual(current.key) : undefined;
 					const value = {
-						...row.properties,
+						...current,
 						total,
 						frozen: true,
 						runKey: state.runKey,
+						status: preserveDecision(current),
 						expectedOccurredAt: source.occurredAt,
-						status: preserveDecision(row.properties),
 						expectedOrderCreatedAt: source.orderCreatedAt,
 						expectedOrderKey: `${source.orderKey}~complete`,
 						...(basis._tag === "Some" ? { expectedConsumptionBasis: basis.value } : {}),
 						silent: output
-							? row.properties.silent
-							: row.properties.silent || row.properties.frozen || source.revision !== 0,
+							? current.silent
+							: current.silent || current.frozen || source.revision !== 0,
 					};
 					const consumedOn = source.properties["consumedOn"];
 					const sourceRun = source.properties["sourceRun"];
@@ -548,17 +568,19 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					} else {
 						delete value.expectedDateUnknown;
 					}
-					write.output(row, value, source, output);
-					write.replace(row, value);
-				} else {
+					write.output(value, source, output);
+					if (row) {
+						write.replace(row, value);
+					} else {
+						write.create("completion-occurrence", value);
+					}
+				} else if (row) {
 					yield* deactivate(row);
 				}
 			}
-			if (advance) {
-				yield* advanceCursor(page);
-				if (state.after === undefined) {
-					changePhase("prune");
-				}
+			yield* advanceCursor(page);
+			if (state.after === undefined) {
+				changePhase("prune");
 			}
 		} else if (state.phase === "coverage" && config) {
 			const page = yield* executeRyotqlRecipe(
@@ -595,7 +617,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					let sourceId = source.id;
 					const key = source.properties["completionKey"];
 					if (typeof key === "string") {
-						const completion = yield* occurrence(key);
+						const completion = yield* occurrenceByKey(key);
 						if (!completion?.properties.sourceEventId) {
 							return yield* new MediaSandboxError({
 								message: "Episode completion source is unavailable",
@@ -695,6 +717,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 								} else {
 									write.create("completion-occurrence", {
 										total: 0,
+										key: newKey(),
 										frozen: false,
 										rule: "coverage",
 										status: "building",
@@ -815,7 +838,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					return yield* new MediaSandboxError({ message: "Closing coverage is unavailable" });
 				}
 				if (coverage.required > 0 && coverage.required === coverage.covered) {
-					const output = yield* actual(basis.id);
+					const output = yield* actual(basis.properties.key);
 					const value = {
 						...basis.properties,
 						frozen: true,
@@ -849,7 +872,7 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 					} else {
 						delete value.expectedCalendarDate;
 					}
-					write.output(basis, value, closing, output);
+					write.output(value, closing, output);
 					write.replace(basis, value);
 					state.cycle += 1;
 					state.phase = "clear";

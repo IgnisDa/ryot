@@ -729,7 +729,9 @@ Correction occurrences retain `expectedConsumptionBasis`, `expectedCalendarDate`
 `expectedTimeSpent` and `expectedSourceRun` beside existing expected ordering/date/source properties.
 Progress-derived output copies those values; coverage-derived parent output has only the parent
 episode basis and closing date evidence. Nested properties compare structurally, including after
-restore. Existing `completionKey` identifies derived output; editing it still makes it explicit, and
+restore. Each occurrence carries a `key` fixed when it is created, from its subject, run, and step; derived
+output stores that key as `completionKey`, so a new progress occurrence and its output commit in one
+step. Existing `completionKey` identifies derived output; editing it still makes it explicit, and
 deleting it retains suppression. Source facts introduce no new typed entity references. The existing
 user-state policy clears source events and occurrence evidence, transfers frozen occurrence evidence
 on merge, and resets only correction checkpoints/temporary coverage, which are transient evidence that

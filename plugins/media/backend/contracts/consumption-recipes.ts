@@ -106,7 +106,7 @@ export const consumptionBatchRecipe = defineRecipe(
 							and(
 								own(automatic),
 								eq(column(automatic, "eventSchemaSlug"), literal("completion-occurrence")),
-								eq(column(automatic, "id"), property(event, "completionKey")),
+								eq(property(automatic, "key"), property(event, "completionKey")),
 							),
 						),
 					],

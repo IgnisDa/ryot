@@ -963,3 +963,17 @@ A history-correction restart now runs its first phase in the same step instead o
 37,320 to 32,191 and settle time 24.2 s to 21.0 s. In `hc1`, the media event files with `analytics-recipes`, two
 liveness tests still timed out: the 60-subject test and the overlapping-chains test.
 
+## Run `probesH4` (an occurrence and its output in one step)
+
+Completion occurrences carry a `key` fixed at creation, and derived output stores it as `completionKey`, so a new
+progress occurrence and its `complete` output commit in one step. A movie now commits twice: progress with its
+output, then prune, clear and the finished checkpoint. `media-progress-fanout-20`:
+
+| Run                             | User commands | Statements | Settle | API CPU |
+| ------------------------------- | ------------: | ---------: | -----: | ------: |
+| `probesH1`                      |            80 |     37,320 | 24.2 s |  20.7 s |
+| `probesH2`, restart runs phases |            60 |     32,191 | 21.0 s |  20.1 s |
+| `probesH4`, keyed occurrences   |            40 |     25,179 | 17.7 s |  14.7 s |
+
+`hc3`, the media event files with `analytics-recipes` under the Bun runner: 61 of 62 passed. The 60-subject liveness
+test still timed out; the overlapping-chains test passed in 159 s and the multi-page snapshot in 78 s.

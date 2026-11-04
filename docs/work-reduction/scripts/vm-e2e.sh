@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Runs on the VM as root. Measures one e2e run and writes /opt/ryot/results/ID/.
-#   systemd-run --unit=ryot-e2e-ID --collect -p OOMPolicy=continue bash vm-e2e.sh ID [vitest args / files...]
+#   systemd-run --unit=ryot-e2e-ID --collect -p OOMPolicy=continue bash vm-e2e.sh ID [files or directories...]
 # With no files, runs the whole standard suite (opt-in gates and live smoke stay disabled unless
 # RUN_OPERATIONAL_GATES=1 is passed via `systemd-run -E`).
 #
-# Outputs: vitest.json (per-test durations), vitest.out, status.txt, pgss.csv (+ .activity lock/idle
+# Directories expand to their .test.ts files, since the runner takes files only.
+# Outputs: test.out, status.txt, pgss.csv (+ .activity lock/idle
 # samples) for the shared PostgreSQL, metrics.prom (OTEL span metrics), vmstat.log, docker-stats.log,
 # server.log, pg.log.
 set -uo pipefail
@@ -41,21 +42,24 @@ otel=""
 [ "${OTEL:-}" = 1 ] && otel="OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318"
 
 start=$(date +%s)
-# Fail fast: hard wall cap (MAX_WALL_S) and a stall watchdog (no vitest output for STALL_S).
+# Fail fast: hard wall cap (MAX_WALL_S) and a stall watchdog (no test output for STALL_S).
+files=$(cd "$src/e2e" && for target in "${@:-src}"; do
+	if [ -d "$target" ]; then find "$target" -name '*.test.ts' | sort; else echo "$target"; fi
+done | tr '\n' ' ')
 # Provider configuration (RYOT_PLUGIN__*) copied from the owner's apps/server/.env; never committed.
 envfile=""
 [ -f /opt/ryot/e2e.env ] && envfile="set -a && . /opt/ryot/e2e.env && set +a &&"
 timeout --kill-after=60 "${MAX_WALL_S:-5400}" sudo -u ryot-backend -H bash -lc "$envfile cd $src/e2e && env $prof $otel TMPDIR=$out/tmp \
 	RUN_LIVE_PROVIDER_TESTS= RUN_OPERATIONAL_GATES=${RUN_OPERATIONAL_GATES:-} RUN_FLOW_PROBES=${RUN_FLOW_PROBES:-} FLOW_PROBE_FOCUS=${FLOW_PROBE_FOCUS:-} FLOW_PROBE_OUT=$out/flow-probes.json \
-	bun --bun run vitest run --reporter=default --reporter=json --outputFile.json=$out/vitest.json $*" \
-	> "$out/vitest.out" 2>&1 & vt=$!
+	bun ./test.ts $files" \
+	> "$out/test.out" 2>&1 & vt=$!
 reason=""
 while kill -0 $vt 2>/dev/null; do
 	sleep 30
-	idle=$(( $(date +%s) - $(stat -c %Y "$out/vitest.out") ))
+	idle=$(( $(date +%s) - $(stat -c %Y "$out/test.out") ))
 	if [ "$idle" -gt "${STALL_S:-1200}" ]; then
 		reason=" stalled ${idle}s"
-		pkill -TERM -u ryot-backend -f vitest; sleep 30; pkill -KILL -u ryot-backend -f vitest
+		pkill -TERM -u ryot-backend -f "bun test|test.ts"; sleep 30; pkill -KILL -u ryot-backend -f "bun test|test.ts"
 		break
 	fi
 done
@@ -64,7 +68,7 @@ echo "exit $rc wall $(( $(date +%s) - start ))s$reason" > "$out/status.txt"
 sleep 12
 curl -s http://127.0.0.1:8889/metrics > "$out/metrics.prom"
 kill $vm $ds $pss 2>/dev/null
-# pgwatch exits when its container disappears; stop it if vitest never started one.
+# pgwatch exits when its container disappears; stop it if the run never started one.
 for _ in $(seq 1 12); do kill -0 $pw 2>/dev/null || break; sleep 5; done
 pkill -P $pw 2>/dev/null; kill $pw 2>/dev/null
 pkill -P $lw 2>/dev/null; kill $lw 2>/dev/null

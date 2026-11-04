@@ -40,6 +40,7 @@ const occurrence = (patch: Partial<CompletionOccurrence> = {}): CompletionOccurr
 	frozen: false,
 	silent: false,
 	rule: "progress",
+	key: "occurrence",
 	runKey: "old-run",
 	status: "inactive",
 	entityId: "subject",
@@ -258,8 +259,8 @@ it.effect(
 		Effect.gen(function* () {
 			const test = harness({
 				sourceRevision: 5,
-				state: checkpoint({ phase: "publish", basisId: "basis" }),
 				responses: firstAuditPage,
+				state: checkpoint({ phase: "publish", basisId: "basis" }),
 			});
 			yield* test.run();
 			expect(yield* test.saved()).toMatchObject({ step: 1, phase: "audit", sourceRevision: 5 });
@@ -295,11 +296,11 @@ it.effect(
 				properties: { subjectEntityId: "child:1", correctionSubjectEntityId: "subject" },
 			});
 			expect(yield* test.saved()).toMatchObject({ after: "next-child", phase: "dependencies" });
-		const restored = harness({
-			missingDependencies: true,
-			state: checkpoint({ phase: "done" }),
-			responses: [reply("children", [{ id: "child", exists: false }], "next-child")],
-		});
+			const restored = harness({
+				missingDependencies: true,
+				state: checkpoint({ phase: "done" }),
+				responses: [reply("children", [{ id: "child", exists: false }], "next-child")],
+			});
 			yield* restored.run();
 			expect(yield* restored.saved()).toMatchObject({ phase: "dependencies" });
 		}),
@@ -344,7 +345,7 @@ it.effect.each([
 				responses: [
 					reply(
 						"records",
-						ids.map((id) => record(occurrence({ frozen: true, status: "active" }), id)),
+						ids.map((id) => record(occurrence({ key: id, frozen: true, status: "active" }), id)),
 					),
 					...ids.map((id) =>
 						reply("event", [
@@ -394,17 +395,17 @@ it.effect(
 		Effect.gen(function* () {
 			const test = harness({
 				state: checkpoint({ phase: "audit", runKey: "newer-run", requestKey: "newer-request" }),
-			responses: [
-				reply("records", []),
-				reply("events", [source()]),
-				reply("records", []),
-				reply("blockers", [{ explicit: false, sameTime: false }]),
-			],
+				responses: [
+					reply("records", []),
+					reply("events", [source()]),
+					reply("records", []),
+					reply("blockers", [{ explicit: false, sameTime: false }]),
+				],
 			});
 			yield* test.run();
 			expect(yield* test.saved()).toMatchObject({
 				step: 6,
-				phase: "progress",
+				phase: "prune",
 				runKey: "newer-run",
 				requestKey: "newer-request",
 			});
@@ -610,20 +611,50 @@ it.effect(
 	testTimeout,
 );
 
-it.effect("runs phase changes that write nothing in the same step", () =>
-	Effect.gen(function* () {
-		const test = harness({
-			state: checkpoint({ phase: "prune" }),
-			responses: [reply("records", []), reply("records", [])],
-		});
-		yield* test.run();
-		expect(test.commands).toHaveLength(1);
-		expect(test.commands[0]?.events.creates).toEqual([]);
-		expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
-			"replace:checkpoint",
-		]);
-		expect(yield* test.saved()).toMatchObject({ step: 6, phase: "done" });
-	}),
+it.effect(
+	"runs phase changes that write nothing in the same step",
+	() =>
+		Effect.gen(function* () {
+			const test = harness({
+				state: checkpoint({ phase: "prune" }),
+				responses: [reply("records", []), reply("records", [])],
+			});
+			yield* test.run();
+			expect(test.commands).toHaveLength(1);
+			expect(test.commands[0]?.events.creates).toEqual([]);
+			expect(test.commands[0]?.events.changes.map((change) => change.itemIdentity)).toEqual([
+				"replace:checkpoint",
+			]);
+			expect(yield* test.saved()).toMatchObject({ step: 6, phase: "done" });
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"publishes a new full source with its occurrence in one step",
+	() =>
+		Effect.gen(function* () {
+			const test = harness({
+				responses: [
+					reply("events", [source()]),
+					reply("records", []),
+					reply("blockers", [{ explicit: false, sameTime: false }]),
+				],
+			});
+			yield* test.run();
+			expect(test.commands).toHaveLength(1);
+			const creates = test.commands[0]?.events.creates ?? [];
+			expect(
+				creates.find((item) => item.eventSchemaSlug === "completion-occurrence"),
+			).toMatchObject({
+				properties: { frozen: true, silent: false, status: "active", key: "subject:run:5:0" },
+			});
+			expect(creates.find((item) => item.eventSchemaSlug === "complete")).toMatchObject({
+				itemIdentity: "complete:subject:run:5:0",
+				properties: { completionSilent: false, completionKey: "subject:run:5:0" },
+			});
+			expect(yield* test.saved()).toMatchObject({ step: 6, phase: "prune" });
+		}),
 	testTimeout,
 );
 
@@ -640,8 +671,8 @@ it.effect(
 					]),
 					reply("records", [record(occurrence({ total: 12 }))]),
 					reply("blockers", [{ explicit: true, sameTime: false }]),
-				reply("records", []),
-				reply("records", []),
+					reply("records", []),
+					reply("records", []),
 				],
 			});
 			yield* test.run();
@@ -831,39 +862,24 @@ it.effect(
 			for (let index = 0; index < 3_000; index += 1) {
 				const id = `source-${index}`;
 				const next = index === 2_999 ? null : `cursor-${index + 1}`;
-				const item = source({ id, properties: { progressPercent: 50 } });
-				const create = harness({
+				const test = harness({
 					state,
 					responses: [
-						reply("events", [item], next),
+						reply("events", [source({ id, properties: { progressPercent: 50 } })], next),
 						reply("records", []),
 						reply("blockers", [{ explicit: false, sameTime: false }]),
 					],
 				});
-				yield* create.run();
-				expect(create.commands[0]?.events.creates).toHaveLength(1);
-				state = yield* create.saved();
-				const advance = harness({
-					state,
-					responses: [
-						reply("events", [item], next),
-						reply("records", [
-							record(occurrence({ silent: true, sourceEventId: id, runKey: state.runKey })),
-						]),
-						reply("blockers", [{ explicit: false, sameTime: false }]),
-						...(next === null ? [reply("records", []), reply("records", [])] : []),
-					],
-				});
-				yield* advance.run();
-				expect(advance.commands[0]?.events.creates).toHaveLength(0);
-				state = yield* advance.saved();
-				for (const command of [...create.commands, ...advance.commands]) {
+				yield* test.run();
+				expect(test.commands[0]?.events.creates).toHaveLength(1);
+				state = yield* test.saved();
+				for (const command of test.commands) {
 					largestCommand = Math.max(largestCommand, stableStringify(command).length);
 					writes += 1;
 				}
 			}
-			expect(writes).toBe(6_000);
-			expect(state).toMatchObject({ step: 6_005, phase: "done" });
+			expect(writes).toBe(3_000);
+			expect(state).toMatchObject({ step: 3_005, phase: "prune" });
 			expect(state).not.toHaveProperty("after");
 			expect(largestCommand).toBeLessThan(4_000);
 		}),

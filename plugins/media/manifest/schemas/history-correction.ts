@@ -93,6 +93,7 @@ export const historyCorrectionEventSchemas = [
 		slug: "completion-occurrence",
 		propertiesSchema: schema(
 			{
+				key: text("Completion key"),
 				entityId: entity("Completed item"),
 				sessionEntityId: entity("Session"),
 				runKey: text("Last reconciliation"),
