@@ -1029,3 +1029,12 @@ liveness test and `analytics-recipes` passed under full load, the first full run
 - **Load-sensitive, passing alone (`bk1`):** `media-book`'s Activity tab still showing "No activity yet",
   `entity-reminders`' `Malformed value`, and `sidecar-recovery`'s mid-import generation count, which also failed in
   `full21`.
+
+## Run `full23` (faster polling, reverted)
+
+`pollUntil` backed off from 50 ms to its 500 ms spacing instead of waiting 500 ms before its first recheck. Whole
+suite: 44 min against `full22`'s 43, 946 passed, 5 failed. Wall time did not move: the waits are dominated by work
+that takes seconds, not by the first recheck. `query-recipes-results`' podcast lifecycle test failed because its
+waits returned before history correction wrote the episode completions it then asserted, a race the 500 ms first
+delay had hidden. The change is reverted. Also failed: `private-plugins`' one-installation-row test at the 180 s
+timeout, and three browser tests at 30 s locator waits.
