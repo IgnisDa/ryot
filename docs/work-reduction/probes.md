@@ -1010,3 +1010,11 @@ and 55 s to settle: the coverage phase wrote an episode's coverage row in one st
 confirm it and move the cursor. In `probesH8` a coverage pass that writes nothing continues to the next source in
 the same step, up to 25 a step: 148 user commands, 81 jobs, 61,863 statements and 36 s. `cv1`, the media backup,
 event and analytics files: 63 of 63 passed; the overlapping-chains test took 132 s against 160 s in `mb1`.
+
+## Run `probesH9` (a first correction with nothing to do commits nothing)
+
+The reconcile hook also requests a correction for each episode entity, and each such fresh flat correction committed a
+`done` checkpoint. A first correction that finds nothing to correct now returns without a commit; a subject without a
+checkpoint reads as settled. `media-show-70-episodes`: user commands 148 to 78, statements 61,863 to 46,286, settle
+36 s to 34 s. `event-create-complete` (one movie `complete`) no longer runs a user command: 1,151 statements to 960.
+`cv2`: 63 of 63 passed, the 60-subject liveness test in 144 s and overlapping chains in 127 s.

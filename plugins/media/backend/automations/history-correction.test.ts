@@ -163,7 +163,7 @@ const harness = (
 };
 
 it.effect(
-	"finishes a fresh flat correction with one guarded checkpoint",
+	"finishes a fresh flat correction without committing",
 	() =>
 		Effect.gen(function* () {
 			const test = harness({
@@ -175,23 +175,7 @@ it.effect(
 			const result = yield* test.run();
 			expect(result.pending).toBe(false);
 			expect(test.queries).toHaveLength(1);
-			expect(test.commands).toHaveLength(1);
-			const creates = test.commands[0]?.events.creates ?? [];
-			expect(creates).toHaveLength(1);
-			expect(creates[0]?.eventSchemaSlug).toBe("history-correction");
-			const saved = yield* Schema.decodeUnknownEffect(HistoryCorrection)(creates[0]?.properties);
-			expect(saved).toMatchObject({
-				step: 1,
-				phase: "done",
-				sourceRevision: 1,
-				runKey: "request:1",
-				requestKey: "request",
-				liveSourceIds: ["source"],
-			});
-			expect(test.commands[0]?.events.baselines).toEqual([
-				{ revision: 1, entityId: EntityId.make("subject") },
-			]);
-			expect(test.commands[0]?.events.changes).toEqual([]);
+			expect(test.commands).toEqual([]);
 		}),
 	testTimeout,
 );

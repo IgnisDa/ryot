@@ -638,7 +638,8 @@ a past completion. A retained inventory is not recaptured. Each invocation runs 
 then admits a deterministic continuation. Source and evidence reads are paged; inventory writes contain
 at most 50 episodes, and audit, prune, and sweep handle up to 25 records per step.
 Flat media with no progress, completion occurrences, temporary coverage, or missing child dependencies
-settles a fresh run in one guarded checkpoint. Explicit completions and independent numbered items
+settles without a commit on its first run and with one guarded checkpoint after an earlier one; a
+subject with no checkpoint reads as settled. Explicit completions and independent numbered items
 need no empty audit/progress/prune/clear checkpoints. Existing correction evidence and episodic
 coverage still use the paged state machine.
 A stale or conflicting commit fails with `HistoryCorrectionConflict` and yields to a fresh durable

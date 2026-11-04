@@ -923,6 +923,10 @@ export const advanceHistoryCorrection = Effect.fn("advanceHistoryCorrection")(fu
 				chainablePhases.has(state.phase) &&
 				!visited.has(state.phase));
 	}
+	// A first correction that finds nothing to correct has nothing to record: no checkpoint reads as settled.
+	if (previous === undefined && state.phase === "done" && write.isEmpty()) {
+		return { nextKey: "", pending: false };
+	}
 	state.step += 1;
 	state.workKey = input.workKey;
 	state.sourceRevision = context.sourceRevision + write.sourceWrites();
