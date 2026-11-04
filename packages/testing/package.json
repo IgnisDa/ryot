@@ -57,13 +57,13 @@
 	},
 	"devDependencies": {
 		"@voila.dev/effect-bun-test": "4.0.4",
-		"@testcontainers/postgresql": "11.14.0",
+		"@testcontainers/postgresql": "12.2.1",
 		"bun-types": "1.4.4",
-		"testcontainers": "11.14.0"
+		"testcontainers": "12.2.1"
 	},
 	"peerDependencies": {
-		"@testcontainers/postgresql": "11.14.0",
-		"testcontainers": "11.14.0"
+		"@testcontainers/postgresql": "12.2.1",
+		"testcontainers": "12.2.1"
 	},
 	"peerDependenciesMeta": {
 		"@testcontainers/postgresql": {

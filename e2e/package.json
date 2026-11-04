@@ -26,7 +26,7 @@
 		"@ryot-app/server": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"@testcontainers/postgresql": "11.14.0",
+		"@testcontainers/postgresql": "12.2.1",
 		"@voila.dev/effect-bun-test": "4.0.4",
 		"better-auth": "1.7.16",
 		"dotenv": "18.0.9",
@@ -37,6 +37,6 @@
 		"oauth2-mock-server": "9.1.0",
 		"playwright": "1.64.1",
 		"rfc4648": "1.5.4",
-		"testcontainers": "11.14.0"
+		"testcontainers": "12.2.1"
 	}
 }
