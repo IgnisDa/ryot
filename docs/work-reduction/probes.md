@@ -984,3 +984,20 @@ After progress writes, a history-correction step continues into prune and clear,
 it already changed, so a movie commits once. `media-progress-fanout-20` against `probesH4`: user commands 40 to 20,
 statements 25,179 to 20,438, settle time 17.7 s to 14.5 s, API CPU 14.7 s to 12.4 s. `hc4`, the media event files
 with `analytics-recipes`: 62 of 62 passed, the 60-subject liveness test in 164 s.
+
+## Run `full21` (whole suite under the Bun runner)
+
+Whole suite on the VM at `5b3df17c12`, the first full run after the move to Bun's test runner and after history
+correction's one-commit steps: 45 min, 941 passed, 10 failed, 13 skipped. (`full20` stopped after the browser group;
+the e2e runner now runs both groups.)
+
+- **History correction:** three liveness tests at the 180 s timeout (overlapping chains, multi-page snapshot,
+  batched audit writes). The 60-subject test and `analytics-recipes`' rankings test passed.
+- **Media backups**, consumption basis: restored occurrences carried the new `key` the test did not expect. The
+  check also exposed a real fault: `completionKey` was declared an event-ID reference, so restoring a backup with
+  automatic completions would fail to map it. It is now a plain string.
+- **Browser timeouts under load**, each a 30 s locator wait: three in `fitness-workout-editor` (one is the `full19`
+  dialog), Instance Admin impersonation and exercise history.
+- **`entity-reminders`**, `Malformed value` filling a `datetime-local` input, as in `full12`.
+- **`sidecar-recovery`**, mid-import recovery: the user core process restarted once more than expected
+  (generation 9, expected 8).

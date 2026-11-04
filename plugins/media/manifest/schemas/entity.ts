@@ -360,8 +360,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 				completionKey: {
 					type: "string" as const,
 					label: "Automatic completion identity",
-					reference: { kind: "event-id" as const },
-					description: "Stable identity of the completion evidence",
+					description: "Key of the completion occurrence that derived this record",
 				},
 			},
 		}),

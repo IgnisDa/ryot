@@ -102,6 +102,7 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			silent: true,
 			frozen: false,
 			rule: "progress",
+			key: anyOf(String),
 			status: "inactive",
 			runKey: anyOf(String),
 			entityId: fixture.entityId,
