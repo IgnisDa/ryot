@@ -386,7 +386,7 @@ const eventStreamWorkServiceLayer = (request: EventStreamWorkService["Service"][
 			prepare: () => Effect.die("Unexpected EventStreamWorkService.prepare"),
 			process: () => Effect.die("Unexpected EventStreamWorkService.process"),
 			reconcile: () => Effect.die("Unexpected EventStreamWorkService.reconcile"),
-			admitChange: () => Effect.die("Unexpected EventStreamWorkService.admitChange"),
+			admitChanges: () => Effect.die("Unexpected EventStreamWorkService.admitChanges"),
 		}),
 	);
 

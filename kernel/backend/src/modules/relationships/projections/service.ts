@@ -479,23 +479,50 @@ export class RelationshipProjectionService extends Context.Service<RelationshipP
 
 			/** Marks the notes a change makes stale, in its transaction, returning jobs to dispatch after commit. */
 			const admitInputs = Effect.fn("RelationshipProjectionService.admitInputs")(function* (
-				trigger: AutomationTrigger,
+				triggers: ReadonlyArray<AutomationTrigger>,
 			) {
-				const userId = trigger.scopeUserId;
-				const input = userId === null ? null : inputSources(trigger);
-				if (userId === null || input === null) {
-					return [];
+				const groups = new Map<
+					string,
+					{
+						userId: UserId;
+						pluginId: string;
+						inputs: Array<NonNullable<ReturnType<typeof inputSources>>>;
+					}
+				>();
+				for (const trigger of triggers) {
+					const userId = trigger.scopeUserId;
+					const input = userId === null ? null : inputSources(trigger);
+					if (userId === null || input === null) {
+						continue;
+					}
+					const key = stableStringify([userId, input.pluginId]);
+					const group = groups.get(key) ?? { userId, inputs: [], pluginId: input.pluginId };
+					group.inputs.push(input);
+					groups.set(key, group);
 				}
 				const jobIds: string[] = [];
-				for (const { slug, inputs } of yield* repository.inputSchemas(userId, input.pluginId)) {
-					const sources = [...new Set(input.sources(inputs, slug))];
+				for (const { userId, pluginId, inputs: groupInputs } of groups.values()) {
+					jobIds.push(...(yield* admitGroupInputs(userId, pluginId, groupInputs)));
+				}
+				return jobIds;
+			});
+			const admitGroupInputs = Effect.fnUntraced(function* (
+				userId: UserId,
+				pluginId: string,
+				groupInputs: ReadonlyArray<NonNullable<ReturnType<typeof inputSources>>>,
+			) {
+				const jobIds: string[] = [];
+				for (const { slug, inputs } of yield* repository.inputSchemas(userId, pluginId)) {
+					const sources = [
+						...new Set(groupInputs.flatMap((groupInput) => groupInput.sources(inputs, slug))),
+					];
 					if (sources.length === 0) {
 						continue;
 					}
 					const key = {
 						userId,
 						relationshipSchemaSlug: slug,
-						relationshipSchemaPluginId: input.pluginId,
+						relationshipSchemaPluginId: pluginId,
 					};
 					const binding = yield* currentBinding(key);
 					if (!binding) {

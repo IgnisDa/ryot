@@ -150,10 +150,12 @@ export class LifecycleWork extends Context.Service<
 	LifecycleWork,
 	{
 		dispatch: (jobIds: ReadonlyArray<string>) => Effect.Effect<void, DbError>;
-		admit: (trigger: AutomationTrigger) => Effect.Effect<ReadonlyArray<string>, DbError>;
-		/** Writes plugins declared for a change, in its transaction, returning the triggers of those writes. */
+		admit: (
+			triggers: ReadonlyArray<AutomationTrigger>,
+		) => Effect.Effect<ReadonlyArray<string>, DbError>;
+		/** Writes plugins declared for changes, in their transaction, returning the triggers of those writes. */
 		derive: (
-			trigger: AutomationTrigger,
+			triggers: ReadonlyArray<AutomationTrigger>,
 		) => Effect.Effect<ReadonlyArray<AutomationTrigger>, DbError>;
 	}
 >()("@ryot-app/kernel-backend/modules/automations/lifecycle/planning/LifecycleWork") {}
@@ -168,6 +170,10 @@ export class LifecyclePlanner extends Context.Service<
 		planChange: (input: {
 			trigger: AutomationTrigger;
 		}) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
+		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
+		planChanges: (
+			triggers: ReadonlyArray<AutomationTrigger>,
+		) => Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError>;
 		prepareBatch: (
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;

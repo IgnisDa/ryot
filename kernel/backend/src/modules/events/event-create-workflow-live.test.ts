@@ -320,6 +320,60 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 			const read = <A>(select: (snapshot: HarnessState) => A) => Effect.map(current, select);
 			const update = (change: (snapshot: HarnessState) => Partial<HarnessState>) =>
 				Ref.update(state, (snapshot) => ({ ...snapshot, ...change(snapshot) }));
+			const fakeCreateEvent = (input: CreatedEvent) =>
+				Effect.gen(function* () {
+					const { activeActivity, activeTransaction } = yield* current;
+					expect(activeTransaction).toBe(true);
+					expect(activeActivity).toBe(true);
+					yield* update(({ calls, created }) => ({
+						calls: [...calls, "write"],
+						created: [...created, input],
+					}));
+					return {
+						id: input.id,
+						createdAt: now,
+						updatedAt: now,
+						entityId: input.entityId,
+						properties: input.properties,
+						eventSchemaSlug: input.eventSchemaSlug,
+						eventSchemaName: input.eventSchemaName,
+						sessionEntityId: input.sessionEntityId,
+						occurredAt: input.occurredAt.toISOString(),
+						eventSchemaPluginId:
+							input.eventSchemaPluginId === null ? null : PluginId.make(input.eventSchemaPluginId),
+					};
+				});
+			const fakeEventSnapshot = ({ eventId }: { readonly eventId: string }) =>
+				Effect.gen(function* () {
+					const snapshot = yield* current;
+					const created = snapshot.created.find(({ id }) => id === eventId);
+					if (!created) {
+						return null;
+					}
+					const entitySchemaPluginId =
+						visibleEntity(snapshot, created.entityId)?.entitySchemaPluginId ?? null;
+					return yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
+						id: created.id,
+						createdAt: now,
+						updatedAt: now,
+						entitySchemaSlug,
+						entitySchemaPluginId,
+						entityId: created.entityId,
+						properties: created.properties,
+						eventSchemaSlug: created.eventSchemaSlug,
+						occurredAt: created.occurredAt.toISOString(),
+						sessionEntityId: created.sessionEntityId ?? null,
+						eventSchemaPluginId:
+							created.eventSchemaPluginId === null
+								? null
+								: PluginId.make(created.eventSchemaPluginId),
+					}).pipe(
+						Effect.mapBoth({
+							onSuccess: (eventSnapshot) => ({ revision: 0, snapshot: eventSnapshot }),
+							onFailure: () => new DbError({ message: "Invalid fixture event snapshot" }),
+						}),
+					);
+				});
 			const record = (call: string) => update(({ calls }) => ({ calls: [...calls, call] }));
 			const recordEntityLocks = (entityIds: ReadonlyArray<EntityId>) =>
 				Effect.gen(function* () {
@@ -803,10 +857,24 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 						const live = yield* EventsRepository.make;
 						return EventsRepository.of({
 							...live,
+							createEvent: fakeCreateEvent,
+							getEventSnapshot: fakeEventSnapshot,
+							createEvents: (inputs) => Effect.forEach(inputs, fakeCreateEvent),
 							lockEventRows: ({ eventIds }) =>
 								eventIds.length === 0
 									? Effect.succeed([])
 									: Effect.succeed(eventIds.map((id) => ({ id }))),
+							getEventSnapshots: (_userId, eventIds) =>
+								Effect.map(
+									Effect.forEach(eventIds, (eventId) => fakeEventSnapshot({ eventId })),
+									(snapshots) =>
+										new Map(
+											snapshots.flatMap((snapshot, index) => {
+												const eventId = eventIds[index];
+												return snapshot && eventId ? [[eventId, snapshot] as const] : [];
+											}),
+										),
+								),
 							lockMutationReferences: (input) =>
 								Effect.gen(function* () {
 									expect(input.eventIds).toEqual([]);
@@ -821,62 +889,6 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 												),
 											),
 										].sort(),
-									);
-								}),
-							createEvent: (input) =>
-								Effect.gen(function* () {
-									const { activeActivity, activeTransaction } = yield* current;
-									expect(activeTransaction).toBe(true);
-									expect(activeActivity).toBe(true);
-									yield* update(({ calls, created }) => ({
-										calls: [...calls, "write"],
-										created: [...created, input],
-									}));
-									return {
-										id: input.id,
-										createdAt: now,
-										updatedAt: now,
-										entityId: input.entityId,
-										properties: input.properties,
-										eventSchemaSlug: input.eventSchemaSlug,
-										eventSchemaName: input.eventSchemaName,
-										sessionEntityId: input.sessionEntityId,
-										occurredAt: input.occurredAt.toISOString(),
-										eventSchemaPluginId:
-											input.eventSchemaPluginId === null
-												? null
-												: PluginId.make(input.eventSchemaPluginId),
-									};
-								}),
-							getEventSnapshot: ({ eventId }) =>
-								Effect.gen(function* () {
-									const snapshot = yield* current;
-									const created = snapshot.created.find(({ id }) => id === eventId);
-									if (!created) {
-										return null;
-									}
-									const entitySchemaPluginId =
-										visibleEntity(snapshot, created.entityId)?.entitySchemaPluginId ?? null;
-									return yield* Schema.decodeUnknownEffect(AutomationEventSnapshot)({
-										id: created.id,
-										createdAt: now,
-										updatedAt: now,
-										entitySchemaSlug,
-										entitySchemaPluginId,
-										entityId: created.entityId,
-										properties: created.properties,
-										eventSchemaSlug: created.eventSchemaSlug,
-										occurredAt: created.occurredAt.toISOString(),
-										sessionEntityId: created.sessionEntityId ?? null,
-										eventSchemaPluginId:
-											created.eventSchemaPluginId === null
-												? null
-												: PluginId.make(created.eventSchemaPluginId),
-									}).pipe(
-										Effect.mapBoth({
-											onSuccess: (eventSnapshot) => ({ revision: 0, snapshot: eventSnapshot }),
-											onFailure: () => new DbError({ message: "Invalid fixture event snapshot" }),
-										}),
 									);
 								}),
 						});

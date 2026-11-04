@@ -313,17 +313,26 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				return id;
 			});
 
-			const admitChange = Effect.fn("EventStreamWorkService.admitChange")(function* (
-				trigger: AutomationTrigger,
+			const admitChanges = Effect.fn("EventStreamWorkService.admitChanges")(function* (
+				triggers: ReadonlyArray<AutomationTrigger>,
 			) {
-				const change = trigger.payload;
-				const userId = trigger.scopeUserId;
-				if (
-					change?.category !== "change" ||
-					change.resource !== "event" ||
-					change.operation === "batch" ||
-					userId === null
-				) {
+				const sources = triggers.flatMap((trigger) => {
+					const change = trigger.payload;
+					const userId = trigger.scopeUserId;
+					if (
+						change?.category !== "change" ||
+						change.resource !== "event" ||
+						change.operation === "batch" ||
+						userId === null
+					) {
+						return [];
+					}
+					return [
+						...(change.operation === "create" ? [] : [change.before]),
+						...(change.operation === "delete" ? [] : [change.after]),
+					].map((source) => Object.assign({}, source, { userId }));
+				});
+				if (sources.length === 0) {
 					return [];
 				}
 				yield* session.requireTransaction.pipe(
@@ -331,13 +340,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 						() => new DbError({ message: "Projection admission requires a source transaction" }),
 					),
 				);
-				const sources = [
-					...(change.operation === "create" ? [] : [change.before]),
-					...(change.operation === "delete" ? [] : [change.after]),
-				];
-				const candidates = yield* repository.sourceCandidates(
-					sources.map((source) => Object.assign({}, source, { userId })),
-				);
+				const candidates = yield* repository.sourceCandidates(sources);
 				const declarations = new Map<
 					string,
 					{
@@ -717,7 +720,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					}
 				}
 			});
-			return { prepare, process, request, reconcile, admitChange };
+			return { prepare, process, request, reconcile, admitChanges };
 		}),
 	},
 ) {

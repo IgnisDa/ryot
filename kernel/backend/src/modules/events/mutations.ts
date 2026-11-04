@@ -1,4 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationEntityDraft,
 	AutomationEventDraft,
@@ -569,12 +570,22 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				const results = [];
 				const dispatch = [];
 				const recorded: Array<Parameters<typeof receipts.insertMany>[0][number]> = [];
+				const triggers: Array<AutomationTrigger> = [];
 				const checkedOwners = new Set<null | string>();
+				const assetOwners: Array<Parameters<typeof assets.lock>[0][number]> = [];
+				const validatedRows: Array<{
+					index: number;
+					row: (typeof rows)[number];
+					command: DomainLifecycleCommand;
+					schema: NonNullable<ReturnType<typeof schemasByScope.get>>;
+					processed: PolicyBatchResult["items"][number]["processed"];
+					draft: Extract<
+						PolicyBatchResult["items"][number]["request"],
+						{ resource: "event" }
+					>["draft"];
+				}> = [];
 				for (const [index, row] of rows.entries()) {
-					const replay = prior[index];
-					if (replay) {
-						results.push({ eventId: replay.result.eventId, itemIdentity: row.change.itemIdentity });
-						dispatch.push(...replay.dispatch);
+					if (prior[index]) {
 						continue;
 					}
 					const accepted = input.validated.items.find(
@@ -638,34 +649,55 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					yield* assertStableUnder("Event", schema.propertiesSchema, draft.properties, () =>
 						bad("invalid-properties", "Event properties changed during validation"),
 					);
-					yield* assets
-						.lock([
-							{
-								ownerUserId: input.userId,
-								properties: draft.properties,
-								propertiesSchema: schema.propertiesSchema,
-							},
-						])
-						.pipe(
-							Effect.catchTag(
-								"ManagedAssetReferenceRejected",
-								() => new EventBadRequest({ reason: { code: "asset-forbidden" } }),
-							),
-						);
+					assetOwners.push({
+						ownerUserId: input.userId,
+						properties: draft.properties,
+						propertiesSchema: schema.propertiesSchema,
+					});
+					validatedRows.push({ row, index, draft, schema, command, processed: accepted.processed });
+				}
+				yield* assets
+					.lock(assetOwners)
+					.pipe(
+						Effect.catchTag(
+							"ManagedAssetReferenceRejected",
+							() => new EventBadRequest({ reason: { code: "asset-forbidden" } }),
+						),
+					);
+				const creates = validatedRows.filter(({ row }) => row.change.kind === "create");
+				yield* repository.createEvents(
+					creates.map(({ row, draft, schema }) => ({
+						order: row.order ?? undefined,
+						...draft,
+						userId: input.userId,
+						id: preparedEventId(row),
+						eventSchemaName: schema.name,
+						sessionEntityId: draft.sessionEntityId ?? undefined,
+						occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
+					})),
+				);
+				const snapshots = yield* repository.getEventSnapshots(
+					input.userId,
+					creates.map(({ row }) => preparedEventId(row)),
+				);
+				const acceptedByIndex = new Map(validatedRows.map((entry) => [entry.index, entry]));
+				for (const [index, row] of rows.entries()) {
+					const replay = prior[index];
+					if (replay) {
+						results.push({ eventId: replay.result.eventId, itemIdentity: row.change.itemIdentity });
+						dispatch.push(...replay.dispatch);
+						continue;
+					}
+					const entry = acceptedByIndex.get(index);
+					if (!entry) {
+						return yield* new DbError({ message: "Validated event change is unavailable" });
+					}
+					const { draft, command } = entry;
 					let change;
 					let eventId: EventId;
 					if (row.change.kind === "create") {
-						const event = yield* repository.createEvent({
-							order: row.order ?? undefined,
-							...draft,
-							userId: input.userId,
-							id: preparedEventId(row),
-							eventSchemaName: schema.name,
-							sessionEntityId: draft.sessionEntityId ?? undefined,
-							occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
-						});
-						eventId = event.id;
-						const after = yield* repository.getEventSnapshot({ eventId, userId: input.userId });
+						eventId = preparedEventId(row);
+						const after = snapshots.get(eventId);
 						if (!after) {
 							return yield* new DbError({ message: "Created event disappeared" });
 						}
@@ -719,22 +751,25 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							};
 						}
 					}
-					const planned = yield* planner.planChange({
-						trigger: yield* lifecycleTrigger(command, input.userId, change),
-					});
-					dispatch.push(...planned);
+					triggers.push(yield* lifecycleTrigger(command, input.userId, change));
 					recorded.push({
-						dispatch: planned,
+						dispatch: [],
 						identity: row.receipt,
 						batchId: preparedBatch.id,
 						batchIndex: (input.batchIndexOffset ?? 0) + index,
 						evidence: preparedBatch.hasCandidates ? change : undefined,
 						result:
-							row.change.kind === "create"
-								? { eventId, processed: accepted.processed }
-								: { eventId },
+							row.change.kind === "create" ? { eventId, processed: entry.processed } : { eventId },
 					});
 					results.push({ eventId, itemIdentity: row.change.itemIdentity });
+				}
+				const planned = yield* planner.planChanges(triggers);
+				for (const [index, plans] of planned.entries()) {
+					dispatch.push(...plans);
+					const entry = recorded[index];
+					if (entry) {
+						recorded[index] = { ...entry, dispatch: plans };
+					}
 				}
 				yield* receipts.insertMany(recorded);
 				if (input.sealBatch !== false) {

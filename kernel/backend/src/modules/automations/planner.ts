@@ -77,6 +77,26 @@ const mapBatchConflict = (error: DbError | MutationReceiptIdentityConflict) =>
 		? new DbError({ message: `Conflicting batch command identity: ${error.receiptId}` })
 		: error;
 
+const carryJobs = (
+	plans: ReadonlyArray<LifecycleDispatchPlan>,
+	triggerId: AutomationTrigger["id"],
+	backgroundJobIds: ReadonlyArray<string>,
+): ReadonlyArray<LifecycleDispatchPlan> => {
+	if (backgroundJobIds.length === 0) {
+		return plans;
+	}
+	if (!plans.some((planned) => planned.triggerId === triggerId)) {
+		return [...plans, { runs: [], triggerId, backgroundJobIds, blockedReason: null }];
+	}
+	return plans.map((planned) =>
+		planned.triggerId === triggerId
+			? { ...planned, backgroundJobIds: [...planned.backgroundJobIds, ...backgroundJobIds] }
+			: planned,
+	);
+};
+
+type Admission = (trigger: AutomationTrigger) => Effect.Effect<ReadonlyArray<string>, DbError>;
+
 export const LifecyclePlannerLive = Layer.effect(
 	LifecyclePlanner,
 	Effect.gen(function* () {
@@ -140,6 +160,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		const replayExisting = Effect.fn("LifecyclePlanner.replayExisting")(function* (
 			trigger: AutomationTrigger,
 			stored: AutomationTrigger,
+			admit: Admission,
 		) {
 			const persistedTrigger = yield* triggers.insert({
 				...trigger,
@@ -152,16 +173,19 @@ export const LifecyclePlannerLive = Layer.effect(
 			return {
 				wasCreated: false,
 				trigger: persistedTrigger,
-				backgroundJobIds: yield* work.admit(trigger),
+				backgroundJobIds: yield* admit(trigger),
 				...(yield* orderedRuns(existing)),
 			};
 		});
-		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
-			trigger: AutomationTrigger;
-			recipients?: ReadonlyArray<UserId>;
-			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
-			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
-		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
+		const planWith = Effect.fn("LifecyclePlanner.plan")(function* (
+			input: {
+				trigger: AutomationTrigger;
+				recipients?: ReadonlyArray<UserId>;
+				pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
+				excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
+			},
+			admit: Admission,
+		): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
 				input.trigger,
 				AutomationTrigger,
@@ -228,7 +252,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			// Catalog locks remain held while matching hooks and writing the selected runs.
 			const stored = yield* triggers.findById(trigger.id);
 			if (stored) {
-				return yield* replayExisting(trigger, stored);
+				return yield* replayExisting(trigger, stored, admit);
 			}
 			if (signal && recipients.length) {
 				const enabled = yield* session.run((db) =>
@@ -323,7 +347,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const ordered = yield* orderedRuns(planned);
 			if (ordered.runs.length === 0 && trigger.payload.resource !== "signal") {
-				const backgroundJobIds = yield* work.admit(trigger);
+				const backgroundJobIds = yield* admit(trigger);
 				return backgroundJobIds.length > 0
 					? { trigger, runs: [], policies: [], backgroundJobIds, wasCreated: false }
 					: {
@@ -342,7 +366,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const raced = yield* triggers.findById(trigger.id);
 			if (raced) {
-				return yield* replayExisting(trigger, raced);
+				return yield* replayExisting(trigger, raced, admit);
 			}
 			const [accepted] = yield* session.run((db) =>
 				db
@@ -382,7 +406,7 @@ export const LifecyclePlannerLive = Layer.effect(
 					: null,
 			});
 			yield* triggers.insertRecipients(trigger.id, recipients);
-			const backgroundJobIds = yield* work.admit(trigger);
+			const backgroundJobIds = yield* admit(trigger);
 			if (blocked) {
 				return {
 					runs: [],
@@ -400,6 +424,8 @@ export const LifecyclePlannerLive = Layer.effect(
 				runs: yield* runs.insertQueued({ runs: ordered.runs, triggerPayload: payload }),
 			};
 		});
+		const plan = (input: Parameters<typeof planWith>[0]) =>
+			planWith(input, (trigger) => work.admit([trigger]));
 		const batchIdentity = (input: LifecycleBatchInput) =>
 			receipts.batchIdentity({ ...input, ownerUserId: mutationReceiptOwner(input.command, null) });
 		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
@@ -484,17 +510,29 @@ export const LifecyclePlannerLive = Layer.effect(
 			yield* receipts.sealBatch(identity, dispatch);
 			return dispatch;
 		});
-		const planChange = (input: {
-			trigger: AutomationTrigger;
-		}): Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError> =>
+		// Admission and derivation run once for the whole list; their job IDs and derived plans join the first
+		// trigger's plans, since a chunk's receipts replay together.
+		const planChanges = (
+			changes: ReadonlyArray<AutomationTrigger>,
+		): Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError> =>
 			Effect.gen(function* () {
-				const planned = yield* plan(input);
-				const dispatch = planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)];
-				for (const derived of yield* work.derive(input.trigger)) {
-					dispatch.push(...(yield* planChange({ trigger: derived })));
+				const [first] = changes;
+				if (first === undefined) {
+					return [];
 				}
-				return dispatch;
+				const plans = yield* Effect.forEach(changes, (trigger) =>
+					Effect.map(
+						planWith({ trigger }, () => Effect.succeed([])),
+						(planned) => (planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)]),
+					),
+				);
+				const backgroundJobIds = yield* work.admit(changes);
+				const derived = (yield* planChanges(yield* work.derive(changes))).flat();
+				const [leading = [], ...rest] = plans;
+				return [[...carryJobs(leading, first.id, backgroundJobIds), ...derived], ...rest];
 			});
-		return { plan, planBatch, planChange, prepareBatch };
+		const planChange = (input: { trigger: AutomationTrigger }) =>
+			Effect.map(planChanges([input.trigger]), (plans) => plans.flat());
+		return { plan, planBatch, planChange, planChanges, prepareBatch };
 	}),
 );

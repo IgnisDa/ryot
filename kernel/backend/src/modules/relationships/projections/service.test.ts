@@ -365,7 +365,7 @@ layer(testLayer)((test) => {
 			});
 			const admit = (id: string, payload: AutomationTriggerPayload) =>
 				session.transaction(
-					Effect.flatMap(changeTrigger(id, payload), (trigger) => service.admitInputs(trigger)),
+					Effect.flatMap(changeTrigger(id, payload), (trigger) => service.admitInputs([trigger])),
 				);
 			expect(yield* admit("other", eventChange(fixture.pluginId, first, "other"))).toEqual([]);
 			expect(yield* admit("changed", eventChange(fixture.pluginId, first, "changed"))).toHaveLength(

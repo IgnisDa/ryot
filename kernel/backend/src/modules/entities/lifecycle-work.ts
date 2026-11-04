@@ -18,9 +18,9 @@ export const DeclaredLifecycleWorkLive = Layer.effect(
 		return LifecycleWork.of({
 			derive: memberships.derive,
 			dispatch: (ids) => Effect.forEach(ids, (id) => background.dispatch(id), { discard: true }),
-			admit: (trigger) =>
+			admit: (triggers) =>
 				Effect.map(
-					Effect.all([streams.admitChange(trigger), projections.admitInputs(trigger)]),
+					Effect.all([streams.admitChanges(triggers), projections.admitInputs(triggers)]),
 					([events, relationships]) => [...events, ...relationships],
 				),
 		});

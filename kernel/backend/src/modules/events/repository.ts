@@ -91,6 +91,26 @@ const toListedEvent = (row: EventRow): ListedEvent => ({
 		row.eventSchemaPluginId === null ? null : PluginId.make(row.eventSchemaPluginId),
 });
 
+const snapshotSelection = {
+	...createdEventSelection,
+	revision: schema.event.revision,
+	entitySchemaSlug: schema.entity.entitySchemaSlug,
+	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+};
+
+type CreateEventInput = {
+	readonly id: EventId;
+	readonly userId: UserId;
+	readonly occurredAt: Date;
+	readonly entityId: EntityId;
+	readonly eventSchemaName: string;
+	readonly eventSchemaSlug: EventSchemaSlug;
+	readonly eventSchemaPluginId: null | string;
+	readonly properties: Record<string, unknown>;
+	readonly sessionEntityId?: EntityId | undefined;
+	readonly order?: undefined | { readonly key: string; readonly createdAt: string };
+};
+
 const eventStreamKey = (row: {
 	readonly userId: string;
 	readonly entityId: string;
@@ -252,77 +272,100 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				return row !== undefined;
 			});
 
-			const createEvent = Effect.fn("EventsRepository.createEvent")(function* (input: {
-				id: EventId;
-				userId: UserId;
-				occurredAt: Date;
-				entityId: EntityId;
-				eventSchemaName: string;
-				eventSchemaSlug: EventSchemaSlug;
-				eventSchemaPluginId: null | string;
-				properties: Record<string, unknown>;
-				sessionEntityId?: EntityId | undefined;
-				order?: undefined | { key: string; createdAt: string };
-			}) {
+			const createEvents = Effect.fn("EventsRepository.createEvents")(function* (
+				inputs: ReadonlyArray<CreateEventInput>,
+			) {
 				yield* requireTransaction;
-				const streamKey = eventStreamKey(input);
-				yield* eventStreams.lock([streamKey]);
+				if (inputs.length === 0) {
+					return [];
+				}
+				yield* eventStreams.lock(inputs.map(eventStreamKey));
 				const createdAt = yield* DateTime.nowAsDate;
-				const [inserted] = yield* session.run((db) =>
+				const inserted = yield* session.run((db) =>
 					db
 						.insert(schema.event)
-						.values({
-							createdAt,
-							id: input.id,
-							updatedAt: createdAt,
-							userId: input.userId,
-							entityId: input.entityId,
-							properties: input.properties,
-							occurredAt: input.occurredAt,
-							orderKey: input.order?.key ?? null,
-							eventSchemaSlug: input.eventSchemaSlug,
-							sessionEntityId: input.sessionEntityId ?? null,
-							eventSchemaPluginId: input.eventSchemaPluginId,
-							orderCreatedAt: input.order
-								? DateTime.toDate(DateTime.makeUnsafe(input.order.createdAt))
-								: null,
-						})
+						.values(
+							inputs.map((input) => ({
+								createdAt,
+								id: input.id,
+								updatedAt: createdAt,
+								userId: input.userId,
+								entityId: input.entityId,
+								properties: input.properties,
+								occurredAt: input.occurredAt,
+								orderKey: input.order?.key ?? null,
+								eventSchemaSlug: input.eventSchemaSlug,
+								sessionEntityId: input.sessionEntityId ?? null,
+								eventSchemaPluginId: input.eventSchemaPluginId,
+								orderCreatedAt: input.order
+									? DateTime.toDate(DateTime.makeUnsafe(input.order.createdAt))
+									: null,
+							})),
+						)
 						.onConflictDoNothing()
 						.returning(createdEventSelection),
 				);
-				let row = inserted;
-				const eventId = input.id;
-				if (!row) {
-					const [existing] = yield* session.run((db) =>
-						db
-							.select(createdEventSelection)
-							.from(schema.event)
-							.where(and(eq(schema.event.id, eventId), eq(schema.event.userId, input.userId)))
-							.limit(1),
+				const insertedIds = new Set(inserted.map(({ id }) => id));
+				const missing = inputs.filter((input) => !insertedIds.has(input.id));
+				const existing =
+					missing.length === 0
+						? []
+						: yield* session.run((db) =>
+								db
+									.select({ ...createdEventSelection, userId: schema.event.userId })
+									.from(schema.event)
+									.where(
+										inArray(
+											schema.event.id,
+											missing.map(({ id }) => id),
+										),
+									),
+							);
+				const rows = new Map(
+					[
+						...inserted,
+						...existing.filter((row) =>
+							missing.some((input) => input.id === row.id && input.userId === row.userId),
+						),
+					].map((row) => [row.id, row]),
+				);
+				const created = [];
+				for (const input of inputs) {
+					const row = rows.get(input.id);
+					if (!row) {
+						return yield* new DbError({ message: "Event insert returned no row" });
+					}
+					if (
+						row.entityId !== input.entityId ||
+						row.eventSchemaSlug !== input.eventSchemaSlug ||
+						row.eventSchemaPluginId !== input.eventSchemaPluginId ||
+						row.sessionEntityId !== (input.sessionEntityId ?? null) ||
+						row.occurredAt.toISOString() !== input.occurredAt.toISOString() ||
+						stableStringify(row.properties) !== stableStringify(input.properties)
+					) {
+						return yield* new DbError({ message: "Conflicting event command identity" });
+					}
+					created.push(toListedEvent({ ...row, eventSchemaName: input.eventSchemaName }));
+				}
+				const fresh = inputs.filter((input) => insertedIds.has(input.id));
+				if (fresh.length > 0) {
+					yield* touchScopes(
+						fresh.map((input) => ({ ...input, sessionEntityId: input.sessionEntityId ?? null })),
 					);
-					row = existing;
+					yield* eventStreams.touch(
+						fresh.map((input) =>
+							Object.assign(eventStreamKey(input), { occurredAt: input.occurredAt }),
+						),
+					);
 				}
-
-				if (!row) {
-					return yield* new DbError({ message: "Event insert returned no row" });
-				}
-				if (
-					row.entityId !== input.entityId ||
-					row.eventSchemaSlug !== input.eventSchemaSlug ||
-					row.eventSchemaPluginId !== input.eventSchemaPluginId ||
-					row.sessionEntityId !== (input.sessionEntityId ?? null) ||
-					row.occurredAt.toISOString() !== input.occurredAt.toISOString() ||
-					stableStringify(row.properties) !== stableStringify(input.properties)
-				) {
-					return yield* new DbError({ message: "Conflicting event command identity" });
-				}
-				if (inserted) {
-					yield* touchScopes([{ ...input, sessionEntityId: input.sessionEntityId ?? null }]);
-					yield* eventStreams.touch([{ ...streamKey, occurredAt: inserted.occurredAt }]);
-				}
-
-				return toListedEvent({ ...row, eventSchemaName: input.eventSchemaName });
+				return created;
 			});
+			const createEvent = (input: CreateEventInput) =>
+				Effect.flatMap(createEvents([input]), ([created]) =>
+					created
+						? Effect.succeed(created)
+						: new DbError({ message: "Event insert returned no row" }),
+				);
 
 			const listUserDataEventReferences = Effect.fn("EventsRepository.listUserDataEventReferences")(
 				function* (input: { userId: UserId; entityIds: ReadonlyArray<EntityId> }) {
@@ -680,24 +723,17 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				},
 			);
 
-			const getEventSnapshot = Effect.fn("EventsRepository.getEventSnapshot")(function* (
-				input: EventIdentityInput,
-			) {
-				const [row] = yield* session.run((db) =>
+			const snapshotRows = (userId: UserId, eventIds: ReadonlyArray<EventId>) =>
+				session.run((db) =>
 					db
-						.select({
-							...createdEventSelection,
-							revision: schema.event.revision,
-							entitySchemaSlug: schema.entity.entitySchemaSlug,
-							entitySchemaPluginId: schema.entity.entitySchemaPluginId,
-						})
+						.select(snapshotSelection)
 						.from(schema.event)
 						.innerJoin(schema.entity, eq(schema.entity.id, schema.event.entityId))
-						.where(and(eq(schema.event.id, input.eventId), eq(schema.event.userId, input.userId))),
+						.where(and(inArray(schema.event.id, [...eventIds]), eq(schema.event.userId, userId))),
 				);
-				if (!row) {
-					return null;
-				}
+			const snapshotOf = Effect.fnUntraced(function* (
+				row: Effect.Success<ReturnType<typeof snapshotRows>>[number],
+			) {
 				if (row.eventSchemaPluginId !== row.entitySchemaPluginId) {
 					return yield* new DbError({
 						message: "Persisted event owner does not match its containing entity",
@@ -719,6 +755,23 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					Effect.mapError(() => new DbError({ message: "Invalid persisted event snapshot" })),
 				);
 				return { snapshot: event, revision: row.revision };
+			});
+			const getEventSnapshot = Effect.fn("EventsRepository.getEventSnapshot")(function* (
+				input: EventIdentityInput,
+			) {
+				const [row] = yield* snapshotRows(input.userId, [input.eventId]);
+				return row ? yield* snapshotOf(row) : null;
+			});
+			const getEventSnapshots = Effect.fn("EventsRepository.getEventSnapshots")(function* (
+				userId: UserId,
+				eventIds: ReadonlyArray<EventId>,
+			) {
+				const rows = eventIds.length === 0 ? [] : yield* snapshotRows(userId, eventIds);
+				const snapshots = new Map<string, Effect.Success<ReturnType<typeof snapshotOf>>>();
+				for (const row of rows) {
+					snapshots.set(row.id, yield* snapshotOf(row));
+				}
+				return snapshots;
 			});
 			const getCreateProgress = Effect.fn("EventsRepository.getCreateProgress")(function* (
 				userId: UserId,
@@ -745,11 +798,13 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			return {
 				deleteEvent,
 				createEvent,
+				createEvents,
 				hasUserEvents,
 				lockEventRows,
 				getEventOrder,
 				getEventSnapshot,
 				getScopeRevision,
+				getEventSnapshots,
 				getCreateProgress,
 				deletePreparedEvent,
 				updatePreparedEvent,

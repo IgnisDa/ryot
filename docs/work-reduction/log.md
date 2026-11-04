@@ -498,4 +498,9 @@
   parked isolate keeps its lease. The first build shared one memoized lifecycle instance between migrations and
   the runtime, which left direct attempts off everywhere; the runtime now installs them once the sandbox exists.
   The workout save fell from 59 workflows to 51 and 13 script executions to 9 (`probesB8`).
+- Event persistence became set-based within a chunk, ahead of step 9's second move: after direct policies, the
+  workout save's cost was mostly per-event inserts and planning. A chunk's creates insert and read back in one
+  statement each, and `LifecyclePlanner.planChanges` admits stream work, projection inputs and memberships once
+  for the chunk. 50 events fell from 1,616 statements to 488 and the workout save from 9,642 to 4,354, 5.2 s to
+  2.9 s (`probesB10`).
 

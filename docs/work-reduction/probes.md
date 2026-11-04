@@ -905,3 +905,20 @@ direct attempts were never available, and is discarded. Medians against `probesB
 
 The workout save's four policies now run without a run or script workflow; its 7 remaining runs are after hooks.
 
+## Run `probesB10` (set-based event persistence)
+
+Flow probes on the VM with event persistence set-based within a chunk: one insert, snapshot read and asset lock
+for the chunk's creates, and one planning pass for its changes. Medians against `probesB8`.
+
+| Flow | Run | Caller | Statements | DB exec | API CPU | Workflows |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 50 events, no hooks | `probesB8` | 743 ms | 1,616 | 201 ms | 450 ms | 0 |
+| | `probesB10` | 194 ms | 488 | 61 ms | 170 ms | 0 |
+| Workout editor save, 10 × 15 | `probesB8` | 5,211 ms | 9,642 | 1,411 ms | 3,540 ms | 51 |
+| | `probesB10` | 2,899 ms | 4,354 | 811 ms | 2,620 ms | 51 |
+| Event, `complete` | `probesB8` | 749 ms | 1,174 | 264 ms | 880 ms | 21 |
+| | `probesB10` | 731 ms | 1,149 | 242 ms | 840 ms | 21 |
+
+One `workout-1-set` run overlapped the frequent cron and an integration sync (894 statements); the other measured
+571, against about 600 before. Single-event flows are unchanged.
+

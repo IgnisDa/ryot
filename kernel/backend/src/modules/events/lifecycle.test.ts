@@ -1020,6 +1020,11 @@ describe("Event lifecycle PostgreSQL", () => {
 							...currentPlanner,
 						plan: (input) => failChanges(input.trigger, currentPlanner.plan(input)),
 						planChange: (input) => failChanges(input.trigger, currentPlanner.planChange(input)),
+						planChanges: (triggers) =>
+							Effect.andThen(
+								Effect.forEach(triggers, (trigger) => failChanges(trigger, Effect.void)),
+								currentPlanner.planChanges(triggers),
+							),
 						}),
 					);
 					const eventId = EventId.make("event");

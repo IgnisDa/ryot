@@ -87,6 +87,12 @@ export const withLifecycleBatchPlanning = (
 				hasCandidates,
 				id: stableStringify([input.command.itemIdentity, ...input.identity]),
 			}),
+		planChanges: (triggers) =>
+			Effect.forEach(triggers, (trigger) =>
+				Effect.map(recordPlan({ trigger }), (result) =>
+					result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],
+				),
+			),
 		planBatch: (input) =>
 			Effect.gen(function* () {
 				const identity = stableStringify([

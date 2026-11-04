@@ -28,6 +28,7 @@ import {
 	type LifecycleBatchInput,
 	LifecyclePlanner,
 	lifecycleRunId,
+	LifecycleWork,
 } from "#modules/automations/lifecycle/planning";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
@@ -790,6 +791,57 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual([]);
 				}),
 			testTimeout,
+		);
+	});
+
+	const admissions: Array<ReadonlyArray<string>> = [];
+	layer(
+		LifecyclePlannerLive.pipe(
+			Layer.provide(
+				Layer.succeed(LifecycleWork, {
+					dispatch: () => Effect.void,
+					derive: () => Effect.succeed([]),
+					admit: (triggers) =>
+						Effect.sync(() => {
+							admissions.push(triggers.map(({ id }) => id));
+							return ["projection-job"];
+						}),
+				}),
+			),
+			Layer.provide(
+				Layer.mergeAll(
+					Layer.succeed(AutomationPlannerResolver, {
+						lockCatalog: () => Effect.void,
+						resolve: () => Effect.succeed([]),
+						resolveBatchCandidates: () => Effect.succeed([]),
+					}),
+					AutomationRunRepository.layer,
+					AutomationTriggerRepository.layer,
+				),
+			),
+			Layer.provide(makeAppConfigLayer()),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)("batch change admission harness", (test) => {
+		test.effect("admits changes planned together once and carries their jobs on the first", () =>
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(hookPackage());
+				const first = yield* entityTrigger(installed.pluginId, "first-change");
+				const second = yield* entityTrigger(installed.pluginId, "second-change");
+				const planned = yield* (yield* LifecyclePlanner).planChanges([first, second]);
+				expect(admissions).toEqual([[first.id, second.id]]);
+				expect(planned).toEqual([
+					[
+						{
+							runs: [],
+							blockedReason: null,
+							triggerId: first.id,
+							backgroundJobIds: ["projection-job"],
+						},
+					],
+					[],
+				]);
+			}),
 		);
 	});
 

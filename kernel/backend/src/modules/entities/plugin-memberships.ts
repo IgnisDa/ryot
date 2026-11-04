@@ -255,34 +255,71 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 			});
 
 			const derive = Effect.fn("PluginMembershipWrites.derive")(function* (
-				trigger: AutomationTrigger,
+				triggers: ReadonlyArray<AutomationTrigger>,
 			) {
-				const userId = trigger.scopeUserId;
-				if (userId === null || trigger.payload === null) {
-					return [];
-				}
-				const command = {
-					accountGeneration: null,
-					occurredAt: trigger.occurredAt,
-					itemIdentity: `${trigger.id}:membership`,
-					causation: { ...trigger.causation, parentTriggerId: trigger.id },
-				};
-				const payload = trigger.payload;
-				if (
-					payload.category === "change" &&
-					payload.resource === "relationship" &&
-					payload.operation === "create"
-				) {
-					return yield* recordMembership(userId, trigger, command, payload.after);
-				}
-				const candidates: ReadonlyArray<Candidate> = yield* candidatesOf(userId, trigger.payload);
-				if (candidates.length === 0) {
-					return [];
-				}
-				const declared = yield* membershipsFor(userId, [
-					...new Set(candidates.map(({ entitySchemaPluginId }) => entitySchemaPluginId)),
-				]);
 				const derived: AutomationTrigger[] = [];
+				const pending: Array<{
+					userId: UserId;
+					command: LifecycleCommand;
+					candidates: ReadonlyArray<Candidate>;
+				}> = [];
+				for (const trigger of triggers) {
+					const userId = trigger.scopeUserId;
+					if (userId === null || trigger.payload === null) {
+						continue;
+					}
+					const command = {
+						accountGeneration: null,
+						occurredAt: trigger.occurredAt,
+						itemIdentity: `${trigger.id}:membership`,
+						causation: { ...trigger.causation, parentTriggerId: trigger.id },
+					};
+					const payload = trigger.payload;
+					if (
+						payload.category === "change" &&
+						payload.resource === "relationship" &&
+						payload.operation === "create"
+					) {
+						derived.push(...(yield* recordMembership(userId, trigger, command, payload.after)));
+						continue;
+					}
+					const candidates: ReadonlyArray<Candidate> = yield* candidatesOf(userId, payload);
+					if (candidates.length > 0) {
+						pending.push({ userId, command, candidates });
+					}
+				}
+				const declaredByUser = new Map<UserId, Effect.Success<ReturnType<typeof membershipsFor>>>();
+				for (const userId of new Set(pending.map((entry) => entry.userId))) {
+					declaredByUser.set(
+						userId,
+						yield* membershipsFor(userId, [
+							...new Set(
+								pending
+									.filter((entry) => entry.userId === userId)
+									.flatMap((entry) =>
+										entry.candidates.map((candidate) => candidate.entitySchemaPluginId),
+									),
+							),
+						]),
+					);
+				}
+				for (const { userId, command, candidates } of pending) {
+					const declared = declaredByUser.get(userId);
+					if (declared === undefined) {
+						continue;
+					}
+					yield* deriveCandidates(userId, command, candidates, declared, derived);
+				}
+				return derived;
+			});
+
+			const deriveCandidates = Effect.fnUntraced(function* (
+				userId: UserId,
+				command: LifecycleCommand,
+				candidates: ReadonlyArray<Candidate>,
+				declared: Effect.Success<ReturnType<typeof membershipsFor>>,
+				derived: AutomationTrigger[],
+			) {
 				for (const candidate of candidates) {
 					for (const membership of declared.get(candidate.entitySchemaPluginId) ?? []) {
 						if (

@@ -1,6 +1,6 @@
 # Design: commands are one transaction (step 8)
 
-Status: move 1 built (`probesB4`); moves 2–5 proposed. Step 8 of [`order-of-work.md`](order-of-work.md); the direction is in
+Status: move 1 built (`probesB4`); move 2 built in step 9; move 5 built for event persistence (`probesB10`); moves 3 and 4 proposed. Step 8 of [`order-of-work.md`](order-of-work.md); the direction is in
 [`redesign.md`](redesign.md#proposed-moves-in-order).
 
 ## What a no-hook event does today
@@ -43,6 +43,10 @@ Each lands on its own with flow probes.
    step 7 off the per-event path.
 5. **Set-based batches.** Prepare, persist and stream admission take the chunk as sets instead of per item: 50
    no-hook events are 1,561 statements today, about 31 per item.
+   Built for event persistence: a chunk's creates insert, read back and lock assets in one statement each, and
+   `LifecyclePlanner.planChanges` plans the chunk's changes with one stream admission, one projection-input pass
+   per plugin and one membership read per user. 50 no-hook events fell to 488 statements. Updates and deletes keep
+   their per-row stale checks; relationship and entity commands still plan per item.
 
 Entity and relationship writes go through `UserCommandWorkflow` and follow the same moves after events, since
 they share `PolicyBatchWorkflow` and the receipts.
