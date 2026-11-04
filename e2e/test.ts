@@ -2,7 +2,7 @@ import { availableParallelism } from "node:os";
 
 import { BunRuntime } from "@effect/platform-bun";
 import { runTests } from "@ryot-app/testing/runner";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import setup from "./global-setup";
 
@@ -23,17 +23,20 @@ BunRuntime.runMain(
 					),
 				)
 				.filter((group) => group.some((argument) => argument.endsWith(".test.ts")));
-			return yield* Effect.forEach(
-				groups,
-				(group) =>
+			// Both groups run even when the first fails.
+			const results = yield* Effect.all(
+				groups.map((group) =>
 					runTests({
 						env,
 						args: group,
 						timeout: 180_000,
 						workers: Math.min(6, availableParallelism()),
 					}),
-				{ discard: true },
+				),
+				{ mode: "result" },
 			);
+			const failure = results.find(Result.isFailure);
+			return failure === undefined ? undefined : yield* failure.failure;
 		}),
 	),
 );
