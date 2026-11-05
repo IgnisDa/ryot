@@ -7,9 +7,9 @@ import { EventMutationsLive } from "#modules/events/layer";
 import { EventsRepository } from "#modules/events/repository";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 
-import { UserCommandWorkflowDefinitionsLive } from "./workflow";
+import { UserCommands } from "./service";
 
-export const UserCommandWorkflowDefinitionsProvidedLive = UserCommandWorkflowDefinitionsLive.pipe(
+export const UserCommandsLive = UserCommands.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			EntitiesServiceRuntimeLive,

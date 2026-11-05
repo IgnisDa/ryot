@@ -205,22 +205,14 @@ export const makeEventCreate = Effect.gen(function* () {
 			) =>
 				runPolicyBatchDirect(policyBatch, plan).pipe(
 					Effect.provideContext(policyContext),
-					Effect.catchTags({
-						PolicyBatchBlocked: (error) =>
-							Effect.fail(
-								new EventCreateRejected({
-									kept: prepareFailures(prepared),
-									reason: { triggerId: error.triggerId, code: "automation-limit-reached" },
-								}),
-							),
-						AutomationPolicyExecutionError: (error) =>
-							Effect.fail(
-								new EventCreateRejected({
-									kept: prepareFailures(prepared),
-									reason: { runId: error.runId, code: "policy-execution-failed" },
-								}),
-							),
-					}),
+					Effect.catchTag("AutomationPolicyExecutionError", (error) =>
+						Effect.fail(
+							new EventCreateRejected({
+								kept: prepareFailures(prepared),
+								reason: { runId: error.runId, code: "policy-execution-failed" },
+							}),
+						),
+					),
 				);
 
 			const commit = Effect.fnUntraced(function* (

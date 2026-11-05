@@ -8,11 +8,11 @@ does not leave partial entity, relationship, or event source writes.
 
 ## Preparation and commit
 
-Entity and relationship preparation runs in durable workflows before commit. Event items are prepared
-and policies are evaluated in durable workflow steps before the commit activity. Preparation carries
-validated, serialized inputs into the final transaction; it does not hold a database transaction over
-workflow or sandbox execution. The commit rechecks references and schema fingerprints, persists the
-entity, relationships, and event changes, and records the result and dispatch plan atomically.
+`UserCommands.commit` prepares the entity and relationships, prepares event items in pages, and runs
+event policies, all before the commit transaction, so no database transaction is held over sandbox
+execution. Durable callers run the whole command inside one activity. The commit rechecks references
+and schema fingerprints, persists the entity, relationships, and event changes, and records the result
+and dispatch plan atomically.
 
 The commit holds its entity reference locks until it ends, so commands that write events under the
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update

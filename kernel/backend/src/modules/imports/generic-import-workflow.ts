@@ -10,7 +10,7 @@ import {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
-import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
+import { UserCommand, UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import {
 	type DefinitionOwner,
 	definitionOwner,
@@ -73,7 +73,7 @@ import {
 	type ScriptPluginRevision,
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommandWorkflow } from "#modules/user-commands/workflow";
+import { UserCommandFailure, UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -816,10 +816,16 @@ const writeGroupedRecord = Effect.fnUntraced(function* (
 			);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
-	const written = yield* UserCommandWorkflow.execute({
-		userId,
-		command: genericImportRecordCommand(context.command, item),
-		input: { entity: root, relationships, events: { creates, changes: [] } },
+	const commands = yield* UserCommands;
+	const written = yield* makeActivity({
+		error: UserCommandFailure,
+		success: UserCommandResult,
+		name: `commit-generic-import-record-${context.index}`,
+		execute: commands.commit(
+			{ entity: root, relationships, events: { creates, changes: [] } },
+			genericImportRecordCommand(context.command, item),
+			userId,
+		),
 	});
 	aliases.set(subject.alias, written.entityId);
 	return { aliases, events: [] };

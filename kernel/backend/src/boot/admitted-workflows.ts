@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { PolicyBatchWorkflow } from "#modules/automations/lifecycle/policy-batch";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import { BackgroundWorkWorkflow } from "#modules/background-work/service";
 import {
@@ -24,11 +23,6 @@ import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxDurableHostServiceWorkflow } from "#modules/scripts/host/durable-dispatcher";
-import {
-	UserCommandWorkflow,
-	UserEntityPreparationWorkflow,
-	UserRelationshipPreparationWorkflow,
-} from "#modules/user-commands/workflow";
 
 export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
@@ -40,7 +34,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		TranslateEntityAttemptWorkflow,
 		ProviderRelatedPagesWorkflow,
 		AutomationRunWorkflow,
-		PolicyBatchWorkflow,
 		ProcessImportRunWorkflow,
 		ProcessDataImportWorkflow,
 		ProcessDataImportSegmentWorkflow,
@@ -50,8 +43,5 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ScriptExecutionWorkflow,
 		BackgroundWorkWorkflow,
 		SandboxDurableHostServiceWorkflow,
-		UserCommandWorkflow,
-		UserEntityPreparationWorkflow,
-		UserRelationshipPreparationWorkflow,
 	]),
 );

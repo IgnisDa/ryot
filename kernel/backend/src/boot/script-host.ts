@@ -65,8 +65,8 @@ import {
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { UserCommandsLive } from "#modules/user-commands/layer";
 import { makeUserCommandScriptHost } from "#modules/user-commands/script-host";
-import { UserCommands } from "#modules/user-commands/service";
 
 export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 	return {
@@ -126,7 +126,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 			SignalEmissionServiceLive,
 			NotificationsServiceLive,
 			OAuthConnectionsServiceLive,
-			UserCommands.layer,
+			UserCommandsLive,
 		),
 	),
 	Layer.provide(EntitiesServiceRuntimeLive),

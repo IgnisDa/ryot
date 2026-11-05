@@ -17,11 +17,11 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { command } from "#modules/relationships/lifecycle.test-support";
-import { UserCommandWorkflow } from "#modules/user-commands/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import {
+	commitUserCommand,
 	createGroupEvents,
 	eventGroupFixture,
 	eventGroupWorkflowLayer,
@@ -58,7 +58,7 @@ const compound = Effect.fnUntraced(function* (memberCount?: number) {
 			],
 		},
 	});
-	const result = yield* UserCommandWorkflow.execute({ ...fixture, input });
+	const result = yield* commitUserCommand({ ...fixture, input });
 	return { ...fixture, input, result };
 });
 
@@ -69,7 +69,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 			Effect.gen(function* () {
 				const fixture = yield* compound(101);
 				expect(fixture.result.events).toHaveLength(102);
-				expect(yield* UserCommandWorkflow.execute({ ...fixture, input: fixture.input })).toEqual(
+				expect(yield* commitUserCommand({ ...fixture, input: fixture.input })).toEqual(
 					fixture.result,
 				);
 			}),
@@ -247,7 +247,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				};
 				assertExitFails(
 					yield* Effect.exit(
-						UserCommandWorkflow.execute({ input, userId: fixture.userId, command: failedCommand }),
+						commitUserCommand({ input, userId: fixture.userId, command: failedCommand }),
 					),
 					new EventBadRequest({
 						reason: {
@@ -370,7 +370,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 					},
 				});
 				expect(
-					(yield* UserCommandWorkflow.execute({
+					(yield* commitUserCommand({
 						input,
 						userId: fixture.userId,
 						command: {
@@ -553,7 +553,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const outcomes = yield* Effect.all(
 					Array.from({ length: 2 }, () =>
 						Effect.exit(
-							UserCommandWorkflow.execute({
+							commitUserCommand({
 								input,
 								userId: fixture.userId,
 								command: {

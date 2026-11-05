@@ -14,6 +14,7 @@ import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { UserCommandsLive } from "#modules/user-commands/layer";
 
 import { IngestionArtifactStagingLive } from "./artifact-staging";
 import { IngestionCaptures } from "./capture-service";
@@ -154,6 +155,7 @@ export const ProcessGenericImportChunksWorkflowDefinitionsProvidedLive =
 				ImportsRepository.layer,
 				SandboxRepository.layer,
 				ImportSourceStateStore.layer,
+				UserCommandsLive,
 			),
 		),
 	);

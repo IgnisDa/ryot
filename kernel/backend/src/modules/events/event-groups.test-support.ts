@@ -1,16 +1,17 @@
+import type { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Layer, Schema } from "effect";
 
-import { PolicyBatchWorkflowLive } from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -24,7 +25,7 @@ import {
 } from "#modules/relationships/lifecycle.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { UserCommandWorkflowDefinitionsLive } from "#modules/user-commands/workflow";
+import { UserCommands } from "#modules/user-commands/service";
 import { workflowEngineTestLayer } from "#testing/effect";
 
 import { type EventCreateInput, makeEventCreate } from "./event-create";
@@ -49,8 +50,7 @@ const propertiesSchema: AppSchema = {
 	},
 };
 export const eventGroupWorkflowLayer = Layer.mergeAll(
-	UserCommandWorkflowDefinitionsLive,
-	PolicyBatchWorkflowLive,
+	UserCommands.layer,
 	EntityUserDataService.layer.pipe(
 		Layer.provideMerge(Layer.merge(EntityUserDataGraphRepository.layer, MutationReceipts.layer)),
 	),
@@ -63,6 +63,15 @@ export const eventGroupWorkflowLayer = Layer.mergeAll(
 	),
 	Layer.provideMerge(workflowEngineTestLayer),
 );
+export const commitUserCommand = (payload: {
+	readonly userId: UserId;
+	readonly input: UserCommand;
+	readonly command: DomainLifecycleCommand;
+}) =>
+	Effect.flatMap(UserCommands, (commands) =>
+		commands.commit(payload.input, payload.command, payload.userId),
+	);
+
 export const createGroupEvents = (input: EventCreateInput) =>
 	Effect.flatMap(makeEventCreate, (create) => create(input));
 

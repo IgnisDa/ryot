@@ -11,6 +11,7 @@ import {
 	EventId,
 	EventSchemaSlug,
 	PluginId,
+	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -20,9 +21,9 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
 import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
-import { PolicyBatchWorkflowLive } from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
@@ -45,7 +46,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { workflowEngineTestLayer } from "#testing/effect";
 
-import { UserCommandWorkflow, UserCommandWorkflowDefinitionsLive } from "./workflow";
+import { UserCommands } from "./service";
 
 type StagedWrites = {
 	readonly events: number;
@@ -60,7 +61,7 @@ class AtomicWriteObservation extends Context.Service<
 			ReadonlyArray<Parameters<EventsRepository["Service"]["lockEventRows"]>[0]>
 		>;
 	}
->()("@ryot-app/kernel-backend/modules/user-commands/workflow.test/AtomicWriteObservation") {}
+>()("@ryot-app/kernel-backend/modules/user-commands/service.test/AtomicWriteObservation") {}
 
 const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
 	const live = EventSchemaReader.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
@@ -151,13 +152,22 @@ const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
 		}),
 	).pipe(Layer.provideMerge(live));
 	return Layer.provideMerge(
-		Layer.merge(UserCommandWorkflowDefinitionsLive, PolicyBatchWorkflowLive).pipe(
+		UserCommands.layer.pipe(
 			Layer.provideMerge(mutations),
 			Layer.provideMerge(workflowEngineTestLayer),
 		),
 		BunCrypto.layerSecureRandom,
 	);
 };
+
+const commitUserCommand = (payload: {
+	readonly userId: UserId;
+	readonly input: UserCommand;
+	readonly command: DomainLifecycleCommand;
+}) =>
+	Effect.flatMap(UserCommands, (commands) =>
+		commands.commit(payload.input, payload.command, payload.userId),
+	);
 
 const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	source: NormalizedPlugin = revisionPackage("atomic", "fixture", "record"),
@@ -232,7 +242,7 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const initial = yield* UserCommandWorkflow.execute({
+				const initial = yield* commitUserCommand({
 					userId,
 					input: input.input,
 					command: input.command,
@@ -276,7 +286,7 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const fixtureInput = yield* fixture();
-				const initial = yield* UserCommandWorkflow.execute({
+				const initial = yield* commitUserCommand({
 					userId,
 					input: fixtureInput.input,
 					command: fixtureInput.command,
@@ -284,7 +294,7 @@ layer(testLayer(false))((test) => {
 				const source = initial.events[0];
 				assert(source);
 				const execute = (events: UserCommand["events"]) =>
-					UserCommandWorkflow.execute({
+					commitUserCommand({
 						userId,
 						input: { ...fixtureInput.input, events, relationships: [] },
 						command: {
@@ -365,7 +375,7 @@ layer(testLayer(false))((test) => {
 			() =>
 				Effect.gen(function* () {
 					const input = yield* fixture();
-					const original = yield* UserCommandWorkflow.execute({
+					const original = yield* commitUserCommand({
 						userId,
 						input: input.input,
 						command: input.command,
@@ -412,11 +422,7 @@ layer(testLayer(false))((test) => {
 									: [],
 						},
 					});
-					yield* UserCommandWorkflow.execute({
-						userId,
-						input: racingInput,
-						command: nextCommand(),
-					});
+					yield* commitUserCommand({ userId, input: racingInput, command: nextCommand() });
 					const staleInput = yield* Schema.decodeEffect(UserCommand)({
 						...input.input,
 						relationships: [],
@@ -429,7 +435,7 @@ layer(testLayer(false))((test) => {
 					});
 					assertExitFails(
 						yield* Effect.exit(
-							UserCommandWorkflow.execute({ userId, input: staleInput, command: nextCommand() }),
+							commitUserCommand({ userId, input: staleInput, command: nextCommand() }),
 						),
 						new EntityStale({ reason: { code: "entity-stale", entityId: original.entityId } }),
 					);
@@ -455,7 +461,7 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const matching = yield* fixture();
-				const original = yield* UserCommandWorkflow.execute({
+				const original = yield* commitUserCommand({
 					userId,
 					input: matching.input,
 					command: matching.command,
@@ -489,7 +495,7 @@ layer(testLayer(false))((test) => {
 					relationships: [],
 					events: { ...matching.input.events, baselines: matchingBaselines },
 				});
-				const matchingResult = yield* UserCommandWorkflow.execute({
+				const matchingResult = yield* commitUserCommand({
 					userId,
 					input: matchingInput,
 					command: {
@@ -503,7 +509,7 @@ layer(testLayer(false))((test) => {
 
 				for (const mutatedScope of ["source", "evidence"] as const) {
 					const input = yield* fixture();
-					const source = yield* UserCommandWorkflow.execute({
+					const source = yield* commitUserCommand({
 						userId,
 						input: input.input,
 						command: input.command,
@@ -547,7 +553,7 @@ layer(testLayer(false))((test) => {
 							],
 						},
 					});
-					yield* UserCommandWorkflow.execute({
+					yield* commitUserCommand({
 						userId,
 						input: racingInput,
 						command: {
@@ -595,7 +601,7 @@ layer(testLayer(false))((test) => {
 					});
 					assertExitFails(
 						yield* Effect.exit(
-							UserCommandWorkflow.execute({
+							commitUserCommand({
 								userId,
 								input: staleInput,
 								command: {
@@ -650,7 +656,7 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const original = yield* UserCommandWorkflow.execute({
+				const original = yield* commitUserCommand({
 					userId,
 					input: input.input,
 					command: input.command,
@@ -703,7 +709,7 @@ layer(testLayer(false))((test) => {
 								},
 							},
 						});
-						return yield* UserCommandWorkflow.execute({
+						return yield* commitUserCommand({
 							userId,
 							input: commandInput,
 							command: {
@@ -750,18 +756,14 @@ layer(testLayer(false))((test) => {
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
-				const result = yield* UserCommandWorkflow.execute({
+				const result = yield* commitUserCommand({
 					userId,
 					input: input.input,
 					command: input.command,
 				});
 				expect(result.events).toHaveLength(1);
 				expect(
-					yield* UserCommandWorkflow.execute({
-						userId,
-						input: input.input,
-						command: input.command,
-					}),
+					yield* commitUserCommand({ userId, input: input.input, command: input.command }),
 				).toEqual(result);
 				const entities = yield* input.session.run((db) =>
 					db.select().from(tables.entity).where(eq(tables.entity.id, result.entityId)),
@@ -793,7 +795,7 @@ layer(testLayer(true))((test) => {
 				const input = yield* fixture();
 				assertExitFails(
 					yield* Effect.exit(
-						UserCommandWorkflow.execute({ userId, input: input.input, command: input.command }),
+						commitUserCommand({ userId, input: input.input, command: input.command }),
 					),
 					new DbError({ message: "Injected atomic commit failure" }),
 				);
@@ -1020,7 +1022,7 @@ layer(testLayer(false, true))((test) => {
 				const results = yield* Effect.forEach(
 					commands,
 					(commandInput) =>
-						UserCommandWorkflow.execute({
+						commitUserCommand({
 							userId,
 							input: commandInput,
 							command: {

@@ -30,6 +30,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { UserCommands } from "#modules/user-commands/service";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
@@ -91,6 +92,7 @@ const applyCase = (
 			ingestionTestDatabase(),
 			Layer.mock(LifecycleExecution)({}),
 			Layer.mock(EventsService)({}),
+			Layer.mock(UserCommands)({}),
 			Layer.mock(PluginRuntimeResolver)({
 				findPluginAvailableToUser: () =>
 					Effect.succeed({
