@@ -244,6 +244,41 @@ layer(gateLayer)((test) => {
 		testTimeout,
 	);
 	test.effect(
+		"defers an inline batch before the sidecar settlement limit",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const gate = yield* SandboxHostCallGate;
+					const settlementStarted = yield* Deferred.make<void>();
+					const input = makeInput(["getCachedValue"], {
+						replayJournal: yield* memoryPinnedJournal([]),
+						workflowExecutionId: "settlement-limit-workflow",
+						inlineDurableHost: {
+							cancel: () => Effect.void,
+							capabilities: ["getCachedValue"],
+							settle: () =>
+								Deferred.succeed(settlementStarted, undefined).pipe(Effect.andThen(Effect.never)),
+						},
+					});
+					const registration = yield* gate.register(makeOptions(input, {}));
+					const request = yield* Schema.decodeEffect(workflowHostRequestSchema)({
+						index: 0,
+						kind: "host",
+						name: "getCachedValue",
+						args: { args: ["key"], capability: "getCachedValue" },
+					});
+					const inline = yield* registration
+						.dispatch(yield* makeFrame(0, "inlineBatch", { requests: [request] }))
+						.pipe(Effect.forkScoped);
+					yield* Deferred.await(settlementStarted);
+					yield* TestClock.adjust("28 seconds");
+					expect(frameValue(yield* Fiber.join(inline))).toEqual({ defer: true });
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
 		"refuses user settings writes beyond the per-execution cap",
 		() =>
 			Effect.gen(function* () {

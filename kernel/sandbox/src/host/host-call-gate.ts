@@ -42,6 +42,9 @@ import { makeSandboxShortWait } from "./short-wait";
 import { SANDBOX_TRANSIENT_MEMORY, sandboxTransientPermitBytes } from "./transient-memory";
 
 const initialExpiryMs = SANDBOX_LIMITS.execution.timeoutMs + SANDBOX_LIMITS.sidecar.disposalMs;
+// The sidecar times settlement from sending the batch and ends the isolate at its limit, so the gate
+// defers early enough for that reply to arrive first.
+const inlineSettlementMarginMs = 2_000;
 const maximumSequenceCount = SANDBOX_LIMITS.hostCalls.total + SANDBOX_LIMITS.journalReads.count + 4;
 const dispatchQueueFull = Symbol("dispatchQueueFull");
 const strictOptions = { onExcessProperty: "error" } as const;
@@ -528,6 +531,7 @@ const journalRead: GateAction = (state, options, frame, frameArgs) =>
 
 const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retain) =>
 	Effect.gen(function* () {
+		const receivedAt = yield* Clock.currentTimeMillis;
 		const decoded = decodeInlineBatch(frameArgs);
 		if (Option.isNone(decoded)) {
 			return frameFailure(frame, "Sandbox inline durable batch is invalid");
@@ -613,7 +617,12 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 		const settled = yield* inline.settle(requests, state.shortWait, checkpoint).pipe(
 			Effect.timeoutOrElse({
 				orElse: () => Effect.succeed(null),
-				duration: SANDBOX_LIMITS.sidecar.settlementMs,
+				duration: Math.max(
+					0,
+					SANDBOX_LIMITS.sidecar.settlementMs -
+						inlineSettlementMarginMs -
+						(settledAtStart - receivedAt),
+				),
 			}),
 			Effect.match({ onFailure: () => null, onSuccess: (value) => value }),
 			catchNonInterrupt(() => Effect.succeed(null)),
