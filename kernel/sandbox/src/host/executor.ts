@@ -51,7 +51,7 @@ const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchem
 	onExcessProperty: "error",
 });
 
-// Workflow-dispatched capabilities may wait for nested sandbox runs, and unbounded results cannot be
+// Write capabilities may wait for nested sandbox runs, and unbounded results cannot be
 // charged to transient memory, so live executions never bind them while holding a slot and memory.
 const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
 	"activity",

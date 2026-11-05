@@ -21,7 +21,6 @@ import {
 	prepareSandboxCreateEvents,
 	prepareSandboxDurableHttpHop,
 	prepareSandboxSendNotification,
-	SandboxDurableHostServiceWorkflow,
 } from "./durable-dispatcher";
 import { SandboxSubmissionCommands } from "./submission-command";
 
@@ -60,17 +59,17 @@ it("classifies every bridge host capability exactly once", () => {
 		objectContaining({
 			log: objectContaining({ dispatch: "diagnostic" }),
 			span: objectContaining({ dispatch: "diagnostic" }),
+			emitSignal: objectContaining({ dispatch: "service" }),
+			createEvents: objectContaining({ dispatch: "events" }),
+			deleteEvents: objectContaining({ dispatch: "lifecycle" }),
+			updateEvents: objectContaining({ dispatch: "lifecycle" }),
+			requestUserWork: objectContaining({ dispatch: "service" }),
 			getUserSettings: objectContaining({ dispatch: "activity" }),
-			createEvents: objectContaining({ dispatch: "event-workflow" }),
-			emitSignal: objectContaining({ dispatch: "service-workflow" }),
-			deleteEvents: objectContaining({ dispatch: "lifecycle-workflow" }),
-			updateEvents: objectContaining({ dispatch: "lifecycle-workflow" }),
-			requestUserWork: objectContaining({ dispatch: "service-workflow" }),
-			createUserEntity: objectContaining({ dispatch: "service-workflow" }),
+			createUserEntity: objectContaining({ dispatch: "service" }),
+			ensureUserEntities: objectContaining({ dispatch: "service" }),
+			sendNotification: objectContaining({ dispatch: "notification" }),
+			requestEventStreamWork: objectContaining({ dispatch: "service" }),
 			invalidateOAuthAccessToken: objectContaining({ dispatch: "activity" }),
-			ensureUserEntities: objectContaining({ dispatch: "service-workflow" }),
-			sendNotification: objectContaining({ dispatch: "notification-workflow" }),
-			requestEventStreamWork: objectContaining({ dispatch: "service-workflow" }),
 			updateUserSettings: objectContaining({ dispatch: "activity", resultBytes: anyOf(Number) }),
 		}),
 	);
@@ -313,30 +312,3 @@ it.effect(
 		}),
 	testTimeout,
 );
-
-it("derives service workflow identity from the parent and call index", () => {
-	const request = {
-		index: 3,
-		name: "emitSignal",
-		kind: "host" as const,
-		args: { args: [], capability: "emitSignal" as const },
-	};
-	expect(
-		SandboxDurableHostServiceWorkflow.idempotencyKey({
-			request,
-			input: {},
-			lane: "interactive",
-			parentExecutionId: "sandbox-parent",
-			startedAt: "2026-08-06T00:00:00.000Z",
-			principal: {
-				providerId: null,
-				contentHash: "hash",
-				pluginRevision: null,
-				scriptSlug: "script",
-				subject: { type: "system" },
-				metadata: { runtimeImports: [] },
-				scriptId: SandboxScriptId.make("script-1"),
-			},
-		}),
-	).toBe("sandbox-parent-host-service-3");
-});

@@ -515,7 +515,6 @@ it.effect.each(retainedHttpPhases)(
 			const dispatchProgress: Array<undefined | SandboxHttpProgress> = [];
 			const dispatcher = SandboxDurableHostDispatcher.of({
 				cancelInline: () => Effect.void,
-				write: () => Effect.die("unused"),
 				settleInline: () => Effect.die("unused"),
 				dispatch: (_request, _payload, _principal, _id, retained) =>
 					Effect.sync(() => {
@@ -559,7 +558,6 @@ it.effect(
 				progress: ReadonlyArray<SandboxInlineProgress>;
 			}> = [];
 			const dispatcher = SandboxDurableHostDispatcher.of({
-				write: () => Effect.die("unused"),
 				settleInline: () => Effect.die("unused"),
 				dispatch: () =>
 					Deferred.succeed(dispatchStarted, undefined).pipe(Effect.andThen(Effect.never)),
@@ -1199,7 +1197,6 @@ it.layer(
 					SandboxDurableHostDispatcher,
 					SandboxDurableHostDispatcher.of({
 						cancelInline: () => Effect.void,
-						write: () => Effect.die("unused"),
 						settleInline: () => Effect.die("unused"),
 						dispatch: ({ index }) =>
 							Effect.gen(function* () {

@@ -1,13 +1,5 @@
-import { DbError, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import {
-	CreateEventsResponse,
-	EventCreateItemError,
-} from "@ryot-app/contract/modules/events/schemas";
-import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { UserId } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	type WorkflowDurableResult,
@@ -18,21 +10,15 @@ import { sandboxDurableHostDispatchStrategy } from "@ryot-app/sandbox/host/host-
 import { toSandboxHostError } from "@ryot-app/sandbox/host/invocation";
 import { recordSandboxHostCall } from "@ryot-app/sandbox/host/metrics";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { Cause, Effect, Exit, Fiber, Layer, Schema } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { Cause, Effect, Layer, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { runLifecycleWriteStepWith } from "#modules/automations/lifecycle/write-step";
-import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
-import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
 import { EventCreateInput } from "#modules/events/event-create";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { NotificationsService } from "#modules/notifications/service";
-import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import { infrastructureRunError } from "#modules/scripts/executions/run-error";
-import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import {
 	dispatchSandboxHostActivity,
 	durableHostFailure,
@@ -42,33 +28,14 @@ import {
 	prepareSandboxLifecycleHostInput,
 	prepareSandboxSendNotification,
 	SandboxDurableHostDispatcher,
-	SandboxDurableHostServiceWorkflow,
 } from "#modules/scripts/host/durable-dispatcher";
 import { reportSandboxLifecycleWarnings } from "#modules/scripts/host/execution-context";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { SandboxHttpDispatcher } from "#modules/scripts/host/http-dispatcher";
 import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
-import {
-	type LifecycleItemWrite,
-	SandboxLifecycleHostFailure,
-	SandboxLifecycleHostInput,
-} from "#modules/scripts/host/lifecycle-host";
+import { writeInlineLifecycleItems } from "#modules/scripts/host/lifecycle-host";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
-
-const PreparedSandboxCreateEvents = Schema.Struct({
-	userId: UserId,
-	command: DomainLifecycleCommand,
-	payload: Schema.Array(createEventItemSchema),
-	writeCommand: Schema.optional(DomainLifecycleCommand),
-});
-
-const PreparedSandboxSendNotification = Schema.Struct({
-	message: Schema.String,
-	sourceKey: Schema.String,
-	sourceRunId: Schema.String,
-	accountGeneration: AccountGeneration,
-});
+import { makeActivity } from "#platform/workflow/scope";
 
 const lifecycleHostSuccessSchemas = {
 	DeleteEvents: sandboxHostContracts.deleteEvents.success,
@@ -77,29 +44,6 @@ const lifecycleHostSuccessSchemas = {
 	ChangeUserRelationships: sandboxHostContracts.changeUserRelationships.success,
 	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
 };
-
-const inlineStrategy = (strategy: null | string) =>
-	strategy === "activity" || (strategy !== null && isHostWrite(strategy));
-
-const isHostWrite = (strategy: string) =>
-	strategy === "service-workflow" ||
-	strategy === "event-workflow" ||
-	strategy === "lifecycle-workflow" ||
-	strategy === "notification-workflow";
-
-export const SandboxDurableHostServiceWorkflowLive = implementWorkflow(
-	SandboxDurableHostServiceWorkflow,
-	Effect.fn("SandboxDurableHostServiceWorkflow")(function* (payload) {
-		yield* (yield* SandboxExecutionAuthority).resolve(payload.principal);
-		return yield* (yield* SandboxDurableHostDispatcher).write(payload.request, {
-			lane: payload.lane,
-			context: payload.input,
-			principal: payload.principal,
-			startedAt: payload.startedAt,
-			executionId: payload.parentExecutionId,
-		});
-	}),
-);
 
 const failureOrRethrow = (cause: Cause.Cause<unknown>) =>
 	Cause.hasDies(cause) || Cause.hasInterrupts(cause)
@@ -132,15 +76,17 @@ const recordHostCall = <A extends null | WorkflowDurableResult, E, R>(
 
 const settlesInline = (
 	request: Parameters<SandboxDurableHostDispatcher["Service"]["settleInline"]>[0][number],
-) =>
-	request.kind === "sleep"
-		? request.args.durationMs <= SANDBOX_LIMITS.replay.shortWaitMs
-		: inlineStrategy(sandboxDurableHostDispatchStrategy(request.args.capability));
+) => {
+	if (request.kind === "sleep") {
+		return request.args.durationMs <= SANDBOX_LIMITS.replay.shortWaitMs;
+	}
+	const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
+	return strategy !== null && strategy !== "diagnostic";
+};
 
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
 		const submissions = yield* SandboxSubmissionCommands;
 		const authority = yield* SandboxExecutionAuthority;
 		const httpDispatcher = yield* SandboxHttpDispatcher;
@@ -149,51 +95,17 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const notifications = yield* NotificationsService;
 		const events = yield* EventsService;
 
-		const writeLifecycleItems = Effect.fnUntraced(function* <Item, Result>(
-			options: LifecycleItemWrite<Item, Result> & {
-				readonly name: string;
-				readonly warnings: Array<AutomationWarning>;
-			},
-		) {
-			const results = [];
-			for (const [index, item] of options.items.entries()) {
-				const outcome = yield* runLifecycleWriteStepWith(lifecycleExecution, {
-					result: options.result,
-					commit: options.commit(item),
-					name: `${options.name}-${index}`,
-					error: SandboxLifecycleHostFailure,
-					applyPolicies: options.applyPolicies,
-					pending: PendingRelationshipMutations,
-					prepare: options.prepare(item, index),
-				});
-				options.warnings.push(...outcome.warnings);
-				results.push(outcome.result);
-			}
-			return results;
-		});
-
 		const dispatchLifecycleHost = (request: DispatchArguments[0], scope: HostCallScope) =>
 			Effect.gen(function* () {
 				const capability = request.args.capability;
-				const name = `sandbox-host-${request.index}-${capability}`;
-				const prepared = yield* makeActivity({
-					name: `${name}-input`,
-					error: SandboxRunError,
-					success: SandboxLifecycleHostInput,
-					execute: prepareSandboxLifecycleHostInput(implementations, request, scope),
-				});
+				const prepared = yield* prepareSandboxLifecycleHostInput(implementations, request, scope);
 				if (prepared._tag === "Failure") {
 					return durableHostFailure(prepared.message, prepared.data);
 				}
 				const steps = implementations.lifecycle;
 				const written = yield* Effect.gen(function* () {
-					const warnings: Array<AutomationWarning> = [];
 					if (prepared._tag === "UpsertGlobalEntities") {
-						const outcome = yield* runLifecycleWriteStepWith(lifecycleExecution, {
-							name: `${name}-0`,
-							result: GlobalEntityUpsertResults,
-							pending: PendingGlobalEntityUpsert,
-							error: SandboxLifecycleHostFailure,
+						const outcome = yield* runLifecycleWriteInline(lifecycleExecution, {
 							applyPolicies: steps.upsertGlobalEntities.applyPolicies,
 							commit: (pending) => steps.upsertGlobalEntities.commit(prepared, pending),
 							prepare: steps.upsertGlobalEntities.prepare(prepared, {
@@ -201,31 +113,31 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								accepted: null,
 							}),
 						});
-						warnings.push(...outcome.warnings);
-						return { warnings, value: steps.upsertGlobalEntities.value(outcome.result) };
+						yield* reportSandboxLifecycleWarnings(capability, outcome.warnings);
+						return steps.upsertGlobalEntities.value(outcome.result);
 					}
 					if (prepared._tag === "UpdateEvents") {
-						return { warnings, value: yield* steps.updateEvents.commit(prepared) };
+						return yield* steps.updateEvents.commit(prepared);
 					}
 					if (prepared._tag === "DeleteEvents") {
-						return { warnings, value: yield* steps.deleteEvents.commit(prepared) };
+						return yield* steps.deleteEvents.commit(prepared);
 					}
 					if (prepared._tag === "ChangeUserRelationships") {
-						const summaries = yield* writeLifecycleItems({
-							name,
-							warnings,
-							...steps.changeUserRelationships.itemWrite(prepared),
-						});
-						return { warnings, value: steps.changeUserRelationships.value(summaries) };
+						return steps.changeUserRelationships.value(
+							yield* writeInlineLifecycleItems(lifecycleExecution, {
+								capability,
+								...steps.changeUserRelationships.itemWrite(prepared),
+							}),
+						);
 					}
-					const summaries = yield* writeLifecycleItems({
-						name,
-						warnings,
-						...steps.upsertGlobalRelationships.itemWrite(prepared),
-					});
-					return { warnings, value: steps.upsertGlobalRelationships.value(summaries) };
+					return steps.upsertGlobalRelationships.value(
+						yield* writeInlineLifecycleItems(lifecycleExecution, {
+							capability,
+							...steps.upsertGlobalRelationships.itemWrite(prepared),
+						}),
+					);
 				}).pipe(
-					Effect.map((outcome) => ({ ...outcome, _tag: "written" as const })),
+					Effect.map((value) => ({ value, _tag: "written" as const })),
 					Effect.catch((error) =>
 						Effect.succeed({ ...toSandboxHostError(error), _tag: "failed" as const }),
 					),
@@ -233,7 +145,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				if (written._tag === "failed") {
 					return durableHostFailure(written.message, written.data);
 				}
-				yield* reportSandboxLifecycleWarnings(capability, written.warnings);
 				const value = yield* Schema.encodeUnknownEffect(lifecycleHostSuccessSchemas[prepared._tag])(
 					written.value,
 				).pipe(
@@ -243,113 +154,53 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				return { value, state: "success" } satisfies WorkflowDurableResult;
 			});
 
-		const writeHostCall: SandboxDurableHostDispatcher["Service"]["write"] = (request, scope) => {
-			const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
-			if (strategy === null || !isHostWrite(strategy)) {
-				return Effect.fail(
-					new SandboxRunError({
-						kind: "script-failure",
-						message: `Sandbox durable host capability is not a write: ${request.args.capability}`,
+		const createEventsHostCall = (request: DispatchArguments[0], scope: HostCallScope) =>
+			Effect.gen(function* () {
+				const prepared = yield* prepareSandboxCreateEvents(request, scope, submissions);
+				const eventPayload = yield* Schema.decodeEffect(EventCreateInput)(prepared).pipe(
+					Effect.mapError(
+						(error) =>
+							new SandboxRunError({
+								kind: "invalid-input",
+								message: `Invalid createEvents payload: ${unknownToMessage(error)}`,
+							}),
+					),
+				);
+				const result = yield* events.create(eventPayload).pipe(Effect.exit);
+				if (result._tag === "Failure") {
+					return yield* failureOrRethrow(result.cause);
+				}
+				return yield* toSandboxCreateEventsResult(result.value).pipe(
+					Effect.match({
+						onFailure: (error) => durableHostFailure(error.message, error.data),
+						onSuccess: (value) => ({ value, state: "success" }) satisfies WorkflowDurableResult,
 					}),
 				);
-			}
-			if (strategy === "lifecycle-workflow") {
-				return dispatchLifecycleHost(request, scope);
-			}
-			if (strategy === "service-workflow") {
-				return dispatchSandboxHostActivity(implementations, request, scope);
-			}
+			});
 
-			if (strategy === "event-workflow") {
-				return Effect.gen(function* () {
-					const prepared = yield* makeActivity({
-						error: SandboxRunError,
-						success: PreparedSandboxCreateEvents,
-						name: `prepare-sandbox-create-events-${request.index}`,
-						execute: prepareSandboxCreateEvents(request, scope, submissions),
-					});
-					const eventPayload = yield* Schema.decodeEffect(EventCreateInput)(prepared).pipe(
-						Effect.mapError(
-							(error) =>
-								new SandboxRunError({
-									kind: "invalid-input",
-									message: `Invalid createEvents payload: ${unknownToMessage(error)}`,
-								}),
-						),
-					);
-					const result = yield* makeActivity({
-						success: CreateEventsResponse,
-						execute: events.create(eventPayload),
-						name: `create-sandbox-events-${request.index}`,
-						error: Schema.Union([DbError, EventCreateItemError]),
-					}).pipe(Effect.exit);
-					if (result._tag === "Failure") {
-						return yield* failureOrRethrow(result.cause);
-					}
-					return yield* toSandboxCreateEventsResult(result.value).pipe(
-						Effect.match({
-							onFailure: (error) => durableHostFailure(error.message, error.data),
-							onSuccess: (value) => ({ value, state: "success" }) satisfies WorkflowDurableResult,
-						}),
-					);
-				});
-			}
-
-			return Effect.gen(function* () {
-				const prepared = yield* makeActivity({
-					error: SandboxRunError,
-					success: PreparedSandboxSendNotification,
-					execute: prepareSandboxSendNotification(request, scope),
-					name: `prepare-sandbox-send-notification-${request.index}`,
-				});
+		const sendNotificationHostCall = (request: DispatchArguments[0], scope: HostCallScope) =>
+			Effect.gen(function* () {
+				const prepared = yield* prepareSandboxSendNotification(request, scope);
 				const result = yield* Effect.exit(notifications.sendMessage(prepared));
 				if (result._tag === "Failure") {
 					return yield* failureOrRethrow(result.cause);
 				}
 				return { value: null, state: "success" } satisfies WorkflowDurableResult;
 			});
+
+		const runHostCall = (request: DispatchArguments[0], scope: HostCallScope) => {
+			const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
+			if (strategy === "lifecycle") {
+				return dispatchLifecycleHost(request, scope);
+			}
+			if (strategy === "events") {
+				return createEventsHostCall(request, scope);
+			}
+			if (strategy === "notification") {
+				return sendNotificationHostCall(request, scope);
+			}
+			return dispatchSandboxHostActivity(implementations, request, scope);
 		};
-
-		const executeHostCall = (
-			request: DispatchArguments[0],
-			scope: HostCallScope,
-			input: JsonValue,
-		) =>
-			dispatchAdmittedWorkflow(
-				engine,
-				SandboxDurableHostServiceWorkflow,
-				scope.principal.subject.type === "system"
-					? null
-					: scope.principal.subject.accountGeneration,
-				{
-					executionId: `${scope.executionId}-host-service-${request.index}`,
-					payload: {
-						input,
-						request,
-						lane: scope.lane,
-						principal: scope.principal,
-						startedAt: scope.startedAt,
-						parentExecutionId: scope.executionId,
-					},
-				},
-			).pipe(Effect.catchTag("DbError", (error) => Effect.fail(infrastructureRunError(error))));
-
-		// Outside the script's workflow, the host call joins it as a child explicitly. A suspended
-		// host call keeps running and the run defers to the script workflow, which joins it there.
-		const settleHostCall = (
-			request: DispatchArguments[0],
-			scope: HostCallScope,
-			input: JsonValue,
-		) =>
-			Effect.gen(function* () {
-				const parent = WorkflowInstance.initial(ScriptExecutionWorkflow, scope.executionId);
-				const fiber = yield* executeHostCall(request, scope, input).pipe(
-					Effect.provideService(WorkflowInstance, parent),
-					Effect.forkChild,
-				);
-				const exit = yield* Fiber.await(fiber);
-				return Exit.isSuccess(exit) ? exit.value : null;
-			});
 
 		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
 			request,
@@ -371,13 +222,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					}),
 				);
 			}
-			if (isHostWrite(strategy)) {
-				return executeHostCall(
-					request,
-					hostCallScopeOf(payload, principal, executionId, startedAt),
-					payload.input,
-				);
-			}
 			const resolved = authority.resolve(principal);
 			if (request.args.capability === "httpCall") {
 				return Effect.andThen(
@@ -391,8 +235,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					error: SandboxRunError,
 					success: workflowDurableResultSchema,
 					name: `sandbox-host-${request.index}-${request.args.capability}`,
-					execute: dispatchSandboxHostActivity(
-						implementations,
+					execute: runHostCall(
 						request,
 						hostCallScopeOf(payload, principal, executionId, startedAt),
 					),
@@ -401,7 +244,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		};
 
 		return {
-			write: writeHostCall,
 			dispatch: (request, payload, principal, executionId, progress) =>
 				recordHostCall(
 					request,
@@ -455,33 +297,27 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								const scope = { lane, context, principal, startedAt, executionId };
 								const value = yield* recordHostCall(
 									request,
-									Effect.suspend(() => {
-										const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
-										if (strategy !== null && isHostWrite(strategy)) {
-											return settleHostCall(request, scope, input);
-										}
-										return Effect.andThen(
-											authority.resolve(principal),
-											request.args.capability === "httpCall"
-												? httpDispatcher.inline(
-														request,
-														{
-															lane,
-															input,
-															executionId,
-															resolutionMode: "exact",
-															subject: principal.subject,
-															scriptId: principal.scriptId,
-														},
-														principal,
+									Effect.andThen(
+										authority.resolve(principal),
+										request.args.capability === "httpCall"
+											? httpDispatcher.inline(
+													request,
+													{
+														lane,
+														input,
 														executionId,
-														startedAt,
-														wait,
-														(progress) => checkpoint({ request, progress, _tag: "Http" }),
-													)
-												: dispatchSandboxHostActivity(implementations, request, scope),
-										);
-									}),
+														resolutionMode: "exact",
+														subject: principal.subject,
+														scriptId: principal.scriptId,
+													},
+													principal,
+													executionId,
+													startedAt,
+													wait,
+													(progress) => checkpoint({ request, progress, _tag: "Http" }),
+												)
+											: runHostCall(request, scope),
+									),
 								);
 								if (value === null) {
 									return { value, settled: false };

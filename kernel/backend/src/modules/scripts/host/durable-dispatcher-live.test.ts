@@ -1,6 +1,6 @@
 import { describe, expect } from "bun:test";
 
-import { DbError } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
@@ -56,10 +56,7 @@ import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeli
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
-import {
-	SandboxDurableHostDispatcher,
-	SandboxDurableHostServiceWorkflow,
-} from "#modules/scripts/host/durable-dispatcher";
+import { SandboxDurableHostDispatcher } from "#modules/scripts/host/durable-dispatcher";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import {
@@ -229,62 +226,77 @@ const dispatcherLayer = (options: {
 
 type NotificationSendMessage = Parameters<NotificationsService["Service"]["sendMessage"]>[0];
 
-type WorkflowExecution = Readonly<{
-	workflow: unknown;
-	options: Parameters<WorkflowEngine["Service"]["execute"]>[1];
-}>;
+const signalCreated = {
+	state: "success" as const,
+	value: { wasCreated: true, triggerId: "signal-trigger-1" },
+};
 
-class RecordedWorkflowExecutions extends Context.Service<
-	RecordedWorkflowExecutions,
-	{ readonly executions: Effect.Effect<ReadonlyArray<WorkflowExecution>> }
+const signalArgs = [{ properties: {}, discriminator: "dispatcher", schemaSlug: "fixture.signal" }];
+
+const signalRequest = (index: number) => ({
+	index,
+	name: "emitSignal",
+	kind: "host" as const,
+	args: { args: signalArgs, capability: "emitSignal" as const },
+});
+
+class RecordedHostWrites extends Context.Service<
+	RecordedHostWrites,
+	{
+		readonly signals: Effect.Effect<number>;
+		readonly activities: Effect.Effect<ReadonlyArray<string>>;
+		readonly messages: Effect.Effect<ReadonlyArray<NotificationSendMessage>>;
+	}
 >()(
-	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedWorkflowExecutions",
+	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedHostWrites",
 ) {}
 
-class RecordedNotificationMessages extends Context.Service<
-	RecordedNotificationMessages,
-	{ readonly messages: Effect.Effect<ReadonlyArray<NotificationSendMessage>> }
->()(
-	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedNotificationMessages",
-) {}
-
-const childOwnerExecutionId = "sandbox-parent";
-
-const childOwnerDispatchLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const executions = yield* Ref.make<ReadonlyArray<WorkflowExecution>>([]);
-		const messages = yield* Ref.make<ReadonlyArray<NotificationSendMessage>>([]);
-		const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, childOwnerExecutionId);
-		const engine = makeWorkflowActivityEngine(instance, {
-			execute: (workflow, options) =>
-				append(executions, { options, workflow }).pipe(
-					Effect.as(
-						workflow.name === SandboxDurableHostServiceWorkflow.name
-							? { state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } }
-							: options.executionId,
+const hostWriteLayer = (options: { readonly authority?: SandboxExecutionAuthority["Service"] }) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const activities = yield* Ref.make<ReadonlyArray<string>>([]);
+			const messages = yield* Ref.make<ReadonlyArray<NotificationSendMessage>>([]);
+			const signals = yield* Ref.make(0);
+			const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, "sandbox-parent");
+			const engine = makeWorkflowActivityEngine(instance, {
+				activityExecute: (activity) =>
+					append(activities, activity.name).pipe(
+						Effect.andThen(Effect.exit(activity.execute)),
+						Effect.map((exit) => new Workflow.Complete({ exit })),
 					),
-				),
-		});
-		return Layer.mergeAll(
-			dispatcherLayer({
-				engine,
-				script,
-				instance,
-				sendMessage: (input) =>
-					append(messages, input).pipe(Effect.as({ id: "admitted-notification" })),
-			}),
-			Layer.succeed(RecordedWorkflowExecutions, { executions: Ref.get(executions) }),
-			Layer.succeed(RecordedNotificationMessages, { messages: Ref.get(messages) }),
-		);
-	}),
-);
+			});
+			return Layer.mergeAll(
+				dispatcherLayer({
+					engine,
+					script,
+					instance,
+					...options,
+					sendMessage: (input) =>
+						append(messages, input).pipe(Effect.as({ id: "admitted-notification" })),
+					implementations: {
+						...implementations,
+						automation: {
+							...implementations.automation,
+							emitSignal: () =>
+								Ref.update(signals, (count) => count + 1).pipe(Effect.as(signalCreated.value)),
+						},
+					},
+				}),
+				Layer.succeed(RecordedHostWrites, {
+					signals: Ref.get(signals),
+					messages: Ref.get(messages),
+					activities: Ref.get(activities),
+				}),
+			);
+		}),
+	);
 
-layer(childOwnerDispatchLayer)((test) => {
+layer(hostWriteLayer({}))((test) => {
 	test.effect(
-		"dispatches writes through their deterministic host-call workflows",
+		"journals each durable host write as one activity of the script's workflow",
 		() =>
 			Effect.gen(function* () {
-				const executionId = childOwnerExecutionId;
+				const executionId = "sandbox-parent";
 				const payload = {
 					subject,
 					scriptId,
@@ -314,48 +326,27 @@ layer(childOwnerDispatchLayer)((test) => {
 				};
 				const dispatcher = yield* SandboxDurableHostDispatcher;
 				expect(
+					yield* dispatcher.dispatch(signalRequest(0), payload, principal, executionId),
+				).toEqual(signalCreated);
+				expect(
 					yield* dispatcher.dispatch(
 						{
-							index: 0,
+							index: 1,
 							kind: "host",
-							name: "emitSignal",
-							args: { args: [], capability: "emitSignal" },
+							name: "sendNotification",
+							args: { args: ["Ready"], capability: "sendNotification" },
 						},
 						payload,
 						principal,
 						executionId,
 					),
-				).toEqual({ state: "success", value: { wasCreated: true, triggerId: "signal-trigger-1" } });
-				const notification = {
-					index: 1,
-					kind: "host" as const,
-					name: "sendNotification",
-					args: { args: ["Ready"], capability: "sendNotification" as const },
-				};
-				yield* dispatcher.dispatch(notification, payload, principal, executionId);
-				expect(yield* (yield* RecordedWorkflowExecutions).executions).toMatchObject([
-					{
-						workflow: SandboxDurableHostServiceWorkflow,
-						options: {
-							executionId: "sandbox-parent-host-service-0",
-							payload: { request: { index: 0 }, parentExecutionId: executionId },
-						},
-					},
-					{
-						workflow: SandboxDurableHostServiceWorkflow,
-						options: { executionId: "sandbox-parent-host-service-1" },
-					},
-				]);
-				expect(
-					yield* dispatcher.write(notification, {
-						principal,
-						executionId,
-						lane: payload.lane,
-						context: payload.input,
-						startedAt: payload.startedAt,
-					}),
 				).toEqual({ value: null, state: "success" });
-				expect(yield* (yield* RecordedNotificationMessages).messages).toEqual([
+				const recorded = yield* RecordedHostWrites;
+				expect(yield* recorded.activities).toEqual([
+					"sandbox-host-0-emitSignal",
+					"sandbox-host-1-sendNotification",
+				]);
+				expect(yield* recorded.messages).toEqual([
 					{
 						message: "Ready",
 						sourceRunId: runId,
@@ -368,52 +359,11 @@ layer(childOwnerDispatchLayer)((test) => {
 	);
 });
 
-class RecordedInlineWrites extends Context.Service<
-	RecordedInlineWrites,
-	{ readonly writes: Effect.Effect<ReadonlyArray<unknown>> }
->()(
-	"@ryot-app/kernel-backend/modules/scripts/host/durable-dispatcher-live.test/RecordedInlineWrites",
-) {}
-
-const signalCreated = {
-	state: "success" as const,
-	value: { wasCreated: true, triggerId: "signal-trigger-1" },
-};
-
-const inlineWriteLayer = (outcome: "suspend" | "complete") =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const writes = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, "unused");
-			const engine = makeWorkflowActivityEngine(instance, {
-				execute: (workflow, options) =>
-					Effect.gen(function* () {
-						const parent = yield* Effect.serviceOption(WorkflowInstance);
-						yield* append(writes, {
-							workflow: workflow.name,
-							executionId: options.executionId,
-							parent: Option.getOrNull(
-								Option.map(parent, (value) => `${value.workflow.name}/${value.executionId}`),
-							),
-						});
-						if (outcome === "suspend" && Option.isSome(parent)) {
-							return yield* Workflow.suspend(parent.value);
-						}
-						return signalCreated;
-					}),
-			});
-			return Layer.mergeAll(
-				dispatcherLayer({ engine, script, instance }),
-				Layer.succeed(RecordedInlineWrites, { writes: Ref.get(writes) }),
-			);
-		}),
-	);
-
 const runInlineWrite = Effect.gen(function* () {
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
 	const result = yield* dispatcher.settleInline(
-		[{ index: 2, kind: "host", name: "emitSignal", args: { args: [], capability: "emitSignal" } }],
+		[signalRequest(2)],
 		{},
 		principal,
 		"background",
@@ -425,29 +375,31 @@ const runInlineWrite = Effect.gen(function* () {
 	return { result, pending: yield* Ref.get(pending) };
 });
 
-const inlineWrite = {
-	executionId: "inline-parent-host-service-2",
-	workflow: SandboxDurableHostServiceWorkflow.name,
-	parent: `${ScriptExecutionWorkflow.name}/inline-parent`,
-};
-
-layer(inlineWriteLayer("complete"))((test) => {
-	test.effect("settles a write inline through its host-call workflow under the script", () =>
+layer(hostWriteLayer({}))((test) => {
+	test.effect("settles a write inline and checkpoints its result without an activity", () =>
 		Effect.gen(function* () {
 			const settled = yield* runInlineWrite;
 			expect(settled.result).toEqual([signalCreated]);
 			expect(settled.pending).toMatchObject([{ _tag: "Completed", value: signalCreated }]);
-			expect(yield* (yield* RecordedInlineWrites).writes).toEqual([inlineWrite]);
+			const recorded = yield* RecordedHostWrites;
+			expect(yield* recorded.signals).toBe(1);
+			expect(yield* recorded.activities).toEqual([]);
 		}),
 	);
 });
 
-layer(inlineWriteLayer("suspend"))((test) => {
-	test.effect("defers the run when the host-call workflow suspends", () =>
+layer(
+	hostWriteLayer({
+		authority: {
+			resolve: () =>
+				Effect.fail(new SandboxRunError({ kind: "script-failure", message: "Unavailable" })),
+		},
+	}),
+)((test) => {
+	test.effect("defers the run when a write cannot settle inline", () =>
 		Effect.gen(function* () {
-			const settled = yield* runInlineWrite;
-			expect(settled).toEqual({ pending: [], result: null });
-			expect(yield* (yield* RecordedInlineWrites).writes).toEqual([inlineWrite]);
+			expect(yield* runInlineWrite).toEqual({ pending: [], result: null });
+			expect(yield* (yield* RecordedHostWrites).signals).toBe(0);
 		}),
 	);
 });
@@ -2071,20 +2023,16 @@ const runLifecycleWrite = (options: {
 	readonly capability: (typeof lifecycleCapabilities)[number];
 }) =>
 	Effect.flatMap(SandboxDurableHostDispatcher, (dispatcher) =>
-		dispatcher.write(
+		dispatcher.dispatch(
 			{
 				index: 4,
 				kind: "host",
 				name: options.capability,
 				args: { args: options.args, capability: options.capability },
 			},
-			{
-				lane: lifecyclePayload.lane,
-				context: lifecyclePayload.input,
-				startedAt: lifecyclePayload.startedAt,
-				executionId: lifecyclePayload.executionId,
-				principal: options.principal ?? lifecyclePrincipal,
-			},
+			lifecyclePayload,
+			options.principal ?? lifecyclePrincipal,
+			lifecyclePayload.executionId,
 		),
 	);
 
@@ -2145,7 +2093,7 @@ layer(
 	}),
 )((test) => {
 	test.effect(
-		"writes each relationship batch as its own step and dispatches between them",
+		"writes each relationship batch in turn and dispatches between them",
 		() =>
 			Effect.gen(function* () {
 				const harness = yield* LifecycleDispatchHarness;
@@ -2161,10 +2109,8 @@ layer(
 					],
 				});
 				expect(yield* harness.recorded).toEqual([
-					"sandbox-host-4-changeUserRelationships-input",
-					"sandbox-host-4-changeUserRelationships-0:prepare",
+					"sandbox-host-4-changeUserRelationships",
 					"dispatch:1",
-					"sandbox-host-4-changeUserRelationships-1:prepare",
 					"dispatch:1",
 				]);
 				expect(
@@ -2215,7 +2161,7 @@ layer(
 	}),
 )((test) => {
 	test.effect(
-		"records the policy outcome for a global entity upsert before committing",
+		"runs a global entity upsert's policies before dispatching its after hooks",
 		() =>
 			Effect.gen(function* () {
 				const providerPrincipal = {
@@ -2231,11 +2177,8 @@ layer(
 				});
 				expect(result).toEqual({ state: "success", value: [{ status: "skipped" }] });
 				expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([
-					"sandbox-host-4-upsertGlobalEntities-input",
-					"sandbox-host-4-upsertGlobalEntities-0:prepare",
+					"sandbox-host-4-upsertGlobalEntities",
 					"policies",
-					"sandbox-host-4-upsertGlobalEntities-0:policy-outcome",
-					"sandbox-host-4-upsertGlobalEntities-0:commit",
 					"dispatch:1",
 				]);
 			}),

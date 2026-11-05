@@ -50,10 +50,7 @@ import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/aut
 import { ProjectionBindingsLive } from "#modules/scripts/executions/projection-bindings";
 import { makeUserWorkScriptHost } from "#modules/scripts/executions/user-work";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
-import {
-	SandboxDurableHostDispatcherLive,
-	SandboxDurableHostServiceWorkflowLive,
-} from "#modules/scripts/host/durable-dispatcher-live";
+import { SandboxDurableHostDispatcherLive } from "#modules/scripts/host/durable-dispatcher-live";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { ProviderHttpAdmissionService } from "#modules/scripts/host/http-admission";
 import { makeRuntimeSandboxApiFunctions } from "#modules/scripts/host/runtime-host-functions";
@@ -170,9 +167,7 @@ const SandboxDurableHostDispatcherProvidedLive = SandboxDurableHostDispatcherLiv
 	Layer.provide(DefinitionRepository.layer),
 );
 
-export const SandboxDurableHostServicesLive = SandboxDurableHostServiceWorkflowLive.pipe(
-	Layer.provideMerge(SandboxDurableHostDispatcherProvidedLive),
-);
+export const SandboxDurableHostServicesLive = SandboxDurableHostDispatcherProvidedLive;
 
 // Direct policy scripts only read, so their dispatcher's lifecycle services run no policies. Its own instances
 // keep the shared lifecycle services from depending on the direct attempts that depend on this dispatcher.

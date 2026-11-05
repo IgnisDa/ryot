@@ -1,5 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
@@ -9,12 +9,10 @@ import {
 	jsonValueSchema,
 	type SandboxHostError,
 } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	type WorkflowDurableCallRequest,
-	type WorkflowDurableResult,
-	workflowDurableResultSchema,
-	workflowHostRequestSchema,
-	type WorkflowInlineRequest,
+import type {
+	WorkflowDurableCallRequest,
+	WorkflowDurableResult,
+	WorkflowInlineRequest,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 import {
 	bindSandboxHostFunctions,
@@ -24,12 +22,11 @@ import {
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
 import { Context, Effect, Schema } from "effect";
-import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
 import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
-import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import type { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
@@ -360,35 +357,11 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 	},
 );
 
-const SandboxDurableHostServiceWorkflowPayload = Schema.Struct({
-	lane: ExecutionLane,
-	input: jsonValueSchema,
-	startedAt: Schema.String,
-	parentExecutionId: Schema.String,
-	request: workflowHostRequestSchema,
-	principal: ScriptExecutionPrincipal,
-});
-
-export const SandboxDurableHostServiceWorkflow = Workflow.make(
-	"SandboxDurableHostServiceWorkflow",
-	{
-		error: SandboxRunError,
-		success: workflowDurableResultSchema,
-		payload: SandboxDurableHostServiceWorkflowPayload,
-		idempotencyKey: ({ request, parentExecutionId }) =>
-			`${parentExecutionId}-host-service-${request.index}`,
-	},
-);
-
 type SandboxDurableHostDispatcherValue = {
 	readonly cancelInline: (
 		executionId: string,
 		progress: ReadonlyArray<SandboxInlineProgress>,
 	) => Effect.Effect<void>;
-	readonly write: (
-		request: HostRequest,
-		scope: HostCallScope,
-	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	readonly dispatch: (
 		request: HostRequest,
 		payload: PinnedScriptExecutionWorkflowPayload,

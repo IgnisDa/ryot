@@ -244,7 +244,6 @@ const makeHeadroomLayer = Layer.provideMerge(
 					const state = yield* SandboxHeadroomControl;
 					return SandboxDurableHostDispatcher.of({
 						cancelInline: () => Effect.void,
-						write: () => Effect.die("unused"),
 						dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
 						settleInline: (requests, _context, _principal, _lane, executionId) =>
 							Effect.forEach(

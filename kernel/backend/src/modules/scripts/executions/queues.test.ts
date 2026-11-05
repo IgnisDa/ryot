@@ -47,7 +47,6 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
 	cancelInline: () => Effect.void,
-	write: () => Effect.die("durable write is not expected"),
 	dispatch: () => Effect.die("durable dispatch is not expected"),
 	settleInline: () => Effect.die("inline dispatch is not expected"),
 });
@@ -109,7 +108,6 @@ const settlingDispatcherLayer = Layer.unwrap(
 		return Layer.merge(
 			Layer.succeed(SandboxDurableHostDispatcher, {
 				cancelInline: () => Effect.void,
-				write: () => Effect.die("durable write is not expected"),
 				dispatch: () => Effect.die("durable dispatch is not expected"),
 				settleInline: (requests, context, _principal, lane, executionId, startedAt) =>
 					Ref.update(settlements, (all) => [
