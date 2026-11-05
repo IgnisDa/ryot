@@ -3,7 +3,7 @@ import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-wa
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Layer } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
 import { redisKeys, RedisService } from "#platform/redis";
 
@@ -19,7 +19,7 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 		make: Effect.gen(function* () {
 			const repository = yield* EnrichmentRequestsRepository;
 			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const redis = yield* RedisService;
 			const publish = Effect.fnUntraced(function* (
 				row: Effect.Success<ReturnType<typeof repository.get>>,
@@ -47,7 +47,7 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 					const admit = Effect.gen(function* () {
 						if (input.requester) {
 							yield* session.acquireUserWriteLock(input.requester.userId);
-							yield* receipts.admitAccount(input.requester);
+							yield* admission.admitAccount(input.requester);
 						}
 						return yield* repository.ensure(input);
 					});

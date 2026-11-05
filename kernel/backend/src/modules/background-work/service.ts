@@ -7,7 +7,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
@@ -36,7 +36,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 			const redis = yield* RedisService;
 			const repository = yield* BackgroundWorkRepository;
 			const references = yield* SandboxWorkflowReferenceRepository;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const engine = yield* WorkflowEngine;
 			const admit = Effect.fn("BackgroundWorkService.admit")(function* (
 				input: BackgroundWorkInput,
@@ -64,7 +64,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 						message: "Background work requires exact purpose-bound user authority",
 					});
 				}
-				yield* receipts.admitAccount(account);
+				yield* admission.admitAccount(account);
 				yield* references.lockIngestionShared([account.userId]);
 				const payload = yield* Schema.encodeUnknownEffect(JsonValue)(input).pipe(
 					Effect.mapError(() => new DbError({ message: "Invalid background input" })),
@@ -291,7 +291,7 @@ export class BackgroundWorkService extends Context.Service<BackgroundWorkService
 				dispatch,
 				lockQueued,
 				admitCandidates,
-				lockAccount: receipts.admitAccount,
+				lockAccount: admission.admitAccount,
 				pruneSettled: repository.pruneSettled,
 			};
 		}),

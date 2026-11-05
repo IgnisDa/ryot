@@ -35,7 +35,7 @@ import { Clock, Context, DateTime, Duration, Effect, Layer, Schema } from "effec
 import { automationRunLane } from "#modules/automations/lifecycle/command";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { executeScriptDirectly, ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -354,7 +354,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 		const sandbox = yield* ScriptExecutionService;
 		const direct = yield* DirectScriptExecutor;
 		const session = yield* DatabaseSession;
-		const receipts = yield* MutationReceipts.make;
+		const admission = yield* AccountAdmission.make;
 		return AutomationRunWorkflowOperations.of({
 			runSandbox: (input) => sandbox.executeScript(input),
 			runSandboxDirect: (input) => executeScriptDirectly(direct, input),
@@ -389,7 +389,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 							const accountGeneration =
 								initial.executionUserId === null
 									? null
-									: yield* receipts.currentAccount(initial.executionUserId);
+									: yield* admission.currentAccount(initial.executionUserId);
 							const run = yield* runs.findById(payload.runId);
 							if (!run?.sandboxScriptId) {
 								return yield* missing();

@@ -150,7 +150,7 @@ export const RuntimeSandboxExecutorLive = SandboxExecutor.layer.pipe(
 	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
 );
 
-const SandboxDurableHostDispatcherProvidedLive = SandboxDurableHostDispatcherLive.pipe(
+export const SandboxDurableHostDispatcherProvidedLive = SandboxDurableHostDispatcherLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			ScriptHostImplementationsLive,
@@ -166,8 +166,6 @@ const SandboxDurableHostDispatcherProvidedLive = SandboxDurableHostDispatcherLiv
 	Layer.provide(PluginRepository.layer),
 	Layer.provide(DefinitionRepository.layer),
 );
-
-export const SandboxDurableHostServicesLive = SandboxDurableHostDispatcherProvidedLive;
 
 // Direct policy scripts only read, so their dispatcher's lifecycle services run no policies. Its own instances
 // keep the shared lifecycle services from depending on the direct attempts that depend on this dispatcher.

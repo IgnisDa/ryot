@@ -45,7 +45,7 @@ import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities
 import { EventGroupConstraints } from "#modules/events/event-group-constraints";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { validateRestoredProperties } from "#modules/plugins/configuration/revisions";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
@@ -866,7 +866,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
 			const groups = yield* EventGroupConstraints.make;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 
 			const assertRequiredPlugins = Effect.fn("BackupRestoreWriter.assertRequiredPlugins")(
 				function* (required: ReadonlyArray<ArchiveRequiredPlugin>) {
@@ -2042,7 +2042,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 
 				if (records.reminders.length > 0) {
-					const generation = yield* receipts.currentAccount(userId);
+					const generation = yield* admission.currentAccount(userId);
 					for (const row of records.reminders) {
 						const unfinished = row.state === "scheduled" || row.state === "processing";
 						const entityId = row.entityId === null ? null : context.entityIdMap.get(row.entityId);

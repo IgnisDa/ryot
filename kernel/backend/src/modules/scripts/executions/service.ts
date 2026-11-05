@@ -15,7 +15,7 @@ import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import type {
 	ScriptExecutionPrincipal,
@@ -146,10 +146,10 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 			const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 			const pinning = yield* SandboxWorkflowPinning;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const database = yield* DatabaseSession;
 			const currentAccount = (userId: UserId) =>
-				receipts
+				admission
 					.currentAccount(userId)
 					.pipe(
 						Effect.mapError(

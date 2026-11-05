@@ -29,7 +29,7 @@ import { ImportIntegrationExecutionSettings } from "#modules/imports/runtime/sou
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { resolveStoredPluginUserSettings } from "#modules/plugins/preferences/user-settings";
@@ -52,7 +52,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 		make: Effect.gen(function* () {
 			const repository = yield* ImportsRepository;
 			const database = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const readiness = yield* IngestionReadinessService;
 			const pluginInstallations = yield* PluginInstallationRepository;
 			const scripts = yield* SandboxPluginScriptResolver;
@@ -357,7 +357,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				webhook: IntegrationWebhookDelivery,
 				failureReason?: ImportRunFailureReason,
 			) {
-				const accountGeneration = yield* receipts.currentAccount(integration.userId);
+				const accountGeneration = yield* admission.currentAccount(integration.userId);
 				const acceptedAt = yield* DateTime.nowAsDate;
 				const evaluated =
 					integration.pluginInstallationId && !failureReason
@@ -373,7 +373,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 						: null;
 				const runId = yield* database.transaction(
 					Effect.gen(function* () {
-						yield* receipts.admitAccount(accountGeneration);
+						yield* admission.admitAccount(accountGeneration);
 						const createdRunId = yield* repository.createBlockedRun({
 							acceptedAt,
 							accountGeneration,

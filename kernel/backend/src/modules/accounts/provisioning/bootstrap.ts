@@ -6,7 +6,7 @@ import { Context, Effect, Layer } from "effect";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { generateUserAvatar } from "#modules/accounts/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -21,7 +21,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 			const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 			const pluginInstallations = yield* PluginInstallationService;
 			const notificationSubscriptions = yield* NotificationSubscriptionsService;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 
 			const perform = Effect.fn("UserBootstrap.perform")(function* (
 				userId: string,
@@ -36,7 +36,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 				const user = UserId.make(userId);
 				const shouldSkip = yield* session.transaction(
 					Effect.gen(function* () {
-						yield* receipts.admitAccount(accountGeneration);
+						yield* admission.admitAccount(accountGeneration);
 						const state = yield* accounts.lockBootstrapState(userId);
 						return state?.bootstrapCompletedAt !== null;
 					}),
@@ -48,7 +48,7 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 				const plans = yield* pluginBootstrap.dispatchAll(user, accountGeneration);
 				yield* session.transaction(
 					Effect.gen(function* () {
-						yield* receipts.admitAccount(accountGeneration);
+						yield* admission.admitAccount(accountGeneration);
 						const state = yield* accounts.lockBootstrapState(userId);
 						if (state?.bootstrapCompletedAt !== null) {
 							return;

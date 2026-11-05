@@ -40,7 +40,7 @@ import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import {
@@ -138,7 +138,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const proKey = yield* ProKeyService;
 			const jobs = yield* JobQueue;
 			const engine = yield* WorkflowEngine;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 			const providerCatalog = yield* IntegrationProviderCatalog;
@@ -457,7 +457,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							reason: { provider: dataJsonSource, code: "invalid-provider-settings" },
 						});
 					}
-					const accountGeneration = yield* receipts.currentAccount(integration.userId);
+					const accountGeneration = yield* admission.currentAccount(integration.userId);
 					const admitted = yield* dataAdmission.admit({
 						accountGeneration,
 						rawBody: input.rawBody,

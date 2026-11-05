@@ -24,7 +24,7 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { SignalEmissionService } from "#modules/automations/signal-service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -90,7 +90,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 			const proKey = yield* ProKeyService;
 			const session = yield* DatabaseSession;
 			const ryotql = yield* RyotQLService;
-			const receipts = yield* MutationReceipts;
+			const admission = yield* AccountAdmission.make;
 			const signals = yield* SignalEmissionService;
 			const execution = yield* LifecycleExecution;
 			const repository = yield* SignalScheduleRepository;
@@ -118,7 +118,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 				return yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* receipts.admitAccount({ userId, token: target.accountGeneration });
+							yield* admission.admitAccount({ userId, token: target.accountGeneration });
 							const plan = yield* signals.planSignal({
 								properties: candidate.properties,
 								principal: { userId, kind: "user" },

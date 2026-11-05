@@ -13,6 +13,7 @@ import { and, asc, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { Array as Arr, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
@@ -94,10 +95,6 @@ export type MutationBatchPin<Payload> = {
 	readonly references: typeof MutationBatchPinReferences.Type;
 };
 
-// Admissions within one transaction share its `for share` lock on the user row, which account
-// retirement must take exclusively, so each account needs admitting once per transaction.
-const admittedAccounts = new WeakMap<object, Set<string>>();
-
 const generationMismatch = (identity: MutationReceiptIdentity) => {
 	const account = identity.accountGeneration;
 	if (account === null) {
@@ -139,6 +136,7 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const admission = yield* AccountAdmission.make;
 			const requireTransaction = session.requireTransaction.pipe(
 				Effect.mapError(() => new DbError({ message: "Mutation receipt requires a transaction" })),
 			);
@@ -186,50 +184,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 									),
 								),
 				);
-			const admitAccount = Effect.fn("MutationReceipts.admitAccount")(function* (
-				account: AccountGeneration,
-			) {
-				yield* requireTransaction;
-				yield* session.run((db) =>
-					Effect.gen(function* () {
-						const key = stableStringify([account.userId, account.token]);
-						const admitted = admittedAccounts.get(db) ?? new Set<string>();
-						if (admitted.has(key)) {
-							return yield* Effect.void;
-						}
-						// Retirement stamps this row under its exclusive lock, so the lock wait re-reads it.
-						const [current] = yield* db
-							.select({ token: user.accountGeneration, retiring: user.retiringAccountGeneration })
-							.from(user)
-							.where(eq(user.id, account.userId))
-							.for("share");
-						if (!current || current.token !== account.token) {
-							return yield* new DbError({
-								message: "Mutation command belongs to a retired account",
-							});
-						}
-						if (current.retiring === account.token) {
-							return yield* new DbError({ message: "Mutation command account is being retired" });
-						}
-						admitted.add(key);
-						admittedAccounts.set(db, admitted);
-						return yield* Effect.void;
-					}),
-				);
-			});
-			const currentAccount = Effect.fn("MutationReceipts.currentAccount")(function* (
-				userId: UserId,
-			) {
-				const [current] = yield* session.run((db) =>
-					db.select({ token: user.accountGeneration }).from(user).where(eq(user.id, userId)),
-				);
-				if (!current) {
-					return yield* new DbError({ message: "Mutation command account is unavailable" });
-				}
-				const account = { userId, token: current.token };
-				yield* inTransaction(admitAccount(account));
-				return account;
-			});
 			const requireCurrentGeneration = Effect.fnUntraced(function* (
 				identity: MutationReceiptIdentity,
 			) {
@@ -238,7 +192,7 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 					return yield* mismatch;
 				}
 				if (identity.accountGeneration !== null) {
-					yield* admitAccount(identity.accountGeneration);
+					yield* admission.admitAccount(identity.accountGeneration);
 				}
 				return yield* Effect.void;
 			});
@@ -254,9 +208,9 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 					if (account === null) {
 						continue;
 					}
-					const admission = yield* Effect.result(admitAccount(account));
-					if (Result.isFailure(admission)) {
-						return { index, error: admission.failure };
+					const admitted = yield* Effect.result(admission.admitAccount(account));
+					if (Result.isFailure(admitted)) {
+						return { index, error: admitted.failure };
 					}
 				}
 				return undefined;
@@ -714,11 +668,9 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 				lookupMany,
 				beginBatch,
 				lookupBatch,
-				admitAccount,
 				pruneRetired,
 				batchIdentity,
 				batchContents,
-				currentAccount,
 				retireUserPins,
 				getCommittedItems,
 				peek: <Result>(identity: MutationReceiptIdentity, result: Schema.Codec<Result, unknown>) =>

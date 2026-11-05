@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 
@@ -16,7 +16,7 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts;
+			const admission = yield* AccountAdmission.make;
 			const repository = yield* NotificationDeliveryRepository;
 			const channels = yield* NotificationsRepository;
 			const jobs = yield* JobQueue;
@@ -33,7 +33,7 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 				const id = yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* receipts.admitAccount(input.accountGeneration);
+							yield* admission.admitAccount(input.accountGeneration);
 							if (
 								!(yield* sources.authorize({
 									runId: input.sourceRunId,

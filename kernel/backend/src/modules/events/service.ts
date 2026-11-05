@@ -50,6 +50,7 @@ import {
 	type DomainWritePin,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
 import {
 	type CatalogDefinitionFingerprint,
@@ -243,7 +244,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							message: "Event mutation account generation is unavailable",
 						});
 					}
-					yield* receipts.admitAccount(account);
+					yield* admission.admitAccount(account);
 				}
 				yield* eventSchemas.lockCatalog(userIds);
 				yield* repository.lockMutationReferences({
@@ -407,6 +408,7 @@ export class EventsService extends Context.Service<EventsService>()(
 			});
 			const planner = yield* LifecyclePlanner;
 			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const findReceipt = (
 				input: EventIdentityInput,
 				command: DomainLifecycleCommand,

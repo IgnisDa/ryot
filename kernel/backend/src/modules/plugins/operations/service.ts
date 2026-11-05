@@ -24,6 +24,7 @@ import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -78,6 +79,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const sandbox = yield* ScriptExecutionService;
 			const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const scripts = yield* SandboxRepository;
 			const references = yield* SandboxWorkflowReferenceRepository;
 
@@ -298,7 +300,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					) {
 						return yield* operationNotFound;
 					}
-					yield* receipts.admitAccount(dispatchInput.accountGeneration);
+					yield* admission.admitAccount(dispatchInput.accountGeneration);
 					yield* references
 						.registerInTransaction({
 							executionId,
@@ -381,7 +383,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 										accountGeneration:
 											user.id === scope.userId
 												? user.accountGeneration
-												: yield* receipts.currentAccount(scope.userId),
+												: yield* admission.currentAccount(scope.userId),
 									},
 									resolved,
 								);
@@ -413,7 +415,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 								integrationId: owner.integrationId,
 								operationSlug: input.operationSlug,
 								pluginId: PluginId.make(resolved.plugin.id),
-								accountGeneration: yield* receipts.currentAccount(owner.userId),
+								accountGeneration: yield* admission.currentAccount(owner.userId),
 							},
 							resolved,
 						);

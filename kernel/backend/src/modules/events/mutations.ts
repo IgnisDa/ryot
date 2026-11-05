@@ -32,6 +32,7 @@ import { parseAppSchemaProperties } from "#modules/definitions/properties/runtim
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { assertStableUnder, DomainWriteChecks } from "#modules/entities/write-context";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	MutationReceiptIdentity,
 	mutationReceiptIdentity,
@@ -201,6 +202,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			const writes = yield* DomainWriteChecks;
 			const planner = yield* LifecyclePlanner;
 			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 			const groups = yield* EventGroupConstraints.make;
 			const captureGroups = Effect.fn("EventMutations.captureGroups")(function* (input: {
@@ -232,7 +234,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				for (const [, account] of [...accounts].sort(([left], [right]) =>
 					left.localeCompare(right),
 				)) {
-					yield* receipts.admitAccount(account);
+					yield* admission.admitAccount(account);
 				}
 				yield* schemas.lockCatalog([input.userId, ...accounts.keys()]);
 				const mutationReferences = preparedMutationReferences(input);

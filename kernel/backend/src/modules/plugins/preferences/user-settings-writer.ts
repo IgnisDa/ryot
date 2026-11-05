@@ -12,7 +12,7 @@ import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
@@ -48,7 +48,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 			const plugins = yield* PluginRepository;
 			const installations = yield* PluginInstallationRepository;
 			const invalidator = yield* PluginCatalogInvalidator;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const transaction = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
 				database.transaction(work.pipe(Effect.tap(() => invalidator.recordUser(userId)))).pipe(
@@ -150,7 +150,7 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 									message: "Plugin user settings account does not match the execution user",
 								});
 							}
-							yield* receipts.admitAccount(input.accountGeneration);
+							yield* admission.admitAccount(input.accountGeneration);
 							const pinned = yield* installations.findUserSettingsForRevision({
 								userId: input.userId,
 								pluginId: input.pluginId,

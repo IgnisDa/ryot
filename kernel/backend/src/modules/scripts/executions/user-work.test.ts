@@ -25,7 +25,7 @@ import {
 	runBackgroundWorkWorkflow,
 } from "#modules/background-work/workflow";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
@@ -140,7 +140,7 @@ const userWorkDatabaseLayer = () =>
 			const target = scripts.find(({ slug }) => slug === targetSlug);
 			assert(caller);
 			assert(target);
-			const accountGeneration = yield* (yield* MutationReceipts.make).currentAccount(userId);
+			const accountGeneration = yield* (yield* AccountAdmission.make).currentAccount(userId);
 			const subject = { userId, accountGeneration, type: "user" as const };
 			const pin = yield* (yield* SandboxRepository.make).getScriptPin(
 				SandboxScriptId.make(caller.id),

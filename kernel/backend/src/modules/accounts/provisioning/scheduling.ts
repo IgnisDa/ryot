@@ -2,7 +2,7 @@ import { internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { JobQueue } from "#platform/jobs/queue";
 
 import { UserBootstrap } from "./bootstrap";
@@ -14,10 +14,10 @@ export class UserBootstrapScheduling extends Context.Service<UserBootstrapSchedu
 		make: Effect.gen(function* () {
 			const bootstrap = yield* UserBootstrap;
 			const jobs = yield* JobQueue;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const schedule = Effect.fn("UserBootstrapScheduling.schedule")(
 				function* (userId: UserId) {
-					const accountGeneration = yield* receipts.currentAccount(userId);
+					const accountGeneration = yield* admission.currentAccount(userId);
 					yield* jobs.enqueue(
 						UserBootstrapJob,
 						{ userId, accountGeneration },

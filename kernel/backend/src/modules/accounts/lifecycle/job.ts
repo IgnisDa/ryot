@@ -14,7 +14,7 @@ import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
 import { bootstrapUser } from "#modules/accounts/provisioning/job";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { IngestionExecution } from "#modules/imports/execution-service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { DatabaseSession } from "#platform/db/session";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
@@ -65,7 +65,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const objectStorage = yield* ObjectStorageService;
 		const engine = yield* WorkflowEngine;
 		const notifications = yield* WorkflowExecutionNotifications;
-		const receipts = yield* MutationReceipts.make;
+		const admission = yield* AccountAdmission.make;
 		const bootstrap = yield* UserBootstrap;
 		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const accounts = yield* WorkflowAccounts;
@@ -186,7 +186,7 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const bootstrapResetUser = (userId: UserId) =>
 			asInternal(
 				Effect.gen(function* () {
-					const accountGeneration = yield* receipts.currentAccount(userId);
+					const accountGeneration = yield* admission.currentAccount(userId);
 					yield* bootstrapUser(userId, accountGeneration).pipe(
 						Effect.provideService(UserBootstrap, bootstrap),
 						Effect.provideService(PluginBootstrapEntities, bootstrapEntities),

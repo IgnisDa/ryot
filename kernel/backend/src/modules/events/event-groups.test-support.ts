@@ -12,6 +12,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -117,7 +118,7 @@ export const eventGroupFixture = Effect.fnUntraced(function* () {
 	});
 	assert(provider);
 	const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-	const accountGeneration = yield* (yield* MutationReceipts.make).currentAccount(userId);
+	const accountGeneration = yield* (yield* AccountAdmission.make).currentAccount(userId);
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, {
 		userId,
 		type: "user",

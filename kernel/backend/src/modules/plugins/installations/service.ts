@@ -32,7 +32,7 @@ import {
 	definitionSourceFromSnapshot,
 } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
@@ -131,7 +131,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							() => new PluginRequestError({ reason: { code: "asset-forbidden" } }),
 						),
 					);
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
@@ -380,7 +380,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			)((accountGeneration: AccountGeneration) =>
 				database
 					.transaction(
-						receipts
+						admission
 							.admitAccount(accountGeneration)
 							.pipe(
 								Effect.andThen(

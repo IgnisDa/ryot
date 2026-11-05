@@ -13,7 +13,7 @@ import { Context, DateTime, Effect, Layer } from "effect";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -42,12 +42,12 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const sandbox = yield* ScriptExecutionService;
 			const supervisor = yield* SandboxSidecarSupervisor;
 			const pluginRuntime = yield* PluginRuntimeResolver;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 
 			const startWorkflowLoad = Effect.fn("OperationalGateService.startWorkflowLoad")(function* (
 				input: TestSupportStartWorkflowLoadGateBody,
 			) {
-				const accountGeneration = yield* receipts.currentAccount(input.executingUserId);
+				const accountGeneration = yield* admission.currentAccount(input.executingUserId);
 				const installation = yield* pluginRuntime.findPluginAvailableToUser(
 					input.executingUserId,
 					input.pluginId,

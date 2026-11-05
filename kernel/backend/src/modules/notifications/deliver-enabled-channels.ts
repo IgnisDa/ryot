@@ -4,7 +4,7 @@ import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { DateTime, Effect, Schedule } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -17,13 +17,13 @@ import { NotificationSourcePolicy } from "./source-policy";
 export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 	function* (payload: NotificationDeliveryPayload) {
 		const session = yield* DatabaseSession;
-		const receipts = yield* MutationReceipts;
+		const admission = yield* AccountAdmission.make;
 		const repository = yield* NotificationDeliveryRepository;
 		const delivery = yield* NotificationDeliveryService;
 		const channels = yield* NotificationsRepository;
 		const config = yield* AppConfig;
 		const sources = yield* NotificationSourcePolicy;
-		yield* session.transaction(receipts.admitAccount(payload.accountGeneration));
+		yield* session.transaction(admission.admitAccount(payload.accountGeneration));
 		const notification = yield* repository.find(payload.notificationId);
 		if (
 			!notification ||
@@ -58,7 +58,7 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 					const now = yield* DateTime.nowAsDate;
 					const claimed = yield* session.transaction(
 						Effect.gen(function* () {
-							yield* receipts.admitAccount(payload.accountGeneration);
+							yield* admission.admitAccount(payload.accountGeneration);
 							const sourceAuthorized = yield* sources.authorize({
 								runId: notification.sourceRunId,
 								accountGeneration: payload.accountGeneration,

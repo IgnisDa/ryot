@@ -51,6 +51,7 @@ import { parseAppSchemaProperties } from "#modules/definitions/properties/runtim
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService, type PreparedEventDelete } from "#modules/events/service";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	MutationReceiptIdentity,
 	mutationReceiptIdentity,
@@ -335,6 +336,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const repository = yield* EntitiesRepository;
 			const writeChecks = yield* DomainWriteChecks;
 			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const eventsRepository = yield* EventsRepository;
 			const attachments = yield* EntityUserDataAttachments;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
@@ -362,13 +364,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const admitted = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
 				userIds: ReadonlyArray<UserId>,
-				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>>,
+				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof admission.currentAccount>>>,
 			) =>
 				Effect.gen(function* () {
 					for (const account of [...accounts].sort((left, right) =>
 						left.userId.localeCompare(right.userId),
 					)) {
-						yield* receipts.admitAccount(account);
+						yield* admission.admitAccount(account);
 					}
 					yield* repository.lockSchemaCatalog([
 						...userIds,
@@ -383,7 +385,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const eventTransaction = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
 				userIds: ReadonlyArray<UserId>,
-				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof receipts.currentAccount>>>,
+				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof admission.currentAccount>>>,
 			) =>
 				events
 					.transaction(admitted(work, userIds, accounts))
@@ -1590,7 +1592,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					const preparedEvents: PreparedEventDelete[] = [];
 					const accounts = new Map<
 						UserId,
-						Effect.Success<ReturnType<typeof receipts.currentAccount>>
+						Effect.Success<ReturnType<typeof admission.currentAccount>>
 					>();
 					if (lifecycle.accountGeneration !== null) {
 						accounts.set(lifecycle.accountGeneration.userId, lifecycle.accountGeneration);
@@ -1598,7 +1600,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					for (const identity of eventIdentities) {
 						let account = accounts.get(identity.userId);
 						if (account === undefined) {
-							account = yield* receipts.currentAccount(identity.userId);
+							account = yield* admission.currentAccount(identity.userId);
 							accounts.set(identity.userId, account);
 						}
 						const eventCommand = itemCommand(

@@ -30,7 +30,7 @@ import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
 import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -209,7 +209,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const repository = yield* SandboxRepository;
 			const references = yield* SandboxWorkflowReferenceRepository;
 			const pluginScriptResolver = yield* SandboxPluginScriptResolver;
@@ -255,7 +255,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 							const subject = payload.subject;
 							const account = accountGenerationOf(payload);
 							if (account !== null) {
-								yield* receipts.admitAccount(account);
+								yield* admission.admitAccount(account);
 							}
 							if (ownership.conflicts) {
 								return yield* sandboxFailure(

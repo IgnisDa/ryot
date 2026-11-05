@@ -5,7 +5,7 @@ import { AccountGeneration } from "@ryot-app/contract/schema/account-generation"
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -121,7 +121,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const database = yield* DatabaseSession;
 		const installations = yield* PluginInstallationRepository;
 		const bootstrapEntities = yield* PluginBootstrapEntities;
-		const receipts = yield* MutationReceipts.make;
+		const admission = yield* AccountAdmission.make;
 
 		const begin = (installationId: string, activationId: string) =>
 			asInternal(
@@ -139,7 +139,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 										return null;
 									}
 									const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
-									const accountGeneration = yield* receipts.currentAccount(resolved.userId);
+									const accountGeneration = yield* admission.currentAccount(resolved.userId);
 									const installation = yield* installations.findById(installationId);
 									if (installation?.isInitialized) {
 										return { entries, accountGeneration, userId: resolved.userId };

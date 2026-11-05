@@ -17,7 +17,7 @@ import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import { summarizeNotification } from "#modules/notifications/ledger";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -37,7 +37,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const repository = yield* RemindersRepository;
-			const receipts = yield* MutationReceipts;
+			const admission = yield* AccountAdmission.make;
 			const entities = yield* EntitiesRepository;
 			const plugins = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
@@ -50,7 +50,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 				session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const lockCandidate = Effect.fnUntraced(function* (captured: ReminderRecord) {
 				const userId = UserId.make(captured.userId);
-				yield* receipts.admitAccount({ userId, token: captured.accountGeneration });
+				yield* admission.admitAccount({ userId, token: captured.accountGeneration });
 				yield* plugins.lockIngestionShared([userId]);
 				yield* entities.lockUserDataReferences(
 					[captured.entityId, captured.parentEntityId]

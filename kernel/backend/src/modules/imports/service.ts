@@ -30,7 +30,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	ImportSourceCatalog,
@@ -102,7 +102,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 			const dataAdmission = yield* DataImportAdmission;
 			const sourceStates = yield* ImportSourceStateStore;
 			const workflowPinning = yield* ImportWorkflowPinning;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const readiness = yield* IngestionReadinessService;
 			const pluginInstallations = yield* PluginInstallationRepository;
 			const execution = yield* IngestionExecution;
@@ -113,7 +113,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				return yield* database
 					.transaction(
 						Effect.gen(function* () {
-							yield* receipts.admitAccount(input.accountGeneration);
+							yield* admission.admitAccount(input.accountGeneration);
 							return yield* repository.createManualRun(input);
 						}),
 					)

@@ -23,7 +23,7 @@ import {
 } from "#modules/automations/lifecycle/execution";
 import { LifecyclePersistenceError, LifecycleWork } from "#modules/automations/lifecycle/planning";
 import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
@@ -95,7 +95,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 		const attempts = yield* AutomationAttemptRepository;
 		const workflows = yield* WorkflowGarbageCollectionRepository;
 		const session = yield* DatabaseSession;
-		const receipts = yield* MutationReceipts.make;
+		const admission = yield* AccountAdmission.make;
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
 			claimedInTree: (payload, member) =>
@@ -152,7 +152,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 							}
 							return run.executionUserId === null
 								? null
-								: yield* receipts.currentAccount(run.executionUserId);
+								: yield* admission.currentAccount(run.executionUserId);
 						}),
 					)
 					.pipe(Effect.catchTag("DatabaseSessionStateError", rootTransactionRequired));

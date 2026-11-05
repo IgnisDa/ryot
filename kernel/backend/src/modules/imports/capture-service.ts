@@ -9,7 +9,7 @@ import {
 	ingestionPayloadDigest,
 	IngestionPayloads,
 } from "#modules/assets/storage/ingestion-payloads";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
 import { AppConfig } from "#platform/config/service";
@@ -41,7 +41,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 			const database = yield* DatabaseSession;
 			const payloads = yield* IngestionPayloads;
 			const repository = yield* ImportsRepository;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const execute = (
 				scope: IngestionScope,
 				id: string,
@@ -91,7 +91,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 									? Buffer.from(input.bytes).toString("base64")
 									: null,
 						});
-						yield* receipts.admitAccount(input.scope.accountGeneration);
+						yield* admission.admitAccount(input.scope.accountGeneration);
 						return reservation;
 					}),
 				);

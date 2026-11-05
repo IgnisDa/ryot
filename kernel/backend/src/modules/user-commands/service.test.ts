@@ -28,7 +28,7 @@ import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { seedStreamWork, streamState } from "#modules/events/stream-repository.test-support";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -181,7 +181,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	});
 	assert(provider);
 	const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-	const accountGeneration = yield* (yield* MutationReceipts.make).currentAccount(userId);
+	const accountGeneration = yield* (yield* AccountAdmission.make).currentAccount(userId);
 	const subject = { userId, accountGeneration, type: "user" as const };
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
 	assert(pin?.pluginRevision);

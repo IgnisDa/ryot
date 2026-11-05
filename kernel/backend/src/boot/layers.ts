@@ -170,7 +170,7 @@ import { ProjectionFinalizerLive } from "./projection-finalizer";
 import {
 	DirectScriptDispatcherLive,
 	RuntimeSandboxExecutorLive,
-	SandboxDurableHostServicesLive,
+	SandboxDurableHostDispatcherProvidedLive,
 } from "./script-host";
 import { ServerLive } from "./server";
 
@@ -431,7 +431,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 
 // Workflow operations cross feature boundaries; boot composes their owning Layers.
 const RuntimeWorkflowOperationsLive = Layer.mergeAll(
-	SandboxDurableHostServicesLive,
+	SandboxDurableHostDispatcherProvidedLive,
 	AutomationRunOperationsLive,
 	EntityImportWorkflowOperationsProvidedLive,
 	Layer.provide(

@@ -25,6 +25,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
+import { AccountAdmission } from "./account-admission";
 import type { MutationReceiptIdentity } from "./receipts";
 import { mutationReceiptIdentity, MutationReceipts } from "./receipts";
 import { pinReferences, seedPinTargets } from "./receipts.test-support";
@@ -167,20 +168,20 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const receipts = yield* MutationReceipts;
+				const admission = yield* AccountAdmission.make;
 				const account = { token: "admitted", userId: UserId.make("admitted-account") };
 				yield* seedAccount(account);
 				const spans: Array<Tracer.Span> = [];
 				yield* session
 					.transaction(
-						Effect.andThen(receipts.admitAccount(account), receipts.admitAccount(account)),
+						Effect.andThen(admission.admitAccount(account), admission.admitAccount(account)),
 					)
 					.pipe(Effect.withTracer(makeRecordingTracer(spans)));
 				expect(
 					recordedStatements(spans).filter((text) => text.includes('from "user"')),
 				).toHaveLength(1);
 				const refusal = (token: string) =>
-					session.transaction(receipts.admitAccount({ ...account, token })).pipe(
+					session.transaction(admission.admitAccount({ ...account, token })).pipe(
 						Effect.flip,
 						Effect.map((error) => error.message),
 					);

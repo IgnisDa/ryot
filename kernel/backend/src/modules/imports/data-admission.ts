@@ -25,7 +25,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -49,7 +49,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 			const fs = yield* FileSystem.FileSystem;
 			const engine = yield* WorkflowEngine;
 			const database = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 			const payloads = yield* IngestionPayloads;
 			const captures = yield* IngestionCaptures;
 			const execution = yield* IngestionExecution;
@@ -86,7 +86,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 					const admitted = yield* database
 						.transaction(
 							Effect.gen(function* () {
-								yield* receipts.admitAccount(accountGeneration);
+								yield* admission.admitAccount(accountGeneration);
 								return yield* repository.admitDataSubmission({
 									digest,
 									payload,

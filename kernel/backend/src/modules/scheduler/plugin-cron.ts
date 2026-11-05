@@ -5,7 +5,7 @@ import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
@@ -43,7 +43,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()(
 			const config = yield* AppConfig;
 			const engine = yield* WorkflowEngine;
 			const runtime = yield* PluginRuntimeResolver;
-			const receipts = yield* MutationReceipts.make;
+			const admission = yield* AccountAdmission.make;
 
 			const resolveTarget = Effect.fn("PluginCronService.resolveTarget")(function* (
 				entry: PluginCronTarget,
@@ -67,7 +67,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()(
 						subject: {
 							type: "user",
 							userId: owned.userId,
-							accountGeneration: yield* receipts.currentAccount(owned.userId),
+							accountGeneration: yield* admission.currentAccount(owned.userId),
 						} satisfies SandboxExecutionSubject,
 					}
 				);

@@ -6,7 +6,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	findRevisionScriptForSession,
 	PluginRuntimeResolver,
@@ -59,7 +59,7 @@ export const ProjectionBindingsLive = Layer.effect(
 		const runtime = yield* PluginRuntimeResolver;
 		const scripts = yield* SandboxRepository;
 		const session = yield* DatabaseSession;
-		const receipts = yield* MutationReceipts.make;
+		const admission = yield* AccountAdmission.make;
 		const findScript = findRevisionScriptForSession(session);
 		return ProjectionBindings.of({
 			resolve: Effect.fn("ProjectionBindings.resolve")(function* (input) {
@@ -71,7 +71,7 @@ export const ProjectionBindingsLive = Layer.effect(
 				if (script?.metadata.kind !== "script") {
 					return null;
 				}
-				const accountGeneration = yield* receipts.currentAccount(input.userId);
+				const accountGeneration = yield* admission.currentAccount(input.userId);
 				const subject = { accountGeneration, userId: input.userId, type: "projection" as const };
 				const pin = yield* scripts
 					.getScriptPin(script.id, undefined, subject)
