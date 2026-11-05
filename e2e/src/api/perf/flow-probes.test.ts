@@ -11,6 +11,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Duration, Effect, FileSystem, Schema } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
+import { createCollection } from "~/fixtures/kernel/collections";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { invokeOperation } from "~/fixtures/kernel/operations";
@@ -339,6 +340,17 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				);
 				if (FLOW_PROBE_FOCUS > 0) {
 					return;
+				}
+				for (let index = 0; index < 3; index++) {
+					const collection = yield* createCollection(client);
+					yield* probe(
+						"collection-membership-add",
+						client.call((c) =>
+							c.collections.createMembership({
+								payload: { collectionId: collection.id, entityId: EntityId.make(entityId) },
+							}),
+						),
+					);
 				}
 				// A private plugin compiled and uploaded, then installed and settled until it leaves `installing`.
 				for (let index = 0; index < 3; index++) {

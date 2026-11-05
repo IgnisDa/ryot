@@ -34,3 +34,21 @@ CPU next to the baseline.
 
 Tests that pin a deleted mechanism are deleted with it, not ported. The 19 kernel test files that name
 workflows are the first ones to go.
+
+## Measurements
+
+Flow probes on the idle VM, medians of repeats. Baselines are step 1's figures and the closing totals in
+[`../work-reduction/log.md`](../work-reduction/log.md); the 150-set save is `workout-editor-save-10x15`.
+
+| After step     | Kernel lines | Event without hooks   | Backlog event          | Review | Signup | 150-set save | 70-episode show |
+| -------------- | -----------: | --------------------- | ---------------------- | -----: | -----: | -----------: | --------------: |
+| 1 (baseline)   |      117,500 | 97 statements         | 373 statements, 460 ms |    955 |    265 |        4,331 |          46,400 |
+| 3 (`probesS3`) |      113,838 | 56 statements, 253 ms | 327 statements, 357 ms |    803 |    211 |        3,490 |          39,947 |
+
+Statement counts are net of the idle background. Suite CPU was not measured, because step 3 ran only the
+affected e2e files.
+
+Step 3's check: signup, plugin install and an event create without hooks leave no workflow rows, and no
+flow starts a request-path workflow. Event creates and collection memberships that match after hooks still
+start `AutomationRunWorkflow`, `ScriptExecutionWorkflow` and `BackgroundWorkWorkflow` rows after commit;
+automation runs and background work become jobs in step 4.
